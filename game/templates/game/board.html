@@ -6,7 +6,7 @@
     <title>Checkora | AI Chess</title>
     <style>
         body {
-            background-color: #1e1e1e; 
+            background-color: #1e1e1e;
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
@@ -16,48 +16,96 @@
             height: 100vh;
             margin: 0;
         }
-        h1 { margin-bottom: 20px; }
-
+        
         .chessboard {
             display: grid;
             grid-template-columns: repeat(8, 60px);
             grid-template-rows: repeat(8, 60px);
             border: 10px solid #4a3c31;
             border-radius: 4px;
+            user-select: none;
         }
+
         .square {
             width: 60px;
             height: 60px;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 35px; 
-            font-weight: bold;
         }
 
         .white { background-color: #eeeed2; color: black; }
-        .black { background-color: #769656; color: black; } /* Lichess Green Theme */
+        .black { background-color: #769656; color: black; }
 
-        .square:hover {
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-            cursor: pointer;
+        .piece {
+            width: 50px;
+            height: 50px;
+            cursor: grab;
+        }
+
+        .piece:active {
+            cursor: grabbing;
         }
     </style>
 </head>
 <body>
-
+    
     <h1>Checkora <span style="color: #ffcc00; font-size: 0.6em;">BETA</span></h1>
 
-    <div class="chessboard">
-        {% for row in range %}
-            {% for col in range %}
-                <div class="square {% cycle 'white' 'black' %}">
-                    {% if row == 1 %}♟{% endif %} {% if row == 6 %}♙{% endif %} {% if row == 0 and col == 4 %}♚{% endif %} {% if row == 7 and col == 4 %}♔{% endif %} </div>
-            {% endfor %}
-            {% endfor %}
-    </div>
+    <div class="chessboard" id="board"></div>
 
-    <p style="margin-top: 20px; color: #888;">Built by Ravi Kumar for Checkora</p>
+    <script>
+        const boardElement = document.getElementById('board');
+        
+        const initialConfig = [
+            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+        ];
 
+        function getPieceUrl(piece) {
+            const color = piece === piece.toUpperCase() ? 'w' : 'b';
+            const type = piece.toLowerCase();
+            return `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${color}${type}.png`;
+        }
+
+        function createBoard() {
+            boardElement.innerHTML = '';
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.classList.add('square');
+                    
+                    if ((row + col) % 2 === 0) {
+                        square.classList.add('white');
+                    } else {
+                        square.classList.add('black');
+                    }
+                    
+                    const piece = initialConfig[row][col];
+                    if (piece) {
+                        const img = document.createElement('img');
+                        img.src = getPieceUrl(piece);
+                        img.classList.add('piece');
+                        img.draggable = true;
+                        
+                        square.dataset.row = row;
+                        square.dataset.col = col;
+                        
+                        square.appendChild(img);
+                    }
+
+                    boardElement.appendChild(square);
+                }
+            }
+        }
+
+        createBoard();
+    </script>
 </body>
 </html>
