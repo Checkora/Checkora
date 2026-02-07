@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkora | AI Chess</title>
+    <style>
+        body {
+            background-color: #1e1e1e; 
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 { margin-bottom: 20px; }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            border: 10px solid #4a3c31;
+            border-radius: 4px;
+        }
+        .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px; 
+            font-weight: bold;
+        }
+
+        .white { background-color: #eeeed2; color: black; }
+        .black { background-color: #769656; color: black; } /* Lichess Green Theme */
+
+        .square:hover {
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Checkora <span style="color: #ffcc00; font-size: 0.6em;">BETA</span></h1>
+
+    <div class="chessboard">
+        {% for row in range %}
+            {% for col in range %}
+                <div class="square {% cycle 'white' 'black' %}">
+                    {% if row == 1 %}♟{% endif %} {% if row == 6 %}♙{% endif %} {% if row == 0 and col == 4 %}♚{% endif %} {% if row == 7 and col == 4 %}♔{% endif %} </div>
+            {% endfor %}
+            {% endfor %}
+    </div>
+
+    <p style="margin-top: 20px; color: #888;">Built by Ravi Kumar for Checkora</p>
+
+</body>
+</html>
