@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <cctype>
 
 using namespace std;
 
@@ -9,7 +10,6 @@ public:
     char squares[64];
 
     Board() {
-        // Standard Chess Setup
         string startPos = 
             "rnbqkbnr"
             "pppppppp"
@@ -31,7 +31,6 @@ public:
         return row * 8 + col;
     }
 
-    // Helper: Row aur Col nikalne ke liye
     int getRow(int index) { return index / 8; }
     int getCol(int index) { return index % 8; }
 
@@ -41,31 +40,30 @@ public:
         int toRow = getRow(toIdx);
         int toCol = getCol(toIdx);
 
-        int direction = (piece == 'P') ? -1 : 1; // White up (-1), Black down (+1)
-        int startRow = (piece == 'P') ? 6 : 1;   // White starts row 6, Black row 1
+        int direction = (piece == 'P') ? -1 : 1; 
+        int startRow = (piece == 'P') ? 6 : 1;   
 
-        // 1. Sidha Chalna (Forward Move)
         if (fromCol == toCol) {
-            // 1 Step Move
             if (toRow == fromRow + direction) {
-                return squares[toIdx] == '.'; // Jagah khali honi chahiye
+                return squares[toIdx] == '.'; 
             }
-            // 2 Step Move (Sirf start se)
             if (toRow == fromRow + 2 * direction && fromRow == startRow) {
-                // Raste me koi nahi hona chahiye
                 int midIdx = (fromIdx + toIdx) / 2; 
                 return squares[toIdx] == '.' && squares[midIdx] == '.';
             }
         }
         
-        // 2. Capture (Tircha Maarna) - Abhi simple rakhte hain
         if (abs(fromCol - toCol) == 1 && toRow == fromRow + direction) {
-            // Target square khali nahi hona chahiye (Dushman hona chahiye)
-            // Note: Abhi color check nahi kar rahe, bas piece hona chahiye
             if (squares[toIdx] != '.') return true;
         }
 
         return false;
+    }
+
+    bool isKnightMoveValid(int fromIdx, int toIdx) {
+        int dRow = abs(getRow(fromIdx) - getRow(toIdx));
+        int dCol = abs(getCol(fromIdx) - getCol(toIdx));
+        return (dRow * dRow + dCol * dCol) == 5;
     }
 
     bool isMoveValid(string move) {
@@ -73,16 +71,17 @@ public:
         int toIdx = toIndex(move.substr(2, 2));
         char piece = squares[fromIdx];
 
-        // Agar piece hi nahi hai wahan
         if (piece == '.') return false;
 
-        // Logic routing based on piece type
         char type = tolower(piece);
+        
         if (type == 'p') {
             return isPawnMoveValid(fromIdx, toIdx, piece);
         }
+        else if (type == 'n') {
+            return isKnightMoveValid(fromIdx, toIdx);
+        }
 
-        // Baaki pieces (Rook, Knight etc.) abhi ke liye allowed hain
         return true; 
     }
 
@@ -94,7 +93,6 @@ public:
     }
 
     void printBoard() {
-        // Debugging board view
         cerr << "   a b c d e f g h" << endl;
         for (int i = 0; i < 8; i++) {
             cerr << (8 - i) << "  "; 
@@ -113,7 +111,7 @@ int main() {
     if (cin >> move) {
         if (board.isMoveValid(move)) {
             board.makeMove(move);
-            board.printBoard();
+            // board.printBoard(); // Optional: Uncomment for debugging
             cout << "VALID " << move << endl;
         } else {
             cout << "INVALID " << move << endl;
