@@ -5,17 +5,20 @@
  * Communicates with the Django backend via stdin/stdout.
  *
  * Protocol:
- *   VALIDATE <board64> <turn> <fr> <fc> <tr> <tc>
- *     -> VALID | INVALID <reason>
+ * VALIDATE <board64> <turn> <fr> <fc> <tr> <tc>
+ * -> VALID | INVALID <reason>
  *
- *   MOVES <board64> <turn> <row> <col>
- *     -> MOVES [<row> <col> <is_capture> ...]
+ * MOVES <board64> <turn> <row> <col>
+ * -> MOVES [<row> <col> <is_capture> ...]
+ * * ATTACKED <board64> <attackerColor> <row> <col>
+ * -> YES | NO
  */
 
 #include <iostream>
 #include <string>
 #include <cmath>
 #include <cctype>
+#include <vector>
 
 using namespace std;
 
@@ -44,6 +47,10 @@ string colorOf(char c) {
     return "none";
 }
 
+bool inBounds(int r, int c) {
+    return r >= 0 && r < 8 && c >= 0 && c < 8;
+}
+
 // ============================================================
 //  Path obstruction check (rook / bishop / queen lines)
 // ============================================================
@@ -61,6 +68,62 @@ bool pathClear(int fr, int fc, int tr, int tc) {
 }
 
 // ============================================================
+//  ATTACKED Logic (For Check/Checkmate detection)
+// ============================================================
+
+/**
+ * Checks if a specific square (tr, tc) is being attacked by ANY piece
+ * of the attackerColor.
+ */
+bool isSquareAttacked(int tr, int tc, string attackerColor) {
+    // 1. Knight Attacks
+    int nr[] = {-2, -2, -1, -1, 1, 1, 2, 2};
+    int nc[] = {-1, 1, -2, 2, -2, 2, -1, 1};
+    char targetKnight = (attackerColor == "white") ? 'N' : 'n';
+    for (int i = 0; i < 8; i++) {
+        int r = tr + nr[i], c = tc + nc[i];
+        if (inBounds(r, c) && board[r][c] == targetKnight) return true;
+    }
+
+    // 2. Sliding Attacks (Rook, Bishop, Queen)
+    int dr[] = {0, 0, 1, -1, 1, 1, -1, -1};
+    int dc[] = {1, -1, 0, 0, 1, -1, 1, -1};
+    for (int i = 0; i < 8; i++) {
+        int r = tr + dr[i], c = tc + dc[i];
+        while (inBounds(r, c)) {
+            char p = board[r][c];
+            if (!isEmpty(p)) {
+                if (colorOf(p) == attackerColor) {
+                    char type = tolower(p);
+                    if (i < 4 && (type == 'r' || type == 'q')) return true;
+                    if (i >= 4 && (type == 'b' || type == 'q')) return true;
+                }
+                break; // Path blocked
+            }
+            r += dr[i]; c += dc[i];
+        }
+    }
+
+    // 3. Pawn Attacks
+    int pDir = (attackerColor == "white") ? 1 : -1; // Attacking FROM this direction
+    char targetPawn = (attackerColor == "white") ? 'P' : 'p';
+    if (inBounds(tr + pDir, tc - 1) && board[tr + pDir][tc - 1] == targetPawn) return true;
+    if (inBounds(tr + pDir, tc + 1) && board[tr + pDir][tc + 1] == targetPawn) return true;
+
+    // 4. King Attacks (Preventing King moving into King)
+    char targetKing = (attackerColor == "white") ? 'K' : 'k';
+    for (int r = tr - 1; r <= tr + 1; r++) {
+        for (int c = tc - 1; c <= tc + 1; c++) {
+            if (inBounds(r, c) && (r != tr || c != tc)) {
+                if (board[r][c] == targetKing) return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// ============================================================
 //  Piece-specific movement rules
 // ============================================================
 
@@ -70,16 +133,13 @@ bool validPawn(const string &color, int fr, int fc, int tr, int tc) {
     int dr = tr - fr;
     int dc = tc - fc;
 
-    // Forward one square
     if (dc == 0 && dr == dir && isEmpty(board[tr][tc]))
         return true;
 
-    // Forward two squares from starting rank
     if (dc == 0 && dr == 2 * dir && fr == startRow)
         if (isEmpty(board[fr + dir][fc]) && isEmpty(board[tr][tc]))
             return true;
 
-    // Diagonal capture
     if (abs(dc) == 1 && dr == dir && !isEmpty(board[tr][tc]))
         return true;
 
@@ -111,33 +171,14 @@ bool validKing(int fr, int fc, int tr, int tc) {
 //  Core validation
 // ============================================================
 
-/**
- * Validate a move.  Prints the result to stdout and returns the
- * boolean validity so callers (MOVES command) can re-use the logic
- * without extra I/O.
- */
-bool validateMove(const string &turn, int fr, int fc, int tr, int tc,
-                  bool silent = false) {
+bool validateMove(const string &turn, int fr, int fc, int tr, int tc, bool silent = false) {
     char piece = board[fr][fc];
-
-    if (isEmpty(piece)) {
-        if (!silent) cout << "INVALID No piece on source square" << endl;
-        return false;
-    }
-    if (colorOf(piece) != turn) {
-        if (!silent) cout << "INVALID Not your turn" << endl;
-        return false;
-    }
-    if (fr == tr && fc == tc) {
-        if (!silent) cout << "INVALID Must move to a different square" << endl;
-        return false;
-    }
+    if (isEmpty(piece)) return false;
+    if (colorOf(piece) != turn) return false;
+    if (fr == tr && fc == tc) return false;
 
     char target = board[tr][tc];
-    if (!isEmpty(target) && colorOf(target) == turn) {
-        if (!silent) cout << "INVALID Cannot capture your own piece" << endl;
-        return false;
-    }
+    if (!isEmpty(target) && colorOf(target) == turn) return false;
 
     char type = tolower(piece);
     bool ok = false;
@@ -149,30 +190,24 @@ bool validateMove(const string &turn, int fr, int fc, int tr, int tc,
         case 'b': ok = validBishop(fr, fc, tr, tc);     break;
         case 'q': ok = validQueen(fr, fc, tr, tc);      break;
         case 'k': ok = validKing(fr, fc, tr, tc);       break;
-        default:
-            if (!silent) cout << "INVALID Unknown piece type" << endl;
-            return false;
     }
 
-    if (!ok && !silent)
-        cout << "INVALID Illegal move for this piece" << endl;
-    if (ok && !silent)
-        cout << "VALID" << endl;
+    if (ok && !silent) cout << "VALID" << endl;
+    else if (!ok && !silent) cout << "INVALID Illegal move" << endl;
 
     return ok;
 }
 
 // ============================================================
-//  MOVES command — enumerate every legal destination
+//  Command Handlers
 // ============================================================
 
-void printValidMoves(const string &turn, int row, int col) {
+void handleMoves(const string &turn, int row, int col) {
     char piece = board[row][col];
     if (isEmpty(piece) || colorOf(piece) != turn) {
         cout << "MOVES" << endl;
         return;
     }
-
     cout << "MOVES";
     for (int tr = 0; tr < 8; tr++) {
         for (int tc = 0; tc < 8; tc++) {
@@ -185,42 +220,28 @@ void printValidMoves(const string &turn, int row, int col) {
     cout << endl;
 }
 
-// ============================================================
-//  Entry point
-// ============================================================
-
 int main() {
     string command;
-    if (!(cin >> command)) return 0;
-
-    if (command == "VALIDATE") {
-        string boardStr, turn;
-        int fr, fc, tr, tc;
-        cin >> boardStr >> turn >> fr >> fc >> tr >> tc;
-
-        if (boardStr.length() != 64) {
-            cout << "INVALID Bad board data" << endl;
-            return 0;
+    while (cin >> command) {
+        if (command == "VALIDATE") {
+            string b, t; int fr, fc, tr, tc;
+            cin >> b >> t >> fr >> fc >> tr >> tc;
+            loadBoard(b);
+            validateMove(t, fr, fc, tr, tc);
+        } 
+        else if (command == "MOVES") {
+            string b, t; int r, c;
+            cin >> b >> t >> r >> c;
+            loadBoard(b);
+            handleMoves(t, r, c);
+        } 
+        else if (command == "ATTACKED") {
+            string b, attackerColor; int r, c;
+            cin >> b >> attackerColor >> r >> c;
+            loadBoard(b);
+            if (isSquareAttacked(r, c, attackerColor)) cout << "YES" << endl;
+            else cout << "NO" << endl;
         }
-        loadBoard(boardStr);
-        validateMove(turn, fr, fc, tr, tc);
-
-    } else if (command == "MOVES") {
-        string boardStr, turn;
-        int row, col;
-        cin >> boardStr >> turn >> row >> col;
-
-        if (boardStr.length() != 64) {
-            cout << "MOVES" << endl;
-            return 0;
-        }
-        loadBoard(boardStr);
-        printValidMoves(turn, row, col);
-
-    } else {
-        // Legacy fallback — echo input as VALID
-        cout << "VALID " << command << endl;
     }
-
     return 0;
 }
