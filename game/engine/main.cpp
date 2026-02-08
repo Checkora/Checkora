@@ -1,3 +1,17 @@
+/**
+ * Checkora Chess Engine
+ *
+ * Validates chess moves and computes legal move sets.
+ * Communicates with the Django backend via stdin/stdout.
+ *
+ * Protocol:
+ *   VALIDATE <board64> <turn> <fr> <fc> <tr> <tc>
+ *     -> VALID | INVALID <reason>
+ *
+ *   MOVES <board64> <turn> <row> <col>
+ *     -> MOVES [<row> <col> <is_capture> ...]
+ */
+
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -5,117 +19,208 @@
 
 using namespace std;
 
-class Board {
-public:
-    char squares[64];
+// ============================================================
+//  Board representation
+// ============================================================
 
-    Board() {
-        string startPos = 
-            "rnbqkbnr"
-            "pppppppp"
-            "........"
-            "........"
-            "........"
-            "........"
-            "PPPPPPPP"
-            "RNBQKBNR";
-        
-        for (int i = 0; i < 64; i++) {
-            squares[i] = startPos[i];
-        }
+char board[8][8];
+
+void loadBoard(const string &s) {
+    for (int i = 0; i < 64; i++)
+        board[i / 8][i % 8] = s[i];
+}
+
+// ============================================================
+//  Piece helpers
+// ============================================================
+
+bool isWhite(char c)  { return c >= 'A' && c <= 'Z'; }
+bool isBlack(char c)  { return c >= 'a' && c <= 'z'; }
+bool isEmpty(char c)  { return c == '.'; }
+
+string colorOf(char c) {
+    if (isWhite(c)) return "white";
+    if (isBlack(c)) return "black";
+    return "none";
+}
+
+// ============================================================
+//  Path obstruction check (rook / bishop / queen lines)
+// ============================================================
+
+bool pathClear(int fr, int fc, int tr, int tc) {
+    int dr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
+    int dc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
+    int r = fr + dr, c = fc + dc;
+    while (r != tr || c != tc) {
+        if (!isEmpty(board[r][c])) return false;
+        r += dr;
+        c += dc;
     }
+    return true;
+}
 
-    int toIndex(string square) {
-        int col = square[0] - 'a';
-        int row = 8 - (square[1] - '0');
-        return row * 8 + col;
+// ============================================================
+//  Piece-specific movement rules
+// ============================================================
+
+bool validPawn(const string &color, int fr, int fc, int tr, int tc) {
+    int dir      = (color == "white") ? -1 : 1;
+    int startRow = (color == "white") ?  6 : 1;
+    int dr = tr - fr;
+    int dc = tc - fc;
+
+    // Forward one square
+    if (dc == 0 && dr == dir && isEmpty(board[tr][tc]))
+        return true;
+
+    // Forward two squares from starting rank
+    if (dc == 0 && dr == 2 * dir && fr == startRow)
+        if (isEmpty(board[fr + dir][fc]) && isEmpty(board[tr][tc]))
+            return true;
+
+    // Diagonal capture
+    if (abs(dc) == 1 && dr == dir && !isEmpty(board[tr][tc]))
+        return true;
+
+    return false;
+}
+
+bool validRook(int fr, int fc, int tr, int tc) {
+    return (fr == tr || fc == tc) && pathClear(fr, fc, tr, tc);
+}
+
+bool validKnight(int fr, int fc, int tr, int tc) {
+    int dr = abs(tr - fr), dc = abs(tc - fc);
+    return (dr == 2 && dc == 1) || (dr == 1 && dc == 2);
+}
+
+bool validBishop(int fr, int fc, int tr, int tc) {
+    return (abs(tr - fr) == abs(tc - fc)) && pathClear(fr, fc, tr, tc);
+}
+
+bool validQueen(int fr, int fc, int tr, int tc) {
+    return validRook(fr, fc, tr, tc) || validBishop(fr, fc, tr, tc);
+}
+
+bool validKing(int fr, int fc, int tr, int tc) {
+    return abs(tr - fr) <= 1 && abs(tc - fc) <= 1;
+}
+
+// ============================================================
+//  Core validation
+// ============================================================
+
+/**
+ * Validate a move.  Prints the result to stdout and returns the
+ * boolean validity so callers (MOVES command) can re-use the logic
+ * without extra I/O.
+ */
+bool validateMove(const string &turn, int fr, int fc, int tr, int tc,
+                  bool silent = false) {
+    char piece = board[fr][fc];
+
+    if (isEmpty(piece)) {
+        if (!silent) cout << "INVALID No piece on source square" << endl;
+        return false;
     }
-
-    int getRow(int index) { return index / 8; }
-    int getCol(int index) { return index % 8; }
-
-    bool isPawnMoveValid(int fromIdx, int toIdx, char piece) {
-        int fromRow = getRow(fromIdx);
-        int fromCol = getCol(fromIdx);
-        int toRow = getRow(toIdx);
-        int toCol = getCol(toIdx);
-
-        int direction = (piece == 'P') ? -1 : 1; 
-        int startRow = (piece == 'P') ? 6 : 1;   
-
-        if (fromCol == toCol) {
-            if (toRow == fromRow + direction) {
-                return squares[toIdx] == '.'; 
-            }
-            if (toRow == fromRow + 2 * direction && fromRow == startRow) {
-                int midIdx = (fromIdx + toIdx) / 2; 
-                return squares[toIdx] == '.' && squares[midIdx] == '.';
-            }
-        }
-        
-        if (abs(fromCol - toCol) == 1 && toRow == fromRow + direction) {
-            if (squares[toIdx] != '.') return true;
-        }
-
+    if (colorOf(piece) != turn) {
+        if (!silent) cout << "INVALID Not your turn" << endl;
+        return false;
+    }
+    if (fr == tr && fc == tc) {
+        if (!silent) cout << "INVALID Must move to a different square" << endl;
         return false;
     }
 
-    bool isKnightMoveValid(int fromIdx, int toIdx) {
-        int dRow = abs(getRow(fromIdx) - getRow(toIdx));
-        int dCol = abs(getCol(fromIdx) - getCol(toIdx));
-        return (dRow * dRow + dCol * dCol) == 5;
+    char target = board[tr][tc];
+    if (!isEmpty(target) && colorOf(target) == turn) {
+        if (!silent) cout << "INVALID Cannot capture your own piece" << endl;
+        return false;
     }
 
-    bool isMoveValid(string move) {
-        int fromIdx = toIndex(move.substr(0, 2));
-        int toIdx = toIndex(move.substr(2, 2));
-        char piece = squares[fromIdx];
+    char type = tolower(piece);
+    bool ok = false;
 
-        if (piece == '.') return false;
-
-        char type = tolower(piece);
-        
-        if (type == 'p') {
-            return isPawnMoveValid(fromIdx, toIdx, piece);
-        }
-        else if (type == 'n') {
-            return isKnightMoveValid(fromIdx, toIdx);
-        }
-
-        return true; 
+    switch (type) {
+        case 'p': ok = validPawn(turn, fr, fc, tr, tc); break;
+        case 'r': ok = validRook(fr, fc, tr, tc);       break;
+        case 'n': ok = validKnight(fr, fc, tr, tc);     break;
+        case 'b': ok = validBishop(fr, fc, tr, tc);     break;
+        case 'q': ok = validQueen(fr, fc, tr, tc);      break;
+        case 'k': ok = validKing(fr, fc, tr, tc);       break;
+        default:
+            if (!silent) cout << "INVALID Unknown piece type" << endl;
+            return false;
     }
 
-    void makeMove(string move) {
-        int fromIdx = toIndex(move.substr(0, 2));
-        int toIdx = toIndex(move.substr(2, 2));
-        squares[toIdx] = squares[fromIdx];
-        squares[fromIdx] = '.';
+    if (!ok && !silent)
+        cout << "INVALID Illegal move for this piece" << endl;
+    if (ok && !silent)
+        cout << "VALID" << endl;
+
+    return ok;
+}
+
+// ============================================================
+//  MOVES command — enumerate every legal destination
+// ============================================================
+
+void printValidMoves(const string &turn, int row, int col) {
+    char piece = board[row][col];
+    if (isEmpty(piece) || colorOf(piece) != turn) {
+        cout << "MOVES" << endl;
+        return;
     }
 
-    void printBoard() {
-        cerr << "   a b c d e f g h" << endl;
-        for (int i = 0; i < 8; i++) {
-            cerr << (8 - i) << "  "; 
-            for (int j = 0; j < 8; j++) {
-                cerr << squares[i * 8 + j] << " ";
+    cout << "MOVES";
+    for (int tr = 0; tr < 8; tr++) {
+        for (int tc = 0; tc < 8; tc++) {
+            if (validateMove(turn, row, col, tr, tc, true)) {
+                int cap = isEmpty(board[tr][tc]) ? 0 : 1;
+                cout << " " << tr << " " << tc << " " << cap;
             }
-            cerr << endl;
         }
     }
-};
+    cout << endl;
+}
+
+// ============================================================
+//  Entry point
+// ============================================================
 
 int main() {
-    Board board;
-    string move;
+    string command;
+    if (!(cin >> command)) return 0;
 
-    if (cin >> move) {
-        if (board.isMoveValid(move)) {
-            board.makeMove(move);
-            // board.printBoard(); // Optional: Uncomment for debugging
-            cout << "VALID " << move << endl;
-        } else {
-            cout << "INVALID " << move << endl;
+    if (command == "VALIDATE") {
+        string boardStr, turn;
+        int fr, fc, tr, tc;
+        cin >> boardStr >> turn >> fr >> fc >> tr >> tc;
+
+        if (boardStr.length() != 64) {
+            cout << "INVALID Bad board data" << endl;
+            return 0;
         }
+        loadBoard(boardStr);
+        validateMove(turn, fr, fc, tr, tc);
+
+    } else if (command == "MOVES") {
+        string boardStr, turn;
+        int row, col;
+        cin >> boardStr >> turn >> row >> col;
+
+        if (boardStr.length() != 64) {
+            cout << "MOVES" << endl;
+            return 0;
+        }
+        loadBoard(boardStr);
+        printValidMoves(turn, row, col);
+
+    } else {
+        // Legacy fallback — echo input as VALID
+        cout << "VALID " << command << endl;
     }
+
     return 0;
 }

@@ -5,175 +5,694 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora | AI Chess</title>
     <style>
+        /* ============================================================
+           Reset & Base
+           ============================================================ */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            background-color: #1e1e1e;
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f1a;
+            color: #d0d0d0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
         }
-        
+
+        /* ============================================================
+           Header
+           ============================================================ */
+        .header { padding: 20px 0 8px; text-align: center; }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 2px;
+        }
+        .header .badge {
+            font-size: 0.45em;
+            color: #f0c040;
+            vertical-align: super;
+            font-weight: 400;
+            letter-spacing: 1px;
+        }
+
+        /* ============================================================
+           Game Layout  (left panel · board · right panel)
+           ============================================================ */
+        .game-layout {
+            display: flex;
+            gap: 22px;
+            padding: 10px 20px 30px;
+            align-items: flex-start;
+        }
+
+        .panel {
+            width: 192px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .card-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #6a6a8a;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        /* ============================================================
+           Turn Indicator
+           ============================================================ */
+        .turn-badge {
+            text-align: center;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+        .turn-badge.white {
+            background: linear-gradient(135deg, #f5f5dc, #e0e0c0);
+            color: #333;
+        }
+        .turn-badge.black {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            color: #ccc;
+            border: 1px solid #444;
+        }
+
+        /* ============================================================
+           Board Area  (ranks · board grid · files)
+           ============================================================ */
+        .board-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .board-outer {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .board-row {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .ranks {
+            display: flex;
+            flex-direction: column;
+            padding: 3px 6px 3px 0;
+        }
+        .ranks span {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #5a5a7a;
+            font-weight: 600;
+        }
+
+        .files {
+            display: flex;
+            padding: 4px 0 0 28px;
+        }
+        .files span {
+            width: 60px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #5a5a7a;
+            font-weight: 600;
+        }
+
         .chessboard {
             display: grid;
             grid-template-columns: repeat(8, 60px);
             grid-template-rows: repeat(8, 60px);
-            border: 10px solid #4a3c31;
-            border-radius: 4px;
-            user-select: none;
+            border: 3px solid #3d3222;
+            border-radius: 2px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
         }
 
+        /* ============================================================
+           Squares
+           ============================================================ */
         .square {
             width: 60px;
             height: 60px;
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+            cursor: pointer;
         }
 
-        .white { background-color: #eeeed2; }
-        .black { background-color: #769656; }
+        .square.light { background-color: #eeeed2; }
+        .square.dark  { background-color: #769656; }
 
+        /* Selected piece */
+        .square.selected.light { background-color: #f6f669; }
+        .square.selected.dark  { background-color: #baca2b; }
+
+        /* Last-move highlight */
+        .square.last-move.light { background-color: #f5f682; }
+        .square.last-move.dark  { background-color: #b8cc36; }
+
+        /* Valid-move dot (empty square) */
+        .move-dot {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.18);
+            position: absolute;
+            pointer-events: none;
+        }
+        .square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
+
+        /* Capture ring (enemy piece) */
+        .capture-ring {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: 5px solid rgba(0, 0, 0, 0.18);
+            position: absolute;
+            pointer-events: none;
+        }
+        .square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
+
+        /* ============================================================
+           Pieces
+           ============================================================ */
         .piece {
-            width: 50px;
-            height: 50px;
-            cursor: grab;
-            transition: transform 0.1s;
+            width: 54px;
+            height: 54px;
+            z-index: 2;
+            pointer-events: none;
+            user-select: none;
         }
+        .piece.dragging { opacity: 0.35; }
 
-        .piece:active {
-            cursor: grabbing;
-            transform: scale(1.2);
+        /* ============================================================
+           Status Bar
+           ============================================================ */
+        .status-bar {
+            min-height: 22px;
+            text-align: center;
+            font-size: 0.82rem;
+            color: #f0c040;
+            padding: 4px 0;
+        }
+        .status-bar.error { color: #ff6b6b; }
+
+        /* ============================================================
+           Move History
+           ============================================================ */
+        .moves-list {
+            max-height: 340px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+        .moves-list::-webkit-scrollbar { width: 4px; }
+        .moves-list::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
+        }
+        .move-row { display: flex; gap: 6px; padding: 1px 0; }
+        .move-num {
+            color: #4a4a6a;
+            min-width: 26px;
+            text-align: right;
+        }
+        .move-white, .move-black {
+            min-width: 48px;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .move-white:hover, .move-black:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .placeholder { color: #3a3a5a; font-style: italic; font-family: inherit; }
+
+        /* ============================================================
+           Captured Pieces
+           ============================================================ */
+        .captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 28px; }
+        .captured-img  { width: 26px; height: 26px; opacity: 0.8; }
+
+        /* ============================================================
+           Buttons
+           ============================================================ */
+        .btn {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, #f0c040, #d4a020);
+            color: #1a1a2e;
+        }
+        .btn-gold:hover {
+            background: linear-gradient(135deg, #f5cc55, #e0b030);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+        }
+        .btn-gold:active { transform: translateY(0); }
+
+        /* ============================================================
+           Responsive
+           ============================================================ */
+        @media (max-width: 860px) {
+            .game-layout {
+                flex-direction: column;
+                align-items: center;
+            }
+            .panel {
+                width: 100%;
+                max-width: 500px;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .panel .card { flex: 1; min-width: 200px; }
         }
     </style>
 </head>
 <body>
-    
-    <h1>Checkora <span style="color: #ffcc00; font-size: 0.6em;">BETA</span></h1>
 
-    <div class="chessboard" id="board"></div>
+    <!-- ========== HEADER ========== -->
+    <div class="header">
+        <h1>Checkora <span class="badge">BETA</span></h1>
+    </div>
 
+    <!-- ========== GAME ========== -->
+    <div class="game-layout">
+
+        <!-- Left Panel -->
+        <div class="panel">
+            <div class="card">
+                <div class="card-title">Captured by White</div>
+                <div class="captured-list" id="whiteCaptured"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Captured by Black</div>
+                <div class="captured-list" id="blackCaptured"></div>
+            </div>
+        </div>
+
+        <!-- Board -->
+        <div class="board-container">
+            <div class="turn-badge white" id="turnBadge">White's Turn</div>
+
+            <div class="board-outer">
+                <div class="board-row">
+                    <div class="ranks">
+                        <span>8</span><span>7</span><span>6</span><span>5</span>
+                        <span>4</span><span>3</span><span>2</span><span>1</span>
+                    </div>
+                    <div class="chessboard" id="board"></div>
+                </div>
+                <div class="files">
+                    <span>a</span><span>b</span><span>c</span><span>d</span>
+                    <span>e</span><span>f</span><span>g</span><span>h</span>
+                </div>
+            </div>
+
+            <div class="status-bar" id="statusBar"></div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="panel">
+            <div class="card">
+                <div class="card-title">Move History</div>
+                <div class="moves-list" id="movesList">
+                    <span class="placeholder">No moves yet</span>
+                </div>
+            </div>
+            <button class="btn btn-gold" id="newGameBtn">New Game</button>
+        </div>
+
+    </div>
+
+    <!-- ========================================================
+         JAVASCRIPT
+         ======================================================== -->
     <script>
-        const boardElement = document.getElementById('board');
-        let draggedPiece = null;
-        let sourceSquare = null;
-        
-        const initialConfig = [
-            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+    (() => {
+        'use strict';
+
+        /* ==============================================================
+           Constants
+           ============================================================== */
+        const FILES = 'abcdefgh';
+        const PIECE_IMG = {};
+        for (const clr of ['w', 'b'])
+            for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
+                PIECE_IMG[clr + t] =
+                    `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${clr}${t}.png`;
+
+        /* ==============================================================
+           Mutable state
+           ============================================================== */
+        let board = [
+            ['r','n','b','q','k','b','n','r'],
+            ['p','p','p','p','p','p','p','p'],
+            [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null],
+            ['P','P','P','P','P','P','P','P'],
+            ['R','N','B','Q','K','B','N','R'],
         ];
 
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-        const csrftoken = getCookie('csrftoken');
+        let turn      = 'white';
+        let selected  = null;   // { row, col }
+        let hints     = [];     // [{ row, col, is_capture }]
+        let lastMove  = null;   // { from:[r,c], to:[r,c] }
+        let dragging  = false;
+        let dragSrc   = null;
 
-        function toChessNotation(row, col) {
-            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-            const rank = 8 - row;
-            const file = files[col];
-            return file + rank;
-        }
+        /* ==============================================================
+           DOM references
+           ============================================================== */
+        const boardEl   = document.getElementById('board');
+        const turnEl    = document.getElementById('turnBadge');
+        const statusEl  = document.getElementById('statusBar');
+        const movesEl   = document.getElementById('movesList');
+        const wCapEl    = document.getElementById('whiteCaptured');
+        const bCapEl    = document.getElementById('blackCaptured');
+        const newGameEl = document.getElementById('newGameBtn');
 
-        function getPieceUrl(piece) {
-            const color = piece === piece.toUpperCase() ? 'w' : 'b';
-            const type = piece.toLowerCase();
-            return `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${color}${type}.png`;
+        /* ==============================================================
+           CSRF
+           ============================================================== */
+        function csrf() {
+            const m = document.cookie.match(/csrftoken=([^;]+)/);
+            return m ? decodeURIComponent(m[1]) : '';
         }
 
-        function createBoard() {
-            boardElement.innerHTML = '';
-            for (let row = 0; row < 8; row++) {
-                for (let col = 0; col < 8; col++) {
-                    const square = document.createElement('div');
-                    square.classList.add('square');
-                    square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
-                    
-                    square.dataset.row = row;
-                    square.dataset.col = col;
-
-                    square.addEventListener('dragover', dragOver);
-                    square.addEventListener('drop', dragDrop);
-                    
-                    const pieceChar = initialConfig[row][col];
-                    if (pieceChar) {
-                        const img = document.createElement('img');
-                        img.src = getPieceUrl(pieceChar);
-                        img.classList.add('piece');
-                        img.draggable = true;
-                        
-                        img.addEventListener('dragstart', dragStart);
-                        square.appendChild(img);
-                    }
-
-                    boardElement.appendChild(square);
-                }
-            }
-        }
-
-        function dragStart(e) {
-            draggedPiece = e.target;
-            sourceSquare = e.target.parentElement;
-        }
-
-        function dragOver(e) {
-            e.preventDefault();
-        }
-
-        function dragDrop(e) {
-            e.preventDefault();
-            
-            const targetSquare = e.target.classList.contains('square') ? e.target : e.target.parentElement;
-
-            if (targetSquare === sourceSquare) return;
-
-            const sourceRow = parseInt(sourceSquare.dataset.row);
-            const sourceCol = parseInt(sourceSquare.dataset.col);
-            const targetRow = parseInt(targetSquare.dataset.row);
-            const targetCol = parseInt(targetSquare.dataset.col);
-
-            const moveNotation = toChessNotation(sourceRow, sourceCol) + toChessNotation(targetRow, targetCol);
-
-            fetch('/move/', {
+        /* ==============================================================
+           API helpers
+           ============================================================== */
+        async function post(url, body) {
+            const r = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrftoken
-                },
-                body: JSON.stringify({ move: moveNotation })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Server Response:', data);
-                if (data.status === 'success') {
-                    targetSquare.innerHTML = '';
-                    targetSquare.appendChild(draggedPiece);
-                }
-            })
-            .catch(error => console.error('Error:', error));
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+                body: JSON.stringify(body),
+            });
+            return r.json();
         }
 
-        createBoard();
+        async function get(url) { return (await fetch(url)).json(); }
+
+        /* ==============================================================
+           Piece helpers
+           ============================================================== */
+        function pKey(p) {
+            return p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
+        }
+        function pColor(p) {
+            return p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
+        }
+
+        /* ==============================================================
+           Board — build once, then sync piece images
+           ============================================================== */
+        function sq(r, c) { return boardEl.children[r * 8 + c]; }
+
+        function buildBoard() {
+            boardEl.innerHTML = '';
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const div = document.createElement('div');
+                    div.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+                    div.dataset.row = r;
+                    div.dataset.col = c;
+
+                    div.addEventListener('click', () => onClick(r, c));
+                    div.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+                    div.addEventListener('drop', e => onDrop(e, r, c));
+
+                    boardEl.appendChild(div);
+                }
+            }
+            syncPieces();
+        }
+
+        function syncPieces() {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const el = sq(r, c);
+                    el.querySelectorAll('.piece, .move-dot, .capture-ring').forEach(n => n.remove());
+
+                    const p = board[r][c];
+                    if (p) {
+                        const img = document.createElement('img');
+                        img.className = 'piece';
+                        img.src = PIECE_IMG[pKey(p)];
+                        img.draggable = true;
+                        img.addEventListener('dragstart', e => onDragStart(e, r, c));
+                        img.addEventListener('dragend', onDragEnd);
+                        el.appendChild(img);
+                    }
+                }
+            }
+            refreshHighlights();
+        }
+
+        /* ==============================================================
+           Highlights
+           ============================================================== */
+        function refreshHighlights() {
+            boardEl.querySelectorAll('.square').forEach(el => {
+                el.classList.remove('selected', 'last-move');
+                el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
+            });
+
+            if (lastMove) {
+                sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
+                sq(lastMove.to[0],   lastMove.to[1]).classList.add('last-move');
+            }
+
+            if (selected) {
+                sq(selected.row, selected.col).classList.add('selected');
+                hints.forEach(h => {
+                    const el = sq(h.row, h.col);
+                    const dot = document.createElement('div');
+                    dot.className = h.is_capture ? 'capture-ring' : 'move-dot';
+                    el.appendChild(dot);
+                });
+            }
+        }
+
+        /* ==============================================================
+           Selection logic
+           ============================================================== */
+        async function selectPiece(r, c) {
+            const p = board[r][c];
+            if (!p || pColor(p) !== turn) { deselect(); return; }
+
+            selected = { row: r, col: c };
+            try {
+                const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+                hints = data.valid_moves || [];
+            } catch { hints = []; }
+            refreshHighlights();
+        }
+
+        function deselect() {
+            selected = null;
+            hints = [];
+            refreshHighlights();
+        }
+
+        /* ==============================================================
+           Move execution
+           ============================================================== */
+        async function tryMove(fr, fc, tr, tc) {
+            clearStatus();
+            try {
+                const data = await post('/api/move/', {
+                    from_row: fr, from_col: fc,
+                    to_row: tr, to_col: tc,
+                });
+                if (data.valid) {
+                    board = data.board;
+                    turn  = data.current_turn;
+                    lastMove = { from: [fr, fc], to: [tr, tc] };
+                    updateTurn();
+                    updateMoves(data.move_history);
+                    updateCaptured(data.captured_pieces);
+                    syncPieces();
+                } else {
+                    showStatus(data.message, true);
+                }
+            } catch {
+                showStatus('Connection error.', true);
+            }
+            deselect();
+        }
+
+        /* ==============================================================
+           Click handler
+           ============================================================== */
+        async function onClick(r, c) {
+            if (dragging) return;
+
+            if (selected) {
+                if (r === selected.row && c === selected.col) { deselect(); return; }
+                if (hints.some(h => h.row === r && h.col === c)) {
+                    await tryMove(selected.row, selected.col, r, c);
+                    return;
+                }
+                if (board[r][c] && pColor(board[r][c]) === turn) {
+                    await selectPiece(r, c);
+                    return;
+                }
+                deselect();
+            } else {
+                await selectPiece(r, c);
+            }
+        }
+
+        /* ==============================================================
+           Drag & Drop
+           ============================================================== */
+        function onDragStart(e, r, c) {
+            const p = board[r][c];
+            if (!p || pColor(p) !== turn) { e.preventDefault(); return; }
+            dragging = true;
+            dragSrc = { row: r, col: c };
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+            selectPiece(r, c);
+        }
+
+        function onDragEnd(e) {
+            e.target.classList.remove('dragging');
+            dragging = false;
+        }
+
+        async function onDrop(e, tr, tc) {
+            e.preventDefault();
+            if (!dragSrc) return;
+            const { row: fr, col: fc } = dragSrc;
+            dragSrc = null;
+            dragging = false;
+            if (fr === tr && fc === tc) return;
+            await tryMove(fr, fc, tr, tc);
+        }
+
+        /* ==============================================================
+           UI Updates
+           ============================================================== */
+        function updateTurn() {
+            turnEl.textContent = turn === 'white' ? "White's Turn" : "Black's Turn";
+            turnEl.className   = 'turn-badge ' + (turn === 'white' ? 'white' : 'black');
+        }
+
+        function showStatus(msg, isErr) {
+            statusEl.textContent = msg;
+            statusEl.className   = 'status-bar' + (isErr ? ' error' : '');
+            if (msg) setTimeout(() => { if (statusEl.textContent === msg) statusEl.textContent = ''; }, 3000);
+        }
+        function clearStatus() { statusEl.textContent = ''; }
+
+        function updateMoves(history) {
+            if (!history || !history.length) {
+                movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
+                return;
+            }
+            movesEl.innerHTML = '';
+            for (let i = 0; i < history.length; i += 2) {
+                const row = document.createElement('div');
+                row.className = 'move-row';
+
+                const num = document.createElement('span');
+                num.className = 'move-num';
+                num.textContent = (i / 2 + 1) + '.';
+                row.appendChild(num);
+
+                const w = document.createElement('span');
+                w.className = 'move-white';
+                w.textContent = history[i].notation;
+                row.appendChild(w);
+
+                if (i + 1 < history.length) {
+                    const b = document.createElement('span');
+                    b.className = 'move-black';
+                    b.textContent = history[i + 1].notation;
+                    row.appendChild(b);
+                }
+                movesEl.appendChild(row);
+            }
+            movesEl.scrollTop = movesEl.scrollHeight;
+        }
+
+        function updateCaptured(cap) {
+            if (!cap) return;
+            wCapEl.innerHTML = '';
+            bCapEl.innerHTML = '';
+            const render = (list, el) => {
+                (list || []).forEach(p => {
+                    const img = document.createElement('img');
+                    img.className = 'captured-img';
+                    img.src = PIECE_IMG[pKey(p)];
+                    el.appendChild(img);
+                });
+            };
+            render(cap.white, wCapEl);
+            render(cap.black, bCapEl);
+        }
+
+        /* ==============================================================
+           New Game
+           ============================================================== */
+        newGameEl.addEventListener('click', async () => {
+            try {
+                const data = await post('/api/new-game/', {});
+                board    = data.board;
+                turn     = data.current_turn;
+                lastMove = null;
+                deselect();
+                updateTurn();
+                updateMoves([]);
+                updateCaptured({ white: [], black: [] });
+                syncPieces();
+                showStatus('New game started.');
+            } catch {
+                showStatus('Failed to start new game.', true);
+            }
+        });
+
+        /* ==============================================================
+           Initialise
+           ============================================================== */
+        buildBoard();
+        updateTurn();
+    })();
     </script>
+
 </body>
 </html>
