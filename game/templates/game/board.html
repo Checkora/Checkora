@@ -34,17 +34,19 @@
             align-items: center;
         }
 
-        .white { background-color: #eeeed2; color: black; }
-        .black { background-color: #769656; color: black; }
+        .white { background-color: #eeeed2; }
+        .black { background-color: #769656; }
 
         .piece {
             width: 50px;
             height: 50px;
             cursor: grab;
+            transition: transform 0.1s;
         }
 
         .piece:active {
             cursor: grabbing;
+            transform: scale(1.2);
         }
     </style>
 </head>
@@ -56,6 +58,8 @@
 
     <script>
         const boardElement = document.getElementById('board');
+        let draggedPiece = null;
+        let sourceSquare = null;
         
         const initialConfig = [
             ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -67,6 +71,29 @@
             ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
             ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
         ];
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        function toChessNotation(row, col) {
+            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            const rank = 8 - row;
+            const file = files[col];
+            return file + rank;
+        }
 
         function getPieceUrl(piece) {
             const color = piece === piece.toUpperCase() ? 'w' : 'b';
@@ -80,29 +107,70 @@
                 for (let col = 0; col < 8; col++) {
                     const square = document.createElement('div');
                     square.classList.add('square');
+                    square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
                     
-                    if ((row + col) % 2 === 0) {
-                        square.classList.add('white');
-                    } else {
-                        square.classList.add('black');
-                    }
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+
+                    square.addEventListener('dragover', dragOver);
+                    square.addEventListener('drop', dragDrop);
                     
-                    const piece = initialConfig[row][col];
-                    if (piece) {
+                    const pieceChar = initialConfig[row][col];
+                    if (pieceChar) {
                         const img = document.createElement('img');
-                        img.src = getPieceUrl(piece);
+                        img.src = getPieceUrl(pieceChar);
                         img.classList.add('piece');
                         img.draggable = true;
                         
-                        square.dataset.row = row;
-                        square.dataset.col = col;
-                        
+                        img.addEventListener('dragstart', dragStart);
                         square.appendChild(img);
                     }
 
                     boardElement.appendChild(square);
                 }
             }
+        }
+
+        function dragStart(e) {
+            draggedPiece = e.target;
+            sourceSquare = e.target.parentElement;
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+        }
+
+        function dragDrop(e) {
+            e.preventDefault();
+            
+            const targetSquare = e.target.classList.contains('square') ? e.target : e.target.parentElement;
+
+            if (targetSquare === sourceSquare) return;
+
+            const sourceRow = parseInt(sourceSquare.dataset.row);
+            const sourceCol = parseInt(sourceSquare.dataset.col);
+            const targetRow = parseInt(targetSquare.dataset.row);
+            const targetCol = parseInt(targetSquare.dataset.col);
+
+            const moveNotation = toChessNotation(sourceRow, sourceCol) + toChessNotation(targetRow, targetCol);
+
+            fetch('/move/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({ move: moveNotation })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Server Response:', data);
+                if (data.status === 'success') {
+                    targetSquare.innerHTML = '';
+                    targetSquare.appendChild(draggedPiece);
+                }
+            })
+            .catch(error => console.error('Error:', error));
         }
 
         createBoard();
