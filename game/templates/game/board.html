@@ -72,6 +72,29 @@
             ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
         ];
 
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        function toChessNotation(row, col) {
+            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            const rank = 8 - row;
+            const file = files[col];
+            return file + rank;
+        }
+
         function getPieceUrl(piece) {
             const color = piece === piece.toUpperCase() ? 'w' : 'b';
             const type = piece.toLowerCase();
@@ -124,8 +147,30 @@
 
             if (targetSquare === sourceSquare) return;
 
-            targetSquare.innerHTML = '';
-            targetSquare.appendChild(draggedPiece);
+            const sourceRow = parseInt(sourceSquare.dataset.row);
+            const sourceCol = parseInt(sourceSquare.dataset.col);
+            const targetRow = parseInt(targetSquare.dataset.row);
+            const targetCol = parseInt(targetSquare.dataset.col);
+
+            const moveNotation = toChessNotation(sourceRow, sourceCol) + toChessNotation(targetRow, targetCol);
+
+            fetch('/move/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({ move: moveNotation })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Server Response:', data);
+                if (data.status === 'success') {
+                    targetSquare.innerHTML = '';
+                    targetSquare.appendChild(draggedPiece);
+                }
+            })
+            .catch(error => console.error('Error:', error));
         }
 
         createBoard();
