@@ -105,9 +105,6 @@ class ChessGame:
 
     def make_move(self, fr, fc, tr, tc):
         """Attempt a move.  Returns ``(success, message, captured_piece)``."""
-        valid, msg = self.validate_move(fr, fc, tr, tc)
-        if not valid:
-            return False, msg, None
 
         piece = self.board[fr][fc]
         captured = self.board[tr][tc]
