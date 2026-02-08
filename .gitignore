@@ -1,0 +1,51 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# ========================
+# Django
+# ========================
+db.sqlite3
+db.sqlite3-journal
+*.log
+media/
+
+# ========================
+# C++ compiled binaries
+# ========================
+*.exe
+*.out
+*.o
+*.obj
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ========================
+# OS
+# ========================
+Desktop.ini
+ehthumbs.db
