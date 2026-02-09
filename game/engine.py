@@ -45,6 +45,7 @@ class ChessGame:
         self.white_time = 10 * 60  # 10 minutes
         self.black_time = 10 * 60
         self.last_ts = time.time()
+        self.paused = False
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -61,7 +62,8 @@ class ChessGame:
             'valid_moves_cache': serializable_cache,
             'white_time': self.white_time,
             'black_time': self.black_time,
-            'last_ts': self.last_ts
+            'last_ts': self.last_ts,
+            'paused': self.paused
         }
 
     @classmethod
@@ -72,10 +74,11 @@ class ChessGame:
         game.current_turn = data['current_turn']
         game.move_history = data.get('move_history', [])
         game.captured = data.get('captured', {'white': [], 'black': []})
+        game.paused = data.get('paused', False)
         game.white_time = data['white_time']
         game.black_time = data['black_time']
         game.last_ts = data['last_ts']
-        
+
         cache_data = data.get('valid_moves_cache', {})
         game.valid_moves_cache = {}
         for k, v in cache_data.items():
@@ -269,6 +272,10 @@ class ChessGame:
         return 'white' if piece.isupper() else 'black'
     
     def update_clock(self):
+        if self.paused:
+            self.last_ts = time.time()
+            return
+
         now = time.time()
         elapsed = int(now - self.last_ts)
 
@@ -278,4 +285,5 @@ class ChessGame:
             else:
                 self.black_time = max(0, self.black_time - elapsed)
 
-            self.last_ts = now
+        self.last_ts = now
+

@@ -452,6 +452,8 @@
                 </div>
             </div>
 
+            <button id="pauseBtn" class="btn btn-gold">Pause</button>
+
             <div class="board-outer">
                 <div class="board-row">
                     <div class="ranks">
@@ -497,142 +499,139 @@
     (() => {
         'use strict';
 
-        /* ==============================================================
-           Constants
-           ============================================================== */
-        const FILES = 'abcdefgh';
+        /* ==========================================================
+        CONSTANTS
+        ========================================================== */
         const PIECE_IMG = {};
-        for (const clr of ['w', 'b'])
-            for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
-                PIECE_IMG[clr + t] =
-                    `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${clr}${t}.png`;
+        for (const c of ['w','b'])
+            for (const t of ['k','q','r','b','n','p'])
+                PIECE_IMG[c+t] =
+                    `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
 
-        /* ==============================================================
-           Mutable state
-           ============================================================== */
+        /* ==========================================================
+        STATE
+        ========================================================== */
         let board = [];
-        let turn      = 'white';
-        let selected  = null;   // { row, col }
-        let hints     = [];     // [{ row, col, is_capture }]
-        let lastMove  = null;   // { from:[r,c], to:[r,c] }
-        let dragging  = false;
-        let dragSrc   = null;
+        let turn = 'white';
+        let selected = null;
+        let hints = [];
+        let lastMove = null;
+
+        let dragging = false;
+        let dragSrc = null;
+
         let whiteTime = 0;
         let blackTime = 0;
+        let paused = false;
         let timerInterval = null;
         let pendingPromo = null;  // { fr, fc, tr, tc } awaiting promotion choice
 
-        /* ==============================================================
-           DOM references
-           ============================================================== */
+        /* ==========================================================
+        DOM REFERENCES
+        ========================================================== */
         const boardEl   = document.getElementById('board');
         const turnEl    = document.getElementById('turnBadge');
         const statusEl  = document.getElementById('statusBar');
         const movesEl   = document.getElementById('movesList');
         const wCapEl    = document.getElementById('whiteCaptured');
         const bCapEl    = document.getElementById('blackCaptured');
+        const pauseBtn  = document.getElementById('pauseBtn');
         const newGameEl = document.getElementById('newGameBtn');
         const promoOverlay = document.getElementById('promoOverlay');
         const promoChoices = document.getElementById('promoChoices');
 
-        /* ==============================================================
-           CSRF
-           ============================================================== */
+        /* ==========================================================
+        CSRF
+        ========================================================== */
         function csrf() {
             const m = document.cookie.match(/csrftoken=([^;]+)/);
             return m ? decodeURIComponent(m[1]) : '';
         }
 
-        /* ==============================================================
-           API helpers
-           ============================================================== */
+        /* ==========================================================
+        API HELPERS
+        ========================================================== */
+        async function get(url) {
+            return (await fetch(url)).json();
+        }
+
         async function post(url, body) {
-            const r = await fetch(url, {
+            return (await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-                body: JSON.stringify(body),
-            });
-            return r.json();
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrf()
+                },
+                body: JSON.stringify(body)
+            })).json();
         }
 
-        async function get(url) { return (await fetch(url)).json(); }
+        /* ==========================================================
+        UTILITIES
+        ========================================================== */
+        const pKey   = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
+        const pColor = p => p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
+        const sq     = (r,c) => boardEl.children[r*8 + c];
 
-        /* ==============================================================
-           Piece helpers
-           ============================================================== */
-        function pKey(p) {
-            return p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
-        }
-        function pColor(p) {
-            return p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
-        }
-
-        /* ==============================================================
-           Board — build once, then sync piece images
-           ============================================================== */
-        function sq(r, c) { return boardEl.children[r * 8 + c]; }
-
+        /* ==========================================================
+        LOAD GAME STATE
+        ========================================================== */
         async function loadGame() {
-            try {
-                const data = await get('/api/state/');
-                board = data.board;
-                turn = data.current_turn;
-                whiteTime = data.white_time;
-                blackTime = data.black_time;
-                updateTurn();
-                updateMoves(data.move_history);
-                updateCaptured(data.captured_pieces);
-                buildBoard();
-                renderClocks();
-                startTimer();
-            } catch {
-                showStatus('Failed to load game.', true);
-            }
+            const data = await get('/api/state/');
+
+            board = data.board;
+            turn = data.current_turn;
+            whiteTime = data.white_time;
+            blackTime = data.black_time;
+            paused = data.paused;
+
+            updateTurn();
+            updateMoves(data.move_history);
+            updateCaptured(data.captured_pieces);
+
+            buildBoard();
+            renderClocks();
+            updatePauseUI();
+            startTimer();
         }
 
+        /* ==========================================================
+        BOARD RENDERING
+        ========================================================== */
         function buildBoard() {
             boardEl.innerHTML = '';
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    const div = document.createElement('div');
-                    div.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
-                    div.dataset.row = r;
-                    div.dataset.col = c;
 
-                    div.addEventListener('click', () => onClick(r, c));
-                    div.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-                    div.addEventListener('drop', e => onDrop(e, r, c));
-
-                    boardEl.appendChild(div);
+            for (let r=0; r<8; r++) {
+                for (let c=0; c<8; c++) {
+                    const d = document.createElement('div');
+                    d.className = 'square ' + ((r+c)%2 ? 'dark' : 'light');
+                    d.onclick = () => onClick(r,c);
+                    d.ondragover = e => e.preventDefault();
+                    d.ondrop = e => onDrop(e,r,c);
+                    boardEl.appendChild(d);
                 }
             }
             syncPieces();
         }
 
         function syncPieces() {
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    const el = sq(r, c);
-                    el.querySelectorAll('.piece, .move-dot, .capture-ring').forEach(n => n.remove());
+            for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+                const el = sq(r,c);
+                el.innerHTML = '';
+                const p = board[r][c];
+                if (!p) continue;
 
-                    const p = board[r][c];
-                    if (p) {
-                        const img = document.createElement('img');
-                        img.className = 'piece';
-                        img.src = PIECE_IMG[pKey(p)];
-                        img.draggable = true;
-                        img.addEventListener('dragstart', e => onDragStart(e, r, c));
-                        img.addEventListener('dragend', onDragEnd);
-                        el.appendChild(img);
-                    }
-                }
+                const img = document.createElement('img');
+                img.src = PIECE_IMG[pKey(p)];
+                img.className = 'piece';
+                img.draggable = true;
+                img.ondragstart = e => onDragStart(e,r,c);
+                img.ondragend = () => dragging = false;
+                el.appendChild(img);
             }
             refreshHighlights();
         }
 
-        /* ==============================================================
-           Highlights
-           ============================================================== */
         function refreshHighlights() {
             boardEl.querySelectorAll('.square').forEach(el => {
                 el.classList.remove('selected', 'last-move');
@@ -641,32 +640,31 @@
 
             if (lastMove) {
                 sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
-                sq(lastMove.to[0],   lastMove.to[1]).classList.add('last-move');
+                sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
             }
 
             if (selected) {
-                sq(selected.row, selected.col).classList.add('selected');
+                sq(selected.r, selected.c).classList.add('selected');
+
                 hints.forEach(h => {
                     const el = sq(h.row, h.col);
-                    const dot = document.createElement('div');
-                    dot.className = h.is_capture ? 'capture-ring' : 'move-dot';
-                    el.appendChild(dot);
+                    const d = document.createElement('div');
+                    d.className = h.is_capture ? 'capture-ring' : 'move-dot';
+                    el.appendChild(d);
                 });
             }
         }
 
-        /* ==============================================================
-           Selection logic
-           ============================================================== */
-        async function selectPiece(r, c) {
+        /* ==========================================================
+        SELECTION & MOVES
+        ========================================================== */
+        async function selectPiece(r,c) {
             const p = board[r][c];
-            if (!p || pColor(p) !== turn) { deselect(); return; }
+            if (!p || pColor(p) !== turn || paused) return;
 
-            selected = { row: r, col: c };
-            try {
-                const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
-                hints = data.valid_moves || [];
-            } catch { hints = []; }
+            selected = {r,c};
+            const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+            hints = data.valid_moves || [];
             refreshHighlights();
         }
 
@@ -755,175 +753,179 @@
                 }
             } catch {
                 showStatus('Connection error.', true);
+        async function tryMove(fr,fc,tr,tc) {
+            if (paused) return;
+            
+            const piece = board[fr][fc];
+            if (!piece || pColor(piece) !== turn) {
+                return;
             }
-            deselect();
+
+            const data = await post('/api/move/', {
+                from_row: fr, from_col: fc,
+                to_row: tr, to_col: tc
+            });
+
+            if (!data.valid) {
+                showStatus(data.message, true);
+                deselect();
+                return;
+            }
+
+            board = data.board;
+            turn = data.current_turn;
+            lastMove = {from:[fr,fc], to:[tr,tc]};
+
+            selected = null;
+            hints = []
+
+            syncPieces();
+            updateTurn();
+            updateMoves(data.move_history);
+            updateCaptured(data.captured_pieces);
+            startTimer();
         }
 
-        /* ==============================================================
-           Click handler
-           ============================================================== */
-        async function onClick(r, c) {
+        /* ==========================================================
+        EVENTS
+        ========================================================== */
+        async function onClick(r,c) {
             if (dragging) return;
 
             if (selected) {
-                if (r === selected.row && c === selected.col) { deselect(); return; }
-                if (hints.some(h => h.row === r && h.col === c)) {
-                    await tryMove(selected.row, selected.col, r, c);
-                    return;
-                }
-                if (board[r][c] && pColor(board[r][c]) === turn) {
-                    await selectPiece(r, c);
-                    return;
-                }
-                deselect();
-            } else {
-                await selectPiece(r, c);
+                if (hints.some(h => h.row===r && h.col===c))
+                    return tryMove(selected.r,selected.c,r,c);
+
+                if (board[r][c] && pColor(board[r][c])===turn)
+                    return selectPiece(r,c);
+
+                return deselect();
             }
+            selectPiece(r,c);
         }
 
-        /* ==============================================================
-           Drag & Drop
-           ============================================================== */
-        function onDragStart(e, r, c) {
-            const p = board[r][c];
-            if (!p || pColor(p) !== turn) { e.preventDefault(); return; }
+        function onDragStart(e,r,c) {
+            if (paused || pColor(board[r][c])!==turn) return e.preventDefault();
             dragging = true;
-            dragSrc = { row: r, col: c };
-            e.target.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', '');
-            selectPiece(r, c);
+            dragSrc = {r,c};
+            selectPiece(r,c);
         }
 
-        function onDragEnd(e) {
-            e.target.classList.remove('dragging');
-            dragging = false;
-        }
-
-        async function onDrop(e, tr, tc) {
-            e.preventDefault();
+        async function onDrop(e,tr,tc) {
             if (!dragSrc) return;
-            const { row: fr, col: fc } = dragSrc;
+            await tryMove(dragSrc.r,dragSrc.c,tr,tc);
             dragSrc = null;
-            dragging = false;
-            if (fr === tr && fc === tc) return;
-            await tryMove(fr, fc, tr, tc);
         }
 
-        /* ==============================================================
-           UI Updates
-           ============================================================== */
+        /* ==========================================================
+        UI UPDATES
+        ========================================================== */
         function updateTurn() {
             turnEl.textContent = turn === 'white' ? "White's Turn" : "Black's Turn";
-            turnEl.className   = 'turn-badge ' + (turn === 'white' ? 'white' : 'black');
+            turnEl.className = 'turn-badge ' + turn;
         }
-
-        function showStatus(msg, isErr) {
-            statusEl.textContent = msg;
-            statusEl.className   = 'status-bar' + (isErr ? ' error' : '');
-            if (msg) setTimeout(() => { if (statusEl.textContent === msg) statusEl.textContent = ''; }, 3000);
-        }
-        function clearStatus() { statusEl.textContent = ''; }
 
         function updateMoves(history) {
-            if (!history || !history.length) {
+            if (!history?.length) {
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 return;
             }
             movesEl.innerHTML = '';
-            for (let i = 0; i < history.length; i += 2) {
+            for (let i=0;i<history.length;i+=2) {
                 const row = document.createElement('div');
                 row.className = 'move-row';
-
-                const num = document.createElement('span');
-                num.className = 'move-num';
-                num.textContent = (i / 2 + 1) + '.';
-                row.appendChild(num);
-
-                const w = document.createElement('span');
-                w.className = 'move-white';
-                w.textContent = history[i].notation;
-                row.appendChild(w);
-
-                if (i + 1 < history.length) {
-                    const b = document.createElement('span');
-                    b.className = 'move-black';
-                    b.textContent = history[i + 1].notation;
-                    row.appendChild(b);
-                }
+                row.innerHTML = `
+                    <span class="move-num">${i/2+1}.</span>
+                    <span class="move-white">${history[i].notation}</span>
+                    ${history[i+1]?`<span class="move-black">${history[i+1].notation}</span>`:''}
+                `;
                 movesEl.appendChild(row);
             }
-            movesEl.scrollTop = movesEl.scrollHeight;
         }
 
         function updateCaptured(cap) {
-            if (!cap) return;
-            wCapEl.innerHTML = '';
-            bCapEl.innerHTML = '';
-            const render = (list, el) => {
-                (list || []).forEach(p => {
-                    const img = document.createElement('img');
-                    img.className = 'captured-img';
-                    img.src = PIECE_IMG[pKey(p)];
-                    el.appendChild(img);
-                });
-            };
-            render(cap.white, wCapEl);
-            render(cap.black, bCapEl);
+            wCapEl.innerHTML = bCapEl.innerHTML = '';
+            cap.white.forEach(p => wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
+            cap.black.forEach(p => bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
         }
 
-        function fmt(t) {
-            const m = Math.floor(t / 60);
-            const s = t % 60;
-            return `${m}:${s.toString().padStart(2,'0')}`;
+        function showStatus(msg,err) {
+            statusEl.textContent = msg;
+            statusEl.className = 'status-bar' + (err?' error':'');
         }
+
+        /* ==========================================================
+        CLOCKS & PAUSE
+        ========================================================== */
+        const fmt = t => `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
 
         function renderClocks() {
-            const w = document.getElementById('whiteClock');
-            const b = document.getElementById('blackClock');
+            document.querySelector('#whiteClock .time').textContent = fmt(whiteTime);
+            document.querySelector('#blackClock .time').textContent = fmt(blackTime);
+        }
 
-            w.querySelector('.time').textContent = fmt(whiteTime);
-            b.querySelector('.time').textContent = fmt(blackTime);
-
-            w.classList.toggle('active', turn === 'white');
-            b.classList.toggle('active', turn === 'black');
+        function updatePauseUI() {
+            pauseBtn.textContent = paused ? 'Resume' : 'Pause';
         }
 
         function startTimer() {
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
-                if (turn === 'white' && whiteTime > 0) whiteTime--;
-                if (turn === 'black' && blackTime > 0) blackTime--;
+                if (paused) return;
+                if (turn==='white' && whiteTime>0) whiteTime--;
+                if (turn==='black' && blackTime>0) blackTime--;
                 renderClocks();
-            }, 1000);
+            },1000);
         }
 
-        /* ==============================================================
-           New Game
-           ============================================================== */
-        newGameEl.addEventListener('click', async () => {
-            try {
-                const data = await post('/api/new-game/', {});
-                board    = data.board;
-                turn     = data.current_turn;
-                lastMove = null;
-                deselect();
-                updateTurn();
-                updateMoves([]);
-                updateCaptured({ white: [], black: [] });
-                syncPieces();
-                showStatus('New game started.');
-            } catch {
-                showStatus('Failed to start new game.', true);
-            }
+        async function pauseGame() {
+            if (paused) return;
+            const d = await post('/api/pause/', {pause:true});
+            paused = d.paused;
+            whiteTime = d.white_time;
+            blackTime = d.black_time;
+            updatePauseUI();
+            renderClocks();
+        }
+
+        async function resumeGame() {
+            if (!paused) return;
+            const d = await post('/api/pause/', {pause:false});
+            paused = d.paused;
+            whiteTime = d.white_time;
+            blackTime = d.black_time;
+            updatePauseUI();
+            renderClocks();
+            startTimer();
+        }
+
+        pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) pauseGame();
         });
 
-        /* ==============================================================
-           Initialise
-           ============================================================== */
+        window.addEventListener('beforeunload', () => {
+            if (!paused)
+                navigator.sendBeacon('/api/pause/', JSON.stringify({pause:true}));
+        });
+
+        /* ==========================================================
+        NEW GAME
+        ========================================================== */
+        newGameEl.onclick = async () => {
+            const d = await post('/api/new-game/', {});
+            board = d.board;
+            turn = d.current_turn;
+            paused = false;
+            loadGame();
+        };
+
+        /* ==========================================================
+        INIT
+        ========================================================== */
         loadGame();
     })();
     </script>
-
 </body>
 </html>

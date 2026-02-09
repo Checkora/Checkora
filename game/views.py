@@ -1,10 +1,11 @@
 """Game views for the Checkora chess platform."""
 
 import json
+import time
 
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
@@ -123,6 +124,34 @@ def get_state(request):
         'current_turn': game_data['current_turn'],
         'white_time': game_data['white_time'],
         'black_time': game_data['black_time'],
+        'paused': game_data.get('paused', False),
         'move_history': game_data['move_history'],
         'captured_pieces': game_data['captured'],
     })
+
+@csrf_exempt
+@require_POST
+def set_pause(request):
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'paused': False})
+
+    data = json.loads(request.body or '{}')
+    pause = data.get('pause', True)
+
+    game = ChessGame.from_dict(game_data)
+
+    game.update_clock()
+    game.paused = pause
+    game.last_ts = time.time()
+
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'paused': game.paused,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+    })
+
+
