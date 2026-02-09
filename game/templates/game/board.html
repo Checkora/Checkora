@@ -296,6 +296,63 @@
             }
             .panel .card { flex: 1; min-width: 200px; }
         }
+
+        /* ================= CLOCKS ================= */
+
+        .clocks {
+            display: flex;
+            gap: 12px;
+            margin: 10px 0 6px;
+        }
+
+        .clock {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #16162a;
+            border: 1px solid #252545;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.25s ease;
+        }
+
+        .clock .label {
+            font-size: 0.65rem;
+            letter-spacing: 1px;
+            font-weight: 700;
+            opacity: 0.7;
+        }
+
+        .clock .time {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        /* Active player */
+        .clock.active {
+            background: linear-gradient(135deg, #2a2a50, #1a1a35);
+            border-color: #f0c040;
+            box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
+        }
+
+        /* Low time warning */
+        .clock.low {
+            background: linear-gradient(135deg, #402020, #2a1414);
+            border-color: #ff6b6b;
+            color: #ffb3b3;
+        }
+
+        /* Time up */
+        .clock.dead {
+            opacity: 0.4;
+        }
+
+        /* Color hints */
+        .clock.white .label { color: #ddd; }
+        .clock.black .label { color: #aaa; }
+
     </style>
 </head>
 <body>
@@ -323,6 +380,18 @@
         <!-- Board -->
         <div class="board-container">
             <div class="turn-badge white" id="turnBadge">White's Turn</div>
+            
+           <div class="clocks">
+                <div id="whiteClock" class="clock white active">
+                    <span class="label">WHITE</span>
+                    <span class="time">10:00</span>
+                </div>
+
+                <div id="blackClock" class="clock black">
+                    <span class="label">BLACK</span>
+                    <span class="time">10:00</span>
+                </div>
+            </div>
 
             <div class="board-outer">
                 <div class="board-row">
@@ -381,6 +450,9 @@
         let lastMove  = null;   // { from:[r,c], to:[r,c] }
         let dragging  = false;
         let dragSrc   = null;
+        let whiteTime = 0;
+        let blackTime = 0;
+        let timerInterval = null;
 
         /* ==============================================================
            DOM references
@@ -435,10 +507,14 @@
                 const data = await get('/api/state/');
                 board = data.board;
                 turn = data.current_turn;
+                whiteTime = data.white_time;
+                blackTime = data.black_time;
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 buildBoard();
+                renderClocks();
+                startTimer();
             } catch {
                 showStatus('Failed to load game.', true);
             }
@@ -668,6 +744,32 @@
             };
             render(cap.white, wCapEl);
             render(cap.black, bCapEl);
+        }
+
+        function fmt(t) {
+            const m = Math.floor(t / 60);
+            const s = t % 60;
+            return `${m}:${s.toString().padStart(2,'0')}`;
+        }
+
+        function renderClocks() {
+            const w = document.getElementById('whiteClock');
+            const b = document.getElementById('blackClock');
+
+            w.querySelector('.time').textContent = fmt(whiteTime);
+            b.querySelector('.time').textContent = fmt(blackTime);
+
+            w.classList.toggle('active', turn === 'white');
+            b.classList.toggle('active', turn === 'black');
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (turn === 'white' && whiteTime > 0) whiteTime--;
+                if (turn === 'black' && blackTime > 0) blackTime--;
+                renderClocks();
+            }, 1000);
         }
 
         /* ==============================================================

@@ -9,6 +9,7 @@ ensuring 100% accuracy.
 import os
 import subprocess
 import json
+import time
 
 from django.conf import settings
 
@@ -41,6 +42,9 @@ class ChessGame:
         self.captured = {'white': [], 'black': []}
         # DP Table: {(row, col): [list of moves]}
         self.valid_moves_cache = {}
+        self.white_time = 10 * 60  # 10 minutes
+        self.black_time = 10 * 60
+        self.last_ts = time.time()
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -54,7 +58,10 @@ class ChessGame:
             'current_turn': self.current_turn,
             'move_history': self.move_history,
             'captured': self.captured,
-            'valid_moves_cache': serializable_cache
+            'valid_moves_cache': serializable_cache,
+            'white_time': self.white_time,
+            'black_time': self.black_time,
+            'last_ts': self.last_ts
         }
 
     @classmethod
@@ -65,6 +72,9 @@ class ChessGame:
         game.current_turn = data['current_turn']
         game.move_history = data.get('move_history', [])
         game.captured = data.get('captured', {'white': [], 'black': []})
+        game.white_time = data['white_time']
+        game.black_time = data['black_time']
+        game.last_ts = data['last_ts']
         
         cache_data = data.get('valid_moves_cache', {})
         game.valid_moves_cache = {}
@@ -132,6 +142,15 @@ class ChessGame:
 
         # Switch turn
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+
+        self.update_clock()
+
+        if self.white_time == 0:
+            return False, "White ran out of time", None
+        if self.black_time == 0:
+            return False, "Black ran out of time", None
+        
+        self.last_ts = time.time()
         
         return True, notation, captured
 
@@ -176,3 +195,15 @@ class ChessGame:
     def _color(piece):
         if not piece: return None
         return 'white' if piece.isupper() else 'black'
+    
+    def update_clock(self):
+        now = time.time()
+        elapsed = int(now - self.last_ts)
+
+        if elapsed > 0:
+            if self.current_turn == 'white':
+                self.white_time = max(0, self.white_time - elapsed)
+            else:
+                self.black_time = max(0, self.black_time - elapsed)
+
+            self.last_ts = now
