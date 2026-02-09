@@ -13,8 +13,9 @@ from .engine import ChessGame
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
-    game = ChessGame()
-    request.session['game'] = game.to_dict()
+    if 'game' not in request.session:
+        game = ChessGame()
+        request.session['game'] = game.to_dict()
     return render(request, 'game/board.html')
 
 
@@ -84,4 +85,19 @@ def new_game(request):
         'current_turn': game.current_turn,
         'move_history': [],
         'captured_pieces': {'white': [], 'black': []},
+    })
+
+@require_GET
+def get_state(request):
+    game_data = request.session.get('game')
+    if not game_data:
+        game = ChessGame()
+        request.session['game'] = game.to_dict()
+        game_data = game.to_dict()
+
+    return JsonResponse({
+        'board': game_data['board'],
+        'current_turn': game_data['current_turn'],
+        'move_history': game_data['move_history'],
+        'captured_pieces': game_data['captured'],
     })
