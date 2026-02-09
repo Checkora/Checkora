@@ -353,6 +353,65 @@
         .clock.white .label { color: #ddd; }
         .clock.black .label { color: #aaa; }
 
+        /* ================= PROMOTION MODAL ================= */
+
+        .promo-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .promo-overlay.active { display: flex; }
+
+        .promo-dialog {
+            background: #1a1a30;
+            border: 2px solid #f0c040;
+            border-radius: 12px;
+            padding: 24px 28px;
+            text-align: center;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+        }
+
+        .promo-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #f0c040;
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .promo-pieces {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .promo-btn {
+            width: 64px;
+            height: 64px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #252545;
+            cursor: pointer;
+            padding: 6px;
+            transition: all 0.2s ease;
+        }
+        .promo-btn:hover {
+            border-color: #f0c040;
+            background: #2a2a55;
+            transform: scale(1.08);
+            box-shadow: 0 0 12px rgba(240, 192, 64, 0.3);
+        }
+        .promo-btn img {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
     </style>
 </head>
 <body>
@@ -423,6 +482,14 @@
 
     </div>
 
+    <!-- ========== PROMOTION MODAL ========== -->
+    <div class="promo-overlay" id="promoOverlay">
+        <div class="promo-dialog">
+            <div class="promo-title">Promote Pawn</div>
+            <div class="promo-pieces" id="promoChoices"></div>
+        </div>
+    </div>
+
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
@@ -453,6 +520,7 @@
         let whiteTime = 0;
         let blackTime = 0;
         let timerInterval = null;
+        let pendingPromo = null;  // { fr, fc, tr, tc } awaiting promotion choice
 
         /* ==============================================================
            DOM references
@@ -464,6 +532,8 @@
         const wCapEl    = document.getElementById('whiteCaptured');
         const bCapEl    = document.getElementById('blackCaptured');
         const newGameEl = document.getElementById('newGameBtn');
+        const promoOverlay = document.getElementById('promoOverlay');
+        const promoChoices = document.getElementById('promoChoices');
 
         /* ==============================================================
            CSRF
@@ -607,15 +677,71 @@
         }
 
         /* ==============================================================
+           Promotion modal helpers
+           ============================================================== */
+        function isPromotionMove(fr, fc, tr) {
+            const p = board[fr][fc];
+            if (!p) return false;
+            return (p === 'P' && tr === 0) || (p === 'p' && tr === 7);
+        }
+
+        function showPromoModal(color) {
+            const prefix = color === 'white' ? 'w' : 'b';
+            const pieces = [
+                { key: 'q', label: 'Queen' },
+                { key: 'r', label: 'Rook' },
+                { key: 'b', label: 'Bishop' },
+                { key: 'n', label: 'Knight' },
+            ];
+            promoChoices.innerHTML = '';
+            pieces.forEach(({ key }) => {
+                const btn = document.createElement('button');
+                btn.className = 'promo-btn';
+                const img = document.createElement('img');
+                img.src = PIECE_IMG[prefix + key];
+                btn.appendChild(img);
+                btn.addEventListener('click', () => onPromoChoice(key));
+                promoChoices.appendChild(btn);
+            });
+            promoOverlay.classList.add('active');
+        }
+
+        function hidePromoModal() {
+            promoOverlay.classList.remove('active');
+            pendingPromo = null;
+        }
+
+        async function onPromoChoice(choice) {
+            if (!pendingPromo) return;
+            const { fr, fc, tr, tc } = pendingPromo;
+            hidePromoModal();
+            await executeMove(fr, fc, tr, tc, choice);
+        }
+
+        /* ==============================================================
            Move execution
            ============================================================== */
         async function tryMove(fr, fc, tr, tc) {
             clearStatus();
+            if (isPromotionMove(fr, fc, tr)) {
+                pendingPromo = { fr, fc, tr, tc };
+                const color = pColor(board[fr][fc]);
+                showPromoModal(color);
+                return;
+            }
+            await executeMove(fr, fc, tr, tc, null);
+        }
+
+        async function executeMove(fr, fc, tr, tc, promotionPiece) {
+            clearStatus();
             try {
-                const data = await post('/api/move/', {
+                const body = {
                     from_row: fr, from_col: fc,
                     to_row: tr, to_col: tc,
-                });
+                };
+                if (promotionPiece) body.promotion_piece = promotionPiece;
+
+                const data = await post('/api/move/', body);
                 if (data.valid) {
                     board = data.board;
                     turn  = data.current_turn;

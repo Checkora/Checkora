@@ -9,9 +9,16 @@
  * -> VALID | INVALID <reason>
  *
  * MOVES <board64> <turn> <row> <col>
- * -> MOVES [<row> <col> <is_capture> ...]
- * * ATTACKED <board64> <attackerColor> <row> <col>
+ * -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
+ *
+ * ATTACKED <board64> <attackerColor> <row> <col>
  * -> YES | NO
+ *
+ * PROMOTE <board64> <turn> <fr> <fc> <tr> <tc> <promoPiece>
+ * -> PROMOTE <newBoard64>
+ *    Validates the promotion move, applies it to the board,
+ *    and returns the resulting 64-char board string.
+ *    Returns INVALID if the move is not a legal promotion.
  */
 
 #include <iostream>
@@ -33,6 +40,15 @@ void loadBoard(const string &s) {
         board[i / 8][i % 8] = s[i];
 }
 
+string serializeBoard() {
+    string s;
+    s.reserve(64);
+    for (int r = 0; r < 8; r++)
+        for (int c = 0; c < 8; c++)
+            s += board[r][c];
+    return s;
+}
+
 // ============================================================
 //  Piece helpers
 // ============================================================
@@ -49,6 +65,32 @@ string colorOf(char c) {
 
 bool inBounds(int r, int c) {
     return r >= 0 && r < 8 && c >= 0 && c < 8;
+}
+
+// ============================================================
+//  Promotion helpers
+// ============================================================
+
+/**
+ * Returns true when a pawn is moving to its promotion rank.
+ * White pawns promote at row 0, black pawns at row 7.
+ */
+bool isPromotionMove(char piece, int toRow) {
+    if (piece == 'P' && toRow == 0) return true;
+    if (piece == 'p' && toRow == 7) return true;
+    return false;
+}
+
+/**
+ * Resolves the promoted piece character.
+ * Accepts q/r/b/n (case-insensitive), defaults to queen.
+ * Preserves the colour of the original pawn.
+ */
+char resolvePromotion(char pawn, char choice) {
+    char lower = tolower(choice);
+    if (lower != 'q' && lower != 'r' && lower != 'b' && lower != 'n')
+        lower = 'q';                       // default to queen
+    return isWhite(pawn) ? toupper(lower) : lower;
 }
 
 // ============================================================
@@ -212,12 +254,55 @@ void handleMoves(const string &turn, int row, int col) {
     for (int tr = 0; tr < 8; tr++) {
         for (int tc = 0; tc < 8; tc++) {
             if (validateMove(turn, row, col, tr, tc, true)) {
-                int cap = isEmpty(board[tr][tc]) ? 0 : 1;
-                cout << " " << tr << " " << tc << " " << cap;
+                int cap   = isEmpty(board[tr][tc]) ? 0 : 1;
+                int promo = isPromotionMove(piece, tr) ? 1 : 0;
+                cout << " " << tr << " " << tc << " " << cap << " " << promo;
             }
         }
     }
     cout << endl;
+}
+
+// ============================================================
+//  PROMOTE handler
+// ============================================================
+
+/**
+ * Validates a promotion move, applies it on the board, and returns
+ * the new 64-char board string so the Python layer stays in sync.
+ *
+ * Protocol:
+ *   PROMOTE <board64> <turn> <fr> <fc> <tr> <tc> <promoPiece>
+ *   -> PROMOTE <newBoard64>   (on success)
+ *   -> INVALID <reason>       (on failure)
+ */
+void handlePromote(const string &turn, int fr, int fc, int tr, int tc,
+                   char promoPiece) {
+    char piece = board[fr][fc];
+
+    // 1. The source must be a pawn of the current player
+    if (isEmpty(piece) || colorOf(piece) != turn || tolower(piece) != 'p') {
+        cout << "INVALID Not a pawn" << endl;
+        return;
+    }
+
+    // 2. The move itself must be legal (single-push or diagonal capture)
+    if (!validateMove(turn, fr, fc, tr, tc, true)) {
+        cout << "INVALID Illegal move" << endl;
+        return;
+    }
+
+    // 3. The target row must be the promotion rank
+    if (!isPromotionMove(piece, tr)) {
+        cout << "INVALID Not a promotion square" << endl;
+        return;
+    }
+
+    // 4. Apply the move and promote
+    board[tr][tc] = resolvePromotion(piece, promoPiece);
+    board[fr][fc] = '.';
+
+    cout << "PROMOTE " << serializeBoard() << endl;
 }
 
 int main() {
@@ -241,6 +326,12 @@ int main() {
             loadBoard(b);
             if (isSquareAttacked(r, c, attackerColor)) cout << "YES" << endl;
             else cout << "NO" << endl;
+        }
+        else if (command == "PROMOTE") {
+            string b, t; int fr, fc, tr, tc; char promo;
+            cin >> b >> t >> fr >> fc >> tr >> tc >> promo;
+            loadBoard(b);
+            handlePromote(t, fr, fc, tr, tc, promo);
         }
     }
     return 0;

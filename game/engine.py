@@ -116,18 +116,35 @@ class ChessGame:
                 return True, "Valid move."
         return False, "Illegal move."
 
-    def make_move(self, fr, fc, tr, tc):
+    def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """Execute move and invalidate cache to ensure fresh calculations."""
         piece = self.board[fr][fc]
         captured = self.board[tr][tc]
 
-        self.board[tr][tc] = piece
-        self.board[fr][fc] = None
+        # Pawn promotion: delegate to C++ engine for validation + board update
+        promoted = False
+        if self._is_promotion(piece, tr):
+            choice = (promotion_piece or 'q').lower()
+            new_board = self._call_engine_promote(fr, fc, tr, tc, choice)
+            if new_board:
+                # C++ returned the updated board — apply it directly
+                self.board = self._parse_board64(new_board)
+                promoted = True
+            else:
+                # Fallback: apply promotion in Python
+                self.board[tr][tc] = self._promote(piece, promotion_piece)
+                self.board[fr][fc] = None
+                promoted = True
+        else:
+            self.board[tr][tc] = piece
+            self.board[fr][fc] = None
 
         if captured:
             self.captured[self.current_turn].append(captured)
 
         notation = self._notation(fr, fc, tr, tc, piece, captured)
+        if promoted:
+            notation += '=' + (self.board[tr][tc] or 'Q').upper()
         self.move_history.append({
             'notation': notation,
             'piece': piece,
@@ -135,6 +152,7 @@ class ChessGame:
             'to': [tr, tc],
             'captured': captured,
             'color': self.current_turn,
+            'promoted_to': self.board[tr][tc] if promoted else None,
         })
 
         # Invalidate DP cache because board state has changed
@@ -175,17 +193,71 @@ class ChessGame:
         moves = []
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
-            for i in range(0, len(parts), 3):
+            # C++ now returns 4 fields per move: row col is_capture is_promotion
+            for i in range(0, len(parts), 4):
                 moves.append({
                     'row': int(parts[i]),
                     'col': int(parts[i+1]),
-                    'is_capture': bool(int(parts[i+2]))
+                    'is_capture': bool(int(parts[i+2])),
+                    'is_promotion': bool(int(parts[i+3])),
                 })
         return moves
 
     # ------------------------------------------------------------------
+    #  C++ engine promotion
+    # ------------------------------------------------------------------
+
+    def _call_engine_promote(self, fr, fc, tr, tc, choice):
+        """Ask the C++ engine to validate and apply a promotion move.
+
+        Returns the new 64-char board string on success, or None.
+        """
+        board_str = self.serialize_board()
+        cmd = f"PROMOTE {board_str} {self.current_turn} {fr} {fc} {tr} {tc} {choice}"
+        resp = self._call_engine(cmd)
+        if resp and resp.startswith("PROMOTE"):
+            return resp.split()[1]
+        return None
+
+    @staticmethod
+    def _parse_board64(board_str):
+        """Convert a 64-char string back into an 8x8 list."""
+        result = []
+        for r in range(8):
+            row = []
+            for c in range(8):
+                ch = board_str[r * 8 + c]
+                row.append(None if ch == '.' else ch)
+            result.append(row)
+        return result
+
+    # ------------------------------------------------------------------
     #  Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_promotion(piece, to_row):
+        """Return True when a pawn reaches the opponent's back rank."""
+        if not piece:
+            return False
+        return (piece == 'P' and to_row == 0) or (piece == 'p' and to_row == 7)
+
+    @staticmethod
+    def _promote(piece, choice=None):
+        """Return the promoted piece character (defaults to queen)."""
+        valid = {'q', 'r', 'b', 'n'}
+        choice = (choice or 'q').lower()
+        if choice not in valid:
+            choice = 'q'
+        return choice.upper() if piece.isupper() else choice.lower()
+
+    @staticmethod
+    def is_promotion_move(board, fr, fc, tr):
+        """Public helper: check if a planned move would trigger promotion."""
+        piece = board[fr][fc]
+        if not piece:
+            return False
+        return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
 
     def _notation(self, fr, fc, tr, tc, piece, captured):
         to_sq = f"{self.FILES[fc]}{8 - fr} -> {self.FILES[tc]}{8 - tr}"
