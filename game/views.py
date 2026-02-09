@@ -29,6 +29,7 @@ def make_move(request):
         from_col = int(data['from_col'])
         to_row = int(data['to_row'])
         to_col = int(data['to_col'])
+        promotion_piece = data.get('promotion_piece', None)
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return JsonResponse(
             {'valid': False, 'message': 'Invalid request data.'},
@@ -39,7 +40,7 @@ def make_move(request):
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
     success, message, captured = game.make_move(
-        from_row, from_col, to_row, to_col,
+        from_row, from_col, to_row, to_col, promotion_piece,
     )
 
     if success:
@@ -89,6 +90,26 @@ def new_game(request):
         'move_history': [],
         'captured_pieces': {'white': [], 'black': []},
     })
+
+@require_GET
+def check_promotion(request):
+    """Return whether a planned move triggers pawn promotion."""
+    try:
+        from_row = int(request.GET['from_row'])
+        from_col = int(request.GET['from_col'])
+        to_row = int(request.GET['to_row'])
+    except (KeyError, ValueError, TypeError):
+        return JsonResponse({'is_promotion': False})
+
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'is_promotion': False})
+
+    is_promo = ChessGame.is_promotion_move(
+        game_data['board'], from_row, from_col, to_row,
+    )
+    return JsonResponse({'is_promotion': is_promo})
+
 
 @require_GET
 def get_state(request):
