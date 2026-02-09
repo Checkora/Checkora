@@ -374,17 +374,7 @@
         /* ==============================================================
            Mutable state
            ============================================================== */
-        let board = [
-            ['r','n','b','q','k','b','n','r'],
-            ['p','p','p','p','p','p','p','p'],
-            [null,null,null,null,null,null,null,null],
-            [null,null,null,null,null,null,null,null],
-            [null,null,null,null,null,null,null,null],
-            [null,null,null,null,null,null,null,null],
-            ['P','P','P','P','P','P','P','P'],
-            ['R','N','B','Q','K','B','N','R'],
-        ];
-
+        let board = [];
         let turn      = 'white';
         let selected  = null;   // { row, col }
         let hints     = [];     // [{ row, col, is_capture }]
@@ -439,6 +429,20 @@
            Board — build once, then sync piece images
            ============================================================== */
         function sq(r, c) { return boardEl.children[r * 8 + c]; }
+
+        async function loadGame() {
+            try {
+                const data = await get('/api/state/');
+                board = data.board;
+                turn = data.current_turn;
+                updateTurn();
+                updateMoves(data.move_history);
+                updateCaptured(data.captured_pieces);
+                buildBoard();
+            } catch {
+                showStatus('Failed to load game.', true);
+            }
+        }
 
         function buildBoard() {
             boardEl.innerHTML = '';
@@ -689,8 +693,7 @@
         /* ==============================================================
            Initialise
            ============================================================== */
-        buildBoard();
-        updateTurn();
+        loadGame();
     })();
     </script>
 
