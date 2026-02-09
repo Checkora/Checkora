@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cctype>
 #include <vector>
+#include <bits/stdc++.h>
 
 using namespace std;
 
@@ -30,7 +31,7 @@ char board[8][8];
 
 void loadBoard(const string &s) {
     for (int i = 0; i < 64; i++)
-        board[i / 8][i % 8] = s[i];
+        board[i / 8][i % 8] = s[static_cast<std::string::size_type>(i)];
 }
 
 // ============================================================
@@ -94,7 +95,7 @@ bool isSquareAttacked(int tr, int tc, string attackerColor) {
             char p = board[r][c];
             if (!isEmpty(p)) {
                 if (colorOf(p) == attackerColor) {
-                    char type = tolower(p);
+                    char type = static_cast<char>(tolower(static_cast<unsigned char>(p)));
                     if (i < 4 && (type == 'r' || type == 'q')) return true;
                     if (i >= 4 && (type == 'b' || type == 'q')) return true;
                 }
@@ -180,7 +181,7 @@ bool validateMove(const string &turn, int fr, int fc, int tr, int tc, bool silen
     char target = board[tr][tc];
     if (!isEmpty(target) && colorOf(target) == turn) return false;
 
-    char type = tolower(piece);
+    char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
     bool ok = false;
 
     switch (type) {
