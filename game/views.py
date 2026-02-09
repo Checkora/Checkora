@@ -51,6 +51,8 @@ def make_move(request):
         'captured': captured,
         'board': game.board,
         'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
     })
@@ -98,6 +100,8 @@ def get_state(request):
     return JsonResponse({
         'board': game_data['board'],
         'current_turn': game_data['current_turn'],
+        'white_time': game_data['white_time'],
+        'black_time': game_data['black_time'],
         'move_history': game_data['move_history'],
         'captured_pieces': game_data['captured'],
     })
