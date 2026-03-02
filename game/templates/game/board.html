@@ -680,6 +680,7 @@
         function isPromotionMove(fr, fc, tr) {
             const p = board[fr][fc];
             if (!p) return false;
+            // White pawn ('P') rank 0 par, ya Black pawn ('p') rank 7 par
             return (p === 'P' && tr === 0) || (p === 'p' && tr === 7);
         }
 
@@ -698,7 +699,10 @@
                 const img = document.createElement('img');
                 img.src = PIECE_IMG[prefix + key];
                 btn.appendChild(img);
-                btn.addEventListener('click', () => onPromoChoice(key));
+                
+                // Click karne par promotion choice bhejo
+                btn.onclick = () => onPromoChoice(key);
+                
                 promoChoices.appendChild(btn);
             });
             promoOverlay.classList.add('active');
@@ -775,38 +779,7 @@
                 statusEl.className = 'status-bar error';
             }
         }
-        async function tryMove(fr,fc,tr,tc) {
-            if (paused) return;
-            
-            const piece = board[fr][fc];
-            if (!piece || pColor(piece) !== turn) {
-                return;
-            }
-
-            const data = await post('/api/move/', {
-                from_row: fr, from_col: fc,
-                to_row: tr, to_col: tc
-            });
-
-            if (!data.valid) {
-                showStatus(data.message, true);
-                deselect();
-                return;
-            }
-
-            board = data.board;
-            turn = data.current_turn;
-            lastMove = {from:[fr,fc], to:[tr,tc]};
-
-            selected = null;
-            hints = []
-
-            syncPieces();
-            updateTurn();
-            updateMoves(data.move_history);
-            updateCaptured(data.captured_pieces);
-            startTimer();
-        }
+        
 
         /* ==========================================================
         EVENTS
