@@ -292,3 +292,33 @@ class ChessGame:
 
         self.last_ts = now
 
+    # ------------------------------------------------------------------
+    #  AI -- Minimax via C++ engine
+    # ------------------------------------------------------------------
+
+    AI_SEARCH_DEPTH = 3  # plies (increase for stronger play, slower response)
+
+    def get_ai_move(self):
+        """Ask the C++ engine to compute the best move using minimax.
+
+        Returns a dict with from/to coordinates, or None when no
+        legal move exists (checkmate / stalemate).
+        """
+        board_str = self.serialize_board()
+        cmd = f"BESTMOVE {board_str} {self.current_turn} {self.AI_SEARCH_DEPTH}"
+        resp = self._call_engine(cmd)
+
+        if not resp or not resp.startswith("BESTMOVE"):
+            return None
+
+        parts = resp.split()
+        if len(parts) < 5 or parts[1] == "NONE":
+            return None
+
+        return {
+            'from_row': int(parts[1]),
+            'from_col': int(parts[2]),
+            'to_row':   int(parts[3]),
+            'to_col':   int(parts[4]),
+        }
+

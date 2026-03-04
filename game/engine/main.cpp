@@ -26,6 +26,8 @@
 #include <cmath>
 #include <cctype>
 #include <vector>
+#include <climits>
+#include <algorithm>
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -306,6 +308,355 @@ void handlePromote(const string &turn, int fr, int fc, int tr, int tc,
     cout << "PROMOTE " << serializeBoard() << endl;
 }
 
+// ============================================================
+//  Minimax AI -- Evaluation + Alpha-Beta Search
+// ============================================================
+
+/**
+ * Material values (centipawns).
+ * Standard chess piece values used by most engines.
+ */
+int pieceValue(char p) {
+    switch (tolower(p)) {
+        case 'p': return 100;
+        case 'n': return 320;
+        case 'b': return 330;
+        case 'r': return 500;
+        case 'q': return 900;
+        case 'k': return 20000;
+        default:  return 0;
+    }
+}
+
+/**
+ * Piece-square tables for positional scoring.
+ * Values are from White's perspective (row 0 = rank 8).
+ * For black pieces the table is mirrored vertically.
+ */
+
+// clang-format off
+static const int pawnTable[8][8] = {
+    {  0,  0,  0,  0,  0,  0,  0,  0},
+    { 50, 50, 50, 50, 50, 50, 50, 50},
+    { 10, 10, 20, 30, 30, 20, 10, 10},
+    {  5,  5, 10, 25, 25, 10,  5,  5},
+    {  0,  0,  0, 20, 20,  0,  0,  0},
+    {  5, -5,-10,  0,  0,-10, -5,  5},
+    {  5, 10, 10,-20,-20, 10, 10,  5},
+    {  0,  0,  0,  0,  0,  0,  0,  0}
+};
+
+static const int knightTable[8][8] = {
+    {-50,-40,-30,-30,-30,-30,-40,-50},
+    {-40,-20,  0,  0,  0,  0,-20,-40},
+    {-30,  0, 10, 15, 15, 10,  0,-30},
+    {-30,  5, 15, 20, 20, 15,  5,-30},
+    {-30,  0, 15, 20, 20, 15,  0,-30},
+    {-30,  5, 10, 15, 15, 10,  5,-30},
+    {-40,-20,  0,  5,  5,  0,-20,-40},
+    {-50,-40,-30,-30,-30,-30,-40,-50}
+};
+
+static const int bishopTable[8][8] = {
+    {-20,-10,-10,-10,-10,-10,-10,-20},
+    {-10,  0,  0,  0,  0,  0,  0,-10},
+    {-10,  0, 10, 10, 10, 10,  0,-10},
+    {-10,  5,  5, 10, 10,  5,  5,-10},
+    {-10,  0,  5, 10, 10,  5,  0,-10},
+    {-10, 10, 10, 10, 10, 10, 10,-10},
+    {-10,  5,  0,  0,  0,  0,  5,-10},
+    {-20,-10,-10,-10,-10,-10,-10,-20}
+};
+
+static const int rookTable[8][8] = {
+    {  0,  0,  0,  0,  0,  0,  0,  0},
+    {  5, 10, 10, 10, 10, 10, 10,  5},
+    { -5,  0,  0,  0,  0,  0,  0, -5},
+    { -5,  0,  0,  0,  0,  0,  0, -5},
+    { -5,  0,  0,  0,  0,  0,  0, -5},
+    { -5,  0,  0,  0,  0,  0,  0, -5},
+    { -5,  0,  0,  0,  0,  0,  0, -5},
+    {  0,  0,  0,  5,  5,  0,  0,  0}
+};
+
+static const int queenTable[8][8] = {
+    {-20,-10,-10, -5, -5,-10,-10,-20},
+    {-10,  0,  0,  0,  0,  0,  0,-10},
+    {-10,  0,  5,  5,  5,  5,  0,-10},
+    { -5,  0,  5,  5,  5,  5,  0, -5},
+    {  0,  0,  5,  5,  5,  5,  0, -5},
+    {-10,  5,  5,  5,  5,  5,  0,-10},
+    {-10,  0,  5,  0,  0,  0,  0,-10},
+    {-20,-10,-10, -5, -5,-10,-10,-20}
+};
+
+static const int kingMiddleTable[8][8] = {
+    {-30,-40,-40,-50,-50,-40,-40,-30},
+    {-30,-40,-40,-50,-50,-40,-40,-30},
+    {-30,-40,-40,-50,-50,-40,-40,-30},
+    {-30,-40,-40,-50,-50,-40,-40,-30},
+    {-20,-30,-30,-40,-40,-30,-30,-20},
+    {-10,-20,-20,-20,-20,-20,-20,-10},
+    { 20, 20,  0,  0,  0,  0, 20, 20},
+    { 20, 30, 10,  0,  0, 10, 30, 20}
+};
+// clang-format on
+
+/**
+ * Positional bonus for a single piece at (row, col).
+ * White reads the table top-down; black mirrors it.
+ */
+int positionalBonus(char piece, int row, int col) {
+    char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
+    int r = isWhite(piece) ? row : (7 - row);
+
+    switch (type) {
+        case 'p': return pawnTable[r][col];
+        case 'n': return knightTable[r][col];
+        case 'b': return bishopTable[r][col];
+        case 'r': return rookTable[r][col];
+        case 'q': return queenTable[r][col];
+        case 'k': return kingMiddleTable[r][col];
+        default:  return 0;
+    }
+}
+
+/**
+ * Static evaluation of the current board.
+ * Positive => white advantage, negative => black advantage.
+ */
+int evaluate() {
+    int score = 0;
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            char p = board[r][c];
+            if (isEmpty(p)) continue;
+
+            int val = pieceValue(p) + positionalBonus(p, r, c);
+            score += isWhite(p) ? val : -val;
+        }
+    }
+    return score;
+}
+
+/**
+ * Represents a single move with from/to squares.
+ */
+struct Move {
+    int fr, fc, tr, tc;
+    char promoPiece;  // '\0' if not a promotion
+};
+
+/**
+ * Generate all pseudo-legal moves for the given side.
+ * Promotions automatically queen (keeping the search tree manageable).
+ */
+vector<Move> generateMoves(const string &side) {
+    vector<Move> moves;
+    moves.reserve(64);
+
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            char p = board[r][c];
+            if (isEmpty(p) || colorOf(p) != side) continue;
+
+            for (int tr = 0; tr < 8; tr++) {
+                for (int tc = 0; tc < 8; tc++) {
+                    if (validateMove(side, r, c, tr, tc, true)) {
+                        Move m;
+                        m.fr = r; m.fc = c;
+                        m.tr = tr; m.tc = tc;
+                        m.promoPiece = isPromotionMove(p, tr) ? (isWhite(p) ? 'Q' : 'q') : '\0';
+                        moves.push_back(m);
+                    }
+                }
+            }
+        }
+    }
+    return moves;
+}
+
+/**
+ * Simple move-ordering heuristic: captures first, then promotions.
+ * Helps alpha-beta prune more effectively.
+ */
+void orderMoves(vector<Move> &moves) {
+    sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
+        int sa = 0, sb = 0;
+
+        // Captures scored by victim value
+        if (!isEmpty(board[a.tr][a.tc])) sa += pieceValue(board[a.tr][a.tc]) + 1000;
+        if (!isEmpty(board[b.tr][b.tc])) sb += pieceValue(board[b.tr][b.tc]) + 1000;
+
+        // Promotions
+        if (a.promoPiece) sa += 900;
+        if (b.promoPiece) sb += 900;
+
+        return sa > sb;  // higher score first
+    });
+}
+
+/**
+ * Find the king position for a given colour.
+ */
+pair<int,int> findKing(const string &color) {
+    char target = (color == "white") ? 'K' : 'k';
+    for (int r = 0; r < 8; r++)
+        for (int c = 0; c < 8; c++)
+            if (board[r][c] == target) return {r, c};
+    return {-1, -1};
+}
+
+/**
+ * Check whether a move leaves the player's own king in check.
+ * If it does, the move is illegal and should be skipped.
+ */
+bool leavesKingInCheck(const Move &m, const string &side) {
+    // Save state
+    char srcPiece = board[m.fr][m.fc];
+    char dstPiece = board[m.tr][m.tc];
+
+    // Apply
+    board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : srcPiece;
+    board[m.fr][m.fc] = '.';
+
+    string opponent = (side == "white") ? "black" : "white";
+    pair<int,int> kpos = findKing(side);
+    bool inCheck = (kpos.first >= 0) && isSquareAttacked(kpos.first, kpos.second, opponent);
+
+    // Undo
+    board[m.fr][m.fc] = srcPiece;
+    board[m.tr][m.tc] = dstPiece;
+
+    return inCheck;
+}
+
+/**
+ * Minimax with alpha-beta pruning.
+ *
+ *   depth      : remaining plies to search
+ *   alpha/beta : pruning window
+ *   maximizing : true when it is White's turn (White maximises)
+ *
+ * Returns the static evaluation at leaf nodes.
+ */
+int minimax(int depth, int alpha, int beta, bool maximizing) {
+    if (depth == 0) return evaluate();
+
+    string side = maximizing ? "white" : "black";
+    vector<Move> moves = generateMoves(side);
+    orderMoves(moves);
+
+    // Filter out moves that leave own king in check
+    vector<Move> legal;
+    legal.reserve(moves.size());
+    for (auto &m : moves) {
+        if (!leavesKingInCheck(m, side))
+            legal.push_back(m);
+    }
+
+    // No legal moves: checkmate or stalemate
+    if (legal.empty()) {
+        string opponent = maximizing ? "black" : "white";
+        pair<int,int> kpos = findKing(side);
+        if (kpos.first >= 0 && isSquareAttacked(kpos.first, kpos.second, opponent))
+            return maximizing ? (-99999 + (100 - depth))   // checkmate (bad for side)
+                              : ( 99999 - (100 - depth));
+        return 0;  // stalemate
+    }
+
+    if (maximizing) {
+        int maxEval = INT_MIN;
+        for (auto &m : legal) {
+            char src = board[m.fr][m.fc];
+            char dst = board[m.tr][m.tc];
+            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
+            board[m.fr][m.fc] = '.';
+
+            int eval = minimax(depth - 1, alpha, beta, false);
+
+            board[m.fr][m.fc] = src;
+            board[m.tr][m.tc] = dst;
+
+            maxEval = max(maxEval, eval);
+            alpha = max(alpha, eval);
+            if (beta <= alpha) break;
+        }
+        return maxEval;
+    } else {
+        int minEval = INT_MAX;
+        for (auto &m : legal) {
+            char src = board[m.fr][m.fc];
+            char dst = board[m.tr][m.tc];
+            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
+            board[m.fr][m.fc] = '.';
+
+            int eval = minimax(depth - 1, alpha, beta, true);
+
+            board[m.fr][m.fc] = src;
+            board[m.tr][m.tc] = dst;
+
+            minEval = min(minEval, eval);
+            beta = min(beta, eval);
+            if (beta <= alpha) break;
+        }
+        return minEval;
+    }
+}
+
+/**
+ * BESTMOVE handler.
+ *
+ * Protocol:
+ *   BESTMOVE <board64> <turn> <depth>
+ *   -> BESTMOVE <fr> <fc> <tr> <tc>
+ *   -> BESTMOVE NONE            (no legal moves)
+ *
+ * Runs minimax to the requested depth and returns the best move
+ * for the given side.
+ */
+void handleBestMove(const string &turn, int depth) {
+    bool maximizing = (turn == "white");
+    vector<Move> moves = generateMoves(turn);
+    orderMoves(moves);
+
+    vector<Move> legal;
+    legal.reserve(moves.size());
+    for (auto &m : moves) {
+        if (!leavesKingInCheck(m, turn))
+            legal.push_back(m);
+    }
+
+    if (legal.empty()) {
+        cout << "BESTMOVE NONE" << endl;
+        return;
+    }
+
+    Move best = legal[0];
+    int bestVal = maximizing ? INT_MIN : INT_MAX;
+
+    for (auto &m : legal) {
+        char src = board[m.fr][m.fc];
+        char dst = board[m.tr][m.tc];
+        board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
+        board[m.fr][m.fc] = '.';
+
+        int eval = minimax(depth - 1, INT_MIN, INT_MAX, !maximizing);
+
+        board[m.fr][m.fc] = src;
+        board[m.tr][m.tc] = dst;
+
+        if (maximizing) {
+            if (eval > bestVal) { bestVal = eval; best = m; }
+        } else {
+            if (eval < bestVal) { bestVal = eval; best = m; }
+        }
+    }
+
+    cout << "BESTMOVE " << best.fr << " " << best.fc
+         << " " << best.tr << " " << best.tc << endl;
+}
+
 int main() {
     string command;
     while (cin >> command) {
@@ -333,6 +684,12 @@ int main() {
             cin >> b >> t >> fr >> fc >> tr >> tc >> promo;
             loadBoard(b);
             handlePromote(t, fr, fc, tr, tc, promo);
+        }
+        else if (command == "BESTMOVE") {
+            string b, t; int depth;
+            cin >> b >> t >> depth;
+            loadBoard(b);
+            handleBestMove(t, depth);
         }
     }
     return 0;

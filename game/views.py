@@ -178,3 +178,47 @@ def set_pause(request):
     })
 
 
+@require_POST
+def ai_move(request):
+    """Let the engine compute and play the best move for the current side."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    if game.mode != 'ai':
+        return JsonResponse({'valid': False, 'message': 'Not in AI mode.'}, status=400)
+
+    best = game.get_ai_move()
+    if not best:
+        return JsonResponse({
+            'valid': False,
+            'message': 'No legal moves available.',
+            'board': game.board,
+            'current_turn': game.current_turn,
+        })
+
+    success, message, captured = game.make_move(
+        best['from_row'], best['from_col'],
+        best['to_row'],   best['to_col'],
+    )
+
+    if success:
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+
+    return JsonResponse({
+        'valid': success,
+        'message': message,
+        'captured': captured,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'ai_move': best,
+    })
+
+

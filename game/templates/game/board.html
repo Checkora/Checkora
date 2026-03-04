@@ -809,12 +809,50 @@
                     syncPieces();
                     renderClocks(); 
                     startTimer();
+
+                    // Trigger AI response when it is the engine's turn
+                    if (gameMode === 'ai' && turn === 'black') {
+                        requestAIMove();
+                    }
                 } else {
                     showStatus(data.message, true);
                     deselect();
                 }
             } catch (e) {
                 showStatus('Connection error.', true);
+            }
+        }
+
+        /* ==============================================================
+           AI move request
+           ============================================================== */
+        async function requestAIMove() {
+            showStatus('AI is thinking...', false);
+            try {
+                const data = await post('/api/ai-move/', {});
+                if (data.valid) {
+                    const mv = data.ai_move;
+                    board = data.board;
+                    turn  = data.current_turn;
+                    lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
+
+                    whiteTime = data.white_time;
+                    blackTime = data.black_time;
+
+                    selected = null;
+                    hints = [];
+                    updateTurn();
+                    updateMoves(data.move_history);
+                    updateCaptured(data.captured_pieces);
+                    syncPieces();
+                    renderClocks();
+                    startTimer();
+                    showStatus('Your turn.', false);
+                } else {
+                    showStatus(data.message, true);
+                }
+            } catch (e) {
+                showStatus('AI connection error.', true);
             }
         }
 
