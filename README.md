@@ -37,9 +37,7 @@ python manage.py runserver
 
 Open **http://127.0.0.1:8000/** in your browser.
 
-### Compiling the C++ Engine (Optional)
-
-The platform includes a pure-Python fallback, so the C++ engine is optional. To compile it for faster validation:
+### Compiling the C++ Engine
 
 ```bash
 # Windows (g++)
