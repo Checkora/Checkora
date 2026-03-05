@@ -617,7 +617,7 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
 }
 
 // ============================================================
-//  STATUS handler — check / checkmate / stalemate detection
+//  STATUS handler - check / checkmate / stalemate detection
 // ============================================================
 
 /**

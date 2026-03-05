@@ -133,7 +133,7 @@ class ChessGame:
             choice = (promotion_piece or 'q').lower()
             new_board = self._call_engine_promote(fr, fc, tr, tc, choice)
             if new_board:
-                # C++ returned the updated board — apply it directly
+                # C++ returned the updated board - apply it directly
                 self.board = self._parse_board64(new_board)
                 promoted = True
             else:

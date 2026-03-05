@@ -1,4 +1,4 @@
-# Checkora — AI Chess Platform
+# Checkora - AI Chess Platform
 
 A high-performance hybrid chess platform with a Django backend, vanilla JavaScript frontend, and a C++ engine for move validation.
 
@@ -7,7 +7,7 @@ A high-performance hybrid chess platform with a Django backend, vanilla JavaScri
 ### Prerequisites
 
 - **Python 3.10+**
-- **C++ compiler** (g++, clang++, or MSVC) — only needed to recompile the engine
+- **C++ compiler** (g++, clang++, or MSVC) - only needed to recompile the engine
 
 ### Setup
 

@@ -90,7 +90,7 @@ class MoveValidationTest(TestCase):
     # -- Multi-move sequence ----------------------------------------
 
     def test_three_move_sequence(self):
-        """Play e4, e5, Nf3 — all valid."""
+        """Play e4, e5, Nf3 - all valid."""
         self.assertTrue(self._move(6, 4, 4, 4).json()['valid'])  # e4
         self.assertTrue(self._move(1, 4, 3, 4).json()['valid'])  # e5
         self.assertTrue(self._move(7, 6, 5, 5).json()['valid'])  # Nf3
@@ -132,7 +132,7 @@ class ValidMovesTest(TestCase):
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
     def test_rook_blocked_at_start(self):
-        """a1-rook has zero moves — surrounded by own pieces."""
+        """a1-rook has zero moves - surrounded by own pieces."""
         r = self.client.get('/api/valid-moves/?row=7&col=0')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
