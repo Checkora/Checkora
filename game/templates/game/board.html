@@ -584,7 +584,7 @@
         const promoChoices = document.getElementById('promoChoices');
         const modeBadge = document.getElementById('modeBadge'); 
 
-        // Naye Welcome aur Confirm Screen ke Variables
+        // Welcome and confirmation screen variables
         const welcomeOverlay = document.getElementById('welcomeOverlay');
         const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
         const welcomePvPBtn = document.getElementById('welcomePvPBtn');
@@ -644,7 +644,7 @@
             gameMode = data.mode || 'pvp';
             if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
-            // Agar history hai toh Resume button dikhao warna chhupao
+            // Show Resume button if move history exists, hide otherwise
             if (data.move_history && data.move_history.length > 0) {
                 if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'block';
             } else {
@@ -726,7 +726,7 @@
             const p = board[r][c];
             if (!p || pColor(p) !== turn || paused || gameOver) return;
 
-            // NAYA AI LOCK: Agar AI mode hai aur Black ki turn hai, toh click ignore karo
+            // AI LOCK: Ignore clicks when it is Black's turn in AI mode
             if (gameMode === 'ai' && turn === 'black') {
                 showStatus("Waiting for AI to move...", false);
                 return;
