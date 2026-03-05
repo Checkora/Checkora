@@ -526,6 +526,18 @@
         </div>
     </div>
 
+    <!-- ========== GAME OVER MODAL ========== -->
+    <div class="promo-overlay" id="gameOverOverlay">
+        <div class="promo-dialog" style="min-width: 320px; padding: 35px; text-align: center;">
+            <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">Game Over</div>
+            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn btn-gold" id="gameOverPvPBtn" style="padding: 12px; font-size: 1rem;">New Game (PvP)</button>
+                <button class="btn btn-gold" id="gameOverAIBtn" style="padding: 12px; font-size: 1rem;">New Game (vs AI)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
@@ -582,6 +594,13 @@
         const confirmNoBtn = document.getElementById('confirmNoBtn');
         const newPvPBtn = document.getElementById('newPvPBtn');
         const newAIBtn = document.getElementById('newAIBtn');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+        const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
+        const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+
+        let gameOver = false;
 
         /* ==========================================================
         CSRF & API HELPERS
@@ -705,7 +724,7 @@
         ========================================================== */
         async function selectPiece(r,c) {
             const p = board[r][c];
-            if (!p || pColor(p) !== turn || paused) return;
+            if (!p || pColor(p) !== turn || paused || gameOver) return;
 
             // NAYA AI LOCK: Agar AI mode hai aur Black ki turn hai, toh click ignore karo
             if (gameMode === 'ai' && turn === 'black') {
@@ -771,7 +790,7 @@
            Move execution
            ============================================================== */
         async function tryMove(fr, fc, tr, tc) {
-            if (paused) return;
+            if (paused || gameOver) return;
             const p = board[fr][fc];
             if (!p || pColor(p) !== turn) return;
 
@@ -810,6 +829,17 @@
                     renderClocks(); 
                     startTimer();
 
+                    // Check for game-ending conditions
+                    if (data.game_status === 'checkmate') {
+                        handleGameOver('checkmate', turn);
+                        return;
+                    } else if (data.game_status === 'stalemate') {
+                        handleGameOver('stalemate', turn);
+                        return;
+                    } else if (data.game_status === 'check') {
+                        showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
+                    }
+
                     // Trigger AI response when it is the engine's turn
                     if (gameMode === 'ai' && turn === 'black') {
                         requestAIMove();
@@ -847,7 +877,19 @@
                     syncPieces();
                     renderClocks();
                     startTimer();
-                    showStatus('Your turn.', false);
+
+                    // Check for game-ending conditions
+                    if (data.game_status === 'checkmate') {
+                        handleGameOver('checkmate', turn);
+                        return;
+                    } else if (data.game_status === 'stalemate') {
+                        handleGameOver('stalemate', turn);
+                        return;
+                    } else if (data.game_status === 'check') {
+                        showStatus('You are in check!', true);
+                    } else {
+                        showStatus('Your turn.', false);
+                    }
                 } else {
                     showStatus(data.message, true);
                 }
@@ -922,6 +964,28 @@
         function showStatus(msg,err) {
             statusEl.textContent = msg;
             statusEl.className = 'status-bar' + (err?' error':'');
+        }
+
+        function handleGameOver(status, currentTurn) {
+            gameOver = true;
+            paused = true;
+            clearInterval(timerInterval);
+
+            let title, message;
+            if (status === 'checkmate') {
+                // currentTurn is the side that has NO moves (is checkmated)
+                const winner = currentTurn === 'white' ? 'Black' : 'White';
+                title = 'Checkmate!';
+                message = `${winner} wins!`;
+            } else if (status === 'stalemate') {
+                title = 'Stalemate!';
+                message = 'The game is a draw.';
+            }
+
+            gameOverTitle.textContent = title;
+            gameOverMessage.textContent = message;
+            gameOverOverlay.classList.add('active');
+            showStatus(title + ' ' + message, false);
         }
 
         /* ==========================================================
@@ -1020,11 +1084,15 @@
         if (newPvPBtn) newPvPBtn.onclick = () => requestNewGame('pvp');
         if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
 
+        if (gameOverPvPBtn) gameOverPvPBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('pvp'); };
+        if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
+
         async function startNewGame(mode) {
             const d = await post('/api/new-game/', { mode: mode });
             board = d.board;
             turn = d.current_turn;
             paused = false;
+            gameOver = false;
             gameMode = d.mode;
             
             if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';

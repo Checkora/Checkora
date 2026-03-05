@@ -172,13 +172,16 @@ class ChessGame:
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'
 
         if self.white_time == 0:
-            return False, "White ran out of time", None
+            return False, "White ran out of time", None, 'timeout'
         if self.black_time == 0:
-            return False, "Black ran out of time", None
+            return False, "Black ran out of time", None, 'timeout'
         
         self.last_ts = time.time()
+
+        # Check for checkmate / stalemate / check
+        game_status = self.check_game_status()
         
-        return True, notation, captured
+        return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
         """Return legal moves from DP cache (fetches from engine if missing)."""
@@ -291,6 +294,24 @@ class ChessGame:
                 self.black_time = max(0, self.black_time - elapsed)
 
         self.last_ts = now
+
+    # ------------------------------------------------------------------
+    #  Game status detection (check / checkmate / stalemate)
+    # ------------------------------------------------------------------
+
+    def check_game_status(self):
+        """Ask the C++ engine for the game status of the current side.
+
+        Returns one of: 'checkmate', 'stalemate', 'check', 'ok'.
+        """
+        board_str = self.serialize_board()
+        cmd = f"STATUS {board_str} {self.current_turn}"
+        resp = self._call_engine(cmd)
+        if resp and resp.startswith("STATUS"):
+            status = resp.split()[1].lower()
+            if status in ('checkmate', 'stalemate', 'check', 'ok'):
+                return status
+        return 'ok'
 
     # ------------------------------------------------------------------
     #  AI -- Minimax via C++ engine
