@@ -1,76 +1,60 @@
-# Checkora - AI Chess Platform
+# Checkora
 
-A high-performance hybrid chess platform with a Django backend, vanilla JavaScript frontend, and a C++ engine for move validation.
+Chess platform with an AI opponent powered by minimax search with alpha-beta pruning, built on Django and a C++ engine.
 
-## Quick Start
-
-### Prerequisites
-
-- **Python 3.10+**
-- **C++ compiler** (g++, clang++, or MSVC) - only needed to recompile the engine
-
-### Setup
+## Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/Checkora/checkora.git
 cd checkora
-
-# Create and activate virtual environment
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-
-# Install dependencies
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt
-
-# Run database migrations
 python manage.py migrate
-
-# Start the development server
 python manage.py runserver
 ```
 
-Open **http://127.0.0.1:8000/** in your browser.
+Visit `http://127.0.0.1:8000/`.
 
-### Compiling the C++ Engine
+### Compile the Engine
+
+The compiled binary is not committed. Each contributor compiles for their own platform.
 
 ```bash
-# Windows (g++)
-g++ -o game/engine/main.exe game/engine/main.cpp -O2
+# Windows
+g++ -O2 game/engine/main.cpp -o game/engine/main.exe
 
 # macOS / Linux
-g++ -o game/engine/main.out game/engine/main.cpp -O2
+g++ -O2 game/engine/main.cpp -o game/engine/main
 ```
-
-> **Note:** The compiled binary is not committed to the repo. Each contributor compiles for their own platform.
 
 ## Architecture
 
 ```
-User Move → Frontend (JS) → Django Backend → C++ Engine → Validation → Backend → Frontend → UI Update
+Frontend (JS) -> Django -> C++ Engine -> Django -> Frontend
 ```
 
-| Layer | Tech | Location |
-|-------|------|----------|
-| Frontend | HTML / CSS / Vanilla JS | `game/templates/game/board.html` |
+| Layer | Tech | Path |
+|-------|------|------|
+| Frontend | HTML, CSS, JS | `game/templates/game/board.html` |
 | Backend | Django 6.0 | `game/views.py`, `game/engine.py` |
 | Engine | C++ | `game/engine/main.cpp` |
 
-## API Endpoints
+## API
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| `GET` | `/` | Serve the board UI |
-| `POST` | `/api/move/` | Validate and execute a move |
-| `GET` | `/api/valid-moves/?row=&col=` | Get legal destinations for a piece |
-| `POST` | `/api/new-game/` | Reset the game |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Board UI |
+| POST | `/api/move/` | Execute a move |
+| GET | `/api/valid-moves/` | Legal moves for a piece |
+| POST | `/api/new-game/` | Start a new game |
+| GET | `/api/check-promotion/` | Check if a move triggers promotion |
+| GET | `/api/state/` | Current game state |
+| POST | `/api/pause/` | Pause or resume the game |
+| POST | `/api/ai-move/` | Get AI move |
 
-## Running Tests
+## Tests
 
 ```bash
 python manage.py test game
@@ -78,8 +62,8 @@ python manage.py test game
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming, commit format, and PR guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[MIT](LICENSE)
