@@ -39,7 +39,7 @@ def make_move(request):
     game_data = request.session.get('game')
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
-    success, message, captured = game.make_move(
+    success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
@@ -57,6 +57,7 @@ def make_move(request):
         'black_time': game.black_time,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
+        'game_status': game_status,
     })
 
 
@@ -199,7 +200,7 @@ def ai_move(request):
             'current_turn': game.current_turn,
         })
 
-    success, message, captured = game.make_move(
+    success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
     )
@@ -219,6 +220,7 @@ def ai_move(request):
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'ai_move': best,
+        'game_status': game_status,
     })
 
 

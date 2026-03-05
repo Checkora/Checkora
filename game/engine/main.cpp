@@ -244,6 +244,18 @@ bool validateMove(const string &turn, int fr, int fc, int tr, int tc, bool silen
 }
 
 // ============================================================
+//  Move struct & legality filter (forward declarations)
+// ============================================================
+
+struct Move {
+    int fr, fc, tr, tc;
+    char promoPiece;  // '\0' if not a promotion
+};
+
+pair<int,int> findKing(const string &color);
+bool leavesKingInCheck(const Move &m, const string &side);
+
+// ============================================================
 //  Command Handlers
 // ============================================================
 
@@ -257,6 +269,14 @@ void handleMoves(const string &turn, int row, int col) {
     for (int tr = 0; tr < 8; tr++) {
         for (int tc = 0; tc < 8; tc++) {
             if (validateMove(turn, row, col, tr, tc, true)) {
+                // Filter out moves that leave own king in check
+                Move m;
+                m.fr = row; m.fc = col;
+                m.tr = tr;  m.tc = tc;
+                m.promoPiece = isPromotionMove(piece, tr)
+                    ? (isWhite(piece) ? 'Q' : 'q') : '\0';
+                if (leavesKingInCheck(m, turn)) continue;
+
                 int cap   = isEmpty(board[tr][tc]) ? 0 : 1;
                 int promo = isPromotionMove(piece, tr) ? 1 : 0;
                 cout << " " << tr << " " << tc << " " << cap << " " << promo;
@@ -440,14 +460,6 @@ int evaluate() {
 }
 
 /**
- * Represents a single move with from/to squares.
- */
-struct Move {
-    int fr, fc, tr, tc;
-    char promoPiece;  // '\0' if not a promotion
-};
-
-/**
  * Generate all pseudo-legal moves for the given side.
  * Promotions automatically queen (keeping the search tree manageable).
  */
@@ -604,6 +616,42 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
     }
 }
 
+// ============================================================
+//  STATUS handler — check / checkmate / stalemate detection
+// ============================================================
+
+/**
+ * STATUS <board64> <turn>
+ * -> STATUS CHECK        (king is in check but has legal moves)
+ * -> STATUS CHECKMATE    (king is in check and no legal moves)
+ * -> STATUS STALEMATE    (king is NOT in check but no legal moves)
+ * -> STATUS OK           (normal position)
+ */
+void handleStatus(const string &turn) {
+    string opponent = (turn == "white") ? "black" : "white";
+    pair<int,int> kpos = findKing(turn);
+    bool inCheck = (kpos.first >= 0) &&
+                   isSquareAttacked(kpos.first, kpos.second, opponent);
+
+    // Count legal moves for the side to move
+    vector<Move> moves = generateMoves(turn);
+    bool hasLegal = false;
+    for (auto &m : moves) {
+        if (!leavesKingInCheck(m, turn)) {
+            hasLegal = true;
+            break;
+        }
+    }
+
+    if (!hasLegal) {
+        if (inCheck) cout << "STATUS CHECKMATE" << endl;
+        else         cout << "STATUS STALEMATE" << endl;
+    } else {
+        if (inCheck) cout << "STATUS CHECK" << endl;
+        else         cout << "STATUS OK" << endl;
+    }
+}
+
 /**
  * BESTMOVE handler.
  *
@@ -684,6 +732,12 @@ int main() {
             cin >> b >> t >> fr >> fc >> tr >> tc >> promo;
             loadBoard(b);
             handlePromote(t, fr, fc, tr, tc, promo);
+        }
+        else if (command == "STATUS") {
+            string b, t;
+            cin >> b >> t;
+            loadBoard(b);
+            handleStatus(t);
         }
         else if (command == "BESTMOVE") {
             string b, t; int depth;
