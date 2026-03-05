@@ -46,7 +46,7 @@ class ChessGame:
         self.black_time = 10 * 60
         self.last_ts = time.time()
         self.paused = False
-        self.mode = 'pvp'  # NAYA: Default mode 'pvp' (Player vs Player) hai
+        self.mode = 'pvp'
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -65,7 +65,7 @@ class ChessGame:
             'black_time': self.black_time,
             'last_ts': self.last_ts,
             'paused': self.paused,
-            'mode': self.mode  # NAYA
+            'mode': self.mode
         }
 
     @classmethod
@@ -80,7 +80,7 @@ class ChessGame:
         game.white_time = data['white_time']
         game.black_time = data['black_time']
         game.last_ts = data['last_ts']
-        game.mode = data.get('mode', 'pvp')  # NAYA
+        game.mode = data.get('mode', 'pvp')
 
         cache_data = data.get('valid_moves_cache', {})
         game.valid_moves_cache = {}
@@ -165,10 +165,10 @@ class ChessGame:
         self.valid_moves_cache = {}
 
         # Switch turn
-        # FIX: Pehle jis player ne move chali hai uska time minus karo
+        # Deduct elapsed time for the player who just moved
         self.update_clock()
 
-        # FIR turn switch karo
+        # Switch turn
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'
 
         if self.white_time == 0:

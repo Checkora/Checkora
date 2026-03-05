@@ -70,6 +70,9 @@ def valid_moves(request):
     except (KeyError, ValueError, TypeError):
         return JsonResponse({'valid_moves': []}, status=400)
 
+    if not (0 <= row < 8 and 0 <= col < 8):
+        return JsonResponse({'valid_moves': []}, status=400)
+
     game_data = request.session.get('game')
     if not game_data:
         return JsonResponse({'valid_moves': []})
@@ -83,7 +86,7 @@ def valid_moves(request):
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
     data = json.loads(request.body or '{}')
-    mode = data.get('mode', 'pvp')  # Frontend se mode aayega
+    mode = data.get('mode', 'pvp')
     
     game = ChessGame()
     game.mode = mode
@@ -109,6 +112,9 @@ def check_promotion(request):
     except (KeyError, ValueError, TypeError):
         return JsonResponse({'is_promotion': False})
 
+    if not (0 <= from_row < 8 and 0 <= from_col < 8 and 0 <= to_row < 8):
+        return JsonResponse({'is_promotion': False})
+
     game_data = request.session.get('game')
     if not game_data:
         return JsonResponse({'is_promotion': False})
@@ -127,15 +133,14 @@ def get_state(request):
     else:
         game = ChessGame.from_dict(game_data)
         
-        # Agar bada gap hai (tab close kiya tha), toh time minus mat karo
-        import time
+        # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
             pass  # Force pause without time penalty
         else:
-            game.update_clock() # Sirf chote refresh (few seconds) ka time minus karo
-            
-    # Jab bhi page load/refresh ho, game hamesha PAUSED state mein rahega
+            game.update_clock()
+
+    # Always start in paused state on page load/refresh
     game.paused = True
     game.last_ts = time.time()
 
@@ -150,7 +155,7 @@ def get_state(request):
         'paused': game.paused,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
-        'mode': game.mode if 'game' in locals() else game_data.get('mode', 'pvp'),
+        'mode': game.mode,
     })
 
 @csrf_exempt
