@@ -17,7 +17,13 @@ from django.conf import settings
 class ChessGame:
     """Manage a single chess game: state, validation, and engine communication."""
 
-    ENGINE_PATH = os.path.join(settings.BASE_DIR, 'game', 'engine', 'main')
+    # =================================================================
+    # VERCEL FIX: Get the exact absolute directory of this engine.py file
+    # and point to the 'main' binary inside the 'engine' folder.
+    # =================================================================
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    ENGINE_PATH = os.path.join(CURRENT_DIR, 'engine', 'main')
+    
     FILES = 'abcdefgh'
 
     INITIAL_BOARD = [
@@ -96,6 +102,7 @@ class ChessGame:
     def _call_engine(self, command):
         """Run the C++ engine with *command* on stdin and return stdout."""
         if not os.path.exists(self.ENGINE_PATH):
+            print(f"[DEBUG] Engine not found at: {self.ENGINE_PATH}")
             return None
         try:
             proc = subprocess.Popen(
@@ -107,7 +114,8 @@ class ChessGame:
             )
             stdout, _ = proc.communicate(input=command, timeout=5)
             return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
+        except (subprocess.TimeoutExpired, OSError) as e:
+            print(f"[DEBUG] Engine execution error: {e}")
             return None
 
     # ------------------------------------------------------------------
@@ -164,7 +172,6 @@ class ChessGame:
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
 
-        # Switch turn
         # Deduct elapsed time for the player who just moved
         self.update_clock()
 
@@ -342,4 +349,3 @@ class ChessGame:
             'to_row':   int(parts[3]),
             'to_col':   int(parts[4]),
         }
-
