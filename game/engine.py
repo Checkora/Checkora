@@ -58,39 +58,38 @@ class ChessGame:
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
-def to_dict(self):
-        """Serialise state for Django session storage. (Removed DP cache to fix 4KB limit)"""
-        return {
-            'board': self.board,
-            'current_turn': self.current_turn,
-            'move_history': self.move_history,
-            'captured': self.captured,
-            # 'valid_moves_cache' ko cookie me save karna band kar diya
-            'white_time': self.white_time,
-            'black_time': self.black_time,
-            'last_ts': self.last_ts,
-            'paused': self.paused,
-            'mode': self.mode
-        }
-
-    @classmethod
-    def from_dict(cls, data):
-        """Restore a game from a session dictionary."""
-        game = cls.__new__(cls)
-        game.board = data['board']
-        game.current_turn = data['current_turn']
-        game.move_history = data.get('move_history', [])
-        game.captured = data.get('captured', {'white': [], 'black': []})
-        game.paused = data.get('paused', False)
-        game.white_time = data['white_time']
-        game.black_time = data['black_time']
-        game.last_ts = data['last_ts']
-        game.mode = data.get('mode', 'pvp')
-
-        # Cache hamesha empty initialize hoga taaki C++ on-the-fly calculate kare
-        game.valid_moves_cache = {} 
-        
-        return game
+    def to_dict(self):
+            """Serialise state for Django session storage."""
+            return {
+                'board': self.board,
+                'current_turn': self.current_turn,
+                'move_history': self.move_history,
+                'captured': self.captured,
+                'white_time': self.white_time,
+                'black_time': self.black_time,
+                'last_ts': self.last_ts,
+                'paused': self.paused,
+                'mode': self.mode
+            }
+    
+        @classmethod
+        def from_dict(cls, data):
+            """Restore a game from a session dictionary."""
+            game = cls.__new__(cls)
+            game.board = data['board']
+            game.current_turn = data['current_turn']
+            game.move_history = data.get('move_history', [])
+            game.captured = data.get('captured', {'white': [], 'black': []})
+            game.paused = data.get('paused', False)
+            game.white_time = data['white_time']
+            game.black_time = data['black_time']
+            game.last_ts = data['last_ts']
+            game.mode = data.get('mode', 'pvp')
+    
+            # Cache hamesha empty initialize hoga taaki C++ on-the-fly calculate kare
+            game.valid_moves_cache = {} 
+            
+            return game
 
     # ------------------------------------------------------------------
     #  C++ engine communication
