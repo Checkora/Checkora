@@ -17,7 +17,7 @@ from django.conf import settings
 class ChessGame:
     """Manage a single chess game: state, validation, and engine communication."""
 
-    ENGINE_PATH = os.path.join(settings.BASE_DIR, 'game', 'engine', 'main.exe')
+    ENGINE_PATH = os.path.join(settings.BASE_DIR, 'game', 'engine', 'main')
     FILES = 'abcdefgh'
 
     INITIAL_BOARD = [
