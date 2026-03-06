@@ -50,3 +50,5 @@ tempCodeRunnerFile*
 # ========================
 Desktop.ini
 ehthumbs.db
+.vercel
+.env*.local

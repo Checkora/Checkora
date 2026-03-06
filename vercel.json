@@ -1,16 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "core/wsgi.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "15mb" }
+  "installCommand": "echo 'Python deps handled by runtime'",
+  "buildCommand": "g++ -O2 -o game/engine/main game/engine/main.cpp && chmod +x game/engine/main && mkdir -p public && echo '<!-- -->' > public/placeholder.html",
+  "outputDirectory": "public",
+  "functions": {
+    "api/wsgi.py": {
+      "includeFiles": "game/**"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "core/wsgi.py"
-    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/wsgi" }
   ]
 }
