@@ -41,6 +41,8 @@ Frontend (JS) -> Django -> C++ Engine -> Django -> Frontend
 | Backend | Django 6.0 | `game/views.py`, `game/engine.py` |
 | Engine | C++ | `game/engine/main.cpp` |
 
+> **Note:** For a comprehensive breakdown of backend architecture, component routing, and engine loops, read the [Architecture Guide (structure.md)](structure.md).
+
 ## API
 
 | Method | Endpoint | Description |
