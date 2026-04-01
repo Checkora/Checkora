@@ -1,6 +1,6 @@
 <div align="center">
 
-# ♟️ Checkora
+# Checkora
 
 **An open-source chess platform with an AI opponent powered by minimax search with alpha-beta pruning.**
 
@@ -18,7 +18,7 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 
 ---
 
-## 🚀 Features
+## Features
 
 - **AI Opponent** — Minimax search with alpha-beta pruning for challenging gameplay
 - **Hybrid Engine** — C++ binary for maximum speed with an automatic Python fallback
@@ -29,7 +29,7 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
 # 1. Clone the repository
@@ -65,21 +65,21 @@ g++ -O2 game/engine/main.cpp -o game/engine/main
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Checkora uses a clean three-layer architecture:
 
 ```
 Browser (JS/HTML/CSS)
-       │
-       ▼
-Django Views (views.py)          ← HTTP request handling & session state
-       │
-       ▼
-ChessGame Wrapper (engine.py)    ← Translates board state into engine commands
-       │
-       ├──► C++ Binary (main.exe / main)   ← Primary: fast minimax AI
-       └──► Python Script (main.py)        ← Fallback: identical logic in Python
+       |
+       v
+Django Views (views.py)          <- HTTP request handling & session state
+       |
+       v
+ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
+       |
+       |---> C++ Binary (main.exe / main)   <- Primary: fast minimax AI
+       +---> Python Script (main.py)        <- Fallback: identical logic in Python
 ```
 
 | Layer | Technology | Path |
@@ -89,11 +89,11 @@ ChessGame Wrapper (engine.py)    ← Translates board state into engine commands
 | Engine (Primary) | C++17 | `game/engine/main.cpp` |
 | Engine (Fallback) | Python 3.10+ | `game/engine/main.py` |
 
-> For a full deep-dive into the backend components, execution flow, and AI internals, see the **[Architecture Guide →](structure.md)**
+> For a full deep-dive into the backend components, execution flow, and AI internals, see the [Architecture Guide](structure.md).
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -108,7 +108,7 @@ ChessGame Wrapper (engine.py)    ← Translates board state into engine commands
 
 ---
 
-## 🧪 Tests
+## Tests
 
 The test suite runs fully in-memory — no compiled engine binary required.
 
@@ -120,12 +120,12 @@ python manage.py test game
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming conventions, commit message format, and PR guidelines before submitting.
 
 ---
 
-## 📄 License
+## License
 
 Released under the [MIT License](LICENSE).
