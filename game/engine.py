@@ -147,14 +147,27 @@ class ChessGame:
         except (subprocess.TimeoutExpired, OSError):
             return None
 
+    def _count_active_pieces(self):
+        """Helper to count the total pieces currently alive on the board."""
+        return sum(1 for row in self.board for piece in row if piece is not None)
+
     def _get_ai_search_depth(self):
-        """Return appropriate search depth based on which engine is available."""
+        """Return appropriate search depth based on which engine is available and game phase."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return self.AI_SEARCH_DEPTH_PYTHON
         # C++ binary is much faster than Python, use deeper search
         if engine_path.endswith('.py'):
             return self.AI_SEARCH_DEPTH_PYTHON
+            
+        piece_count = self._count_active_pieces()
+        
+        # Adaptive Search Depth for C++ engine in endgame
+        if piece_count <= 6:
+            return self.AI_SEARCH_DEPTH_CPP + 2
+        elif piece_count <= 12:
+            return self.AI_SEARCH_DEPTH_CPP + 1
+            
         return self.AI_SEARCH_DEPTH_CPP
 
     def serialize_castling_rights(self):
