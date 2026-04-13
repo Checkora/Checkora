@@ -838,6 +838,8 @@
                         return;
                     } else if (data.game_status === 'check') {
                         showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
+                    } else {
+                        showStatus('', false);
                     }
 
                     // Trigger AI response when it is the engine's turn
