@@ -265,43 +265,7 @@ jobs:
         continue-on-error: false
 
 # ───────────────────────────────────────────────────────────────────
-# JOB 6 — Deploy to Vercel (push to main ONLY, after all CI passes)
+# NOTE: Deployment is handled natively by Vercel's GitHub integration.
+# Vercel auto-deploys on every push to main and creates preview
+# deployments for every PR — no separate deploy job needed here.
 # ───────────────────────────────────────────────────────────────────
-  deploy:
-    name: 🌐 Deploy to Vercel
-    runs-on: ubuntu-latest
-    needs: [test, migrate-check, security]
-    # Only deploy on push to main — NOT on PRs (including fork PRs)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🔧 Compile C++ engine for production bundle
-        run: |
-          if [ -f "game/engine/main.cpp" ]; then
-            g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
-            chmod +x game/engine/main
-            echo "✅ Engine compiled for production"
-          fi
-
-      - name: 🌐 Deploy to Vercel (Production)
-        id: deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          # `--prod` flag promotes to production domain.
-          # Remove it to deploy only to a preview URL instead.
-          vercel-args: "--prod"
-          working-directory: ./
-
-      - name: 🔗 Print deployment URL
-        run: |
-          echo "🚀 Deployed to: ${{ steps.deploy.outputs.preview-url }}"
