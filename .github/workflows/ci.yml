@@ -182,8 +182,10 @@ jobs:
       - name: 📊 Upload full test log as artifact
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true   # never let a failed upload kill the test job
         with:
-          name: test-log-${{ github.ref_name }}-${{ github.sha }}
+          # ref_name can be '59/merge' for PRs — replace / to avoid invalid artifact name
+          name: test-log-${{ github.run_id }}-${{ github.run_attempt }}
           path: test_output.txt
           if-no-files-found: ignore
           retention-days: 14
