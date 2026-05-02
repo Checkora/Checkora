@@ -1,0 +1,282 @@
+# ♟️ Checkora CI/CD Pipeline
+# Runs on every PR targeting main and every push to main.
+# Jobs: lint → compile-engine → test → migrate-check → security → deploy
+# -------------------------------------------------------------------
+name: 🚀 Checkora CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel redundant runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions by default (least-privilege)
+permissions:
+  contents: read
+  pull-requests: write   # allows posting CI summary comments on PRs
+
+env:
+  DJANGO_SETTINGS_MODULE: core.settings
+  # Dummy secret key — safe for CI, never used in production
+  SECRET_KEY: "ci-insecure-k3y-f0r-t3sting-0nly-d0-n0t-use-1n-pr0d"
+  PYTHON_VERSION: "3.12"
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 1 — Python Lint (flake8)
+# ───────────────────────────────────────────────────────────────────
+jobs:
+  lint:
+    name: 🔍 Lint (flake8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-lint-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-lint-${{ runner.os }}-
+
+      - name: 📥 Install flake8
+        run: pip install flake8 flake8-django
+
+      - name: 🔍 Run flake8
+        run: |
+          flake8 . \
+            --exclude=.venv,migrations,__pycache__,.git \
+            --max-line-length=120 \
+            --extend-ignore=E501,W503 \
+            --count \
+            --statistics
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 2 — Compile C++ Engine
+# ───────────────────────────────────────────────────────────────────
+  compile-engine:
+    name: ⚙️ Compile C++ Engine
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Verify g++ availability
+        run: g++ --version
+
+      - name: 🔍 Check if C++ source exists
+        id: check_cpp
+        run: |
+          if [ -f "game/engine/main.cpp" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "✅ main.cpp found — proceeding with compilation"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ main.cpp not found — skipping compilation (non-fatal)"
+          fi
+
+      - name: ⚙️ Compile engine binary
+        if: steps.check_cpp.outputs.exists == 'true'
+        run: |
+          g++ -O2 -std=c++17 \
+              -Wall -Wextra -Wpedantic \
+              game/engine/main.cpp \
+              -o game/engine/main
+          echo "✅ Compilation succeeded"
+          file game/engine/main
+
+      - name: 📤 Upload compiled binary as artifact
+        if: steps.check_cpp.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-binary-${{ github.sha }}
+          path: game/engine/main
+          retention-days: 7
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 3 — Django Tests
+# ───────────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Django Tests
+    runs-on: ubuntu-latest
+    needs: [lint, compile-engine]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-test-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-test-${{ runner.os }}-
+
+      - name: 📥 Install project dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔧 Compile C++ engine for test environment
+        run: |
+          if [ -f "game/engine/main.cpp" ]; then
+            g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
+            chmod +x game/engine/main
+            echo "✅ Engine compiled for tests"
+          else
+            echo "⚠️ No main.cpp — tests will run without native engine"
+          fi
+
+      - name: 🗄️ Run migrations
+        run: python manage.py migrate --run-syncdb
+
+      - name: 🧪 Run Django test suite
+        run: |
+          python manage.py test game \
+            --verbosity=2 \
+            --keepdb
+
+      - name: 📊 Upload test results (if pytest is used in future)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.sha }}
+          path: |
+            test_out.txt
+            test_output.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 4 — Migration Check (detect missing migrations)
+# ───────────────────────────────────────────────────────────────────
+  migrate-check:
+    name: 🗄️ Migration Check
+    runs-on: ubuntu-latest
+    needs: [lint]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-migrate-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-migrate-${{ runner.os }}-
+
+      - name: 📥 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔍 Check for missing migrations
+        run: |
+          python manage.py migrate --check
+          echo "✅ No missing migrations detected"
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 5 — Security Scan (pip-audit)
+# ───────────────────────────────────────────────────────────────────
+  security:
+    name: 🔒 Security Scan (pip-audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-audit-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-audit-${{ runner.os }}-
+
+      - name: 📥 Install pip-audit
+        run: pip install pip-audit
+
+      - name: 🔒 Run pip-audit security scan
+        run: |
+          pip install -r requirements.txt
+          pip-audit \
+            --requirement requirements.txt \
+            --format=columns \
+            --progress-spinner=off
+        # Non-zero exit = vulnerabilities found → fails CI
+        # Remove the next line if you want warnings-only mode:
+        continue-on-error: false
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 6 — Deploy to Vercel (push to main ONLY, after all CI passes)
+# ───────────────────────────────────────────────────────────────────
+  deploy:
+    name: 🌐 Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: [test, migrate-check, security]
+    # Only deploy on push to main — NOT on PRs (including fork PRs)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Compile C++ engine for production bundle
+        run: |
+          if [ -f "game/engine/main.cpp" ]; then
+            g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
+            chmod +x game/engine/main
+            echo "✅ Engine compiled for production"
+          fi
+
+      - name: 🌐 Deploy to Vercel (Production)
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          # `--prod` flag promotes to production domain.
+          # Remove it to deploy only to a preview URL instead.
+          vercel-args: "--prod"
+          working-directory: ./
+
+      - name: 🔗 Print deployment URL
+        run: |
+          echo "🚀 Deployed to: ${{ steps.deploy.outputs.preview-url }}"
