@@ -1,13 +1,20 @@
 # ♟️ Checkora CI/CD Pipeline
-# Runs on every PR targeting main and every push to main.
-# Jobs: lint → compile-engine → test → migrate-check → security → deploy
+# Triggers:
+#   • Every push to EVERY branch  → lint + compile + test + migrate-check + security
+#   • Every PR targeting main      → same checks (required to merge)
+#   • Push/merge to main only      → all checks THEN deploy to Vercel
+# Contributors see test results immediately after any push — no PR needed.
 # -------------------------------------------------------------------
 name: 🚀 Checkora CI/CD
 
 on:
   push:
-    branches: [main]
+    # Run CI on every branch — feature branches, fix branches, forks, everything.
+    # This means contributors get instant test feedback on their own branches.
+    branches:
+      - '**'
   pull_request:
+    # Also run on PRs targeting main (required status checks for merge protection).
     branches: [main]
 
 # Cancel redundant runs on the same branch/PR
@@ -147,24 +154,42 @@ jobs:
           fi
 
       - name: 🗄️ Run migrations
-        run: python manage.py migrate --run-syncdb
+        run: python manage.py migrate
 
       - name: 🧪 Run Django test suite
+        id: run_tests
         run: |
           python manage.py test game \
-            --verbosity=2 \
-            --keepdb
+            --verbosity=2 2>&1 | tee test_output.txt
+          # tee writes output to both terminal (visible in Actions log) and file
 
-      - name: 📊 Upload test results (if pytest is used in future)
+      - name: 📋 Print test summary to Actions UI
+        if: always()
+        run: |
+          echo "## 🧪 Test Results — $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`  |  **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E '(FAIL|ERROR|OK|Ran [0-9]+ test)' test_output.txt || echo 'No summary line found' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if grep -q 'FAIL\|ERROR' test_output.txt; then
+            echo "### ❌ Failed / Errored Tests" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -A5 'FAIL:\|ERROR:' test_output.txt >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📊 Upload full test log as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ github.sha }}
-          path: |
-            test_out.txt
-            test_output.txt
+          name: test-log-${{ github.ref_name }}-${{ github.sha }}
+          path: test_output.txt
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14
 
 # ───────────────────────────────────────────────────────────────────
 # JOB 4 — Migration Check (detect missing migrations)
