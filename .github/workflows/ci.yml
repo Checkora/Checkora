@@ -153,15 +153,12 @@ jobs:
             echo "⚠️ No main.cpp — tests will run without native engine"
           fi
 
-      - name: 🗄️ Run migrations
-        run: python manage.py migrate
-
       - name: 🧪 Run Django test suite
         id: run_tests
         run: |
-          python manage.py test game \
-            --verbosity=2 2>&1 | tee test_output.txt
-          # tee writes output to both terminal (visible in Actions log) and file
+          # set -o pipefail ensures test failures aren't swallowed by tee
+          set -o pipefail
+          python manage.py test game --verbosity=2 2>&1 | tee test_output.txt
 
       - name: 📋 Print test summary to Actions UI
         if: always()
@@ -223,7 +220,10 @@ jobs:
 
       - name: 🔍 Check for missing migrations
         run: |
-          python manage.py migrate --check
+          # Apply all existing migrations first (fresh CI DB)
+          python manage.py migrate
+          # Then check if any model changes exist without a migration file
+          python manage.py makemigrations --check --dry-run
           echo "✅ No missing migrations detected"
 
 # ───────────────────────────────────────────────────────────────────
