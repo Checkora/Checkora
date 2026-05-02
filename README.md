@@ -51,7 +51,7 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Open `http://127.0.0.1:8000/` in your browser and start playing.
+Open http://127.0.0.1:8000/ in your browser to start playing.
 
 ### Compile the C++ Engine *(optional but recommended)*
 
@@ -118,7 +118,7 @@ The test suite runs fully in-memory — no compiled engine binary required.
 python manage.py test game
 ```
 
-28 tests covering all API endpoints, move validation, engine path resolution, promotion logic, and AI mode enforcement.
+28 tests covering API endpoints, move validation, engine resolution, promotion logic, and AI behavior.
 
 ---
 
