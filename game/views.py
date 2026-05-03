@@ -94,7 +94,7 @@ def new_game(request):
     """Reset the game to the initial position with selected mode."""
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
-    
+
     # --- Capture and store names in the session ---
     # We use .get('key', 'Default') so it never crashes
     request.session['white_name'] = data.get('white_name', 'White')
@@ -102,10 +102,10 @@ def new_game(request):
 
     game = ChessGame()
     game.mode = mode
-    
+
     request.session['game'] = game.to_dict()
     request.session.modified = True
-    
+
     return JsonResponse({
         'board': game.board,
         'current_turn': game.current_turn,
@@ -116,6 +116,7 @@ def new_game(request):
         'white_name': request.session['white_name'],
         'black_name': request.session['black_name'],
     })
+
 
 @require_GET
 def check_promotion(request):
@@ -147,7 +148,7 @@ def get_state(request):
         game = ChessGame()
     else:
         game = ChessGame.from_dict(game_data)
-        
+
         # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
@@ -174,6 +175,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
+
 
 @csrf_exempt
 @require_POST
@@ -206,12 +208,18 @@ def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+        err_msg = 'No active game.'
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
 
     game = ChessGame.from_dict(game_data)
 
     if game.mode != 'ai':
-        return JsonResponse({'valid': False, 'message': 'Not in AI mode.'}, status=400)
+        err_msg = 'Not in AI mode.'
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
 
     best = game.get_ai_move()
     if not best:
@@ -251,11 +259,14 @@ def offer_draw(request):
     """Handle draw offers and agreements."""
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'success': False, 'message': 'No active game.'}, status=400)
+        err_msg = 'No active game.'
+        return JsonResponse(
+            {'success': False, 'message': err_msg}, status=400
+        )
 
     data = json.loads(request.body or '{}')
-    action = data.get('action') # 'offer' or 'accept'
-    
+    action = data.get('action')  # 'offer' or 'accept'
+
     if action == 'accept':
         game_data['game_status'] = 'draw_agreement'
         request.session['game'] = game_data
@@ -264,12 +275,14 @@ def offer_draw(request):
         
     return JsonResponse({'success': True})
 
+
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+        err_msg = 'No active game.'
+        return JsonResponse({'valid': False, 'message': err_msg}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
@@ -277,7 +290,7 @@ def resign_game(request):
     winner = 'black' if resigning_player == 'white' else 'white'
 
     game_status = f"Resignation: {winner.capitalize()} wins!"
-    
+
     # Update game status in session
     game_data['game_status'] = game_status
     request.session['game'] = game.to_dict()
@@ -292,8 +305,10 @@ def resign_game(request):
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
+
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
+
 
 def register_view(request):
     if request.user.is_authenticated:
@@ -303,53 +318,69 @@ def register_view(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            user.is_active = False # Deactivate account till OTP is verified
+            user.is_active = False  # Deactivate account till OTP is verified
             user.save()
-            
+
             # Generate 6-digit OTP
             otp = str(random.randint(100000, 999999))
             request.session['registration_user_id'] = user.id
             request.session['registration_otp'] = otp
-            
+
             # Send Email
             try:
-                html_message = f"""
-                <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f0f1a; color: #d0d0d0; padding: 40px 20px; text-align: center;">
-                    <div style="background-color: #16162a; border: 1px solid #252545; border-radius: 12px; padding: 40px 30px; max-width: 450px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                        <h1 style="color: #ffffff; margin-top: 0; margin-bottom: 15px; font-size: 28px; letter-spacing: 2px;">CHECK<span style="color: #f0c040;">ORA</span></h1>
-                        <hr style="border: none; border-top: 1px solid #252545; margin: 20px 0;">
-                        <p style="color: #e0e0e0; font-size: 16px; line-height: 1.5; margin-bottom: 30px;">
-                            Welcome to the elite chess platform. To activate your account and start playing, please use the verification code below:
-                        </p>
-                        <div style="margin: 35px 0;">
-                            <span style="font-family: 'Consolas', monospace; font-size: 36px; font-weight: bold; color: #f0c040; letter-spacing: 8px; background: #0f0f1a; padding: 15px 25px; border-radius: 8px; border: 1px solid #3d3222; display: inline-block;">{otp}</span>
-                        </div>
-                        <p style="color: #8a8aaa; font-size: 14px; margin-top: 30px;">
-                            Enter this code on the verification page to complete your registration.
-                        </p>
-                        <p style="color: #5a5a7a; font-size: 12px; margin-top: 40px;">
-                            If you didn't attempt to register on Checkora, please safely ignore this email.
-                        </p>
-                    </div>
-                </div>
-                """
+                msg_plain = (
+                    f'Your OTP for registration is: {otp}\n\n'
+                    'Please enter this code to activate your account.'
+                )
+                html_message = (
+                    "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
+                    "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
+                    "20px; text-align: center;\"><div style=\"background-"
+                    "color: #16162a; border: 1px solid #252545; border-radius"
+                    ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
+                    "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
+                    "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
+                    ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
+                    "<span style=\"color: #f0c040;\">ORA</span></h1>"
+                    "<hr style=\"border: none; border-top: 1px solid #252545; "
+                    "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
+                    "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
+                    "to the elite chess platform. To activate your account "
+                    "and start playing, please use the verification code "
+                    "below:</p><div style=\"margin: 35px 0;\"><span style=\""
+                    "font-family: 'Consolas', monospace; font-size: 36px; "
+                    "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
+                    "background: #0f0f1a; padding: 15px 25px; border-radius: "
+                    "8px; border: 1px solid #3d3222; display: inline-block;"
+                    "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
+                    "size: 14px; margin-top: 30px;\">Enter this code on the "
+                    "verification page to complete your registration.</p>"
+                    "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
+                    "40px;\">If you didn't attempt to register on Checkora, "
+                    "please safely ignore this email.</p></div></div>"
+                ).format(otp=otp)
                 send_mail(
                     'Your Checkora Verification Code',
-                    f'Your OTP for registration is: {otp}\n\nPlease enter this code to activate your account.',
-                    None, # Will use EMAIL_HOST_USER
+                    msg_plain,
+                    None,  # Will use EMAIL_HOST_USER
                     [user.email],
                     fail_silently=False,
                     html_message=html_message
                 )
                 return redirect('verify_otp')
-            except Exception as e:
+            except Exception:
                 # If email fails, delete the user so they can try again
                 user.delete()
-                messages.error(request, 'Failed to send OTP email. Please check your email address and try again.')
+                err_msg = (
+                    'Failed to send OTP email. '
+                    'Please check your email address and try again.'
+                )
+                messages.error(request, err_msg)
     else:
         form = CustomUserCreationForm()
     
     return render(request, 'game/register.html', {'form': form})
+
 
 def verify_otp(request):
     if request.user.is_authenticated:
@@ -361,7 +392,7 @@ def verify_otp(request):
     if not user_id or not stored_otp:
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
-        
+
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
         if entered_otp == stored_otp:
@@ -369,24 +400,28 @@ def verify_otp(request):
                 user = User.objects.get(id=user_id)
                 user.is_active = True
                 user.save()
-                
+
                 # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp']
-                
+
                 login(request, user)
                 return redirect('index')
             except User.DoesNotExist:
-                messages.error(request, 'User not found. Please register again.')
+                messages.error(
+                    request, 'User not found. Please register again.'
+                )
                 return redirect('register')
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
-            
+
     return render(request, 'game/verify_otp.html')
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('index')
-        
+
     if request.method == 'POST':
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
@@ -395,8 +430,9 @@ def login_view(request):
             return redirect('index')
     else:
         form = AuthenticationForm()
-        
+
     return render(request, 'game/login.html', {'form': form})
+
 
 def logout_view(request):
     logout(request)
