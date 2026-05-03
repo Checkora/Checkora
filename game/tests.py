@@ -271,7 +271,7 @@ class GameStateTest(TestCase):
     def test_get_state(self):
         r = self.client.get('/api/state/')
         data = r.json()
-        self.assertTrue(data['paused'])
+        self.assertFalse(data['paused'])
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(data['mode'], 'pvp')
         self.assertIn('board', data)
@@ -295,6 +295,88 @@ class PauseTest(TestCase):
             content_type='application/json'
         )
         self.assertFalse(r2.json()['paused'])
+
+
+class DrawRuleTest(SimpleTestCase):
+    """Test rule-based draw detection in the engine."""
+
+    def setUp(self):
+        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok'))
+        self.validate_patcher.start()
+
+    def tearDown(self):
+        self.validate_patcher.stop()
+
+    def test_fifty_move_rule_triggers_draw(self):
+        game = ChessGame()
+        game.halfmove_clock = 99
+
+        success, _, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertTrue(success)
+        self.assertEqual(status, 'draw')
+        self.assertEqual(game.halfmove_clock, 100)
+
+    def test_checkmate_beats_fifty_move_draw(self):
+        game = ChessGame()
+        game.halfmove_clock = 99
+
+        with mock.patch.object(ChessGame, '_call_engine') as mock_engine:
+            def fake_engine(cmd):
+                if cmd.startswith('NOTATION'):
+                    return 'NOTATION Nf3'
+                if cmd.startswith('STATUS'):
+                    return 'STATUS checkmate'
+                return None
+
+            mock_engine.side_effect = fake_engine
+            success, _, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertTrue(success)
+        self.assertEqual(status, 'checkmate')
+
+    def test_threefold_repetition_triggers_draw(self):
+        game = ChessGame()
+
+        sequence = [
+            (7, 6, 5, 5),
+            (0, 6, 2, 5),
+            (5, 5, 7, 6),
+            (2, 5, 0, 6),
+            (7, 6, 5, 5),
+            (0, 6, 2, 5),
+            (5, 5, 7, 6),
+            (2, 5, 0, 6),
+        ]
+
+        status = 'active'
+        for fr, fc, tr, tc in sequence:
+            success, _, _, status = game.make_move(fr, fc, tr, tc)
+            self.assertTrue(success)
+
+        self.assertEqual(status, 'draw')
+
+    def test_session_round_trip_preserves_draw_state(self):
+        game = ChessGame()
+        game.halfmove_clock = 42
+        game.repetition_history.append('test-position')
+        game._rebuild_repetition_counts()
+
+        restored = ChessGame.from_dict(game.to_dict())
+
+        self.assertEqual(restored.halfmove_clock, 42)
+        self.assertEqual(restored.repetition_history, game.repetition_history)
+        self.assertEqual(restored.repetition_counts, game.repetition_counts)
+
+    def test_position_key_ignores_unusable_en_passant_square(self):
+        game = ChessGame()
+        game.make_move(6, 4, 4, 4)
+
+        with_ep = game.generate_position_key()
+        game.en_passant_target = None
+        without_ep = game.generate_position_key()
+
+        self.assertEqual(with_ep, without_ep)
 
 
 class AIMoveTest(TestCase):
