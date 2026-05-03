@@ -748,7 +748,41 @@
             /* ==========================================================
             WELCOME & CONFIRMATION LOGIC
             ========================================================== */
+
+            //added this line to get the names of white and black throughoutly ! 
+            function applyPlayerNames() {
+                const whiteName = document.getElementById('whiteNameInput').value.trim() || 'White';
+                const blackName = document.getElementById('blackNameInput').value.trim() || 'Black';
+
+                const whiteLabel = document.getElementById('whiteNameLabel');
+                const blackLabel = document.getElementById('blackNameLabel');
+                if (whiteLabel) whiteLabel.textContent = whiteName.toUpperCase();
+                if (blackLabel) blackLabel.textContent = blackName.toUpperCase();
+
+                const whiteCap = document.getElementById('whiteCapturedName');
+                const blackCap = document.getElementById('blackCapturedName');
+                if (whiteCap) whiteCap.textContent = whiteName;
+                if (blackCap) blackCap.textContent = blackName;
+
+                localStorage.setItem('checkora-white-name', whiteName);
+                localStorage.setItem('checkora-black-name', blackName);
+            }
+
+            function restorePlayerNames() {
+                const w = localStorage.getItem('checkora-white-name') || 'White';
+                const b = localStorage.getItem('checkora-black-name') || 'Black';
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                if (whiteInput) whiteInput.value = w;
+                if (blackInput) blackInput.value = b;
+
+                applyPlayerNames();
+            }
+            
             let confirmCallback = null;
+
+
             function showConfirm(title, msg, callback, titleColor = '#ff6b6b') {
                 if (confirmTitle) {
                     confirmTitle.textContent = title;
@@ -798,13 +832,26 @@
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 loadGame();
+                
+                restorePlayerNames(); // ← added to retsore the names 
             }
 
             /* ==========================================================
             EVENT LISTENERS
             ========================================================== */
-            if (welcomePvPBtn) welcomePvPBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('pvp'); };
-            if (welcomeAIBtn) welcomeAIBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('ai'); };
+
+            //added issue raised #199
+            if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+                applyPlayerNames();
+                welcomeOverlay.classList.remove('active');
+                startNewGame('pvp');
+            };
+
+            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
+                applyPlayerNames();
+                welcomeOverlay.classList.remove('active');
+                startNewGame('ai');
+            };
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
                 welcomeOverlay.classList.remove('active');
                 if (paused) resumeGame();
