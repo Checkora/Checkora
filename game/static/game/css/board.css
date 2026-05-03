@@ -1,10 +1,7 @@
-*,
-*::before,
-*::after {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
     background-color: #0f0f1a;
@@ -17,20 +14,15 @@ body {
 }
 
 /* ============================================================
-Header
-============================================================ */
-.header {
-    padding: 20px 0 8px;
-    text-align: center;
-}
-
+   Header
+   ============================================================ */
+.header { padding: 20px 0 8px; text-align: center; }
 .header h1 {
     font-size: 1.8rem;
     font-weight: 700;
     color: #fff;
     letter-spacing: 2px;
 }
-
 .header .badge {
     font-size: 0.45em;
     color: #f0c040;
@@ -39,9 +31,50 @@ Header
     letter-spacing: 1px;
 }
 
+.auth-buttons {
+    position: absolute;
+    right: 20px;
+    top: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.welcome-msg {
+    color: #8a8aaa;
+    font-size: 0.9rem;
+}
+.username {
+    color: #f0c040;
+    font-weight: 600;
+}
+.btn-logout {
+    color: #ff6b6b;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: rgba(255, 107, 107, 0.1);
+}
+.btn-signin {
+    color: #f0c040;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.btn-register {
+    background: #f0c040;
+    color: #1a1a2a;
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 /* ============================================================
-Game Layout  (left panel · board · right panel)
-============================================================ */
+   Game Layout  (left panel · board · right panel)
+   ============================================================ */
 .game-layout {
     display: flex;
     gap: 22px;
@@ -62,7 +95,6 @@ Game Layout  (left panel · board · right panel)
     border-radius: 8px;
     padding: 14px;
 }
-
 .card-title {
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -73,8 +105,8 @@ Game Layout  (left panel · board · right panel)
 }
 
 /* ============================================================
-Turn Indicator
-============================================================ */
+   Turn Indicator
+   ============================================================ */
 .turn-badge {
     text-align: center;
     padding: 8px 16px;
@@ -84,12 +116,10 @@ Turn Indicator
     letter-spacing: 0.5px;
     transition: all 0.3s ease;
 }
-
 .turn-badge.white {
     background: linear-gradient(135deg, #f5f5dc, #e0e0c0);
     color: #333;
 }
-
 .turn-badge.black {
     background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
     color: #ccc;
@@ -97,8 +127,8 @@ Turn Indicator
 }
 
 /* ============================================================
-Board Area  (ranks · board grid · files)
-============================================================ */
+   Board Area  (ranks · board grid · files)
+   ============================================================ */
 .board-container {
     display: flex;
     flex-direction: column;
@@ -121,7 +151,6 @@ Board Area  (ranks · board grid · files)
     flex-direction: column;
     padding: 3px 6px 3px 0;
 }
-
 .ranks span {
     height: 60px;
     display: flex;
@@ -136,7 +165,6 @@ Board Area  (ranks · board grid · files)
     display: flex;
     padding: 4px 0 0 28px;
 }
-
 .files span {
     width: 60px;
     text-align: center;
@@ -155,8 +183,8 @@ Board Area  (ranks · board grid · files)
 }
 
 /* ============================================================
-Squares
-============================================================ */
+   Squares
+   ============================================================ */
 .square {
     width: 60px;
     height: 60px;
@@ -164,38 +192,23 @@ Squares
     justify-content: center;
     align-items: center;
     position: relative;
-    cursor: default;
+    cursor: default;  
 }
 
 .square:has(.piece.playable) {
-    cursor: pointer;
+    cursor: pointer;   
 }
 
-.square.light {
-    background-color: #eeeed2;
-}
-
-.square.dark {
-    background-color: #769656;
-}
+.square.light { background-color: #eeeed2; }
+.square.dark  { background-color: #769656; }
 
 /* Selected piece */
-.square.selected.light {
-    background-color: #f6f669;
-}
-
-.square.selected.dark {
-    background-color: #baca2b;
-}
+.square.selected.light { background-color: #f6f669; }
+.square.selected.dark  { background-color: #baca2b; }
 
 /* Last-move highlight */
-.square.last-move.light {
-    background-color: #f5f682;
-}
-
-.square.last-move.dark {
-    background-color: #b8cc36;
-}
+.square.last-move.light { background-color: #f5f682; }
+.square.last-move.dark  { background-color: #b8cc36; }
 
 /* Valid-move dot (empty square) */
 .move-dot {
@@ -206,10 +219,7 @@ Squares
     position: absolute;
     pointer-events: none;
 }
-
-.square:hover .move-dot {
-    background: rgba(0, 0, 0, 0.3);
-}
+.square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
 
 /* Capture ring (enemy piece) */
 .capture-ring {
@@ -220,14 +230,11 @@ Squares
     position: absolute;
     pointer-events: none;
 }
-
-.square:hover .capture-ring {
-    border-color: rgba(0, 0, 0, 0.3);
-}
+.square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
 
 /* ============================================================
-Pieces
-============================================================ */
+   Pieces
+   ============================================================ */
 .piece {
     width: 54px;
     height: 54px;
@@ -235,18 +242,12 @@ Pieces
     pointer-events: none;
     user-select: none;
 }
-
-.piece.playable {
-    cursor: pointer;
-}
-
-.piece.dragging {
-    opacity: 0.35;
-}
+.piece.playable { cursor: pointer; }
+.piece.dragging { opacity: 0.35; }
 
 /* ============================================================
-Status Bar
-============================================================ */
+   Status Bar
+   ============================================================ */
 .status-bar {
     min-height: 22px;
     text-align: center;
@@ -254,14 +255,11 @@ Status Bar
     color: #f0c040;
     padding: 4px 0;
 }
-
-.status-bar.error {
-    color: #ff6b6b;
-}
+.status-bar.error { color: #ff6b6b; }
 
 /* ============================================================
-Move History
-============================================================ */
+   Move History
+   ============================================================ */
 .moves-list {
     max-height: 340px;
     overflow-y: auto;
@@ -269,65 +267,36 @@ Move History
     font-size: 0.82rem;
     line-height: 1.6;
 }
-
-.moves-list::-webkit-scrollbar {
-    width: 4px;
-}
-
+.moves-list::-webkit-scrollbar { width: 4px; }
 .moves-list::-webkit-scrollbar-thumb {
     background: #333;
     border-radius: 2px;
 }
-
-.move-row {
-    display: flex;
-    gap: 6px;
-    padding: 1px 0;
-}
-
+.move-row { display: flex; gap: 6px; padding: 1px 0; }
 .move-num {
     color: #4a4a6a;
     min-width: 26px;
     text-align: right;
 }
-
-.move-white,
-.move-black {
+.move-white, .move-black {
     min-width: 48px;
     padding: 1px 4px;
     border-radius: 3px;
 }
-
-.move-white:hover,
-.move-black:hover {
+.move-white:hover, .move-black:hover {
     background: rgba(255, 255, 255, 0.04);
 }
-
-.placeholder {
-    color: #3a3a5a;
-    font-style: italic;
-    font-family: inherit;
-}
+.placeholder { color: #3a3a5a; font-style: italic; font-family: inherit; }
 
 /* ============================================================
-Captured Pieces
-============================================================ */
-.captured-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1px;
-    min-height: 28px;
-}
-
-.captured-img {
-    width: 26px;
-    height: 26px;
-    opacity: 0.8;
-}
+   Captured Pieces
+   ============================================================ */
+.captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 28px; }
+.captured-img  { width: 26px; height: 26px; opacity: 0.8; }
 
 /* ============================================================
-Buttons
-============================================================ */
+   Buttons
+   ============================================================ */
 .btn {
     width: 100%;
     padding: 10px 0;
@@ -339,21 +308,16 @@ Buttons
     letter-spacing: 0.5px;
     transition: all 0.2s ease;
 }
-
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);
     color: #1a1a2e;
 }
-
 .btn-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
-
-.btn-gold:active {
-    transform: translateY(0);
-}
+.btn-gold:active { transform: translateY(0); }
 
 .btn-danger {
     background: #2a1414;
@@ -361,37 +325,28 @@ Buttons
     border: 1px solid #632424;
     margin-top: 8px;
 }
-
 .btn-danger:hover {
     background: #402020;
     box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
     transform: translateY(-1px);
 }
-
-.btn-danger:active {
-    transform: translateY(0);
-}
+.btn-danger:active { transform: translateY(0); }
 
 /* ============================================================
-Responsive
-============================================================ */
+   Responsive
+   ============================================================ */
 @media (max-width: 860px) {
     .game-layout {
         flex-direction: column;
         align-items: center;
     }
-
     .panel {
         width: 100%;
         max-width: 500px;
         flex-direction: row;
         flex-wrap: wrap;
     }
-
-    .panel .card {
-        flex: 1;
-        min-width: 200px;
-    }
+    .panel .card { flex: 1; min-width: 200px; }
 }
 
 /* ================= CLOCKS ================= */
@@ -431,7 +386,7 @@ Responsive
 .clock.active {
     background: linear-gradient(135deg, #2a2a50, #1a1a35);
     border-color: #f0c040;
-    box-shadow: 0 0 0 1px rgba(240, 192, 64, 0.3);
+    box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
 }
 
 /* Low time warning */
@@ -447,13 +402,8 @@ Responsive
 }
 
 /* Color hints */
-.clock.white .label {
-    color: #ddd;
-}
-
-.clock.black .label {
-    color: #aaa;
-}
+.clock.white .label { color: #ddd; }
+.clock.black .label { color: #aaa; }
 
 /* ================= PROMOTION MODAL ================= */
 
@@ -466,10 +416,7 @@ Responsive
     justify-content: center;
     align-items: center;
 }
-
-.promo-overlay.active {
-    display: flex;
-}
+.promo-overlay.active { display: flex; }
 
 .promo-dialog {
     background: #1a1a30;
@@ -505,14 +452,12 @@ Responsive
     padding: 6px;
     transition: all 0.2s ease;
 }
-
 .promo-btn:hover {
     border-color: #f0c040;
     background: #2a2a55;
     transform: scale(1.08);
     box-shadow: 0 0 12px rgba(240, 192, 64, 0.3);
 }
-
 .promo-btn img {
     width: 100%;
     height: 100%;

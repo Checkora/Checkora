@@ -13,6 +13,13 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 [![Tests](https://img.shields.io/badge/Tests-28%20passing-brightgreen?style=flat&logo=github-actions&logoColor=white)](#tests)
 [![Issues](https://img.shields.io/github/issues/Checkora/Checkora?style=flat)](https://github.com/Checkora/Checkora/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/WfrpMuNZn)
+
+Join our Discord community for updates, support, and games: https://discord.gg/WfrpMuNZn
+
+**Core Maintainers (2):** [@EDWARD-012](https://github.com/EDWARD-012) / [@triemerge](https://github.com/triemerge)
+
+Follow the core maintainers on GitHub to stay aligned with project updates and contribution direction.
 
 </div>
 

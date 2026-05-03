@@ -5,9 +5,9 @@
     CONSTANTS & STATE
     ========================================================== */
     const PIECE_IMG = {};
-    for (const c of ['w', 'b'])
-        for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
-            PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
+    for (const c of ['w','b'])
+        for (const t of ['k','q','r','b','n','p'])
+            PIECE_IMG[c+t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
 
     let board = [];
     let turn = 'white';
@@ -22,25 +22,24 @@
     let blackTime = 0;
     let paused = false;
     let timerInterval = null;
-    let pendingPromo = null;
+    let pendingPromo = null;  
 
-    let gameMode = 'pvp';
+    let gameMode = 'pvp';  
 
     /* ==========================================================
-    DOM REFERENCES (Sab ek jagah)
+    DOM REFERENCES
     ========================================================== */
-    const boardEl = document.getElementById('board');
-    const turnEl = document.getElementById('turnBadge');
-    const statusEl = document.getElementById('statusBar');
-    const movesEl = document.getElementById('movesList');
-    const wCapEl = document.getElementById('whiteCaptured');
-    const bCapEl = document.getElementById('blackCaptured');
-    const pauseBtn = document.getElementById('pauseBtn');
+    const boardEl   = document.getElementById('board');
+    const turnEl    = document.getElementById('turnBadge');
+    const statusEl  = document.getElementById('statusBar');
+    const movesEl   = document.getElementById('movesList');
+    const wCapEl    = document.getElementById('whiteCaptured');
+    const bCapEl    = document.getElementById('blackCaptured');
+    const pauseBtn  = document.getElementById('pauseBtn');
     const promoOverlay = document.getElementById('promoOverlay');
     const promoChoices = document.getElementById('promoChoices');
-    const modeBadge = document.getElementById('modeBadge');
+    const modeBadge = document.getElementById('modeBadge'); 
 
-    // Welcome and confirmation screen variables
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
     const welcomePvPBtn = document.getElementById('welcomePvPBtn');
@@ -87,9 +86,9 @@
         })).json();
     }
 
-    const pKey = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
+    const pKey   = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
     const pColor = p => p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
-    const sq = (r, c) => boardEl.children[r * 8 + c];
+    const sq     = (r,c) => boardEl.children[r*8 + c];
 
     /* ==========================================================
     LOAD GAME STATE
@@ -103,23 +102,18 @@
         blackTime = data.black_time;
         paused = data.paused;
 
-        // --- FIXED: SYNC NAMES FROM API PAYLOAD ---
         const wSaved = data.white_name || 'White';
         const bSaved = data.black_name || 'Black';
 
-        // 1. Update the Labels next to the clocks
         document.getElementById('whiteNameLabel').textContent = wSaved.toUpperCase();
         document.getElementById('blackNameLabel').textContent = bSaved.toUpperCase();
 
-        // 2. Update the Input fields in the menu
         document.getElementById('whiteNameInput').value = wSaved;
         document.getElementById('blackNameInput').value = bSaved;
-
-        // 3. Update the Captured piece section labels
+        
         document.getElementById('whiteCapturedName').textContent = wSaved;
         document.getElementById('blackCapturedName').textContent = bSaved;
 
-        // 4. Update the Turn Badge text
         const currentName = (turn === 'white' ? wSaved : bSaved);
         if (document.getElementById('turnBadgeText')) {
             document.getElementById('turnBadgeText').textContent = currentName;
@@ -151,13 +145,13 @@
     ========================================================== */
     function buildBoard() {
         boardEl.innerHTML = '';
-        for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
+        for (let r=0; r<8; r++) {
+            for (let c=0; c<8; c++) {
                 const d = document.createElement('div');
-                d.className = 'square ' + ((r + c) % 2 ? 'dark' : 'light');
-                d.onclick = () => onClick(r, c);
+                d.className = 'square ' + ((r+c)%2 ? 'dark' : 'light');
+                d.onclick = () => onClick(r,c);
                 d.ondragover = e => e.preventDefault();
-                d.ondrop = e => onDrop(e, r, c);
+                d.ondrop = e => onDrop(e,r,c);
                 boardEl.appendChild(d);
             }
         }
@@ -165,8 +159,8 @@
     }
 
     function syncPieces() {
-        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-            const el = sq(r, c);
+        for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+            const el = sq(r,c);
             el.innerHTML = '';
             const p = board[r][c];
             if (!p) continue;
@@ -175,7 +169,7 @@
             img.src = PIECE_IMG[pKey(p)];
             img.className = 'piece';
             img.draggable = true;
-            img.ondragstart = e => onDragStart(e, r, c);
+            img.ondragstart = e => onDragStart(e,r,c);
             img.ondragend = () => dragging = false;
             el.appendChild(img);
         }
@@ -195,6 +189,7 @@
             img.classList.toggle('playable', isPlayable);
         });
     }
+
     function refreshHighlights() {
         boardEl.querySelectorAll('.square').forEach(el => {
             el.classList.remove('selected', 'last-move');
@@ -220,17 +215,16 @@
     /* ==========================================================
     SELECTION & MOVES
     ========================================================== */
-    async function selectPiece(r, c) {
+    async function selectPiece(r,c) {
         const p = board[r][c];
         if (!p || pColor(p) !== turn || paused || gameOver) return;
 
-        // AI LOCK: Ignore clicks when it is Black's turn in AI mode
         if (gameMode === 'ai' && turn === 'black') {
             showStatus("Waiting for AI to move...", false);
             return;
         }
 
-        selected = { r, c };
+        selected = {r,c};
         const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
         hints = data.valid_moves || [];
         refreshHighlights();
@@ -242,9 +236,6 @@
         refreshHighlights();
     }
 
-    /* ==============================================================
-       Promotion modal helpers
-       ============================================================== */
     function isPromotionMove(fr, fc, tr) {
         const p = board[fr][fc];
         if (!p) return false;
@@ -284,9 +275,6 @@
         await executeMove(fr, fc, tr, tc, choice);
     }
 
-    /* ==============================================================
-       Move execution
-       ============================================================== */
     async function tryMove(fr, fc, tr, tc) {
         if (paused || gameOver) return;
         const p = board[fr][fc];
@@ -312,22 +300,21 @@
             const data = await post('/api/move/', body);
             if (data.valid) {
                 board = data.board;
-                turn = data.current_turn;
+                turn  = data.current_turn;
                 lastMove = { from: [fr, fc], to: [tr, tc] };
-
+                
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
-
+                
                 selected = null;
                 hints = [];
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 syncPieces();
-                renderClocks();
+                renderClocks(); 
                 startTimer();
 
-                // Check for game-ending conditions
                 if (data.game_status === 'checkmate') {
                     handleGameOver('checkmate', turn);
                     return;
@@ -340,7 +327,6 @@
                     showStatus('', false);
                 }
 
-                // Trigger AI response when it is the engine's turn
                 if (gameMode === 'ai' && turn === 'black') {
                     requestAIMove();
                 }
@@ -353,9 +339,6 @@
         }
     }
 
-    /* ==============================================================
-       AI move request
-       ============================================================== */
     async function requestAIMove() {
         showStatus('AI is thinking...', false);
         try {
@@ -363,7 +346,7 @@
             if (data.valid) {
                 const mv = data.ai_move;
                 board = data.board;
-                turn = data.current_turn;
+                turn  = data.current_turn;
                 lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
 
                 whiteTime = data.white_time;
@@ -378,7 +361,6 @@
                 renderClocks();
                 startTimer();
 
-                // Check for game-ending conditions
                 if (data.game_status === 'checkmate') {
                     handleGameOver('checkmate', turn);
                     return;
@@ -398,60 +380,49 @@
         }
     }
 
-    /* ==========================================================
-    EVENTS
-    ========================================================== */
-    async function onClick(r, c) {
+    async function onClick(r,c) {
         if (dragging) return;
         if (selected) {
-            if (hints.some(h => h.row === r && h.col === c))
-                return tryMove(selected.r, selected.c, r, c);
-            if (board[r][c] && pColor(board[r][c]) === turn)
-                return selectPiece(r, c);
+            if (hints.some(h => h.row===r && h.col===c))
+                return tryMove(selected.r,selected.c,r,c);
+            if (board[r][c] && pColor(board[r][c])===turn)
+                return selectPiece(r,c);
             return deselect();
         }
-        selectPiece(r, c);
+        selectPiece(r,c);
     }
 
-    function onDragStart(e, r, c) {
-        if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
-        if (gameMode === 'ai' && turn === 'black') return e.preventDefault(); // AI Lock
+    function onDragStart(e,r,c) {
+        if (paused || pColor(board[r][c])!==turn) return e.preventDefault();
+        if (gameMode === 'ai' && turn === 'black') return e.preventDefault();
         dragging = true;
-        dragSrc = { r, c };
-        selectPiece(r, c);
+        dragSrc = {r,c};
+        selectPiece(r,c);
     }
 
-    async function onDrop(e, tr, tc) {
+    async function onDrop(e,tr,tc) {
         if (!dragSrc) return;
-        await tryMove(dragSrc.r, dragSrc.c, tr, tc);
+        await tryMove(dragSrc.r,dragSrc.c,tr,tc);
         dragSrc = null;
     }
 
-    /* ==========================================================
-    UI UPDATES
-    ========================================================== */
     function updateTurn() {
-        // 1. Get the current names from the inputs
         const wName = document.getElementById('whiteNameInput').value.trim() || 'White';
         const bName = document.getElementById('blackNameInput').value.trim() || 'Black';
         const currentName = (turn === 'white' ? wName : bName);
 
-        // 2. Update the badge text using the name (this targets the <span> you added)
         if (document.getElementById('turnBadgeText')) {
             document.getElementById('turnBadgeText').textContent = currentName;
         } else {
-            // Fallback in case the span isn't found
             turnEl.textContent = currentName + "'s Turn";
         }
 
-        // 3. Keep the existing class and clock logic
         turnEl.className = 'turn-badge ' + turn;
         document.getElementById('whiteClock').classList.toggle('active', turn === 'white');
         document.getElementById('blackClock').classList.toggle('active', turn === 'black');
-
+        
         markPlayable();
 
-        // 4. Update browser tab title to reflect the actual player name
         if (!gameOver) {
             document.title = `${currentName} to Move - Checkora`;
         }
@@ -463,14 +434,14 @@
             return;
         }
         movesEl.innerHTML = '';
-        for (let i = 0; i < history.length; i += 2) {
+        for (let i=0;i<history.length;i+=2) {
             const row = document.createElement('div');
             row.className = 'move-row';
             row.innerHTML = `
-                    <span class="move-num">${i / 2 + 1}.</span>
-                    <span class="move-white">${history[i].notation}</span>
-                    ${history[i + 1] ? `<span class="move-black">${history[i + 1].notation}</span>` : ''}
-                `;
+                <span class="move-num">${i/2+1}.</span>
+                <span class="move-white">${history[i].notation}</span>
+                ${history[i+1]?`<span class="move-black">${history[i+1].notation}</span>`:''}
+            `;
             movesEl.appendChild(row);
         }
     }
@@ -481,9 +452,9 @@
         cap.black.forEach(p => bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
     }
 
-    function showStatus(msg, err) {
+    function showStatus(msg,err) {
         statusEl.textContent = msg;
-        statusEl.className = 'status-bar' + (err ? ' error' : '');
+        statusEl.className = 'status-bar' + (err?' error':'');
     }
 
     function handleGameOver(status, currentTurn) {
@@ -496,8 +467,6 @@
 
         let title, message;
         if (status === 'checkmate') {
-            // currentTurn is the side that is checkmated.
-            // If white is checkmated, black wins.
             const winner = (currentTurn === 'white') ? blackName : whiteName;
             title = 'Checkmate!';
             message = `${winner} wins!`;
@@ -508,7 +477,6 @@
             title = 'Draw!';
             message = 'Draw by Agreement.';
         } else if (status === 'resign') {
-            // If currentTurn resigns, the other person wins
             const winner = (currentTurn === 'white') ? blackName : whiteName;
             title = 'Resignation';
             message = `${winner} wins!`;
@@ -518,14 +486,11 @@
         gameOverMessage.textContent = message;
         gameOverOverlay.classList.add('active');
         showStatus(title + ' ' + message, false);
-
+        
         document.title = 'Game Over - Checkora';
     }
 
-    /* ==========================================================
-    CLOCKS & PAUSE
-    ========================================================== */
-    const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+    const fmt = t => `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
 
     function renderClocks() {
         document.querySelector('#whiteClock .time').textContent = fmt(whiteTime);
@@ -540,10 +505,10 @@
         clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             if (paused) return;
-            if (turn === 'white' && whiteTime > 0) whiteTime--;
-            if (turn === 'black' && blackTime > 0) blackTime--;
+            if (turn==='white' && whiteTime>0) whiteTime--;
+            if (turn==='black' && blackTime>0) blackTime--;
             renderClocks();
-        }, 1000);
+        },1000);
     }
 
     async function pauseGame() {
@@ -587,9 +552,6 @@
         }
     });
 
-    /* ==========================================================
-    WELCOME & CONFIRMATION LOGIC
-    ========================================================== */
     let confirmCallback = null;
     function showConfirm(title, msg, callback, titleColor = '#ff6b6b') {
         const titleEl = document.getElementById('confirmTitle');
@@ -603,18 +565,17 @@
         confirmOverlay.classList.add('active');
     }
 
-    // Welcome screen logic
     if (welcomePvPBtn) welcomePvPBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('pvp'); };
     if (welcomeAIBtn) welcomeAIBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('ai'); };
-    if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
-        welcomeOverlay.classList.remove('active');
+    if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => { 
+        welcomeOverlay.classList.remove('active'); 
         if (paused) resumeGame();
     };
 
     function requestNewGame(mode) {
         showConfirm(
-            "Abandon Game?",
-            "Your current progress will be lost.<br>Are you sure you want to start a new game?",
+            "Abandon Game?", 
+            "Your current progress will be lost.<br>Are you sure you want to start a new game?", 
             () => startNewGame(mode),
             '#ff6b6b'
         );
@@ -642,16 +603,16 @@
 
         const offeringPlayer = turn === 'white' ? wName : bName;
         const receivingPlayer = turn === 'white' ? bName : wName;
-
+        
         showConfirm(
-            "Offer Draw?",
-            `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`,
+            "Offer Draw?", 
+            `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`, 
             async () => {
                 drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
                 drawOverlay.classList.add('active');
                 await pauseGame();
             },
-            '#f0c040' // Gold color for Draw Offer
+            '#f0c040'
         );
     }
 
@@ -672,26 +633,21 @@
     if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
 
     async function startNewGame(mode) {
-        // 1. Grab names from the inputs we added in Step 1
         const wName = document.getElementById('whiteNameInput').value.trim() || 'White';
         const bName = document.getElementById('blackNameInput').value.trim() || 'Black';
 
-        // 2. Send the names to the backend
-        const d = await post('/api/new-game/', {
+        const d = await post('/api/new-game/', { 
             mode: mode,
             white_name: wName,
             black_name: bName
         });
 
-        // 3. Update the Game State
         board = d.board;
         turn = d.current_turn;
         paused = false;
-        gameOver = false;
+        gameOver = false;  
         gameMode = d.mode;
-
-
-        // 4. Update the UI labels with the new names
+        
         document.getElementById('whiteNameLabel').textContent = wName.toUpperCase();
         document.getElementById('blackNameLabel').textContent = bName.toUpperCase();
 
@@ -699,71 +655,64 @@
         document.getElementById('blackCapturedName').textContent = bName;
         document.getElementById('turnBadgeText').textContent = (turn === 'white' ? wName : bName);
 
-        //  FOR NEW GAME AFTER RESETS    
         if (document.getElementById('resignBtn')) document.getElementById('resignBtn').style.display = 'inline-block';
         if (document.getElementById('pauseBtn')) document.getElementById('pauseBtn').style.display = 'inline-block';
-
 
         if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
         movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
         wCapEl.innerHTML = bCapEl.innerHTML = '';
-
+        
         loadGame();
     }
 
-
-    window.showResignModal = function () {
+    window.showResignModal = function() {
         document.getElementById('resignModal').style.display = 'flex';
     };
 
-    window.closeResignModal = function () {
+    window.closeResignModal = function() {
         document.getElementById('resignModal').style.display = 'none';
     };
 
-    window.confirmResign = async function () {
+    window.confirmResign = async function() {
         closeResignModal();
-
         try {
             const response = await post('/api/resign/');
             if (response.valid) {
                 gameOver = true;
                 paused = true;
+        
+                clearInterval(timerInterval);
 
-                // --- ADD THESE LINES TO GET DYNAMIC NAMES ---
                 const wName = document.getElementById('whiteNameLabel').textContent;
                 const bName = document.getElementById('blackNameLabel').textContent;
                 const loserName = (turn === 'white' ? wName : bName);
                 const winnerName = (turn === 'white' ? bName : wName);
-
-                // Update the status bar text
+                
                 const statusEl = document.getElementById('statusBar');
                 if (statusEl) {
                     statusEl.textContent = `${loserName} resigned. ${winnerName} wins!`;
                     statusEl.style.color = "#f0c040";
                 }
 
-                // Use the existing Game Over modal to show the winner
                 document.getElementById('gameOverTitle').textContent = "Game Over";
                 document.getElementById('gameOverMessage').textContent = `${loserName} resigned. ${winnerName} wins!`;
                 document.getElementById('gameOverOverlay').style.display = 'flex';
 
-                // Hide the buttons
                 document.getElementById('resignBtn').style.display = 'none';
                 document.getElementById('pauseBtn').style.display = 'none';
-
-                // This connects the "New Game" buttons inside the overlay to the game's start function
-                document.getElementById('gameOverPvPBtn').onclick = async () => {
+                
+                document.getElementById('gameOverPvPBtn').onclick = async () => { 
                     document.getElementById('gameOverOverlay').style.display = 'none';
-                    gameOver = false;
-                    paused = false;
-                    await startNewGame('pvp');
+                    gameOver = false; 
+                    paused = false; 
+                    await startNewGame('pvp'); 
                 };
 
-                document.getElementById('gameOverAIBtn').onclick = async () => {
+                document.getElementById('gameOverAIBtn').onclick = async () => { 
                     document.getElementById('gameOverOverlay').style.display = 'none';
-                    gameOver = false;
-                    paused = false;
-                    await startNewGame('ai');
+                    gameOver = false; 
+                    paused = false; 
+                    await startNewGame('ai'); 
                 };
 
                 await loadGame();
@@ -772,9 +721,36 @@
             console.error("Resign failed:", error);
         }
     };
+    function generateFEN() {
+    let fenRows = [];
+    for (let r = 0; r < 8; r++) {
+        let row = '';
+        let empty = 0;
+        for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (!p) { empty++; }
+            else {
+                if (empty > 0) { row += empty; empty = 0; }
+                row += p;
+            }
+        }
+        if (empty > 0) row += empty;
+        fenRows.push(row);
+    }
+        const activeColor = turn === 'white' ? 'w' : 'b';
+        const movesList = movesEl.querySelectorAll('.move-row');
+        const fullMove = movesList.length + 1;
+        return `${fenRows.join('/')} ${activeColor} KQkq - 0 ${fullMove}`;
+    }
 
-    /* ==========================================================
-    INIT (Game yahan se shuru hota hai)
-    ========================================================== */
+    async function copyFEN() {
+        const fen = generateFEN();
+        await navigator.clipboard.writeText(fen);
+        showStatus('FEN copied to clipboard!', false);
+        setTimeout(() => showStatus('', false), 2000);
+    }
+
+    const copyFenBtn = document.getElementById('copyFenBtn');
+    if (copyFenBtn) copyFenBtn.onclick = copyFEN;
     loadGame();
 })();

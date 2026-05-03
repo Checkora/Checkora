@@ -249,13 +249,15 @@ class CheckPromotionTest(TestCase):
 
     def test_black_pawn_promotion(self):
         self.mock_promo.return_value = True
-        r = self.client.get('/api/check-promotion/?from_row=6&from_col=0&to_row=7')
+        url = '/api/check-promotion/?from_row=6&from_col=0&to_row=7'
+        r = self.client.get(url)
         self.assertTrue(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
     def test_no_promotion(self):
         self.mock_promo.return_value = False
-        r = self.client.get('/api/check-promotion/?from_row=1&from_col=0&to_row=2')
+        url = '/api/check-promotion/?from_row=1&from_col=0&to_row=2'
+        r = self.client.get(url)
         self.assertFalse(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
@@ -282,10 +284,16 @@ class PauseTest(TestCase):
         self.client.get('/')
 
     def test_pause_toggle(self):
-        r1 = self.client.post('/api/pause/', data=json.dumps({'pause': True}), content_type='application/json')
+        r1 = self.client.post(
+            '/api/pause/', data=json.dumps({'pause': True}),
+            content_type='application/json'
+        )
         self.assertTrue(r1.json()['paused'])
 
-        r2 = self.client.post('/api/pause/', data=json.dumps({'pause': False}), content_type='application/json')
+        r2 = self.client.post(
+            '/api/pause/', data=json.dumps({'pause': False}),
+            content_type='application/json'
+        )
         self.assertFalse(r2.json()['paused'])
 
 
@@ -296,8 +304,12 @@ class AIMoveTest(TestCase):
         self.client.get('/')
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
-        # Mock engine to return STATUS ok if checked, andBESTMOVE coordinates 
-        self.mock_engine.side_effect = lambda cmd: "BESTMOVE 6 4 4 4" if cmd.startswith("BEST") else ("STATUS ok" if cmd.startswith("STATUS") else "PROMOTE")
+        # Mock engine to return STATUS ok if checked, and BESTMOVE coords
+        self.mock_engine.side_effect = lambda cmd: (
+            "BESTMOVE 6 4 4 4" if cmd.startswith("BEST") else (
+                "STATUS ok" if cmd.startswith("STATUS") else "PROMOTE"
+            )
+        )
 
         self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
         self.mock_validate = self.validate_patcher.start()
@@ -313,11 +325,211 @@ class AIMoveTest(TestCase):
         self.assertFalse(r.json()['valid'])
 
     def test_ai_makes_move(self):
-        self.client.post('/api/new-game/', data=json.dumps({'mode': 'ai'}), content_type='application/json')
-        
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+
         r = self.client.post('/api/ai-move/', content_type='application/json')
         data = r.json()
         self.assertTrue(data['valid'])
         self.assertEqual(data['current_turn'], 'black')
-        self.assertEqual(data['ai_move']['from_row'], 6)
-        self.assertEqual(data['ai_move']['to_row'], 4)
+        # The opening book (or engine) picks the move; just verify coordinates are present
+        self.assertIn('from_row', data['ai_move'])
+        self.assertIn('from_col', data['ai_move'])
+        self.assertIn('to_row', data['ai_move'])
+        self.assertIn('to_col', data['ai_move'])
+
+
+class OpeningBookTest(SimpleTestCase):
+    """Unit tests for the opening-book integration in ChessGame."""
+
+    # ------------------------------------------------------------------
+    # FEN key generation
+    # ------------------------------------------------------------------
+
+    def test_fen_key_starting_position(self):
+        """Starting position must produce the correct standard FEN key."""
+        game = ChessGame()
+        key = game.generate_fen_key()
+        self.assertEqual(
+            key,
+            'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq',
+        )
+
+    def test_fen_key_side_switches_after_move(self):
+        """After white moves the key should show 'b' as the active side."""
+        game = ChessGame()
+        game.current_turn = 'black'
+        key = game.generate_fen_key()
+        self.assertIn(' b ', key)
+
+    def test_fen_key_reflects_castling_rights_loss(self):
+        """Losing castling rights must be reflected in the FEN key."""
+        game = ChessGame()
+        game.castling_rights = {'w_k': False, 'w_q': False, 'b_k': False, 'b_q': False}
+        key = game.generate_fen_key()
+        self.assertTrue(key.endswith(' -'))
+
+    def test_fen_key_empty_board_row_uses_digit(self):
+        """An entirely empty rank must produce '8' not eight dots."""
+        game = ChessGame()
+        key = game.generate_fen_key()
+        # Ranks 3-6 (0-indexed 2-5) are empty at start → four '8' segments
+        self.assertIn('/8/', key)
+
+    # ------------------------------------------------------------------
+    # Book loading
+    # ------------------------------------------------------------------
+
+    def test_book_loads_from_json_file(self):
+        """The book file must be loadable and return a non-empty dict."""
+        # Reset the class-level cache so the real file is read
+        ChessGame._opening_book = None
+        book = ChessGame._load_opening_book()
+        self.assertIsInstance(book, dict)
+        self.assertGreater(len(book), 0)
+
+    def test_book_caches_after_first_load(self):
+        """Subsequent calls must return the same object (no re-read)."""
+        ChessGame._opening_book = None
+        book1 = ChessGame._load_opening_book()
+        book2 = ChessGame._load_opening_book()
+        self.assertIs(book1, book2)
+
+    def test_book_falls_back_gracefully_on_missing_file(self):
+        """A missing book file should produce an empty dict, not a crash."""
+        ChessGame._opening_book = None
+        with mock.patch.object(ChessGame, 'OPENING_BOOK_PATH', '/nonexistent/path.json'):
+            book = ChessGame._load_opening_book()
+        self.assertEqual(book, {})
+        # Restore so other tests use the real book
+        ChessGame._opening_book = None
+
+    # ------------------------------------------------------------------
+    # get_opening_book_move
+    # ------------------------------------------------------------------
+
+    def test_starting_position_returns_book_move(self):
+        """At the start of the game a valid book move should be returned."""
+        game = ChessGame()
+        ChessGame._opening_book = None
+
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')):
+            move = game.get_opening_book_move()
+
+        self.assertIsNotNone(move, 'Expected a book move for the starting position')
+        self.assertIn('from_row', move)
+        self.assertIn('from_col', move)
+        self.assertIn('to_row', move)
+        self.assertIn('to_col', move)
+
+    def test_unknown_position_returns_none(self):
+        """An out-of-book position must return None (fall through to engine)."""
+        game = ChessGame()
+        # Force a book with no matching key
+        ChessGame._opening_book = {}
+
+        move = game.get_opening_book_move()
+        self.assertIsNone(move)
+        # Restore
+        ChessGame._opening_book = None
+
+    def test_illegal_book_moves_are_skipped(self):
+        """If validate_move rejects all candidates the result is None."""
+        game = ChessGame()
+        ChessGame._opening_book = {
+            game.generate_fen_key(): [[6, 4, 4, 4]],
+        }
+
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(False, 'illegal')):
+            move = game.get_opening_book_move()
+
+        self.assertIsNone(move)
+        ChessGame._opening_book = None
+
+    def test_out_of_range_coords_skipped_without_calling_validate(self):
+        """Out-of-range entries must be rejected by the bounds check alone.
+
+        validate_move is NOT mocked here — if the bounds check were missing,
+        board[9][9] would raise IndexError and the test would fail.
+        """
+        game = ChessGame()
+        ChessGame._opening_book = {
+            game.generate_fen_key(): [[9, 9, 9, 9]],  # out-of-range only
+        }
+        # No mock — real validate_move would IndexError without the guard
+        move = game.get_opening_book_move()
+        self.assertIsNone(move)
+        ChessGame._opening_book = None
+
+    def test_first_legal_candidate_returned_when_first_is_malformed(self):
+        """A valid second candidate is returned after a malformed first entry."""
+        game = ChessGame()
+        fen = game.generate_fen_key()
+        ChessGame._opening_book = {
+            fen: [[9, 9, 9, 9], [6, 4, 4, 4]],  # first entry out-of-range
+        }
+
+        def fake_validate(fr, fc, tr, tc):
+            return (True, 'ok') if [fr, fc, tr, tc] == [6, 4, 4, 4] else (False, 'bad')
+
+        with mock.patch.object(ChessGame, 'validate_move', side_effect=fake_validate):
+            move = game.get_opening_book_move()
+
+        self.assertIsNotNone(move)
+        self.assertEqual(
+            [move['from_row'], move['from_col'], move['to_row'], move['to_col']],
+            [6, 4, 4, 4],
+        )
+        ChessGame._opening_book = None
+
+    def test_book_moves_show_variety(self):
+        """With multiple candidates different moves should be chosen over many calls."""
+        game = ChessGame()
+        fen = game.generate_fen_key()
+        ChessGame._opening_book = {
+            fen: [[6, 4, 4, 4], [6, 3, 4, 3], [7, 6, 5, 5]],
+        }
+        seen = set()
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')):
+            for _ in range(60):
+                m = game.get_opening_book_move()
+                if m:
+                    seen.add((m['from_row'], m['from_col'], m['to_row'], m['to_col']))
+
+        self.assertGreater(len(seen), 1, 'Book should produce variety across 60 calls')
+        ChessGame._opening_book = None
+
+    # ------------------------------------------------------------------
+    # Integration: get_ai_move uses book on first move
+    # ------------------------------------------------------------------
+
+    def test_get_ai_move_uses_book_before_engine(self):
+        """get_ai_move() must return the book move without calling the engine."""
+        game = ChessGame()
+        ChessGame._opening_book = None
+
+        with (
+            mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')),
+            mock.patch.object(ChessGame, '_call_engine') as mock_engine,
+        ):
+            move = game.get_ai_move()
+
+        mock_engine.assert_not_called()
+        self.assertIsNotNone(move)
+        ChessGame._opening_book = None
+
+    def test_get_ai_move_falls_back_to_engine_when_book_empty(self):
+        """When the book has no entry the engine must be consulted."""
+        game = ChessGame()
+        ChessGame._opening_book = {}  # empty book
+
+        with mock.patch.object(ChessGame, '_call_engine', return_value='BESTMOVE 6 4 4 4') as mock_engine:
+            move = game.get_ai_move()
+
+        mock_engine.assert_called_once()
+        self.assertIsNotNone(move)
+        self.assertEqual(move['from_row'], 6)
+        self.assertEqual(move['to_row'], 4)
+        ChessGame._opening_book = None
