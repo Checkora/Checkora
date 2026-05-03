@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email | Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <style>
+        .otp-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .otp-input {
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+            font-size: 1.5rem;
+            letter-spacing: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: #0f0f1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #f0c040;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        .otp-input:focus {
+            outline: none;
+            border-color: #f0c040;
+            box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
+        }
+        /* Hide number arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Verify Email</h1>
+        <p>We've sent a 6-digit code to your email address.</p>
+    </div>
+
+    <div class="auth-card">
+        <form method="POST">
+            {% csrf_token %}
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <li class="errorlist">{{ message }}</li>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="form-group">
+                <label for="otp">Enter 6-Digit OTP</label>
+                <div class="otp-container">
+                    <input type="text" id="otp" name="otp" class="otp-input" maxlength="6" pattern="\d{6}" placeholder="000000" autocomplete="off" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-gold">Verify & Activate</button>
+        </form>
+        
+        <div class="auth-footer">
+            Didn't receive the code? <a href="{% url 'register' %}">Try again</a>
+        </div>
+    </div>
+
+</body>
+</html>

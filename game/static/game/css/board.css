@@ -1,0 +1,465 @@
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background-color: #0f0f1a;
+    color: #d0d0d0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+.header { padding: 20px 0 8px; text-align: center; }
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 2px;
+}
+.header .badge {
+    font-size: 0.45em;
+    color: #f0c040;
+    vertical-align: super;
+    font-weight: 400;
+    letter-spacing: 1px;
+}
+
+.auth-buttons {
+    position: absolute;
+    right: 20px;
+    top: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.welcome-msg {
+    color: #8a8aaa;
+    font-size: 0.9rem;
+}
+.username {
+    color: #f0c040;
+    font-weight: 600;
+}
+.btn-logout {
+    color: #ff6b6b;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: rgba(255, 107, 107, 0.1);
+}
+.btn-signin {
+    color: #f0c040;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.btn-register {
+    background: #f0c040;
+    color: #1a1a2a;
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* ============================================================
+   Game Layout  (left panel · board · right panel)
+   ============================================================ */
+.game-layout {
+    display: flex;
+    gap: 22px;
+    padding: 10px 20px 30px;
+    align-items: flex-start;
+}
+
+.panel {
+    width: 192px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.card {
+    background: #16162a;
+    border: 1px solid #252545;
+    border-radius: 8px;
+    padding: 14px;
+}
+.card-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #6a6a8a;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+/* ============================================================
+   Turn Indicator
+   ============================================================ */
+.turn-badge {
+    text-align: center;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+.turn-badge.white {
+    background: linear-gradient(135deg, #f5f5dc, #e0e0c0);
+    color: #333;
+}
+.turn-badge.black {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    color: #ccc;
+    border: 1px solid #444;
+}
+
+/* ============================================================
+   Board Area  (ranks · board grid · files)
+   ============================================================ */
+.board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.board-outer {
+    display: flex;
+    flex-direction: column;
+}
+
+.board-row {
+    display: flex;
+    align-items: stretch;
+}
+
+.ranks {
+    display: flex;
+    flex-direction: column;
+    padding: 3px 6px 3px 0;
+}
+.ranks span {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #5a5a7a;
+    font-weight: 600;
+}
+
+.files {
+    display: flex;
+    padding: 4px 0 0 28px;
+}
+.files span {
+    width: 60px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #5a5a7a;
+    font-weight: 600;
+}
+
+.chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    border: 3px solid #3d3222;
+    border-radius: 2px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================
+   Squares
+   ============================================================ */
+.square {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    cursor: default;  
+}
+
+.square:has(.piece.playable) {
+    cursor: pointer;   
+}
+
+.square.light { background-color: #eeeed2; }
+.square.dark  { background-color: #769656; }
+
+/* Selected piece */
+.square.selected.light { background-color: #f6f669; }
+.square.selected.dark  { background-color: #baca2b; }
+
+/* Last-move highlight */
+.square.last-move.light { background-color: #f5f682; }
+.square.last-move.dark  { background-color: #b8cc36; }
+
+/* Valid-move dot (empty square) */
+.move-dot {
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.18);
+    position: absolute;
+    pointer-events: none;
+}
+.square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
+
+/* Capture ring (enemy piece) */
+.capture-ring {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 5px solid rgba(0, 0, 0, 0.18);
+    position: absolute;
+    pointer-events: none;
+}
+.square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
+
+/* ============================================================
+   Pieces
+   ============================================================ */
+.piece {
+    width: 54px;
+    height: 54px;
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+}
+.piece.playable { cursor: pointer; }
+.piece.dragging { opacity: 0.35; }
+
+/* ============================================================
+   Status Bar
+   ============================================================ */
+.status-bar {
+    min-height: 22px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: #f0c040;
+    padding: 4px 0;
+}
+.status-bar.error { color: #ff6b6b; }
+
+/* ============================================================
+   Move History
+   ============================================================ */
+.moves-list {
+    max-height: 340px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+.moves-list::-webkit-scrollbar { width: 4px; }
+.moves-list::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+}
+.move-row { display: flex; gap: 6px; padding: 1px 0; }
+.move-num {
+    color: #4a4a6a;
+    min-width: 26px;
+    text-align: right;
+}
+.move-white, .move-black {
+    min-width: 48px;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+.move-white:hover, .move-black:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.placeholder { color: #3a3a5a; font-style: italic; font-family: inherit; }
+
+/* ============================================================
+   Captured Pieces
+   ============================================================ */
+.captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 28px; }
+.captured-img  { width: 26px; height: 26px; opacity: 0.8; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.btn {
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+.btn-gold {
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #1a1a2e;
+}
+.btn-gold:hover {
+    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+}
+.btn-gold:active { transform: translateY(0); }
+
+.btn-danger {
+    background: #2a1414;
+    color: #ff6b6b;
+    border: 1px solid #632424;
+    margin-top: 8px;
+}
+.btn-danger:hover {
+    background: #402020;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
+    transform: translateY(-1px);
+}
+.btn-danger:active { transform: translateY(0); }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 860px) {
+    .game-layout {
+        flex-direction: column;
+        align-items: center;
+    }
+    .panel {
+        width: 100%;
+        max-width: 500px;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .panel .card { flex: 1; min-width: 200px; }
+}
+
+/* ================= CLOCKS ================= */
+
+.clocks {
+    display: flex;
+    gap: 12px;
+    margin: 10px 0 6px;
+}
+
+.clock {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #16162a;
+    border: 1px solid #252545;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.25s ease;
+}
+
+.clock .label {
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    font-weight: 700;
+    opacity: 0.7;
+}
+
+.clock .time {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+/* Active player */
+.clock.active {
+    background: linear-gradient(135deg, #2a2a50, #1a1a35);
+    border-color: #f0c040;
+    box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
+}
+
+/* Low time warning */
+.clock.low {
+    background: linear-gradient(135deg, #402020, #2a1414);
+    border-color: #ff6b6b;
+    color: #ffb3b3;
+}
+
+/* Time up */
+.clock.dead {
+    opacity: 0.4;
+}
+
+/* Color hints */
+.clock.white .label { color: #ddd; }
+.clock.black .label { color: #aaa; }
+
+/* ================= PROMOTION MODAL ================= */
+
+.promo-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+.promo-overlay.active { display: flex; }
+
+.promo-dialog {
+    background: #1a1a30;
+    border: 2px solid #f0c040;
+    border-radius: 12px;
+    padding: 24px 28px;
+    text-align: center;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+}
+
+.promo-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f0c040;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.promo-pieces {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.promo-btn {
+    width: 64px;
+    height: 64px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #252545;
+    cursor: pointer;
+    padding: 6px;
+    transition: all 0.2s ease;
+}
+.promo-btn:hover {
+    border-color: #f0c040;
+    background: #2a2a55;
+    transform: scale(1.08);
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.3);
+}
+.promo-btn img {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}

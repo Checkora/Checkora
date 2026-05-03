@@ -249,13 +249,15 @@ class CheckPromotionTest(TestCase):
 
     def test_black_pawn_promotion(self):
         self.mock_promo.return_value = True
-        r = self.client.get('/api/check-promotion/?from_row=6&from_col=0&to_row=7')
+        url = '/api/check-promotion/?from_row=6&from_col=0&to_row=7'
+        r = self.client.get(url)
         self.assertTrue(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
     def test_no_promotion(self):
         self.mock_promo.return_value = False
-        r = self.client.get('/api/check-promotion/?from_row=1&from_col=0&to_row=2')
+        url = '/api/check-promotion/?from_row=1&from_col=0&to_row=2'
+        r = self.client.get(url)
         self.assertFalse(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
@@ -282,10 +284,16 @@ class PauseTest(TestCase):
         self.client.get('/')
 
     def test_pause_toggle(self):
-        r1 = self.client.post('/api/pause/', data=json.dumps({'pause': True}), content_type='application/json')
+        r1 = self.client.post(
+            '/api/pause/', data=json.dumps({'pause': True}),
+            content_type='application/json'
+        )
         self.assertTrue(r1.json()['paused'])
 
-        r2 = self.client.post('/api/pause/', data=json.dumps({'pause': False}), content_type='application/json')
+        r2 = self.client.post(
+            '/api/pause/', data=json.dumps({'pause': False}),
+            content_type='application/json'
+        )
         self.assertFalse(r2.json()['paused'])
 
 
@@ -296,8 +304,12 @@ class AIMoveTest(TestCase):
         self.client.get('/')
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
-        # Mock engine to return STATUS ok if checked, andBESTMOVE coordinates 
-        self.mock_engine.side_effect = lambda cmd: "BESTMOVE 6 4 4 4" if cmd.startswith("BEST") else ("STATUS ok" if cmd.startswith("STATUS") else "PROMOTE")
+        # Mock engine to return STATUS ok if checked, and BESTMOVE coords
+        self.mock_engine.side_effect = lambda cmd: (
+            "BESTMOVE 6 4 4 4" if cmd.startswith("BEST") else (
+                "STATUS ok" if cmd.startswith("STATUS") else "PROMOTE"
+            )
+        )
 
         self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
         self.mock_validate = self.validate_patcher.start()
@@ -313,8 +325,11 @@ class AIMoveTest(TestCase):
         self.assertFalse(r.json()['valid'])
 
     def test_ai_makes_move(self):
-        self.client.post('/api/new-game/', data=json.dumps({'mode': 'ai'}), content_type='application/json')
-        
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+
         r = self.client.post('/api/ai-move/', content_type='application/json')
         data = r.json()
         self.assertTrue(data['valid'])
