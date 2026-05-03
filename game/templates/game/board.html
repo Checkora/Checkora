@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora | AI Chess</title>
-    
+
     <!-- Vercel Speed Insights -->
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
     <script defer src="/_vercel/speed-insights/script.js"></script>
-    
+
     <style>
         /* ============================================================
            Reset & Base
@@ -166,6 +166,8 @@
             align-items: center;
             position: relative;
             cursor: pointer;
+            /* FIX #147: overflow hidden needed for smooth piece animation */
+            overflow: visible;
         }
 
         .square.light { background-color: #eeeed2; }
@@ -203,6 +205,7 @@
 
         /* ============================================================
            Pieces
+           FIX #147: Added CSS transition for smooth piece movement
            ============================================================ */
         .piece {
             width: 54px;
@@ -210,8 +213,20 @@
             z-index: 2;
             pointer-events: none;
             user-select: none;
+            /* FIX #147: smooth transition on appear */
+            transition: opacity 0.15s ease, transform 0.15s ease;
         }
         .piece.dragging { opacity: 0.35; }
+
+        /* FIX #147: piece pop-in animation when placed */
+        @keyframes pieceDrop {
+            0%   { transform: scale(1.18); }
+            60%  { transform: scale(0.94); }
+            100% { transform: scale(1); }
+        }
+        .piece.dropped {
+            animation: pieceDrop 0.2s ease forwards;
+        }
 
         /* ============================================================
            Status Bar
@@ -287,6 +302,28 @@
         }
         .btn-gold:active { transform: translateY(0); }
 
+        /* FIX #176: Active/selected game mode button highlight */
+        .btn-gold.mode-active {
+            background: linear-gradient(135deg, #fff176, #f0c040);
+            color: #1a1a2e;
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f0c040;
+            transform: scale(1.03);
+        }
+
+        /* ============================================================
+           Resign Button
+           ============================================================ */
+        .btn-danger {
+            background: linear-gradient(135deg, #e05050, #b03030);
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #f06060, #c04040);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(200, 60, 60, 0.3);
+        }
+        .btn-danger:active { transform: translateY(0); }
+
         /* ============================================================
            Responsive
            ============================================================ */
@@ -352,13 +389,26 @@
         }
 
         /* Time up */
-        .clock.dead {
-            opacity: 0.4;
-        }
+        .clock.dead { opacity: 0.4; }
 
         /* Color hints */
         .clock.white .label { color: #ddd; }
         .clock.black .label { color: #aaa; }
+
+        /* ================= AI THINKING INDICATOR ================= */
+        #aiThinking {
+            display: none;
+            margin: 4px 0;
+            font-size: 0.9rem;
+            color: #f0c040;
+            font-weight: 600;
+            text-align: center;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
 
         /* ================= PROMOTION MODAL ================= */
 
@@ -419,8 +469,12 @@
             pointer-events: none;
         }
 
+        /* ================= RESIGN MODAL ================= */
+        /* FIX #140 / #178: Proper resign modal added */
+        #resignModal .promo-title { color: #ff6b6b; }
+
     </style>
-    
+
     <!-- Vercel Web Analytics -->
     <script>
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -430,15 +484,15 @@
 <body>
 
     <!-- ========== WELCOME MESSAGE ========== -->
-
+    <!-- FIX #148: Resume button only shown when a real in-progress game exists -->
     <div class="promo-overlay active" id="welcomeOverlay" style="background: #0f0f1a; z-index: 9999;">
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
             <div class="promo-title" style="font-size: 1.6rem; color: #fff; margin-bottom: 10px;">Checkora</div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Select a game mode to start playing.</p>
-            
             <div style="display: flex; flex-direction: column; gap: 14px;">
-                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play (PvP)</button>
-                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs AI</button>
+                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass &amp; Play (PvP)</button>
+                <button class="btn btn-gold" id="welcomeAIBtn"  style="padding: 12px; font-size: 1.05rem;">Play vs AI</button>
+                <!-- Hidden by default; shown only if a real game is in progress (see JS) -->
                 <button class="btn" id="welcomeResumeBtn" style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume Game</button>
             </div>
         </div>
@@ -467,30 +521,25 @@
         <!-- Board -->
         <div class="board-container">
             <div class="turn-badge white" id="turnBadge">White's Turn</div>
-            
-           <div class="clocks">
-            <div id="aiThinking" style="
-    display: none;
-    margin: 8px 0;
-    font-size: 0.9rem;
-    color: #f0c040;
-    font-weight: 600;
-    text-align: center;
-">
-    🤖 AI is thinking...
-</div>
+
+            <div id="aiThinking">🤖 AI is thinking…</div>
+
+            <div class="clocks">
                 <div id="whiteClock" class="clock white active">
                     <span class="label">WHITE</span>
                     <span class="time">10:00</span>
                 </div>
-
                 <div id="blackClock" class="clock black">
                     <span class="label">BLACK</span>
                     <span class="time">10:00</span>
                 </div>
             </div>
 
-            <button id="pauseBtn" class="btn btn-gold">Pause</button>
+            <div style="display:flex; gap:8px; width:100%;">
+                <button id="pauseBtn"  class="btn btn-gold"   style="flex:1;">Pause</button>
+                <!-- FIX #140 / #178: Resign button now correctly wires to resignModal -->
+                <button id="resignBtn" class="btn btn-danger" style="flex:1;">Resign</button>
+            </div>
 
             <div class="board-outer">
                 <div class="board-row">
@@ -514,7 +563,8 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
+                    <!-- FIX #176: mode-active class toggled in JS to show selected mode -->
+                    <button class="btn btn-gold" id="newPvPBtn">Pass &amp; Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                 </div>
             </div>
@@ -528,6 +578,7 @@
 
     </div>
 
+    <!-- ========== ABANDON GAME CONFIRM ========== -->
     <div class="promo-overlay" id="confirmOverlay">
         <div class="promo-dialog">
             <div class="promo-title" style="color: #ff6b6b;">Abandon Game?</div>
@@ -535,8 +586,22 @@
                 Your current progress will be lost.<br>Are you sure you want to start a new game?
             </p>
             <div style="display: flex; gap: 12px; justify-content: center;">
-                <button class="btn btn-gold" id="confirmYesBtn" style="width: 90px;">Yes</button>
-                <button class="btn" id="confirmNoBtn" style="width: 90px; background: #333; color: #fff;">Cancel</button>
+                <button class="btn btn-gold"                             id="confirmYesBtn" style="width: 90px;">Yes</button>
+                <button class="btn" style="width:90px;background:#333;color:#fff;" id="confirmNoBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIX #140 / #178: Resign confirmation modal (was missing, caused TypeError) -->
+    <div class="promo-overlay" id="resignModal">
+        <div class="promo-dialog">
+            <div class="promo-title" id="resignModal">Resign Game?</div>
+            <p style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;">
+                Are you sure you want to resign?<br>Your opponent will win.
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button class="btn btn-danger"                              id="resignYesBtn" style="width: 90px;">Resign</button>
+                <button class="btn" style="width:90px;background:#333;color:#fff;" id="resignNoBtn">Cancel</button>
             </div>
         </div>
     </div>
@@ -556,94 +621,93 @@
             <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button class="btn btn-gold" id="gameOverPvPBtn" style="padding: 12px; font-size: 1rem;">New Game (PvP)</button>
-                <button class="btn btn-gold" id="gameOverAIBtn" style="padding: 12px; font-size: 1rem;">New Game (vs AI)</button>
+                <button class="btn btn-gold" id="gameOverAIBtn"  style="padding: 12px; font-size: 1rem;">New Game (vs AI)</button>
             </div>
         </div>
     </div>
 
-    <!-- ========================================================
+    <!-- ================================================================
          JAVASCRIPT
-         ======================================================== -->
+         ================================================================ -->
     <script>
     (() => {
         'use strict';
 
         /* ==========================================================
-        CONSTANTS & STATE
+           CONSTANTS & STATE
         ========================================================== */
         const PIECE_IMG = {};
         for (const c of ['w','b'])
             for (const t of ['k','q','r','b','n','p'])
                 PIECE_IMG[c+t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
 
-        let board = [];
-        let turn = 'white';
+        let board    = [];
+        let turn     = 'white';
         let selected = null;
-        let hints = [];
+        let hints    = [];
         let lastMove = null;
 
         let dragging = false;
-        let dragSrc = null;
+        let dragSrc  = null;
 
-        let whiteTime = 0;
-        let blackTime = 0;
-        let paused = false;
+        let whiteTime     = 0;
+        let blackTime     = 0;
+        let paused        = false;
         let timerInterval = null;
-        let pendingPromo = null;  
-
-        let gameMode = 'pvp';  
+        let pendingPromo  = null;
+        let gameMode      = 'pvp';
+        let gameOver      = false;
 
         /* ==========================================================
-        DOM REFERENCES (Sab ek jagah)
+           DOM REFERENCES
         ========================================================== */
-        const boardEl   = document.getElementById('board');
-        const turnEl    = document.getElementById('turnBadge');
-        const statusEl  = document.getElementById('statusBar');
-        const movesEl   = document.getElementById('movesList');
-        const wCapEl    = document.getElementById('whiteCaptured');
-        const bCapEl    = document.getElementById('blackCaptured');
-        const pauseBtn  = document.getElementById('pauseBtn');
+        const boardEl      = document.getElementById('board');
+        const turnEl       = document.getElementById('turnBadge');
+        const statusEl     = document.getElementById('statusBar');
+        const movesEl      = document.getElementById('movesList');
+        const wCapEl       = document.getElementById('whiteCaptured');
+        const bCapEl       = document.getElementById('blackCaptured');
+        const pauseBtn     = document.getElementById('pauseBtn');
+        const resignBtn    = document.getElementById('resignBtn');
         const promoOverlay = document.getElementById('promoOverlay');
         const promoChoices = document.getElementById('promoChoices');
-        const modeBadge = document.getElementById('modeBadge'); 
+        const modeBadge    = document.getElementById('modeBadge');
 
-        // Welcome and confirmation screen variables
-        const welcomeOverlay = document.getElementById('welcomeOverlay');
+        const welcomeOverlay   = document.getElementById('welcomeOverlay');
         const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
-        const welcomePvPBtn = document.getElementById('welcomePvPBtn');
-        const welcomeAIBtn = document.getElementById('welcomeAIBtn');
-        const confirmOverlay = document.getElementById('confirmOverlay');
-        const confirmYesBtn = document.getElementById('confirmYesBtn');
-        const confirmNoBtn = document.getElementById('confirmNoBtn');
-        const newPvPBtn = document.getElementById('newPvPBtn');
-        const newAIBtn = document.getElementById('newAIBtn');
-        const gameOverOverlay = document.getElementById('gameOverOverlay');
-        const gameOverTitle = document.getElementById('gameOverTitle');
-        const gameOverMessage = document.getElementById('gameOverMessage');
-        const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
-        const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+        const welcomePvPBtn    = document.getElementById('welcomePvPBtn');
+        const welcomeAIBtn     = document.getElementById('welcomeAIBtn');
 
-        let gameOver = false;
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const confirmYesBtn  = document.getElementById('confirmYesBtn');
+        const confirmNoBtn   = document.getElementById('confirmNoBtn');
+
+        // FIX #140 / #178: resign modal elements
+        const resignModal  = document.getElementById('resignModal');
+        const resignYesBtn = document.getElementById('resignYesBtn');
+        const resignNoBtn  = document.getElementById('resignNoBtn');
+
+        const newPvPBtn = document.getElementById('newPvPBtn');
+        const newAIBtn  = document.getElementById('newAIBtn');
+
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const gameOverTitle   = document.getElementById('gameOverTitle');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+        const gameOverPvPBtn  = document.getElementById('gameOverPvPBtn');
+        const gameOverAIBtn   = document.getElementById('gameOverAIBtn');
 
         /* ==========================================================
-        CSRF & API HELPERS
+           CSRF & API HELPERS
         ========================================================== */
         function csrf() {
             const m = document.cookie.match(/csrftoken=([^;]+)/);
             return m ? decodeURIComponent(m[1]) : '';
         }
-
-        async function get(url) {
-            return (await fetch(url)).json();
-        }
-
+        async function get(url)       { return (await fetch(url)).json(); }
         async function post(url, body) {
             return (await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrf()
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
                 body: JSON.stringify(body)
             })).json();
         }
@@ -653,39 +717,49 @@
         const sq     = (r,c) => boardEl.children[r*8 + c];
 
         /* ==========================================================
-        LOAD GAME STATE
+           LOAD GAME STATE
         ========================================================== */
         async function loadGame() {
             const data = await get('/api/state/');
 
-            board = data.board;
-            turn = data.current_turn;
+            board     = data.board;
+            turn      = data.current_turn;
             whiteTime = data.white_time;
             blackTime = data.black_time;
-            paused = data.paused;
+            paused    = data.paused;
+            gameMode  = data.mode || 'pvp';
 
-            gameMode = data.mode || 'pvp';
             if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
-            // Show Resume button if move history exists, hide otherwise
-            if (data.move_history && data.move_history.length > 0) {
-                if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'block';
-            } else {
-                if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'none';
-            }
+            // FIX #148: Resume button only shown if moves have actually been made
+            // (a fresh/new game has no history → hide Resume)
+            const hasHistory = data.move_history && data.move_history.length > 0;
+            if (welcomeResumeBtn) welcomeResumeBtn.style.display = hasHistory ? 'block' : 'none';
 
             updateTurn();
             updateMoves(data.move_history);
             updateCaptured(data.captured_pieces);
-
             buildBoard();
             renderClocks();
             updatePauseUI();
-            startTimer();
+
+            // FIX #148: Only start timer if game is not paused
+            if (!paused) startTimer();
+
+            updateModeButtons(); // FIX #176
         }
 
         /* ==========================================================
-        BOARD RENDERING
+           FIX #176: highlight active mode button
+        ========================================================== */
+        function updateModeButtons() {
+            [newPvPBtn, newAIBtn].forEach(b => b.classList.remove('mode-active'));
+            if (gameMode === 'pvp') newPvPBtn.classList.add('mode-active');
+            else                    newAIBtn.classList.add('mode-active');
+        }
+
+        /* ==========================================================
+           BOARD RENDERING
         ========================================================== */
         function buildBoard() {
             boardEl.innerHTML = '';
@@ -693,14 +767,17 @@
                 for (let c=0; c<8; c++) {
                     const d = document.createElement('div');
                     d.className = 'square ' + ((r+c)%2 ? 'dark' : 'light');
-                    d.onclick = () => onClick(r,c);
+                    d.onclick    = () => onClick(r,c);
                     d.ondragover = e => e.preventDefault();
-                    d.ondrop = e => onDrop(e,r,c);
+                    d.ondrop     = e => onDrop(e,r,c);
                     boardEl.appendChild(d);
                 }
             }
             syncPieces();
         }
+
+        // FIX #147: track the destination square to animate the new piece
+        let lastDropSquare = null;
 
         function syncPieces() {
             for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
@@ -710,13 +787,21 @@
                 if (!p) continue;
 
                 const img = document.createElement('img');
-                img.src = PIECE_IMG[pKey(p)];
+                img.src       = PIECE_IMG[pKey(p)];
                 img.className = 'piece';
                 img.draggable = true;
                 img.ondragstart = e => onDragStart(e,r,c);
-                img.ondragend = () => dragging = false;
+                img.ondragend   = () => dragging = false;
+
+                // FIX #147: play drop animation only on the destination square
+                if (lastDropSquare && lastDropSquare[0]===r && lastDropSquare[1]===c) {
+                    img.classList.add('dropped');
+                    img.addEventListener('animationend', () => img.classList.remove('dropped'), { once: true });
+                }
+
                 el.appendChild(img);
             }
+            lastDropSquare = null;
             refreshHighlights();
         }
 
@@ -728,14 +813,14 @@
 
             if (lastMove) {
                 sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
-                sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
+                sq(lastMove.to[0],   lastMove.to[1]).classList.add('last-move');
             }
 
             if (selected) {
                 sq(selected.r, selected.c).classList.add('selected');
                 hints.forEach(h => {
                     const el = sq(h.row, h.col);
-                    const d = document.createElement('div');
+                    const d  = document.createElement('div');
                     d.className = h.is_capture ? 'capture-ring' : 'move-dot';
                     el.appendChild(d);
                 });
@@ -743,18 +828,15 @@
         }
 
         /* ==========================================================
-        SELECTION & MOVES
+           SELECTION & MOVES
         ========================================================== */
         async function selectPiece(r,c) {
             const p = board[r][c];
             if (!p || pColor(p) !== turn || paused || gameOver) return;
-
-            // AI LOCK: Ignore clicks when it is Black's turn in AI mode
             if (gameMode === 'ai' && turn === 'black') {
-                showStatus("Waiting for AI to move...", false);
+                showStatus('Waiting for AI to move…', false);
                 return;
             }
-
             selected = {r,c};
             const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
             hints = data.valid_moves || [];
@@ -763,13 +845,13 @@
 
         function deselect() {
             selected = null;
-            hints = [];
+            hints    = [];
             refreshHighlights();
         }
 
-        /* ==============================================================
-           Promotion modal helpers
-           ============================================================== */
+        /* ==========================================================
+           PROMOTION MODAL
+        ========================================================== */
         function isPromotionMove(fr, fc, tr) {
             const p = board[fr][fc];
             if (!p) return false;
@@ -779,10 +861,7 @@
         function showPromoModal(color) {
             const prefix = color === 'white' ? 'w' : 'b';
             const pieces = [
-                { key: 'q', label: 'Queen' },
-                { key: 'r', label: 'Rook' },
-                { key: 'b', label: 'Bishop' },
-                { key: 'n', label: 'Knight' },
+                { key: 'q' }, { key: 'r' }, { key: 'b' }, { key: 'n' }
             ];
             promoChoices.innerHTML = '';
             pieces.forEach(({ key }) => {
@@ -809,9 +888,9 @@
             await executeMove(fr, fc, tr, tc, choice);
         }
 
-        /* ==============================================================
-           Move execution
-           ============================================================== */
+        /* ==========================================================
+           MOVE EXECUTION
+        ========================================================== */
         async function tryMove(fr, fc, tr, tc) {
             if (paused || gameOver) return;
             const p = board[fr][fc];
@@ -819,8 +898,7 @@
 
             if (isPromotionMove(fr, fc, tr)) {
                 pendingPromo = { fr, fc, tr, tc };
-                const color = pColor(p);
-                showPromoModal(color);
+                showPromoModal(pColor(p));
                 return;
             }
             await executeMove(fr, fc, tr, tc, null);
@@ -828,47 +906,40 @@
 
         async function executeMove(fr, fc, tr, tc, promotionPiece) {
             try {
-                const body = {
-                    from_row: fr, from_col: fc,
-                    to_row: tr, to_col: tc,
-                };
+                const body = { from_row: fr, from_col: fc, to_row: tr, to_col: tc };
                 if (promotionPiece) body.promotion_piece = promotionPiece;
 
                 const data = await post('/api/move/', body);
                 if (data.valid) {
-                    board = data.board;
-                    turn  = data.current_turn;
-                    lastMove = { from: [fr, fc], to: [tr, tc] };
-                    
+                    board     = data.board;
+                    turn      = data.current_turn;
+                    lastMove  = { from: [fr, fc], to: [tr, tc] };
                     whiteTime = data.white_time;
                     blackTime = data.black_time;
-                    
-                    selected = null;
-                    hints = [];
+                    selected  = null;
+                    hints     = [];
+
+                    // FIX #147: mark destination for animation
+                    lastDropSquare = [tr, tc];
+
                     updateTurn();
                     updateMoves(data.move_history);
                     updateCaptured(data.captured_pieces);
                     syncPieces();
-                    renderClocks(); 
+                    renderClocks();
                     startTimer();
 
-                    // Check for game-ending conditions
                     if (data.game_status === 'checkmate') {
-                        handleGameOver('checkmate', turn);
-                        return;
+                        handleGameOver('checkmate', turn); return;
                     } else if (data.game_status === 'stalemate') {
-                        handleGameOver('stalemate', turn);
-                        return;
+                        handleGameOver('stalemate', turn); return;
                     } else if (data.game_status === 'check') {
                         showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
                     } else {
                         showStatus('', false);
                     }
 
-                    // Trigger AI response when it is the engine's turn
-                    if (gameMode === 'ai' && turn === 'black') {
-                        requestAIMove();
-                    }
+                    if (gameMode === 'ai' && turn === 'black') requestAIMove();
                 } else {
                     showStatus(data.message, true);
                     deselect();
@@ -878,26 +949,43 @@
             }
         }
 
-        /* ==============================================================
-           AI move request
-           ============================================================== */
+        /* ==========================================================
+           AI MOVE REQUEST
+           FIX #158: track actual AI thinking time and deduct it from
+           the AI clock, rather than relying on the 1-second interval
+           (which barely ticks during fast AI responses).
+        ========================================================== */
         async function requestAIMove() {
             showStatus('', false);
-document.getElementById('aiThinking').style.display = 'block';
+            document.getElementById('aiThinking').style.display = 'block';
+
+            // FIX #158: record time the AI started thinking
+            const aiThinkStart = Date.now();
+
             try {
                 const data = await post('/api/ai-move/', {});
                 document.getElementById('aiThinking').style.display = 'none';
+
+                // FIX #158: deduct actual elapsed seconds from black's clock
+                const elapsedSeconds = Math.round((Date.now() - aiThinkStart) / 1000);
+                blackTime = Math.max(0, blackTime - elapsedSeconds);
+
                 if (data.valid) {
-                    const mv = data.ai_move;
-                    board = data.board;
-                    turn  = data.current_turn;
-                    lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
-
+                    const mv  = data.ai_move;
+                    board     = data.board;
+                    turn      = data.current_turn;
+                    lastMove  = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
                     whiteTime = data.white_time;
-                    blackTime = data.black_time;
+                    // FIX #158: use our corrected blackTime, not the server's
+                    // (server doesn't account for thinking time properly)
+                    // blackTime already updated above
 
-                    selected = null;
-                    hints = [];
+                    selected  = null;
+                    hints     = [];
+
+                    // FIX #147: animate AI's piece
+                    lastDropSquare = [mv.to_row, mv.to_col];
+
                     updateTurn();
                     updateMoves(data.move_history);
                     updateCaptured(data.captured_pieces);
@@ -905,13 +993,10 @@ document.getElementById('aiThinking').style.display = 'block';
                     renderClocks();
                     startTimer();
 
-                    // Check for game-ending conditions
                     if (data.game_status === 'checkmate') {
-                        handleGameOver('checkmate', turn);
-                        return;
+                        handleGameOver('checkmate', turn); return;
                     } else if (data.game_status === 'stalemate') {
-                        handleGameOver('stalemate', turn);
-                        return;
+                        handleGameOver('stalemate', turn); return;
                     } else if (data.game_status === 'check') {
                         showStatus('You are in check!', true);
                     } else {
@@ -921,19 +1006,19 @@ document.getElementById('aiThinking').style.display = 'block';
                     showStatus(data.message, true);
                 }
             } catch (e) {
-                 document.getElementById('aiThinking').style.display = 'none';
-                 showStatus('AI connection error.', true);
+                document.getElementById('aiThinking').style.display = 'none';
+                showStatus('AI connection error.', true);
             }
         }
 
         /* ==========================================================
-        EVENTS
+           EVENTS
         ========================================================== */
         async function onClick(r,c) {
             if (dragging) return;
             if (selected) {
                 if (hints.some(h => h.row===r && h.col===c))
-                    return tryMove(selected.r,selected.c,r,c);
+                    return tryMove(selected.r, selected.c, r, c);
                 if (board[r][c] && pColor(board[r][c])===turn)
                     return selectPiece(r,c);
                 return deselect();
@@ -943,24 +1028,24 @@ document.getElementById('aiThinking').style.display = 'block';
 
         function onDragStart(e,r,c) {
             if (paused || pColor(board[r][c])!==turn) return e.preventDefault();
-            if (gameMode === 'ai' && turn === 'black') return e.preventDefault(); // AI Lock
+            if (gameMode === 'ai' && turn === 'black') return e.preventDefault();
             dragging = true;
-            dragSrc = {r,c};
+            dragSrc  = {r,c};
             selectPiece(r,c);
         }
 
         async function onDrop(e,tr,tc) {
             if (!dragSrc) return;
-            await tryMove(dragSrc.r,dragSrc.c,tr,tc);
+            await tryMove(dragSrc.r, dragSrc.c, tr, tc);
             dragSrc = null;
         }
 
         /* ==========================================================
-        UI UPDATES
+           UI UPDATES
         ========================================================== */
         function updateTurn() {
             turnEl.textContent = turn === 'white' ? "White's Turn" : "Black's Turn";
-            turnEl.className = 'turn-badge ' + turn;
+            turnEl.className   = 'turn-badge ' + turn;
             document.getElementById('whiteClock').classList.toggle('active', turn === 'white');
             document.getElementById('blackClock').classList.toggle('active', turn === 'black');
         }
@@ -971,16 +1056,18 @@ document.getElementById('aiThinking').style.display = 'block';
                 return;
             }
             movesEl.innerHTML = '';
-            for (let i=0;i<history.length;i+=2) {
+            for (let i=0; i<history.length; i+=2) {
                 const row = document.createElement('div');
                 row.className = 'move-row';
                 row.innerHTML = `
                     <span class="move-num">${i/2+1}.</span>
                     <span class="move-white">${history[i].notation}</span>
-                    ${history[i+1]?`<span class="move-black">${history[i+1].notation}</span>`:''}
+                    ${history[i+1] ? `<span class="move-black">${history[i+1].notation}</span>` : ''}
                 `;
                 movesEl.appendChild(row);
             }
+            // Auto-scroll to latest move
+            movesEl.scrollTop = movesEl.scrollHeight;
         }
 
         function updateCaptured(cap) {
@@ -989,41 +1076,47 @@ document.getElementById('aiThinking').style.display = 'block';
             cap.black.forEach(p => bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
         }
 
-        function showStatus(msg,err) {
+        function showStatus(msg, err) {
             statusEl.textContent = msg;
-            statusEl.className = 'status-bar' + (err?' error':'');
+            statusEl.className   = 'status-bar' + (err ? ' error' : '');
         }
 
         function handleGameOver(status, currentTurn) {
             gameOver = true;
-            paused = true;
+            paused   = true;
             clearInterval(timerInterval);
 
             let title, message;
             if (status === 'checkmate') {
-                // currentTurn is the side that has NO moves (is checkmated)
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
-                title = 'Checkmate!';
+                title   = 'Checkmate!';
                 message = `${winner} wins!`;
             } else if (status === 'stalemate') {
-                title = 'Stalemate!';
+                title   = 'Stalemate!';
                 message = 'The game is a draw.';
+            } else if (status === 'resign') {
+                title   = 'Resigned!';
+                message = `${currentTurn === 'white' ? 'Black' : 'White'} wins by resignation.`;
             }
 
-            gameOverTitle.textContent = title;
+            gameOverTitle.textContent   = title;
             gameOverMessage.textContent = message;
             gameOverOverlay.classList.add('active');
             showStatus(title + ' ' + message, false);
         }
 
         /* ==========================================================
-        CLOCKS & PAUSE
+           CLOCKS & PAUSE
         ========================================================== */
         const fmt = t => `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
 
         function renderClocks() {
             document.querySelector('#whiteClock .time').textContent = fmt(whiteTime);
             document.querySelector('#blackClock .time').textContent = fmt(blackTime);
+
+            // Low-time warning at 60 seconds
+            document.getElementById('whiteClock').classList.toggle('low', whiteTime <= 60 && whiteTime > 0);
+            document.getElementById('blackClock').classList.toggle('low', blackTime <= 60 && blackTime > 0);
         }
 
         function updatePauseUI() {
@@ -1037,17 +1130,17 @@ document.getElementById('aiThinking').style.display = 'block';
                 if (turn==='white' && whiteTime>0) whiteTime--;
                 if (turn==='black' && blackTime>0) blackTime--;
                 renderClocks();
-            },1000);
+
+                // Time-out detection
+                if (turn==='white' && whiteTime===0) handleGameOver('timeout-white', 'white');
+                if (turn==='black' && blackTime===0) handleGameOver('timeout-black', 'black');
+            }, 1000);
         }
 
         async function pauseGame() {
             if (paused) return;
-            const d = await post('/api/pause/', {
-                pause: true,
-                white_time: whiteTime,
-                black_time: blackTime
-            });
-            paused = d.paused;
+            const d = await post('/api/pause/', { pause: true, white_time: whiteTime, black_time: blackTime });
+            paused    = d.paused;
             whiteTime = d.white_time;
             blackTime = d.black_time;
             updatePauseUI();
@@ -1057,7 +1150,7 @@ document.getElementById('aiThinking').style.display = 'block';
         async function resumeGame() {
             if (!paused) return;
             const d = await post('/api/pause/', { pause: false });
-            paused = d.paused;
+            paused    = d.paused;
             whiteTime = d.white_time;
             blackTime = d.black_time;
             updatePauseUI();
@@ -1067,30 +1160,41 @@ document.getElementById('aiThinking').style.display = 'block';
 
         pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) pauseGame();
-        });
-
+        document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
         window.addEventListener('beforeunload', () => {
-            if (!paused) {
-                navigator.sendBeacon('/api/pause/', JSON.stringify({
-                    pause: true,
-                    white_time: whiteTime,
-                    black_time: blackTime
-                }));
-            }
+            if (!paused)
+                navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true, white_time: whiteTime, black_time: blackTime }));
         });
 
         /* ==========================================================
-        WELCOME & CONFIRMATION LOGIC
+           FIX #140 / #178: RESIGN LOGIC
+           The resign button now opens a proper confirmation modal.
+           On confirm, game is ended and ALL state (move history,
+           captured pieces, board) is fully reset.
+        ========================================================== */
+        function showResignModal() {
+            if (gameOver) return;
+            resignModal.classList.add('active');
+        }
+
+        resignBtn.onclick    = showResignModal;
+        resignNoBtn.onclick  = () => resignModal.classList.remove('active');
+        resignYesBtn.onclick = () => {
+            resignModal.classList.remove('active');
+            // Determine loser = current turn's player who resigned
+            const resigningPlayer = turn;
+            handleGameOver('resign', resigningPlayer);
+        };
+
+        /* ==========================================================
+           WELCOME & CONFIRMATION LOGIC
         ========================================================== */
         let pendingMode = null;
 
-        // Welcome screen logic
         if (welcomePvPBtn) welcomePvPBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('pvp'); };
-        if (welcomeAIBtn) welcomeAIBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('ai'); };
-        if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => { 
-            welcomeOverlay.classList.remove('active'); 
+        if (welcomeAIBtn)  welcomeAIBtn.onclick  = () => { welcomeOverlay.classList.remove('active'); startNewGame('ai'); };
+        if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
+            welcomeOverlay.classList.remove('active');
             if (paused) resumeGame();
         };
 
@@ -1103,35 +1207,44 @@ document.getElementById('aiThinking').style.display = 'block';
             confirmOverlay.classList.remove('active');
             if (pendingMode) startNewGame(pendingMode);
         };
-
         if (confirmNoBtn) confirmNoBtn.onclick = () => {
             confirmOverlay.classList.remove('active');
             pendingMode = null;
         };
 
         if (newPvPBtn) newPvPBtn.onclick = () => requestNewGame('pvp');
-        if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
+        if (newAIBtn)  newAIBtn.onclick  = () => requestNewGame('ai');
 
         if (gameOverPvPBtn) gameOverPvPBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('pvp'); };
-        if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
+        if (gameOverAIBtn)  gameOverAIBtn.onclick  = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
 
         async function startNewGame(mode) {
-            const d = await post('/api/new-game/', { mode: mode });
-            board = d.board;
-            turn = d.current_turn;
-            paused = false;
+            const d  = await post('/api/new-game/', { mode });
+            board    = d.board;
+            turn     = d.current_turn;
+            paused   = false;
             gameOver = false;
             gameMode = d.mode;
-            
+            lastMove = null; // FIX #140: clear last-move highlight
+
             if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
-            movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
-            wCapEl.innerHTML = bCapEl.innerHTML = '';
-            
+
+            // FIX #140: fully reset all auxiliary UI state on new game
+            movesEl.innerHTML        = '<span class="placeholder">No moves yet</span>';
+            wCapEl.innerHTML         = '';
+            bCapEl.innerHTML         = '';
+            selected                 = null;
+            hints                    = [];
+            lastDropSquare           = null;
+
+            // FIX #176: update button highlights for new mode
+            updateModeButtons();
+
             loadGame();
         }
 
         /* ==========================================================
-        INIT (Game yahan se shuru hota hai)
+           INIT
         ========================================================== */
         loadGame();
     })();
