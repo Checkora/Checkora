@@ -264,7 +264,6 @@ def offer_draw(request):
         
     return JsonResponse({'success': True})
 
-<<<<<<< HEAD
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
@@ -314,12 +313,33 @@ def register_view(request):
             
             # Send Email
             try:
+                html_message = f"""
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f0f1a; color: #d0d0d0; padding: 40px 20px; text-align: center;">
+                    <div style="background-color: #16162a; border: 1px solid #252545; border-radius: 12px; padding: 40px 30px; max-width: 450px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <h1 style="color: #ffffff; margin-top: 0; margin-bottom: 15px; font-size: 28px; letter-spacing: 2px;">CHECK<span style="color: #f0c040;">ORA</span></h1>
+                        <hr style="border: none; border-top: 1px solid #252545; margin: 20px 0;">
+                        <p style="color: #e0e0e0; font-size: 16px; line-height: 1.5; margin-bottom: 30px;">
+                            Welcome to the elite chess platform. To activate your account and start playing, please use the verification code below:
+                        </p>
+                        <div style="margin: 35px 0;">
+                            <span style="font-family: 'Consolas', monospace; font-size: 36px; font-weight: bold; color: #f0c040; letter-spacing: 8px; background: #0f0f1a; padding: 15px 25px; border-radius: 8px; border: 1px solid #3d3222; display: inline-block;">{otp}</span>
+                        </div>
+                        <p style="color: #8a8aaa; font-size: 14px; margin-top: 30px;">
+                            Enter this code on the verification page to complete your registration.
+                        </p>
+                        <p style="color: #5a5a7a; font-size: 12px; margin-top: 40px;">
+                            If you didn't attempt to register on Checkora, please safely ignore this email.
+                        </p>
+                    </div>
+                </div>
+                """
                 send_mail(
-                    'Verify your Checkora Account',
+                    'Your Checkora Verification Code',
                     f'Your OTP for registration is: {otp}\n\nPlease enter this code to activate your account.',
                     None, # Will use EMAIL_HOST_USER
                     [user.email],
                     fail_silently=False,
+                    html_message=html_message
                 )
                 return redirect('verify_otp')
             except Exception as e:
