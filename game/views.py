@@ -4,7 +4,14 @@ import json
 import time
 
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib.auth import login, logout
+from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.core.mail import send_mail
+from django.contrib import messages
+from django import forms
+import random
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
@@ -257,6 +264,7 @@ def offer_draw(request):
         
     return JsonResponse({'success': True})
 
+<<<<<<< HEAD
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
@@ -282,3 +290,94 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
+
+class CustomUserCreationForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+    class Meta(UserCreationForm.Meta):
+        fields = UserCreationForm.Meta.fields + ('email',)
+
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect('index')
+        
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.is_active = False # Deactivate account till OTP is verified
+            user.save()
+            
+            # Generate 6-digit OTP
+            otp = str(random.randint(100000, 999999))
+            request.session['registration_user_id'] = user.id
+            request.session['registration_otp'] = otp
+            
+            # Send Email
+            try:
+                send_mail(
+                    'Verify your Checkora Account',
+                    f'Your OTP for registration is: {otp}\n\nPlease enter this code to activate your account.',
+                    None, # Will use EMAIL_HOST_USER
+                    [user.email],
+                    fail_silently=False,
+                )
+                return redirect('verify_otp')
+            except Exception as e:
+                # If email fails, delete the user so they can try again
+                user.delete()
+                messages.error(request, 'Failed to send OTP email. Please check your email address and try again.')
+    else:
+        form = CustomUserCreationForm()
+    
+    return render(request, 'game/register.html', {'form': form})
+
+def verify_otp(request):
+    if request.user.is_authenticated:
+        return redirect('index')
+        
+    user_id = request.session.get('registration_user_id')
+    stored_otp = request.session.get('registration_otp')
+    
+    if not user_id or not stored_otp:
+        messages.error(request, 'Session expired. Please register again.')
+        return redirect('register')
+        
+    if request.method == 'POST':
+        entered_otp = request.POST.get('otp', '').strip()
+        if entered_otp == stored_otp:
+            try:
+                user = User.objects.get(id=user_id)
+                user.is_active = True
+                user.save()
+                
+                # Clear session data
+                del request.session['registration_user_id']
+                del request.session['registration_otp']
+                
+                login(request, user)
+                return redirect('index')
+            except User.DoesNotExist:
+                messages.error(request, 'User not found. Please register again.')
+                return redirect('register')
+        else:
+            messages.error(request, 'Invalid OTP. Please try again.')
+            
+    return render(request, 'game/verify_otp.html')
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('index')
+        
+    if request.method == 'POST':
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect('index')
+    else:
+        form = AuthenticationForm()
+        
+    return render(request, 'game/login.html', {'form': form})
+
+def logout_view(request):
+    logout(request)
+    return redirect('index')

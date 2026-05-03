@@ -13,6 +13,7 @@
     </script>
     <script defer src="/_vercel/speed-insights/script.js"></script>
     <script defer src="/_vercel/insights/script.js"></script>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <script type="module" src="{% static 'game/js/board.js' %}"></script>
 </head>
 <body>
@@ -34,9 +35,20 @@
         </div>
     </div>
 
-    <header class="header">
+    <!-- ========== HEADER ========== -->
+    <div class="header" style="position: relative; width: 100%; max-width: 1000px; margin: 0 auto;">
         <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
-    </header>
+        
+        <div style="position: absolute; right: 20px; top: 25px; display: flex; align-items: center; gap: 15px;">
+            {% if user.is_authenticated %}
+                <span style="color: #8a8aaa; font-size: 0.9rem;">Welcome, <span style="color: #f0c040; font-weight: 600;">{{ user.username }}</span></span>
+                <a href="{% url 'logout' %}" style="color: #ff6b6b; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 5px 10px; border-radius: 4px; background: rgba(255, 107, 107, 0.1);">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}" style="color: #f0c040; text-decoration: none; font-size: 0.9rem; font-weight: 600;">Sign In</a>
+                <a href="{% url 'register' %}" style="color: #1a1a2e; text-decoration: none; font-size: 0.9rem; font-weight: 600; background: #f0c040; padding: 6px 14px; border-radius: 6px; box-shadow: 0 2px 8px rgba(240, 192, 64, 0.2);">Register</a>
+            {% endif %}
+        </div>
+    </div>
 
     <main class="game-layout">
         <aside class="panel" aria-label="Captured pieces">
