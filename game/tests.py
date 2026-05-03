@@ -1,6 +1,7 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
 import json
+import random
 import sys
 from unittest import mock
 
@@ -287,6 +288,185 @@ class PauseTest(TestCase):
 
         r2 = self.client.post('/api/pause/', data=json.dumps({'pause': False}), content_type='application/json')
         self.assertFalse(r2.json()['paused'])
+
+
+class OpeningBookTest(TestCase):
+    """Tests for the opening book integration in get_ai_move."""
+
+    def setUp(self):
+        # Reset class-level book cache so each test starts clean
+        ChessGame._opening_book = None
+        ChessGame._opening_book_loaded = False
+
+    # -- board_to_fen -------------------------------------------------
+
+    def test_board_to_fen_initial_position(self):
+        game = ChessGame()
+        self.assertEqual(
+            game.board_to_fen(),
+            'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq',
+        )
+
+    def test_board_to_fen_after_e4(self):
+        game = ChessGame()
+        game.board[4][4] = 'P'
+        game.board[6][4] = None
+        game.current_turn = 'black'
+        self.assertEqual(
+            game.board_to_fen(),
+            'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq',
+        )
+
+    def test_board_to_fen_reflects_castling_rights(self):
+        game = ChessGame()
+        game.castling_rights['w_k'] = False
+        game.castling_rights['w_q'] = False
+        self.assertTrue(game.board_to_fen().endswith(' w kq'))
+
+    # -- _get_book_move -----------------------------------------------
+
+    def test_get_book_move_returns_move_for_starting_position(self):
+        game = ChessGame()
+        move = game._get_book_move()
+        self.assertIsNotNone(move)
+        # All starting-position book entries are pawn moves: from row 6 to row 4
+        self.assertEqual(move['from_row'], 6)
+        self.assertEqual(move['to_row'], 4)
+
+    def test_get_book_move_returns_none_for_unknown_position(self):
+        game = ChessGame()
+        # Place an extra queen on an empty square to produce an unrecognised FEN
+        game.board[4][4] = 'Q'
+        self.assertIsNone(game._get_book_move())
+
+    def test_get_book_move_coordinates_are_on_board(self):
+        game = ChessGame()
+        move = game._get_book_move()
+        self.assertIsNotNone(move)
+        for key in ('from_row', 'from_col', 'to_row', 'to_col'):
+            self.assertGreaterEqual(move[key], 0)
+            self.assertLessEqual(move[key], 7)
+
+    def test_get_book_move_covers_sicilian(self):
+        """After 1.e4 c5 white should have a book response."""
+        game = ChessGame()
+        game.board[4][4] = 'P'
+        game.board[6][4] = None
+        game.board[3][2] = 'p'
+        game.board[1][2] = None
+        game.current_turn = 'white'
+        self.assertIsNotNone(game._get_book_move())
+
+    def test_get_book_move_covers_queens_gambit(self):
+        """After 1.d4 d5 white should have a book response."""
+        game = ChessGame()
+        game.board[4][3] = 'P'
+        game.board[6][3] = None
+        game.board[3][3] = 'p'
+        game.board[1][3] = None
+        game.current_turn = 'white'
+        self.assertIsNotNone(game._get_book_move())
+
+    # -- get_ai_move integration --------------------------------------
+
+    def test_get_ai_move_uses_book_first(self):
+        """get_ai_move should return the book move without touching the engine."""
+        game = ChessGame()
+        with mock.patch.object(random, 'choice', return_value=[6, 4, 4, 4]):
+            with mock.patch.object(ChessGame, '_call_engine') as mock_engine:
+                move = game.get_ai_move()
+        mock_engine.assert_not_called()
+        self.assertEqual(move, {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4})
+
+    def test_get_ai_move_falls_back_to_engine_when_not_in_book(self):
+        """When position is outside the book the engine should be consulted."""
+        game = ChessGame()
+        game.board[4][4] = 'Q'  # Scramble position to miss book lookup
+        with mock.patch.object(ChessGame, '_call_engine', return_value='BESTMOVE 7 1 5 2'):
+            move = game.get_ai_move()
+        self.assertIsNotNone(move)
+        self.assertEqual(move['from_row'], 7)
+        self.assertEqual(move['to_row'], 5)
+
+    # -- _load_opening_book error handling ----------------------------
+
+    def test_load_opening_book_handles_missing_file(self):
+        """A missing book file should not crash; an empty dict is returned."""
+        with mock.patch.object(ChessGame, 'ENGINE_DIR', '/nonexistent/path'):
+            book = ChessGame._load_opening_book()
+        self.assertEqual(book, {})
+
+    def test_load_opening_book_is_cached(self):
+        """The book file should only be read once across repeated calls."""
+        game = ChessGame()
+        with mock.patch('builtins.open', mock.mock_open(read_data='{}')) as m:
+            ChessGame._load_opening_book()
+            ChessGame._load_opening_book()
+        m.assert_called_once()
+
+    def test_all_book_moves_are_legal(self):
+        """Every move stored in the opening book must be geometrically legal."""
+        book = ChessGame._load_opening_book()
+        self.assertTrue(book, "Opening book must not be empty")
+
+        for fen, moves in book.items():
+            placement, turn = fen.split()[:2]
+
+            # Reconstruct board from FEN placement
+            board = []
+            for rank in placement.split('/'):
+                row = []
+                for ch in rank:
+                    if ch.isdigit():
+                        row.extend([None] * int(ch))
+                    else:
+                        row.append(ch)
+                board.append(row)
+
+            for move in moves:
+                fr, fc, tr, tc = move
+                ctx = f"FEN={fen} move={move}"
+
+                # All coordinates on the board
+                for v in (fr, fc, tr, tc):
+                    self.assertIn(v, range(8), ctx)
+
+                piece = board[fr][fc]
+                self.assertIsNotNone(piece, f"Empty from-square in {ctx}")
+
+                # Piece belongs to the side to move
+                self.assertEqual(piece.isupper(), turn == 'w', f"Wrong colour in {ctx}")
+
+                # Pawn geometry
+                if piece in ('P', 'p'):
+                    row_diff = tr - fr
+                    col_diff = abs(tc - fc)
+                    if piece == 'P':
+                        self.assertLess(row_diff, 0, f"White pawn must move up in {ctx}")
+                        self.assertGreaterEqual(row_diff, -2, f"White pawn >2 squares in {ctx}")
+                        if row_diff == -2:
+                            self.assertEqual(col_diff, 0, ctx)
+                            self.assertEqual(fr, 6, f"White pawn double-advance not from rank 2 in {ctx}")
+                    else:
+                        self.assertGreater(row_diff, 0, f"Black pawn must move down in {ctx}")
+                        self.assertLessEqual(row_diff, 2, f"Black pawn >2 squares in {ctx}")
+                        if row_diff == 2:
+                            self.assertEqual(col_diff, 0, ctx)
+                            self.assertEqual(fr, 1, f"Black pawn double-advance not from rank 7 in {ctx}")
+
+                # Knight geometry
+                if piece in ('N', 'n'):
+                    self.assertEqual(
+                        {abs(tr - fr), abs(tc - fc)}, {1, 2},
+                        f"Invalid knight move in {ctx}",
+                    )
+
+                # Bishop geometry
+                if piece in ('B', 'b'):
+                    self.assertEqual(
+                        abs(tr - fr), abs(tc - fc),
+                        f"Bishop must move diagonally in {ctx}",
+                    )
 
 
 class AIMoveTest(TestCase):
