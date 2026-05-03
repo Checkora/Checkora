@@ -63,7 +63,7 @@ Welcome to GSSoC! Here's how the contribution flow works for this project:
 
 | Tool | Version |
 |------|---------|
-| Python | ≥ 3.10 |
+| Python | ≥ 3.12 |
 | g++ | ≥ 11 (for C++ engine) |
 | pip | latest |
 
