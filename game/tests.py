@@ -297,6 +297,88 @@ class PauseTest(TestCase):
         self.assertFalse(r2.json()['paused'])
 
 
+class DrawRuleTest(SimpleTestCase):
+    """Test rule-based draw detection in the engine."""
+
+    def setUp(self):
+        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok'))
+        self.validate_patcher.start()
+
+    def tearDown(self):
+        self.validate_patcher.stop()
+
+    def test_fifty_move_rule_triggers_draw(self):
+        game = ChessGame()
+        game.halfmove_clock = 99
+
+        success, _, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertTrue(success)
+        self.assertEqual(status, 'draw')
+        self.assertEqual(game.halfmove_clock, 100)
+
+    def test_checkmate_beats_fifty_move_draw(self):
+        game = ChessGame()
+        game.halfmove_clock = 99
+
+        with mock.patch.object(ChessGame, '_call_engine') as mock_engine:
+            def fake_engine(cmd):
+                if cmd.startswith('NOTATION'):
+                    return 'NOTATION Nf3'
+                if cmd.startswith('STATUS'):
+                    return 'STATUS checkmate'
+                return None
+
+            mock_engine.side_effect = fake_engine
+            success, _, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertTrue(success)
+        self.assertEqual(status, 'checkmate')
+
+    def test_threefold_repetition_triggers_draw(self):
+        game = ChessGame()
+
+        sequence = [
+            (7, 6, 5, 5),
+            (0, 6, 2, 5),
+            (5, 5, 7, 6),
+            (2, 5, 0, 6),
+            (7, 6, 5, 5),
+            (0, 6, 2, 5),
+            (5, 5, 7, 6),
+            (2, 5, 0, 6),
+        ]
+
+        status = 'active'
+        for fr, fc, tr, tc in sequence:
+            success, _, _, status = game.make_move(fr, fc, tr, tc)
+            self.assertTrue(success)
+
+        self.assertEqual(status, 'draw')
+
+    def test_session_round_trip_preserves_draw_state(self):
+        game = ChessGame()
+        game.halfmove_clock = 42
+        game.repetition_history.append('test-position')
+        game._rebuild_repetition_counts()
+
+        restored = ChessGame.from_dict(game.to_dict())
+
+        self.assertEqual(restored.halfmove_clock, 42)
+        self.assertEqual(restored.repetition_history, game.repetition_history)
+        self.assertEqual(restored.repetition_counts, game.repetition_counts)
+
+    def test_position_key_ignores_unusable_en_passant_square(self):
+        game = ChessGame()
+        game.make_move(6, 4, 4, 4)
+
+        with_ep = game.generate_position_key()
+        game.en_passant_target = None
+        without_ep = game.generate_position_key()
+
+        self.assertEqual(with_ep, without_ep)
+
+
 class AIMoveTest(TestCase):
     """Test the /api/ai-move/ endpoint."""
 
@@ -533,3 +615,32 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+class FENLoaderTest(SimpleTestCase):
+    """Verify that the engine can load states from FEN strings correctly."""
+
+    def test_load_starting_position(self):
+        """Should correctly set up the board and turn for the start of a game."""
+        game = ChessGame()
+        # We manually change the turn to black first to make sure 
+        # the loader actually changes it back to white.
+        game.current_turn = 'black'
+        
+        start_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq'
+        success = game.load_from_fen(start_fen)
+        
+        self.assertTrue(success)
+        self.assertEqual(game.current_turn, 'white')
+        self.assertEqual(game.board[0][0], 'r')  # Black rook at top-left
+        self.assertEqual(game.board[7][4], 'K')  # White king at bottom-middle
+
+    def test_load_mid_game_position(self):
+        """Should correctly set up a mid-game state."""
+        game = ChessGame()
+        # A FEN where it's black's turn
+        mid_fen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR b KQkq'
+        success = game.load_from_fen(mid_fen)
+        
+        self.assertTrue(success)
+        self.assertEqual(game.current_turn, 'black')
+        self.assertEqual(game.board[3][2], 'p')  # The 'c5' pawn

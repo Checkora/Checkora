@@ -85,6 +85,9 @@ class ChessGame:
             'b_k': True, 'b_q': True
         }
         self.en_passant_target = None  # (row, col) of the square a pawn can capture en passant
+        self.halfmove_clock = 0
+        self.repetition_history = [self.generate_position_key()]
+        self.repetition_counts = {self.repetition_history[0]: 1}
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -105,6 +108,8 @@ class ChessGame:
             'castling_rights': self.castling_rights,
             'en_passant_target': self.en_passant_target,
             'player_color': self.player_color,
+            'halfmove_clock': self.halfmove_clock,
+            'repetition_history': self.repetition_history,
         }
 
     @classmethod
@@ -123,6 +128,15 @@ class ChessGame:
         game.player_color = data.get('player_color', 'white')
         game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
         game.en_passant_target = data.get('en_passant_target', None)
+        game.halfmove_clock = data.get('halfmove_clock', 0)
+
+        repetition_history = data.get('repetition_history')
+        if isinstance(repetition_history, list) and repetition_history:
+            game.repetition_history = repetition_history
+        else:
+            game.repetition_history = [game.generate_position_key()]
+
+        game._rebuild_repetition_counts()
 
         game.valid_moves_cache = {}
         return game
@@ -202,6 +216,49 @@ class ChessGame:
             return "-1 -1"
         return f"{self.en_passant_target[0]} {self.en_passant_target[1]}"
 
+    def _en_passant_key(self):
+        """Return a compact en-passant key for repetition tracking."""
+        if not self._has_legal_en_passant_capture():
+            return '-'
+        return f"{self.en_passant_target[0]},{self.en_passant_target[1]}"
+
+    def _has_legal_en_passant_capture(self):
+        """Return True when the side to move can legally capture en passant."""
+        if not self.en_passant_target:
+            return False
+
+        target_row, target_col = self.en_passant_target
+        pawn_row = target_row + 1 if self.current_turn == 'white' else target_row - 1
+        pawn_piece = 'P' if self.current_turn == 'white' else 'p'
+
+        if not (0 <= pawn_row < 8):
+            return False
+
+        for delta_col in (-1, 1):
+            pawn_col = target_col + delta_col
+            if 0 <= pawn_col < 8 and self.board[pawn_row][pawn_col] == pawn_piece:
+                return True
+
+        return False
+
+    def generate_position_key(self):
+        """Build the full repetition key for the current board state."""
+        return f"{self.generate_fen_key()} {self._en_passant_key()}"
+
+    def _update_repetition(self):
+        """Increment and return the repetition count for the current position."""
+        key = self.generate_position_key()
+        self.repetition_history.append(key)
+        self._rebuild_repetition_counts()
+        return self.repetition_counts[key]
+
+    def _rebuild_repetition_counts(self):
+        """Rebuild the repetition counter from the stored history list."""
+        counts = {}
+        for key in self.repetition_history:
+            counts[key] = counts.get(key, 0) + 1
+        self.repetition_counts = counts
+
     # ------------------------------------------------------------------
     #  Public API
     # ------------------------------------------------------------------
@@ -213,6 +270,31 @@ class ChessGame:
             if m['row'] == tr and m['col'] == tc:
                 return True, "Valid move."
         return False, "Illegal move."
+
+    def load_from_fen(self, fen):
+        """Sets the board state and turn from a FEN string."""
+        try:
+            parts = fen.split(' ')
+            rows = parts[0].split('/')
+            
+            new_board = []
+            for row in rows:
+                board_row = []
+                for char in row:
+                    if char.isdigit():
+                        board_row.extend([None] * int(char))
+                    else:
+                        board_row.append(char)
+                new_board.append(board_row)
+            
+            self.board = new_board
+            if len(parts) > 1:
+                self.current_turn = 'white' if parts[1] == 'w' else 'black'
+            
+            self.valid_moves_cache = {}
+            return True
+        except Exception:
+            return False
 
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """Execute move and invalidate cache to ensure fresh calculations."""
@@ -232,6 +314,7 @@ class ChessGame:
             return False, "Black ran out of time", None, 'timeout'
 
         captured = self.board[tr][tc]
+        is_pawn_move = piece.lower() == 'p'
         board_before = self.serialize_board()
         rights_before = self.serialize_castling_rights()
         ep_before = self._serialize_ep()
@@ -297,6 +380,11 @@ class ChessGame:
         if captured:
             self.captured[self.current_turn].append(captured)
 
+        if is_pawn_move or captured:
+            self.halfmove_clock = 0
+        else:
+            self.halfmove_clock += 1
+
         notation = self._notation(fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before)
         if promoted and '=' not in notation:
             notation += '=' + (self.board[tr][tc] or 'Q').upper()
@@ -318,9 +406,27 @@ class ChessGame:
 
         self.last_ts = time.time()
 
+        current_rights = self.serialize_castling_rights()
+        is_irreversible = is_pawn_move or bool(captured) or current_rights != rights_before
+        if is_irreversible:
+            self.repetition_history = [self.generate_position_key()]
+            self._rebuild_repetition_counts()
+        else:
+            repetition_count = self._update_repetition()
+
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
-        
+
+        if game_status == 'checkmate':
+            return True, notation, captured, game_status
+
+        if game_status == 'stalemate':
+            return True, notation, captured, game_status
+
+        repetition_count = self.repetition_counts.get(self.generate_position_key(), 1)
+        if self.halfmove_clock >= 100 or repetition_count >= 3:
+            return True, notation, captured, 'draw'
+
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):

@@ -470,6 +470,7 @@
                 updatePauseUI();
                 startTimer();
             }
+
             /* ==========================================================
             BOARD RENDERING
             ========================================================== */
@@ -487,7 +488,6 @@
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
 
-                        // ADD THESE LINES RIGHT HERE — before boardEl.appendChild(d)
                         d.setAttribute('tabindex', '0');
                         d.setAttribute('role', 'gridcell');
                         d.setAttribute('data-row', r);
@@ -567,7 +567,7 @@
                     });
                 }
             }
-            
+
             // converts row/col to chess notation e.g. row=0,col=0 → "a8"
             function getSquareLabel(row, col) {
                 const files = ['a','b','c','d','e','f','g','h'];
@@ -588,11 +588,10 @@
                     case 'Enter':
                     case ' ':
                         e.preventDefault();
-                        onClick(row, col); // reuses your existing click logic
+                        onClick(row, col);
                         return;
                     case 'Escape':
                         e.preventDefault();
-                        // deselect — clear any selected piece highlight
                         document.querySelectorAll('.square.selected')
                                 .forEach(s => s.classList.remove('selected'));
                     return;
@@ -601,12 +600,13 @@
              }
           // clamp within board
             newRow = Math.max(0, Math.min(7, newRow));
-            newCol = Math.max(0, Math.min(7, newCol));                // move focus to the new square
+            newCol = Math.max(0, Math.min(7, newCol));
             const target = boardEl.querySelector(
                 `[data-row="${newRow}"][data-col="${newCol}"]`
             );
-            if (target) target.focus(); 
-                        }
+            if (target) target.focus();
+            }
+
             /* ==========================================================
             SELECTION & MOVES
             ========================================================== */
@@ -1027,7 +1027,7 @@
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 await loadGame();
-                paused = false; 
+                paused = false;
                 updatePauseUI();
 
                 // Auto-trigger AI if it's their turn
@@ -1041,12 +1041,12 @@
             ========================================================== */
             let selectedPveColor = 'white';
 
-            if (welcomePvPBtn) welcomePvPBtn.onclick = () => { 
-                welcomeOverlay.classList.remove('active'); 
+            if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+                welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                startNewGame('pvp'); 
+                startNewGame('pvp');
             };
-            
+
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
                 nameInputs.style.display = 'none';
                 modeSelection.style.display = 'none';
