@@ -104,7 +104,15 @@ def new_game(request):
     request.session['white_name'] = data.get('white_name', 'White')
     request.session['black_name'] = data.get('black_name', 'Black')
 
-    game = ChessGame()
+    fen = data.get('fen', '').strip()
+    if fen:
+        try:
+            game = ChessGame.from_fen(fen)
+        except ValueError:
+            return JsonResponse({'valid': False, 'message': 'Invalid FEN string.'}, status=400)
+    else:
+        game = ChessGame()
+
     game.mode = mode
 
     request.session['game'] = game.to_dict()

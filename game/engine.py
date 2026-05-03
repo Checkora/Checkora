@@ -104,6 +104,45 @@ class ChessGame:
         }
 
     @classmethod
+    def from_fen(cls, fen_string: str):
+        """Load a game state from a custom FEN string."""
+        game = cls()
+        
+        parts = fen_string.strip().split()
+        if len(parts) < 3:
+            raise ValueError("Invalid FEN string")
+            
+        placement, side, castling = parts[0], parts[1], parts[2]
+        
+        rows = placement.split('/')
+        if len(rows) != 8:
+            raise ValueError("Invalid FEN: must have 8 rows")
+            
+        board = []
+        for row in rows:
+            board_row = []
+            for char in row:
+                if char.isdigit():
+                    board_row.extend([None] * int(char))
+                else:
+                    board_row.append(char)
+            if len(board_row) != 8:
+                raise ValueError("Invalid FEN: row length must be 8")
+            board.append(board_row)
+            
+        game.board = board
+        game.current_turn = 'white' if side.lower() == 'w' else 'black'
+        
+        game.castling_rights = {
+            'w_k': 'K' in castling,
+            'w_q': 'Q' in castling,
+            'b_k': 'k' in castling,
+            'b_q': 'q' in castling
+        }
+        
+        return game
+
+    @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
         game = cls.__new__(cls)

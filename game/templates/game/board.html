@@ -49,6 +49,8 @@
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
                 <input type="text" id="blackNameInput" placeholder="Black Player Name" 
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                <input type="text" id="fenInput" placeholder="Optional FEN string" 
+                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 14px;">
@@ -786,7 +788,19 @@
             }
 
             async function startNewGame(mode) {
-                const d = await post('/api/new-game/', { mode: mode });
+                const wName = document.getElementById('whiteNameInput')?.value || 'White';
+                const bName = document.getElementById('blackNameInput')?.value || 'Black';
+                const fen = document.getElementById('fenInput')?.value?.trim() || '';
+
+                const body = { mode: mode, white_name: wName, black_name: bName };
+                if (fen) body.fen = fen;
+
+                const d = await post('/api/new-game/', body);
+                if (!d.board) {
+                    showStatus(d.message || "Failed to start new game", true);
+                    return;
+                }
+
                 board = d.board;
                 turn = d.current_turn;
                 paused = false;
