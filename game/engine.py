@@ -479,20 +479,16 @@ DP cache is intentionally excluded to save cookie space."""
             self.draw_reason = 'insufficient_material'
             return True, notation, captured, game_status
 
-        repetition_count = self.repetition_counts.get(
-            self.generate_position_key(), 1)
-        if repetition_count >= 3:
-            self.game_status = 'draw'
-            self.draw_reason = 'threefold_repetition'
-            return True, notation, captured, 'draw'
-
-        if self.halfmove_clock >= 100:
-            self.game_status = 'draw'
-            self.draw_reason = 'fifty_move_rule'
-            return True, notation, captured, 'draw'
-
-        self.game_status = 'active'
-        self.draw_reason = None
+        # Check for checkmate / stalemate / check
+        game_status = self.check_game_status()
+        
+        if game_status == 'check':
+            self.move_history[-1]['notation'] += '+'
+            notation += '+'
+        elif game_status == 'checkmate':
+            self.move_history[-1]['notation'] += '#'
+            notation += '#'
+        
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
@@ -595,6 +591,7 @@ DP cache is intentionally excluded to save cookie space."""
             return False
         return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
 
+<<<<<<< HEAD
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,
                   ep_str=None):
@@ -652,6 +649,27 @@ DP cache is intentionally excluded to save cookie space."""
                     else:
                         notation = f"{p_char}{t_coord}"
         return notation
+=======
+    def _notation(self, fr, fc, tr, tc, piece, captured):
+        # Castling
+        if piece.lower() == 'k' and abs(tc - fc) == 2:
+            return "O-O" if tc > fc else "O-O-O"
+
+        dest = f"{self.FILES[tc]}{8 - tr}"
+
+        # Pawn moves
+        if piece.lower() == 'p':
+            is_capture = (captured is not None) or (tc != fc)
+            if is_capture:
+                return f"{self.FILES[fc]}x{dest}"
+            else:
+                return dest
+        
+        # Piece moves
+        p_str = piece.upper()
+        cap_str = "x" if captured is not None else ""
+        return f"{p_str}{cap_str}{dest}"
+>>>>>>> 0a7badff (Fix: Changed the move history to Algebraic Notation)
 
     @staticmethod
     def _color(piece):
