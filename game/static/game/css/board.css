@@ -255,6 +255,16 @@ body {
     color: #f0c040;
     padding: 4px 0;
 }
+.square:focus {
+    outline: 3px solid #4A90D9;
+    outline-offset: -3px;
+    z-index: 10;
+    position: relative;
+}
+
+.square:focus-visible {
+    outline: 3px solid #4A90D9;
+}
 .status-bar.error { color: #ff6b6b; }
 
 /* ============================================================

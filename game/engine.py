@@ -519,7 +519,7 @@ class ChessGame:
     AI_SEARCH_DEPTH_CPP = 4  # C++ is much faster, can search deeper
     AI_SEARCH_DEPTH_PYTHON = 3  # Python engine needs conservative depth
 
-    def get_ai_move(self):
+    def get_ai_move(self, depth=None):
         """Return the best move for the current position.
 
         Checks the opening book first for an instant theory response.
@@ -537,7 +537,8 @@ class ChessGame:
         # 2. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        depth = self._get_ai_search_depth()
+        if depth is None:
+            depth = self._get_ai_search_depth()
         cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {depth}"
         resp = self._call_engine(cmd)
 

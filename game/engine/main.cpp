@@ -570,11 +570,13 @@ bool leavesKingInCheck(const Move &m, const string &side) {
     board[m.fr][m.fc] = '.';
 
     int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
+    char rookPiece = '.';
     if (tolower(srcPiece) == 'k' && abs(m.tc - m.fc) == 2) {
         if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
         else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
         if (rook_fr != -1) {
-            board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
+            rookPiece = board[rook_fr][rook_fc];
+            board[rook_tr][rook_tc] = rookPiece;
             board[rook_fr][rook_fc] = '.';
         }
     }
@@ -587,7 +589,7 @@ bool leavesKingInCheck(const Move &m, const string &side) {
     board[m.fr][m.fc] = srcPiece;
     board[m.tr][m.tc] = dstPiece;
     if (rook_fr != -1) {
-        board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
+        board[rook_fr][rook_fc] = rookPiece;
         board[rook_tr][rook_tc] = '.';
     }
 
@@ -637,11 +639,13 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
             board[m.fr][m.fc] = '.';
 
             int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
+            char rookPiece = '.';
             if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
                 if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
                 else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
                 if (rook_fr != -1) {
-                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
+                    rookPiece = board[rook_fr][rook_fc];
+                    board[rook_tr][rook_tc] = rookPiece;
                     board[rook_fr][rook_fc] = '.';
                 }
             }
@@ -661,7 +665,7 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
             board[m.fr][m.fc] = src;
             board[m.tr][m.tc] = dst;
             if (rook_fr != -1) {
-                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
+                board[rook_fr][rook_fc] = rookPiece;
                 board[rook_tr][rook_tc] = '.';
             }
 
@@ -679,11 +683,13 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
             board[m.fr][m.fc] = '.';
 
             int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
+            char rookPiece = '.';
             if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
                 if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
                 else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
                 if (rook_fr != -1) {
-                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
+                    rookPiece = board[rook_fr][rook_fc];
+                    board[rook_tr][rook_tc] = rookPiece;
                     board[rook_fr][rook_fc] = '.';
                 }
             }
@@ -703,7 +709,7 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
             board[m.fr][m.fc] = src;
             board[m.tr][m.tc] = dst;
             if (rook_fr != -1) {
-                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
+                board[rook_fr][rook_fc] = rookPiece;
                 board[rook_tr][rook_tc] = '.';
             }
 
@@ -789,11 +795,13 @@ void handleBestMove(const string &turn, int depth) {
         board[m.fr][m.fc] = '.';
 
         int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
+        char rookPiece = '.';
         if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
             if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
             else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
             if (rook_fr != -1) {
-                board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
+                rookPiece = board[rook_fr][rook_fc];
+                board[rook_tr][rook_tc] = rookPiece;
                 board[rook_fr][rook_fc] = '.';
             }
         }
@@ -813,7 +821,7 @@ void handleBestMove(const string &turn, int depth) {
         board[m.fr][m.fc] = src;
         board[m.tr][m.tc] = dst;
         if (rook_fr != -1) {
-            board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
+            board[rook_fr][rook_fc] = rookPiece;
             board[rook_tr][rook_tc] = '.';
         }
 
@@ -821,6 +829,18 @@ void handleBestMove(const string &turn, int depth) {
             if (eval > bestVal) { bestVal = eval; best = m; }
         } else {
             if (eval < bestVal) { bestVal = eval; best = m; }
+        }
+    }
+
+    // Safety net: re-validate before emitting
+    if (!validateMove(turn, best.fr, best.fc, best.tr, best.tc, true) ||
+        leavesKingInCheck(best, turn)) {
+        for (auto &m : legal) {
+            if (validateMove(turn, m.fr, m.fc, m.tr, m.tc, true) &&
+                !leavesKingInCheck(m, turn)) {
+                best = m;
+                break;
+            }
         }
     }
 

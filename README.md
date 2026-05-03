@@ -31,7 +31,7 @@ Follow the core maintainers on GitHub to stay aligned with project updates and c
 |---------|-------------|
 | AI Opponent | Minimax search with alpha-beta pruning for challenging gameplay |
 | Hybrid Engine | C++ binary for maximum speed with an automatic Python fallback |
-| Full Move Validation | Legal moves enforced for all pieces including castling, en passant, and promotion |
+| Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
 | Game Timer | Per-player countdown clocks with pause support |
 | REST API | Clean JSON endpoints powering a decoupled frontend |
 | PvP & PvE Modes | Play against a friend or challenge the AI |

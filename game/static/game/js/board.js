@@ -753,4 +753,7 @@
     const copyFenBtn = document.getElementById('copyFenBtn');
     if (copyFenBtn) copyFenBtn.onclick = copyFEN;
     loadGame();
+    window.addEventListener('pageshow', (event) => {
+    loadGame();
+});
 })();
