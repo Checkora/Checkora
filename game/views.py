@@ -104,8 +104,18 @@ def new_game(request):
     
     player_color = data.get('player_color', 'white')
 
-    request.session['white_name'] = data.get('white_name', 'White')
-    request.session['black_name'] = data.get('black_name', 'Black')
+    def _clean_name(raw, fallback):
+        name = (raw or '').strip()
+        if not name or len(name) > 30:
+            return fallback
+        return name
+
+    request.session['white_name'] = _clean_name(
+        data.get('white_name'), 'White'
+    )
+    request.session['black_name'] = _clean_name(
+        data.get('black_name'), 'Black'
+    )
     player_color = data.get('player_color', 'white')
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
