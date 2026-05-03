@@ -281,6 +281,41 @@
         .btn-gold:active { transform: translateY(0); }
 
         /* ============================================================
+           Sound Button Styling
+           ============================================================ */
+        #soundBtn {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+            background: linear-gradient(135deg, #2a5a2a, #1a3a1a);
+            color: #90ee90;
+            border: 1px solid #3a6a3a;
+        }
+        #soundBtn:hover {
+            background: linear-gradient(135deg, #3a7a3a, #2a4a2a);
+            border-color: #90ee90;
+            box-shadow: 0 4px 16px rgba(144, 238, 144, 0.15);
+            transform: translateY(-1px);
+        }
+        #soundBtn:active { transform: translateY(0); }
+        #soundBtn.sound-off {
+            background: linear-gradient(135deg, #5a3a3a, #3a2a2a);
+            color: #ff9999;
+            border-color: #6a4a4a;
+        }
+        #soundBtn.sound-off:hover {
+            background: linear-gradient(135deg, #6a4a4a, #4a3a3a);
+            border-color: #ff9999;
+            box-shadow: 0 4px 16px rgba(255, 153, 153, 0.15);
+        }
+
+        /* ============================================================
            Responsive
            ============================================================ */
         @media (max-width: 860px) {
@@ -493,6 +528,7 @@
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button id="soundBtn">Sound: ON</button>
                 </div>
             </div>
             <div class="card">
@@ -601,6 +637,19 @@
         const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
         let gameOver = false;
+
+         // audio objects
+        const moveSound = new Audio("/sounds/chess-move.wav");
+        const captureSound = new Audio("/sounds/capture.wav");
+        const checkSound = new Audio("/sounds/check.wav");
+
+        // Sound ON/OFF control
+        let soundEnabled = true;
+
+        // Browser audio unlock 
+        document.addEventListener("click", () => {
+            moveSound.play().then(() => moveSound.pause()).catch(() => {});
+        }, { once: true });
 
         /* ==========================================================
         CSRF & API HELPERS
@@ -743,7 +792,7 @@
             hints = [];
             refreshHighlights();
         }
-
+       
         /* ==============================================================
            Promotion modal helpers
            ============================================================== */
@@ -829,6 +878,13 @@
                     renderClocks(); 
                     startTimer();
 
+                    // Play sounds for move, capture, or check
+                    if (data.captured) {
+                        playCapture();
+                    } else {
+                        playMove();
+                    }
+
                     // Check for game-ending conditions
                     if (data.game_status === 'checkmate') {
                         handleGameOver('checkmate', turn);
@@ -837,6 +893,7 @@
                         handleGameOver('stalemate', turn);
                         return;
                     } else if (data.game_status === 'check') {
+                        playCheck();
                         showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
                     } else {
                         showStatus('', false);
@@ -880,6 +937,13 @@
                     renderClocks();
                     startTimer();
 
+                    // Play sounds for move, capture, or check
+                    if (data.captured) {
+                        playCapture();
+                    } else {
+                        playMove();
+                    }
+
                     // Check for game-ending conditions
                     if (data.game_status === 'checkmate') {
                         handleGameOver('checkmate', turn);
@@ -888,6 +952,7 @@
                         handleGameOver('stalemate', turn);
                         return;
                     } else if (data.game_status === 'check') {
+                        playCheck();
                         showStatus('You are in check!', true);
                     } else {
                         showStatus('Your turn.', false);
@@ -991,6 +1056,27 @@
         }
 
         /* ==========================================================
+        SOUND FUNCTIONS
+        ========================================================== */
+        function playMove() {
+            if (!soundEnabled) return;
+            moveSound.currentTime = 0;
+            moveSound.play().catch(() => {});
+        }
+
+        function playCapture() {
+            if (!soundEnabled) return;
+            captureSound.currentTime = 0;
+            captureSound.play().catch(() => {});
+        }
+
+        function playCheck() {
+            if (!soundEnabled) return;
+            checkSound.currentTime = 0;
+            checkSound.play().catch(() => {});
+        }
+
+        /* ==========================================================
         CLOCKS & PAUSE
         ========================================================== */
         const fmt = t => `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
@@ -1040,6 +1126,14 @@
         }
 
         pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+
+        // Sound button toggle
+        const soundBtn = document.getElementById('soundBtn');
+        soundBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundBtn.textContent = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+            soundBtn.classList.toggle('sound-off', !soundEnabled);
+        });
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) pauseGame();

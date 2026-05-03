@@ -16,8 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.static import serve
+from django.conf import settings
+from pathlib import Path
+import os
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('',include('game.urls')),
+    path('sounds/<path:path>', serve, {'document_root': os.path.join(settings.BASE_DIR, 'sounds')}),
 ]
