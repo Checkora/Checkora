@@ -3,8 +3,11 @@
 import json
 import time
 import hashlib
+import logging
 import secrets
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -420,13 +423,13 @@ def register_view(request):
                 )
                 return redirect('verify_otp')
             except Exception as e:
-                # If email fails, delete the user so they can try again
+                logger.error('failed to send OTP email: %s', e)
                 user.delete()
-                err_msg = (
-                    f'Failed to send OTP email: {str(e)}. '
-                    'Please check your email address and try again.'
+                messages.error(
+                    request,
+                    'couldn\'t send the verification email. '
+                    'please check your address and try again.'
                 )
-                messages.error(request, err_msg)
     else:
         form = CustomUserCreationForm()
     
