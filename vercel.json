@@ -1,14 +1,22 @@
 {
   "version": 2,
-  "installCommand": "echo 'Python deps handled by runtime'",
-  "buildCommand": "g++ -O2 -o game/engine/main game/engine/main.cpp && chmod +x game/engine/main && mkdir -p public && echo '<!-- -->' > public/placeholder.html",
-  "outputDirectory": "public",
-  "functions": {
-    "api/wsgi.py": {
-      "includeFiles": "game/**"
+  "installCommand": "pip install -r requirements.txt",
+  "buildCommand": "g++ -O2 -o game/engine/main game/engine/main.cpp && chmod +x game/engine/main && python manage.py collectstatic --noinput",
+  "builds": [
+    {
+      "src": "api/wsgi.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "15mb", "runtime": "python3.12" }
     }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/wsgi" }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/wsgi.py"
+    }
   ]
 }
