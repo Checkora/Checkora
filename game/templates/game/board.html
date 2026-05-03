@@ -538,6 +538,7 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
+                    <button class="btn btn-gold" id="copyFenBtn" onclick="copyFEN()">📋 Copy FEN</button>
                 </div>
             </div>
             <div class="card">
@@ -1390,6 +1391,51 @@
         /* ==========================================================
         INIT (Game yahan se shuru hota hai)
         ========================================================== */
+            // ---- Copy FEN Feature ----
+    window.copyFEN = async function() {
+    try {
+        const data = await get('/api/state/');
+        const fen = generateFEN(data);
+        await navigator.clipboard.writeText(fen);
+        const btn = document.getElementById('copyFenBtn');
+        const original = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        btn.style.background = 'linear-gradient(135deg, #4caf50, #388e3c)';
+        setTimeout(() => {
+            btn.textContent = original;
+            btn.style.background = '';
+        }, 2500);
+    } catch (err) {
+        console.error('Copy FEN failed:', err);
+        alert('Could not copy FEN. Please try again.');
+    }
+}
+
+function generateFEN(state) {
+    const board = state.board;
+    const ranks = board.map(row => {
+        let rank = '';
+        let empty = 0;
+        for (const square of row) {
+            if (!square || square === '') {
+                empty++;
+            } else {
+                if (empty > 0) { rank += empty; empty = 0; }
+                rank += square;
+            }
+        }
+        if (empty > 0) rank += empty;
+        return rank;
+    });
+    const boardFEN = ranks.join('/');
+    const activeColor = state.current_turn === 'white' ? 'w' : 'b';
+    const castling = state.castling_rights || '-';
+    const enPassant = '-';
+    const halfMove = state.move_history ? state.move_history.length : 0;
+    const fullMove = Math.floor(halfMove / 2) + 1;
+    return `${boardFEN} ${activeColor} ${castling} ${enPassant} ${halfMove} ${fullMove}`;
+}
+// ---- End Copy FEN Feature ----
         loadGame();
     })();
     </script>
