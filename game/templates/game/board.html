@@ -114,7 +114,7 @@
             </div>
 
             <button id="pauseBtn" class="btn btn-gold">Pause</button>
-            <button id="resignBtn" class="btn btn-danger" onclick="showResignModal()">Resign</button>
+            <button id="resignBtnBoard" class="btn btn-danger">Resign</button>
 
             <div class="board-outer">
                 <div class="board-row">
@@ -158,7 +158,7 @@
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
-                    <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
+                    <button class="btn" id="resignBtnPanel" style="background: #333; color: #fff;">Resign</button>
                 </div>
             </div>
             <div class="card">
@@ -286,7 +286,8 @@
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
-            const resignBtn = document.getElementById('resignBtn');
+            const resignBtnBoard = document.getElementById('resignBtnBoard');
+            const resignBtnPanel = document.getElementById('resignBtnPanel');
             const drawBtn = document.getElementById('drawBtn');
             const drawOverlay = document.getElementById('drawOverlay');
             const drawMessage = document.getElementById('drawMessage');
@@ -825,11 +826,21 @@
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
-            if (resignBtn) resignBtn.onclick = () => {
-                if (!gameOver && !paused) {
-                    showConfirm("Resign?", "Are you sure you want to resign?", () => endGame('resign', turn));
-                }
-            };
+            function resignGame() {
+                if (gameOver || paused) return;
+                showConfirm("Resign?", "Are you sure you want to resign?", async () => {
+                    try {
+                        const response = await post('/api/resign/');
+                        if (response.valid) {
+                            endGame('resign', turn);
+                        }
+                    } catch (e) {
+                        showStatus('Resign failed.', true);
+                    }
+                }, '#ff6b6b');
+            }
+            if (resignBtnBoard) resignBtnBoard.onclick = resignGame;
+            if (resignBtnPanel) resignBtnPanel.onclick = resignGame;
 
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {

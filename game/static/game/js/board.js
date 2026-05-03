@@ -665,62 +665,24 @@
         loadGame();
     }
 
-    window.showResignModal = function() {
-        document.getElementById('resignModal').style.display = 'flex';
-    };
-
-    window.closeResignModal = function() {
-        document.getElementById('resignModal').style.display = 'none';
-    };
-
-    window.confirmResign = async function() {
-        closeResignModal();
-        try {
-            const response = await post('/api/resign/');
-            if (response.valid) {
-                gameOver = true;
-                paused = true;
-        
-                clearInterval(timerInterval);
-
-                const wName = document.getElementById('whiteNameLabel').textContent;
-                const bName = document.getElementById('blackNameLabel').textContent;
-                const loserName = (turn === 'white' ? wName : bName);
-                const winnerName = (turn === 'white' ? bName : wName);
-                
-                const statusEl = document.getElementById('statusBar');
-                if (statusEl) {
-                    statusEl.textContent = `${loserName} resigned. ${winnerName} wins!`;
-                    statusEl.style.color = "#f0c040";
+    function resignGame() {
+        if (gameOver || paused) return;
+        showConfirm("Resign?", "Are you sure you want to resign?", async () => {
+            try {
+                const response = await post('/api/resign/');
+                if (response.valid) {
+                    handleGameOver('resign', turn);
                 }
-
-                document.getElementById('gameOverTitle').textContent = "Game Over";
-                document.getElementById('gameOverMessage').textContent = `${loserName} resigned. ${winnerName} wins!`;
-                document.getElementById('gameOverOverlay').style.display = 'flex';
-
-                document.getElementById('resignBtn').style.display = 'none';
-                document.getElementById('pauseBtn').style.display = 'none';
-                
-                document.getElementById('gameOverPvPBtn').onclick = async () => { 
-                    document.getElementById('gameOverOverlay').style.display = 'none';
-                    gameOver = false; 
-                    paused = false; 
-                    await startNewGame('pvp'); 
-                };
-
-                document.getElementById('gameOverAIBtn').onclick = async () => { 
-                    document.getElementById('gameOverOverlay').style.display = 'none';
-                    gameOver = false; 
-                    paused = false; 
-                    await startNewGame('ai'); 
-                };
-
-                await loadGame();
+            } catch (e) {
+                showStatus('Resign failed.', true);
             }
-        } catch (error) {
-            console.error("Resign failed:", error);
-        }
-    };
+        }, '#ff6b6b');
+    }
+
+    const resignBtnBoard = document.getElementById('resignBtnBoard');
+    const resignBtnPanel = document.getElementById('resignBtnPanel');
+    if (resignBtnBoard) resignBtnBoard.onclick = resignGame;
+    if (resignBtnPanel) resignBtnPanel.onclick = resignGame;
     function generateFEN() {
     let fenRows = [];
     for (let r = 0; r < 8; r++) {
