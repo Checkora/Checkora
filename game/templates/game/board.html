@@ -114,8 +114,7 @@
             </div>
 
             <button id="pauseBtn" class="btn btn-gold">Pause</button>
-            <button id="resignBtn" class="btn btn-danger" onclick="showResignModal()">Resign</button>
-
+            <button id="resignBtnTop" class="btn btn-danger">Resign</button>
             <div class="board-outer">
                 <div class="board-row">
                     <div class="ranks">
@@ -683,6 +682,10 @@
                 } else if (reason === 'draw') {
                     title = 'Draw!';
                     message = 'Draw by Agreement.';
+                } else if (reason === 'timeout') {
+                    const winner = color === 'white' ? 'Black' : 'White';
+                    title = "Time's Up! ⏰";
+                    message = `${winner} wins on time!`;
                 } else if (reason === 'resign') {
                     const winner = color === 'white' ? 'Black' : 'White';
                     title = 'Resignation';
@@ -717,6 +720,9 @@
                     if (turn === 'white' && whiteTime > 0) whiteTime--;
                     if (turn === 'black' && blackTime > 0) blackTime--;
                     renderClocks();
+
+                    if (whiteTime <= 0) { endGame('timeout', 'white'); }
+                    else if (blackTime <= 0) { endGame('timeout', 'black'); }
                 }, 1000);
             }
 
@@ -822,7 +828,12 @@
 
             if (newPvPBtn) newPvPBtn.onclick = () => requestNewGame('pvp');
             if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
-
+            const resignBtnTop = document.getElementById('resignBtnTop');
+            if (resignBtnTop) resignBtnTop.onclick = () => {
+                if (!gameOver && !paused) {
+                    showConfirm("Resign?", "Are you sure you want to resign?", () => endGame('resign', turn));
+                }
+            };
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
             if (resignBtn) resignBtn.onclick = () => {
