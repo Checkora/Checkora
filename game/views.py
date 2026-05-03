@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import random
+from urllib import request
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -117,6 +118,7 @@ def new_game(request):
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
+
 
     return JsonResponse({
         'board': game.board,

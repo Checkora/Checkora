@@ -44,8 +44,7 @@
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
             <!-- Name Input Fields (Only for PvP) -->
             <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name" 
-
+                <input type="text" id="whiteNameInput" placeholder="White Player Name"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
                 <input type="text" id="blackNameInput" placeholder="Black Player Name"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
@@ -119,6 +118,7 @@
             <div class="turn-badge white" id="turnBadge">
                 <span id="turnBadgeText">White</span>'s Turn
             </div>
+
             <div class="clocks">
                 <div id="whiteClock" class="clock white active">
                     <span class="label">
@@ -227,6 +227,19 @@
                 <button class="btn" id="drawDeclineBtn"
                     style="width: 90px; background: #333; color: #fff;">Decline</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ==========READY TO PLAY POPUP========== -->
+    <div class="promo-overlay" id="readyOverlay">
+        <div class="promo-dialog" style="min-width: 320px; padding: 35px; text-align: center;">
+            <div class="promo-title" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">♟️ All Set!</div>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 0.95rem;">
+                Your clock will start when you're ready.
+            </p>
+            <button class="btn btn-gold" id="letsPlayBtn" style="padding: 12px; font-size: 1rem; width: 100%;">
+                Let's Play!
+            </button>
         </div>
     </div>
 
@@ -359,6 +372,9 @@
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
+            //Ready to Play popup elements
+            const readyOverlay = document.getElementById('readyOverlay');
+            const letsPlayBtn = document.getElementById('letsPlayBtn');
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
             const drawOverlay = document.getElementById('drawOverlay');
@@ -368,6 +384,8 @@
 
             let gameOver = false;
 
+            // Flag to show Ready popup only when explicitly starting new game
+            let isNewGame = false;
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
@@ -440,11 +458,17 @@
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
-                // Show Resume button if move history exists
+                // If game already in progress hide welcome overlay automatically
                 if (data.move_history && data.move_history.length > 0) {
+                    welcomeOverlay.classList.remove('active');
                     if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'block';
                 } else {
                     if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'none';
+                }
+                // Show Ready popup only when explicitly starting a new game
+                if (isNewGame) {
+                    readyOverlay.classList.add('active');
+                    isNewGame = false; // Reset so refresh never triggers it
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
@@ -988,7 +1012,6 @@
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
                 const wName = document.getElementById('whiteNameInput')?.value || 'White';
                 const bName = document.getElementById('blackNameInput')?.value || 'Black';
-
                 const d = await post('/api/new-game/', {
                     mode: mode,
                     player_color: pColor,
@@ -996,7 +1019,8 @@
                     black_name: bName,
                     difficulty: difficulty
                 });
-
+                // Tell loadGame to show Ready popup
+                isNewGame = true;
                 board = d.board;
                 turn = d.current_turn;
                 paused = false;
@@ -1106,6 +1130,11 @@
             if (newPvPBtn) newPvPBtn.onclick = () => requestNewGame('pvp');
             if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
 
+            //Let's Play button- closes popup and starts the clock
+            if (letsPlayBtn) letsPlayBtn.onclick = () => {
+                readyOverlay.classList.remove('active');
+                resumeGame();
+            };
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
             if (resignBtn) resignBtn.onclick = () => {
