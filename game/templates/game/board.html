@@ -12,7 +12,7 @@
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/speed-insights/script.js"></script>
+    <!-- <script defer src="/_vercel/speed-insights/script.js"></script> -->
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
 
@@ -20,7 +20,7 @@
     <script>
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/insights/script.js"></script>
+    <!-- <script defer src="/_vercel/insights/script.js"></script> -->
 
     <script>
         (function () {
@@ -284,137 +284,7 @@
          JAVASCRIPT
          ======================================================== -->
     <script>
-    (() => {
-        'use strict';
-        let lastHighlighted = [];
-        /* ==========================================================
-        CONSTANTS & STATE
-        ========================================================== */
-        const PIECE_IMG = {};
-        for (const c of ['w','b'])
-            for (const t of ['k','q','r','b','n','p'])
-                PIECE_IMG[c+t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
-
-        let board = [];
-        let turn = 'white';
-        let selected = null;
-        let hints = [];
-        let lastMove = null;
-        function highlightMove(fromRow, fromCol, toRow, toCol) {
-    // remove old highlight
-    lastHighlighted.forEach(el => {
-        el.classList.remove("highlight-last-move");
-    });
-
-    lastHighlighted = [];
-
-    const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
-    const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
-
-    if (fromSquare && toSquare) {
-        fromSquare.classList.add("highlight-last-move");
-        toSquare.classList.add("highlight-last-move");
-
-        lastHighlighted.push(fromSquare, toSquare);
-    }
-}
-        let dragging = false;
-        let dragSrc = null;
-
-        let whiteTime = 0;
-        let blackTime = 0;
-        let paused = false;
-        let timerInterval = null;
-        let pendingPromo = null;  
-
-        let gameMode = 'pvp';  
-
-        /* ==========================================================
-        DOM REFERENCES (Sab ek jagah)
-        ========================================================== */
-        const boardEl   = document.getElementById('board');
-        const turnEl    = document.getElementById('turnBadge');
-        const statusEl  = document.getElementById('statusBar');
-        const movesEl   = document.getElementById('movesList');
-        const wCapEl    = document.getElementById('whiteCaptured');
-        const bCapEl    = document.getElementById('blackCaptured');
-        const pauseBtn  = document.getElementById('pauseBtn');
-        const promoOverlay = document.getElementById('promoOverlay');
-        const promoChoices = document.getElementById('promoChoices');
-        const modeBadge = document.getElementById('modeBadge'); 
-
-        // Welcome and confirmation screen variables
-        const welcomeOverlay = document.getElementById('welcomeOverlay');
-        const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
-        const welcomePvPBtn = document.getElementById('welcomePvPBtn');
-        const welcomeAIBtn = document.getElementById('welcomeAIBtn');
-        const confirmOverlay = document.getElementById('confirmOverlay');
-        const confirmYesBtn = document.getElementById('confirmYesBtn');
-        const confirmNoBtn = document.getElementById('confirmNoBtn');
-        const newPvPBtn = document.getElementById('newPvPBtn');
-        const newAIBtn = document.getElementById('newAIBtn');
-        const gameOverOverlay = document.getElementById('gameOverOverlay');
-        const gameOverTitle = document.getElementById('gameOverTitle');
-        const gameOverMessage = document.getElementById('gameOverMessage');
-        const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
-        const gameOverAIBtn = document.getElementById('gameOverAIBtn');
-
-        const drawBtn = document.getElementById('drawBtn');
-        const drawOverlay = document.getElementById('drawOverlay');
-        const drawMessage = document.getElementById('drawMessage');
-        const drawAcceptBtn = document.getElementById('drawAcceptBtn');
-        const drawDeclineBtn = document.getElementById('drawDeclineBtn');
-
-        let gameOver = false;
-
-        /* ==========================================================
-        CSRF & API HELPERS
-        ========================================================== */
-        function csrf() {
-            const m = document.cookie.match(/csrftoken=([^;]+)/);
-            return m ? decodeURIComponent(m[1]) : '';
-        }
-
-        async function get(url) {
-            return (await fetch(url)).json();
-        }
-
-        async function post(url, body) {
-            return (await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrf()
-                },
-                body: JSON.stringify(body)
-            })).json();
-        }
-
-        const pKey   = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
-        const pColor = p => p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
-        const sq     = (r,c) => boardEl.children[r*8 + c];
-
-        /* ==========================================================
-        LOAD GAME STATE
-        ========================================================== */
-        async function loadGame() {
-            const data = await get('/api/state/');
-
-            board = data.board;
-            turn = data.current_turn;
-            whiteTime = data.white_time;
-            blackTime = data.black_time;
-            paused = data.paused;
-
-            gameMode = data.mode || 'pvp';
-            if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
-
-            // Show Resume button if move history exists, hide otherwise
-            if (data.move_history && data.move_history.length > 0) {
-                if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'block';
-            } else {
-                if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'none';
-        (() => {
+        (async function () {
             'use strict';
 
             /* ==========================================================
@@ -430,6 +300,7 @@
             let selected = null;
             let hints = [];
             let lastMove = null;
+            let lastHighlighted = [];
 
             let dragging = false;
             let dragSrc = null;
@@ -540,6 +411,18 @@
                     b.push(row);
                 }
                 return b;
+            }
+
+            function highlightMove(fromRow, fromCol, toRow, toCol) {
+                lastHighlighted.forEach(el => el.classList.remove("highlight-last-move"));
+                lastHighlighted = [];
+                const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
+                const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
+                if (fromSquare && toSquare) {
+                    fromSquare.classList.add("highlight-last-move");
+                    toSquare.classList.add("highlight-last-move");
+                    lastHighlighted.push(fromSquare, toSquare);
+                }
             }
 
             /* ==========================================================
@@ -786,48 +669,6 @@
                 hidePromoModal();
                 await executeMove(fr, fc, tr, tc, choice);
             }
-            await executeMove(fr, fc, tr, tc, null);
-        }
-
-        async function executeMove(fr, fc, tr, tc, promotionPiece) {
-            try {
-                const body = {
-                    from_row: fr, from_col: fc,
-                    to_row: tr, to_col: tc,
-                };
-                if (promotionPiece) body.promotion_piece = promotionPiece;
-
-                const data = await post('/api/move/', body);
-                if (data.valid) {
-                    board = data.board;
-                    turn  = data.current_turn;
-                    lastMove = { from: [fr, fc], to: [tr, tc] };
-                    highlightMove(fr, fc, tr, tc);
-                    
-                    whiteTime = data.white_time;
-                    blackTime = data.black_time;
-                    
-                    selected = null;
-                    hints = [];
-                    updateTurn();
-                    updateMoves(data.move_history);
-                    updateCaptured(data.captured_pieces);
-                    syncPieces();
-                    renderClocks(); 
-                    startTimer();
-
-                    // Check for game-ending conditions
-                    if (data.game_status === 'checkmate') {
-                        handleGameOver('checkmate', turn);
-                        return;
-                    } else if (data.game_status === 'stalemate') {
-                        handleGameOver('stalemate', turn);
-                        return;
-                    } else if (data.game_status === 'check') {
-                        showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
-                    } else {
-                        showStatus('', false);
-                    }
 
             async function tryMove(fr, fc, tr, tc) {
                 if (paused || gameOver) return;
