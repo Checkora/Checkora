@@ -93,6 +93,36 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
 
 > For a full deep-dive into the backend components, execution flow, and AI internals, see the [Architecture Guide](structure.md).
 
+### How It Works
+
+When a player makes a move, the request flows through three layers:
+
+1. **Browser** sends a `POST` request with the move coordinates
+2. **Django** (`views.py`) receives it and delegates to the `ChessGame` wrapper in `engine.py`
+3. **`engine.py`** serializes the board into a flat 64-character string and spawns the engine as a subprocess, sending commands via `stdin` and reading responses from `stdout`
+
+The engine speaks a simple text-based protocol:
+
+| Command | Example | Response |
+|---|---|---|
+| `VALIDATE` | `VALIDATE <board64> <rights> <turn> fr fc tr tc` | `VALID` / `INVALID <reason>` |
+| `MOVES` | `MOVES <board64> <rights> <turn> row col` | `MOVES tr tc is_capture is_promotion ...` |
+| `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <depth>` | `BESTMOVE fr fc tr tc` |
+| `STATUS` | `STATUS <board64> <rights> <turn>` | `STATUS CHECK / CHECKMATE / STALEMATE / OK` |
+
+```mermaid
+flowchart TD
+    A[Browser\nJS / HTML] -->|HTTP POST /api/move/| B[Django Views\nviews.py]
+    B -->|delegates to| C[ChessGame Wrapper\nengine.py]
+    C -->|board64 + command via stdin| D{Engine}
+    D -->|C++ binary\nmain.exe / main| E[Minimax + Alpha-Beta\nPrimary]
+    D -->|Python fallback\nmain.py| F[Minimax + Alpha-Beta\nFallback]
+    E -->|response via stdout| C
+    F -->|response via stdout| C
+    C -->|updated state| B
+    B -->|JSON response| A
+```
+
 ---
 
 ## API Reference

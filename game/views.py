@@ -88,6 +88,11 @@ def new_game(request):
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
     
+    # --- Capture and store names in the session ---
+    # We use .get('key', 'Default') so it never crashes
+    request.session['white_name'] = data.get('white_name', 'White')
+    request.session['black_name'] = data.get('black_name', 'Black')
+
     game = ChessGame()
     game.mode = mode
     
@@ -99,7 +104,10 @@ def new_game(request):
         'current_turn': game.current_turn,
         'move_history': [],
         'captured_pieces': {'white': [], 'black': []},
-        'mode': game.mode
+        'mode': game.mode,
+        # We send names back just to confirm they were saved
+        'white_name': request.session['white_name'],
+        'black_name': request.session['black_name'],
     })
 
 @require_GET
@@ -156,6 +164,8 @@ def get_state(request):
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'mode': game.mode,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
     })
 
 @csrf_exempt
@@ -229,3 +239,46 @@ def ai_move(request):
     })
 
 
+@require_POST
+def offer_draw(request):
+    """Handle draw offers and agreements."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'success': False, 'message': 'No active game.'}, status=400)
+
+    data = json.loads(request.body or '{}')
+    action = data.get('action') # 'offer' or 'accept'
+    
+    if action == 'accept':
+        game_data['game_status'] = 'draw_agreement'
+        request.session['game'] = game_data
+        request.session.modified = True
+        return JsonResponse({'success': True, 'game_status': 'draw_agreement'})
+        
+    return JsonResponse({'success': True})
+
+@require_POST
+def resign_game(request):
+    """Handle a player resigning the game."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    resigning_player = game.current_turn
+    winner = 'black' if resigning_player == 'white' else 'white'
+
+    game_status = f"Resignation: {winner.capitalize()} wins!"
+    
+    # Update game status in session
+    game_data['game_status'] = game_status
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'valid': True,
+        'message': f'{resigning_player.capitalize()} resigned.',
+        'winner': winner,
+        'game_status': game_status
+    })

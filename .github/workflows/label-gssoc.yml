@@ -1,0 +1,60 @@
+name: Label new issues with GSSoC
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-gssoc-label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Ensure label and add to issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.issue.number;
+            
+            const label = 'GSSoC';
+            const color = 'FD873D'; 
+            const description = 'Under GirlScript Summer of Code';
+            
+            try {
+              await github.rest.issues.updateLabel({
+                owner,
+                repo,
+                name: label,
+                new_name: label,
+                color,
+                description
+              });
+            } catch (err) {
+              if (err.status === 404) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: label,
+                    color,
+                    description
+                  });
+                } catch (createErr) {
+                  if (createErr.status !== 422) {
+                    throw createErr;
+                  }
+                }
+              } else {
+                throw err;
+              }
+            }
+            
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number,
+              labels: [label]
+            });
