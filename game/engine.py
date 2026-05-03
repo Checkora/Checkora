@@ -493,6 +493,16 @@ DP cache is intentionally excluded to save cookie space."""
 
         self.game_status = 'active'
         self.draw_reason = None
+        # Check for checkmate / stalemate / check
+        game_status = self.check_game_status()
+        
+        if game_status == 'check':
+            self.move_history[-1]['notation'] += '+'
+            notation += '+'
+        elif game_status == 'checkmate':
+            self.move_history[-1]['notation'] += '#'
+            notation += '#'
+        
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
