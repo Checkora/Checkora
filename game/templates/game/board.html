@@ -412,6 +412,10 @@
             pointer-events: none;
         }
 
+        /* Red highlights for premove */
+        .square.premove.light { background-color: #ff7676 !important; }
+        .square.premove.dark  { background-color: #d64545 !important; }
+
     </style>
 </head>
 <body>
@@ -561,6 +565,7 @@
 
         let dragging = false;
         let dragSrc = null;
+        let premove = null; // Will store {fr, fc, tr, tc}
 
         let whiteTime = 0;
         let blackTime = 0;
@@ -573,6 +578,7 @@
         /* ==========================================================
         DOM REFERENCES (Sab ek jagah)
         ========================================================== */
+
         const boardEl   = document.getElementById('board');
         const turnEl    = document.getElementById('turnBadge');
         const statusEl  = document.getElementById('statusBar');
@@ -601,6 +607,17 @@
         const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
         let gameOver = false;
+       /* ==========================================================
+       STEP 5: RIGHT-CLICK TO CANCEL PREMOVE
+       ========================================================== */
+        boardEl.oncontextmenu = (e) => {
+        e.preventDefault(); // This stops the normal browser menu from opening
+        if (premove) {
+            clearPremove();
+            showStatus("Premove cancelled", false);
+        }
+    };
+
 
         /* ==========================================================
         CSRF & API HELPERS
@@ -743,7 +760,19 @@
             hints = [];
             refreshHighlights();
         }
-
+        
+        function clearPremove() {
+            premove = null;
+            boardEl.querySelectorAll('.square').forEach(el => el.classList.remove('premove'));
+        }
+        
+        function handlePremove(fr, fc, tr, tc) {
+            if (fr === tr && fc === tc) return; 
+            clearPremove();
+            premove = { fr, fc, tr, tc };
+            sq(fr, fc).classList.add('premove');
+            sq(tr, tc).classList.add('premove');
+        }
         /* ==============================================================
            Promotion modal helpers
            ============================================================== */
@@ -828,6 +857,12 @@
                     syncPieces();
                     renderClocks(); 
                     startTimer();
+                    
+                    if (premove && turn === 'white') { // Adjust 'white' if user plays black
+                    const { fr, fc, tr, tc } = premove;
+                    premove = null; // Clear it so it doesn't loop
+                    setTimeout(() => tryMove(fr, fc, tr, tc), 100);
+}
 
                     // Check for game-ending conditions
                     if (data.game_status === 'checkmate') {
@@ -903,32 +938,33 @@
         /* ==========================================================
         EVENTS
         ========================================================== */
-        async function onClick(r,c) {
+         
+        async function onClick(r, c) {
             if (dragging) return;
-            if (selected) {
-                if (hints.some(h => h.row===r && h.col===c))
-                    return tryMove(selected.r,selected.c,r,c);
-                if (board[r][c] && pColor(board[r][c])===turn)
-                    return selectPiece(r,c);
-                return deselect();
+            
+            if (turn === 'white') {
+                // Normal move logic
+                if (selected) {
+                    if (hints.some(h => h.row === r && h.col === c))
+                        return tryMove(selected.r, selected.c, r, c);
+                        if (board[r][c] && pColor(board[r][c]) === turn)
+                            return selectPiece(r, c);
+                    return deselect();
+                }
+                selectPiece(r, c);
+            } else {
+                // Premove logic
+                if (selected) {
+                    handlePremove(selected.r, selected.c, r, c);
+                    deselect();
+                } else {
+                      if (board[r][c] && pColor(board[r][c]) === 'white') {
+                        selected = {r, c};
+                        sq(r, c).classList.add('selected');
+                    }
+                }
             }
-            selectPiece(r,c);
         }
-
-        function onDragStart(e,r,c) {
-            if (paused || pColor(board[r][c])!==turn) return e.preventDefault();
-            if (gameMode === 'ai' && turn === 'black') return e.preventDefault(); // AI Lock
-            dragging = true;
-            dragSrc = {r,c};
-            selectPiece(r,c);
-        }
-
-        async function onDrop(e,tr,tc) {
-            if (!dragSrc) return;
-            await tryMove(dragSrc.r,dragSrc.c,tr,tc);
-            dragSrc = null;
-        }
-
         /* ==========================================================
         UI UPDATES
         ========================================================== */
@@ -1090,6 +1126,7 @@
         if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
 
         async function startNewGame(mode) {
+            clearPremove();
             const d = await post('/api/new-game/', { mode: mode });
             board = d.board;
             turn = d.current_turn;
@@ -1103,6 +1140,8 @@
             
             loadGame();
         }
+        
+    
 
         /* ==========================================================
         INIT (Game yahan se shuru hota hai)
