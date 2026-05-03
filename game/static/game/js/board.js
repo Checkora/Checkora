@@ -340,6 +340,7 @@
     }
 
     async function requestAIMove() {
+            showThinking();   
         showStatus('AI is thinking...', false);
         try {
             const data = await post('/api/ai-move/', {});
@@ -375,9 +376,11 @@
             } else {
                 showStatus(data.message, true);
             }
-        } catch (e) {
-            showStatus('AI connection error.', true);
-        }
+        }} catch (e) {
+    showStatus('AI connection error.', true);
+} finally {
+    hideThinking();   
+}
     }
 
     async function onClick(r,c) {
@@ -722,3 +725,12 @@
 
     loadGame();
 })();
+function showThinking() {
+    document.getElementById("ai-thinking").classList.remove("hidden");
+    document.getElementById("board").classList.add("board-disabled");
+}
+
+function hideThinking() {
+    document.getElementById("ai-thinking").classList.add("hidden");
+    document.getElementById("board").classList.remove("board-disabled");
+}
