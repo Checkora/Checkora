@@ -72,14 +72,12 @@ class ChessGame:
         return ''.join(c if c else '.' for row in self.board for c in row)
 
     def to_dict(self):
-        """Serialise state for Django session storage, including the DP cache."""
-        serializable_cache = {f"{r},{c}": v for (r, c), v in self.valid_moves_cache.items()}
+        """Serialise state for Django session storage. DP cache is intentionally excluded to save cookie space."""
         return {
             'board': self.board,
             'current_turn': self.current_turn,
             'move_history': self.move_history,
             'captured': self.captured,
-            'valid_moves_cache': serializable_cache,
             'white_time': self.white_time,
             'black_time': self.black_time,
             'last_ts': self.last_ts,
@@ -90,7 +88,7 @@ class ChessGame:
 
     @classmethod
     def from_dict(cls, data):
-        """Restore a game and its DP cache from a session dictionary."""
+        """Restore a game from a session dictionary."""
         game = cls.__new__(cls)
         game.board = data['board']
         game.current_turn = data['current_turn']
@@ -103,11 +101,7 @@ class ChessGame:
         game.mode = data.get('mode', 'pvp')
         game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
 
-        cache_data = data.get('valid_moves_cache', {})
         game.valid_moves_cache = {}
-        for k, v in cache_data.items():
-            r, c = map(int, k.split(','))
-            game.valid_moves_cache[(r, c)] = v
         return game
 
     # ------------------------------------------------------------------
@@ -201,6 +195,13 @@ class ChessGame:
         if not is_valid:
             return False, reason, None, 'active'
 
+        # Check timeout BEFORE mutating board state
+        self.update_clock()
+        if self.white_time == 0:
+            return False, "White ran out of time", None, 'timeout'
+        if self.black_time == 0:
+            return False, "Black ran out of time", None, 'timeout'
+
         captured = self.board[tr][tc]
 
         if piece == 'K':
@@ -268,17 +269,8 @@ class ChessGame:
         self.valid_moves_cache = {}
 
         # Switch turn
-        # Deduct elapsed time for the player who just moved
-        self.update_clock()
-
-        # Switch turn
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'
 
-        if self.white_time == 0:
-            return False, "White ran out of time", None, 'timeout'
-        if self.black_time == 0:
-            return False, "Black ran out of time", None, 'timeout'
-        
         self.last_ts = time.time()
 
         # Check for checkmate / stalemate / check

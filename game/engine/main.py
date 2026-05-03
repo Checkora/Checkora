@@ -2,23 +2,23 @@
 """Checkora chess engine implemented in Python.
 
 Protocol:
-VALIDATE <board64> <turn> <fr> <fc> <tr> <tc>
+VALIDATE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc>
 -> VALID | INVALID <reason>
 
-MOVES <board64> <turn> <row> <col>
+MOVES <board64> <castling_rights> <turn> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
 
-ATTACKED <board64> <attackerColor> <row> <col>
+ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
 -> YES | NO
 
-PROMOTE <board64> <turn> <fr> <fc> <tr> <tc> <promoPiece>
+PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
 -> PROMOTE <newBoard64>
 -> INVALID <reason>
 
-STATUS <board64> <turn>
+STATUS <board64> <castling_rights> <turn>
 -> STATUS CHECK | CHECKMATE | STALEMATE | OK
 
-BESTMOVE <board64> <turn> <depth>
+BESTMOVE <board64> <castling_rights> <turn> <depth>
 -> BESTMOVE <fr> <fc> <tr> <tc>
 -> BESTMOVE NONE
 """

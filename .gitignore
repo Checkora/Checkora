@@ -12,6 +12,7 @@ env/
 .venv/
 .env/
 .env
+
 # Distribution / packaging
 *.egg-info/
 dist/
@@ -24,6 +25,7 @@ db.sqlite3
 db.sqlite3-journal
 *.log
 media/
+staticfiles/
 
 # ========================
 # C++ compiled binaries

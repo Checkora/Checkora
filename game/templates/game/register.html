@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+</head>
+<body>
+
+    <div class="header">
+        <h1>Checkora</h1>
+        <p>Create an account to track your stats</p>
+    </div>
+
+    <div class="auth-card">
+        <form method="POST">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+                {{ form.non_field_errors }}
+            {% endif %}
+            
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <span class="helptext">{{ field.help_text|safe }}</span>
+                    {% endif %}
+                    {% if field.errors %}
+                        {{ field.errors }}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-gold">Create Account</button>
+        </form>
+        
+        <div class="auth-footer">
+            Already have an account? <a href="{% url 'login' %}">Sign In</a>
+        </div>
+    </div>
+
+    <script>
+        // Add classes to Django generated inputs
+        document.querySelectorAll('input').forEach(input => {
+            if (input.type !== 'submit') {
+                input.className = 'form-control';
+            }
+        });
+    </script>
+</body>
+</html>
