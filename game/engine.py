@@ -79,10 +79,12 @@ class ChessGame:
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
+        self.player_color = 'white'
         self.castling_rights = {
             'w_k': True, 'w_q': True,
             'b_k': True, 'b_q': True
         }
+        self.en_passant_target = None  # (row, col) of the square a pawn can capture en passant
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -100,7 +102,9 @@ class ChessGame:
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
-            'castling_rights': self.castling_rights
+            'castling_rights': self.castling_rights,
+            'en_passant_target': self.en_passant_target,
+            'player_color': self.player_color,
         }
 
     @classmethod
@@ -116,7 +120,9 @@ class ChessGame:
         game.black_time = data['black_time']
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
+        game.player_color = data.get('player_color', 'white')
         game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
+        game.en_passant_target = data.get('en_passant_target', None)
 
         game.valid_moves_cache = {}
         return game
@@ -190,6 +196,12 @@ class ChessGame:
         if self.castling_rights['b_q']: rights += 'q'
         return rights if rights else '-'
 
+    def _serialize_ep(self):
+        """Serialize en passant target for the C++ engine."""
+        if not self.en_passant_target:
+            return "-1 -1"
+        return f"{self.en_passant_target[0]} {self.en_passant_target[1]}"
+
     # ------------------------------------------------------------------
     #  Public API
     # ------------------------------------------------------------------
@@ -220,6 +232,16 @@ class ChessGame:
             return False, "Black ran out of time", None, 'timeout'
 
         captured = self.board[tr][tc]
+        board_before = self.serialize_board()
+        rights_before = self.serialize_castling_rights()
+        ep_before = self._serialize_ep()
+
+        # Detect En Passant capture before moving piece
+        if piece.lower() == 'p' and fc != tc and not captured:
+            if self.en_passant_target and tr == self.en_passant_target[0] and tc == self.en_passant_target[1]:
+                captured = 'p' if piece.isupper() else 'P' # The captured piece is of opposite color
+                # In EP, the captured pawn is at (fr, tc)
+                self.board[fr][tc] = None
 
         if piece == 'K':
             self.castling_rights['w_k'] = False
@@ -266,11 +288,17 @@ class ChessGame:
                     self.board[tr][3] = self.board[tr][0]
                     self.board[tr][0] = None
 
+        # Update En Passant target for the NEXT turn
+        if piece.lower() == 'p' and abs(tr - fr) == 2:
+            self.en_passant_target = ((fr + tr) // 2, fc)
+        else:
+            self.en_passant_target = None
+
         if captured:
             self.captured[self.current_turn].append(captured)
 
-        notation = self._notation(fr, fc, tr, tc, piece, captured)
-        if promoted:
+        notation = self._notation(fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before)
+        if promoted and '=' not in notation:
             notation += '=' + (self.board[tr][tc] or 'Q').upper()
         self.move_history.append({
             'notation': notation,
@@ -311,7 +339,8 @@ class ChessGame:
         """Internal helper to fetch piece moves from the C++ binary."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {row} {col}"
+        ep_str = self._serialize_ep()
+        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {ep_str} {row} {col}"
         resp = self._call_engine(cmd)
         
         moves = []
@@ -338,7 +367,8 @@ class ChessGame:
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        cmd = f"PROMOTE {board_str} {rights_str} {self.current_turn} {fr} {fc} {tr} {tc} {choice}"
+        ep_str = self._serialize_ep()
+        cmd = f"PROMOTE {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc} {choice}"
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
             return resp.split()[1]
@@ -384,9 +414,32 @@ class ChessGame:
             return False
         return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
 
-    def _notation(self, fr, fc, tr, tc, piece, captured):
-        to_sq = f"{self.FILES[fc]}{8 - fr} -> {self.FILES[tc]}{8 - tr}"
-        return to_sq
+    def _notation(self, fr, fc, tr, tc, piece, captured, board_str=None, rights_str=None, ep_str=None):
+        """Generate SAN notation via C++ engine if possible, else simplified fallback."""
+        if board_str and rights_str:
+            ep_str = ep_str or self._serialize_ep()
+            cmd = f"NOTATION {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc}"
+            resp = self._call_engine(cmd)
+            if resp and resp.startswith("NOTATION"):
+                parts = resp.split()
+                if len(parts) >= 2:
+                    return parts[1]
+
+        # Fallback: simplified notation (e.g., e4, Nf3, exd5)
+        files = "abcdefgh"
+        f_coord = f"{files[fc]}{8 - fr}"
+        t_coord = f"{files[tc]}{8 - tr}"
+        
+        if not piece: return f"{f_coord} -> {t_coord}"
+        
+        type = piece.lower()
+        if type == 'p':
+            if fc != tc: return f"{files[fc]}x{t_coord}"
+            return t_coord
+        
+        p_char = type.upper()
+        if captured: return f"{p_char}x{t_coord}"
+        return f"{p_char}{t_coord}"
 
     @staticmethod
     def _color(piece):
@@ -420,11 +473,12 @@ class ChessGame:
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        cmd = f"STATUS {board_str} {rights_str} {self.current_turn}"
+        ep_str = self._serialize_ep()
+        cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
         resp = self._call_engine(cmd)
         if resp and resp.startswith("STATUS"):
             status = resp.split()[1].lower()
-            if status in ('checkmate', 'stalemate', 'check', 'ok'):
+            if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 return status
         return 'ok'
 
@@ -539,7 +593,8 @@ class ChessGame:
         rights_str = self.serialize_castling_rights()
         if depth is None:
             depth = self._get_ai_search_depth()
-        cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {depth}"
+        ep_str = self._serialize_ep()
+        cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {ep_str} {depth}"
         resp = self._call_engine(cmd)
 
         if not resp or not resp.startswith("BESTMOVE"):

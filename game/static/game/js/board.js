@@ -321,6 +321,9 @@
                 } else if (data.game_status === 'stalemate') {
                     handleGameOver('stalemate', turn);
                     return;
+                } else if (data.game_status === 'draw') {
+                    handleGameOver('insufficient', turn);
+                    return;
                 } else if (data.game_status === 'check') {
                     showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
                 } else {
@@ -366,6 +369,9 @@
                     return;
                 } else if (data.game_status === 'stalemate') {
                     handleGameOver('stalemate', turn);
+                    return;
+                } else if (data.game_status === 'draw') {
+                    handleGameOver('insufficient', turn);
                     return;
                 } else if (data.game_status === 'check') {
                     showStatus('You are in check!', true);
@@ -476,6 +482,9 @@
         } else if (status === 'draw') {
             title = 'Draw!';
             message = 'Draw by Agreement.';
+        } else if (status === 'insufficient') {
+            title = 'Draw!';
+            message = 'Draw due to Insufficient Material.';
         } else if (status === 'resign') {
             const winner = (currentTurn === 'white') ? blackName : whiteName;
             title = 'Resignation';

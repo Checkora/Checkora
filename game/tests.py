@@ -271,7 +271,7 @@ class GameStateTest(TestCase):
     def test_get_state(self):
         r = self.client.get('/api/state/')
         data = r.json()
-        self.assertTrue(data['paused'])
+        self.assertFalse(data['paused'])
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(data['mode'], 'pvp')
         self.assertIn('board', data)

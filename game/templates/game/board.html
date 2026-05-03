@@ -42,34 +42,35 @@
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
             <div class="promo-title" style="font-size: 1.6rem; color: #fff; margin-bottom: 10px;">Checkora</div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
+            <!-- Name Input Fields (Only for PvP) -->
+            <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
+                <input type="text" id="whiteNameInput" placeholder="White Player Name" 
 
-            <!-- New Name Input Fields -->
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
                 <input type="text" id="blackNameInput" placeholder="Black Player Name"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
-                        <input type="radio" name="welcome_mode" value="pvp" checked
-                            onchange="document.getElementById('welcomeDifficultyContainer').style.display='none'"> PvP
-                    </label>
-                    <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
-                        <input type="radio" name="welcome_mode" value="ai"
-                            onchange="document.getElementById('welcomeDifficultyContainer').style.display='block'"> vs
-                        AI
-                    </label>
-                </div>
+            <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
+                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
+                    (PvP)</button>
+                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
+                    AI</button>
 
-                <div id="welcomeDifficultyContainer" style="display: none; margin-bottom: 15px;">
-                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">AI
-                        Difficulty</label>
+                <button class="btn" id="welcomeResumeBtn"
+                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
+                    Game</button>
+            </div>
+
+            <div id="pveOptions" style="display: none; flex-direction: column; gap: 14px;">
+                <div style="color: #fff; font-size: 1.1rem; text-align: center; margin-bottom: 5px;">Play as:</div>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
+                    <button class="btn color-choice active" id="pveWhiteBtn" data-color="white" style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
+                    <button class="btn color-choice" id="pveBlackBtn" data-color="black" style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
+                </div>
+                
+                <div id="aiDifficultyContainer" style="margin-bottom: 10px;">
+                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem; text-align: center;">AI Difficulty</label>
                     <select id="welcomeDifficultySelect"
                         style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
                         <option value="easy">Easy</option>
@@ -77,14 +78,8 @@
                         <option value="hard">Hard</option>
                     </select>
                 </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 14px;">
-                <button class="btn btn-gold" id="welcomeStartBtn" style="padding: 12px; font-size: 1.05rem;">Start
-                    Game</button>
-                <button class="btn" id="welcomeResumeBtn"
-                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
-                    Game</button>
+                <button class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start Game</button>
+                <button class="btn" id="backToModes" style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff;">Back</button>
             </div>
         </div>
     </div>
@@ -105,7 +100,7 @@
     </div>
 
     <!-- ========== GAME ========== -->
-    <div class="game-layout">
+    <div class="game-layout" style="visibility: hidden;">
 
         <!-- Left Panel -->
         <div class="panel">
@@ -124,33 +119,32 @@
             <div class="turn-badge white" id="turnBadge">
                 <span id="turnBadgeText">White</span>'s Turn
             </div>
-
             <div class="clocks">
                 <div id="whiteClock" class="clock white active">
-                    <!-- We added id="whiteNameLabel" -->
-                    <span class="label" id="whiteNameLabel">WHITE</span>
-                    <span class="time">10:00</span>
+                    <span class="label">
+                        <span id="whiteNameLabel">WHITE</span>
+                        <span id="whiteYouTag" style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
+                    </span>
+                    <span class="time" id="whiteTime">10:00</span>
                 </div>
 
                 <div id="blackClock" class="clock black">
-                    <!-- We added id="blackNameLabel" -->
-                    <span class="label" id="blackNameLabel">BLACK</span>
-                    <span class="time">10:00</span>
+                    <span class="label">
+                        <span id="blackNameLabel">BLACK</span>
+                        <span id="blackYouTag" style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
+                    </span>
+                    <span class="time" id="blackTime">10:00</span>
                 </div>
             </div>
-
-            <button id="pauseBtn" class="btn btn-gold">Pause</button>
-            <button id="resignBtn" class="btn btn-danger" onclick="showResignModal()">Resign</button>
-
             <div class="board-outer">
                 <div class="board-row">
-                    <div class="ranks">
+                    <div class="ranks" id="ranksLabels">
                         <span>8</span><span>7</span><span>6</span><span>5</span>
                         <span>4</span><span>3</span><span>2</span><span>1</span>
                     </div>
                     <div class="chessboard" id="board"></div>
                 </div>
-                <div class="files">
+                <div class="files" id="filesLabels">
                     <span>a</span><span>b</span><span>c</span><span>d</span>
                     <span>e</span><span>f</span><span>g</span><span>h</span>
                 </div>
@@ -183,7 +177,11 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
+                    </div>
                     <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
+                    <button class="btn btn-gold" id="pauseBtn">Pause</button>
                     <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
                 </div>
             </div>
@@ -295,6 +293,8 @@
         </div>
     </div>
 
+    <style>
+    </style>
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
@@ -456,6 +456,9 @@
             let pendingPromo = null;
 
             let gameMode = 'pvp';
+            let playerColor = 'white';
+            let flipped = false;
+            let autoFlip = false;
 
             /* ==========================================================
             DOM REFERENCES
@@ -470,11 +473,20 @@
             const promoOverlay = document.getElementById('promoOverlay');
             const promoChoices = document.getElementById('promoChoices');
             const modeBadge = document.getElementById('modeBadge');
+            const autoFlipBtn = document.getElementById('autoFlipBtn');
+            const flipControls = document.getElementById('flipControls');
+            const copyFenBtn = document.getElementById('copyFenBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
             const welcomePvPBtn = document.getElementById('welcomePvPBtn');
             const welcomeAIBtn = document.getElementById('welcomeAIBtn');
+            
+            const modeSelection = document.getElementById('modeSelection');
+            const pveOptions = document.getElementById('pveOptions');
+            const startAIBtn = document.getElementById('startAIBtn');
+            const backToModes = document.getElementById('backToModes');
+            const gameLayout = document.querySelector('.game-layout');
 
             const confirmOverlay = document.getElementById('confirmOverlay');
             const confirmTitle = document.getElementById('confirmTitle');
@@ -527,7 +539,25 @@
 
             const pKey = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
             const pColor = p => p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
-            const sq = (r, c) => boardEl.children[r * 8 + c];
+            const sq = (r, c) => {
+                const vr = flipped ? 7 - r : r;
+                const vc = flipped ? 7 - c : c;
+                return boardEl.children[vr * 8 + vc];
+            };
+
+            function parseBoard(s) {
+                if (!s || typeof s !== 'string') return s;
+                const b = [];
+                for (let i = 0; i < 8; i++) {
+                    const row = [];
+                    for (let j = 0; j < 8; j++) {
+                        const ch = s[i * 8 + j];
+                        row.push(ch === '.' ? null : ch);
+                    }
+                    b.push(row);
+                }
+                return b;
+            }
 
             /* ==========================================================
             LOAD GAME STATE
@@ -535,13 +565,25 @@
             async function loadGame() {
                 const data = await get('/api/state/');
 
-                board = data.board;
+                board = parseBoard(data.board);
                 turn = data.current_turn;
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
+                playerColor = data.player_color || 'white';
+                
+                if (flipControls) {
+                    flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
+                }
+
+                if (gameMode === 'ai') {
+                    flipped = (playerColor === 'black');
+                } else {
+                    flipped = false;
+                }
+
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
                 // Show Resume button if move history exists
@@ -562,16 +604,19 @@
                 updatePauseUI();
                 startTimer();
             }
-
             /* ==========================================================
             BOARD RENDERING
             ========================================================== */
             function buildBoard() {
                 boardEl.innerHTML = '';
-                for (let r = 0; r < 8; r++) {
-                    for (let c = 0; c < 8; c++) {
+                for (let vr = 0; vr < 8; vr++) {
+                    for (let vc = 0; vc < 8; vc++) {
+                        const r = flipped ? 7 - vr : vr;
+                        const c = flipped ? 7 - vc : vc;
                         const d = document.createElement('div');
-                        d.className = 'square ' + ((r + c) % 2 ? 'dark' : 'light');
+                        d.className = 'square ' + ((vr + vc) % 2 ? 'dark' : 'light');
+                        d.dataset.r = r;
+                        d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
@@ -588,6 +633,20 @@
                     }
                 }
                 syncPieces();
+                updateLabels();
+            }
+
+            function updateLabels() {
+                const ranks = ['8','7','6','5','4','3','2','1'];
+                const files = ['a','b','c','d','e','f','g','h'];
+                if (flipped) {
+                    ranks.reverse();
+                    files.reverse();
+                }
+                const rLabels = document.getElementById('ranksLabels');
+                const fLabels = document.getElementById('filesLabels');
+                if (rLabels) rLabels.innerHTML = ranks.map(r => `<span>${r}</span>`).join('');
+                if (fLabels) fLabels.innerHTML = files.map(f => `<span>${f}</span>`).join('');
             }
 
             function syncPieces() {
@@ -612,12 +671,11 @@
             function markPlayable() {
                 boardEl.querySelectorAll('.piece').forEach(img => {
                     const el = img.closest('.square');
-                    const idx = Array.from(boardEl.children).indexOf(el);
-                    const r = Math.floor(idx / 8);
-                    const c = idx % 8;
+                    const r = parseInt(el.dataset.r);
+                    const c = parseInt(el.dataset.c);
                     const p = board[r][c];
                     const isPlayable = p && pColor(p) === turn
-                        && !(gameMode === 'ai' && turn === 'black');
+                        && !(gameMode === 'ai' && turn !== playerColor);
                     img.classList.toggle('playable', isPlayable);
                 });
             }
@@ -690,7 +748,7 @@
                 const p = board[r][c];
                 if (!p || pColor(p) !== turn || paused || gameOver) return;
 
-                if (gameMode === 'ai' && turn === 'black') {
+                if (gameMode === 'ai' && turn !== playerColor) {
                     showStatus("Waiting for AI to move...", false);
                     return;
                 }
@@ -812,10 +870,14 @@
 
                     const data = await post('/api/move/', body);
                     if (data.valid) {
-                        board = data.board;
+                        board = parseBoard(data.board);
                         turn = data.current_turn;
                         lastMove = { from: [fr, fc], to: [tr, tc] };
 
+                        if (gameMode === 'pvp' && autoFlip) {
+                            flipped = (turn === 'black');
+                            buildBoard();
+                        }
                         whiteTime = data.white_time;
                         blackTime = data.black_time;
 
@@ -838,7 +900,7 @@
                             showStatus('', false);
                         }
 
-                        if (gameMode === 'ai' && turn === 'black' && !gameOver) {
+                        if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
                         }
                     } else {
@@ -857,10 +919,9 @@
                     const data = await post('/api/ai-move/', {});
                     if (data.valid) {
                         const mv = data.ai_move;
-                        board = data.board;
+                        board = parseBoard(data.board);
                         turn = data.current_turn;
                         lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
-
                         whiteTime = data.white_time;
                         blackTime = data.black_time;
 
@@ -907,7 +968,7 @@
 
             function onDragStart(e, r, c) {
                 if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
-                if (gameMode === 'ai' && turn === 'black') return e.preventDefault();
+                if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
                 dragging = true;
                 dragSrc = { r, c };
                 selectPiece(r, c);
@@ -923,14 +984,21 @@
             UI UPDATES
             ========================================================== */
             function updateTurn() {
-                turnEl.textContent = turn === 'white' ? "White's Turn" : "Black's Turn";
-                turnEl.className = 'turn-badge ' + turn;
-                document.getElementById('whiteClock').classList.toggle('active', turn === 'white');
-                document.getElementById('blackClock').classList.toggle('active', turn === 'black');
-                markPlayable();
-                if (!gameOver) {
-                    document.title = (turn === 'white' ? 'White to Move - Checkora' : 'Black to Move - Checkora');
+                const badge = turnEl;
+                badge.className = 'turn-badge ' + turn;
+                
+                let label = turn.charAt(0).toUpperCase() + turn.slice(1) + "'s Turn";
+                if (gameMode === 'ai') {
+                    if (turn === playerColor) {
+                        label = "Your Turn";
+                    } else {
+                        label = "AI is thinking...";
+                    }
                 }
+                badge.textContent = label;
+                
+                wCapEl.classList.toggle('active', turn === 'white');
+                bCapEl.classList.toggle('active', turn === 'black');
             }
 
             function updateMoves(history) {
@@ -997,10 +1065,23 @@
             CLOCKS & PAUSE
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+            function formatTime(t) { return fmt(t); }
 
             function renderClocks() {
-                document.querySelector('#whiteClock .time').textContent = fmt(whiteTime);
-                document.querySelector('#blackClock .time').textContent = fmt(blackTime);
+                const wTime = document.getElementById('whiteTime');
+                const bTime = document.getElementById('blackTime');
+                if (wTime) wTime.textContent = formatTime(whiteTime);
+                if (bTime) bTime.textContent = formatTime(blackTime);
+
+                const whiteClock = document.getElementById('whiteClock');
+                const blackClock = document.getElementById('blackClock');
+                if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+                if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+
+                const wYou = document.getElementById('whiteYouTag');
+                const bYou = document.getElementById('blackYouTag');
+                if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
+                if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
             }
 
             function updatePauseUI() {
@@ -1109,40 +1190,111 @@
                 return paused ? resumeGame() : pauseGame();
             }
 
-            async function startNewGame(mode, difficulty = 'medium') {
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
                 const wName = document.getElementById('whiteNameInput')?.value || 'White';
                 const bName = document.getElementById('blackNameInput')?.value || 'Black';
 
                 const d = await post('/api/new-game/', {
                     mode: mode,
+                    player_color: pColor,
                     white_name: wName,
                     black_name: bName,
                     difficulty: difficulty
                 });
+
                 board = d.board;
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
                 gameMode = d.mode;
+                playerColor = d.player_color || 'white';
+                
+                if (gameMode === 'ai') {
+                    flipped = (playerColor === 'black');
+                } else {
+                    flipped = false;
+                }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
-                loadGame();
+                await loadGame();
+                paused = false; 
+                updatePauseUI();
+
+                // Auto-trigger AI if it's their turn
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    requestAIMove();
+                }
             }
 
             /* ==========================================================
             EVENT LISTENERS
             ========================================================== */
-            if (welcomeStartBtn) welcomeStartBtn.onclick = () => {
-                const mode = document.querySelector('input[name="welcome_mode"]:checked').value;
+            let selectedPveColor = 'white';
+
+            if (welcomePvPBtn) welcomePvPBtn.onclick = () => { 
+                welcomeOverlay.classList.remove('active'); 
+                gameLayout.style.visibility = 'visible';
+                startNewGame('pvp'); 
+            };
+            
+            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
+                nameInputs.style.display = 'none';
+                modeSelection.style.display = 'none';
+                pveOptions.style.display = 'flex';
+            };
+
+            if (backToModes) backToModes.onclick = () => {
+                pveOptions.style.display = 'none';
+                modeSelection.style.display = 'flex';
+                nameInputs.style.display = 'flex';
+            };
+
+            const colorBtns = pveOptions.querySelectorAll('.color-choice');
+            colorBtns.forEach(btn => {
+                btn.onclick = () => {
+                    colorBtns.forEach(b => {
+                        b.classList.remove('active');
+                        b.style.borderColor = '#444';
+                    });
+                    btn.classList.add('active');
+                    btn.style.borderColor = '#f0c040';
+                    selectedPveColor = btn.dataset.color;
+                };
+            });
+
+            if (startAIBtn) startAIBtn.onclick = () => {
                 const diff = document.getElementById('welcomeDifficultySelect').value;
                 welcomeOverlay.classList.remove('active');
-                startNewGame(mode, diff);
+                gameLayout.style.visibility = 'visible';
+                startNewGame('ai', selectedPveColor, diff);
             };
+
+            if (autoFlipBtn) autoFlipBtn.onclick = () => {
+                autoFlip = !autoFlip;
+                autoFlipBtn.textContent = 'Auto-Flip: ' + (autoFlip ? 'ON' : 'OFF');
+                autoFlipBtn.style.background = autoFlip ? 'linear-gradient(135deg, #40c0f0, #2080d4)' : '';
+                if (autoFlip && gameMode === 'pvp') {
+                    flipped = (turn === 'black');
+                    buildBoard();
+                }
+            };
+
+            if (copyFenBtn) copyFenBtn.onclick = async () => {
+                const data = await get('/api/state/');
+                if (data.fen) {
+                    navigator.clipboard.writeText(data.fen);
+                    const oldText = copyFenBtn.textContent;
+                    copyFenBtn.textContent = 'Copied!';
+                    setTimeout(() => copyFenBtn.textContent = oldText, 2000);
+                }
+            };
+
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
                 welcomeOverlay.classList.remove('active');
+                gameLayout.style.visibility = 'visible';
                 if (paused) resumeGame();
             };
 
@@ -1230,6 +1382,27 @@
                     event.preventDefault();
                     offerDraw();
                 }
+            });
+
+            // Theme Switcher
+            const themeBtns = document.querySelectorAll('.theme-btn');
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
+            themeBtns.forEach(btn => {
+                if (btn.dataset.theme === currentTheme) {
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
+                }
+                btn.onclick = () => {
+                    const theme = btn.dataset.theme;
+                    document.documentElement.setAttribute('data-theme', theme);
+                    localStorage.setItem('chessBoardTheme', theme);
+                    themeBtns.forEach(b => {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-pressed', 'false');
+                    });
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
+                };
             });
 
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
