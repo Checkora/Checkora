@@ -1,0 +1,205 @@
+{
+  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq": [
+    [6, 4, 4, 4],
+    [6, 3, 4, 3],
+    [7, 6, 5, 5],
+    [6, 2, 4, 2]
+  ],
+
+  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq": [
+    [1, 4, 3, 4],
+    [1, 2, 3, 2],
+    [1, 4, 2, 4],
+    [1, 2, 2, 2],
+    [1, 3, 3, 3],
+    [0, 6, 2, 5]
+  ],
+
+  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [
+    [7, 6, 5, 5],
+    [7, 1, 5, 2],
+    [6, 3, 4, 3]
+  ],
+
+  "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq": [
+    [0, 1, 2, 2],
+    [0, 6, 2, 5],
+    [1, 3, 2, 3]
+  ],
+
+  "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq": [
+    [7, 5, 3, 1],
+    [7, 5, 4, 2],
+    [6, 3, 4, 3]
+  ],
+
+  "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq": [
+    [1, 0, 2, 0],
+    [0, 6, 2, 5],
+    [1, 3, 2, 3]
+  ],
+
+  "r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq": [
+    [3, 1, 4, 0],
+    [3, 1, 2, 2]
+  ],
+
+  "r1bqkbnr/1ppp1ppp/p1n5/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R b KQkq": [
+    [0, 6, 2, 5],
+    [1, 1, 3, 1],
+    [1, 3, 2, 3]
+  ],
+
+  "r1bqkb1r/1ppp1ppp/p1n2n2/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R w KQkq": [
+    [7, 4, 7, 6]
+  ],
+
+  "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq": [
+    [0, 6, 2, 5],
+    [0, 5, 3, 2]
+  ],
+
+  "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq": [
+    [6, 2, 5, 2],
+    [7, 4, 7, 6],
+    [6, 3, 4, 3]
+  ],
+
+  "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq": [
+    [7, 4, 7, 6],
+    [6, 3, 3, 3]
+  ],
+
+  "r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq": [
+    [3, 4, 4, 3],
+    [1, 3, 2, 3],
+    [0, 6, 2, 5]
+  ],
+
+  "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [
+    [7, 6, 5, 5],
+    [7, 1, 5, 2]
+  ],
+
+  "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq": [
+    [0, 1, 2, 2],
+    [1, 3, 2, 3],
+    [1, 4, 2, 4]
+  ],
+
+  "rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq": [
+    [6, 3, 4, 3],
+    [7, 1, 5, 2]
+  ],
+
+  "r1bqkbnr/pp1ppppp/2n5/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq": [
+    [6, 3, 4, 3],
+    [7, 5, 4, 2]
+  ],
+
+  "rnbqkbnr/pp1p1ppp/4p3/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq": [
+    [6, 3, 4, 3],
+    [7, 1, 5, 2]
+  ],
+
+  "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [
+    [6, 3, 4, 3],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkbnr/pppp1ppp/4p3/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq": [
+    [1, 3, 3, 3],
+    [1, 2, 3, 2]
+  ],
+
+  "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq": [
+    [7, 1, 5, 2],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [
+    [6, 3, 4, 3],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq": [
+    [1, 3, 3, 3],
+    [0, 6, 2, 5]
+  ],
+
+  "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq": [
+    [1, 3, 3, 3],
+    [0, 6, 2, 5],
+    [1, 5, 2, 5],
+    [1, 4, 2, 4]
+  ],
+
+  "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [
+    [6, 2, 4, 2],
+    [7, 6, 5, 5],
+    [6, 4, 5, 4]
+  ],
+
+  "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq": [
+    [1, 4, 2, 4],
+    [1, 2, 2, 2],
+    [3, 3, 4, 2]
+  ],
+
+  "rnbqkbnr/ppp2ppp/4p3/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq": [
+    [7, 1, 5, 2],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkbnr/ppp2ppp/4p3/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq": [
+    [0, 6, 2, 5],
+    [0, 1, 2, 2]
+  ],
+
+  "rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq": [
+    [6, 2, 5, 2],
+    [7, 6, 5, 5],
+    [6, 1, 5, 1]
+  ],
+
+  "rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq": [
+    [7, 1, 5, 2],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkbnr/ppp1pppp/8/8/2pP4/8/PP2PPPP/RNBQKBNR w KQkq": [
+    [6, 4, 5, 4],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [
+    [6, 2, 4, 2],
+    [7, 6, 5, 5],
+    [6, 4, 5, 4]
+  ],
+
+  "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq": [
+    [1, 6, 2, 6],
+    [1, 4, 2, 4],
+    [1, 3, 3, 3]
+  ],
+
+  "rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq": [
+    [7, 1, 5, 2],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqkb1r/pppppp1p/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq": [
+    [0, 5, 1, 6]
+  ],
+
+  "rnbqk2r/ppppppbp/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq": [
+    [6, 4, 4, 4],
+    [7, 6, 5, 5]
+  ],
+
+  "rnbqk2r/ppppppbp/5np1/8/2PPP3/2N5/PP3PPP/R1BQKBNR b KQkq": [
+    [1, 3, 2, 3],
+    [0, 4, 0, 6]
+  ]
+}

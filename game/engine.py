@@ -7,6 +7,7 @@ ensuring 100% accuracy.
 """
 
 import os
+import random
 import subprocess
 import json
 import sys
@@ -20,6 +21,9 @@ class ChessGame:
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
     ENGINE_DIR = os.path.join(CURRENT_DIR, 'engine')
+
+    _opening_book = None
+    _opening_book_loaded = False
     ENGINE_CANDIDATES = (
         [
             os.path.join(ENGINE_DIR, 'main.exe'),
@@ -178,6 +182,55 @@ class ChessGame:
         if self.castling_rights['b_k']: rights += 'k'
         if self.castling_rights['b_q']: rights += 'q'
         return rights if rights else '-'
+
+    def board_to_fen(self):
+        """Convert current board, turn, and castling rights to a simplified FEN key."""
+        rows = []
+        for r in range(8):
+            row_str = ''
+            empty = 0
+            for c in range(8):
+                piece = self.board[r][c]
+                if piece is None:
+                    empty += 1
+                else:
+                    if empty:
+                        row_str += str(empty)
+                        empty = 0
+                    row_str += piece
+            if empty:
+                row_str += str(empty)
+            rows.append(row_str)
+        placement = '/'.join(rows)
+        turn = 'w' if self.current_turn == 'white' else 'b'
+        castling = self.serialize_castling_rights()
+        return f"{placement} {turn} {castling}"
+
+    @classmethod
+    def _load_opening_book(cls):
+        """Load opening_book.json once and cache it at the class level."""
+        if cls._opening_book_loaded:
+            return cls._opening_book
+        book_path = os.path.join(cls.ENGINE_DIR, 'opening_book.json')
+        try:
+            with open(book_path, 'r') as f:
+                cls._opening_book = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            cls._opening_book = {}
+        cls._opening_book_loaded = True
+        return cls._opening_book
+
+    def _get_book_move(self):
+        """Return a random move from the opening book for the current position, or None."""
+        book = self._load_opening_book()
+        if not book:
+            return None
+        fen = self.board_to_fen()
+        moves = book.get(fen)
+        if not moves:
+            return None
+        fr, fc, tr, tc = random.choice(moves)
+        return {'from_row': fr, 'from_col': fc, 'to_row': tr, 'to_col': tc}
 
     # ------------------------------------------------------------------
     #  Public API
@@ -427,11 +480,16 @@ class ChessGame:
     AI_SEARCH_DEPTH_PYTHON = 3  # Python engine needs conservative depth
 
     def get_ai_move(self):
-        """Ask the C++ engine to compute the best move using minimax.
+        """Return the best move for the current side.
 
-        Returns a dict with from/to coordinates, or None when no
-        legal move exists (checkmate / stalemate).
+        Checks the opening book first for instant theory moves; falls back
+        to the C++ minimax engine when the position is not in the book.
+        Returns a dict with from/to coordinates, or None on checkmate/stalemate.
         """
+        book_move = self._get_book_move()
+        if book_move:
+            return book_move
+
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         depth = self._get_ai_search_depth()
