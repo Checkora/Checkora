@@ -615,32 +615,3 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
-
-class FENLoaderTest(SimpleTestCase):
-    """Verify that the engine can load states from FEN strings correctly."""
-
-    def test_load_starting_position(self):
-        """Should correctly set up the board and turn for the start of a game."""
-        game = ChessGame()
-        # We manually change the turn to black first to make sure 
-        # the loader actually changes it back to white.
-        game.current_turn = 'black'
-        
-        start_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq'
-        success = game.load_from_fen(start_fen)
-        
-        self.assertTrue(success)
-        self.assertEqual(game.current_turn, 'white')
-        self.assertEqual(game.board[0][0], 'r')  # Black rook at top-left
-        self.assertEqual(game.board[7][4], 'K')  # White king at bottom-middle
-
-    def test_load_mid_game_position(self):
-        """Should correctly set up a mid-game state."""
-        game = ChessGame()
-        # A FEN where it's black's turn
-        mid_fen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR b KQkq'
-        success = game.load_from_fen(mid_fen)
-        
-        self.assertTrue(success)
-        self.assertEqual(game.current_turn, 'black')
-        self.assertEqual(game.board[3][2], 'p')  # The 'c5' pawn

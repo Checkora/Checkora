@@ -271,31 +271,6 @@ class ChessGame:
                 return True, "Valid move."
         return False, "Illegal move."
 
-    def load_from_fen(self, fen):
-        """Sets the board state and turn from a FEN string."""
-        try:
-            parts = fen.split(' ')
-            rows = parts[0].split('/')
-            
-            new_board = []
-            for row in rows:
-                board_row = []
-                for char in row:
-                    if char.isdigit():
-                        board_row.extend([None] * int(char))
-                    else:
-                        board_row.append(char)
-                new_board.append(board_row)
-            
-            self.board = new_board
-            if len(parts) > 1:
-                self.current_turn = 'white' if parts[1] == 'w' else 'black'
-            
-            self.valid_moves_cache = {}
-            return True
-        except Exception:
-            return False
-
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """Execute move and invalidate cache to ensure fresh calculations."""
         piece = self.board[fr][fc]
