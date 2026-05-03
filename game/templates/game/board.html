@@ -142,7 +142,13 @@
                         <span>8</span><span>7</span><span>6</span><span>5</span>
                         <span>4</span><span>3</span><span>2</span><span>1</span>
                     </div>
-                    <div class="chessboard" id="board"></div>
+                    <div style="position: relative;">
+                        <div class="chessboard" id="board"></div>
+                        <div class="ai-thinking-overlay" id="aiThinkingOverlay">
+                            <div class="ai-spinner"></div>
+                            <div class="ai-thinking-text">AI is thinking…</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="files" id="filesLabels">
                     <span>a</span><span>b</span><span>c</span><span>d</span>
@@ -367,6 +373,9 @@
             const drawDeclineBtn = document.getElementById('drawDeclineBtn');
 
             let gameOver = false;
+            let aiThinking = false;
+            let aiRequestToken = 0;
+            const aiThinkingOverlay = document.getElementById('aiThinkingOverlay');
 
             /* ==========================================================
             CSRF & API HELPERS
@@ -724,11 +733,29 @@
                 }
             }
 
+            function showAIThinking() {
+                aiThinking = true;
+                if (boardEl) boardEl.style.pointerEvents = 'none';
+                if (aiThinkingOverlay) aiThinkingOverlay.classList.add('active');
+            }
+
+            function hideAIThinking() {
+                aiThinking = false;
+                if (boardEl) boardEl.style.pointerEvents = '';
+                if (aiThinkingOverlay) aiThinkingOverlay.classList.remove('active');
+            }
+
             async function requestAIMove() {
                 if (gameOver) return;
+                const currentToken = ++aiRequestToken;
+                showAIThinking();
                 showStatus('AI is thinking...', false);
                 try {
                     const data = await post('/api/ai-move/', {});
+
+                    // Guard: discard stale response if a new game started
+                    if (currentToken !== aiRequestToken) return;
+
                     if (data.valid) {
                         const mv = data.ai_move;
                         board = parseBoard(data.board);
@@ -759,7 +786,13 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                    showStatus('AI connection error.', true);
+                    if (currentToken === aiRequestToken) {
+                        showStatus('AI connection error.', true);
+                    }
+                } finally {
+                    if (currentToken === aiRequestToken) {
+                        hideAIThinking();
+                    }
                 }
             }
 
@@ -986,6 +1019,10 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
+                // Invalidate any in-flight AI requests and clear thinking state
+                aiRequestToken++;
+                hideAIThinking();
+
                 const wName = document.getElementById('whiteNameInput')?.value || 'White';
                 const bName = document.getElementById('blackNameInput')?.value || 'Black';
 
