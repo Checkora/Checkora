@@ -1,0 +1,187 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkora | AI Chess</title>
+    
+    <!-- Vercel Speed Insights -->
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
+    
+    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    
+    <!-- Vercel Web Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+
+    <!-- ========== WELCOME MESSAGE ========== -->
+
+    <div class="promo-overlay promo-overlay--welcome active" id="welcomeOverlay">
+        <div class="promo-dialog promo-dialog--welcome">
+            <div class="promo-title promo-title--welcome">Checkora</div>
+            <p class="welcome-subtitle">Enter names and select a game mode.</p>
+            
+            <!-- New Name Input Fields -->
+            <div class="welcome-inputs">
+                <input type="text" id="whiteNameInput" placeholder="White Player Name" 
+                    class="name-input">
+                <input type="text" id="blackNameInput" placeholder="Black Player Name" 
+                    class="name-input">
+            </div>
+
+            <div class="welcome-actions">
+                <button class="btn btn-gold btn-large" id="welcomePvPBtn">Pass & Play (PvP)</button>
+                <button class="btn btn-gold btn-large" id="welcomeAIBtn">Play vs AI</button>
+                <button class="btn btn-secondary btn-large is-hidden" id="welcomeResumeBtn">Resume Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== HEADER ========== -->
+    <div class="header">
+        <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
+    </div>
+
+    <!-- ========== GAME ========== -->
+    <div class="game-layout">
+
+        <!-- Left Panel -->
+        <div class="panel">
+            <div class="card">
+                <div class="card-title">Captured by <span id="whiteCapturedName">White</span></div>
+                <div class="captured-list" id="whiteCaptured"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Captured by <span id="blackCapturedName">Black</span></div>
+                <div class="captured-list" id="blackCaptured"></div>
+            </div>
+        </div>
+
+        <!-- Board -->
+        <div class="board-container">
+            <div class="turn-badge white" id="turnBadge">
+                <span id="turnBadgeText">White</span>'s Turn
+            </div>
+            
+           <div class="clocks">
+                <div id="whiteClock" class="clock white active">
+                    <!-- We added id="whiteNameLabel" -->
+                    <span class="label" id="whiteNameLabel">WHITE</span>
+                    <span class="time">10:00</span>
+                </div>
+
+                <div id="blackClock" class="clock black">
+                    <!-- We added id="blackNameLabel" -->
+                    <span class="label" id="blackNameLabel">BLACK</span>
+                    <span class="time">10:00</span>
+                </div>
+            </div>
+
+            <button id="pauseBtn" class="btn btn-gold">Pause</button>
+            <button id="resignBtn" class="btn btn-danger" onclick="showResignModal()">Resign</button>
+
+            <div class="board-outer">
+                <div class="board-row">
+                    <div class="ranks">
+                        <span>8</span><span>7</span><span>6</span><span>5</span>
+                        <span>4</span><span>3</span><span>2</span><span>1</span>
+                    </div>
+                    <div class="chessboard" id="board"></div>
+                </div>
+                <div class="files">
+                    <span>a</span><span>b</span><span>c</span><span>d</span>
+                    <span>e</span><span>f</span><span>g</span><span>h</span>
+                </div>
+            </div>
+
+            <div class="status-bar" id="statusBar"></div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="panel">
+            <div class="card">
+                <div class="card-title">Game Controls</div>
+                <div class="control-actions">
+                    <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
+                    <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button class="btn btn-gold is-hidden" id="drawBtn">Offer Draw</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Move History</div>
+                <div class="moves-list" id="movesList">
+                    <span class="placeholder">No moves yet</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="promo-overlay" id="confirmOverlay">
+        <div class="promo-dialog">
+            <div class="promo-title promo-title--danger" id="confirmTitle">Abandon Game?</div>
+            <p id="confirmMessage" class="modal-message">
+                Your current progress will be lost.<br>Are you sure you want to start a new game?
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-gold btn-compact" id="confirmYesBtn">Yes</button>
+                <button class="btn btn-secondary btn-compact" id="confirmNoBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="promo-overlay" id="drawOverlay">
+        <div class="promo-dialog">
+            <div class="promo-title">Draw Offer</div>
+            <p id="drawMessage" class="draw-message"></p>
+            <div class="modal-actions">
+                <button class="btn btn-gold btn-compact" id="drawAcceptBtn">Accept</button>
+                <button class="btn btn-secondary btn-compact" id="drawDeclineBtn">Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PROMOTION MODAL ========== -->
+    <div class="promo-overlay" id="promoOverlay">
+        <div class="promo-dialog">
+            <div class="promo-title">Promote Pawn</div>
+            <div class="promo-pieces" id="promoChoices"></div>
+        </div>
+    </div>
+
+    <!-- ========== GAME OVER MODAL ========== -->
+    <div class="promo-overlay" id="gameOverOverlay">
+        <div class="promo-dialog promo-dialog--gameover">
+            <div class="promo-title promo-title--gameover" id="gameOverTitle">Game Over</div>
+            <p id="gameOverMessage" class="gameover-message"></p>
+            <div class="modal-actions modal-actions--column">
+                <button class="btn btn-gold btn-medium" id="gameOverPvPBtn">New Game (PvP)</button>
+                <button class="btn btn-gold btn-medium" id="gameOverAIBtn">New Game (vs AI)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== CUSTOM RESIGN MODAL ========== -->
+    <div class="promo-overlay" id="resignModal">
+        <div class="promo-dialog">
+            <div class="promo-title promo-title--danger">Resign Game?</div>
+            <p class="modal-message">
+                Are you sure you want to concede this match?
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-danger btn-danger-solid btn-wide btn-resign" onclick="confirmResign()">Yes, Resign</button>
+                <button class="btn btn-secondary btn-wide btn-resign" onclick="closeResignModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script src="{% static 'game/js/board.js' %}"></script>
+</body>
+</html>

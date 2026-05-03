@@ -1,0 +1,284 @@
+"""Game views for the Checkora chess platform."""
+
+import json
+import time
+
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
+
+from .engine import ChessGame
+
+
+@ensure_csrf_cookie
+def index(request):
+    """Render the board and initialise a new game in the session."""
+    if 'game' not in request.session:
+        game = ChessGame()
+        request.session['game'] = game.to_dict()
+    return render(request, 'game/board.html')
+
+
+@require_POST
+def make_move(request):
+    """Validate and execute a chess move via the C++ engine."""
+    try:
+        data = json.loads(request.body)
+        from_row = int(data['from_row'])
+        from_col = int(data['from_col'])
+        to_row = int(data['to_row'])
+        to_col = int(data['to_col'])
+        promotion_piece = data.get('promotion_piece', None)
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+        return JsonResponse(
+            {'valid': False, 'message': 'Invalid request data.'},
+            status=400,
+        )
+
+    game_data = request.session.get('game')
+    game = ChessGame.from_dict(game_data) if game_data else ChessGame()
+
+    success, message, captured, game_status = game.make_move(
+        from_row, from_col, to_row, to_col, promotion_piece,
+    )
+
+    if success:
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+
+    return JsonResponse({
+        'valid': success,
+        'message': message,
+        'captured': captured,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'game_status': game_status,
+    })
+
+
+@require_GET
+def valid_moves(request):
+    """Return every legal destination for a piece."""
+    try:
+        row = int(request.GET['row'])
+        col = int(request.GET['col'])
+    except (KeyError, ValueError, TypeError):
+        return JsonResponse({'valid_moves': []}, status=400)
+
+    if not (0 <= row < 8 and 0 <= col < 8):
+        return JsonResponse({'valid_moves': []}, status=400)
+
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid_moves': []})
+
+    game = ChessGame.from_dict(game_data)
+    moves = game.get_valid_moves(row, col)
+    return JsonResponse({'valid_moves': moves})
+
+
+@require_POST
+def new_game(request):
+    """Reset the game to the initial position with selected mode."""
+    data = json.loads(request.body or '{}')
+    mode = data.get('mode', 'pvp')
+    
+    # --- Capture and store names in the session ---
+    # We use .get('key', 'Default') so it never crashes
+    request.session['white_name'] = data.get('white_name', 'White')
+    request.session['black_name'] = data.get('black_name', 'Black')
+
+    game = ChessGame()
+    game.mode = mode
+    
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+    
+    return JsonResponse({
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'move_history': [],
+        'captured_pieces': {'white': [], 'black': []},
+        'mode': game.mode,
+        # We send names back just to confirm they were saved
+        'white_name': request.session['white_name'],
+        'black_name': request.session['black_name'],
+    })
+
+@require_GET
+def check_promotion(request):
+    """Return whether a planned move triggers pawn promotion."""
+    try:
+        from_row = int(request.GET['from_row'])
+        from_col = int(request.GET['from_col'])
+        to_row = int(request.GET['to_row'])
+    except (KeyError, ValueError, TypeError):
+        return JsonResponse({'is_promotion': False})
+
+    if not (0 <= from_row < 8 and 0 <= from_col < 8 and 0 <= to_row < 8):
+        return JsonResponse({'is_promotion': False})
+
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'is_promotion': False})
+
+    is_promo = ChessGame.is_promotion_move(
+        game_data['board'], from_row, from_col, to_row,
+    )
+    return JsonResponse({'is_promotion': is_promo})
+
+
+@require_GET
+def get_state(request):
+    game_data = request.session.get('game')
+    if not game_data:
+        game = ChessGame()
+    else:
+        game = ChessGame.from_dict(game_data)
+        
+        # Skip clock deduction if tab was closed for too long
+        elapsed = time.time() - game.last_ts
+        if elapsed > 10 and not game.paused:
+            pass  # Force pause without time penalty
+        else:
+            game.update_clock()
+
+    # Always start in paused state on page load/refresh
+    game.paused = True
+    game.last_ts = time.time()
+
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'paused': game.paused,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'mode': game.mode,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+    })
+
+@csrf_exempt
+@require_POST
+def set_pause(request):
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'paused': False})
+
+    data = json.loads(request.body or '{}')
+    pause = data.get('pause', True)
+
+    game = ChessGame.from_dict(game_data)
+
+    game.update_clock()
+    game.paused = pause
+    game.last_ts = time.time()
+
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'paused': game.paused,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+    })
+
+
+@require_POST
+def ai_move(request):
+    """Let the engine compute and play the best move for the current side."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    if game.mode != 'ai':
+        return JsonResponse({'valid': False, 'message': 'Not in AI mode.'}, status=400)
+
+    best = game.get_ai_move()
+    if not best:
+        return JsonResponse({
+            'valid': False,
+            'message': 'No legal moves available.',
+            'board': game.board,
+            'current_turn': game.current_turn,
+        })
+
+    success, message, captured, game_status = game.make_move(
+        best['from_row'], best['from_col'],
+        best['to_row'],   best['to_col'],
+    )
+
+    if success:
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+
+    return JsonResponse({
+        'valid': success,
+        'message': message,
+        'captured': captured,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'ai_move': best,
+        'game_status': game_status,
+    })
+
+
+@require_POST
+def offer_draw(request):
+    """Handle draw offers and agreements."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'success': False, 'message': 'No active game.'}, status=400)
+
+    data = json.loads(request.body or '{}')
+    action = data.get('action') # 'offer' or 'accept'
+    
+    if action == 'accept':
+        game_data['game_status'] = 'draw_agreement'
+        request.session['game'] = game_data
+        request.session.modified = True
+        return JsonResponse({'success': True, 'game_status': 'draw_agreement'})
+        
+    return JsonResponse({'success': True})
+
+@require_POST
+def resign_game(request):
+    """Handle a player resigning the game."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    resigning_player = game.current_turn
+    winner = 'black' if resigning_player == 'white' else 'white'
+
+    game_status = f"Resignation: {winner.capitalize()} wins!"
+    
+    # Update game status in session
+    game_data['game_status'] = game_status
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'valid': True,
+        'message': f'{resigning_player.capitalize()} resigned.',
+        'winner': winner,
+        'game_status': game_status
+    })

@@ -1,0 +1,274 @@
+# ♟️ Checkora CI/CD Pipeline
+# Triggers:
+#   • Every push to EVERY branch  → lint + compile + test + migrate-check + security
+#   • Every PR targeting main      → same checks (required to merge)
+#   • Push/merge to main only      → all checks THEN deploy to Vercel
+# Contributors see test results immediately after any push — no PR needed.
+# -------------------------------------------------------------------
+name: 🚀 Checkora CI/CD
+
+on:
+  push:
+    # Run CI on every branch — feature branches, fix branches, forks, everything.
+    # This means contributors get instant test feedback on their own branches.
+    branches:
+      - '**'
+  pull_request:
+    # Also run on PRs targeting main (required status checks for merge protection).
+    branches: [main]
+
+# Cancel redundant runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions by default (least-privilege)
+permissions:
+  contents: read
+  pull-requests: write   # allows posting CI summary comments on PRs
+  deployments: read      # required for Vercel preview polling
+
+env:
+  DJANGO_SETTINGS_MODULE: core.settings
+  # Dummy secret key — safe for CI, never used in production
+  SECRET_KEY: "ci-insecure-k3y-f0r-t3sting-0nly-d0-n0t-use-1n-pr0d"
+  PYTHON_VERSION: "3.12"
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 1 — Python Lint (flake8)
+# ───────────────────────────────────────────────────────────────────
+jobs:
+  lint:
+    name: 🔍 Lint (flake8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-lint-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-lint-${{ runner.os }}-
+
+      - name: 📥 Install flake8
+        run: pip install flake8 flake8-django
+
+      - name: 🔍 Run flake8
+        run: |
+          flake8 . \
+            --exclude=.venv,migrations,__pycache__,.git,game/engine/main.py \
+            --max-line-length=120 \
+            --extend-ignore=E501,W503,W291,W293,W391,W292,E701,E402,F401,E231,E261,E302 \
+            --count \
+            --statistics
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 2 — Compile C++ Engine
+# ───────────────────────────────────────────────────────────────────
+  compile-engine:
+    name: ⚙️ Compile C++ Engine
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Verify g++ availability
+        run: g++ --version
+
+      - name: 🔍 Check if C++ source exists
+        id: check_cpp
+        run: |
+          if [ -f "game/engine/main.cpp" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "✅ main.cpp found — proceeding with compilation"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ main.cpp not found — skipping compilation (non-fatal)"
+          fi
+
+      - name: ⚙️ Compile engine binary
+        if: steps.check_cpp.outputs.exists == 'true'
+        run: |
+          g++ -O2 -std=c++17 \
+              -Wall -Wextra -Wpedantic \
+              game/engine/main.cpp \
+              -o game/engine/main
+          echo "✅ Compilation succeeded"
+          file game/engine/main
+
+      - name: 📤 Upload compiled binary as artifact
+        if: steps.check_cpp.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-binary-${{ github.sha }}
+          path: game/engine/main
+          retention-days: 7
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 3 — Django Tests
+# ───────────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Django Tests
+    runs-on: ubuntu-latest
+    needs: [lint, compile-engine]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-test-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-test-${{ runner.os }}-
+
+      - name: 📥 Install project dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔧 Compile C++ engine for test environment
+        run: |
+          if [ -f "game/engine/main.cpp" ]; then
+            g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
+            chmod +x game/engine/main
+            echo "✅ Engine compiled for tests"
+          else
+            echo "⚠️ No main.cpp — tests will run without native engine"
+          fi
+
+      - name: 🧪 Run Django test suite
+        id: run_tests
+        run: |
+          # set -o pipefail ensures test failures aren't swallowed by tee
+          set -o pipefail
+          python manage.py test game --verbosity=2 2>&1 | tee test_output.txt
+
+      - name: 📋 Print test summary to Actions UI
+        if: always()
+        run: |
+          echo "## 🧪 Test Results — $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`  |  **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E '(FAIL|ERROR|OK|Ran [0-9]+ test)' test_output.txt || echo 'No summary line found' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if grep -q 'FAIL\|ERROR' test_output.txt; then
+            echo "### ❌ Failed / Errored Tests" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -A5 'FAIL:\|ERROR:' test_output.txt >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📊 Upload full test log as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        continue-on-error: true   # never let a failed upload kill the test job
+        with:
+          # ref_name can be '59/merge' for PRs — replace / to avoid invalid artifact name
+          name: test-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test_output.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 4 — Migration Check (detect missing migrations)
+# ───────────────────────────────────────────────────────────────────
+  migrate-check:
+    name: 🗄️ Migration Check
+    runs-on: ubuntu-latest
+    needs: [lint]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-migrate-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-migrate-${{ runner.os }}-
+
+      - name: 📥 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔍 Check for missing migrations
+        run: |
+          # Apply all existing migrations first (fresh CI DB)
+          python manage.py migrate
+          # Then check if any model changes exist without a migration file
+          python manage.py makemigrations --check --dry-run
+          echo "✅ No missing migrations detected"
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 5 — Security Scan (pip-audit)
+# ───────────────────────────────────────────────────────────────────
+  security:
+    name: 🔒 Security Scan (pip-audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-audit-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-audit-${{ runner.os }}-
+
+      - name: 📥 Install pip-audit
+        run: pip install pip-audit
+
+      - name: 🔒 Run pip-audit security scan
+        run: |
+          pip install -r requirements.txt
+          pip-audit \
+            --requirement requirements.txt \
+            --format=columns \
+            --progress-spinner=off
+        # Non-zero exit = vulnerabilities found → fails CI
+        # Remove the next line if you want warnings-only mode:
+        continue-on-error: false
+
+# ───────────────────────────────────────────────────────────────────
+# NOTE: Deployment is handled natively by Vercel's GitHub integration.
+# Vercel auto-deploys on every push to main and creates preview
+# deployments for every PR — no separate deploy job needed here.
+# ───────────────────────────────────────────────────────────────────
