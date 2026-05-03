@@ -401,6 +401,23 @@ body {
     opacity: 0.4;
 }
 
+/* AI clock disabled in PvE mode */
+.clock.ai-disabled {
+    opacity: 0.35;
+    border-style: dashed;
+    border-color: #333;
+    background: #111122;
+}
+.clock.ai-disabled .time {
+    color: #5a5a7a;
+    font-size: 1.3rem;
+}
+.clock.ai-disabled .label::after {
+    content: ' (AI)';
+    font-size: 0.55rem;
+    opacity: 0.6;
+}
+
 /* Color hints */
 .clock.white .label { color: #ddd; }
 .clock.black .label { color: #aaa; }

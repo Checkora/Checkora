@@ -629,7 +629,12 @@
                 turnEl.textContent = turn === 'white' ? "White's Turn" : "Black's Turn";
                 turnEl.className = 'turn-badge ' + turn;
                 document.getElementById('whiteClock').classList.toggle('active', turn === 'white');
-                document.getElementById('blackClock').classList.toggle('active', turn === 'black');
+                // In AI mode, never highlight the AI clock as active
+                if (gameMode === 'ai') {
+                    document.getElementById('blackClock').classList.remove('active');
+                } else {
+                    document.getElementById('blackClock').classList.toggle('active', turn === 'black');
+                }
                 markPlayable();
                 if (!gameOver) {
                     document.title = (turn === 'white' ? 'White to Move - Checkora' : 'Black to Move - Checkora');
@@ -703,7 +708,14 @@
 
             function renderClocks() {
                 document.querySelector('#whiteClock .time').textContent = fmt(whiteTime);
-                document.querySelector('#blackClock .time').textContent = fmt(blackTime);
+                const blackClockEl = document.getElementById('blackClock');
+                if (gameMode === 'ai') {
+                    document.querySelector('#blackClock .time').textContent = '∞';
+                    blackClockEl.classList.add('ai-disabled');
+                } else {
+                    document.querySelector('#blackClock .time').textContent = fmt(blackTime);
+                    blackClockEl.classList.remove('ai-disabled');
+                }
             }
 
             function updatePauseUI() {
@@ -715,7 +727,8 @@
                 timerInterval = setInterval(() => {
                     if (paused) return;
                     if (turn === 'white' && whiteTime > 0) whiteTime--;
-                    if (turn === 'black' && blackTime > 0) blackTime--;
+                    // In AI mode, don't tick down the AI's clock
+                    if (turn === 'black' && blackTime > 0 && gameMode !== 'ai') blackTime--;
                     renderClocks();
                 }, 1000);
             }

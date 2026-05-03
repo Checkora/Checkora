@@ -404,7 +404,8 @@ class ChessGame:
         if elapsed > 0:
             if self.current_turn == 'white':
                 self.white_time = max(0, self.white_time - elapsed)
-            else:
+            elif self.mode != 'ai':
+                # In AI mode, don't deduct time from the AI's clock
                 self.black_time = max(0, self.black_time - elapsed)
 
         self.last_ts = now
