@@ -32,6 +32,11 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['.vercel.app', '*']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://checkora.vercel.app',
+    'https://*.vercel.app',
+]
+
 
 # Application definition
 
