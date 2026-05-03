@@ -44,10 +44,6 @@ input {
     display: none !important;
 }
 
-.header {
-    padding: 20px 0 8px;
-    text-align: center;
-}
 
 .header h1 {
     color: #fff;
@@ -62,6 +58,62 @@ input {
     font-weight: 400;
     letter-spacing: 1px;
     vertical-align: super;
+}
+
+.header {
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px 0 8px;
+    text-align: center;
+}
+
+.auth-buttons {
+    position: absolute;
+    right: 20px;
+    top: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.welcome-msg {
+    color: #8a8aaa;
+    font-size: 0.9rem;
+}
+
+.username {
+    color: var(--gold);
+    font-weight: 600;
+}
+
+.btn-logout {
+    color: var(--danger);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.btn-signin {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.btn-register {
+    color: #1a1a2e;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--gold);
+    padding: 6px 14px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(240, 192, 64, 0.2);
 }
 
 .game-layout {
