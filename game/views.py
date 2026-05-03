@@ -12,7 +12,7 @@ from django.core.mail import send_mail
 from django.contrib import messages
 from django import forms
 import random
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
@@ -94,6 +94,8 @@ def new_game(request):
     """Reset the game to the initial position with selected mode."""
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
+    if mode not in ('pvp', 'ai'):
+        mode = 'pvp'
 
     # --- Capture and store names in the session ---
     # We use .get('key', 'Default') so it never crashes
@@ -143,6 +145,7 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
+    """Return the full current game state, pausing on page load."""
     game_data = request.session.get('game')
     if not game_data:
         game = ChessGame()
@@ -177,9 +180,9 @@ def get_state(request):
     })
 
 
-@csrf_exempt
 @require_POST
 def set_pause(request):
+    """Toggle the game clock between paused and running."""
     game_data = request.session.get('game')
     if not game_data:
         return JsonResponse({'paused': False})

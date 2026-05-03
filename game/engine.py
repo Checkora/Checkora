@@ -201,6 +201,13 @@ class ChessGame:
         if not is_valid:
             return False, reason, None, 'active'
 
+        # Check timeout BEFORE mutating board state
+        self.update_clock()
+        if self.white_time == 0:
+            return False, "White ran out of time", None, 'timeout'
+        if self.black_time == 0:
+            return False, "Black ran out of time", None, 'timeout'
+
         captured = self.board[tr][tc]
 
         if piece == 'K':
@@ -268,17 +275,8 @@ class ChessGame:
         self.valid_moves_cache = {}
 
         # Switch turn
-        # Deduct elapsed time for the player who just moved
-        self.update_clock()
-
-        # Switch turn
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'
 
-        if self.white_time == 0:
-            return False, "White ran out of time", None, 'timeout'
-        if self.black_time == 0:
-            return False, "Black ran out of time", None, 'timeout'
-        
         self.last_ts = time.time()
 
         # Check for checkmate / stalemate / check
