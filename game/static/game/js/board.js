@@ -661,7 +661,25 @@
         if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
         movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
         wCapEl.innerHTML = bCapEl.innerHTML = '';
-        
+        // =======================
+// THEME SWITCHER
+// =======================
+document.querySelectorAll(".theme-btn").forEach(button => {
+    button.addEventListener("click", () => {
+        const theme = button.getAttribute("data-theme");
+
+        // Apply theme to HTML root
+        document.documentElement.setAttribute("data-theme", theme);
+
+        // Update active button
+        document.querySelectorAll(".theme-btn").forEach(btn => {
+            btn.classList.remove("active");
+        });
+        button.classList.add("active");
+
+        console.log("Theme changed to:", theme);
+    });
+});
         loadGame();
     }
 

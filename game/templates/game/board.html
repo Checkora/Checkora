@@ -24,7 +24,7 @@
 
     <script>
         (function () {
-            const VALID_THEMES = ['classic', 'dark', 'green', 'blue'];
+            const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'wood'];
             let saved = 'classic';
             try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) {}
             if (!VALID_THEMES.includes(saved)) saved = 'classic';
@@ -146,9 +146,10 @@
                         aria-pressed="false" type="button"></button>
                     <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
                         aria-pressed="false" type="button"></button>
+                    <button class="theme-btn" data-theme="wood" title="Wood"></button>    
                 </div>
                 <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
-                    Classic · Dark · Green · Blue
+                    Classic · Dark · Green · Blue · Wood
                 </div>
             </div>
             <div class="card">
@@ -860,6 +861,29 @@
             loadGame();
         })();
     </script>
+<script>
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("chessBoardTheme", theme);
+}
+document.querySelectorAll('.theme-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const theme = btn.getAttribute('data-theme');
+
+    // Apply theme
+    setTheme(theme);
+
+    // Update active button
+    document.querySelectorAll('.theme-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+  });
+});
+</script>
 </body>
 
 </html>
