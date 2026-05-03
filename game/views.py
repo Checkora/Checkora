@@ -371,11 +371,11 @@ def register_view(request):
                     html_message=html_message
                 )
                 return redirect('verify_otp')
-            except Exception:
+            except Exception as e:
                 # If email fails, delete the user so they can try again
                 user.delete()
                 err_msg = (
-                    'Failed to send OTP email. '
+                    f'Failed to send OTP email: {str(e)}. '
                     'Please check your email address and try again.'
                 )
                 messages.error(request, err_msg)
