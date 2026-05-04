@@ -603,8 +603,14 @@
 
     async function onDrop(e, tr, tc) {
         if (!dragSrc) return;
-        await tryMove(dragSrc.r, dragSrc.c, tr, tc);
+
+        const moved = await tryMove(dragSrc.r, dragSrc.c, tr, tc);
         dragSrc = null;
+
+        if (moved && gameMode === 'pve' && !game.game_over()) {
+            stockfishWorker.postMessage('position fen ' + game.fen());
+            stockfishWorker.postMessage('go depth 15');
+        }
     }
 
     /* ==========================================================
