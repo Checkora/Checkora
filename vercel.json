@@ -5,6 +5,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/wsgi.py": {
+      "runtime": "python3.10",
       "includeFiles": "game/**"
     }
   },
