@@ -177,6 +177,7 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <button class="btn btn-gold" id="muteBtn">🔊 Sound On</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
@@ -316,6 +317,33 @@
             let flipped = false;
             let autoFlip = false;
 
+            // --- Sound Engine ---
+            const sounds = {
+              move:    new Audio("{% static 'game/sounds/move.wav' %}"),
+              capture: new Audio("{% static 'game/sounds/capture.mp3' %}"),
+              check:   new Audio("{% static 'game/sounds/check.wav' %}"),
+              end:     new Audio("{% static 'game/sounds/end.wav' %}"),
+            };
+
+            let soundEnabled = true;
+
+            function playSound(data) {
+                if (!soundEnabled || !data?.valid) return;
+
+                let sound = sounds.move;
+                if (['checkmate', 'stalemate', 'draw', 'timeout'].includes(data.game_status)) {
+                    sound = sounds.end;
+                } else if (data.game_status === 'check') {
+                    sound = sounds.check;
+                } else if (data.captured || data.is_capture) {
+                    sound = sounds.capture;
+                }
+
+                sound.currentTime = 0;
+                const playback = sound.play();
+                if (playback?.catch) playback.catch(() => {});
+            }
+
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
@@ -332,6 +360,7 @@
             const autoFlipBtn = document.getElementById('autoFlipBtn');
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
+            const muteBtn = document.getElementById('muteBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -358,6 +387,7 @@
             const gameOverMessage = document.getElementById('gameOverMessage');
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+            const gameOverStartBtn = document.getElementById('gameOverStartBtn');
 
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
@@ -746,6 +776,8 @@
                             showStatus('', false);
                         }
 
+                        playSound(data);
+
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
                         }
@@ -790,6 +822,8 @@
                         } else {
                             showStatus('Your turn.', false);
                         }
+
+                        playSound(data);
                     } else {
                         showStatus(data.message, true);
                     }
@@ -941,6 +975,11 @@
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
             }
 
+            function toggleMute() {
+                soundEnabled = !soundEnabled;
+                muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
+            }
+
             function startTimer() {
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
@@ -1003,7 +1042,7 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        startNewGame(mode, diff);
+                        startNewGame(mode, 'white', diff);
                     },
                     '#ff6b6b'
                 );
@@ -1148,6 +1187,7 @@
             if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (muteBtn) muteBtn.onclick = toggleMute;
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
