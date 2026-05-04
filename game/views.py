@@ -7,6 +7,7 @@ import random
 
 from django.conf import settings
 from django.http import JsonResponse
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -16,7 +17,7 @@ from django.contrib import messages
 from django import forms
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
-
+from django_ratelimit.decorators import ratelimit
 from .engine import ChessGame
 
 
@@ -338,7 +339,11 @@ class CustomUserCreationForm(UserCreationForm):
         fields = UserCreationForm.Meta.fields + ('email',)
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=False)
 def register_view(request):
+    if getattr(request, 'limited', False):
+        return HttpResponse("Too many attempts. Try again later.", status=429)
+    
     if request.user.is_authenticated:
         return redirect('index')
         
@@ -412,7 +417,12 @@ def register_view(request):
     return render(request, 'game/register.html', {'form': form})
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=False)
 def verify_otp(request):
+    if getattr(request, 'limited', False):
+        return HttpResponse("Too many attempts. Please try again later.", status=429)
+
+    
     if request.user.is_authenticated:
         return redirect('index')
         
@@ -451,7 +461,11 @@ def verify_otp(request):
     return render(request, 'game/verify_otp.html')
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=False)
 def login_view(request):
+    if getattr(request, 'limited', False):
+        return HttpResponse("Too many attempts. Try again later.", status=429)
+
     if request.user.is_authenticated:
         return redirect('index')
 
@@ -470,3 +484,7 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('index')
+
+
+def ratelimit_error(request, exception):
+    return HttpResponse("Too many attempts. Please try again later.", status=429)
