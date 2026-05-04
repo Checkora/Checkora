@@ -65,12 +65,12 @@
 
             const newPvPBtn = document.getElementById('newPvPBtn');
             const newAIBtn = document.getElementById('newAIBtn');
-
+            const nameInputs = document.getElementById('nameInputs');
+            const gameOverStartBtn = document.getElementById('gameOverStartBtn');
             const gameOverOverlay = document.getElementById('gameOverOverlay');
             const gameOverTitle = document.getElementById('gameOverTitle');
             const gameOverMessage = document.getElementById('gameOverMessage');
-            const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
-            const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+
 
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
@@ -620,6 +620,13 @@
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
                     title = 'Resignation';
                     message = `${loserName} resigned. ${winnerName} wins!`;
+                } else if (reason === 'timeout') {
+                    const winner = color === 'white' ? 'Black' : 'White';
+                    const winnerName = color === 'white'
+                    ? blackNameLabel.textContent
+                    : whiteNameLabel.textContent;
+                    title = "Time's Up! ⏰";
+                    message = `${winnerName} wins on time!`;
                 }
 
                 gameOverTitle.textContent = title;
@@ -663,6 +670,11 @@
                     if (turn === 'white' && whiteTime > 0) whiteTime--;
                     if (turn === 'black' && blackTime > 0) blackTime--;
                     renderClocks();
+                    if (whiteTime === 0) {
+                        endGame('timeout', 'white');
+                    } else if (blackTime === 0) {
+                        endGame('timeout', 'black');
+                    }    
                 }, 1000);
             }
 
@@ -718,7 +730,7 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        startNewGame(mode, diff);
+                        startNewGame(mode, 'white', diff);
                     },
                     '#ff6b6b'
                 );
@@ -885,7 +897,7 @@
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
                 gameOverOverlay.classList.remove('active');
-                startNewGame(mode, diff);
+                startNewGame(mode,'white', diff);
             };
 
             // Theme Switcher
