@@ -1,12 +1,15 @@
 {
   "version": 2,
-  "installCommand": "pip install -r requirements.txt",
-  "functions": {
-    "api/wsgi.py": {
-      "includeFiles": "{core/**,game/**}"
+  "builds": [
+    {
+      "src": "api/wsgi.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "core/**,game/**"
+      }
     }
-  },
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/wsgi" }
+    { "source": "/(.*)", "destination": "/api/wsgi.py" }
   ]
 }
