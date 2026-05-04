@@ -416,10 +416,26 @@ body {
 
     .header {
         padding: 16px 0 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
     }
 
     .header h1 {
         font-size: 1.5rem;
+        margin: 0;
+    }
+
+    .auth-buttons {
+        position: relative;
+        right: auto;
+        top: auto;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .game-layout {
