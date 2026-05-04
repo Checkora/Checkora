@@ -10,10 +10,11 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm
 from django.core.mail import send_mail
 from django.contrib import messages
 from django import forms
+from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
@@ -330,13 +331,6 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
-
-class CustomUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True)
-
-    class Meta(UserCreationForm.Meta):
-        fields = UserCreationForm.Meta.fields + ('email',)
-
 
 def register_view(request):
     if request.user.is_authenticated:
