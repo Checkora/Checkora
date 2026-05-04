@@ -4,7 +4,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/wsgi.py": {
-      "runtime": "@vercel/python",
+      "runtime": "@vercel/python@4.3.0",
       "includeFiles": "**"
     }
   },
