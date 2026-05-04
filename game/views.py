@@ -68,6 +68,8 @@ def make_move(request):
         'captured_pieces': game.captured,
         'game_status': game_status,
         'fen': game.generate_fen_key(),
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
     })
 
 
@@ -275,6 +277,8 @@ def ai_move(request):
         'ai_move': best,
         'game_status': game_status,
         'fen': game.generate_fen_key(),
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
     })
 
 
