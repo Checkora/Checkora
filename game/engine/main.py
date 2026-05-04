@@ -178,10 +178,12 @@ def valid_pawn(color, fr, fc, tr, tc):
     if abs(col_delta) == 1 and row_delta == direction and not is_empty(BOARD[tr][tc]):
         return True
 
-    # En passant capture
+    # En passant capture: target square must be empty and the
+    # adjacent square must hold an enemy pawn.
     if abs(col_delta) == 1 and row_delta == direction:
         if tr == EN_PASSANT_R and tc == EN_PASSANT_C:
-            return True
+            enemy_pawn = 'p' if color == 'white' else 'P'
+            return is_empty(BOARD[tr][tc]) and BOARD[fr][tc] == enemy_pawn
 
     return False
 
@@ -291,9 +293,11 @@ def apply_move(move):
     dst = BOARD[move.tr][move.tc]
     old_ep_r, old_ep_c = EN_PASSANT_R, EN_PASSANT_C
 
-    # En passant capture — remove the taken pawn
+    # En passant capture — remove the taken pawn only when the
+    # move lands on the current EP target square.
     ep_cap = '.'
-    if src.lower() == 'p' and move.fc != move.tc and is_empty(dst):
+    if (src.lower() == 'p' and move.fc != move.tc and is_empty(dst)
+            and move.tr == EN_PASSANT_R and move.tc == EN_PASSANT_C):
         ep_cap = BOARD[move.fr][move.tc]
         BOARD[move.fr][move.tc] = '.'
 
@@ -402,7 +406,13 @@ def handle_moves(turn, row, col):
 
                 is_capture = 0 if is_empty(BOARD[tr][tc]) else 1
                 # En passant is a capture even though the target square is empty
-                if piece.lower() == 'p' and col != tc and is_empty(BOARD[tr][tc]):
+                if (
+                    piece.lower() == 'p'
+                    and col != tc
+                    and is_empty(BOARD[tr][tc])
+                    and tr == EN_PASSANT_R
+                    and tc == EN_PASSANT_C
+                ):
                     is_capture = 1
                 is_promotion = 1 if is_promotion_move(piece, tr) else 0
                 output.extend([str(tr), str(tc), str(is_capture), str(is_promotion)])
