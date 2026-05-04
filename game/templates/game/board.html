@@ -457,6 +457,10 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
+
+                if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
+                    requestAIMove();
+                }
             }
 
             /* ==========================================================
@@ -933,6 +937,10 @@
                 updatePauseUI();
                 renderClocks();
                 startTimer();
+
+                if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
+                    requestAIMove();
+                }
             }
 
             /* ==========================================================
