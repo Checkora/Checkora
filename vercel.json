@@ -3,7 +3,6 @@
   "installCommand": "pip install -r requirements.txt",
   "functions": {
     "api/wsgi.py": {
-      "runtime": "@vercel/python",
       "includeFiles": "{core/**,game/**}"
     }
   },
