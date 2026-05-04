@@ -200,6 +200,25 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
+                if (gameMode === 'ai') {
+            const aiClock = playerColor === 'white' ?
+                document.getElementById('blackClock') :
+                document.getElementById('whiteClock');
+            const aiTimeEl = playerColor === 'white' ?
+                document.getElementById('blackTime') :
+                document.getElementById('whiteTime');
+
+            if (aiClock) {
+                aiClock.style.border = '2px dashed #444';
+                aiClock.style.boxShadow = 'none';
+                aiClock.classList.remove('active');
+            }
+            if (aiTimeEl) {
+                aiTimeEl.textContent = '🤖';
+                aiTimeEl.style.fontSize = '1.8em';
+                aiTimeEl.style.color = '#888';
+            }
+        }
             }
 
             function updatePlayerNames(data) {
@@ -657,14 +676,31 @@
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
-                if (wTime) wTime.textContent = formatTime(whiteTime);
-                if (bTime) bTime.textContent = formatTime(blackTime);
+                
 
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
-                if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-                if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+                if (gameMode === 'ai') {
+        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
+        // Player clock — update time and highlight on their turn
+        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+
+        // AI clock — static, never highlights, never updates time
+        if (aiTimeEl) aiTimeEl.textContent = '🤖';
+        if (aiClock) aiClock.classList.remove('active');
+
+    } else {
+        // PvP — both clocks update normally
+        if (wTime) wTime.textContent = formatTime(whiteTime);
+        if (bTime) bTime.textContent = formatTime(blackTime);
+        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+    }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
