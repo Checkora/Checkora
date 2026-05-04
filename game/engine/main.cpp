@@ -41,10 +41,13 @@ bool W_K_CASTLE = false;
 bool W_Q_CASTLE = false;
 bool B_K_CASTLE = false;
 bool B_Q_CASTLE = false;
+int EN_PASSANT_R = -1;
+int EN_PASSANT_C = -1;
 
 void loadBoard(const string &s) {
-    for (int i = 0; i < 64; i++)
-        board[i / 8][i % 8] = s[static_cast<std::string::size_type>(i)];
+    for (int i = 0; i < 64 && i < (int)s.length(); i++) {
+        board[i / 8][i % 8] = s[i];
+    }
 }
 
 void loadCastlingRights(const string &rightsStr) {
@@ -135,49 +138,47 @@ bool pathClear(int fr, int fc, int tr, int tc) {
  * of the attackerColor.
  */
 bool isSquareAttacked(int tr, int tc, string attackerColor) {
-    // 1. Knight Attacks
-    int nr[] = {-2, -2, -1, -1, 1, 1, 2, 2};
-    int nc[] = {-1, 1, -2, 2, -2, 2, -1, 1};
-    char targetKnight = (attackerColor == "white") ? 'N' : 'n';
+    char pKnight = (attackerColor == "white") ? 'N' : 'n';
+    char pRook   = (attackerColor == "white") ? 'R' : 'r';
+    char pBishop = (attackerColor == "white") ? 'B' : 'b';
+    char pQueen  = (attackerColor == "white") ? 'Q' : 'q';
+    char pPawn   = (attackerColor == "white") ? 'P' : 'p';
+    char pKing   = (attackerColor == "white") ? 'K' : 'k';
+
+    // Knight
+    int nr[] = {-2, -2, -1, -1, 1, 1, 2, 2}, nc[] = {-1, 1, -2, 2, -2, 2, -1, 1};
     for (int i = 0; i < 8; i++) {
         int r = tr + nr[i], c = tc + nc[i];
-        if (inBounds(r, c) && board[r][c] == targetKnight) return true;
+        if (inBounds(r, c) && board[r][c] == pKnight) return true;
     }
 
-    // 2. Sliding Attacks (Rook, Bishop, Queen)
-    int dr[] = {0, 0, 1, -1, 1, 1, -1, -1};
-    int dc[] = {1, -1, 0, 0, 1, -1, 1, -1};
+    // Sliders
+    int dr[] = {0, 0, 1, -1, 1, 1, -1, -1}, dc[] = {1, -1, 0, 0, 1, -1, 1, -1};
     for (int i = 0; i < 8; i++) {
         int r = tr + dr[i], c = tc + dc[i];
         while (inBounds(r, c)) {
             char p = board[r][c];
-            if (!isEmpty(p)) {
+            if (p != '.') {
                 if (colorOf(p) == attackerColor) {
-                    char type = static_cast<char>(tolower(static_cast<unsigned char>(p)));
+                    char type = tolower(p);
                     if (i < 4 && (type == 'r' || type == 'q')) return true;
                     if (i >= 4 && (type == 'b' || type == 'q')) return true;
                 }
-                break; // Path blocked
+                break;
             }
             r += dr[i]; c += dc[i];
         }
     }
 
-    // 3. Pawn Attacks
-    int pDir = (attackerColor == "white") ? 1 : -1; // Attacking FROM this direction
-    char targetPawn = (attackerColor == "white") ? 'P' : 'p';
-    if (inBounds(tr + pDir, tc - 1) && board[tr + pDir][tc - 1] == targetPawn) return true;
-    if (inBounds(tr + pDir, tc + 1) && board[tr + pDir][tc + 1] == targetPawn) return true;
+    // Pawn
+    int dir = (attackerColor == "white") ? 1 : -1;
+    if (inBounds(tr + dir, tc - 1) && board[tr + dir][tc - 1] == pPawn) return true;
+    if (inBounds(tr + dir, tc + 1) && board[tr + dir][tc + 1] == pPawn) return true;
 
-    // 4. King Attacks (Preventing King moving into King)
-    char targetKing = (attackerColor == "white") ? 'K' : 'k';
-    for (int r = tr - 1; r <= tr + 1; r++) {
-        for (int c = tc - 1; c <= tc + 1; c++) {
-            if (inBounds(r, c) && (r != tr || c != tc)) {
-                if (board[r][c] == targetKing) return true;
-            }
-        }
-    }
+    // King
+    for (int r = tr - 1; r <= tr + 1; r++)
+        for (int c = tc - 1; c <= tc + 1; c++)
+            if (inBounds(r, c) && (r != tr || c != tc) && board[r][c] == pKing) return true;
 
     return false;
 }
@@ -200,6 +201,10 @@ bool validPawn(const string &color, int fr, int fc, int tr, int tc) {
             return true;
 
     if (abs(dc) == 1 && dr == dir && !isEmpty(board[tr][tc]))
+        return true;
+
+    // En Passant
+    if (abs(dc) == 1 && dr == dir && tr == EN_PASSANT_R && tc == EN_PASSANT_C)
         return true;
 
     return false;
@@ -493,7 +498,37 @@ int evaluate() {
             score += isWhite(p) ? val : -val;
         }
     }
+    // 3. Check Bonus: Prioritize moves that put the opponent under pressure
+    pair<int, int> bKing = findKing("black");
+    if (bKing.first != -1 && isSquareAttacked(bKing.first, bKing.second, "white"))
+        score += 50;
+
+    pair<int, int> wKing = findKing("white");
+    if (wKing.first != -1 && isSquareAttacked(wKing.first, wKing.second, "black"))
+        score -= 50;
+
     return score;
+}
+
+/**
+ * Checks if the current board state is a draw due to insufficient material.
+ * Simple cases: K vs K, K+N vs K, K+B vs K.
+ */
+bool isInsufficientMaterial() {
+    int totalMinor = 0;
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            char p = board[r][c];
+            if (p == '.') continue;
+            char type = tolower(static_cast<unsigned char>(p));
+            if (type == 'k') continue;
+            // If there's a pawn, rook, or queen, checkmate is possible
+            if (type == 'p' || type == 'r' || type == 'q') return false;
+            totalMinor++;
+        }
+    }
+    // Draw if total non-king pieces is 0 or 1
+    return totalMinor <= 1;
 }
 
 /**
@@ -561,36 +596,31 @@ pair<int,int> findKing(const string &color) {
  * If it does, the move is illegal and should be skipped.
  */
 bool leavesKingInCheck(const Move &m, const string &side) {
-    // Save state
-    char srcPiece = board[m.fr][m.fc];
-    char dstPiece = board[m.tr][m.tc];
+    char tempBoard[8][8];
+    for(int i=0; i<8; i++) for(int j=0; j<8; j++) tempBoard[i][j] = board[i][j];
 
-    // Apply
-    board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : srcPiece;
+    // Apply move
+    char p = board[m.fr][m.fc];
+    
+    // En Passant capture: diagonal pawn move to an empty square
+    if (tolower(static_cast<unsigned char>(p)) == 'p' && m.fc != m.tc && board[m.tr][m.tc] == '.') {
+        board[m.fr][m.tc] = '.'; 
+    }
+
+    board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : p;
     board[m.fr][m.fc] = '.';
 
-    int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
-    if (tolower(srcPiece) == 'k' && abs(m.tc - m.fc) == 2) {
-        if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
-        else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
-        if (rook_fr != -1) {
-            board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
-            board[rook_fr][rook_fc] = '.';
-        }
+    // Castling rook move
+    if (tolower(p) == 'k' && abs(m.tc - m.fc) == 2) {
+        if (m.tc == 6) { board[m.fr][5] = board[m.fr][7]; board[m.fr][7] = '.'; }
+        else { board[m.fr][3] = board[m.fr][0]; board[m.fr][0] = '.'; }
     }
 
-    string opponent = (side == "white") ? "black" : "white";
-    pair<int,int> kpos = findKing(side);
-    bool inCheck = (kpos.first >= 0) && isSquareAttacked(kpos.first, kpos.second, opponent);
+    pair<int, int> kpos = findKing(side);
+    bool inCheck = (kpos.first != -1) && isSquareAttacked(kpos.first, kpos.second, (side == "white" ? "black" : "white"));
 
-    // Undo
-    board[m.fr][m.fc] = srcPiece;
-    board[m.tr][m.tc] = dstPiece;
-    if (rook_fr != -1) {
-        board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
-        board[rook_tr][rook_tc] = '.';
-    }
-
+    // Restore
+    for(int i=0; i<8; i++) for(int j=0; j<8; j++) board[i][j] = tempBoard[i][j];
     return inCheck;
 }
 
@@ -727,6 +757,7 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
  * -> STATUS OK           (normal position)
  */
 void handleStatus(const string &turn) {
+
     string opponent = (turn == "white") ? "black" : "white";
     pair<int,int> kpos = findKing(turn);
     bool inCheck = (kpos.first >= 0) &&
@@ -747,8 +778,118 @@ void handleStatus(const string &turn) {
         else         cout << "STATUS STALEMATE" << endl;
     } else {
         if (inCheck) cout << "STATUS CHECK" << endl;
+        else if (isInsufficientMaterial()) cout << "STATUS DRAW" << endl;
         else         cout << "STATUS OK" << endl;
     }
+}
+
+/**
+ * NOTATION handler.
+ *
+ * Protocol:
+ *   NOTATION <board64> <rights> <color> <fr> <fc> <tr> <tc>
+ *   -> NOTATION <san>
+ *
+ * Generates accurate Standard Algebraic Notation (SAN) for a move,
+ * including full disambiguation support (e.g., Rfe1, N5f3).
+ */
+void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
+    char piece = board[fr][fc];
+    if (isEmpty(piece)) {
+        cout << "NOTATION ?" << endl;
+        return;
+    }
+
+    char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
+    bool isCapture = !isEmpty(board[tr][tc]);
+    string files = "abcdefgh";
+
+    // 1. Castling
+    if (type == 'k') {
+        if (abs(tc - fc) == 2) {
+            if (tc == 6) { cout << "NOTATION O-O" << endl; return; }
+            if (tc == 2) { cout << "NOTATION O-O-O" << endl; return; }
+        }
+    }
+
+    string res = "";
+    if (type == 'p') {
+        // Diagonal move for a pawn is always a capture (handles future En Passant support)
+        if (fc != tc) {
+            res += files[static_cast<string::size_type>(fc)];
+            res += 'x';
+        }
+        res += files[static_cast<string::size_type>(tc)];
+        res += to_string(8 - tr);
+
+    } else {
+        res += static_cast<char>(toupper(static_cast<unsigned char>(type)));
+
+        // Disambiguation: Check if other pieces of the same type can move to the same square
+        vector<pair<int, int>> others;
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                if (r == fr && c == fc) continue;
+                if (board[r][c] == piece) {
+                    if (validateMove(turn, r, c, tr, tc, true)) {
+                        Move m = {r, c, tr, tc, '\0'};
+                        if (!leavesKingInCheck(m, turn)) {
+                            others.push_back({r, c});
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!others.empty()) {
+            bool sameFile = false;
+            bool sameRank = false;
+            for (auto &p : others) {
+                if (p.second == fc) sameFile = true;
+                if (p.first == fr) sameRank = true;
+            }
+
+            if (!sameFile) {
+                res += files[static_cast<string::size_type>(fc)];
+            } else if (!sameRank) {
+                res += to_string(8 - fr);
+            } else {
+                res += files[static_cast<string::size_type>(fc)];
+                res += to_string(8 - fr);
+            }
+        }
+
+        if (isCapture) res += 'x';
+        res += files[static_cast<string::size_type>(tc)];
+        res += to_string(8 - tr);
+    }
+
+    // Apply move temporarily to check for Check/Checkmate
+    char src = board[fr][fc];
+    char dst = board[tr][tc];
+    // Use the piece type from board for status check (ignore promotion choice for now)
+    board[tr][tc] = src;
+    board[fr][fc] = '.';
+
+    string opponent = (turn == "white") ? "black" : "white";
+    pair<int, int> kpos = findKing(opponent);
+    if (kpos.first != -1 && isSquareAttacked(kpos.first, kpos.second, turn)) {
+        vector<Move> oppMoves = generateMoves(opponent);
+        bool hasLegal = false;
+        for (auto &m : oppMoves) {
+            if (!leavesKingInCheck(m, opponent)) {
+                hasLegal = true;
+                break;
+            }
+        }
+        res += hasLegal ? "+" : "#";
+    }
+
+    // Undo move
+    board[fr][fc] = src;
+    board[tr][tc] = dst;
+
+    cout << "NOTATION " << res << endl;
 }
 
 /**
@@ -832,17 +973,19 @@ int main() {
     string command;
     while (cin >> command) {
         if (command == "VALIDATE") {
-            string b, rights, t; int fr, fc, tr, tc;
-            cin >> b >> rights >> t >> fr >> fc >> tr >> tc;
+            string b, rights, t; int epR, epC, fr, fc, tr, tc;
+            cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc;
             loadBoard(b);
             loadCastlingRights(rights);
+            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             validateMove(t, fr, fc, tr, tc);
         } 
         else if (command == "MOVES") {
-            string b, rights, t; int r, c;
-            cin >> b >> rights >> t >> r >> c;
+            string b, rights, t; int epR, epC, r, c;
+            cin >> b >> rights >> t >> epR >> epC >> r >> c;
             loadBoard(b);
             loadCastlingRights(rights);
+            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             handleMoves(t, r, c);
         } 
         else if (command == "ATTACKED") {
@@ -854,25 +997,36 @@ int main() {
             else cout << "NO" << endl;
         }
         else if (command == "PROMOTE") {
-            string b, rights, t; int fr, fc, tr, tc; char promo;
-            cin >> b >> rights >> t >> fr >> fc >> tr >> tc >> promo;
+            string b, rights, t; int epR, epC, fr, fc, tr, tc; char promo;
+            cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc >> promo;
             loadBoard(b);
             loadCastlingRights(rights);
+            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             handlePromote(t, fr, fc, tr, tc, promo);
         }
         else if (command == "STATUS") {
-            string b, rights, t;
-            cin >> b >> rights >> t;
+            string b, rights, t; int epR, epC;
+            cin >> b >> rights >> t >> epR >> epC;
             loadBoard(b);
             loadCastlingRights(rights);
+            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             handleStatus(t);
         }
         else if (command == "BESTMOVE") {
-            string b, rights, t; int depth;
-            cin >> b >> rights >> t >> depth;
+            string b, rights, t; int epR, epC, depth;
+            cin >> b >> rights >> t >> epR >> epC >> depth;
             loadBoard(b);
             loadCastlingRights(rights);
+            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             handleBestMove(t, depth);
+        }
+        else if (command == "NOTATION") {
+            string b, rights, t; int epR, epC, fr, fc, tr, tc;
+            cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc;
+            loadBoard(b);
+            loadCastlingRights(rights);
+            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
+            handleNotation(t, fr, fc, tr, tc);
         }
     }
     return 0;
