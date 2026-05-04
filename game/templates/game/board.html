@@ -101,13 +101,11 @@
             
            <div class="clocks">
                 <div id="whiteClock" class="clock white active">
-                    <!-- We added id="whiteNameLabel" -->
                     <span class="label" id="whiteNameLabel">WHITE</span>
                     <span class="time">10:00</span>
                 </div>
 
                 <div id="blackClock" class="clock black">
-                    <!-- We added id="blackNameLabel" -->
                     <span class="label" id="blackNameLabel">BLACK</span>
                     <span class="time">10:00</span>
                 </div>
@@ -251,6 +249,9 @@
             let pendingPromo = null;
 
             let gameMode = 'pvp';
+
+            // FIX: Flag to prevent player input while AI is calculating its move
+            let aiThinking = false;
 
             /* ==========================================================
             DOM REFERENCES
@@ -401,7 +402,8 @@
                     const c = idx % 8;
                     const p = board[r][c];
                     const isPlayable = p && pColor(p) === turn
-                        && !(gameMode === 'ai' && turn === 'black');
+                        && !(gameMode === 'ai' && turn === 'black')
+                        && !aiThinking; // FIX: pieces not playable while AI is thinking
                     img.classList.toggle('playable', isPlayable);
                 });
             }
@@ -433,7 +435,8 @@
             ========================================================== */
             async function selectPiece(r, c) {
                 const p = board[r][c];
-                if (!p || pColor(p) !== turn || paused || gameOver) return;
+                // FIX: block piece selection while AI is thinking
+                if (!p || pColor(p) !== turn || paused || gameOver || aiThinking) return;
 
                 if (gameMode === 'ai' && turn === 'black') {
                     showStatus("Waiting for AI to move...", false);
@@ -492,7 +495,8 @@
             }
 
             async function tryMove(fr, fc, tr, tc) {
-                if (paused || gameOver) return;
+                // FIX: block moves while AI is thinking
+                if (paused || gameOver || aiThinking) return;
                 const p = board[fr][fc];
                 if (!p || pColor(p) !== turn) return;
 
@@ -555,7 +559,12 @@
 
             async function requestAIMove() {
                 if (gameOver) return;
+
+                // FIX: lock board before AI request starts
+                aiThinking = true;
+                markPlayable(); // update piece cursors immediately
                 showStatus('AI is thinking...', false);
+
                 try {
                     const data = await post('/api/ai-move/', {});
                     if (data.valid) {
@@ -576,6 +585,10 @@
                         renderClocks();
                         startTimer();
 
+                        // FIX: unlock board after AI move is fully applied
+                        aiThinking = false;
+                        markPlayable();
+
                         if (data.game_status === 'checkmate') {
                             endGame('checkmate', turn);
                         } else if (data.game_status === 'stalemate') {
@@ -586,9 +599,15 @@
                             showStatus('Your turn.', false);
                         }
                     } else {
+                        // FIX: unlock board even if AI response is invalid
+                        aiThinking = false;
+                        markPlayable();
                         showStatus(data.message, true);
                     }
                 } catch (e) {
+                    // FIX: unlock board if network request fails
+                    aiThinking = false;
+                    markPlayable();
                     showStatus('AI connection error.', true);
                 }
             }
@@ -609,7 +628,8 @@
             }
 
             function onDragStart(e, r, c) {
-                if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
+                // FIX: block drag while AI is thinking
+                if (paused || aiThinking || pColor(board[r][c]) !== turn) return e.preventDefault();
                 if (gameMode === 'ai' && turn === 'black') return e.preventDefault();
                 dragging = true;
                 dragSrc = { r, c };
@@ -669,6 +689,7 @@
                 if (gameOver) return;
                 gameOver = true;
                 paused = true;
+                aiThinking = false; // FIX: always clear lock on game end
                 clearInterval(timerInterval);
 
                 let title = '', message = '';
@@ -786,6 +807,8 @@
             }
 
             async function startNewGame(mode) {
+                // FIX: reset aiThinking when starting a new game
+                aiThinking = false;
                 const d = await post('/api/new-game/', { mode: mode });
                 board = d.board;
                 turn = d.current_turn;

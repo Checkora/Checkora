@@ -22,9 +22,12 @@
     let blackTime = 0;
     let paused = false;
     let timerInterval = null;
-    let pendingPromo = null;  
+    let pendingPromo = null;
 
-    let gameMode = 'pvp';  
+    // FIX: Flag to prevent player input while AI is calculating its move
+    let aiThinking = false;
+
+    let gameMode = 'pvp';
 
     /* ==========================================================
     DOM REFERENCES
@@ -38,7 +41,7 @@
     const pauseBtn  = document.getElementById('pauseBtn');
     const promoOverlay = document.getElementById('promoOverlay');
     const promoChoices = document.getElementById('promoChoices');
-    const modeBadge = document.getElementById('modeBadge'); 
+    const modeBadge = document.getElementById('modeBadge');
 
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -110,7 +113,7 @@
 
         document.getElementById('whiteNameInput').value = wSaved;
         document.getElementById('blackNameInput').value = bSaved;
-        
+
         document.getElementById('whiteCapturedName').textContent = wSaved;
         document.getElementById('blackCapturedName').textContent = bSaved;
 
@@ -185,7 +188,8 @@
             const c = idx % 8;
             const p = board[r][c];
             const isPlayable = p && pColor(p) === turn
-                && !(gameMode === 'ai' && turn === 'black');
+                && !(gameMode === 'ai' && turn === 'black')
+                && !aiThinking; // FIX: pieces not playable while AI is thinking
             img.classList.toggle('playable', isPlayable);
         });
     }
@@ -217,7 +221,8 @@
     ========================================================== */
     async function selectPiece(r,c) {
         const p = board[r][c];
-        if (!p || pColor(p) !== turn || paused || gameOver) return;
+        // FIX: block piece selection while AI is thinking
+        if (!p || pColor(p) !== turn || paused || gameOver || aiThinking) return;
 
         if (gameMode === 'ai' && turn === 'black') {
             showStatus("Waiting for AI to move...", false);
@@ -276,7 +281,8 @@
     }
 
     async function tryMove(fr, fc, tr, tc) {
-        if (paused || gameOver) return;
+        // FIX: block moves while AI is thinking
+        if (paused || gameOver || aiThinking) return;
         const p = board[fr][fc];
         if (!p || pColor(p) !== turn) return;
 
@@ -302,17 +308,17 @@
                 board = data.board;
                 turn  = data.current_turn;
                 lastMove = { from: [fr, fc], to: [tr, tc] };
-                
+
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
-                
+
                 selected = null;
                 hints = [];
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 syncPieces();
-                renderClocks(); 
+                renderClocks();
                 startTimer();
 
                 if (data.game_status === 'checkmate') {
@@ -340,7 +346,13 @@
     }
 
     async function requestAIMove() {
+        if (gameOver) return;
+
+        // FIX: lock board before AI request starts
+        aiThinking = true;
+        markPlayable(); // update piece cursors immediately
         showStatus('AI is thinking...', false);
+
         try {
             const data = await post('/api/ai-move/', {});
             if (data.valid) {
@@ -361,6 +373,10 @@
                 renderClocks();
                 startTimer();
 
+                // FIX: unlock board after AI move is fully applied
+                aiThinking = false;
+                markPlayable();
+
                 if (data.game_status === 'checkmate') {
                     handleGameOver('checkmate', turn);
                     return;
@@ -373,9 +389,15 @@
                     showStatus('Your turn.', false);
                 }
             } else {
+                // FIX: unlock board even if AI response is invalid
+                aiThinking = false;
+                markPlayable();
                 showStatus(data.message, true);
             }
         } catch (e) {
+            // FIX: unlock board if network request fails
+            aiThinking = false;
+            markPlayable();
             showStatus('AI connection error.', true);
         }
     }
@@ -393,7 +415,8 @@
     }
 
     function onDragStart(e,r,c) {
-        if (paused || pColor(board[r][c])!==turn) return e.preventDefault();
+        // FIX: block drag while AI is thinking
+        if (paused || aiThinking || pColor(board[r][c])!==turn) return e.preventDefault();
         if (gameMode === 'ai' && turn === 'black') return e.preventDefault();
         dragging = true;
         dragSrc = {r,c};
@@ -420,7 +443,7 @@
         turnEl.className = 'turn-badge ' + turn;
         document.getElementById('whiteClock').classList.toggle('active', turn === 'white');
         document.getElementById('blackClock').classList.toggle('active', turn === 'black');
-        
+
         markPlayable();
 
         if (!gameOver) {
@@ -458,8 +481,10 @@
     }
 
     function handleGameOver(status, currentTurn) {
+        if (gameOver) return;
         gameOver = true;
         paused = true;
+        aiThinking = false; // FIX: always clear lock on game end
         clearInterval(timerInterval);
 
         const whiteName = document.getElementById('whiteNameLabel').textContent;
@@ -486,7 +511,7 @@
         gameOverMessage.textContent = message;
         gameOverOverlay.classList.add('active');
         showStatus(title + ' ' + message, false);
-        
+
         document.title = 'Game Over - Checkora';
     }
 
@@ -567,15 +592,15 @@
 
     if (welcomePvPBtn) welcomePvPBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('pvp'); };
     if (welcomeAIBtn) welcomeAIBtn.onclick = () => { welcomeOverlay.classList.remove('active'); startNewGame('ai'); };
-    if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => { 
-        welcomeOverlay.classList.remove('active'); 
+    if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
+        welcomeOverlay.classList.remove('active');
         if (paused) resumeGame();
     };
 
     function requestNewGame(mode) {
         showConfirm(
-            "Abandon Game?", 
-            "Your current progress will be lost.<br>Are you sure you want to start a new game?", 
+            "Abandon Game?",
+            "Your current progress will be lost.<br>Are you sure you want to start a new game?",
             () => startNewGame(mode),
             '#ff6b6b'
         );
@@ -603,10 +628,10 @@
 
         const offeringPlayer = turn === 'white' ? wName : bName;
         const receivingPlayer = turn === 'white' ? bName : wName;
-        
+
         showConfirm(
-            "Offer Draw?", 
-            `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`, 
+            "Offer Draw?",
+            `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`,
             async () => {
                 drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
                 drawOverlay.classList.add('active');
@@ -633,10 +658,13 @@
     if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
 
     async function startNewGame(mode) {
+        // FIX: reset aiThinking when starting a new game
+        aiThinking = false;
+
         const wName = document.getElementById('whiteNameInput').value.trim() || 'White';
         const bName = document.getElementById('blackNameInput').value.trim() || 'Black';
 
-        const d = await post('/api/new-game/', { 
+        const d = await post('/api/new-game/', {
             mode: mode,
             white_name: wName,
             black_name: bName
@@ -645,9 +673,9 @@
         board = d.board;
         turn = d.current_turn;
         paused = false;
-        gameOver = false;  
+        gameOver = false;
         gameMode = d.mode;
-        
+
         document.getElementById('whiteNameLabel').textContent = wName.toUpperCase();
         document.getElementById('blackNameLabel').textContent = bName.toUpperCase();
 
@@ -661,7 +689,7 @@
         if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
         movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
         wCapEl.innerHTML = bCapEl.innerHTML = '';
-        
+
         loadGame();
     }
 
@@ -680,14 +708,15 @@
             if (response.valid) {
                 gameOver = true;
                 paused = true;
-        
+                aiThinking = false; // FIX: clear lock on resign
+
                 clearInterval(timerInterval);
 
                 const wName = document.getElementById('whiteNameLabel').textContent;
                 const bName = document.getElementById('blackNameLabel').textContent;
                 const loserName = (turn === 'white' ? wName : bName);
                 const winnerName = (turn === 'white' ? bName : wName);
-                
+
                 const statusEl = document.getElementById('statusBar');
                 if (statusEl) {
                     statusEl.textContent = `${loserName} resigned. ${winnerName} wins!`;
@@ -700,19 +729,19 @@
 
                 document.getElementById('resignBtn').style.display = 'none';
                 document.getElementById('pauseBtn').style.display = 'none';
-                
-                document.getElementById('gameOverPvPBtn').onclick = async () => { 
+
+                document.getElementById('gameOverPvPBtn').onclick = async () => {
                     document.getElementById('gameOverOverlay').style.display = 'none';
-                    gameOver = false; 
-                    paused = false; 
-                    await startNewGame('pvp'); 
+                    gameOver = false;
+                    paused = false;
+                    await startNewGame('pvp');
                 };
 
-                document.getElementById('gameOverAIBtn').onclick = async () => { 
+                document.getElementById('gameOverAIBtn').onclick = async () => {
                     document.getElementById('gameOverOverlay').style.display = 'none';
-                    gameOver = false; 
-                    paused = false; 
-                    await startNewGame('ai'); 
+                    gameOver = false;
+                    paused = false;
+                    await startNewGame('ai');
                 };
 
                 await loadGame();
@@ -721,22 +750,23 @@
             console.error("Resign failed:", error);
         }
     };
+
     function generateFEN() {
-    let fenRows = [];
-    for (let r = 0; r < 8; r++) {
-        let row = '';
-        let empty = 0;
-        for (let c = 0; c < 8; c++) {
-            const p = board[r][c];
-            if (!p) { empty++; }
-            else {
-                if (empty > 0) { row += empty; empty = 0; }
-                row += p;
+        let fenRows = [];
+        for (let r = 0; r < 8; r++) {
+            let row = '';
+            let empty = 0;
+            for (let c = 0; c < 8; c++) {
+                const p = board[r][c];
+                if (!p) { empty++; }
+                else {
+                    if (empty > 0) { row += empty; empty = 0; }
+                    row += p;
+                }
             }
+            if (empty > 0) row += empty;
+            fenRows.push(row);
         }
-        if (empty > 0) row += empty;
-        fenRows.push(row);
-    }
         const activeColor = turn === 'white' ? 'w' : 'b';
         const movesList = movesEl.querySelectorAll('.move-row');
         const fullMove = movesList.length + 1;
@@ -752,5 +782,6 @@
 
     const copyFenBtn = document.getElementById('copyFenBtn');
     if (copyFenBtn) copyFenBtn.onclick = copyFEN;
+
     loadGame();
 })();
