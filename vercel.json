@@ -1,11 +1,9 @@
 {
   "version": 2,
   "installCommand": "pip install -r requirements.txt",
-  "buildCommand": "g++ -O2 -o game/engine/main game/engine/main.cpp && chmod +x game/engine/main",
-  "outputDirectory": "public",
   "functions": {
     "api/wsgi.py": {
-      "runtime": "@vercel/python@4.3.0",
+      "runtime": "@vercel/python",
       "includeFiles": "game/**"
     }
   },
