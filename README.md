@@ -15,9 +15,10 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/WfrpMuNZn)
 
-Join our Discord community for updates, support, and games: https://discord.gg/WfrpMuNZn
+Join our Discord community for updates, support, and games:  
+👉 https://discord.gg/WfrpMuNZn
 
-### Core Maintainers
+## Core Maintainers
 
 <table>
        <tr>
@@ -89,7 +90,7 @@ Open `http://127.0.0.1:8000/` in your browser and start playing.
 
 ### Compile the C++ Engine *(optional but recommended)*
 
-The compiled binary is not committed to the repository. Each contributor compiles for their own platform. If the binary is absent, Checkora automatically falls back to the Python engine.
+The compiled binary is not committed to the repository. Each contributor needs to compile it for their own platform. If the binary is not available, Checkora automatically falls back to the Python engine.
 
 ```bash
 # Windows
