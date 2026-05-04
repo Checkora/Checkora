@@ -2,23 +2,23 @@
 """Checkora chess engine implemented in Python.
 
 Protocol:
-VALIDATE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc>
+VALIDATE <board64> <castling_rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc>
 -> VALID | INVALID <reason>
 
-MOVES <board64> <castling_rights> <turn> <row> <col>
+MOVES <board64> <castling_rights> <turn> <ep_row> <ep_col> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
 
 ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
 -> YES | NO
 
-PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
+PROMOTE <board64> <castling_rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc> <promoPiece>
 -> PROMOTE <newBoard64>
 -> INVALID <reason>
 
-STATUS <board64> <castling_rights> <turn>
+STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
 -> STATUS CHECK | CHECKMATE | STALEMATE | OK
 
-BESTMOVE <board64> <castling_rights> <turn> <depth>
+BESTMOVE <board64> <castling_rights> <turn> <ep_row> <ep_col> <depth>
 -> BESTMOVE <fr> <fc> <tr> <tc>
 -> BESTMOVE NONE
 """
@@ -35,6 +35,8 @@ W_K_CASTLE = False
 W_Q_CASTLE = False
 B_K_CASTLE = False
 B_Q_CASTLE = False
+EN_PASSANT_R = -1
+EN_PASSANT_C = -1
 
 
 def load_board(board64):
@@ -50,6 +52,12 @@ def load_castling_rights(rights_str):
         elif char == 'Q': W_Q_CASTLE = True
         elif char == 'k': B_K_CASTLE = True
         elif char == 'q': B_Q_CASTLE = True
+
+
+def load_en_passant(row, col):
+    global EN_PASSANT_R, EN_PASSANT_C
+    EN_PASSANT_R = row
+    EN_PASSANT_C = col
 
 
 def serialize_board():
@@ -167,6 +175,9 @@ def valid_pawn(color, fr, fc, tr, tc):
         return is_empty(BOARD[fr + direction][fc]) and is_empty(BOARD[tr][tc])
 
     if abs(col_delta) == 1 and row_delta == direction and not is_empty(BOARD[tr][tc]):
+        return True
+
+    if abs(col_delta) == 1 and row_delta == direction and tr == EN_PASSANT_R and tc == EN_PASSANT_C:
         return True
 
     return False
@@ -687,21 +698,27 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
             tc = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_row, ep_col)
             validate_move(turn, fr, fc, tr, tc)
         elif command == 'MOVES':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             row = int(next(tokens))
             col = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_row, ep_col)
             handle_moves(turn, row, col)
         elif command == 'ATTACKED':
             board64 = next(tokens)
@@ -716,6 +733,8 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
@@ -723,21 +742,28 @@ def run():
             promo_piece = next(tokens)
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_row, ep_col)
             handle_promote(turn, fr, fc, tr, tc, promo_piece)
         elif command == 'STATUS':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_row, ep_col)
             handle_status(turn)
         elif command == 'BESTMOVE':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             depth = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_row, ep_col)
             handle_bestmove(turn, depth)
 
 
