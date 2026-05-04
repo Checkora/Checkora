@@ -13,6 +13,40 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 [![Tests](https://img.shields.io/badge/Tests-28%20passing-brightgreen?style=flat&logo=github-actions&logoColor=white)](#tests)
 [![Issues](https://img.shields.io/github/issues/Checkora/Checkora?style=flat)](https://github.com/Checkora/Checkora/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/WfrpMuNZn)
+
+Join our Discord community for updates, support, and games: https://discord.gg/WfrpMuNZn
+
+### Core Maintainers
+
+<table>
+       <tr>
+              <td align="center" style="padding: 6px 18px;">
+                     <a href="https://github.com/EDWARD-012">
+                            <img src="https://github.com/EDWARD-012.png?size=160" width="120" height="120" alt="EDWARD-012" style="border-radius: 50%; border: 3px solid #16A34A;" />
+                     </a>
+                     <br />
+                     <a href="https://github.com/EDWARD-012"><strong>@EDWARD-012</strong></a>
+                     <br />
+                     <a href="https://github.com/EDWARD-012">
+                            <img src="https://img.shields.io/badge/Follow-EDWARD--012-16A34A?style=for-the-badge&logo=github" alt="Follow EDWARD-012" />
+                     </a>
+              </td>
+              <td align="center" style="padding: 6px 18px;">
+                     <a href="https://github.com/triemerge">
+                            <img src="https://github.com/triemerge.png?size=160" width="120" height="120" alt="triemerge" style="border-radius: 50%; border: 3px solid #16A34A;" />
+                     </a>
+                     <br />
+                     <a href="https://github.com/triemerge"><strong>@triemerge</strong></a>
+                     <br />
+                     <a href="https://github.com/triemerge">
+                            <img src="https://img.shields.io/badge/Follow-triemerge-16A34A?style=for-the-badge&logo=github" alt="Follow triemerge" />
+                     </a>
+              </td>
+       </tr>
+</table>
+
+<sub>Click a profile or follow badge for release drops, roadmap notes, and engine updates.</sub>
 
 </div>
 
@@ -24,7 +58,7 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 |---------|-------------|
 | AI Opponent | Minimax search with alpha-beta pruning for challenging gameplay |
 | Hybrid Engine | C++ binary for maximum speed with an automatic Python fallback |
-| Full Move Validation | Legal moves enforced for all pieces including castling, en passant, and promotion |
+| Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
 | Game Timer | Per-player countdown clocks with pause support |
 | REST API | Clean JSON endpoints powering a decoupled frontend |
 | PvP & PvE Modes | Play against a friend or challenge the AI |
@@ -92,6 +126,36 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
 | Engine (Fallback) | Python 3.10+ | `game/engine/main.py` |
 
 > For a full deep-dive into the backend components, execution flow, and AI internals, see the [Architecture Guide](structure.md).
+
+### How It Works
+
+When a player makes a move, the request flows through three layers:
+
+1. **Browser** sends a `POST` request with the move coordinates
+2. **Django** (`views.py`) receives it and delegates to the `ChessGame` wrapper in `engine.py`
+3. **`engine.py`** serializes the board into a flat 64-character string and spawns the engine as a subprocess, sending commands via `stdin` and reading responses from `stdout`
+
+The engine speaks a simple text-based protocol:
+
+| Command | Example | Response |
+|---|---|---|
+| `VALIDATE` | `VALIDATE <board64> <rights> <turn> fr fc tr tc` | `VALID` / `INVALID <reason>` |
+| `MOVES` | `MOVES <board64> <rights> <turn> row col` | `MOVES tr tc is_capture is_promotion ...` |
+| `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <depth>` | `BESTMOVE fr fc tr tc` |
+| `STATUS` | `STATUS <board64> <rights> <turn>` | `STATUS CHECK / CHECKMATE / STALEMATE / OK` |
+
+```mermaid
+flowchart TD
+    A[Browser\nJS / HTML] -->|HTTP POST /api/move/| B[Django Views\nviews.py]
+    B -->|delegates to| C[ChessGame Wrapper\nengine.py]
+    C -->|board64 + command via stdin| D{Engine}
+    D -->|C++ binary\nmain.exe / main| E[Minimax + Alpha-Beta\nPrimary]
+    D -->|Python fallback\nmain.py| F[Minimax + Alpha-Beta\nFallback]
+    E -->|response via stdout| C
+    F -->|response via stdout| C
+    C -->|updated state| B
+    B -->|JSON response| A
+```
 
 ---
 
