@@ -462,6 +462,28 @@
             /* ==========================================================
             BOARD RENDERING
             ========================================================== */
+            function highlightKingInCheck(boardState, inCheck) {
+    // Remove previous check highlight
+    document.querySelectorAll('.in-check').forEach(el => {
+        el.classList.remove('in-check');
+    });
+
+    if (!inCheck) return;
+
+    // Find the king of current turn's color
+    const kingPiece = (turn === 'white') ? 'K' : 'k';
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (boardState[r][c] === kingPiece) {
+                const sq = document.querySelector(
+                    `[data-row="${r}"][data-col="${c}"]`
+                );
+                if (sq) sq.classList.add('in-check');
+                return;
+            }
+        }
+    }
+}
             function buildBoard() {
                 boardEl.innerHTML = '';
                 for (let vr = 0; vr < 8; vr++) {
@@ -708,8 +730,10 @@
                             endGame('stalemate', turn);
                         } else if (data.game_status === 'check') {
                             showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
+                            highlightKingInCheck(board, true);
                         } else {
                             showStatus('', false);
+                            highlightKingInCheck(board, false);
                         }
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
@@ -752,8 +776,10 @@
                             endGame('stalemate', turn);
                         } else if (data.game_status === 'check') {
                             showStatus('You are in check!', true);
+                            highlightKingInCheck(board, true);
                         } else {
                             showStatus('Your turn.', false);
+                            highlightKingInCheck(board, false);
                         }
                     } else {
                         showStatus(data.message, true);
