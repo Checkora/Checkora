@@ -5,7 +5,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/wsgi.py": {
-      "runtime": "python3.10",
+      "runtime": "vercel-python@4.3.0",
       "includeFiles": "game/**"
     }
   },
