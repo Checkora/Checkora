@@ -4,10 +4,10 @@
   "functions": {
     "api/wsgi.py": {
       "runtime": "@vercel/python",
-      "includeFiles": "game/**"
+      "includeFiles": ["core/**", "game/**"]
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/wsgi.py" }
+    { "source": "/(.*)", "destination": "/api/wsgi" }
   ]
 }
