@@ -2,23 +2,23 @@
 """Checkora chess engine implemented in Python.
 
 Protocol:
-VALIDATE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc>
+VALIDATE <board64> <castling_rights> <turn> <epR> <epC> <fr> <fc> <tr> <tc>
 -> VALID | INVALID <reason>
 
-MOVES <board64> <castling_rights> <turn> <row> <col>
+MOVES <board64> <castling_rights> <turn> <epR> <epC> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
 
 ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
 -> YES | NO
 
-PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
+PROMOTE <board64> <castling_rights> <turn> <epR> <epC> <fr> <fc> <tr> <tc> <promoPiece>
 -> PROMOTE <newBoard64>
 -> INVALID <reason>
 
-STATUS <board64> <castling_rights> <turn>
+STATUS <board64> <castling_rights> <turn> <epR> <epC>
 -> STATUS CHECK | CHECKMATE | STALEMATE | OK
 
-BESTMOVE <board64> <castling_rights> <turn> <depth>
+BESTMOVE <board64> <castling_rights> <turn> <epR> <epC> <depth>
 -> BESTMOVE <fr> <fc> <tr> <tc>
 -> BESTMOVE NONE
 """
@@ -35,6 +35,8 @@ W_K_CASTLE = False
 W_Q_CASTLE = False
 B_K_CASTLE = False
 B_Q_CASTLE = False
+EN_PASSANT_R = -1
+EN_PASSANT_C = -1
 
 
 def load_board(board64):
@@ -50,6 +52,13 @@ def load_castling_rights(rights_str):
         elif char == 'Q': W_Q_CASTLE = True
         elif char == 'k': B_K_CASTLE = True
         elif char == 'q': B_Q_CASTLE = True
+
+
+def load_en_passant(ep_r, ep_c):
+    """Set the en passant target square from protocol coordinates."""
+    global EN_PASSANT_R, EN_PASSANT_C
+    EN_PASSANT_R = ep_r
+    EN_PASSANT_C = ep_c
 
 
 def serialize_board():
@@ -169,6 +178,11 @@ def valid_pawn(color, fr, fc, tr, tc):
     if abs(col_delta) == 1 and row_delta == direction and not is_empty(BOARD[tr][tc]):
         return True
 
+    # En passant capture
+    if abs(col_delta) == 1 and row_delta == direction:
+        if tr == EN_PASSANT_R and tc == EN_PASSANT_C:
+            return True
+
     return False
 
 
@@ -262,32 +276,107 @@ def find_king(color):
     return -1, -1
 
 
-def leaves_king_in_check(move, side):
-    src_piece = BOARD[move.fr][move.fc]
-    dst_piece = BOARD[move.tr][move.tc]
+def apply_move(move):
+    """Apply a move to the global board. Returns an opaque undo token.
 
-    BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
+    Handles piece movement, en passant captures, castling rook
+    displacement, castling rights updates, and en passant target
+    propagation — all in one place so callers never duplicate this
+    logic.
+    """
+    global EN_PASSANT_R, EN_PASSANT_C
+    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
+
+    src = BOARD[move.fr][move.fc]
+    dst = BOARD[move.tr][move.tc]
+    old_ep_r, old_ep_c = EN_PASSANT_R, EN_PASSANT_C
+
+    # En passant capture — remove the taken pawn
+    ep_cap = '.'
+    if src.lower() == 'p' and move.fc != move.tc and is_empty(dst):
+        ep_cap = BOARD[move.fr][move.tc]
+        BOARD[move.fr][move.tc] = '.'
+
+    # Place piece (or promoted piece) on destination
+    BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src
     BOARD[move.fr][move.fc] = '.'
 
-    rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-    if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
+    # Castling rook
+    rfr, rfc, rtr, rtc = -1, -1, -1, -1
+    if src.lower() == 'k' and abs(move.tc - move.fc) == 2:
         if move.tc == 6:
-            rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
+            rfr, rfc, rtr, rtc = move.fr, 7, move.tr, 5
         elif move.tc == 2:
-            rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-        if rook_fr != -1:
-            BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-            BOARD[rook_fr][rook_fc] = '.'
+            rfr, rfc, rtr, rtc = move.fr, 0, move.tr, 3
+        if rfr != -1:
+            BOARD[rtr][rtc] = BOARD[rfr][rfc]
+            BOARD[rfr][rfc] = '.'
 
+    # Castling rights
+    old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
+    old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
+    if src == 'K': W_K_CASTLE = W_Q_CASTLE = False
+    if src == 'k': B_K_CASTLE = B_Q_CASTLE = False
+    if src == 'R':
+        if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
+        if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
+    if src == 'r':
+        if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
+        if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
+    if dst == 'R':
+        if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
+        if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
+    if dst == 'r':
+        if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
+        if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
+
+    # En passant target for the next move
+    if src.lower() == 'p' and abs(move.tr - move.fr) == 2:
+        EN_PASSANT_R = (move.fr + move.tr) // 2
+        EN_PASSANT_C = move.fc
+    else:
+        EN_PASSANT_R = -1
+        EN_PASSANT_C = -1
+
+    return (src, dst, rfr, rfc, rtr, rtc,
+            old_wk, old_wq, old_bk, old_bq,
+            old_ep_r, old_ep_c, ep_cap)
+
+
+def undo_move(move, undo):
+    """Reverse a move using the token returned by apply_move."""
+    global EN_PASSANT_R, EN_PASSANT_C
+    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
+
+    (src, dst, rfr, rfc, rtr, rtc,
+     old_wk, old_wq, old_bk, old_bq,
+     old_ep_r, old_ep_c, ep_cap) = undo
+
+    BOARD[move.fr][move.fc] = src
+    BOARD[move.tr][move.tc] = dst
+
+    # Restore en passant captured pawn
+    if ep_cap != '.':
+        BOARD[move.fr][move.tc] = ep_cap
+
+    # Restore castling rook
+    if rfr != -1:
+        BOARD[rfr][rfc] = BOARD[rtr][rtc]
+        BOARD[rtr][rtc] = '.'
+
+    W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
+    B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
+    EN_PASSANT_R = old_ep_r
+    EN_PASSANT_C = old_ep_c
+
+
+def leaves_king_in_check(move, side):
+    """Return True when *move* would leave *side*'s king in check."""
+    undo = apply_move(move)
     opponent = 'black' if side == 'white' else 'white'
     king_row, king_col = find_king(side)
     in_check = king_row >= 0 and is_square_attacked(king_row, king_col, opponent)
-
-    BOARD[move.fr][move.fc] = src_piece
-    BOARD[move.tr][move.tc] = dst_piece
-    if rook_fr != -1:
-        BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-        BOARD[rook_tr][rook_tc] = '.'
+    undo_move(move, undo)
     return in_check
 
 
@@ -312,6 +401,9 @@ def handle_moves(turn, row, col):
                     continue
 
                 is_capture = 0 if is_empty(BOARD[tr][tc]) else 1
+                # En passant is a capture even though the target square is empty
+                if piece.lower() == 'p' and col != tc and is_empty(BOARD[tr][tc]):
+                    is_capture = 1
                 is_promotion = 1 if is_promotion_move(piece, tr) else 0
                 output.extend([str(tr), str(tc), str(is_capture), str(is_promotion)])
 
@@ -471,14 +563,13 @@ def order_moves(moves):
 
 
 def minimax(depth, alpha, beta, maximizing):
-    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
     if depth == 0:
         return evaluate()
 
     side = 'white' if maximizing else 'black'
     moves = generate_moves(side)
     order_moves(moves)
-    legal_moves = [move for move in moves if not leaves_king_in_check(move, side)]
+    legal_moves = [m for m in moves if not leaves_king_in_check(m, side)]
 
     if not legal_moves:
         opponent = 'black' if maximizing else 'white'
@@ -490,50 +581,9 @@ def minimax(depth, alpha, beta, maximizing):
     if maximizing:
         best_value = -(10 ** 9)
         for move in legal_moves:
-            src_piece = BOARD[move.fr][move.fc]
-            dst_piece = BOARD[move.tr][move.tc]
-            BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-            BOARD[move.fr][move.fc] = '.'
-
-            rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-            if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-                if move.tc == 6:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-                elif move.tc == 2:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-                if rook_fr != -1:
-                    BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                    BOARD[rook_fr][rook_fc] = '.'
-
-            old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-            old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-
-            if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-            if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-            if src_piece == 'R':
-                if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-                if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-            if src_piece == 'r':
-                if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-                if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-            if dst_piece == 'R':
-                if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-                if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-            if dst_piece == 'r':
-                if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-                if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-
+            undo = apply_move(move)
             value = minimax(depth - 1, alpha, beta, False)
-
-            W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-            B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-
-            BOARD[move.fr][move.fc] = src_piece
-            BOARD[move.tr][move.tc] = dst_piece
-            if rook_fr != -1:
-                BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-                BOARD[rook_tr][rook_tc] = '.'
-
+            undo_move(move, undo)
             best_value = max(best_value, value)
             alpha = max(alpha, value)
             if beta <= alpha:
@@ -542,50 +592,9 @@ def minimax(depth, alpha, beta, maximizing):
 
     best_value = 10 ** 9
     for move in legal_moves:
-        src_piece = BOARD[move.fr][move.fc]
-        dst_piece = BOARD[move.tr][move.tc]
-        BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-        BOARD[move.fr][move.fc] = '.'
-
-        rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-        if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-            if move.tc == 6:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-            elif move.tc == 2:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-            if rook_fr != -1:
-                BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                BOARD[rook_fr][rook_fc] = '.'
-
-        old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-        old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-
-        if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-        if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-        if src_piece == 'R':
-            if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-            if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-        if src_piece == 'r':
-            if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-            if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-        if dst_piece == 'R':
-            if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-            if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-        if dst_piece == 'r':
-            if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-            if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-
+        undo = apply_move(move)
         value = minimax(depth - 1, alpha, beta, True)
-
-        W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-        B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-
-        BOARD[move.fr][move.fc] = src_piece
-        BOARD[move.tr][move.tc] = dst_piece
-        if rook_fr != -1:
-            BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-            BOARD[rook_tr][rook_tc] = '.'
-
+        undo_move(move, undo)
         best_value = min(best_value, value)
         beta = min(beta, value)
         if beta <= alpha:
@@ -612,11 +621,10 @@ def handle_status(turn):
 
 
 def handle_bestmove(turn, depth):
-    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
     maximizing = turn == 'white'
     moves = generate_moves(turn)
     order_moves(moves)
-    legal_moves = [move for move in moves if not leaves_king_in_check(move, turn)]
+    legal_moves = [m for m in moves if not leaves_king_in_check(m, turn)]
 
     if not legal_moves:
         print('BESTMOVE NONE')
@@ -626,49 +634,9 @@ def handle_bestmove(turn, depth):
     best_value = -(10 ** 9) if maximizing else 10 ** 9
 
     for move in legal_moves:
-        src_piece = BOARD[move.fr][move.fc]
-        dst_piece = BOARD[move.tr][move.tc]
-        BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-        BOARD[move.fr][move.fc] = '.'
-
-        rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-        if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-            if move.tc == 6:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-            elif move.tc == 2:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-            if rook_fr != -1:
-                BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                BOARD[rook_fr][rook_fc] = '.'
-
-        old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-        old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-
-        if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-        if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-        if src_piece == 'R':
-            if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-            if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-        if src_piece == 'r':
-            if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-            if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-        if dst_piece == 'R':
-            if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-            if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-        if dst_piece == 'r':
-            if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-            if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-
+        undo = apply_move(move)
         value = minimax(depth - 1, -(10 ** 9), 10 ** 9, not maximizing)
-
-        W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-        B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-
-        BOARD[move.fr][move.fc] = src_piece
-        BOARD[move.tr][move.tc] = dst_piece
-        if rook_fr != -1:
-            BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-            BOARD[rook_tr][rook_tc] = '.'
+        undo_move(move, undo)
 
         if maximizing and value > best_value:
             best_value = value
@@ -687,21 +655,27 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_r = int(next(tokens))
+            ep_c = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
             tc = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_r, ep_c)
             validate_move(turn, fr, fc, tr, tc)
         elif command == 'MOVES':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_r = int(next(tokens))
+            ep_c = int(next(tokens))
             row = int(next(tokens))
             col = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_r, ep_c)
             handle_moves(turn, row, col)
         elif command == 'ATTACKED':
             board64 = next(tokens)
@@ -716,6 +690,8 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_r = int(next(tokens))
+            ep_c = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
@@ -723,21 +699,28 @@ def run():
             promo_piece = next(tokens)
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_r, ep_c)
             handle_promote(turn, fr, fc, tr, tc, promo_piece)
         elif command == 'STATUS':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_r = int(next(tokens))
+            ep_c = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_r, ep_c)
             handle_status(turn)
         elif command == 'BESTMOVE':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_r = int(next(tokens))
+            ep_c = int(next(tokens))
             depth = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            load_en_passant(ep_r, ep_c)
             handle_bestmove(turn, depth)
 
 
