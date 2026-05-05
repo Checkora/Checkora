@@ -5,7 +5,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/wsgi.py": {
-      "includeFiles": "game/**"
+      "includeFiles": "{core/**,game/**,db.sqlite3,manage.py,requirements.txt}"
     }
   },
   "rewrites": [
