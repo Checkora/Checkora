@@ -718,7 +718,7 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        startNewGame(mode, diff);
+                        startNewGame(mode, 'white', diff);
                     },
                     '#ff6b6b'
                 );
@@ -885,7 +885,7 @@
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
                 gameOverOverlay.classList.remove('active');
-                startNewGame(mode, diff);
+                startNewGame(mode, 'white', diff);
             };
 
             // Theme Switcher
