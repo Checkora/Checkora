@@ -171,7 +171,7 @@ def get_state(request):
         # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
-            pass  # Force pause without time penalty
+            game.paused = True  # pause without deducting lost time
         else:
             game.update_clock()
 
