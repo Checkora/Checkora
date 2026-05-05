@@ -349,6 +349,13 @@ body {
     background: linear-gradient(135deg, #f0c040, #d4a020);
     color: #1a1a2e;
 }
+/* Highlight selected game mode button */
+.active-mode {
+    background: #facc15 !important;
+    color: #000 !important;
+    transform: scale(1.05);
+    border: 2px solid #facc15;
+}
 .btn-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-1px);
