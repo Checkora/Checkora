@@ -362,11 +362,24 @@
             box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
         }
 
-        /* Low time warning */
+        /* Low time warning - below 1 minute */
         .clock.low {
-            background: linear-gradient(135deg, #402020, #2a1414);
-            border-color: #ff6b6b;
-            color: #ffb3b3;
+        background: linear-gradient(135deg, #402020, #2a1414);
+        border-color: #ff6b6b;
+        color: #ffb3b3;
+        }    
+
+        /* Critical time - below 30 seconds, pulses */
+        .clock.critical {
+        background: linear-gradient(135deg, #5a0000, #3a0000);
+        border-color: #ff0000;
+        color: #ff6b6b;
+        animation: clockPulse 0.8s ease-in-out infinite;
+        }
+
+        @keyframes clockPulse {
+        0%, 100%   { opacity: 1;   transform: scale(1);    }
+        50%  { opacity: 0.6; transform: scale(1.03); }
         }
 
         /* Time up */
@@ -1144,6 +1157,17 @@
         function renderClocks() {
             document.querySelector('#whiteClock .time').textContent = fmt(whiteTime);
             document.querySelector('#blackClock .time').textContent = fmt(blackTime);
+
+            // Low time visual warning
+            const wClock = document.getElementById('whiteClock');
+            wClock.classList.remove('low', 'critical');
+            if (whiteTime <= 30) wClock.classList.add('critical');
+            else if (whiteTime <= 60) wClock.classList.add('low');
+
+            const bClock = document.getElementById('blackClock');
+            bClock.classList.remove('low', 'critical');
+            if (blackTime <= 30) bClock.classList.add('critical');
+            else if (blackTime <= 60) bClock.classList.add('low');
         }
 
         function updatePauseUI() {
