@@ -604,10 +604,30 @@
 
                 let title = '', message = '';
 
+                // Read player names from the UI labels.
+                const whiteNameText = whiteNameLabel && whiteNameLabel.textContent
+                    ? whiteNameLabel.textContent.trim()
+                    : '';
+                const blackNameText = blackNameLabel && blackNameLabel.textContent
+                    ? blackNameLabel.textContent.trim()
+                    : '';
+
+                // Fallback names in case labels are empty or missing.
+                const whitePlayerName = whiteNameText || 'White';
+                const blackPlayerName = blackNameText || 'Black';
+
                 if (reason === 'checkmate') {
-                    const winner = color === 'white' ? 'Black' : 'White';
-                    title = 'Checkmate!';
-                    message = `${winner} wins!`;
+                    // "color" here is the side that got checkmated, so winner is opposite.
+                    let winnerName = '';
+                    if (color === 'white') {
+                        winnerName = blackPlayerName;
+                    } else {
+                        winnerName = whitePlayerName;
+                    }
+
+                    // Show player name (not just color) in both modal and status text.
+                    title = '🏆 CHECKMATE! 🏆';
+                    message = `${winnerName} WINS!`;
                 } else if (reason === 'stalemate') {
                     title = 'Stalemate!';
                     message = 'The game is a draw.';
@@ -615,11 +635,11 @@
                     title = 'Draw!';
                     message = 'Draw by Agreement.';
                 } else if (reason === 'resign') {
-                    const winner = color === 'white' ? 'Black' : 'White';
-                    const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
-                    const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
+                    // For resign, winner is opposite of the resigning side.
+                    const winnerName = color === 'white' ? blackPlayerName : whitePlayerName;
+                    const loserName = color === 'white' ? whitePlayerName : blackPlayerName;
                     title = 'Resignation';
-                    message = `${loserName} resigned. ${winnerName} wins!`;
+                    message = `${loserName} resigned. ${winnerName} WINS!`;
                 }
 
                 gameOverTitle.textContent = title;
