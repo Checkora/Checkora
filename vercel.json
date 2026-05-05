@@ -5,7 +5,6 @@
   "outputDirectory": "public",
   "functions": {
     "api/wsgi": {
-      "runtime": "@vercel/python",
       "includeFiles": "{core,game,staticfiles}/**"
     }
   },
