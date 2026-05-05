@@ -31,6 +31,7 @@
                 const aiBtn = document.getElementById("newAIBtn");
 
                 if (!pvpBtn || !aiBtn) return;
+                
                 pvpBtn.classList.remove("active-mode");
                 aiBtn.classList.remove("active-mode");
 
