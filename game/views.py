@@ -339,10 +339,8 @@ class CustomUserCreationForm(UserCreationForm):
         fields = UserCreationForm.Meta.fields + ('email',)
 
 
-@ratelimit(key='ip', rate='5/m', method='POST', block=False)
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def register_view(request):
-    if getattr(request, 'limited', False):
-        return HttpResponse("Too many attempts. Try again later.", status=429)
     
     if request.user.is_authenticated:
         return redirect('index')
@@ -417,11 +415,8 @@ def register_view(request):
     return render(request, 'game/register.html', {'form': form})
 
 
-@ratelimit(key='ip', rate='5/m', method='POST', block=False)
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def verify_otp(request):
-    if getattr(request, 'limited', False):
-        return HttpResponse("Too many attempts. Please try again later.", status=429)
-
     
     if request.user.is_authenticated:
         return redirect('index')
@@ -461,11 +456,9 @@ def verify_otp(request):
     return render(request, 'game/verify_otp.html')
 
 
-@ratelimit(key='ip', rate='5/m', method='POST', block=False)
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def login_view(request):
-    if getattr(request, 'limited', False):
-        return HttpResponse("Too many attempts. Try again later.", status=429)
-
+    
     if request.user.is_authenticated:
         return redirect('index')
 
@@ -484,7 +477,3 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('index')
-
-
-def ratelimit_error(request, exception):
-    return HttpResponse("Too many attempts. Please try again later.", status=429)
