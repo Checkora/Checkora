@@ -15,7 +15,7 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/DvW3xVXw8g)
 
-Join our Discord community for updates, support, and games: https://discord.gg/WfrpMuNZn
+Join our Discord community for updates, support, and games: https://discord.gg/DvW3xVXw8g
 
 ### Core Maintainers
 
