@@ -160,6 +160,15 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+                // Update control panel visibility for new mode
+                if (flipControls) flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
+                if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
+                if (autoFlipBtn) {
+                    autoFlip = false;
+                    autoFlipBtn.textContent = 'Auto-Flip: OFF';
+                    autoFlipBtn.style.background = '';
+       }
+                
 
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
@@ -180,6 +189,7 @@
                 buildBoard();
                 renderClocks();
                 updatePauseUI();
+                updateControlPanel();
                 startTimer();
             }
 
@@ -200,10 +210,24 @@
                 if (gameMode === 'ai') {
                     if (whiteYouTag) whiteYouTag.style.display = (playerColor === 'white') ? 'inline' : 'none';
                     if (blackYouTag) blackYouTag.style.display = (playerColor === 'black') ? 'inline' : 'none';
+                    const whiteIcon = document.getElementById('whitePlayerIcon');
+                    const blackIcon = document.getElementById('blackPlayerIcon');
+                    if (whiteIcon && blackIcon) {
+                        whiteIcon.textContent = (playerColor === 'white') ? '♔' : '♚';
+                        blackIcon.textContent = (playerColor === 'black') ? '♚' : '♔';
+                    }
                 } else {
                     if (whiteYouTag) whiteYouTag.style.display = 'none';
                     if (blackYouTag) blackYouTag.style.display = 'none';
+                        const whiteIcon = document.getElementById('whitePlayerIcon');
+                        const blackIcon = document.getElementById('blackPlayerIcon');
+                        if (whiteIcon && blackIcon) {
+                            whiteIcon.textContent = '♔';
+                            blackIcon.textContent = '♚';   
+                        }
                 }
+
+                
             }
 
 
@@ -655,6 +679,12 @@
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
             }
+            function updateControlPanel() {
+                if (flipControls) flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
+                if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
+                if (autoFlipBtn) autoFlipBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';   
+
+            }   
 
             function startTimer() {
                 clearInterval(timerInterval);
@@ -718,7 +748,7 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        startNewGame(mode, diff);
+                        startNewGame(mode,'white', diff);
                     },
                     '#ff6b6b'
                 );
@@ -752,13 +782,17 @@
                     black_name: bName,
                     difficulty: difficulty
                 });
-
-                board = d.board;
-                turn = d.current_turn;
-                paused = false;
+                
                 gameOver = false;
-                gameMode = d.mode;
-                playerColor = d.player_color || 'white';
+
+                movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
+                wCapEl.innerHTML = bCapEl.innerHTML = '';
+
+                await loadGame();
+                paused = false;
+                gameMode = newMode;
+                playerColor = pColor;
+
                 
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
@@ -767,18 +801,17 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
-                movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
-                wCapEl.innerHTML = bCapEl.innerHTML = '';
-
-                await loadGame();
-                paused = false;
                 updatePauseUI();
-
-                // Auto-trigger AI if it's their turn
-                if (gameMode === 'ai' && turn !== playerColor) {
+                updateControlPanel();
+                buildBoard();
+                
+                console.log('mode:', gameMode, 'playerColor:', playerColor, 'turn:', turn);
+                if(gameMode === 'ai' && turn !== playerColor) {
                     requestAIMove();
                 }
             }
+
+                
 
             /* ==========================================================
             EVENT LISTENERS
@@ -885,7 +918,7 @@
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
                 gameOverOverlay.classList.remove('active');
-                startNewGame(mode, diff);
+                startNewGame(mode, 'white', diff);
             };
 
             // Theme Switcher

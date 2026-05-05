@@ -421,7 +421,7 @@ class ChessGame:
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
-        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {ep_str} {row} {col}"
+        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {row} {col}"
         resp = self._call_engine(cmd)
         
         moves = []
@@ -499,7 +499,7 @@ class ChessGame:
         """Generate SAN notation via C++ engine if possible, else simplified fallback."""
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
-            cmd = f"NOTATION {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc}"
+            cmd = f"NOTATION {board_str} {rights_str} {self.current_turn}  {fr} {fc} {tr} {tc}"
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -555,7 +555,7 @@ class ChessGame:
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
-        cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
+        cmd =  f"STATUS {board_str} {rights_str} {self.current_turn}"
         resp = self._call_engine(cmd)
         if resp and resp.startswith("STATUS"):
             status = resp.split()[1].lower()

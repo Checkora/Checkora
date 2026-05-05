@@ -87,9 +87,11 @@ def valid_moves(request):
 
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'valid_moves': []})
-
-    game = ChessGame.from_dict(game_data)
+        game = ChessGame()
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+    else:
+        game = ChessGame.from_dict(game_data)
     moves = game.get_valid_moves(row, col)
     return JsonResponse({'valid_moves': moves})
 
@@ -116,7 +118,7 @@ def new_game(request):
     game.mode = mode
     game.player_color = player_color
     game.paused = False
-
+    
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
