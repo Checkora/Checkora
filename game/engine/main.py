@@ -681,27 +681,36 @@ def handle_bestmove(turn, depth):
 
 
 def run():
+    global EN_PASSANT_R, EN_PASSANT_C
     tokens = iter(sys.stdin.read().split())
     for command in tokens:
         if command == 'VALIDATE':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            epR = int(next(tokens))
+            epC = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
             tc = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            EN_PASSANT_R = epR
+            EN_PASSANT_C = epC
             validate_move(turn, fr, fc, tr, tc)
         elif command == 'MOVES':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            epR = int(next(tokens))
+            epC = int(next(tokens))
             row = int(next(tokens))
             col = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            EN_PASSANT_R = epR
+            EN_PASSANT_C = epC
             handle_moves(turn, row, col)
         elif command == 'ATTACKED':
             board64 = next(tokens)
@@ -716,6 +725,8 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            epR = int(next(tokens))
+            epC = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
@@ -723,21 +734,31 @@ def run():
             promo_piece = next(tokens)
             load_board(board64)
             load_castling_rights(rights)
+            EN_PASSANT_R = epR
+            EN_PASSANT_C = epC
             handle_promote(turn, fr, fc, tr, tc, promo_piece)
         elif command == 'STATUS':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            epR = int(next(tokens))
+            epC = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            EN_PASSANT_R = epR
+            EN_PASSANT_C = epC
             handle_status(turn)
         elif command == 'BESTMOVE':
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            epR = int(next(tokens))
+            epC = int(next(tokens))
             depth = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
+            EN_PASSANT_R = epR
+            EN_PASSANT_C = epC
             handle_bestmove(turn, depth)
 
 
