@@ -31,9 +31,8 @@
                 const aiBtn = document.getElementById("newAIBtn");
 
                 if (!pvpBtn || !aiBtn) return;
-
-                    pvpBtn.classList.remove("active-mode");
-                    aiBtn.classList.remove("active-mode");
+                pvpBtn.classList.remove("active-mode");
+                aiBtn.classList.remove("active-mode");
 
                 if (mode === "pvp") {
                     pvpBtn.classList.add("active-mode");
