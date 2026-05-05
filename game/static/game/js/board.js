@@ -625,8 +625,23 @@
 
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-                cap.white.forEach(p => wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
-                cap.black.forEach(p => bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
+                
+                const point_vals = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
+                
+                let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                
+                cap.white.forEach((p) => {
+                    wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                });
+                cap.black.forEach((p) => {
+                    bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                });
+                
+                const wPointsEl = document.getElementById('whitePoints');
+                const bPointsEl = document.getElementById('blackPoints');
+                if (wPointsEl) wPointsEl.textContent = `+${whitePoints}`;
+                if (bPointsEl) bPointsEl.textContent = `+${blackPoints}`;
             }
 
             function showStatus(msg, err) {
