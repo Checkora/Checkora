@@ -2,10 +2,10 @@
 """Checkora chess engine implemented in Python.
 
 Protocol:
-VALIDATE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc>
+VALIDATE <board64> <castling_rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc>
 -> VALID | INVALID <reason>
 
-MOVES <board64> <castling_rights> <turn> <row> <col>
+MOVES <board64> <castling_rights> <turn> <ep_row> <ep_col> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
 
 ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
@@ -15,10 +15,10 @@ PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
 -> PROMOTE <newBoard64>
 -> INVALID <reason>
 
-STATUS <board64> <castling_rights> <turn>
+STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
 -> STATUS CHECK | CHECKMATE | STALEMATE | OK
 
-BESTMOVE <board64> <castling_rights> <turn> <depth>
+BESTMOVE <board64> <castling_rights> <turn> <ep_row> <ep_col> <depth>
 -> BESTMOVE <fr> <fc> <tr> <tc>
 -> BESTMOVE NONE
 """
@@ -173,6 +173,9 @@ def valid_pawn(color, fr, fc, tr, tc):
     if col_delta == 0 and row_delta == 2 * direction and fr == start_row:
         return is_empty(BOARD[fr + direction][fc]) and is_empty(BOARD[tr][tc])
 
+    if abs(col_delta) == 1 and row_delta == direction and not is_empty(BOARD[tr][tc]):
+        return True
+
     if abs(col_delta) == 1 and row_delta == direction and tr == EN_PASSANT_R and tc == EN_PASSANT_C:
         return True
 
@@ -272,6 +275,13 @@ def find_king(color):
 def leaves_king_in_check(move, side):
     src_piece = BOARD[move.fr][move.fc]
     dst_piece = BOARD[move.tr][move.tc]
+    ep_capture_piece = '.'
+    ep_capture_row = move.fr
+    ep_capture_col = move.tc
+
+    if src_piece.lower() == 'p' and move.fc != move.tc and is_empty(dst_piece):
+        ep_capture_piece = BOARD[ep_capture_row][ep_capture_col]
+        BOARD[ep_capture_row][ep_capture_col] = '.'
 
     BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
     BOARD[move.fr][move.fc] = '.'
@@ -292,6 +302,8 @@ def leaves_king_in_check(move, side):
 
     BOARD[move.fr][move.fc] = src_piece
     BOARD[move.tr][move.tc] = dst_piece
+    if ep_capture_piece != '.':
+        BOARD[ep_capture_row][ep_capture_col] = ep_capture_piece
     if rook_fr != -1:
         BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
         BOARD[rook_tr][rook_tc] = '.'
@@ -318,7 +330,8 @@ def handle_moves(turn, row, col):
                 if leaves_king_in_check(move, turn):
                     continue
 
-                is_capture = 0 if is_empty(BOARD[tr][tc]) else 1
+                is_ep_capture = piece.lower() == 'p' and col != tc and tr == EN_PASSANT_R and tc == EN_PASSANT_C
+                is_capture = 1 if is_ep_capture or not is_empty(BOARD[tr][tc]) else 0
                 is_promotion = 1 if is_promotion_move(piece, tr) else 0
                 output.extend([str(tr), str(tc), str(is_capture), str(is_promotion)])
 
@@ -694,7 +707,7 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
-            ep_row = int(next(tokens)) 
+            ep_row = int(next(tokens))
             ep_col = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
