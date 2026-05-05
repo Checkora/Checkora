@@ -100,10 +100,10 @@ def new_game(request):
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
-    
+
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
-    
+
     player_color = data.get('player_color', 'white')
 
     request.session['white_name'] = data.get('white_name', 'White')
@@ -174,8 +174,7 @@ def get_state(request):
         else:
             game.update_clock()
 
-    # Always start in paused state on page load/refresh
-    game.paused = False
+    # Preserve existing paused state
     game.last_ts = time.time()
 
     request.session['game'] = game.to_dict()
@@ -300,7 +299,7 @@ def offer_draw(request):
         request.session['game'] = game_data
         request.session.modified = True
         return JsonResponse({'success': True, 'game_status': 'draw_agreement'})
-        
+
     return JsonResponse({'success': True})
 
 
@@ -341,7 +340,7 @@ class CustomUserCreationForm(UserCreationForm):
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
-        
+
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -408,17 +407,17 @@ def register_view(request):
                 messages.error(request, err_msg)
     else:
         form = CustomUserCreationForm()
-    
+
     return render(request, 'game/register.html', {'form': form})
 
 
 def verify_otp(request):
     if request.user.is_authenticated:
         return redirect('index')
-        
+
     user_id = request.session.get('registration_user_id')
     stored_otp_hash = request.session.get('registration_otp_hash')
-    
+
     if not user_id or not stored_otp_hash:
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
@@ -427,7 +426,7 @@ def verify_otp(request):
         entered_otp = request.POST.get('otp', '').strip()
         # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
-        
+
         if entered_otp_hash == stored_otp_hash:
             try:
                 user = User.objects.get(id=user_id)
@@ -439,9 +438,9 @@ def verify_otp(request):
                 del request.session['registration_otp_hash']
 
                 login(request, user)
-                request.session.cycle_key()  
+                request.session.cycle_key()
                 return redirect('index')
-            
+
             except User.DoesNotExist:
                 messages.error(
                     request, 'User not found. Please register again.'
@@ -462,9 +461,9 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            request.session.cycle_key()  
+            request.session.cycle_key()
             return redirect('index')
-        
+
     else:
         form = AuthenticationForm()
 
