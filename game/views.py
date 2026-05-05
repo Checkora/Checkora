@@ -194,6 +194,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
+        'game_status': game.check_game_status(),
     })
 
 

@@ -239,7 +239,7 @@ body {
 
 /* Check indicator — radial red glow on the king's square */
 .square.in-check {
-    background: radial-gradient(ellipse at center, rgba(255, 0, 0, 0.8) 0%, rgba(200, 0, 0, 0.4) 40%, transparent 70%) !important;
+    background-image: radial-gradient(ellipse at center, rgba(255, 0, 0, 0.8) 0%, rgba(200, 0, 0, 0.4) 40%, transparent 70%) !important;
 }
 
 /* Valid-move dot (empty square) */

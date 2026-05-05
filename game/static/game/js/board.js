@@ -181,6 +181,7 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
+                highlightCheck(data.game_status || 'ok');
             }
 
             function updatePlayerNames(data) {
@@ -284,7 +285,7 @@
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
-                    el.classList.remove('selected', 'last-move', 'in-check');
+                    el.classList.remove('selected', 'last-move');
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
