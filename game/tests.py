@@ -3,6 +3,7 @@
 import json
 import sys
 from unittest import mock
+from unittest.mock import patch, MagicMock
 
 from django.test import SimpleTestCase, TestCase
 
@@ -615,3 +616,52 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class EngineSubprocessTest(SimpleTestCase):
+    """Low-level tests for engine subprocess handling."""
+
+    @patch("game.engine.subprocess.Popen")
+    def test_bestmove_parsing(self, mock_popen):
+        # Fake process
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("BESTMOVE 6 4 4 4", "")
+        mock_popen.return_value = mock_process
+
+        game = ChessGame()
+        result = game._call_engine("BEST something")
+
+        self.assertIn("BESTMOVE", result)
+
+    @patch("game.engine.subprocess.Popen")
+    def test_invalid_output(self, mock_popen):
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("INVALID DATA", "")
+        mock_popen.return_value = mock_process
+
+        game = ChessGame()
+        result = game._call_engine("TEST")
+
+        self.assertIsInstance(result, str)
+
+    @patch("game.engine.subprocess.Popen")
+    def test_empty_output(self, mock_popen):
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("", "")
+        mock_popen.return_value = mock_process
+
+        game = ChessGame()
+        result = game._call_engine("TEST")
+
+        self.assertEqual(result, "")
+
+    @patch("game.engine.subprocess.Popen")
+    def test_subprocess_called(self, mock_popen):
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("OK", "")
+        mock_popen.return_value = mock_process
+
+        game = ChessGame()
+        game._call_engine("TEST")
+
+        mock_popen.assert_called()
