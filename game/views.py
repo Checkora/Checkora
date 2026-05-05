@@ -68,6 +68,7 @@ def make_move(request):
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'game_status': game_status,
+        'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
@@ -133,6 +134,8 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
     })
 
 
@@ -195,6 +198,8 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
     })
 
 
@@ -277,6 +282,7 @@ def ai_move(request):
         'captured_pieces': game.captured,
         'ai_move': best,
         'game_status': game_status,
+        'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
@@ -297,10 +303,16 @@ def offer_draw(request):
     action = data.get('action')  # 'offer' or 'accept'
 
     if action == 'accept':
-        game_data['game_status'] = 'draw_agreement'
-        request.session['game'] = game_data
+        game = ChessGame.from_dict(game_data)
+        game.game_status = 'draw'
+        game.draw_reason = 'agreement'
+        request.session['game'] = game.to_dict()
         request.session.modified = True
-        return JsonResponse({'success': True, 'game_status': 'draw_agreement'})
+        return JsonResponse({
+            'success': True,
+            'game_status': game.game_status,
+            'draw_reason': game.draw_reason,
+        })
         
     return JsonResponse({'success': True})
 
@@ -318,10 +330,9 @@ def resign_game(request):
     resigning_player = game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
 
-    game_status = f"Resignation: {winner.capitalize()} wins!"
+    game_status = 'resignation'
 
-    # Update game status in session
-    game_data['game_status'] = game_status
+    game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
 

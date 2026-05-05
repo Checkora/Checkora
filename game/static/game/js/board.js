@@ -201,24 +201,28 @@
                 updatePauseUI();
                 startTimer();
                 if (gameMode === 'ai') {
-            const aiClock = playerColor === 'white' ?
-                document.getElementById('blackClock') :
-                document.getElementById('whiteClock');
-            const aiTimeEl = playerColor === 'white' ?
-                document.getElementById('blackTime') :
-                document.getElementById('whiteTime');
+                    const aiClock = playerColor === 'white' ?
+                        document.getElementById('blackClock') :
+                        document.getElementById('whiteClock');
+                    const aiTimeEl = playerColor === 'white' ?
+                        document.getElementById('blackTime') :
+                        document.getElementById('whiteTime');
 
-            if (aiClock) {
-                aiClock.style.border = '2px dashed #444';
-                aiClock.style.boxShadow = 'none';
-                aiClock.classList.remove('active');
-            }
-            if (aiTimeEl) {
-                aiTimeEl.textContent = '🤖';
-                aiTimeEl.style.fontSize = '1.8em';
-                aiTimeEl.style.color = '#888';
-            }
-        }
+                    if (aiClock) {
+                        aiClock.style.border = '2px dashed #444';
+                        aiClock.style.boxShadow = 'none';
+                        aiClock.classList.remove('active');
+                    }
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = '🤖';
+                        aiTimeEl.style.fontSize = '1.8em';
+                        aiTimeEl.style.color = '#888';
+                    }
+                }
+
+                if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
+                    handleGameStatus(data.game_status, data.draw_reason);
+                }
             }
 
             function updatePlayerNames(data) {
@@ -489,10 +493,8 @@
                         renderClocks();
                         startTimer();
 
-                        if (data.game_status === 'checkmate') {
-                            endGame('checkmate', turn);
-                        } else if (data.game_status === 'stalemate') {
-                            endGame('stalemate', turn);
+                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+                            // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
                             showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
                         } else {
@@ -534,10 +536,8 @@
                         renderClocks();
                         startTimer();
 
-                        if (data.game_status === 'checkmate') {
-                            endGame('checkmate', turn);
-                        } else if (data.game_status === 'stalemate') {
-                            endGame('stalemate', turn);
+                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+                            // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
                             showStatus('You are in check!', true);
                         } else {
@@ -649,7 +649,23 @@
                 statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
-            function endGame(reason, color) {
+            function handleGameStatus(status, drawReason) {
+                if (status === 'checkmate') {
+                    endGame('checkmate', turn);
+                    return true;
+                }
+                if (status === 'stalemate') {
+                    endGame('stalemate', turn);
+                    return true;
+                }
+                if (status === 'draw') {
+                    endGame('draw', turn, drawReason);
+                    return true;
+                }
+                return false;
+            }
+
+            function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
                 paused = true;
@@ -669,7 +685,13 @@
                     message = 'The game is a draw.';
                 } else if (reason === 'draw') {
                     title = 'Draw!';
-                    message = 'Draw by Agreement.';
+                    const drawMessages = {
+                        agreement: 'Draw by agreement.',
+                        threefold_repetition: 'Draw by threefold repetition.',
+                        fifty_move_rule: 'Draw by the fifty-move rule.',
+                        insufficient_material: 'Draw by insufficient material.',
+                    };
+                    message = drawMessages[drawReason] || 'The game is a draw.';
                 } else if (reason === 'resign') {
                     const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
@@ -1069,7 +1091,7 @@
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
-                if (data.success) endGame('draw', turn);
+                if (data.success) endGame('draw', turn, data.draw_reason);
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
