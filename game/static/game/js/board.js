@@ -25,6 +25,22 @@
             let pendingPromo = null;
 
             let gameMode = 'pvp';
+            // Updates UI to highlight selected game mode button
+            function updateModeButtonsUI(mode) {
+                const pvpBtn = document.getElementById("newPvPBtn");
+                const aiBtn = document.getElementById("newAIBtn");
+
+                if (!pvpBtn || !aiBtn) return;
+
+                    pvpBtn.classList.remove("active-mode");
+                    aiBtn.classList.remove("active-mode");
+
+                if (mode === "pvp") {
+                    pvpBtn.classList.add("active-mode");
+                } else {
+                    aiBtn.classList.add("active-mode");
+                }
+            }
             let playerColor = 'white';
             let flipped = false;
             let autoFlip = false;
@@ -148,6 +164,8 @@
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
+                // Sync UI with current game mode
+                updateModeButtonsUI(gameMode);
                 playerColor = data.player_color || 'white';
                 
                 if (flipControls) {
@@ -772,6 +790,8 @@
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 await loadGame();
+                // Apply active state after UI reload
+                updateModeButtonsUI(gameMode);
                 paused = false;
                 updatePauseUI();
 
