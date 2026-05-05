@@ -740,6 +740,5 @@ def run():
             load_castling_rights(rights)
             handle_bestmove(turn, depth)
 
-
 if __name__ == '__main__':
     run()
