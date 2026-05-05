@@ -506,10 +506,14 @@
                             showStatus('Your turn.', false);
                         }
                     } else {
-                        showStatus(data.message, true);
+                        turn = playerColor;
+                        updateTurn();
+                        showStatus(data.message || 'AI could not find a move.', true);
                     }
                 } catch (e) {
-                    showStatus('AI connection error.', true);
+                    turn = playerColor;
+                    updateTurn();
+                    showStatus('AI connection error. Your turn.', true);
                 }
             }
 

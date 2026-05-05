@@ -5,20 +5,20 @@ Protocol:
 VALIDATE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc>
 -> VALID | INVALID <reason>
 
-MOVES <board64> <castling_rights> <turn> <row> <col>
+MOVES <board64> <castling_rights> <turn> <ep_row> <ep_col> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
 
 ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
 -> YES | NO
 
-PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
+PROMOTE <board64> <castling_rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc> <promoPiece>
 -> PROMOTE <newBoard64>
 -> INVALID <reason>
 
-STATUS <board64> <castling_rights> <turn>
+STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
 -> STATUS CHECK | CHECKMATE | STALEMATE | OK
 
-BESTMOVE <board64> <castling_rights> <turn> <depth>
+BESTMOVE <board64> <castling_rights> <turn> <ep_row> <ep_col> <depth>
 -> BESTMOVE <fr> <fc> <tr> <tc>
 -> BESTMOVE NONE
 """
@@ -154,6 +154,9 @@ def is_square_attacked(target_row, target_col, attacker_color):
     return False
 
 
+EP_TARGET = (-1, -1)
+
+
 def valid_pawn(color, fr, fc, tr, tc):
     direction = -1 if color == 'white' else 1
     start_row = 6 if color == 'white' else 1
@@ -166,8 +169,11 @@ def valid_pawn(color, fr, fc, tr, tc):
     if col_delta == 0 and row_delta == 2 * direction and fr == start_row:
         return is_empty(BOARD[fr + direction][fc]) and is_empty(BOARD[tr][tc])
 
-    if abs(col_delta) == 1 and row_delta == direction and not is_empty(BOARD[tr][tc]):
-        return True
+    if abs(col_delta) == 1 and row_delta == direction:
+        if not is_empty(BOARD[tr][tc]):
+            return True
+        if EP_TARGET == (tr, tc):
+            return True
 
     return False
 
@@ -266,6 +272,18 @@ def leaves_king_in_check(move, side):
     src_piece = BOARD[move.fr][move.fc]
     dst_piece = BOARD[move.tr][move.tc]
 
+    # En passant: moving pawn captures diagonally to an empty square at EP_TARGET
+    is_ep = (
+        src_piece.lower() == 'p'
+        and move.fc != move.tc
+        and is_empty(BOARD[move.tr][move.tc])
+        and EP_TARGET == (move.tr, move.tc)
+    )
+    ep_captured_piece = None
+    if is_ep:
+        ep_captured_piece = BOARD[move.fr][move.tc]
+        BOARD[move.fr][move.tc] = '.'
+
     BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
     BOARD[move.fr][move.fc] = '.'
 
@@ -285,13 +303,18 @@ def leaves_king_in_check(move, side):
 
     BOARD[move.fr][move.fc] = src_piece
     BOARD[move.tr][move.tc] = dst_piece
+    if is_ep:
+        BOARD[move.fr][move.tc] = ep_captured_piece
     if rook_fr != -1:
         BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
         BOARD[rook_tr][rook_tc] = '.'
     return in_check
 
 
-def handle_moves(turn, row, col):
+def handle_moves(turn, row, col, ep_row=-1, ep_col=-1):
+    global EP_TARGET
+    EP_TARGET = (ep_row, ep_col)
+
     piece = BOARD[row][col]
     if is_empty(piece) or color_of(piece) != turn:
         print('MOVES')
@@ -311,7 +334,8 @@ def handle_moves(turn, row, col):
                 if leaves_king_in_check(move, turn):
                     continue
 
-                is_capture = 0 if is_empty(BOARD[tr][tc]) else 1
+                is_ep = EP_TARGET == (tr, tc) and piece.lower() == 'p' and is_empty(BOARD[tr][tc])
+                is_capture = 1 if (not is_empty(BOARD[tr][tc]) or is_ep) else 0
                 is_promotion = 1 if is_promotion_move(piece, tr) else 0
                 output.extend([str(tr), str(tc), str(is_capture), str(is_promotion)])
 
@@ -698,11 +722,13 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             row = int(next(tokens))
             col = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
-            handle_moves(turn, row, col)
+            handle_moves(turn, row, col, ep_row, ep_col)
         elif command == 'ATTACKED':
             board64 = next(tokens)
             rights = next(tokens)
@@ -716,6 +742,8 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            next(tokens)  # ep_row
+            next(tokens)  # ep_col
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
@@ -728,6 +756,8 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            next(tokens)  # ep_row
+            next(tokens)  # ep_col
             load_board(board64)
             load_castling_rights(rights)
             handle_status(turn)
@@ -735,6 +765,8 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            next(tokens)  # ep_row
+            next(tokens)  # ep_col
             depth = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
