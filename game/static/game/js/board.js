@@ -284,7 +284,7 @@
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
-                    el.classList.remove('selected', 'last-move');
+                    el.classList.remove('selected', 'last-move', 'in-check');
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
@@ -301,6 +301,20 @@
                         d.className = h.is_capture ? 'capture-ring' : 'move-dot';
                         el.appendChild(d);
                     });
+                }
+            }
+
+            function highlightCheck(status) {
+                boardEl.querySelectorAll('.in-check').forEach(el => el.classList.remove('in-check'));
+                if (status !== 'check') return;
+                const kingChar = turn === 'white' ? 'K' : 'k';
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        if (board[r][c] === kingChar) {
+                            sq(r, c).classList.add('in-check');
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -460,6 +474,7 @@
                         } else {
                             showStatus('', false);
                         }
+                        highlightCheck(data.game_status);
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
@@ -505,6 +520,7 @@
                         } else {
                             showStatus('Your turn.', false);
                         }
+                        highlightCheck(data.game_status);
                     } else {
                         showStatus(data.message, true);
                     }
