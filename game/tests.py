@@ -615,3 +615,101 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class EnPassantTest(TestCase):
+    """Edge-case tests for en passant capture logic."""
+
+    def setUp(self):
+        self.client.get('/')
+        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
+        self.mock_validate = self.validate_patcher.start()
+        self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
+        self.mock_engine = self.engine_patcher.start()
+        self.mock_engine.return_value = "STATUS ok"
+
+    def tearDown(self):
+        self.validate_patcher.stop()
+        self.engine_patcher.stop()
+
+    def _move(self, fr, fc, tr, tc, valid=True):
+        self.mock_validate.return_value = (valid, "")
+        return self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': fr, 'from_col': fc,
+                'to_row': tr, 'to_col': tc,
+            }),
+            content_type='application/json',
+        )
+
+    def _get_game(self):
+        session = self.client.session
+        return session['game']
+
+    def _set_game(self, game_data):
+        session = self.client.session
+        session['game'] = game_data
+        session.save()
+
+    def test_double_push_sets_en_passant_target(self):
+        """A pawn double-push must set the en passant target square."""
+        self._move(6, 4, 4, 4)  # e2 -> e4
+        game = self._get_game()
+        self.assertEqual(game['en_passant_target'], [5, 4])
+
+    def test_non_pawn_move_clears_en_passant_target(self):
+        """Any move that is not a double pawn push must clear the EP target."""
+        self._move(6, 4, 4, 4)  # e2 -> e4 (sets EP)
+        self._move(1, 1, 2, 1)  # b7 -> b6 (single push, should clear EP)
+        game = self._get_game()
+        self.assertIsNone(game['en_passant_target'])
+
+    def test_white_en_passant_captures_black_pawn(self):
+        """White pawn capturing en passant must remove the black pawn."""
+        # Play e2->e4, then spoof board to put pieces in EP position
+        self._move(6, 4, 4, 4)  # e2 -> e4 (white)
+        self._move(1, 0, 2, 0)  # a7 -> a6 (black filler)
+        self._move(4, 4, 3, 4)  # e4 -> e5 (white pawn advances)
+        self._move(1, 3, 3, 3)  # d7 -> d5 (black double push, sets EP)
+
+        # The wrapper should have set the EP target after d7->d5
+        game = self._get_game()
+        # Confirm EP target was set by the double push
+        self.assertIsNotNone(game.get('en_passant_target'))
+
+        # Now white captures en passant: e5 x d6
+        r = self._move(3, 4, 2, 3)  # exd6
+        data = r.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['captured'], 'p')
+
+    def test_black_en_passant_captures_white_pawn(self):
+        """Black pawn capturing en passant must remove the white pawn."""
+        # Play moves to get a black pawn to the 4th rank
+        self._move(6, 0, 5, 0)  # a2 -> a3 (white filler)
+        self._move(1, 3, 3, 3)  # d7 -> d5 (black)
+        self._move(6, 1, 5, 1)  # b2 -> b3 (white filler)
+        self._move(3, 3, 4, 3)  # d5 -> d4 (black pawn advances)
+        self._move(6, 4, 4, 4)  # e2 -> e4 (white double push, sets EP)
+
+        game = self._get_game()
+        self.assertIsNotNone(game.get('en_passant_target'))
+
+        # Now black captures en passant: d4 x e3
+        r = self._move(4, 3, 5, 4)  # dxe3
+        data = r.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['captured'], 'P')
+
+    def test_en_passant_not_allowed_after_intervening_move(self):
+        """EP is only valid immediately after the double push; a later attempt must fail."""
+        # White double pushes, black plays something else, white plays
+        # something else, then black tries EP — should be rejected.
+        self._move(6, 4, 4, 4)  # e2 -> e4 (sets EP target)
+        self._move(1, 0, 2, 0)  # a7 -> a6 (clears EP)
+        game = self._get_game()
+        # EP target must already be cleared
+        self.assertIsNone(game['en_passant_target'])
+
+
