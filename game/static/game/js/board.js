@@ -223,7 +223,7 @@
                         d.onclick = () => onClick(r, c);
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
-
+                        
                         d.setAttribute('tabindex', '0');
                         d.setAttribute('role', 'gridcell');
                         d.setAttribute('data-row', r);
@@ -519,8 +519,19 @@
             async function onClick(r, c) {
                 if (dragging) return;
                 if (selected) {
-                    if (hints.some(h => h.row === r && h.col === c))
-                        return tryMove(selected.r, selected.c, r, c);
+                    if (hints.some(h => h.row === r && h.col === c)) {
+                        const piece = board[selected.r][selected.c];
+                        const targetSquare = getSquareLabel(r,c);
+                        const moved = await tryMove(selected.r,selected.c,r,c);
+                        if(moved){
+                            let message = `${piece} to ${targetSquare}`;
+                            if(game.in_check()){
+                                message+=", Check!";
+                            }
+                            announceMove(message);
+                        }
+                        return;
+                    }
                     if (board[r][c] && pColor(board[r][c]) === turn)
                         return selectPiece(r, c);
                     return deselect();
@@ -538,7 +549,16 @@
 
             async function onDrop(e, tr, tc) {
                 if (!dragSrc) return;
-                await tryMove(dragSrc.r, dragSrc.c, tr, tc);
+                const piece = board[dragSrc.r][dragSrc.c];
+                const targetSquare = getSquareLabel(tr,tc);
+                const moved = await tryMove(dragSrc.r, dragSrc.c, tr, tc);
+                if (moved) {
+                    let message = `${piece} to ${targetSquare}`;
+                    if (game.in_check()) { 
+                        message += ", Check!";
+                    }
+                    announceMove(message);
+                }
                 dragSrc = null;
             }
 
@@ -918,6 +938,15 @@
                 }
             });
 
+            function announceMove(message) {
+                const announcer = document.getElementById('aria-announcer');
+                if (announcer) {
+                    announcer.textContent = '';
+                    setTimeout(() => {
+                        announcer.textContent = message;
+                    }, 50);
+                }
+            }
             /* ==========================================================
             INIT
             ========================================================== */
