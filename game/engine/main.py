@@ -687,6 +687,9 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            # Consume en-passant coordinates sent by backend
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
@@ -698,6 +701,9 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            # consume en-passant coordinates sent by backend
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             row = int(next(tokens))
             col = int(next(tokens))
             load_board(board64)
@@ -716,6 +722,9 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            # Consume en-passant coordinates sent by backend
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             fr = int(next(tokens))
             fc = int(next(tokens))
             tr = int(next(tokens))
@@ -728,6 +737,9 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            # Consume en-passant coordinates sent by backend
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
             handle_status(turn)
@@ -735,6 +747,9 @@ def run():
             board64 = next(tokens)
             rights = next(tokens)
             turn = next(tokens)
+            # Consume en-passant coordinates sent by backend
+            ep_row = int(next(tokens))
+            ep_col = int(next(tokens))
             depth = int(next(tokens))
             load_board(board64)
             load_castling_rights(rights)
