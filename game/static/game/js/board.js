@@ -25,6 +25,22 @@
             let pendingPromo = null;
 
             let gameMode = 'pvp';
+            // Updates UI to highlight selected game mode button
+            function updateModeButtonsUI(mode) {
+                const pvpBtn = document.getElementById("newPvPBtn");
+                const aiBtn = document.getElementById("newAIBtn");
+
+                if (!pvpBtn || !aiBtn) return;
+                
+                pvpBtn.classList.remove("active-mode");
+                aiBtn.classList.remove("active-mode");
+
+                if (mode === "pvp") {
+                    pvpBtn.classList.add("active-mode");
+                } else {
+                    aiBtn.classList.add("active-mode");
+                }
+            }
             let playerColor = 'white';
             let flipped = false;
             let autoFlip = false;
@@ -69,6 +85,7 @@
             const gameOverOverlay = document.getElementById('gameOverOverlay');
             const gameOverTitle = document.getElementById('gameOverTitle');
             const gameOverMessage = document.getElementById('gameOverMessage');
+            const gameOverStartBtn = document.getElementById('gameOverStartBtn');
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
@@ -88,6 +105,7 @@
             const turnBadgeText = document.getElementById('turnBadgeText');
 
             let gameOver = false;
+            let aiThinking = false;
 
             /* ==========================================================
             CSRF & API HELPERS
@@ -110,6 +128,17 @@
                     },
                     body: JSON.stringify(body)
                 })).json();
+            }
+
+            function isAITurn() {
+                return gameMode === 'ai' && turn !== playerColor && !gameOver;
+            }
+
+            function queueAIMoveIfNeeded() {
+                if (!isAITurn() || aiThinking) return;
+                setTimeout(() => {
+                    if (isAITurn() && !aiThinking) requestAIMove();
+                }, 200);
             }
 
             const pKey = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
@@ -147,6 +176,8 @@
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
+                // Sync UI with current game mode
+                updateModeButtonsUI(gameMode);
                 playerColor = data.player_color || 'white';
                 
                 if (flipControls) {
@@ -181,6 +212,32 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
+                if (gameMode === 'ai') {
+                    const aiClock = playerColor === 'white' ?
+                        document.getElementById('blackClock') :
+                        document.getElementById('whiteClock');
+                    const aiTimeEl = playerColor === 'white' ?
+                        document.getElementById('blackTime') :
+                        document.getElementById('whiteTime');
+
+                    if (aiClock) {
+                        aiClock.style.border = '2px dashed #444';
+                        aiClock.style.boxShadow = 'none';
+                        aiClock.classList.remove('active');
+                    }
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = '🤖';
+                        aiTimeEl.style.fontSize = '1.8em';
+                        aiTimeEl.style.color = '#888';
+                    }
+                }
+
+                if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
+                    handleGameStatus(data.game_status, data.draw_reason);
+                }
+                if (!welcomeOverlay.classList.contains('active')) {
+                    queueAIMoveIfNeeded();
+                }
             }
 
             function updatePlayerNames(data) {
@@ -451,10 +508,8 @@
                         renderClocks();
                         startTimer();
 
-                        if (data.game_status === 'checkmate') {
-                            endGame('checkmate', turn);
-                        } else if (data.game_status === 'stalemate') {
-                            endGame('stalemate', turn);
+                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+                            // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
                             showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
                         } else {
@@ -474,7 +529,8 @@
             }
 
             async function requestAIMove() {
-                if (gameOver) return;
+                if (gameOver || aiThinking) return;
+                aiThinking = true;
                 showStatus('AI is thinking...', false);
                 try {
                     const data = await post('/api/ai-move/', {});
@@ -496,10 +552,8 @@
                         renderClocks();
                         startTimer();
 
-                        if (data.game_status === 'checkmate') {
-                            endGame('checkmate', turn);
-                        } else if (data.game_status === 'stalemate') {
-                            endGame('stalemate', turn);
+                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+                            // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
                             showStatus('You are in check!', true);
                         } else {
@@ -510,6 +564,8 @@
                     }
                 } catch (e) {
                     showStatus('AI connection error.', true);
+                } finally {
+                    aiThinking = false;
                 }
             }
 
@@ -607,8 +663,23 @@
 
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-                cap.white.forEach(p => wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
-                cap.black.forEach(p => bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`);
+                
+                const point_vals = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
+                
+                let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                
+                cap.white.forEach((p) => {
+                    wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                });
+                cap.black.forEach((p) => {
+                    bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                });
+                
+                const wPointsEl = document.getElementById('whitePoints');
+                const bPointsEl = document.getElementById('blackPoints');
+                if (wPointsEl) wPointsEl.textContent = `+${whitePoints}`;
+                if (bPointsEl) bPointsEl.textContent = `+${blackPoints}`;
             }
 
             function showStatus(msg, err) {
@@ -616,37 +687,153 @@
                 statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
-            function endGame(reason, color) {
+            function handleGameStatus(status, drawReason) {
+                if (status === 'checkmate') {
+                    endGame('checkmate', turn);
+                    return true;
+                }
+                if (status === 'stalemate') {
+                    endGame('stalemate', turn);
+                    return true;
+                }
+                if (status === 'draw') {
+                    endGame('draw', turn, drawReason);
+                    return true;
+                }
+                return false;
+            }
+
+            function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
-
+            
                 let title = '', message = '';
-
+                let isCelebration = false; // Track if this is a win (not draw/stalemate)
+            
                 if (reason === 'checkmate') {
                     const winner = color === 'white' ? 'Black' : 'White';
-                    title = 'Checkmate!';
-                    message = `${winner} wins!`;
+                    const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
+                    title = '🏆 CHECKMATE! 🏆';
+                    message = `${winnerName} WINS!`;
+                    isCelebration = true;
                 } else if (reason === 'stalemate') {
                     title = 'Stalemate!';
                     message = 'The game is a draw.';
                 } else if (reason === 'draw') {
                     title = 'Draw!';
-                    message = 'Draw by Agreement.';
+                    const drawMessages = {
+                        agreement: 'Draw by agreement.',
+                        threefold_repetition: 'Draw by threefold repetition.',
+                        fifty_move_rule: 'Draw by the fifty-move rule.',
+                        insufficient_material: 'Draw by insufficient material.',
+                    };
+                    message = drawMessages[drawReason] || 'The game is a draw.';
                 } else if (reason === 'resign') {
                     const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = 'Resignation';
-                    message = `${loserName} resigned. ${winnerName} wins!`;
+                    title = '🏆 VICTORY! 🏆';
+                    message = `${loserName} resigned. ${winnerName} WINS!`;
+                    isCelebration = true;
                 }
-
+            
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
+                
+                // Add celebration effects for wins
+                if (isCelebration) {
+                    gameOverOverlay.classList.add('game-over-celebration');
+                    createConfetti();
+                    createSparkles();
+                } else {
+                    gameOverOverlay.classList.remove('game-over-celebration');
+                }
+                
                 gameOverOverlay.classList.add('active');
                 showStatus(title + ': ' + message, false);
                 document.title = 'Game Over - Checkora';
+            }
+
+            /* ==========================================================
+            CELEBRATION EFFECTS
+            ========================================================== */
+            function createConfetti() {
+                const overlay = document.getElementById('gameOverOverlay');
+                const dialog = overlay.querySelector('.promo-dialog');
+                
+                // Create confetti container if it doesn't exist
+                let confettiContainer = dialog.querySelector('.confetti-container');
+                if (!confettiContainer) {
+                    confettiContainer = document.createElement('div');
+                    confettiContainer.className = 'confetti-container';
+                    dialog.style.position = 'relative';
+                    dialog.appendChild(confettiContainer);
+                }
+                
+                // Clear existing confetti
+                confettiContainer.innerHTML = '';
+                
+                // Create confetti pieces
+                const colors = ['#ffd700', '#f0c040', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff9ff3'];
+                const confettiCount = 50;
+                
+                for (let i = 0; i < confettiCount; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    
+                    // Random properties
+                    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                    const randomLeft = Math.random() * 100;
+                    const randomDelay = Math.random() * 0.5;
+                    const randomDuration = 2 + Math.random() * 2;
+                    const randomRotation = Math.random() * 360;
+                    
+                    confetti.style.left = randomLeft + '%';
+                    confetti.style.background = randomColor;
+                    confetti.style.animationDelay = randomDelay + 's';
+                    confetti.style.animationDuration = randomDuration + 's';
+                    confetti.style.transform = `rotate(${randomRotation}deg)`;
+                    
+                    // Random shapes
+                    if (Math.random() > 0.5) {
+                        confetti.style.borderRadius = '50%';
+                    }
+                    
+                    confettiContainer.appendChild(confetti);
+                }
+            }
+
+            function createSparkles() {
+                const overlay = document.getElementById('gameOverOverlay');
+                const dialog = overlay.querySelector('.promo-dialog');
+                
+                let confettiContainer = dialog.querySelector('.confetti-container');
+                if (!confettiContainer) {
+                    confettiContainer = document.createElement('div');
+                    confettiContainer.className = 'confetti-container';
+                    dialog.style.position = 'relative';
+                    dialog.appendChild(confettiContainer);
+                }
+                
+                // Create sparkles
+                const sparkleCount = 20;
+                
+                for (let i = 0; i < sparkleCount; i++) {
+                    const sparkle = document.createElement('div');
+                    sparkle.className = 'sparkle';
+                    
+                    const randomLeft = Math.random() * 100;
+                    const randomTop = Math.random() * 100;
+                    const randomDelay = Math.random() * 1.5;
+                    
+                    sparkle.style.left = randomLeft + '%';
+                    sparkle.style.top = randomTop + '%';
+                    sparkle.style.animationDelay = randomDelay + 's';
+                    
+                    confettiContainer.appendChild(sparkle);
+                }
             }
 
             /* ==========================================================
@@ -658,14 +845,31 @@
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
-                if (wTime) wTime.textContent = formatTime(whiteTime);
-                if (bTime) bTime.textContent = formatTime(blackTime);
+                
 
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
-                if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-                if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+                if (gameMode === 'ai') {
+        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
+        // Player clock — update time and highlight on their turn
+        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+
+        // AI clock — static, never highlights, never updates time
+        if (aiTimeEl) aiTimeEl.textContent = '🤖';
+        if (aiClock) aiClock.classList.remove('active');
+
+    } else {
+        // PvP — both clocks update normally
+        if (wTime) wTime.textContent = formatTime(whiteTime);
+        if (bTime) bTime.textContent = formatTime(blackTime);
+        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+    }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
@@ -709,6 +913,7 @@
                 updatePauseUI();
                 renderClocks();
                 startTimer();
+                queueAIMoveIfNeeded();
             }
 
             /* ==========================================================
@@ -738,7 +943,11 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        startNewGame(mode, diff);
+                        if (mode === 'ai') {
+                            startNewGame('ai', 'white', diff);
+                        } else {
+                            startNewGame('pvp');
+                        }
                     },
                     '#ff6b6b'
                 );
@@ -762,6 +971,14 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
+                // Clear celebration effects
+                const overlay = document.getElementById('gameOverOverlay');
+                overlay.classList.remove('game-over-celebration');
+                const confettiContainer = overlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
                 const wName = document.getElementById('whiteNameInput')?.value || 'White';
                 const bName = document.getElementById('blackNameInput')?.value || 'Black';
 
@@ -791,12 +1008,14 @@
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 await loadGame();
+                // Apply active state after UI reload
+                updateModeButtonsUI(gameMode);
                 paused = false;
                 updatePauseUI();
 
                 // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
-                    requestAIMove();
+                    queueAIMoveIfNeeded();
                 }
             }
 
@@ -866,7 +1085,12 @@
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                if (paused) resumeGame();
+                if (paused) {
+                    resumeGame();
+                } else {
+                    startTimer();
+                    queueAIMoveIfNeeded();
+                }
             };
 
             if (confirmYesBtn) confirmYesBtn.onclick = () => {
@@ -878,9 +1102,30 @@
                 confirmOverlay.classList.remove('active');
                 confirmCallback = null;
             };
-
-            if (newPvPBtn) newPvPBtn.onclick = () => requestNewGame('pvp');
-            if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
+                //added new line here
+            if (newPvPBtn) newPvPBtn.onclick = () => {
+                // Clear any lingering celebration effects
+                const overlay = document.getElementById('gameOverOverlay');
+                overlay.classList.remove('game-over-celebration');
+                const confettiContainer = overlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
+                requestNewGame('pvp');
+            };
+            
+            if (newAIBtn) newAIBtn.onclick = () => {
+                // Clear any lingering celebration effects
+                const overlay = document.getElementById('gameOverOverlay');
+                overlay.classList.remove('game-over-celebration');
+                const confettiContainer = overlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
+                requestNewGame('ai');
+            };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
@@ -894,7 +1139,7 @@
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
-                if (data.success) endGame('draw', turn);
+                if (data.success) endGame('draw', turn, data.draw_reason);
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
@@ -905,7 +1150,15 @@
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
                 gameOverOverlay.classList.remove('active');
-                startNewGame(mode, diff);
+                gameOverOverlay.classList.remove('game-over-celebration');
+                
+                // Add this: Clear confetti container
+                const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
+                startNewGame(mode, 'white', diff);
             };
 
             // Theme Switcher
