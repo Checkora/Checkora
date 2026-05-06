@@ -177,6 +177,21 @@ core: Remove deprecated settings configuration.
 
 ## 🔀 Pull Request Guidelines
 
+> ⚠️ **Before starting work, sync your fork with upstream `main`.**
+> Opening a PR from a stale fork causes unnecessary merge conflicts.
+> Run these steps before creating your feature branch:
+>
+> ```bash
+> # Step 1 — Sync your fork with upstream before starting work
+> git fetch upstream
+> git checkout main
+> git rebase upstream/main
+> git push origin main
+>
+> # Step 2 — Then create your feature branch
+> git checkout -b feat/your-feature-name
+> ```
+
 1. **One PR = One Purpose**: fix one bug, add one feature, or improve documentation.
 2. Keep PRs **small and focused** — large PRs are harder to review.
 3. Fill in the **PR template** completely (it loads automatically).
@@ -236,6 +251,6 @@ Violations can be reported to the project maintainers.
 ## ❓ Questions?
 
 - Open an **issue** for project-related questions.
-- For GSSoC-specific questions, refer to the official GSSoC Discord/community channels.
+- For GSSoC-specific questions, join our Discord community: [https://discord.gg/WfrpMuNZn](https://discord.gg/WfrpMuNZn)
 
 Thank you for contributing! ♟️🎮
