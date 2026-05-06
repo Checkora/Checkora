@@ -242,17 +242,16 @@
     <div class="header">
       <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
 
-      <div class="auth-buttons">
-        {% if user.is_authenticated %}
-        <span class="welcome-msg"
-          >Welcome, <span class="username">{{ user.username }}</span></span
-        >
-        <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
-        {% else %}
-        <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-        <a href="{% url 'register' %}" class="btn-register">Register</a>
-        {% endif %}
-      </div>
+        <div class="auth-buttons">
+            {% if user.is_authenticated %}
+            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+            <a href="/stats/" class="btn-signin">Stats</a>
+        </div>
     </div>
 
     <!-- ========== GAME ========== -->
