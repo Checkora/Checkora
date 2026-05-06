@@ -325,7 +325,7 @@ def offer_draw(request):
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
- 
+   
     return JsonResponse({'success': True})
 
 
