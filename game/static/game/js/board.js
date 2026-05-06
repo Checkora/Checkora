@@ -895,11 +895,7 @@
 
             async function pauseGame() {
                 if (paused) return;
-                const d = await post('/api/pause/', {
-                    pause: true,
-                    white_time: whiteTime,
-                    black_time: blackTime
-                });
+                const d = await post('/api/pause/', { pause: true });
                 paused = d.paused;
                 whiteTime = d.white_time;
                 blackTime = d.black_time;
@@ -1188,9 +1184,7 @@
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
             window.addEventListener('beforeunload', () => {
                 if (!paused) {
-                    navigator.sendBeacon('/api/pause/', JSON.stringify({
-                        pause: true, white_time: whiteTime, black_time: blackTime
-                    }));
+                    navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
                 }
             });
 

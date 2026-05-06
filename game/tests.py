@@ -4,6 +4,7 @@ import json
 import sys
 from unittest import mock
 
+from django.conf import settings
 from django.test import SimpleTestCase, TestCase
 
 from .engine import ChessGame
@@ -268,6 +269,12 @@ class GameStateTest(TestCase):
     def setUp(self):
         self.client.get('/')
 
+    def _set_game_session(self, game):
+        session = self.client.session
+        session['game'] = game.to_dict()
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
     def test_get_state(self):
         r = self.client.get('/api/state/')
         data = r.json()
@@ -276,12 +283,54 @@ class GameStateTest(TestCase):
         self.assertEqual(data['mode'], 'pvp')
         self.assertIn('board', data)
 
+    def test_get_state_preserves_paused_games(self):
+        game = ChessGame()
+        game.paused = True
+        game.last_ts = 100.0
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=105.0),
+            mock.patch('game.engine.time.time', return_value=105.0),
+        ):
+            response = self.client.get('/api/state/')
+
+        data = response.json()
+        self.assertTrue(data['paused'])
+        self.assertEqual(data['white_time'], game.white_time)
+        self.assertEqual(data['black_time'], game.black_time)
+
+    def test_get_state_auto_pauses_long_idle_running_games(self):
+        game = ChessGame()
+        game.paused = False
+        game.last_ts = 100.0
+        game.white_time = 600
+        game.black_time = 600
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=111.0),
+            mock.patch('game.engine.time.time', return_value=111.0),
+        ):
+            response = self.client.get('/api/state/')
+
+        data = response.json()
+        self.assertTrue(data['paused'])
+        self.assertEqual(data['white_time'], 600)
+        self.assertEqual(data['black_time'], 600)
+
 
 class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
     def setUp(self):
         self.client.get('/')
+
+    def _set_game_session(self, game):
+        session = self.client.session
+        session['game'] = game.to_dict()
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
 
     def test_pause_toggle(self):
         r1 = self.client.post(
@@ -295,6 +344,33 @@ class PauseTest(TestCase):
             content_type='application/json'
         )
         self.assertFalse(r2.json()['paused'])
+
+    def test_pause_endpoint_ignores_client_supplied_clock_values(self):
+        game = ChessGame()
+        game.white_time = 600
+        game.black_time = 600
+        game.last_ts = 100.0
+        game.paused = False
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=103.0),
+            mock.patch('game.engine.time.time', return_value=103.0),
+        ):
+            response = self.client.post(
+                '/api/pause/',
+                data=json.dumps({
+                    'pause': True,
+                    'white_time': 1,
+                    'black_time': 2,
+                }),
+                content_type='application/json',
+            )
+
+        data = response.json()
+        self.assertTrue(data['paused'])
+        self.assertEqual(data['white_time'], 597)
+        self.assertEqual(data['black_time'], 600)
 
 
 class DrawOfferTest(TestCase):
