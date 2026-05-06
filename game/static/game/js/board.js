@@ -849,6 +849,12 @@
                     if (turn === 'white' && whiteTime > 0) whiteTime--;
                     if (turn === 'black' && blackTime > 0) blackTime--;
                     renderClocks();
+
+                    // Apply low-time warning class when under 60 seconds
+                    const whiteClock = document.getElementById('whiteClock');
+                    const blackClock = document.getElementById('blackClock');
+                    if (whiteClock) whiteClock.classList.toggle('low', whiteTime > 0 && whiteTime < 60);
+                    if (blackClock) blackClock.classList.toggle('low', blackTime > 0 && blackTime < 60);
                 }, 1000);
             }
 
@@ -1110,7 +1116,7 @@
                     confettiContainer.remove();
                 }
                 
-                startNewGame(mode, 'white', diff);
+                startNewGame(mode, mode === 'ai' ? playerColor : 'white', diff);
             };
 
             // Theme Switcher
