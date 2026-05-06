@@ -862,8 +862,15 @@
                     title = '🏆 VICTORY! 🏆';
                     message = `${loserName} resigned. ${winnerName} WINS!`;
                     isCelebration = true;
+                } else if (reason === 'timeout') {
+                    const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
+                    const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
+                    title = 'Timeout!';
+                    message = `${loserName} ran out of time. ${winnerName} wins!`;
                 }
-            
+                if (resignBtn) resignBtn.style.display = 'none';
+                if (drawBtn) drawBtn.style.display = 'none';
+                if (pauseBtn) pauseBtn.style.display = 'none';
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
                 
@@ -1010,10 +1017,16 @@
             function startTimer() {
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
-                    if (paused) return;
+                    if (paused || gameOver) return;
                     if (turn === 'white' && whiteTime > 0) whiteTime--;
                     if (turn === 'black' && blackTime > 0) blackTime--;
                     renderClocks();
+
+                    if (turn === 'white' && whiteTime === 0) {
+                        endGame('timeout', 'white');
+                    } else if (turn === 'black' && blackTime === 0) {
+                        endGame('timeout', 'black');
+                    }
                 }, 1000);
             }
 
