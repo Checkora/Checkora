@@ -9,6 +9,6 @@
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/wsgi" }
+    { "source": "/(.*)", "destination": "Checkora/api/wsgi.py"}
   ]
 }
