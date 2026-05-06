@@ -55,6 +55,7 @@
             const wCapEl = document.getElementById('whiteCaptured');
             const bCapEl = document.getElementById('blackCaptured');
             const pauseBtn = document.getElementById('pauseBtn');
+            const flipBtn = document.getElementById('flipBtn');
             const promoOverlay = document.getElementById('promoOverlay');
             const promoChoices = document.getElementById('promoChoices');
             const modeBadge = document.getElementById('modeBadge');
@@ -893,6 +894,11 @@
                 }, 1000);
             }
 
+            function toggleBoardOrientation() {
+                flipped = !flipped;
+                buildBoard();
+            }
+
             async function pauseGame() {
                 if (paused) return;
                 const d = await post('/api/pause/', { pause: true });
@@ -1127,6 +1133,7 @@
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
@@ -1182,6 +1189,26 @@
             });
 
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+            document.addEventListener('keydown', e => {
+                if (e.repeat) return;
+
+                const tag = document.activeElement && document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+
+                const key = e.key.toLowerCase();
+                if (key === 'f' && flipBtn) {
+                    e.preventDefault();
+                    flipBtn.click();
+                } else if (key === 'r' && resignBtn) {
+                    e.preventDefault();
+                    resignBtn.click();
+                } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
+                    e.preventDefault();
+                    drawBtn.click();
+                }
+            });
             window.addEventListener('beforeunload', () => {
                 if (!paused) {
                     navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
