@@ -43,8 +43,16 @@
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
             <div class="promo-title" style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <span style="font-size: 1.6rem; color: #f0c040;">♟</span>
-                <span style="font-family: 'Cinzel', serif; color: #f0c040; font-weight: 700; letter-spacing: 0.08em;">Checkora</span>
+                <div class="promo-title promo-logo">
+    
+                    <img src="{% static 'game/checkora_icon_only.png' %}" 
+                         style="height: 3rem; width: auto; object-fit: contain;" 
+                         alt="Checkora">
+                
+                    <span>CHECKORA</span>
+                
+                </div>
+                    
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
             <!-- Name Input Fields (Only for PvP) -->
@@ -92,7 +100,8 @@
     <!-- ========== HEADER ========== -->
 <div class="header">
     <div class="logo-container">
-        <span class="logo-icon">♟</span>
+        <img src="{% static 'game/checkora_icon_only.png' %}" 
+            class="logo-icon-img" alt="Checkora">
         <span class="logo-text">Checkora</span>
         <span class="badge" id="modeBadge">PVP</span>
     </div>

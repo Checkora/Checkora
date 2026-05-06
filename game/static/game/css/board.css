@@ -16,9 +16,9 @@ body {
 /* ============================================================
    Header
    ============================================================ */
-.header { 
+
+   .header { 
     padding: 20px 0 8px; 
-    text-align: center; 
     position: relative;
     display: flex;
     align-items: center;
@@ -30,31 +30,58 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    line-height: 1;
+    gap: 8px;   /* tighter = better */
 }
 
-.logo-icon {
-    font-size: 1.75rem;
-    color: #f0c040;
-    line-height: 1;
-    vertical-align: middle;
-    display: inline-flex;
-    align-items: center;
-    transition: none;
+/* Logo image */
+.logo-icon-img {
+    animation: logoGlow 2.5s ease-in-out infinite alternate;
 }
 
+@keyframes logoGlow {
+    from {
+        filter: brightness(1.5) contrast(1.2)
+                drop-shadow(0 0 6px rgba(0, 200, 255, 0.4));
+    }
+    to {
+        filter: brightness(1.8) contrast(1.4)
+                drop-shadow(0 0 14px rgba(0, 200, 255, 0.7));
+    }
+}
+
+/* Text */ 
 .logo-text {
     font-family: 'Cinzel', serif;
-    font-size: 1.75rem;
+    font-size: 26px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 2px;
     color: #f0c040;
-    line-height: 1;
-    text-shadow: none;
-    transition: none;
+}
+.logo-icon-img {
+    height: 40px;
+    filter: none;  /* no animation here */
 }
 
+@keyframes logoGlow {
+    0% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
+    }
+    100% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .logo-icon-img {
+        height: 26px;
+    }
+    .logo-text {
+        font-size: 20px;
+    }
+}
 .header .badge {
     font-size: 0.55em;
     color: #d4a574;
@@ -472,9 +499,9 @@ body {
         gap: 6px;
     }
     
-    .logo-icon {
+    /*.logo-icon {
         font-size: 1.1rem;
-    }
+    }*/
     
     .logo-text {
         font-size: 1.4rem;
@@ -738,7 +765,34 @@ body {
     height: 100%;
     pointer-events: none;
 }
+.promo-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
 
+.promo-logo span {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f0c040;
+    letter-spacing: 2px;
+}
+
+.promo-title img {
+    height: 46px;
+    width: auto;
+    object-fit: contain;
+
+    transform: translateY(2px);
+
+    /* base look */
+    filter: brightness(1.6) contrast(1.3);
+
+    /* animation only here */
+    animation: logoGlow 2.8s ease-in-out infinite alternate;
+}
 
 /* ================= CELEBRATION EFFECTS ================= */
 
