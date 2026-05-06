@@ -25,16 +25,19 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xxp%6a$wd+upx#21yr%xz=o_o^@spzf%ozsp1i-lr!^bj%f6)4'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-xxp%6a$wd+upx#21yr%xz=o_o^@spzf%ozsp1i-lr!^bj%f6)4')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+IS_VERCEL = "VERCEL" in os.environ
+DEBUG = os.getenv('DEBUG', 'True' if not IS_VERCEL else 'False') == 'True'
 
-ALLOWED_HOSTS = ['.vercel.app', '*']
+ALLOWED_HOSTS = ['.vercel.app', 'localhost', '127.0.0.1', '*']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://checkora.vercel.app',
     'https://*.vercel.app',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
 ]
 
 
@@ -47,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_vite',
     'game',
 ]
 
@@ -132,12 +136,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [
-    BASE_DIR / "game" / "static",
-]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+
+# Vite settings
+DJANGO_VITE_ASSETS_PATH = BASE_DIR / "frontend" / "dist"
+DJANGO_VITE_DEV_MODE = DEBUG
+DJANGO_VITE_DEV_SERVER_PORT = 5173
+DJANGO_VITE_MANIFEST_PATH = DJANGO_VITE_ASSETS_PATH / ".vite" / "manifest.json"
+
+STATICFILES_DIRS = [
+    DJANGO_VITE_ASSETS_PATH,
+]
 
 # Email Configuration for OTP
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

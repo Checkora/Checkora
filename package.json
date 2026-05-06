@@ -1,0 +1,31 @@
+{
+  "name": "checkora",
+  "version": "1.0.0",
+  "description": "<div align=\"center\">",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run vite\" \"npm run django\"",
+    "vite": "vite",
+    "django": "python manage.py runserver",
+    "build": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Checkora/Checkora.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Checkora/Checkora/issues"
+  },
+  "homepage": "https://github.com/Checkora/Checkora#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "vite": "^8.0.10"
+  }
+}

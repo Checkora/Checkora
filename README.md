@@ -79,10 +79,14 @@ source venv/bin/activate     # macOS / Linux
 
 # 3. Install dependencies
 pip install -r requirements.txt
+npm install
 
-# 4. Run migrations and start the server
-python manage.py migrate
-python manage.py runserver
+# 4. Start the development environment
+npm run dev          # Runs both together
+
+# OR run separately
+npm run vite         # Frontend only
+npm run django       # Backend only
 ```
 
 Open `http://127.0.0.1:8000/` in your browser and start playing.
@@ -120,7 +124,7 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
 
 | Layer | Technology | Path |
 |-------|-----------|------|
-| Frontend | HTML, CSS, JavaScript | `game/templates/game/board.html` |
+| Frontend | Vite, JS, CSS | `frontend/src/` |
 | Backend | Django 5.x | `game/views.py`, `game/engine.py` |
 | Engine (Primary) | C++17 | `game/engine/main.cpp` |
 | Engine (Fallback) | Python 3.10+ | `game/engine/main.py` |

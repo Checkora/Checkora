@@ -1,12 +1,14 @@
 {% load static %}
+{% load django_vite %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    {% vite_hmr_client %}
+    {% vite_asset 'css/auth.css' %}
+    <link rel="icon" type="image/jpeg" href="{% vite_asset 'assets/favicon.jpeg' %}">
 </head>
 <body>
 

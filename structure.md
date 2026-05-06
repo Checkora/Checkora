@@ -12,7 +12,8 @@ Checkora is an open-source chess platform built upon the **Django** web framewor
 **The Hybrid Strategy**  
 To guarantee a lightning-fast but crash-proof experience, we utilize a dual-engine architecture:
 - 🚀 **Primary Engine (C++)**: Extremely fast at processing millions of calculations to power the engine's AI.
-- 🐍 **Fallback Engine (Python)**: An exact structural replica of the C++ engine. If the deployment server ever lacks permissions to run the compiled C++ binary, Checkora securely falls back to Python execution so the game never crashes.
+- 🐍 **Fallback Engine (Python)**: An exact structural replica of the C++ engine.
+- ⚡ **Frontend Build Layer (Vite)**: Manages assets and provides Hot Module Replacement (HMR) for instant UI updates during development.
 
 ![Macro Architecture Dependencies](image.png)
 ![Tests and Fallback Enforcement](image-1.png)
@@ -71,8 +72,8 @@ Below is the concrete data lifecycle generated when you grab a piece and execute
 
 | Step | Action Layer | System Response |
 | :---: | :--- | :--- |
-| **1** | **🖥️ Frontend UI** | The player drags their piece dynamically across the grid. An API `POST` is immediately triggered. |
+| **1** | **🖥️ Frontend UI** | The player drags their piece. Vite's HMR ensures any code changes you make reflect instantly. An API `POST` is triggered. |
 | **2** | **🔗 Django Views** | Incoming endpoints (`views.py`) trap the grid coordinates, reloading the active JSON session. |
-| **3** | **📦 Wrapper Sync** | The `ChessGame` instance translates state layouts entirely to pure terminal commands, initializing the Python or C++ engine IO pipeline. |
-| **4** | **🛡️ Engine Logic** | The terminal `run()` loop catches the stream, parses validation barriers (`validate_move`), and issues a strict boolean textual acceptance. |
-| **5** | **✅ Broadcast** | The wrapper processes the safe engine response, updating the server logs and signaling Django responses back to your screen. |
+| **3** | **📦 Wrapper Sync** | The `ChessGame` instance translates state layouts into pure terminal commands, initializing the engine IO pipeline. |
+| **4** | **🛡️ Engine Logic** | The terminal `run()` loop catches the stream, parses validation barriers, and issues a strict acceptance. |
+| **5** | **✅ Broadcast** | The wrapper processes the response, updating logs and signaling Django responses back to the screen. |

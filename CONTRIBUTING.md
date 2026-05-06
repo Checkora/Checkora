@@ -64,8 +64,10 @@ Welcome to GSSoC! Here's how the contribution flow works for this project:
 | Tool | Version |
 |------|---------|
 | Python | ≥ 3.10 |
+| Node.js | ≥ 18.x |
 | g++ | ≥ 11 (for C++ engine) |
 | pip | latest |
+| npm | latest |
 
 ### Installation
 
@@ -75,8 +77,9 @@ python -m venv .venv
 source .venv/bin/activate        # Linux/macOS
 .venv\Scripts\activate           # Windows
 
-# Install Python dependencies
+# Install Python and Node dependencies
 pip install -r requirements.txt
+npm install
 
 # Compile the C++ chess engine (Linux/macOS)
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
@@ -88,8 +91,14 @@ g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main.exe
 # Run database migrations
 python manage.py migrate
 
-# Start the development server
-python manage.py runserver
+# Start the development environment (Combined Vite + Django)
+npm run dev
+
+# ALTERNATIVE: Manual way (if you want separate terminals)
+# Terminal 1: Vite Dev Server
+npm run vite
+# Terminal 2: Django Server
+npm run django
 ```
 
 ### Running Tests
