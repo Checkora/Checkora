@@ -35,6 +35,8 @@ def index(request):
 def record_game_result(mode, winner, reason):
     """Save a completed game result to the database."""
     GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -494,21 +496,19 @@ def logout_view(request):
     logout(request)
     return redirect('index')
 
+
 def stats_view(request):
     """Display game statistics."""
-    from django.db.models import Count
+    # from django.db.models import Count
     recent = GameResult.objects.order_by('-played_at')[:20]
     ai_results = GameResult.objects.filter(mode='ai')
     ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    ai_losses = 0
+    # ai_losses = 0
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })
-
-
-
