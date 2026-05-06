@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora | AI Chess</title>
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
     <!-- Vercel Speed Insights -->
     <script>
@@ -34,13 +35,17 @@
 
 </head>
 
+
 <body>
 
     <!-- ========== WELCOME MESSAGE ========== -->
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
-            <div class="promo-title" style="font-size: 1.6rem; color: #fff; margin-bottom: 10px;">Checkora</div>
+            <div class="promo-title" style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span style="font-size: 1.6rem; color: #f0c040;">♟</span>
+                <span style="font-family: 'Cinzel', serif; color: #f0c040; font-weight: 700; letter-spacing: 0.08em;">Checkora</span>
+            </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
             <!-- Name Input Fields (Only for PvP) -->
             <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
@@ -85,20 +90,24 @@
     </div>
 
     <!-- ========== HEADER ========== -->
-    <div class="header">
-        <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
-
-        <div class="auth-buttons">
-            {% if user.is_authenticated %}
-            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
-            {% else %}
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
-            {% endif %}
-            <a href="/stats/" class="btn-signin">Stats</a>
-        </div>
+<div class="header">
+    <div class="logo-container">
+        <span class="logo-icon">♟</span>
+        <span class="logo-text">Checkora</span>
+        <span class="badge" id="modeBadge">PVP</span>
     </div>
+
+    <div class="auth-buttons">
+        {% if user.is_authenticated %}
+        <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+        <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+        <a href="{% url 'register' %}" class="btn-register">Register</a>
+        {% endif %}
+        <a href="/stats/" class="btn-signin">Stats</a>
+    </div>
+</div>
 
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
