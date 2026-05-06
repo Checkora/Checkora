@@ -663,3 +663,64 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class EngineParsingTest(SimpleTestCase):
+    """Test that Python correctly parses engine responses and serialises data."""
+
+    def setUp(self):
+        self.game = ChessGame()
+
+    def test_get_ai_move_parses_bestmove(self):
+        """Test that get_ai_move correctly parses the BESTMOVE response from the engine."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="BESTMOVE 6 4 4 4") as mock_engine:
+            with mock.patch.object(ChessGame, 'get_opening_book_move', return_value=None):
+                move = self.game.get_ai_move(depth=3)
+                
+                self.assertIsNotNone(move)
+                self.assertEqual(move, {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4})
+                
+                mock_engine.assert_called_once()
+                cmd = mock_engine.call_args[0][0]
+                self.assertTrue(cmd.startswith("BESTMOVE"))
+                parts = cmd.split()
+                # Command format: BESTMOVE <board> <rights> <turn> <ep_row> <ep_col> <depth>
+                self.assertEqual(len(parts), 7)
+                self.assertEqual(parts[0], "BESTMOVE")
+                self.assertEqual(len(parts[1]), 64)
+
+    def test_get_ai_move_handles_none(self):
+        """Test that get_ai_move handles a BESTMOVE NONE response."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="BESTMOVE NONE"):
+            with mock.patch.object(ChessGame, 'get_opening_book_move', return_value=None):
+                move = self.game.get_ai_move()
+                self.assertIsNone(move)
+
+    def test_get_ai_move_handles_malformed_output(self):
+        """Test that get_ai_move handles malformed or unexpected engine output gracefully."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="UNKNOWN OUTPUT"):
+            with mock.patch.object(ChessGame, 'get_opening_book_move', return_value=None):
+                move = self.game.get_ai_move()
+                self.assertIsNone(move)
+
+    def test_get_engine_moves_parses_moves(self):
+        """Test that valid moves are correctly parsed from the MOVES response."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="MOVES 4 4 0 0 3 3 1 0 0 0 0 1"):
+            moves = self.game._get_engine_moves(6, 4)
+            self.assertEqual(len(moves), 3)
+            self.assertEqual(moves[0], {'row': 4, 'col': 4, 'is_capture': False, 'is_promotion': False})
+            self.assertEqual(moves[1], {'row': 3, 'col': 3, 'is_capture': True, 'is_promotion': False})
+            self.assertEqual(moves[2], {'row': 0, 'col': 0, 'is_capture': False, 'is_promotion': True})
+
+    def test_check_game_status_parses_status(self):
+        """Test that game status is correctly parsed from the STATUS response."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="STATUS checkmate"):
+            status = self.game.check_game_status()
+            self.assertEqual(status, "checkmate")
+
+    def test_call_engine_promote_parses_board(self):
+        """Test that the new board string is correctly parsed from the PROMOTE response."""
+        fake_board = "rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR"
+        with mock.patch.object(ChessGame, '_call_engine', return_value=f"PROMOTE {fake_board}"):
+            board = self.game._call_engine_promote(1, 0, 0, 0, 'q')
+            self.assertEqual(board, fake_board)
