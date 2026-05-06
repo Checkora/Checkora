@@ -733,9 +733,40 @@ class EngineParsingTest(SimpleTestCase):
             status = self.game.check_game_status()
             self.assertEqual(status, "checkmate")
 
+    def test_check_game_status_defaults_to_ok_for_none_response(self):
+        """Test that a None engine response safely falls back to the default status."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value=None):
+            status = self.game.check_game_status()
+            self.assertEqual(status, "ok")
+
+    def test_check_game_status_defaults_to_ok_for_empty_response(self):
+        """Test that an empty engine response safely falls back to the default status."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value=""):
+            status = self.game.check_game_status()
+            self.assertEqual(status, "ok")
+
+    def test_check_game_status_defaults_to_ok_for_unknown_status(self):
+        """Test that an unknown STATUS value safely falls back to the default status."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="STATUS mystery"):
+            status = self.game.check_game_status()
+            self.assertEqual(status, "ok")
+
     def test_call_engine_promote_parses_board(self):
         """Test that the new board string is correctly parsed from the PROMOTE response."""
         fake_board = "rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR"
         with mock.patch.object(ChessGame, '_call_engine', return_value=f"PROMOTE {fake_board}"):
             board = self.game._call_engine_promote(1, 0, 0, 0, 'q')
             self.assertEqual(board, fake_board)
+
+    def test_call_engine_promote_handles_malformed_output(self):
+        """Test that malformed PROMOTE responses return None rather than raising."""
+        malformed_responses = [
+            "PROMOTE",
+            "PROMOTE short",
+            "PROMOTE too many tokens",
+        ]
+        for response in malformed_responses:
+            with self.subTest(response=response):
+                with mock.patch.object(ChessGame, '_call_engine', return_value=response):
+                    board = self.game._call_engine_promote(1, 0, 0, 0, 'q')
+                    self.assertIsNone(board)

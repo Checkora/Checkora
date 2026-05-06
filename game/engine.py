@@ -454,7 +454,7 @@ class ChessGame:
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
             # C++ now returns 4 fields per move: row col is_capture is_promotion
-            for i in range(0, len(parts), 4):
+            for i in range(0, len(parts) - 3, 4):
                 moves.append({
                     'row': int(parts[i]),
                     'col': int(parts[i+1]),
@@ -478,7 +478,9 @@ class ChessGame:
         cmd = f"PROMOTE {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc} {choice}"
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
-            return resp.split()[1]
+            parts = resp.split()
+            if len(parts) >= 2 and len(parts[1]) == 64:
+                return parts[1]
         return None
 
     @staticmethod
@@ -584,9 +586,11 @@ class ChessGame:
         cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
         resp = self._call_engine(cmd)
         if resp and resp.startswith("STATUS"):
-            status = resp.split()[1].lower()
-            if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
-                return status
+            parts = resp.split()
+            if len(parts) >= 2:
+                status = parts[1].lower()
+                if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
+                    return status
         return 'ok'
 
     # ------------------------------------------------------------------
