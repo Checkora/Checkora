@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class GameResult(models.Model):
@@ -11,6 +12,12 @@ class GameResult(models.Model):
         ("timeout", "Timeout"),
         ("agreement", "Agreement"),
     ]
+    player = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='game_results',
+    )
+    
+    player_color = models.CharField(max_length=5, null=True, blank=True)
     mode = models.CharField(max_length=10, choices=MODE_CHOICES)
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
     end_reason = models.CharField(max_length=15, choices=END_REASON_CHOICES)

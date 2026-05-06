@@ -31,12 +31,23 @@
         <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>
     </div>
 
+    {% if user_stats %}
+    <h2>Your Stats ({{ user.username }})</h2>
+    <div class="summary">
+        <div class="card"><div class="num">{{ user_stats.total }}</div><div class="label">Games Played</div></div>
+        <div class="card"><div class="num">{{ user_stats.wins }}</div><div class="label">Wins</div></div>
+        <div class="card"><div class="num">{{ user_stats.draws }}</div><div class="label">Draws</div></div>
+        <div class="card"><div class="num">{{ user_stats.losses }}</div><div class="label">Losses</div></div>
+    </div>
+    {% endif %}
+
     <h2>Recent Games</h2>
     {% if recent %}
     <table>
         <thead>
             <tr>
                 <th>Mode</th>
+                <th>Player</th>
                 <th>Winner</th>
                 <th>End Reason</th>
                 <th>Played At</th>
@@ -46,6 +57,7 @@
             {% for result in recent %}
             <tr>
                 <td>{{ result.get_mode_display }}</td>
+                <td>{{ result.player.username|default:"—" }}</td>
                 <td>{{ result.get_winner_display }}</td>
                 <td>{{ result.get_end_reason_display }}</td>
                 <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>

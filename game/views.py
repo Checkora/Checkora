@@ -18,6 +18,7 @@ from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from django.db import models as db_models
 from .engine import ChessGame
 from .models import GameResult
 
@@ -31,9 +32,13 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def record_game_result(mode, winner, reason):
+def record_game_result(mode, winner, reason, user=None, player_color=None):
     """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+    GameResult.objects.create(
+        mode=mode, winner=winner, end_reason=reason,
+        player=user if (user and user.is_authenticated) else None,
+        player_color=player_color or None,
+    )
 
 
 @require_POST
@@ -64,9 +69,9 @@ def make_move(request):
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
+            record_game_result(game.mode, winner, 'checkmate', request.user, game.player_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+            record_game_result(game.mode, 'draw', 'stalemate', request.user, game.player_color)
 
     return JsonResponse({
         'valid': success,
@@ -280,6 +285,11 @@ def ai_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(game.mode, winner, 'checkmate', request.user, game.player_color)
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(game.mode, 'draw', 'stalemate', request.user, game.player_color)
 
     return JsonResponse({
         'valid': success,
@@ -319,7 +329,7 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(game.mode, 'draw', 'agreement')
+        record_game_result(game.mode, 'draw', 'agreement', request.user, game.player_color)
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -348,7 +358,7 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(game.mode, winner, 'resign') 
+    record_game_result(game.mode, winner, 'resign', request.user, game.player_color)
 
     return JsonResponse({
         'valid': True,
@@ -500,16 +510,30 @@ def logout_view(request):
 
 def stats_view(request):
     """Display game statistics."""
-    # from django.db.models import Count
     recent = GameResult.objects.order_by('-played_at')[:20]
     ai_results = GameResult.objects.filter(mode='ai')
     ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    # ai_losses = 0
+
+    user_stats = None
+    if request.user.is_authenticated:
+        user_results = GameResult.objects.filter(player=request.user)
+        total = user_results.count()
+        draws = user_results.filter(winner='draw').count()
+        # A win is when the recorded winner matches the color the user was playing
+        wins = user_results.filter(winner=db_models.F('player_color')).count()
+        user_stats = {
+            'total': total,
+            'wins': wins,
+            'draws': draws,
+            'losses': total - wins - draws,
+        }
+
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
+        'user_stats': user_stats,
     })
