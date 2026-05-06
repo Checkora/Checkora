@@ -88,6 +88,8 @@ class ChessGame:
         self.halfmove_clock = 0
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
+        self.game_status = 'active'
+        self.draw_reason = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -110,6 +112,8 @@ class ChessGame:
             'player_color': self.player_color,
             'halfmove_clock': self.halfmove_clock,
             'repetition_history': self.repetition_history,
+            'game_status': self.game_status,
+            'draw_reason': self.draw_reason,
         }
 
     @classmethod
@@ -129,6 +133,8 @@ class ChessGame:
         game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
         game.en_passant_target = data.get('en_passant_target', None)
         game.halfmove_clock = data.get('halfmove_clock', 0)
+        game.game_status = data.get('game_status', 'active')
+        game.draw_reason = data.get('draw_reason', None)
 
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
@@ -273,6 +279,9 @@ class ChessGame:
 
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """Execute move and invalidate cache to ensure fresh calculations."""
+        if self.game_status != 'active':
+            return False, "Game is already over.", None, self.game_status
+
         piece = self.board[fr][fc]
         if not piece or self._color(piece) != self.current_turn:
             return False, "Not your piece or empty square", None, 'active'
@@ -393,15 +402,32 @@ class ChessGame:
         game_status = self.check_game_status()
 
         if game_status == 'checkmate':
+            self.game_status = game_status
             return True, notation, captured, game_status
 
         if game_status == 'stalemate':
+            self.game_status = game_status
+            self.draw_reason = 'stalemate'
+            return True, notation, captured, game_status
+
+        if game_status == 'draw':
+            self.game_status = game_status
+            self.draw_reason = 'insufficient_material'
             return True, notation, captured, game_status
 
         repetition_count = self.repetition_counts.get(self.generate_position_key(), 1)
-        if self.halfmove_clock >= 100 or repetition_count >= 3:
+        if repetition_count >= 3:
+            self.game_status = 'draw'
+            self.draw_reason = 'threefold_repetition'
             return True, notation, captured, 'draw'
 
+        if self.halfmove_clock >= 100:
+            self.game_status = 'draw'
+            self.draw_reason = 'fifty_move_rule'
+            return True, notation, captured, 'draw'
+
+        self.game_status = 'active'
+        self.draw_reason = None
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
