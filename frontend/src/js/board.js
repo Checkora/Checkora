@@ -901,6 +901,13 @@ import '../css/board.css';
         pveOptions.style.display = 'flex';
     };
 
+    if (startAIBtn) startAIBtn.onclick = () => {
+        const diff = document.getElementById('welcomeDifficultySelect').value;
+        welcomeOverlay.classList.remove('active');
+        gameLayout.style.visibility = 'visible';
+        startNewGame('ai', selectedPveColor, diff);
+    };
+
     if (backToModes) backToModes.onclick = () => {
         const nameInputs = document.getElementById('nameInputs');
         pveOptions.style.display = 'none';
