@@ -18,11 +18,11 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = context.payload.issue.number;
-            
+
             const label = 'GSSoC';
-            const color = 'FD873D'; 
+            const color = 'FD873D';
             const description = 'Under GirlScript Summer of Code';
-            
+
             try {
               await github.rest.issues.updateLabel({
                 owner,
@@ -51,7 +51,7 @@ jobs:
                 throw err;
               }
             }
-            
+
             await github.rest.issues.addLabels({
               owner,
               repo,

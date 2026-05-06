@@ -7,9 +7,9 @@
 
 ## 🏗️ High-Level Overview
 
-Checkora is an open-source chess platform built upon the **Django** web framework. Django acts as the central hub, accepting player inputs from the website and sending them into our core AI chess engine to construct the next state. 
+Checkora is an open-source chess platform built upon the **Django** web framework. Django acts as the central hub, accepting player inputs from the website and sending them into our core AI chess engine to construct the next state.
 
-**The Hybrid Strategy**  
+**The Hybrid Strategy**
 To guarantee a lightning-fast but crash-proof experience, we utilize a dual-engine architecture:
 - 🚀 **Primary Engine (C++)**: Extremely fast at processing millions of calculations to power the engine's AI.
 - 🐍 **Fallback Engine (Python)**: An exact structural replica of the C++ engine. If the deployment server ever lacks permissions to run the compiled C++ binary, Checkora securely falls back to Python execution so the game never crashes.
@@ -30,7 +30,7 @@ This file holds the API endpoints that power the frontend interface events:
 *   **`ai_move`**: Prompts the engine's AI subsystem to compute and execute an optimal calculated response.
 
 ### 2. The Translator (`engine.py` & `ChessGame`)
-Rather than relying on `views.py` to execute raw chess mechanics, we interact entirely through the `ChessGame` wrapper. 
+Rather than relying on `views.py` to execute raw chess mechanics, we interact entirely through the `ChessGame` wrapper.
 *   **State Translation**: Converts the complex Python-dictionary chessboard state into a flat, robust text string that the engine can immediately interpret.
 *   **Subprocessing Loop**: Spawns the backend engine discreetly in the background, pushes the text command into standard IO, and records the answer.
 
@@ -54,7 +54,7 @@ Consider `run()` the processing lobby. When the engine establishes an instance, 
 ### **2. Move Validation Pipeline**
 Any user displacement must be heavily audited through `validate_move`.
 *   The system scans the active piece parameter.
-*   It distributes execution to rigid piece-specific algorithmic barriers (e.g., `valid_knight`, `valid_bishop`, `valid_queen`). 
+*   It distributes execution to rigid piece-specific algorithmic barriers (e.g., `valid_knight`, `valid_bishop`, `valid_queen`).
 *   This structure comprehensively halts illegal traversals (like knights moving linearly, or rooks bypassing colliding subjects horizontally).
 
 ### **3. The AI Brain (`minimax`)**

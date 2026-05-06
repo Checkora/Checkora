@@ -23,44 +23,42 @@ import json
 import sys
 import time
 
-from django.conf import settings
-
 
 class ChessGame:
     """Manage a single chess game: state, validation, and engine communication."""
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    ENGINE_DIR = os.path.join(CURRENT_DIR, 'engine')
+    ENGINE_DIR = os.path.join(CURRENT_DIR, "engine")
     ENGINE_CANDIDATES = (
         [
-            os.path.join(ENGINE_DIR, 'main.exe'),
-            os.path.join(ENGINE_DIR, 'main'),
-            os.path.join(ENGINE_DIR, 'main.py'),
+            os.path.join(ENGINE_DIR, "main.exe"),
+            os.path.join(ENGINE_DIR, "main"),
+            os.path.join(ENGINE_DIR, "main.py"),
         ]
-        if os.name == 'nt' else
-        [
-            os.path.join(ENGINE_DIR, 'main'),
-            os.path.join(ENGINE_DIR, 'main.exe'),
-            os.path.join(ENGINE_DIR, 'main.py'),
+        if os.name == "nt"
+        else [
+            os.path.join(ENGINE_DIR, "main"),
+            os.path.join(ENGINE_DIR, "main.exe"),
+            os.path.join(ENGINE_DIR, "main.py"),
         ]
     )
-    FILES = 'abcdefgh'
+    FILES = "abcdefgh"
 
     # Path to the JSON opening book
-    OPENING_BOOK_PATH = os.path.join(ENGINE_DIR, 'opening_book.json')
+    OPENING_BOOK_PATH = os.path.join(ENGINE_DIR, "opening_book.json")
 
     # Class-level cache so the file is read only once per process
     _opening_book: dict | None = None
 
     INITIAL_BOARD = [
-        ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-        ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+        ["r", "n", "b", "q", "k", "b", "n", "r"],
+        ["p", "p", "p", "p", "p", "p", "p", "p"],
         [None, None, None, None, None, None, None, None],
         [None, None, None, None, None, None, None, None],
         [None, None, None, None, None, None, None, None],
         [None, None, None, None, None, None, None, None],
-        ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-        ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
+        ["P", "P", "P", "P", "P", "P", "P", "P"],
+        ["R", "N", "B", "Q", "K", "B", "N", "R"],
     ]
 
     # ------------------------------------------------------------------
@@ -69,74 +67,75 @@ class ChessGame:
 
     def __init__(self):
         self.board = [row[:] for row in self.INITIAL_BOARD]
-        self.current_turn = 'white'
+        self.current_turn = "white"
         self.move_history = []
-        self.captured = {'white': [], 'black': []}
+        self.captured = {"white": [], "black": []}
         # DP Table: {(row, col): [list of moves]}
         self.valid_moves_cache = {}
         self.white_time = 10 * 60  # 10 minutes
         self.black_time = 10 * 60
         self.last_ts = time.time()
         self.paused = False
-        self.mode = 'pvp'
-        self.player_color = 'white'
-        self.castling_rights = {
-            'w_k': True, 'w_q': True,
-            'b_k': True, 'b_q': True
-        }
-        self.en_passant_target = None  # (row, col) of the square a pawn can capture en passant
+        self.mode = "pvp"
+        self.player_color = "white"
+        self.castling_rights = {"w_k": True, "w_q": True, "b_k": True, "b_q": True}
+        self.en_passant_target = (
+            None  # (row, col) of the square a pawn can capture en passant
+        )
         self.halfmove_clock = 0
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
-        self.game_status = 'active'
+        self.game_status = "active"
         self.draw_reason = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
-        return ''.join(c if c else '.' for row in self.board for c in row)
+        return "".join(c if c else "." for row in self.board for c in row)
 
     def to_dict(self):
         """Serialise state for Django session storage. DP cache is intentionally excluded to save cookie space."""
         return {
-            'board': self.board,
-            'current_turn': self.current_turn,
-            'move_history': self.move_history,
-            'captured': self.captured,
-            'white_time': self.white_time,
-            'black_time': self.black_time,
-            'last_ts': self.last_ts,
-            'paused': self.paused,
-            'mode': self.mode,
-            'castling_rights': self.castling_rights,
-            'en_passant_target': self.en_passant_target,
-            'player_color': self.player_color,
-            'halfmove_clock': self.halfmove_clock,
-            'repetition_history': self.repetition_history,
-            'game_status': self.game_status,
-            'draw_reason': self.draw_reason,
+            "board": self.board,
+            "current_turn": self.current_turn,
+            "move_history": self.move_history,
+            "captured": self.captured,
+            "white_time": self.white_time,
+            "black_time": self.black_time,
+            "last_ts": self.last_ts,
+            "paused": self.paused,
+            "mode": self.mode,
+            "castling_rights": self.castling_rights,
+            "en_passant_target": self.en_passant_target,
+            "player_color": self.player_color,
+            "halfmove_clock": self.halfmove_clock,
+            "repetition_history": self.repetition_history,
+            "game_status": self.game_status,
+            "draw_reason": self.draw_reason,
         }
 
     @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
         game = cls.__new__(cls)
-        game.board = data['board']
-        game.current_turn = data['current_turn']
-        game.move_history = data.get('move_history', [])
-        game.captured = data.get('captured', {'white': [], 'black': []})
-        game.paused = data.get('paused', False)
-        game.white_time = data['white_time']
-        game.black_time = data['black_time']
-        game.last_ts = data['last_ts']
-        game.mode = data.get('mode', 'pvp')
-        game.player_color = data.get('player_color', 'white')
-        game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
-        game.en_passant_target = data.get('en_passant_target', None)
-        game.halfmove_clock = data.get('halfmove_clock', 0)
-        game.game_status = data.get('game_status', 'active')
-        game.draw_reason = data.get('draw_reason', None)
+        game.board = data["board"]
+        game.current_turn = data["current_turn"]
+        game.move_history = data.get("move_history", [])
+        game.captured = data.get("captured", {"white": [], "black": []})
+        game.paused = data.get("paused", False)
+        game.white_time = data["white_time"]
+        game.black_time = data["black_time"]
+        game.last_ts = data["last_ts"]
+        game.mode = data.get("mode", "pvp")
+        game.player_color = data.get("player_color", "white")
+        game.castling_rights = data.get(
+            "castling_rights", {"w_k": True, "w_q": True, "b_k": True, "b_q": True}
+        )
+        game.en_passant_target = data.get("en_passant_target", None)
+        game.halfmove_clock = data.get("halfmove_clock", 0)
+        game.game_status = data.get("game_status", "active")
+        game.draw_reason = data.get("draw_reason", None)
 
-        repetition_history = data.get('repetition_history')
+        repetition_history = data.get("repetition_history")
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
         else:
@@ -162,7 +161,7 @@ class ChessGame:
     @staticmethod
     def _build_engine_command(engine_path):
         """Build the subprocess command for either a binary or Python script."""
-        if engine_path.endswith('.py'):
+        if engine_path.endswith(".py"):
             return [sys.executable, engine_path]
         return [engine_path]
 
@@ -194,27 +193,31 @@ class ChessGame:
         if not engine_path:
             return self.AI_SEARCH_DEPTH_PYTHON
         # C++ binary is much faster than Python, use deeper search
-        if engine_path.endswith('.py'):
+        if engine_path.endswith(".py"):
             return self.AI_SEARCH_DEPTH_PYTHON
-            
+
         piece_count = self._count_active_pieces()
-        
+
         # Adaptive Search Depth for C++ engine in endgame
         if piece_count <= 6:
             return self.AI_SEARCH_DEPTH_CPP + 2
         elif piece_count <= 12:
             return self.AI_SEARCH_DEPTH_CPP + 1
-            
+
         return self.AI_SEARCH_DEPTH_CPP
 
     def serialize_castling_rights(self):
         """Serialize castling rights to a string for the C++ engine."""
-        rights = ''
-        if self.castling_rights['w_k']: rights += 'K'
-        if self.castling_rights['w_q']: rights += 'Q'
-        if self.castling_rights['b_k']: rights += 'k'
-        if self.castling_rights['b_q']: rights += 'q'
-        return rights if rights else '-'
+        rights = ""
+        if self.castling_rights["w_k"]:
+            rights += "K"
+        if self.castling_rights["w_q"]:
+            rights += "Q"
+        if self.castling_rights["b_k"]:
+            rights += "k"
+        if self.castling_rights["b_q"]:
+            rights += "q"
+        return rights if rights else "-"
 
     def _serialize_ep(self):
         """Serialize en passant target for the C++ engine."""
@@ -225,7 +228,7 @@ class ChessGame:
     def _en_passant_key(self):
         """Return a compact en-passant key for repetition tracking."""
         if not self._has_legal_en_passant_capture():
-            return '-'
+            return "-"
         return f"{self.en_passant_target[0]},{self.en_passant_target[1]}"
 
     def _has_legal_en_passant_capture(self):
@@ -234,8 +237,8 @@ class ChessGame:
             return False
 
         target_row, target_col = self.en_passant_target
-        pawn_row = target_row + 1 if self.current_turn == 'white' else target_row - 1
-        pawn_piece = 'P' if self.current_turn == 'white' else 'p'
+        pawn_row = target_row + 1 if self.current_turn == "white" else target_row - 1
+        pawn_piece = "P" if self.current_turn == "white" else "p"
 
         if not (0 <= pawn_row < 8):
             return False
@@ -273,67 +276,81 @@ class ChessGame:
         """Check if move is in our DP cache."""
         moves = self.get_valid_moves(fr, fc)
         for m in moves:
-            if m['row'] == tr and m['col'] == tc:
+            if m["row"] == tr and m["col"] == tc:
                 return True, "Valid move."
         return False, "Illegal move."
 
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """Execute move and invalidate cache to ensure fresh calculations."""
-        if self.game_status != 'active':
+        if self.game_status != "active":
             return False, "Game is already over.", None, self.game_status
 
         piece = self.board[fr][fc]
         if not piece or self._color(piece) != self.current_turn:
-            return False, "Not your piece or empty square", None, 'active'
+            return False, "Not your piece or empty square", None, "active"
 
         is_valid, reason = self.validate_move(fr, fc, tr, tc)
         if not is_valid:
-            return False, reason, None, 'active'
+            return False, reason, None, "active"
 
         # Check timeout BEFORE mutating board state
         self.update_clock()
         if self.white_time == 0:
-            return False, "White ran out of time", None, 'timeout'
+            return False, "White ran out of time", None, "timeout"
         if self.black_time == 0:
-            return False, "Black ran out of time", None, 'timeout'
+            return False, "Black ran out of time", None, "timeout"
 
         captured = self.board[tr][tc]
-        is_pawn_move = piece.lower() == 'p'
+        is_pawn_move = piece.lower() == "p"
         board_before = self.serialize_board()
         rights_before = self.serialize_castling_rights()
         ep_before = self._serialize_ep()
 
         # Detect En Passant capture before moving piece
-        if piece.lower() == 'p' and fc != tc and not captured:
-            if self.en_passant_target and tr == self.en_passant_target[0] and tc == self.en_passant_target[1]:
-                captured = 'p' if piece.isupper() else 'P' # The captured piece is of opposite color
+        if piece.lower() == "p" and fc != tc and not captured:
+            if (
+                self.en_passant_target
+                and tr == self.en_passant_target[0]
+                and tc == self.en_passant_target[1]
+            ):
+                captured = (
+                    "p" if piece.isupper() else "P"
+                )  # The captured piece is of opposite color
                 # In EP, the captured pawn is at (fr, tc)
                 self.board[fr][tc] = None
 
-        if piece == 'K':
-            self.castling_rights['w_k'] = False
-            self.castling_rights['w_q'] = False
-        elif piece == 'k':
-            self.castling_rights['b_k'] = False
-            self.castling_rights['b_q'] = False
-        elif piece == 'R':
-            if fr == 7 and fc == 0: self.castling_rights['w_q'] = False
-            elif fr == 7 and fc == 7: self.castling_rights['w_k'] = False
-        elif piece == 'r':
-            if fr == 0 and fc == 0: self.castling_rights['b_q'] = False
-            elif fr == 0 and fc == 7: self.castling_rights['b_k'] = False
+        if piece == "K":
+            self.castling_rights["w_k"] = False
+            self.castling_rights["w_q"] = False
+        elif piece == "k":
+            self.castling_rights["b_k"] = False
+            self.castling_rights["b_q"] = False
+        elif piece == "R":
+            if fr == 7 and fc == 0:
+                self.castling_rights["w_q"] = False
+            elif fr == 7 and fc == 7:
+                self.castling_rights["w_k"] = False
+        elif piece == "r":
+            if fr == 0 and fc == 0:
+                self.castling_rights["b_q"] = False
+            elif fr == 0 and fc == 7:
+                self.castling_rights["b_k"] = False
 
-        if captured == 'R':
-            if tr == 7 and tc == 0: self.castling_rights['w_q'] = False
-            elif tr == 7 and tc == 7: self.castling_rights['w_k'] = False
-        elif captured == 'r':
-            if tr == 0 and tc == 0: self.castling_rights['b_q'] = False
-            elif tr == 0 and tc == 7: self.castling_rights['b_k'] = False
+        if captured == "R":
+            if tr == 7 and tc == 0:
+                self.castling_rights["w_q"] = False
+            elif tr == 7 and tc == 7:
+                self.castling_rights["w_k"] = False
+        elif captured == "r":
+            if tr == 0 and tc == 0:
+                self.castling_rights["b_q"] = False
+            elif tr == 0 and tc == 7:
+                self.castling_rights["b_k"] = False
 
         # Pawn promotion: delegate to C++ engine for validation + board update
         promoted = False
         if self._is_promotion(piece, tr):
-            choice = (promotion_piece or 'q').lower()
+            choice = (promotion_piece or "q").lower()
             new_board = self._call_engine_promote(fr, fc, tr, tc, choice)
             if new_board:
                 # C++ returned the updated board - apply it directly
@@ -347,7 +364,7 @@ class ChessGame:
         else:
             self.board[tr][tc] = piece
             self.board[fr][fc] = None
-            if piece.lower() == 'k' and abs(tc - fc) == 2:
+            if piece.lower() == "k" and abs(tc - fc) == 2:
                 if tc == 6:
                     self.board[tr][5] = self.board[tr][7]
                     self.board[tr][7] = None
@@ -356,7 +373,7 @@ class ChessGame:
                     self.board[tr][0] = None
 
         # Update En Passant target for the NEXT turn
-        if piece.lower() == 'p' and abs(tr - fr) == 2:
+        if piece.lower() == "p" and abs(tr - fr) == 2:
             self.en_passant_target = ((fr + tr) // 2, fc)
         else:
             self.en_passant_target = None
@@ -369,29 +386,35 @@ class ChessGame:
         else:
             self.halfmove_clock += 1
 
-        notation = self._notation(fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before)
-        if promoted and '=' not in notation:
-            notation += '=' + (self.board[tr][tc] or 'Q').upper()
-        self.move_history.append({
-            'notation': notation,
-            'piece': piece,
-            'from': [fr, fc],
-            'to': [tr, tc],
-            'captured': captured,
-            'color': self.current_turn,
-            'promoted_to': self.board[tr][tc] if promoted else None,
-        })
+        notation = self._notation(
+            fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before
+        )
+        if promoted and "=" not in notation:
+            notation += "=" + (self.board[tr][tc] or "Q").upper()
+        self.move_history.append(
+            {
+                "notation": notation,
+                "piece": piece,
+                "from": [fr, fc],
+                "to": [tr, tc],
+                "captured": captured,
+                "color": self.current_turn,
+                "promoted_to": self.board[tr][tc] if promoted else None,
+            }
+        )
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
 
         # Switch turn
-        self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+        self.current_turn = "black" if self.current_turn == "white" else "white"
 
         self.last_ts = time.time()
 
         current_rights = self.serialize_castling_rights()
-        is_irreversible = is_pawn_move or bool(captured) or current_rights != rights_before
+        is_irreversible = (
+            is_pawn_move or bool(captured) or current_rights != rights_before
+        )
         if is_irreversible:
             self.repetition_history = [self.generate_position_key()]
             self._rebuild_repetition_counts()
@@ -401,32 +424,32 @@ class ChessGame:
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
 
-        if game_status == 'checkmate':
+        if game_status == "checkmate":
             self.game_status = game_status
             return True, notation, captured, game_status
 
-        if game_status == 'stalemate':
+        if game_status == "stalemate":
             self.game_status = game_status
-            self.draw_reason = 'stalemate'
+            self.draw_reason = "stalemate"
             return True, notation, captured, game_status
 
-        if game_status == 'draw':
+        if game_status == "draw":
             self.game_status = game_status
-            self.draw_reason = 'insufficient_material'
+            self.draw_reason = "insufficient_material"
             return True, notation, captured, game_status
 
         repetition_count = self.repetition_counts.get(self.generate_position_key(), 1)
         if repetition_count >= 3:
-            self.game_status = 'draw'
-            self.draw_reason = 'threefold_repetition'
-            return True, notation, captured, 'draw'
+            self.game_status = "draw"
+            self.draw_reason = "threefold_repetition"
+            return True, notation, captured, "draw"
 
         if self.halfmove_clock >= 100:
-            self.game_status = 'draw'
-            self.draw_reason = 'fifty_move_rule'
-            return True, notation, captured, 'draw'
+            self.game_status = "draw"
+            self.draw_reason = "fifty_move_rule"
+            return True, notation, captured, "draw"
 
-        self.game_status = 'active'
+        self.game_status = "active"
         self.draw_reason = None
         return True, notation, captured, game_status
 
@@ -439,7 +462,7 @@ class ChessGame:
         # On-Demand Caching: If not in DP, compute once and store
         if (row, col) not in self.valid_moves_cache:
             self.valid_moves_cache[(row, col)] = self._get_engine_moves(row, col)
-            
+
         return self.valid_moves_cache.get((row, col), [])
 
     def _get_engine_moves(self, row, col):
@@ -449,18 +472,20 @@ class ChessGame:
         ep_str = self._serialize_ep()
         cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {ep_str} {row} {col}"
         resp = self._call_engine(cmd)
-        
+
         moves = []
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
             # C++ now returns 4 fields per move: row col is_capture is_promotion
             for i in range(0, len(parts), 4):
-                moves.append({
-                    'row': int(parts[i]),
-                    'col': int(parts[i+1]),
-                    'is_capture': bool(int(parts[i+2])),
-                    'is_promotion': bool(int(parts[i+3])),
-                })
+                moves.append(
+                    {
+                        "row": int(parts[i]),
+                        "col": int(parts[i + 1]),
+                        "is_capture": bool(int(parts[i + 2])),
+                        "is_promotion": bool(int(parts[i + 3])),
+                    }
+                )
         return moves
 
     # ------------------------------------------------------------------
@@ -489,7 +514,7 @@ class ChessGame:
             row = []
             for c in range(8):
                 ch = board_str[r * 8 + c]
-                row.append(None if ch == '.' else ch)
+                row.append(None if ch == "." else ch)
             result.append(row)
         return result
 
@@ -502,15 +527,15 @@ class ChessGame:
         """Return True when a pawn reaches the opponent's back rank."""
         if not piece:
             return False
-        return (piece == 'P' and to_row == 0) or (piece == 'p' and to_row == 7)
+        return (piece == "P" and to_row == 0) or (piece == "p" and to_row == 7)
 
     @staticmethod
     def _promote(piece, choice=None):
         """Return the promoted piece character (defaults to queen)."""
-        valid = {'q', 'r', 'b', 'n'}
-        choice = (choice or 'q').lower()
+        valid = {"q", "r", "b", "n"}
+        choice = (choice or "q").lower()
         if choice not in valid:
-            choice = 'q'
+            choice = "q"
         return choice.upper() if piece.isupper() else choice.lower()
 
     @staticmethod
@@ -519,9 +544,20 @@ class ChessGame:
         piece = board[fr][fc]
         if not piece:
             return False
-        return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
+        return (piece == "P" and tr == 0) or (piece == "p" and tr == 7)
 
-    def _notation(self, fr, fc, tr, tc, piece, captured, board_str=None, rights_str=None, ep_str=None):
+    def _notation(
+        self,
+        fr,
+        fc,
+        tr,
+        tc,
+        piece,
+        captured,
+        board_str=None,
+        rights_str=None,
+        ep_str=None,
+    ):
         """Generate SAN notation via C++ engine if possible, else simplified fallback."""
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
@@ -536,23 +572,27 @@ class ChessGame:
         files = "abcdefgh"
         f_coord = f"{files[fc]}{8 - fr}"
         t_coord = f"{files[tc]}{8 - tr}"
-        
-        if not piece: return f"{f_coord} -> {t_coord}"
-        
+
+        if not piece:
+            return f"{f_coord} -> {t_coord}"
+
         type = piece.lower()
-        if type == 'p':
-            if fc != tc: return f"{files[fc]}x{t_coord}"
+        if type == "p":
+            if fc != tc:
+                return f"{files[fc]}x{t_coord}"
             return t_coord
-        
+
         p_char = type.upper()
-        if captured: return f"{p_char}x{t_coord}"
+        if captured:
+            return f"{p_char}x{t_coord}"
         return f"{p_char}{t_coord}"
 
     @staticmethod
     def _color(piece):
-        if not piece: return None
-        return 'white' if piece.isupper() else 'black'
-    
+        if not piece:
+            return None
+        return "white" if piece.isupper() else "black"
+
     def update_clock(self):
         if self.paused:
             self.last_ts = time.time()
@@ -562,7 +602,7 @@ class ChessGame:
         elapsed = int(now - self.last_ts)
 
         if elapsed > 0:
-            if self.current_turn == 'white':
+            if self.current_turn == "white":
                 self.white_time = max(0, self.white_time - elapsed)
             else:
                 self.black_time = max(0, self.black_time - elapsed)
@@ -585,9 +625,9 @@ class ChessGame:
         resp = self._call_engine(cmd)
         if resp and resp.startswith("STATUS"):
             status = resp.split()[1].lower()
-            if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
+            if status in ("checkmate", "stalemate", "draw", "check", "ok"):
                 return status
-        return 'ok'
+        return "ok"
 
     # ------------------------------------------------------------------
     #  AI -- Opening Book
@@ -598,7 +638,7 @@ class ChessGame:
         """Load the opening book JSON from disk (cached after first load)."""
         if cls._opening_book is None:
             try:
-                with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
+                with open(cls.OPENING_BOOK_PATH, encoding="utf-8") as fh:
                     cls._opening_book = json.load(fh)
             except (OSError, json.JSONDecodeError):
                 cls._opening_book = {}  # Graceful fallback: no book
@@ -613,7 +653,7 @@ class ChessGame:
         fen_rows = []
         for row in self.board:
             empty = 0
-            row_str = ''
+            row_str = ""
             for piece in row:
                 if piece is None:
                     empty += 1
@@ -625,10 +665,10 @@ class ChessGame:
             if empty:
                 row_str += str(empty)
             fen_rows.append(row_str)
-        placement = '/'.join(fen_rows)
+        placement = "/".join(fen_rows)
 
         # Side to move
-        side = 'w' if self.current_turn == 'white' else 'b'
+        side = "w" if self.current_turn == "white" else "b"
 
         # Castling rights
         castling = self.serialize_castling_rights()  # already returns '-' if none
@@ -665,10 +705,10 @@ class ChessGame:
             is_valid, _ = self.validate_move(fr, fc, tr, tc)
             if is_valid:
                 return {
-                    'from_row': fr,
-                    'from_col': fc,
-                    'to_row': tr,
-                    'to_col': tc,
+                    "from_row": fr,
+                    "from_col": fc,
+                    "to_row": tr,
+                    "to_col": tc,
                 }
 
         return None  # No valid book move found
@@ -712,9 +752,8 @@ class ChessGame:
             return None
 
         return {
-            'from_row': int(parts[1]),
-            'from_col': int(parts[2]),
-            'to_row':   int(parts[3]),
-            'to_col':   int(parts[4]),
+            "from_row": int(parts[1]),
+            "from_col": int(parts[2]),
+            "to_row": int(parts[3]),
+            "to_col": int(parts[4]),
         }
-

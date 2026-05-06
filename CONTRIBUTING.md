@@ -104,11 +104,19 @@ python manage.py test game --verbosity=2
 python manage.py migrate --check
 ```
 
-### Linting (must pass before submitting a PR)
+### Formatting & Linting (must pass before submitting a PR)
+
+This project uses `pre-commit` to automatically enforce code style across Python (Black/Flake8), C++ (Clang-Format), and JavaScript/CSS (Prettier).
 
 ```bash
-pip install flake8 flake8-django
-flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120
+# 1. Install the formatting tools (included in requirements.txt)
+pip install -r requirements.txt
+
+# 2. Install the pre-commit git hooks
+pre-commit install
+
+# 3. Manually run formatting across all files (do this before committing)
+pre-commit run --all-files
 ```
 
 ---
