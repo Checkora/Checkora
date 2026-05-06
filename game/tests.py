@@ -688,6 +688,13 @@ class EngineParsingTest(SimpleTestCase):
                 self.assertEqual(len(parts), 7)
                 self.assertEqual(parts[0], "BESTMOVE")
                 self.assertEqual(len(parts[1]), 64)
+                
+                # Assert specific token values
+                self.assertEqual(parts[2], "KQkq")  # Default castling rights
+                self.assertEqual(parts[3], "white") # Default current turn
+                self.assertEqual(parts[4], "-1")    # Default en-passant row
+                self.assertEqual(parts[5], "-1")    # Default en-passant col
+                self.assertEqual(parts[6], "3")     # Requested depth
 
     def test_get_ai_move_handles_none(self):
         """Test that get_ai_move handles a BESTMOVE NONE response."""
