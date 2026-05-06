@@ -341,7 +341,7 @@
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
-                    el.classList.remove('selected', 'last-move');
+                    el.classList.remove('selected', 'last-move', 'in-check');
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
@@ -358,6 +358,25 @@
                         d.className = h.is_capture ? 'capture-ring' : 'move-dot';
                         el.appendChild(d);
                     });
+                }
+            }
+
+            function highlightCheck() {
+                boardEl.querySelectorAll('.square').forEach(el => {
+                    el.classList.remove('in-check');
+                });
+            }
+            
+            function applyCheckHighlight() {
+                highlightCheck();
+                const kingPiece = turn === 'white' ? 'K' : 'k';
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        if (board[r][c] === kingPiece) {
+                            sq(r, c).classList.add('in-check');
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -511,8 +530,10 @@
                         if (handleGameStatus(data.game_status, data.draw_reason)) {
                             // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
+                            applyCheckHighlight();
                             showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
                         } else {
+                            highlightCheck();
                             showStatus('', false);
                         }
 
@@ -555,8 +576,10 @@
                         if (handleGameStatus(data.game_status, data.draw_reason)) {
                             // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
+                            applyCheckHighlight();
                             showStatus('You are in check!', true);
                         } else {
+                            highlightCheck();
                             showStatus('Your turn.', false);
                         }
                     } else {
