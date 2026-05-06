@@ -4,9 +4,9 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: var(--page-bg);
+    color: var(--text);
+    font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -14,31 +14,74 @@ body {
 }
 
 /* ============================================================
-   Header
+   Header with new Logo
    ============================================================ */
-.header { padding: 20px 0 8px; text-align: center; }
-.header h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 2px;
+.header { 
+    padding: 20px 40px 8px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
 }
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    line-height: 1;
+    height: 2.5rem;
+}
+
+.logo-icon {
+    font-size: 1.75rem;
+    color: #f0c040;
+    line-height: 1;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    transition: none;
+}
+
+.logo-text {
+    font-family: 'Cinzel', serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #f0c040;
+    line-height: 1;
+    align-self: center;
+    text-shadow: none;
+    transition: none;
+}
+
+/* PVP/AI badge */
 .header .badge {
-    font-size: 0.45em;
+    font-size: 0.55em;
     color: #f0c040;
     vertical-align: super;
     font-weight: 400;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    position: relative;
+    top: -8px;
+    background: rgba(240, 192, 64, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(240, 192, 64, 0.3);
 }
 
 .auth-buttons {
     position: absolute;
-    right: 20px;
-    top: 25px;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
     display: flex;
     align-items: center;
     gap: 15px;
 }
+
 .welcome-msg {
     color: #8a8aaa;
     font-size: 0.9rem;
@@ -90,8 +133,8 @@ body {
 }
 
 .card {
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 14px;
 }
@@ -99,9 +142,10 @@ body {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: #6a6a8a;
+    color: var(--muted);
     margin-bottom: 8px;
-    font-weight: 600;
+    font-weight: 500;
+    font-family: 'Playfair Display', serif;
 }
 
 /* ============================================================
@@ -202,13 +246,20 @@ body {
 }
 
 :root {
-    --page-bg: #0f0f1a;
-    --sq-light: #eeeed2;
-    --sq-dark: #769656;
+    --page-bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --border: #2a2f3d;
+    --gold: #f0c040;
+    --gold-dim: #a07c1a;
+    --text: #e8e8f0;
+    --muted: #7a7f9a;
+    --sq-light: #eedd99;
+    --sq-dark: #4a7c59;
     --sq-selected-light: #f6f669;
     --sq-selected-dark: #baca2b;
-    --sq-last-light: #f5f682;
-    --sq-last-dark: #b8cc36;
+    --sq-last-light: rgba(240,192,64,0.35);
+    --sq-last-dark: rgba(240,192,64,0.35);
 }
 
 [data-theme="dark"] {
@@ -264,7 +315,7 @@ body {
    ============================================================ */
 .piece {
     width: 54px;
-    height: 54px;
+    height: 61px;
     z-index: 2;
     pointer-events: none;
     user-select: none;
@@ -300,7 +351,7 @@ body {
 .moves-list {
     max-height: 340px;
     overflow-y: auto;
-    font-family: 'Consolas', 'Courier New', monospace;
+    font-family: 'DM Sans', 'Consolas', monospace;
     font-size: 0.82rem;
     line-height: 1.6;
 }
@@ -429,9 +480,23 @@ body {
         gap: 12px;
     }
 
-    .header h1 {
-        font-size: 1.5rem;
-        margin: 0;
+    /* Mobile logo adjustments */
+    .logo-container {
+        gap: 8px;
+    }
+
+    .logo-icon {
+        font-size: 1.1rem;
+    }
+    
+    .logo-text {
+        font-size: 1.4rem;
+    }
+
+    .header .badge {
+        font-size: 0.6rem;
+        top: -5px;
+        padding: 2px 6px;
     }
 
     .auth-buttons {
@@ -546,8 +611,8 @@ body {
     min-width: 120px;
     padding: 12px 16px;
     border-radius: 8px;
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--surface);
+    border: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -815,22 +880,40 @@ body {
 .square.in-check,
 .square.light.in-check,
 .square.dark.in-check {
-    background: radial-gradient(circle, 
-        rgba(220, 38, 38, 0.45) 0%, 
-        rgba(220, 38, 38, 0.2) 50%, 
-        transparent 75%) !important;
-    animation: pulse-check 1.5s ease-in-out infinite !important;
-    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
-                0 0 12px rgba(220, 38, 38, 0.25);
+    position: relative;
+    overflow: visible;
+}
+
+.square.in-check::after,
+.square.light.in-check::after,
+.square.dark.in-check::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0;
+    background: radial-gradient(circle,
+        rgba(220, 38, 38, 0.75) 0%,
+        rgba(220, 38, 38, 0.4) 45%,
+        transparent 75%);
+    animation: pulse-check 1.2s ease-in-out infinite;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.square.in-check .piece,
+.square.light.in-check .piece,
+.square.dark.in-check .piece {
+    z-index: 2;
+    position: relative;
 }
 
 @keyframes pulse-check {
     0%, 100% {
-        box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
-                    0 0 12px rgba(220, 38, 38, 0.25);
+        opacity: 0.6;
+        transform: scale(0.85);
     }
     50% {
-        box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5), 
-                    0 0 20px rgba(220, 38, 38, 0.4);
+        opacity: 1;
+        transform: scale(1.05);
     }
 }

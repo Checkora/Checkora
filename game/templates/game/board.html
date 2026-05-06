@@ -8,6 +8,10 @@
     <title>Checkora | AI Chess</title>
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
     <!-- Vercel Speed Insights -->
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
@@ -86,8 +90,12 @@
 
     <!-- ========== HEADER ========== -->
     <div class="header">
-        <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
-
+        <div class="logo-container">
+            <span class="logo-icon">♟</span>
+            <span class="logo-text">Checkora</span>
+            <span class="badge" id="modeBadge">PVP</span>
+        </div>
+    
         <div class="auth-buttons">
             {% if user.is_authenticated %}
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
