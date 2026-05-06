@@ -175,7 +175,7 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
-    """Return the full current game state, pausing on page load."""
+    """Return the full current game state without mutating pause state."""
     game_data = request.session.get('game')
     if not game_data:
         game = ChessGame()
@@ -188,10 +188,6 @@ def get_state(request):
             game.paused = True  # pause without deducting lost time
         else:
             game.update_clock()
-
-    # Always start in paused state on page load/refresh
-    game.paused = False
-    game.last_ts = time.time()
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
@@ -226,7 +222,9 @@ def set_pause(request):
 
     game = ChessGame.from_dict(game_data)
 
-    game.update_clock()
+    # Only deduct elapsed time when transitioning from running to paused.
+    if pause and not game.paused:
+        game.update_clock()
     game.paused = pause
     game.last_ts = time.time()
 
