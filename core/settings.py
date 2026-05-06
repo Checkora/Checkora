@@ -148,6 +148,7 @@ DJANGO_VITE_MANIFEST_PATH = DJANGO_VITE_ASSETS_PATH / ".vite" / "manifest.json"
 
 STATICFILES_DIRS = [
     DJANGO_VITE_ASSETS_PATH,
+    BASE_DIR / "frontend" / "src",
 ]
 
 # Email Configuration for OTP
