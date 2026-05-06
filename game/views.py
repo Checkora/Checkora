@@ -22,7 +22,6 @@ from .engine import ChessGame
 from .models import GameResult
 
 
-
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
@@ -326,8 +325,7 @@ def offer_draw(request):
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
-
-        
+ 
     return JsonResponse({'success': True})
 
 
