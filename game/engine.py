@@ -119,33 +119,39 @@ class ChessGame:
     @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
-        game = cls.__new__(cls)
-        game.board = data['board']
-        game.current_turn = data['current_turn']
-        game.move_history = data.get('move_history', [])
-        game.captured = data.get('captured', {'white': [], 'black': []})
-        game.paused = data.get('paused', False)
-        game.white_time = data['white_time']
-        game.black_time = data['black_time']
-        game.last_ts = data['last_ts']
-        game.mode = data.get('mode', 'pvp')
-        game.player_color = data.get('player_color', 'white')
-        game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
-        game.en_passant_target = data.get('en_passant_target', None)
-        game.halfmove_clock = data.get('halfmove_clock', 0)
-        game.game_status = data.get('game_status', 'active')
-        game.draw_reason = data.get('draw_reason', None)
+        if not isinstance(data,dict):
+            return cls()
+        try:
+            game = cls.__new__(cls)
+            game.board = data['board']
+            game.current_turn = data['current_turn']
+            game.move_history = data.get('move_history', [])
+            game.captured = data.get('captured', {'white': [], 'black': []})
+            game.paused = data.get('paused', False)
+            game.white_time = data['white_time']
+            game.black_time = data['black_time']
+            game.last_ts = data['last_ts']
+            game.mode = data.get('mode', 'pvp')
+            game.player_color = data.get('player_color', 'white')
+            game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
+            game.en_passant_target = data.get('en_passant_target', None)
+            game.halfmove_clock = data.get('halfmove_clock', 0)
+            game.game_status = data.get('game_status', 'active')
+            game.draw_reason = data.get('draw_reason', None)
 
-        repetition_history = data.get('repetition_history')
-        if isinstance(repetition_history, list) and repetition_history:
-            game.repetition_history = repetition_history
-        else:
-            game.repetition_history = [game.generate_position_key()]
+            repetition_history = data.get('repetition_history')
+            if isinstance(repetition_history, list) and repetition_history:
+                game.repetition_history = repetition_history
+            else:
+                game.repetition_history = [game.generate_position_key()]
 
-        game._rebuild_repetition_counts()
+            game._rebuild_repetition_counts()
 
-        game.valid_moves_cache = {}
-        return game
+            game.valid_moves_cache = {}
+            return game
+        except (KeyError, TypeError, ValueError):
+            #If session data is corrupted or missing critical keys, safely fallback to a new game
+            return cls()
 
     # ------------------------------------------------------------------
     #  C++ engine communication
@@ -271,6 +277,8 @@ class ChessGame:
 
     def validate_move(self, fr, fc, tr, tc):
         """Check if move is in our DP cache."""
+        if not (0 <= fr <= 7 and 0 <= fc <= 7 and 0 <= tr <= 7 and 0 <= tc <= 7):
+            return False, "Coordinates out of bounds."
         moves = self.get_valid_moves(fr, fc)
         for m in moves:
             if m['row'] == tr and m['col'] == tc:
@@ -432,6 +440,8 @@ class ChessGame:
 
     def get_valid_moves(self, row, col):
         """Return legal moves from DP cache (fetches from engine if missing)."""
+        if not (0 <= row <= 7 and 0 <= col <= 7):
+            return []
         piece = self.board[row][col]
         if not piece or self._color(piece) != self.current_turn:
             return []
@@ -516,6 +526,8 @@ class ChessGame:
     @staticmethod
     def is_promotion_move(board, fr, fc, tr):
         """Public helper: check if a planned move would trigger promotion."""
+        if not (0 <= fr <= 7 and 0 <= fc <= 7 and 0 <= tr <= 7):
+            return False
         piece = board[fr][fc]
         if not piece:
             return False
