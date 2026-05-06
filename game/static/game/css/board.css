@@ -809,3 +809,28 @@ body {
                     0 12px 48px rgba(0, 0, 0, 0.8);
     }
 }
+
+/* ================= CHECK HIGHLIGHT ================= */
+
+.square.in-check,
+.square.light.in-check,
+.square.dark.in-check {
+    background: radial-gradient(circle, 
+        rgba(220, 38, 38, 0.45) 0%, 
+        rgba(220, 38, 38, 0.2) 50%, 
+        transparent 75%) !important;
+    animation: pulse-check 1.5s ease-in-out infinite !important;
+    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
+                0 0 12px rgba(220, 38, 38, 0.25);
+}
+
+@keyframes pulse-check {
+    0%, 100% {
+        box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
+                    0 0 12px rgba(220, 38, 38, 0.25);
+    }
+    50% {
+        box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5), 
+                    0 0 20px rgba(220, 38, 38, 0.4);
+    }
+}
