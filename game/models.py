@@ -17,4 +17,4 @@ class GameResult(models.Model):
     played_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return str(self.mode) + " | " + str(self.winner) + " | " + str(self.end_reason)
+        return f"{self.mode} | {self.winner} | {self.end_reason}"
