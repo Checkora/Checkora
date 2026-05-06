@@ -149,3 +149,8 @@ CACHES = {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
+
+# Redirect after login
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = '/'
+

@@ -349,6 +349,13 @@ body {
     background: linear-gradient(135deg, #f0c040, #d4a020);
     color: #1a1a2e;
 }
+/* Highlight selected game mode button */
+.active-mode {
+    background: #facc15 !important;
+    color: #000 !important;
+    transform: scale(1.05);
+    border: 2px solid #facc15;
+}
 .btn-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-1px);
@@ -416,10 +423,26 @@ body {
 
     .header {
         padding: 16px 0 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
     }
 
     .header h1 {
         font-size: 1.5rem;
+        margin: 0;
+    }
+
+    .auth-buttons {
+        position: relative;
+        right: auto;
+        top: auto;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .game-layout {
@@ -657,4 +680,132 @@ body {
     width: 100%;
     height: 100%;
     pointer-events: none;
+}
+
+
+/* ================= CELEBRATION EFFECTS ================= */
+
+/* Winner announcement styling */
+.game-over-celebration #gameOverTitle {
+    font-size: 2.2rem !important;
+    font-weight: 900 !important;
+    background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shine 2s ease-in-out infinite, pulse 1.5s ease-in-out infinite;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.8),
+                 0 0 60px rgba(255, 215, 0, 0.6),
+                 0 0 90px rgba(255, 215, 0, 0.4);
+    letter-spacing: 2px;
+}
+
+.game-over-celebration #gameOverMessage {
+    font-size: 1.3rem !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+/* Shine animation for gold text */
+@keyframes shine {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Pulse animation */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* Confetti container */
+.confetti-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Individual confetti piece */
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #f0c040;
+    top: -10px;
+    opacity: 0;
+    animation: confetti-fall 3s ease-in-out forwards;
+}
+
+@keyframes confetti-fall {
+    0% {
+        opacity: 1;
+        transform: translateY(0) rotateZ(0deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(100vh) rotateZ(720deg);
+    }
+}
+
+/* Sparkle effects */
+.sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+    animation: sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% {
+        opacity: 0;
+        transform: scale(0);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Trophy icon animation */
+.trophy-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    animation: trophy-bounce 1s ease-in-out infinite;
+}
+
+@keyframes trophy-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Glow effect for dialog */
+.game-over-celebration .promo-dialog {
+    box-shadow: 0 0 40px rgba(240, 192, 64, 0.4),
+                0 0 80px rgba(240, 192, 64, 0.2),
+                0 12px 48px rgba(0, 0, 0, 0.8) !important;
+    border-color: #ffd700 !important;
+    animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+    0%, 100% {
+        box-shadow: 0 0 40px rgba(240, 192, 64, 0.4),
+                    0 0 80px rgba(240, 192, 64, 0.2),
+                    0 12px 48px rgba(0, 0, 0, 0.8);
+    }
+    50% {
+        box-shadow: 0 0 60px rgba(240, 192, 64, 0.6),
+                    0 0 120px rgba(240, 192, 64, 0.4),
+                    0 12px 48px rgba(0, 0, 0, 0.8);
+    }
 }
