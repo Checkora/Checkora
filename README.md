@@ -87,6 +87,28 @@ python manage.py runserver
 
 Open `http://127.0.0.1:8000/` in your browser and start playing.
 
+### Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```bash
+# .env
+DJANGO_SECRET_KEY=your-secret-key-here
+DJANGO_DEBUG=False
+ALLOWED_HOSTS=localhost,127.0.0.1
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+```
+
+A `.env.example` template is provided in the repository:
+
+```bash
+cp .env.example .env
+# Then edit .env with your actual values
+```
+
+> **⚠️ Security Note:** Never commit `.env` to git. It's already in `.gitignore`.
+
 ### Compile the C++ Engine *(optional but recommended)*
 
 The compiled binary is not committed to the repository. Each contributor compiles for their own platform. If the binary is absent, Checkora automatically falls back to the Python engine.
