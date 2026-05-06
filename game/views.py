@@ -19,6 +19,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
+from .models import GameResult
+
 
 
 @ensure_csrf_cookie
@@ -30,6 +32,9 @@ def index(request):
     return render(request, 'game/board.html')
 
 
+def record_game_result(mode, winner, reason):
+    """Save a completed game result to the database."""
+    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -56,6 +61,11 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(game.mode, winner, 'checkmate')
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(game.mode, 'draw', 'stalemate')
 
     return JsonResponse({
         'valid': success,
@@ -308,11 +318,13 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        record_game_result(game.mode, 'draw', 'agreement')
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
+
         
     return JsonResponse({'success': True})
 
@@ -335,6 +347,8 @@ def resign_game(request):
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
+
+    record_game_result(game.mode, winner, 'resign') 
 
     return JsonResponse({
         'valid': True,
@@ -479,3 +493,22 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('index')
+
+def stats_view(request):
+    """Display game statistics."""
+    from django.db.models import Count
+    recent = GameResult.objects.order_by('-played_at')[:20]
+    ai_results = GameResult.objects.filter(mode='ai')
+    ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
+    ai_draws = ai_results.filter(winner='draw').count()
+    ai_total = ai_results.count()
+    ai_losses = 0
+    return render(request, 'game/stats.html', {
+        'recent': recent,
+        'ai_total': ai_total,
+        'ai_wins': ai_wins,
+        'ai_draws': ai_draws,
+    })
+
+
+
