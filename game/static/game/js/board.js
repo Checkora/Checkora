@@ -105,6 +105,7 @@
             const turnBadgeText = document.getElementById('turnBadgeText');
 
             let gameOver = false;
+            let aiThinking = false;
 
             /* ==========================================================
             CSRF & API HELPERS
@@ -127,6 +128,17 @@
                     },
                     body: JSON.stringify(body)
                 })).json();
+            }
+
+            function isAITurn() {
+                return gameMode === 'ai' && turn !== playerColor && !gameOver;
+            }
+
+            function queueAIMoveIfNeeded() {
+                if (!isAITurn() || aiThinking) return;
+                setTimeout(() => {
+                    if (isAITurn() && !aiThinking) requestAIMove();
+                }, 200);
             }
 
             const pKey = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
@@ -222,6 +234,9 @@
 
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
+                }
+                if (!welcomeOverlay.classList.contains('active')) {
+                    queueAIMoveIfNeeded();
                 }
             }
 
@@ -514,7 +529,8 @@
             }
 
             async function requestAIMove() {
-                if (gameOver) return;
+                if (gameOver || aiThinking) return;
+                aiThinking = true;
                 showStatus('AI is thinking...', false);
                 try {
                     const data = await post('/api/ai-move/', {});
@@ -548,6 +564,8 @@
                     }
                 } catch (e) {
                     showStatus('AI connection error.', true);
+                } finally {
+                    aiThinking = false;
                 }
             }
 
@@ -875,6 +893,7 @@
                 updatePauseUI();
                 renderClocks();
                 startTimer();
+                queueAIMoveIfNeeded();
             }
 
             /* ==========================================================
@@ -904,7 +923,11 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        startNewGame(mode, diff);
+                        if (mode === 'ai') {
+                            startNewGame('ai', 'white', diff);
+                        } else {
+                            startNewGame('pvp');
+                        }
                     },
                     '#ff6b6b'
                 );
@@ -972,7 +995,7 @@
 
                 // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
-                    requestAIMove();
+                    queueAIMoveIfNeeded();
                 }
             }
 
@@ -1042,7 +1065,12 @@
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                if (paused) resumeGame();
+                if (paused) {
+                    resumeGame();
+                } else {
+                    startTimer();
+                    queueAIMoveIfNeeded();
+                }
             };
 
             if (confirmYesBtn) confirmYesBtn.onclick = () => {
