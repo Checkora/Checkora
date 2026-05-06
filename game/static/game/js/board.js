@@ -930,7 +930,7 @@
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
                         if (mode === 'ai') {
-                            startNewGame('ai', 'white', diff);
+                            startNewGame('ai', playerColor, diff);
                         } else {
                             startNewGame('pvp');
                         }
