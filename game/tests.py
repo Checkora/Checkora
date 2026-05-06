@@ -719,6 +719,14 @@ class EngineParsingTest(SimpleTestCase):
             self.assertEqual(moves[1], {'row': 3, 'col': 3, 'is_capture': True, 'is_promotion': False})
             self.assertEqual(moves[2], {'row': 0, 'col': 0, 'is_capture': False, 'is_promotion': True})
 
+    def test_get_engine_moves_ignores_incomplete_trailing_tokens(self):
+        """Test that malformed MOVES output with a trailing partial move is handled safely."""
+        with mock.patch.object(ChessGame, '_call_engine', return_value="MOVES 4 4 0 0 3 3 1"):
+            moves = self.game._get_engine_moves(6, 4)
+            self.assertEqual(moves, [
+                {'row': 4, 'col': 4, 'is_capture': False, 'is_promotion': False}
+            ])
+
     def test_check_game_status_parses_status(self):
         """Test that game status is correctly parsed from the STATUS response."""
         with mock.patch.object(ChessGame, '_call_engine', return_value="STATUS checkmate"):
