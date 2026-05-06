@@ -16,7 +16,7 @@
             let lastMove = null;
 
             let dragging = false;
-            let dragSrc = null;
+            //let dragSrc = null;
 
             let whiteTime = 0;
             let blackTime = 0;
@@ -267,6 +267,21 @@
             /* ==========================================================
             BOARD RENDERING
             ========================================================== */
+            function syncPieces() {
+                for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+                    const el = sq(r, c);
+                    el.innerHTML = '';
+                    const p = board[r][c];
+                    if (!p) continue;
+
+                    const img = document.createElement('img');
+                    img.src = PIECE_IMG[pKey(p)];
+                    img.className = 'piece';     
+                    el.appendChild(img);
+                }
+                refreshHighlights();
+                markPlayable();
+            }
             function buildBoard() {
                 boardEl.innerHTML = '';
                 for (let vr = 0; vr < 8; vr++) {
@@ -278,8 +293,7 @@
                         d.dataset.r = r;
                         d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
-                        d.ondragover = e => e.preventDefault();
-                        d.ondrop = e => onDrop(e, r, c);
+                      window._attachPointerDragToSquare(d, r, c);
                         
                         d.setAttribute('tabindex', '0');
                         d.setAttribute('role', 'gridcell');
@@ -423,7 +437,136 @@
                 hints = [];
                 refreshHighlights();
             }
+            (function initPointerDrag() {
+                let dragActive   = false; 
+                let dragSrcR     = -1;     
+                let dragSrcC     = -1;     
+                let dragClone    = null;    
+                let dragPointerId = null;  
 
+                const DRAG_THRESHOLD = 6;
+                let pointerStartX = 0;
+                let pointerStartY = 0;
+                let thresholdMet  = false;
+
+                function halfSquare() {
+                    const sq0 = boardEl.querySelector('.square');
+                    return sq0 ? sq0.offsetWidth / 2 : 30;
+                }
+
+                function onPointerDown(e, r, c) {
+
+                    if (e.button !== 0 && e.pointerType === 'mouse') return;
+                    if (!board[r][c]) return;
+                    if (pColor(board[r][c]) !== turn) return;
+                    if (paused || gameOver) return;
+                    if (gameMode === 'ai' && turn !== playerColor) return;
+
+                    dragSrcR      = r;
+                    dragSrcC      = c;
+                    pointerStartX = e.clientX;
+                    pointerStartY = e.clientY;
+                    thresholdMet  = false;
+                    dragActive    = false;
+                    dragPointerId = e.pointerId;
+
+                
+                    e.currentTarget.setPointerCapture(e.pointerId);
+
+                }
+
+                function onPointerMove(e) {
+                    if (dragSrcR === -1) return;
+
+                    const dx = e.clientX - pointerStartX;
+                    const dy = e.clientY - pointerStartY;
+
+                    if (!thresholdMet) {
+                        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+                        thresholdMet = true;
+                        dragActive   = true;
+                        dragging     = true; 
+                        const srcEl = sq(dragSrcR, dragSrcC);
+                        const img = srcEl.querySelector('.piece');
+                        if (img) {
+                            dragClone = img.cloneNode(true);
+                            dragClone.style.cssText = `
+                                position: fixed;
+                                z-index: 9999;
+                                width: ${img.offsetWidth}px;
+                                height: ${img.offsetHeight}px;
+                                pointer-events: none;
+                                opacity: 0.85;
+                                transform: translate(-50%, -50%);
+                            `;
+                            document.body.appendChild(dragClone);
+                            img.style.opacity = '0.3';
+                        }
+
+                        selectPiece(dragSrcR, dragSrcC);
+                    }
+
+                    if (dragClone) {
+                        dragClone.style.left = e.clientX + 'px';
+                        dragClone.style.top  = e.clientY + 'px';
+                    }
+                    e.preventDefault();
+                }
+
+                async function onPointerUp(e) {
+                    if (dragSrcR === -1) return;
+
+                    const wasActive = dragActive;
+                    const srcR = dragSrcR;
+                    const srcC = dragSrcC;
+
+                    dragActive    = false;
+                    dragSrcR      = -1;
+                    dragSrcC      = -1;
+                    dragPointerId = null;
+
+                    if (dragClone) {
+                        dragClone.remove();
+                        dragClone = null;
+                    }
+                    const srcEl = sq(srcR, srcC);
+                    const srcImg = srcEl.querySelector('.piece');
+                    if (srcImg) srcImg.style.opacity = '';
+
+                    setTimeout(() => { dragging = false; }, 50);
+
+                    if (!wasActive) return;   
+                    const target = document.elementFromPoint(e.clientX, e.clientY);
+                    if (!target) { deselect(); return; }
+
+                    const squareEl = target.closest('.square');
+                    if (!squareEl) { deselect(); return; }
+
+                    const tr = parseInt(squareEl.dataset.r, 10);
+                    const tc = parseInt(squareEl.dataset.c, 10);
+
+                    if (isNaN(tr) || isNaN(tc)) { deselect(); return; }
+
+                    const piece = board[srcR][srcC];
+                    const targetSquare = getSquareLabel(tr,tc);
+                    const moved = await tryMove(srcR,srcC,tr,tc);
+                    if(moved){
+                        let message = `${piece} to ${targetSquare}`;
+                        if(game.in_check()){
+                            message +=", Check!";
+                        }
+                        announceMove(message);
+                    }
+                }
+
+                window._attachPointerDragToSquare = function(squareDiv, r, c) {
+                    squareDiv.addEventListener('pointerdown', e => onPointerDown(e, r, c));
+                };
+
+                boardEl.addEventListener('pointermove',   onPointerMove, { passive: false });
+                boardEl.addEventListener('pointerup',     onPointerUp);
+                boardEl.addEventListener('pointercancel', onPointerUp); 
+            })();
             function isPromotionMove(fr, fc, tr) {
                 const p = board[fr][fc];
                 if (!p) return false;
