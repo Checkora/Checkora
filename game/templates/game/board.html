@@ -195,6 +195,7 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="btn btn-gold" id="flipBtn">Flip Board</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
@@ -206,6 +207,9 @@
                     <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
                     <button class="btn btn-gold" style="width: 100%;" onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
 
+                </div>
+                <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
+                    ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
                 </div>
             </div>
             <div class="card">
