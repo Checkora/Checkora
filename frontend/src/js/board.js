@@ -159,6 +159,7 @@ import '../css/board.css';
 
         gameMode = data.mode || 'pvp';
         playerColor = data.player_color || 'white';
+        gameOver = (data.game_status !== 'ongoing');
         
         if (flipControls) {
             flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
@@ -1005,7 +1006,7 @@ import '../css/board.css';
             confettiContainer.remove();
         }
         
-        startNewGame(mode, 'white', diff);
+        startNewGame(mode, playerColor, diff);
     };
 
     // Theme Switcher
