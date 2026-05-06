@@ -218,6 +218,9 @@
         .square.light { background-color: #eeeed2; }
         .square.dark  { background-color: #769656; }
 
+        /* Hint Highlight */
+        .hint-highlight {box-shadow: inset 0 0 0 4px gold;}
+
         /* Selected piece */
         .square.selected.light { background-color: #f6f669; }
         .square.selected.dark  { background-color: #baca2b; }
@@ -565,6 +568,7 @@
 
             <button id="pauseBtn" class="btn btn-gold">Pause</button>
             <button id="resignBtn" class="btn btn-danger" onclick="showResignModal()">Resign</button>
+            <button id="hintBtn" class="btn btn-gold">Hint</button>
 
             <div class="board-outer">
                 <div class="board-row">
@@ -702,7 +706,7 @@
         const movesEl   = document.getElementById('movesList');
         const wCapEl    = document.getElementById('whiteCaptured');
         const bCapEl    = document.getElementById('blackCaptured');
-        const pauseBtn  = document.getElementById('pauseBtn');
+        const hintBtn   = document.getElementById("hintBtn");
         const promoOverlay = document.getElementById('promoOverlay');
         const promoChoices = document.getElementById('promoChoices');
         const modeBadge = document.getElementById('modeBadge'); 
@@ -1094,6 +1098,7 @@
             dragSrc = null;
         }
 
+        hintBtn.addEventListener("click", showHint);
         /* ==========================================================
         UI UPDATES
         ========================================================== */
@@ -1188,6 +1193,20 @@
             
             document.title = 'Game Over - Checkora';
         }
+
+        /* ==========================================================
+                            HINT SYSTEM
+        ========================================================== */
+        function showHint() {
+        if (!hints.length) return;
+        const hint = hints[0];
+        const index = hint.row * 8 + hint.col;
+        const square = boardEl.children[index];
+        square.classList.add("hint-highlight");
+        setTimeout(() => {
+            square.classList.remove("hint-highlight");
+        }, 2000);
+        }   
 
         /* ==========================================================
         CLOCKS & PAUSE
