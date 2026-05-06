@@ -110,7 +110,10 @@ def valid_moves(request):
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error':'Invalid JSON payload'}, status=400)
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     
@@ -220,8 +223,11 @@ def set_pause(request):
     game_data = request.session.get('game')
     if not game_data:
         return JsonResponse({'paused': False})
-
-    data = json.loads(request.body or '{}')
+        
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error':'Invalid JSON payload'}, status=400)
     pause = data.get('pause', True)
 
     game = ChessGame.from_dict(game_data)
@@ -309,9 +315,11 @@ def offer_draw(request):
         return JsonResponse(
             {'success': False, 'message': err_msg}, status=400
         )
-
-    data = json.loads(request.body or '{}')
-    action = data.get('action')  # 'offer' or 'accept'
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success':False,'message':'Invalid JSON payload'}, status=400)
+    action = data.get('action')
 
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
