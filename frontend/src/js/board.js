@@ -32,6 +32,8 @@ import '../css/board.css';
     let flipped = false;
     let autoFlip = false;
 
+    let aiThinkTimeout = null; // To prevent multiple AI move calls
+
     /* ==========================================================
     DOM REFERENCES
     ========================================================== */
@@ -55,6 +57,7 @@ import '../css/board.css';
     const welcomeAIBtn = document.getElementById('welcomeAIBtn');
     
     const modeSelection = document.getElementById('modeSelection');
+    const nameInputs = document.getElementById('nameInputs');
     const pveOptions = document.getElementById('pveOptions');
     const startAIBtn = document.getElementById('startAIBtn');
     const backToModes = document.getElementById('backToModes');
@@ -185,7 +188,23 @@ import '../css/board.css';
         buildBoard();
         renderClocks();
         updatePauseUI();
-        startTimer();
+
+        if (paused) {
+            clearInterval(timerInterval);
+        } else {
+            startTimer();
+            queueAIMoveIfNeeded();
+        }
+    }
+
+    /* ==========================================================
+    AI HANDLERS
+    ========================================================== */
+    function queueAIMoveIfNeeded() {
+        if (gameMode === 'ai' && turn !== playerColor && !gameOver && !paused) {
+            clearTimeout(aiThinkTimeout);
+            aiThinkTimeout = setTimeout(requestAIMove, 600);
+        }
     }
 
     /* ==========================================================
@@ -442,7 +461,7 @@ import '../css/board.css';
                 }
 
                 if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
-                    requestAIMove();
+                    queueAIMoveIfNeeded();
                 }
             } else {
                 showStatus(data.message, true);
@@ -600,6 +619,81 @@ import '../css/board.css';
         gameOverOverlay.classList.add('active');
         showStatus(title + ': ' + message, false);
         document.title = 'Game Over - Checkora';
+
+        // Add celebration for checkmate wins
+        if (reason === 'checkmate') {
+            const winner = color === 'white' ? 'black' : 'white';
+            if (gameMode === 'pvp' || winner === playerColor) {
+                createConfetti();
+                createSparkles();
+                gameOverOverlay.classList.add('game-over-celebration');
+            }
+        }
+    }
+
+    function createConfetti() {
+        const overlay = document.getElementById('gameOverOverlay');
+        const dialog = overlay.querySelector('.promo-dialog');
+        
+        let confettiContainer = dialog.querySelector('.confetti-container');
+        if (!confettiContainer) {
+            confettiContainer = document.createElement('div');
+            confettiContainer.className = 'confetti-container';
+            dialog.style.position = 'relative';
+            dialog.appendChild(confettiContainer);
+        }
+        
+        // Create 50 pieces of confetti
+        const colors = ['#f0c040', '#ffffff', '#40c0f0', '#ff6b6b', '#6bff6b'];
+        for (let i = 0; i < 50; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.top = -10 + 'px';
+            
+            const duration = 2 + Math.random() * 3;
+            confetti.style.animationDuration = duration + 's';
+            confetti.style.animationDelay = Math.random() * 2 + 's';
+            
+            // Random shapes
+            if (Math.random() > 0.5) {
+                confetti.style.borderRadius = '50%';
+            }
+            
+            confettiContainer.appendChild(confetti);
+        }
+    }
+
+    function createSparkles() {
+        const overlay = document.getElementById('gameOverOverlay');
+        const dialog = overlay.querySelector('.promo-dialog');
+        
+        let confettiContainer = dialog.querySelector('.confetti-container');
+        if (!confettiContainer) {
+            confettiContainer = document.createElement('div');
+            confettiContainer.className = 'confetti-container';
+            dialog.style.position = 'relative';
+            dialog.appendChild(confettiContainer);
+        }
+        
+        // Create sparkles
+        const sparkleCount = 20;
+        
+        for (let i = 0; i < sparkleCount; i++) {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            
+            const randomLeft = Math.random() * 100;
+            const randomTop = Math.random() * 100;
+            const randomDelay = Math.random() * 1.5;
+            
+            sparkle.style.left = randomLeft + '%';
+            sparkle.style.top = randomTop + '%';
+            sparkle.style.animationDelay = randomDelay + 's';
+            
+            confettiContainer.appendChild(sparkle);
+        }
     }
 
     /* ==========================================================
@@ -611,14 +705,31 @@ import '../css/board.css';
     function renderClocks() {
         const wTime = document.getElementById('whiteTime');
         const bTime = document.getElementById('blackTime');
-        if (wTime) wTime.textContent = formatTime(whiteTime);
-        if (bTime) bTime.textContent = formatTime(blackTime);
+        
 
         const whiteClock = document.getElementById('whiteClock');
         const blackClock = document.getElementById('blackClock');
-        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+        if (gameMode === 'ai') {
+            const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+            const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+            const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+            const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
+            // Player clock — update time and highlight on their turn
+            if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+            if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+
+            // AI clock — static, never highlights, never updates time
+            if (aiTimeEl) aiTimeEl.textContent = '🤖';
+            if (aiClock) aiClock.classList.remove('active');
+
+        } else {
+            // PvP — both clocks update normally
+            if (wTime) wTime.textContent = formatTime(whiteTime);
+            if (bTime) bTime.textContent = formatTime(blackTime);
+            if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+            if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+        }
         const wYou = document.getElementById('whiteYouTag');
         const bYou = document.getElementById('blackYouTag');
         if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
@@ -662,6 +773,7 @@ import '../css/board.css';
         updatePauseUI();
         renderClocks();
         startTimer();
+        queueAIMoveIfNeeded();
     }
 
     /* ==========================================================
@@ -691,7 +803,11 @@ import '../css/board.css';
             "Your current progress will be lost.<br>Are you sure you want to start a new game?",
             () => {
                 const diff = document.getElementById('confirmDifficultySelect').value;
-                startNewGame(mode, 'white', diff);
+                if (mode === 'ai') {
+                    startNewGame('ai', 'white', diff);
+                } else {
+                    startNewGame('pvp');
+                }
             },
             '#ff6b6b'
         );
@@ -715,6 +831,14 @@ import '../css/board.css';
     }
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
+        // Clear celebration effects
+        const overlay = document.getElementById('gameOverOverlay');
+        overlay.classList.remove('game-over-celebration');
+        const confettiContainer = overlay.querySelector('.confetti-container');
+        if (confettiContainer) {
+            confettiContainer.remove();
+        }
+        
         const wName = document.getElementById('whiteNameInput')?.value || 'White';
         const bName = document.getElementById('blackNameInput')?.value || 'Black';
 
@@ -744,13 +868,19 @@ import '../css/board.css';
         wCapEl.innerHTML = bCapEl.innerHTML = '';
 
         await loadGame();
+        // Apply active state after UI reload
+        updateModeButtonsUI(gameMode);
         paused = false;
         updatePauseUI();
 
         // Auto-trigger AI if it's their turn
         if (gameMode === 'ai' && turn !== playerColor) {
-            requestAIMove();
+            queueAIMoveIfNeeded();
         }
+    }
+
+    function updateModeButtonsUI(mode) {
+        // This is a placeholder for any button styling logic if needed
     }
 
     /* ==========================================================
@@ -791,37 +921,15 @@ import '../css/board.css';
         };
     });
 
-    if (startAIBtn) startAIBtn.onclick = () => {
-        const diff = document.getElementById('welcomeDifficultySelect').value;
-        welcomeOverlay.classList.remove('active');
-        gameLayout.style.visibility = 'visible';
-        startNewGame('ai', selectedPveColor, diff);
-    };
-
-    if (autoFlipBtn) autoFlipBtn.onclick = () => {
-        autoFlip = !autoFlip;
-        autoFlipBtn.textContent = 'Auto-Flip: ' + (autoFlip ? 'ON' : 'OFF');
-        autoFlipBtn.style.background = autoFlip ? 'linear-gradient(135deg, #40c0f0, #2080d4)' : '';
-        if (autoFlip && gameMode === 'pvp') {
-            flipped = (turn === 'black');
-            buildBoard();
-        }
-    };
-
-    if (copyFenBtn) copyFenBtn.onclick = async () => {
-        const data = await get('/api/state/');
-        if (data.fen) {
-            navigator.clipboard.writeText(data.fen);
-            const oldText = copyFenBtn.textContent;
-            copyFenBtn.textContent = 'Copied!';
-            setTimeout(() => copyFenBtn.textContent = oldText, 2000);
-        }
-    };
-
     if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
         welcomeOverlay.classList.remove('active');
         gameLayout.style.visibility = 'visible';
-        if (paused) resumeGame();
+        if (paused) {
+            resumeGame();
+        } else {
+            startTimer();
+            queueAIMoveIfNeeded();
+        }
     };
 
     if (confirmYesBtn) confirmYesBtn.onclick = () => {
@@ -834,8 +942,29 @@ import '../css/board.css';
         confirmCallback = null;
     };
 
-    if (newPvPBtn) newPvPBtn.onclick = () => requestNewGame('pvp');
-    if (newAIBtn) newAIBtn.onclick = () => requestNewGame('ai');
+    if (newPvPBtn) newPvPBtn.onclick = () => {
+        // Clear any lingering celebration effects
+        const overlay = document.getElementById('gameOverOverlay');
+        overlay.classList.remove('game-over-celebration');
+        const confettiContainer = overlay.querySelector('.confetti-container');
+        if (confettiContainer) {
+            confettiContainer.remove();
+        }
+        
+        requestNewGame('pvp');
+    };
+    
+    if (newAIBtn) newAIBtn.onclick = () => {
+        // Clear any lingering celebration effects
+        const overlay = document.getElementById('gameOverOverlay');
+        overlay.classList.remove('game-over-celebration');
+        const confettiContainer = overlay.querySelector('.confetti-container');
+        if (confettiContainer) {
+            confettiContainer.remove();
+        }
+        
+        requestNewGame('ai');
+    };
 
     if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
@@ -849,7 +978,7 @@ import '../css/board.css';
     if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
         drawOverlay.classList.remove('active');
         const data = await post('/api/draw/', { action: 'accept' });
-        if (data.success) endGame('draw', turn);
+        if (data.success) endGame('draw', turn, data.draw_reason);
     };
     if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
         drawOverlay.classList.remove('active');
@@ -857,9 +986,18 @@ import '../css/board.css';
     };
 
     if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
-        const mode = document.querySelector('input[name="go_mode"]:checked').value;
+        const modeInput = document.querySelector('input[name="go_mode"]:checked');
+        const mode = modeInput ? modeInput.value : 'pvp';
         const diff = document.getElementById('goDifficultySelect').value;
         gameOverOverlay.classList.remove('active');
+        gameOverOverlay.classList.remove('game-over-celebration');
+        
+        // Clear confetti container
+        const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+        if (confettiContainer) {
+            confettiContainer.remove();
+        }
+        
         startNewGame(mode, 'white', diff);
     };
 
@@ -883,6 +1021,27 @@ import '../css/board.css';
             btn.setAttribute('aria-pressed', 'true');
         };
     });
+
+    // Shared logic for both UI and Keyboard
+    if (autoFlipBtn) autoFlipBtn.onclick = () => {
+        autoFlip = !autoFlip;
+        autoFlipBtn.textContent = 'Auto-Flip: ' + (autoFlip ? 'ON' : 'OFF');
+        autoFlipBtn.style.background = autoFlip ? 'linear-gradient(135deg, #40c0f0, #2080d4)' : '';
+        if (autoFlip && gameMode === 'pvp') {
+            flipped = (turn === 'black');
+            buildBoard();
+        }
+    };
+
+    if (copyFenBtn) copyFenBtn.onclick = async () => {
+        const data = await get('/api/state/');
+        if (data.fen) {
+            navigator.clipboard.writeText(data.fen);
+            const oldText = copyFenBtn.textContent;
+            copyFenBtn.textContent = 'Copied!';
+            setTimeout(() => copyFenBtn.textContent = oldText, 2000);
+        }
+    };
 
     document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
     window.addEventListener('beforeunload', () => {

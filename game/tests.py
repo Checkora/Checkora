@@ -297,6 +297,29 @@ class PauseTest(TestCase):
         self.assertFalse(r2.json()['paused'])
 
 
+class DrawOfferTest(TestCase):
+    """Test draw agreement persistence through the API."""
+
+    def setUp(self):
+        self.client.get('/')
+
+    def test_accept_draw_marks_game_as_draw_agreement(self):
+        response = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'accept'}),
+            content_type='application/json',
+        )
+        data = response.json()
+
+        self.assertTrue(data['success'])
+        self.assertEqual(data['game_status'], 'draw')
+        self.assertEqual(data['draw_reason'], 'agreement')
+
+        state = self.client.get('/api/state/').json()
+        self.assertEqual(state['game_status'], 'draw')
+        self.assertEqual(state['draw_reason'], 'agreement')
+
+
 class DrawRuleTest(SimpleTestCase):
     """Test rule-based draw detection in the engine."""
 
@@ -316,6 +339,8 @@ class DrawRuleTest(SimpleTestCase):
         self.assertTrue(success)
         self.assertEqual(status, 'draw')
         self.assertEqual(game.halfmove_clock, 100)
+        self.assertEqual(game.game_status, 'draw')
+        self.assertEqual(game.draw_reason, 'fifty_move_rule')
 
     def test_checkmate_beats_fifty_move_draw(self):
         game = ChessGame()
@@ -355,6 +380,8 @@ class DrawRuleTest(SimpleTestCase):
             self.assertTrue(success)
 
         self.assertEqual(status, 'draw')
+        self.assertEqual(game.game_status, 'draw')
+        self.assertEqual(game.draw_reason, 'threefold_repetition')
 
     def test_session_round_trip_preserves_draw_state(self):
         game = ChessGame()
@@ -367,6 +394,27 @@ class DrawRuleTest(SimpleTestCase):
         self.assertEqual(restored.halfmove_clock, 42)
         self.assertEqual(restored.repetition_history, game.repetition_history)
         self.assertEqual(restored.repetition_counts, game.repetition_counts)
+
+    def test_session_round_trip_preserves_draw_metadata(self):
+        game = ChessGame()
+        game.game_status = 'draw'
+        game.draw_reason = 'threefold_repetition'
+
+        restored = ChessGame.from_dict(game.to_dict())
+
+        self.assertEqual(restored.game_status, 'draw')
+        self.assertEqual(restored.draw_reason, 'threefold_repetition')
+
+    def test_completed_game_rejects_more_moves(self):
+        game = ChessGame()
+        game.game_status = 'draw'
+        game.draw_reason = 'threefold_repetition'
+
+        success, message, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertFalse(success)
+        self.assertEqual(message, 'Game is already over.')
+        self.assertEqual(status, 'draw')
 
     def test_position_key_ignores_unusable_en_passant_square(self):
         game = ChessGame()

@@ -14,10 +14,12 @@ urlpatterns = [
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
+    path('stats/', views.stats_view, name='stats'),
 
     # Authentication
     path('register/', views.register_view, name='register'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('login/', views.login_view, name='login'),
+    path('rules/', views.rules, name='rules'),
     path('logout/', views.logout_view, name='logout'),
 ]
