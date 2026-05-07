@@ -1,0 +1,92 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Checkora — Hybrid Chess Engine</title>
+  <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+  <script src="{% static 'game/js/landing.js' %}" defer></script>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <a class="logo" href="/">
+        <img class="nav-logo" src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora logo">
+        <span class="logo-text">CHECKORA</span>
+      </a>
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#about" class="nav-link">About</a>
+    </div>
+    <div class="nav-right">
+      {% if user.is_authenticated %}
+        <a class="btn ghost" href="/play/">Start Game</a>
+        <a class="btn" href="/logout/">Logout</a>
+      {% else %}
+        <a class="btn ghost" href="/login/">Sign In</a>
+        <a class="btn btn-register" href="/register/">Register</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-inner">
+        <br>
+      <h1 class="hero-title">Master the Board with Hybrid Intelligence</h1>
+      <p class="hero-sub">A lightweight Django frontend orchestrating Python logic with a high-performance C++ minimax engine.</p>
+      <div class="hero-cta">
+        <a class="primary" href="/play/">Start Game</a>
+        <a class="secondary" href="#features">Learn More</a>
+      </div>
+    </div>
+  </header>
+
+  <section id="features" class="features">
+    <h2>Why Checkora</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="card-inner">
+          <div class="card-front">
+            <div class="feature-icon">🕸️</div>
+            <h3>Web & UX</h3>
+          </div>
+          <div class="card-back">
+            <p>Secure authentication, game state, and responsive UI are handled by Django and JavaScript for a seamless player experience.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="card-inner">
+          <div class="card-front">
+            <div class="feature-icon">⚙️</div>
+            <h3>Engine (C++)</h3>
+          </div>
+          <div class="card-back">
+            <p>Compute-intensive minimax and evaluation run in optimized C++ modules to deliver fast, strong play.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="card-inner">
+          <div class="card-front">
+            <div class="feature-icon">🔗</div>
+            <h3>Hybrid Architecture</h3>
+          </div>
+          <div class="card-back">
+            <p>Python orchestrates the app while C++ handles heavy computation — connected via bindings or subprocess calls.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- technical brief removed as requested -->
+
+  <footer class="site-footer" id="about">
+    <div class="footer-inner">
+      <p>© Checkora — Built with Django, Python, and C++.</p>
+      <p><a href="/play/rules/">Rules</a> • <a href="/play/stats/">Stats</a></p>
+    </div>
+  </footer>
+</body>
+</html>

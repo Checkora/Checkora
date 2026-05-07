@@ -22,6 +22,13 @@ from .engine import ChessGame
 from .models import GameResult
 
 
+def landing(request):
+    """Render the public landing page for Checkora."""
+    return render(request, 'landing.html', {
+        'user': request.user,
+    })
+
+
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
