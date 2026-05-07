@@ -427,6 +427,8 @@ def register_view(request):
             except Exception as e:
                 # If email fails, delete the user so they can try again
                 user.delete()
+                request.session.pop('registration_user_id', None)
+                request.session.pop('registration_otp_hash', None)
                 err_msg = (
                     f'Failed to send OTP email: {str(e)}. '
                     'Please check your email address and try again.'
@@ -476,7 +478,15 @@ def verify_otp(request):
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
-    return render(request, 'game/verify_otp.html')
+    uses_console_email = (
+        settings.EMAIL_BACKEND
+        == 'django.core.mail.backends.console.EmailBackend'
+    )
+    return render(
+        request,
+        'game/verify_otp.html',
+        {'uses_console_email': uses_console_email},
+    )
 
 
 def login_view(request):

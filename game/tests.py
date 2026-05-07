@@ -5,7 +5,8 @@ import sys
 from unittest import mock
 
 from django.conf import settings
-from django.test import SimpleTestCase, TestCase
+from django.contrib.auth.models import User
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
 
@@ -87,6 +88,62 @@ class LandingViewTest(TestCase):
     def test_landing_page_links_to_play(self):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
+
+
+class RegistrationViewTest(TestCase):
+    """Registration should send OTP by email only and show failures."""
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'
+    )
+    def test_successful_registration_redirects_without_showing_otp(self):
+        payload = {
+            'username': 'devplayer',
+            'email': 'devplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        with mock.patch('game.views.random.randint', return_value=123456):
+            response = self.client.post('/register/', data=payload, follow=True)
+
+        self.assertRedirects(response, '/verify-otp/')
+        self.assertNotContains(response, 'Development mode OTP')
+        self.assertNotContains(response, '123456')
+        self.assertTrue(User.objects.filter(username='devplayer').exists())
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'
+    )
+    def test_verify_page_mentions_terminal_for_console_email(self):
+        session = self.client.session
+        session['registration_user_id'] = 1
+        session['registration_otp_hash'] = 'pending'
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
+        response = self.client.get('/verify-otp/')
+
+        self.assertContains(response, 'server terminal')
+        self.assertNotContains(response, 'email address')
+
+    def test_email_failure_renders_error_and_removes_pending_user(self):
+        payload = {
+            'username': 'newplayer',
+            'email': 'newplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        with mock.patch('game.views.send_mail', side_effect=Exception('SMTP unavailable')):
+            response = self.client.post('/register/', data=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Failed to send OTP email: SMTP unavailable.')
+        self.assertContains(response, 'Please check your email address and try again.')
+        self.assertFalse(User.objects.filter(username='newplayer').exists())
+        self.assertNotIn('registration_user_id', self.client.session)
+        self.assertNotIn('registration_otp_hash', self.client.session)
 
 
 class MoveValidationTest(TestCase):
