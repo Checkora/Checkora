@@ -78,6 +78,11 @@ source .venv/bin/activate        # Linux/macOS
 # Install Python dependencies
 pip install -r requirements.txt
 
+# Set up environment variables
+# Copy the example file to a local .env file
+cp .env.example .env              # Linux/macOS
+copy .env.example .env            # Windows (PowerShell)
+
 # Compile the C++ chess engine (Linux/macOS)
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
 chmod +x game/engine/main

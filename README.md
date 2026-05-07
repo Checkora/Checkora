@@ -82,7 +82,17 @@ Note: Django 6.0 requires Python 3.12 or higher. If you have multiple versions o
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Run migrations and start the server
+# 4. Set up environment variables
+# Copy example env file
+# Windows (PowerShell)
+copy .env.example .env
+
+# macOS / Linux
+cp .env.example .env
+
+# Open `.env` and set SECRET_KEY if needed
+
+# 5. Run migrations and start the server
 python manage.py migrate
 python manage.py runserver
 ```

@@ -984,8 +984,8 @@
                     confettiContainer.remove();
                 }
                 
-                const wName = document.getElementById('whiteNameInput')?.value || 'White';
-                const bName = document.getElementById('blackNameInput')?.value || 'Black';
+            const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
+            const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
 
                 const d = await post('/api/new-game/', {
                     mode: mode,
@@ -1209,9 +1209,14 @@
                     drawBtn.click();
                 }
             });
-            window.addEventListener('beforeunload', () => {
+            // Show browser confirmation dialog if user tries to leave during an active game
+            window.addEventListener('beforeunload', (e) => {
                 if (!paused) {
                     navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+                }
+                if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+                    e.preventDefault();
+                    e.returnValue = '';
                 }
             });
 
