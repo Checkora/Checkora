@@ -110,7 +110,14 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
-        return " ".join(pgn_moves)
+        headers = [
+    '[Event "Checkora Match"]',
+    '[White "White"]',
+    '[Black "Black"]',
+    '[Result "*"]',
+]
+        moves = " ".join(pgn_moves)
+        return "\n".join(headers) + "\n\n" + moves
 
     def to_dict(self):
         """Serialise state for Django session storage. DP cache is intentionally excluded to save cookie space."""
@@ -389,15 +396,6 @@ class ChessGame:
         notation = self._notation(fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before)
         if promoted and '=' not in notation:
             notation += '=' + (self.board[tr][tc] or 'Q').upper()
-        self.move_history.append({
-            'notation': notation,
-            'piece': piece,
-            'from': [fr, fc],
-            'to': [tr, tc],
-            'captured': captured,
-            'color': self.current_turn,
-            'promoted_to': self.board[tr][tc] if promoted else None,
-        })
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
@@ -417,6 +415,20 @@ class ChessGame:
 
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
+        if game_status == 'checkmate':
+            notation += '#'
+
+        elif game_status == 'check':
+            notation += '+'
+        self.move_history.append({
+            'notation': notation,
+            'piece': piece,
+            'from': [fr, fc],
+            'to': [tr, tc],
+            'captured': captured,
+            'color': self.current_turn,
+            'promoted_to': self.board[tr][tc] if promoted else None,
+        })
 
         if game_status == 'checkmate':
             self.game_status = game_status
@@ -548,29 +560,47 @@ class ChessGame:
                 parts = resp.split()
                 if len(parts) >= 2:
                     return parts[1]
-                
         # Castling
         if piece.lower() == 'k':
             if fc == 4 and tc == 6:
-                return "O-O"
-            if fc == 4 and tc == 2:
-                return "O-O-O"
+                notation = "O-O"
+            elif fc == 4 and tc == 2:
+                notation = "O-O-O"
+            else:
+                files = "abcdefgh"
+                t_coord = f"{files[tc]}{8 - tr}"
+                if captured:
+                    notation = f"Kx{t_coord}"
+                else:
+                    notation = f"K{t_coord}"
+        else:
+            # Fallback: simplified notation
+            files = "abcdefgh"
+            f_coord = f"{files[fc]}{8 - fr}"
+            t_coord = f"{files[tc]}{8 - tr}"
+
+            if not piece:
+                notation = f"{f_coord} -> {t_coord}"
+
+            else:
+                type = piece.lower()
+
+                if type == 'p':
+                    if fc != tc:
+                        notation = f"{files[fc]}x{t_coord}"
+                    else:
+                        notation = t_coord
+
+                else:
+                    p_char = type.upper()
+
+                    if captured:
+                        notation = f"{p_char}x{t_coord}"
+                    else:
+                        notation = f"{p_char}{t_coord}"
+
+        return notation
         
-        # Fallback: simplified notation (e.g., e4, Nf3, exd5)
-        files = "abcdefgh"
-        f_coord = f"{files[fc]}{8 - fr}"
-        t_coord = f"{files[tc]}{8 - tr}"
-        
-        if not piece: return f"{f_coord} -> {t_coord}"
-        
-        type = piece.lower()
-        if type == 'p':
-            if fc != tc: return f"{files[fc]}x{t_coord}"
-            return t_coord
-        
-        p_char = type.upper()
-        if captured: return f"{p_char}x{t_coord}"
-        return f"{p_char}{t_coord}"
 
     @staticmethod
     def _color(piece):
