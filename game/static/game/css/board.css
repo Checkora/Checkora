@@ -26,31 +26,95 @@ body {
 /* ============================================================
    Header
    ============================================================ */
-.header {
-  padding: 20px 0 8px;
-  text-align: center;
+
+   .header { 
+    padding: 20px 0 8px; 
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
 }
-.header h1 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 2px;
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;   /* tighter = better */
+}
+
+/* Logo image */
+.logo-icon-img {
+    animation: logoGlow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes logoGlow {
+    from {
+        filter: brightness(1.5) contrast(1.2)
+                drop-shadow(0 0 6px rgba(0, 200, 255, 0.4));
+    }
+    to {
+        filter: brightness(1.8) contrast(1.4)
+                drop-shadow(0 0 14px rgba(0, 200, 255, 0.7));
+    }
+}
+
+/* Text */ 
+.logo-text {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #f0c040;
+}
+.logo-icon-img {
+    height: 40px;
+    filter: none;  /* no animation here */
+}
+
+@keyframes logoGlow {
+    0% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
+    }
+    100% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .logo-icon-img {
+        height: 26px;
+    }
+    .logo-text {
+        font-size: 20px;
+    }
 }
 .header .badge {
-  font-size: 0.45em;
-  color: #f0c040;
-  vertical-align: super;
-  font-weight: 400;
-  letter-spacing: 1px;
+    font-size: 0.55em;
+    color: #d4a574;
+    vertical-align: super;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    position: relative;
+    top: -8px;
+    background: rgba(212, 165, 116, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(212, 165, 116, 0.3);
 }
 
 .auth-buttons {
-  position: absolute;
-  right: 20px;
-  top: 25px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
+    position: absolute;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 .welcome-msg {
   color: #8a8aaa;
@@ -478,123 +542,138 @@ body {
 }
 
 @media (max-width: 768px) {
-  :root {
-    --board-border-width: 3px;
-    --mobile-board-size: min(calc(100vw - 52px), 480px);
-    --mobile-square-size: calc(
-      (var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8
-    );
-  }
+    :root {
+        --board-border-width: 3px;
+        --mobile-board-size: min(calc(100vw - 52px), 480px);
+        --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
+    }
 
-  .header {
-    padding: 16px 0 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
+    .header {
+        padding: 16px 0 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    .logo-container {
+        gap: 6px;
+    }
+    
+    /*.logo-icon {
+        font-size: 1.1rem;
+    }*/
+    
+    .logo-text {
+        font-size: 1.4rem;
+    }
+    
+    .auth-buttons {
+        position: relative;
+        right: auto;
+        top: auto;
+        transform: none;
+    }
+    .header h1 {
+        font-size: 1.5rem;
+        margin: 0;
+    }
 
-  .header h1 {
-    font-size: 1.5rem;
-    margin: 0;
-  }
+    .auth-buttons {
+        position: relative;
+        right: auto;
+        top: auto;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
 
-  .auth-buttons {
-    position: relative;
-    right: auto;
-    top: auto;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+    .game-layout {
+        width: 100%;
+        gap: 16px;
+        padding: 10px 12px 24px;
+    }
 
-  .game-layout {
-    width: 100%;
-    gap: 16px;
-    padding: 10px 12px 24px;
-  }
+    .panel,
+    .board-container {
+        width: 100%;
+        max-width: 100%;
+    }
 
-  .panel,
-  .board-container {
-    width: 100%;
-    max-width: 100%;
-  }
+    .panel {
+        flex-direction: column;
+    }
 
-  .panel {
-    flex-direction: column;
-  }
+    .panel .card {
+        min-width: 0;
+    }
 
-  .panel .card {
-    min-width: 0;
-  }
+    .board-outer {
+        width: 100%;
+        max-width: calc(100vw - 24px);
+    }
 
-  .board-outer {
-    width: 100%;
-    max-width: calc(100vw - 24px);
-  }
+    .chessboard {
+        width: var(--mobile-board-size);
+        height: var(--mobile-board-size);
+        border-width: var(--board-border-width);
+        grid-template-columns: repeat(8, var(--mobile-square-size));
+        grid-template-rows: repeat(8, var(--mobile-square-size));
+    }
 
-  .chessboard {
-    width: var(--mobile-board-size);
-    height: var(--mobile-board-size);
-    border-width: var(--board-border-width);
-    grid-template-columns: repeat(8, var(--mobile-square-size));
-    grid-template-rows: repeat(8, var(--mobile-square-size));
-  }
+    .square {
+        width: 100%;
+        height: 100%;
+    }
 
-  .square {
-    width: 100%;
-    height: 100%;
-  }
+    .ranks span {
+        height: var(--mobile-square-size);
+    }
 
-  .ranks span {
-    height: var(--mobile-square-size);
-  }
+    .files {
+        padding-left: 24px;
+    }
 
-  .files {
-    padding-left: 24px;
-  }
+    .files span {
+        width: var(--mobile-square-size);
+    }
 
-  .files span {
-    width: var(--mobile-square-size);
-  }
+    .piece,
+    .capture-ring {
+        width: 90%;
+        height: 90%;
+    }
 
-  .piece,
-  .capture-ring {
-    width: 90%;
-    height: 90%;
-  }
+    .move-dot {
+        width: 28%;
+        height: 28%;
+    }
 
-  .move-dot {
-    width: 28%;
-    height: 28%;
-  }
+    .capture-ring {
+        border-width: max(3px, 0.08rem);
+    }
 
-  .capture-ring {
-    border-width: max(3px, 0.08rem);
-  }
+    .clocks {
+        width: 100%;
+    }
 
-  .clocks {
-    width: 100%;
-  }
+    .clock {
+        padding: 12px;
+    }
 
-  .clock {
-    padding: 12px;
-  }
+    .clock .time {
+        font-size: 1rem;
+    }
 
-  .clock .time {
-    font-size: 1rem;
-  }
+    .btn {
+        min-height: 44px;
+    }
 
-  .btn {
-    min-height: 44px;
-  }
-
-  .turn-badge,
-  #pauseBtn {
-    width: 100%;
-  }
+    .turn-badge,
+    #pauseBtn {
+        width: 100%;
+    }
 }
 
 /* ================= CLOCKS ================= */
@@ -760,6 +839,34 @@ body {
   height: 100%;
   pointer-events: none;
 }
+.promo-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.promo-logo span {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f0c040;
+    letter-spacing: 2px;
+}
+
+.promo-title img {
+    height: 46px;
+    width: auto;
+    object-fit: contain;
+
+    transform: translateY(2px);
+
+    /* base look */
+    filter: brightness(1.6) contrast(1.3);
+
+    /* animation only here */
+    animation: logoGlow 2.8s ease-in-out infinite alternate;
+}
 
 /* ================= CELEBRATION EFFECTS ================= */
 
@@ -896,17 +1003,39 @@ body {
 }
 
 @keyframes glow-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 40px rgba(240, 192, 64, 0.4),
-      0 0 80px rgba(240, 192, 64, 0.2),
-      0 12px 48px rgba(0, 0, 0, 0.8);
-  }
-  50% {
-    box-shadow:
-      0 0 60px rgba(240, 192, 64, 0.6),
-      0 0 120px rgba(240, 192, 64, 0.4),
-      0 12px 48px rgba(0, 0, 0, 0.8);
-  }
+    0%, 100% {
+        box-shadow: 0 0 40px rgba(240, 192, 64, 0.4),
+                    0 0 80px rgba(240, 192, 64, 0.2),
+                    0 12px 48px rgba(0, 0, 0, 0.8);
+    }
+    50% {
+        box-shadow: 0 0 60px rgba(240, 192, 64, 0.6),
+                    0 0 120px rgba(240, 192, 64, 0.4),
+                    0 12px 48px rgba(0, 0, 0, 0.8);
+    }
+}
+
+/* ================= CHECK HIGHLIGHT ================= */
+
+.square.in-check,
+.square.light.in-check,
+.square.dark.in-check {
+    background: radial-gradient(circle, 
+        rgba(220, 38, 38, 0.45) 0%, 
+        rgba(220, 38, 38, 0.2) 50%, 
+        transparent 75%) !important;
+    animation: pulse-check 1.5s ease-in-out infinite !important;
+    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
+                0 0 12px rgba(220, 38, 38, 0.25);
+}
+
+@keyframes pulse-check {
+    0%, 100% {
+        box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
+                    0 0 12px rgba(220, 38, 38, 0.25);
+    }
+    50% {
+        box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5), 
+                    0 0 20px rgba(220, 38, 38, 0.4);
+    }
 }

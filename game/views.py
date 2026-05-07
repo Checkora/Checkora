@@ -4,7 +4,7 @@ import json
 import time
 import hashlib
 import random
-
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
@@ -184,8 +184,8 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
-    """Return the full current game state, pausing on page load."""
-    game_data = request.session.get("game")
+    """Return the full current game state without mutating pause state."""
+    game_data = request.session.get('game')
     if not game_data:
         game = ChessGame()
     else:
@@ -198,11 +198,7 @@ def get_state(request):
         else:
             game.update_clock()
 
-    # Always start in paused state on page load/refresh
-    game.paused = False
-    game.last_ts = time.time()
-
-    request.session["game"] = game.to_dict()
+    request.session['game'] = game.to_dict()
     request.session.modified = True
 
     return JsonResponse(
@@ -237,7 +233,9 @@ def set_pause(request):
 
     game = ChessGame.from_dict(game_data)
 
-    game.update_clock()
+    # Only deduct elapsed time when transitioning from running to paused.
+    if pause and not game.paused:
+        game.update_clock()
     game.paused = pause
     game.last_ts = time.time()
 
@@ -504,6 +502,9 @@ def login_view(request):
 
     return render(request, "game/login.html", {"form": form})
 
+@xframe_options_sameorigin
+def rules(request):
+    return render(request, 'game/rules.html')
 
 def logout_view(request):
     logout(request)

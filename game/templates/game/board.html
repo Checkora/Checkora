@@ -5,11 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Checkora | AI Chess</title>
-    <link
-      rel="icon"
-      type="image/jpeg"
-      href="{% static 'game/favicon.jpeg' %}"
-    />
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
     <!-- Vercel Speed Insights -->
     <script>
@@ -46,78 +43,36 @@
     </script>
   </head>
 
-  <body>
+</head>
+
+
+<body>
+
     <!-- ========== WELCOME MESSAGE ========== -->
 
-    <div
-      class="promo-overlay active"
-      id="welcomeOverlay"
-      style="background: var(--page-bg); z-index: 9999"
-    >
-      <div class="promo-dialog" style="min-width: 320px; padding: 35px">
-        <div
-          class="promo-title"
-          style="font-size: 1.6rem; color: #fff; margin-bottom: 10px"
-        >
-          Checkora
-        </div>
-        <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem">
-          Enter names and select a game mode.
-        </p>
-        <!-- Name Input Fields (Only for PvP) -->
-        <div
-          id="nameInputs"
-          style="
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 25px;
-          "
-        >
-          <input
-            type="text"
-            id="whiteNameInput"
-            placeholder="White Player Name"
-            style="
-              padding: 10px;
-              border-radius: 5px;
-              border: 1px solid #444;
-              background: #1a1a2e;
-              color: #fff;
-            "
-          />
-          <input
-            type="text"
-            id="blackNameInput"
-            placeholder="Black Player Name"
-            style="
-              padding: 10px;
-              border-radius: 5px;
-              border: 1px solid #444;
-              background: #1a1a2e;
-              color: #fff;
-            "
-          />
-        </div>
+    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
+        <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
+            <div class="promo-title" style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <div class="promo-title promo-logo">
+    
+                    <img src="{% static 'game/checkora_icon_only.png' %}" 
+                         style="height: 3rem; width: auto; object-fit: contain;" 
+                         alt="Checkora">
+                
+                    <span>CHECKORA</span>
+                
+                </div>
+                    
+            </div>
+            <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
+            <!-- Name Input Fields (Only for PvP) -->
+            <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
+                <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17"
 
-        <div
-          id="modeSelection"
-          style="display: flex; flex-direction: column; gap: 14px"
-        >
-          <button
-            class="btn btn-gold"
-            id="welcomePvPBtn"
-            style="padding: 12px; font-size: 1.05rem"
-          >
-            Pass & Play (PvP)
-          </button>
-          <button
-            class="btn btn-gold"
-            id="welcomeAIBtn"
-            style="padding: 12px; font-size: 1.05rem"
-          >
-            Play vs AI
-          </button>
+                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                <input type="text" id="blackNameInput" placeholder="Black Player Name" maxlength="17"
+                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+            </div>
 
           <button
             class="btn"
@@ -239,20 +194,25 @@
     </div>
 
     <!-- ========== HEADER ========== -->
-    <div class="header">
-      <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
-
-        <div class="auth-buttons">
-            {% if user.is_authenticated %}
-            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
-            {% else %}
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
-            {% endif %}
-            <a href="/stats/" class="btn-signin">Stats</a>
-        </div>
+<div class="header">
+    <div class="logo-container">
+        <img src="{% static 'game/checkora_icon_only.png' %}" 
+            class="logo-icon-img" alt="Checkora">
+        <span class="logo-text">Checkora</span>
+        <span class="badge" id="modeBadge">PVP</span>
     </div>
+
+    <div class="auth-buttons">
+        {% if user.is_authenticated %}
+        <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+        <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+        <a href="{% url 'register' %}" class="btn-register">Register</a>
+        {% endif %}
+        <a href="/stats/" class="btn-signin">Stats</a>
+    </div>
+</div>
 
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden">
@@ -384,21 +344,50 @@
             Classic · Dark · Green · Blue
           </div>
         </div>
-        <div class="card">
-          <div class="card-title">Game Controls</div>
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <button class="btn btn-gold" id="newPvPBtn">
-              Pass & Play (PvP)
-            </button>
-            <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
-            <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
-            <div
-              id="flipControls"
-              style="display: flex; flex-direction: column; gap: 8px"
-            >
-              <button class="btn btn-gold" id="autoFlipBtn">
-                Auto-Flip: OFF
-              </button>
+
+        <!-- Right Panel -->
+        <div class="panel">
+            <div class="card">
+                <div class="card-title">Board Theme</div>
+                <div class="theme-switcher">
+                    <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme"
+                        aria-pressed="true" type="button"></button>
+                    <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme"
+                        aria-pressed="false" type="button"></button>
+                    <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme"
+                        aria-pressed="false" type="button"></button>
+                    <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
+                        aria-pressed="false" type="button"></button>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
+                    Classic · Dark · Green · Blue
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Game Controls</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="btn btn-gold" id="flipBtn">Flip Board</button>
+                    <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
+                    <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
+                    </div>
+                    <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
+                    <button class="btn btn-gold" id="pauseBtn">Pause</button>
+                    <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
+                    <button class="btn btn-gold" style="width: 100%;" onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+
+                </div>
+                <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
+                    ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Move History</div>
+                <div class="moves-list" id="movesList">
+                    <span class="placeholder">No moves yet</span>
+                </div>
             </div>
             <button class="btn btn-gold" id="drawBtn" style="display: none">
               Offer Draw
@@ -628,9 +617,18 @@
         </div>
       </div>
     </div>
+    <!-- RULEBOOK MODAL -->
+<div id="rulebookModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+    <div style="position:relative; width:95vw; height:90vh; background:#13161e; border-radius:12px; overflow:hidden;">
+        <button onclick="document.getElementById('rulebookModal').style.display='none'"
+            style="position:absolute; top:12px; right:12px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
+        <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
+    </div>
+</div>
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
     <script src="{% static 'game/js/board.js' %}"></script>
-  </body>
+</body>
+
 </html>
