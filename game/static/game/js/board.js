@@ -62,6 +62,7 @@
             const autoFlipBtn = document.getElementById('autoFlipBtn');
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
+            const copyPgnBtn = document.getElementById('copyPgnBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -1076,6 +1077,21 @@
                     buildBoard();
                 }
             };
+            if (copyPgnBtn) copyPgnBtn.onclick = async () => {
+    const data = await get('/api/state/');
+
+    if (data.pgn) {
+        navigator.clipboard.writeText(data.pgn);
+
+        const oldText = copyPgnBtn.textContent;
+
+        copyPgnBtn.textContent = 'Copied!';
+
+        setTimeout(() => {
+            copyPgnBtn.textContent = oldText;
+        }, 2000);
+    }
+};
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
