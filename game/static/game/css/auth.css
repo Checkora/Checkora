@@ -123,6 +123,26 @@ body {
     border-left: 3px solid #ff6b6b;
     border-radius: 4px;
 }
+.message-list {
+    margin-bottom: 18px;
+}
+.message {
+    color: #ffb4b4;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    padding: 10px 12px;
+    background: rgba(255, 107, 107, 0.1);
+    border-left: 3px solid #ff6b6b;
+    border-radius: 4px;
+}
+.message + .message {
+    margin-top: 8px;
+}
+.message-success {
+    color: #b5f5c8;
+    background: rgba(76, 175, 80, 0.12);
+    border-left-color: #4caf50;
+}
 
 .btn {
     width: 100%;
