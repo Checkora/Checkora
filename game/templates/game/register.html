@@ -5,67 +5,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}" />
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=5" />
     <link
       rel="icon"
       type="image/jpeg"
       href="{% static 'game/favicon.jpeg' %}"
     />
-    <style>
-      /* Back-to-home arrow link */
-      .back-home {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        color: #f0c040;
-        text-decoration: none;
-        font-size: 1.2rem;
-        font-weight: 700;
-      }
-      .back-home:hover {
-        color: #fff;
-      }
-      /* Password eye icon styles */
-      .pw-wrapper {
-        position: relative;
-        display: flex;
-        align-items: center;
-      }
-      .pw-wrapper input {
-        width: 100%;
-        padding-right: 2.5rem;
-        box-sizing: border-box;
-      }
-      .pw-toggle {
-        position: absolute;
-        right: 0.6rem;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        outline: none;
-        -webkit-appearance: none;
-        cursor: pointer;
-        color: #f0c040;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.5rem;
-        height: 1.5rem;
-        z-index: 2;
-      }
-      .pw-toggle:hover {
-        color: #fff;
-      }
-      .pw-toggle:focus-visible {
-        outline: 2px solid #c9a84c;
-        border-radius: 3px;
-      }
-      .pw-toggle svg {
-        display: block;
-      }
-    </style>
   </head>
   <body>
     <!-- Back-to-home arrow -->
@@ -105,44 +50,6 @@
       </div>
     </div>
 
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        // Add classes to Django generated inputs
-        document.querySelectorAll("input").forEach((input) => {
-          if (input.type !== "submit") {
-            input.className = "form-control";
-          }
-        });
-
-        // Eye icon toggle for password fields
-        const eyeIcon = `<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-        const eyeOffIcon = `<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-
-        function togglePw(id, btn) {
-          const input = document.getElementById(id);
-          const isHidden = input.type === "password";
-          input.type = isHidden ? "text" : "password";
-          btn.innerHTML = isHidden ? eyeOffIcon : eyeIcon;
-          btn.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
-          btn.setAttribute("aria-pressed", isHidden ? "true" : "false");
-        }
-
-        document.querySelectorAll('input[type="password"]').forEach((input, i) => {
-          if (!input.id) input.id = "pw-field-" + i;
-          const wrapper = document.createElement("div");
-          wrapper.className = "pw-wrapper";
-          input.parentNode.insertBefore(wrapper, input);
-          wrapper.appendChild(input);
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "pw-toggle";
-          btn.setAttribute("aria-label", "Show password");
-          btn.setAttribute("aria-pressed", "false");
-          btn.innerHTML = eyeIcon;
-          btn.onclick = () => togglePw(input.id, btn);
-          wrapper.appendChild(btn);
-        });
-      });
-    </script>
+    <script src="{% static 'game/js/auth.js' %}?v=5"></script>
   </body>
 </html>
