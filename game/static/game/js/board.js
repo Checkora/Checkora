@@ -984,8 +984,8 @@
                     confettiContainer.remove();
                 }
                 
-                const wName = document.getElementById('whiteNameInput')?.value || 'White';
-                const bName = document.getElementById('blackNameInput')?.value || 'Black';
+            const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 15);
+            const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 15);
 
                 const d = await post('/api/new-game/', {
                     mode: mode,
