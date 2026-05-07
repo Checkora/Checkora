@@ -13,6 +13,8 @@
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
     <script defer src="/_vercel/speed-insights/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
     
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     
@@ -216,8 +218,55 @@
                     (PvP)</button>
                 <button class="btn btn-gold" id="gameOverAIBtn" style="padding: 12px; font-size: 1rem;">New Game (vs
                     AI)</button>
+                <button class="btn" id="shareMatchBtn" style="padding: 12px; font-size: 1rem;">Share Match</button>
             </div>
         </div>
+    
+    <!-- ========== SHARE CARD TEMPLATE (HIDDEN) ========== -->
+    <div id="shareCardTemplate" style="position: absolute; left: -9999px; top: 0; width: 600px; background: #0f0f1a; padding: 40px; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; gap: 25px; border: 1px solid #252545;">
+        <div style="font-size: 2.5rem; font-weight: 700; color: #f0c040; letter-spacing: 3px;">CHECKORA</div>
+        
+        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; padding: 0 20px;">
+            <div style="text-align: center; flex: 1;">
+                <div id="shareWhiteName" style="font-size: 1.4rem; font-weight: 600; color: #ddd; margin-bottom: 5px;">White</div>
+                <div style="font-size: 0.8rem; color: #6a6a8a; text-transform: uppercase;">Player 1</div>
+            </div>
+            <div style="font-size: 1.2rem; font-weight: 700; color: #f0c040; background: rgba(240, 192, 64, 0.1); padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(240, 192, 64, 0.3);">VS</div>
+            <div style="text-align: center; flex: 1;">
+                <div id="shareBlackName" style="font-size: 1.4rem; font-weight: 600; color: #ddd; margin-bottom: 5px;">Black</div>
+                <div style="font-size: 0.8rem; color: #6a6a8a; text-transform: uppercase;">Player 2</div>
+            </div>
+        </div>
+
+        <div id="shareBoardContainer" style="background: #16162a; padding: 15px; border-radius: 8px; border: 4px solid #3d3222; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+            <!-- Board will be cloned here -->
+        </div>
+
+        <div style="text-align: center;">
+            <div id="shareResultTitle" style="font-size: 1.8rem; font-weight: 700; color: #f0c040; margin-bottom: 5px;">Checkmate!</div>
+            <div id="shareResultMessage" style="font-size: 1.1rem; color: #aaa;">White wins the match</div>
+        </div>
+
+        <div style="width: 100%; border-top: 1px solid #252545; padding-top: 20px; text-align: center; font-size: 0.8rem; color: #4a4a6a;">
+            Play online at <span style="color: #f0c040;">checkora.vercel.app</span>
+        </div>
+    </div>
+    <style>
+        #shareMatchBtn {
+            background: linear-gradient(135deg, #3a3a60, #252545);
+            color: #fff;
+            border: 1px solid #4a4a7a;
+            transition: all 0.3s ease;
+        }
+        #shareMatchBtn:hover {
+            background: linear-gradient(135deg, #4a4a7a, #303055);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transform: translateY(-1px);
+        }
+        #shareMatchBtn:active {
+            transform: translateY(0);
+        }
+    </style>
     </div>
 
     <!-- ========================================================
@@ -285,8 +334,10 @@
             const gameOverMessage = document.getElementById('gameOverMessage');
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+            const shareMatchBtn = document.getElementById('shareMatchBtn');
 
             const resignBtn = document.getElementById('resignBtn');
+            
             const drawBtn = document.getElementById('drawBtn');
             const drawOverlay = document.getElementById('drawOverlay');
             const drawMessage = document.getElementById('drawMessage');
@@ -697,6 +748,73 @@
             }
 
             /* ==========================================================
+            SHARE MATCH
+            ========================================================== */
+            async function shareMatch() {
+                if (!window.html2canvas) {
+                    alert("Sharing library not loaded yet. Please wait.");
+                    return;
+                }
+
+                const shareBtnText = shareMatchBtn.textContent;
+                shareMatchBtn.textContent = "Generating...";
+                shareMatchBtn.disabled = true;
+
+                try {
+                    const template = document.getElementById('shareCardTemplate');
+                    const boardCloneContainer = document.getElementById('shareBoardContainer');
+                    
+                    // Update names
+                    const wName = document.getElementById('whiteNameLabel').textContent || "White";
+                    const bName = document.getElementById('blackNameLabel').textContent || "Black";
+                    document.getElementById('shareWhiteName').textContent = wName;
+                    document.getElementById('shareBlackName').textContent = bName;
+
+                    // Update result
+                    document.getElementById('shareResultTitle').textContent = gameOverTitle.textContent;
+                    document.getElementById('shareResultMessage').textContent = gameOverMessage.textContent;
+
+                    // Clone board
+                    boardCloneContainer.innerHTML = '';
+                    const boardClone = boardEl.cloneNode(true);
+                    
+                    // Clear unnecessary classes from clone
+                    boardClone.querySelectorAll('.square').forEach(sq => {
+                        sq.classList.remove('selected', 'playable');
+                        sq.onclick = null;
+                    });
+                    
+                    // Remove dots/rings
+                    boardClone.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
+                    
+                    boardCloneContainer.appendChild(boardClone);
+
+                    // Capture
+                    const canvas = await html2canvas(template, {
+                        backgroundColor: '#0f0f1a',
+                        scale: 2, // Higher quality
+                        useCORS: true,
+                        allowTaint: true,
+                    });
+
+                    // Download
+                    const link = document.createElement('a');
+                    const cleanW = wName.toLowerCase().replace(/\s+/g, '-');
+                    const cleanB = bName.toLowerCase().replace(/\s+/g, '-');
+                    link.download = `checkora-${cleanW}-vs-${cleanB}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                } catch (err) {
+                    console.error("Share failed:", err);
+                    alert("Failed to generate share image.");
+                } finally {
+                    shareMatchBtn.textContent = shareBtnText;
+                    shareMatchBtn.disabled = false;
+                }
+            }
+            
+
+            /* ==========================================================
             CLOCKS & PAUSE
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -786,6 +904,33 @@
             }
 
             async function startNewGame(mode) {
+                // Update player names from inputs
+                const wInput = document.getElementById('whiteNameInput');
+                const bInput = document.getElementById('blackNameInput');
+                const wLabel = document.getElementById('whiteNameLabel');
+                const bLabel = document.getElementById('blackNameLabel');
+                const wCapName = document.getElementById('whiteCapturedName');
+                const bCapName = document.getElementById('blackCapturedName');
+
+                if (wInput && wInput.value) {
+                    wLabel.textContent = wInput.value.toUpperCase();
+                    if (wCapName) wCapName.textContent = wInput.value;
+                } else {
+                    wLabel.textContent = "WHITE";
+                    if (wCapName) wCapName.textContent = "White";
+                }
+
+                if (mode === 'ai') {
+                    bLabel.textContent = "CHECKORA AI";
+                    if (bCapName) bCapName.textContent = "AI";
+                } else if (bInput && bInput.value) {
+                    bLabel.textContent = bInput.value.toUpperCase();
+                    if (bCapName) bCapName.textContent = bInput.value;
+                } else {
+                    bLabel.textContent = "BLACK";
+                    if (bCapName) bCapName.textContent = "Black";
+                }
+
                 const d = await post('/api/new-game/', { mode: mode });
                 board = d.board;
                 turn = d.current_turn;
@@ -844,6 +989,8 @@
 
             if (gameOverPvPBtn) gameOverPvPBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('pvp'); };
             if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
+            if (shareMatchBtn) shareMatchBtn.onclick = shareMatch;
+            
 
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
             window.addEventListener('beforeunload', () => {
