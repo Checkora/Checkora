@@ -11,7 +11,7 @@
 <body>
   <nav class="nav">
     <div class="nav-left">
-      <a class="logo" href="/">
+      <a class="logo" href="{% url 'landing' %}">
         <img class="nav-logo" src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora logo">
         <span class="logo-text">CHECKORA</span>
       </a>
@@ -20,11 +20,11 @@
     </div>
     <div class="nav-right">
       {% if user.is_authenticated %}
-        <a class="btn ghost" href="/play/">Start Game</a>
-        <a class="btn" href="/logout/">Logout</a>
+        <a class="btn ghost" href="{% url 'board' %}">Start Game</a>
+        <a class="btn" href="{% url 'logout' %}">Logout</a>
       {% else %}
-        <a class="btn ghost" href="/login/">Sign In</a>
-        <a class="btn btn-register" href="/register/">Register</a>
+        <a class="btn ghost" href="{% url 'login' %}">Sign In</a>
+        <a class="btn btn-register" href="{% url 'register' %}">Register</a>
       {% endif %}
     </div>
   </nav>
@@ -35,7 +35,7 @@
       <h1 class="hero-title">Master the Board with Hybrid Intelligence</h1>
       <p class="hero-sub">A lightweight Django frontend orchestrating Python logic with a high-performance C++ minimax engine.</p>
       <div class="hero-cta">
-        <a class="primary" href="/play/">Start Game</a>
+        <a class="primary" href="{% url 'board' %}">Start Game</a>
         <a class="secondary" href="#features">Learn More</a>
       </div>
     </div>
@@ -80,12 +80,10 @@
     </div>
   </section>
 
-  <!-- technical brief removed as requested -->
-
   <footer class="site-footer" id="about">
     <div class="footer-inner">
       <p>© Checkora — Built with Django, Python, and C++.</p>
-      <p><a href="/play/rules/">Rules</a> • <a href="/play/stats/">Stats</a></p>
+      <p><a href="{% url 'rules' %}">Rules</a> • <a href="{% url 'stats' %}">Stats</a></p>
     </div>
   </footer>
 </body>

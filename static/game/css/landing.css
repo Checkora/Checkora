@@ -10,7 +10,6 @@ html,body{height:100%;margin:0;font-family:'Segoe UI', system-ui, -apple-system,
 /* fixed navbar */
 .nav{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 28px;background:rgba(15,15,26,0.65);backdrop-filter:blur(6px);z-index:999;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
 .nav-left{display:flex;align-items:center;gap:18px}
-.nav-logo{height:36px;width:36px;display:inline-block;vertical-align:middle}
 .nav-logo{height:36px;width:36px;display:inline-block;vertical-align:middle;filter:brightness(1.1)}
 .logo-text{font-family:'Cinzel', serif;font-size:26px;font-weight:700;letter-spacing:2px;color:#f0c040;margin-left:8px;text-decoration:none}
 .nav a{color:#ffffff;margin-left:18px;text-decoration:none;transition:color .18s ease}
@@ -47,13 +46,15 @@ main, body > header, .hero{padding-top:78px}
   border-color: rgba(255,255,255,0.18);
 }
 
-.features{padding:60px 18px}
+.features{padding:60px 18px;scroll-margin-top:90px}
 .features h2{text-align:center;margin:0 0 30px;color:var(--text)}
 .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:1100px;margin:0 auto}
 .feature-card{background:transparent;padding:0;border-radius:12px;perspective:1000px}
 .card-inner{width:100%;min-height:160px;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;transition:transform .6s cubic-bezier(.22,.9,.25,1);-webkit-transition:-webkit-transform .6s cubic-bezier(.22,.9,.25,1);position:relative;transform-origin:center center;-webkit-transform-origin:center center;will-change:transform}
 .card-inner.flipped{-webkit-transform:rotateY(180deg);transform:rotateY(180deg)}
-.feature-card:hover .card-inner{-webkit-transform:rotateY(180deg);transform:rotateY(180deg)}
+ @media (hover:hover){
+   .feature-card:hover .card-inner{-webkit-transform:rotateY(180deg);transform:rotateY(180deg)}
+ }
 .card-front, .card-back{position:absolute;inset:0;border-radius:12px;-webkit-backface-visibility:hidden;backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px;background:var(--surface);border:1px solid rgba(255,255,255,0.03);box-shadow:0 6px 18px rgba(0,0,0,0.45)}
 .card-front{z-index:2;-webkit-transform:rotateY(0deg);transform:rotateY(0deg)}
 .card-back{-webkit-transform:rotateY(180deg);transform:rotateY(180deg);color:var(--text)}

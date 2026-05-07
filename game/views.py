@@ -28,10 +28,24 @@ def landing(request):
         'user': request.user,
     })
 
+# Backwards-compatible alias expected by `game.urls`
+landing_view = landing
 
 @ensure_csrf_cookie
 def index(request):
-    """Render the board and initialise a new game in the session."""
+    """Always render the landing page, but initialize game session for API endpoints."""
+    # Initialize a game session (required by tests and API endpoints)
+    if 'game' not in request.session:
+        game = ChessGame()
+        request.session['game'] = game.to_dict()
+    
+    # Always show landing page
+    return render(request, 'landing.html', {'user': request.user})
+
+
+@ensure_csrf_cookie
+def board(request):
+    """Render the chess board game."""
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
