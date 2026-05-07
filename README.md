@@ -77,7 +77,7 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS / Linux
 
-Note: Django 6.0 requires Python 3.12 or higher. If you have multiple versions on Windows, use py -3.14 -m venv .venv.
+Note: Django 6.0 requires Python 3.12 or higher. If you have multiple versions on Windows, use a compatible installed version, for example: py -3.12 -m venv venv
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -133,9 +133,9 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
 | Layer             | Technology            | Path                              |
 | ----------------- | --------------------- | --------------------------------- |
 | Frontend          | HTML, CSS, JavaScript | `game/templates/game/board.html`  |
-| Backend           | Django 5.x            | `game/views.py`, `game/engine.py` |
+| Backend           | Django 6.x            | `game/views.py`, `game/engine.py` |
 | Engine (Primary)  | C++17                 | `game/engine/main.cpp`            |
-| Engine (Fallback) | Python 3.10+          | `game/engine/main.py`             |
+| Engine (Fallback) | Python 3.12+          | `game/engine/main.py`             |
 
 > For a full deep-dive into the backend components, execution flow, and AI internals, see the [Architecture Guide](structure.md).
 
