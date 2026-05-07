@@ -1,17 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from game import views as game_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-<<<<<<< HEAD
     path('', include('game.urls')),
-=======
-    path('', game_views.landing, name='landing'),
-    path('', include('game.urls')),
-    path('play/', include('game.urls')),
->>>>>>> 501d8cf35fff62449d89171518965516dde4dda5
 
     path('password-reset/',
          auth_views.PasswordResetView.as_view(

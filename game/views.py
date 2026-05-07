@@ -7,13 +7,12 @@ import random
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.mail import send_mail
 from django.contrib import messages
-from django import forms
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
@@ -39,7 +38,7 @@ landing_view = landing
 
 @ensure_csrf_cookie
 def index(request):
-    """Always render the landing page, but initialize game session for API endpoints."""
+    """Render the landing page and initialize the session."""
     # Initialize a game session (required by tests and API endpoints)
     if "game" not in request.session:
         game = ChessGame()
@@ -416,7 +415,8 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(random.randint(100000, 999999))
             request.session["registration_user_id"] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
+            # Hash OTP with SECRET_KEY as salt to prevent reading from signed
+            # cookies
             otp_hash = hashlib.sha256(
                 f"{otp}:{settings.SECRET_KEY}".encode()
             ).hexdigest()
@@ -511,10 +511,10 @@ def verify_otp(request):
                 return redirect("index")
 
             except User.DoesNotExist:
-                messages.error(request, "User not found. Please register again.")
+                messages.error(request, "User not found. Register again.")
                 return redirect("register")
         else:
-            messages.error(request, "Invalid OTP. Please try again.")
+            messages.error(request, "Invalid OTP.")
 
     return render(request, "game/verify_otp.html")
 
