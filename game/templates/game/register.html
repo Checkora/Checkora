@@ -11,6 +11,8 @@
         /* Password Strength Indicator */
         .password-strength {
             margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
         .password-strength-bar {
             height: 4px;
@@ -140,8 +142,10 @@
                 if (result.level) {
                     indicator.classList.add(result.level);
                     textEl.textContent = result.label;
+                    indicator.style.opacity = '1';
                 } else {
                     textEl.textContent = '';
+                    indicator.style.opacity = '0';
                 }
             });
         })();
