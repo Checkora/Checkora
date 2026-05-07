@@ -44,6 +44,7 @@ class ChessGame:
             os.path.join(ENGINE_DIR, 'main.py'),
         ]
     )
+    
     FILES = 'abcdefgh'
 
     # Path to the JSON opening book
@@ -94,6 +95,22 @@ class ChessGame:
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
+    
+    def generate_pgn(self):
+        """Generate a PGN string from move history."""
+        if not self.move_history:
+            return ""
+        
+        pgn_moves = []
+        for i in range(0, len(self.move_history), 2):
+            move_number = i // 2 + 1
+            white_move = self.move_history[i]['notation']
+            if i + 1 < len(self.move_history):
+                black_move = self.move_history[i + 1]['notation']
+                pgn_moves.append(f"{move_number}. {white_move} {black_move}")
+            else:
+                pgn_moves.append(f"{move_number}. {white_move}")
+        return " ".join(pgn_moves)
 
     def to_dict(self):
         """Serialise state for Django session storage. DP cache is intentionally excluded to save cookie space."""
@@ -115,7 +132,7 @@ class ChessGame:
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
         }
-
+    
     @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
@@ -531,7 +548,14 @@ class ChessGame:
                 parts = resp.split()
                 if len(parts) >= 2:
                     return parts[1]
-
+                
+        # Castling
+        if piece.lower() == 'k':
+            if fc == 4 and tc == 6:
+                return "O-O"
+            if fc == 4 and tc == 2:
+                return "O-O-O"
+        
         # Fallback: simplified notation (e.g., e4, Nf3, exd5)
         files = "abcdefgh"
         f_coord = f"{files[fc]}{8 - fr}"
