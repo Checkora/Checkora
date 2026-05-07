@@ -4,6 +4,7 @@ import json
 import sys
 from unittest import mock
 
+from django.conf import settings
 from django.test import SimpleTestCase, TestCase
 
 from .engine import ChessGame
@@ -268,13 +269,55 @@ class GameStateTest(TestCase):
     def setUp(self):
         self.client.get('/')
 
+    def _set_game_session(self, game):
+        session = self.client.session
+        session['game'] = game.to_dict()
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
     def test_get_state(self):
         r = self.client.get('/api/state/')
         data = r.json()
-        self.assertTrue(data['paused'])
+        self.assertFalse(data['paused'])
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(data['mode'], 'pvp')
         self.assertIn('board', data)
+
+    def test_get_state_preserves_paused_games(self):
+        game = ChessGame()
+        game.paused = True
+        game.last_ts = 100.0
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=105.0),
+            mock.patch('game.engine.time.time', return_value=105.0),
+        ):
+            response = self.client.get('/api/state/')
+
+        data = response.json()
+        self.assertTrue(data['paused'])
+        self.assertEqual(data['white_time'], game.white_time)
+        self.assertEqual(data['black_time'], game.black_time)
+
+    def test_get_state_auto_pauses_long_idle_running_games(self):
+        game = ChessGame()
+        game.paused = False
+        game.last_ts = 100.0
+        game.white_time = 600
+        game.black_time = 600
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=111.0),
+            mock.patch('game.engine.time.time', return_value=111.0),
+        ):
+            response = self.client.get('/api/state/')
+
+        data = response.json()
+        self.assertTrue(data['paused'])
+        self.assertEqual(data['white_time'], 600)
+        self.assertEqual(data['black_time'], 600)
 
 
 class PauseTest(TestCase):
@@ -282,6 +325,12 @@ class PauseTest(TestCase):
 
     def setUp(self):
         self.client.get('/')
+
+    def _set_game_session(self, game):
+        session = self.client.session
+        session['game'] = game.to_dict()
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
 
     def test_pause_toggle(self):
         r1 = self.client.post(
@@ -295,6 +344,163 @@ class PauseTest(TestCase):
             content_type='application/json'
         )
         self.assertFalse(r2.json()['paused'])
+
+    def test_pause_endpoint_ignores_client_supplied_clock_values(self):
+        game = ChessGame()
+        game.white_time = 600
+        game.black_time = 600
+        game.last_ts = 100.0
+        game.paused = False
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=103.0),
+            mock.patch('game.engine.time.time', return_value=103.0),
+        ):
+            response = self.client.post(
+                '/api/pause/',
+                data=json.dumps({
+                    'pause': True,
+                    'white_time': 1,
+                    'black_time': 2,
+                }),
+                content_type='application/json',
+            )
+
+        data = response.json()
+        self.assertTrue(data['paused'])
+        self.assertEqual(data['white_time'], 597)
+        self.assertEqual(data['black_time'], 600)
+
+
+class DrawOfferTest(TestCase):
+    """Test draw agreement persistence through the API."""
+
+    def setUp(self):
+        self.client.get('/')
+
+    def test_accept_draw_marks_game_as_draw_agreement(self):
+        response = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'accept'}),
+            content_type='application/json',
+        )
+        data = response.json()
+
+        self.assertTrue(data['success'])
+        self.assertEqual(data['game_status'], 'draw')
+        self.assertEqual(data['draw_reason'], 'agreement')
+
+        state = self.client.get('/api/state/').json()
+        self.assertEqual(state['game_status'], 'draw')
+        self.assertEqual(state['draw_reason'], 'agreement')
+
+
+class DrawRuleTest(SimpleTestCase):
+    """Test rule-based draw detection in the engine."""
+
+    def setUp(self):
+        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok'))
+        self.validate_patcher.start()
+
+    def tearDown(self):
+        self.validate_patcher.stop()
+
+    def test_fifty_move_rule_triggers_draw(self):
+        game = ChessGame()
+        game.halfmove_clock = 99
+
+        success, _, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertTrue(success)
+        self.assertEqual(status, 'draw')
+        self.assertEqual(game.halfmove_clock, 100)
+        self.assertEqual(game.game_status, 'draw')
+        self.assertEqual(game.draw_reason, 'fifty_move_rule')
+
+    def test_checkmate_beats_fifty_move_draw(self):
+        game = ChessGame()
+        game.halfmove_clock = 99
+
+        with mock.patch.object(ChessGame, '_call_engine') as mock_engine:
+            def fake_engine(cmd):
+                if cmd.startswith('NOTATION'):
+                    return 'NOTATION Nf3'
+                if cmd.startswith('STATUS'):
+                    return 'STATUS checkmate'
+                return None
+
+            mock_engine.side_effect = fake_engine
+            success, _, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertTrue(success)
+        self.assertEqual(status, 'checkmate')
+
+    def test_threefold_repetition_triggers_draw(self):
+        game = ChessGame()
+
+        sequence = [
+            (7, 6, 5, 5),
+            (0, 6, 2, 5),
+            (5, 5, 7, 6),
+            (2, 5, 0, 6),
+            (7, 6, 5, 5),
+            (0, 6, 2, 5),
+            (5, 5, 7, 6),
+            (2, 5, 0, 6),
+        ]
+
+        status = 'active'
+        for fr, fc, tr, tc in sequence:
+            success, _, _, status = game.make_move(fr, fc, tr, tc)
+            self.assertTrue(success)
+
+        self.assertEqual(status, 'draw')
+        self.assertEqual(game.game_status, 'draw')
+        self.assertEqual(game.draw_reason, 'threefold_repetition')
+
+    def test_session_round_trip_preserves_draw_state(self):
+        game = ChessGame()
+        game.halfmove_clock = 42
+        game.repetition_history.append('test-position')
+        game._rebuild_repetition_counts()
+
+        restored = ChessGame.from_dict(game.to_dict())
+
+        self.assertEqual(restored.halfmove_clock, 42)
+        self.assertEqual(restored.repetition_history, game.repetition_history)
+        self.assertEqual(restored.repetition_counts, game.repetition_counts)
+
+    def test_session_round_trip_preserves_draw_metadata(self):
+        game = ChessGame()
+        game.game_status = 'draw'
+        game.draw_reason = 'threefold_repetition'
+
+        restored = ChessGame.from_dict(game.to_dict())
+
+        self.assertEqual(restored.game_status, 'draw')
+        self.assertEqual(restored.draw_reason, 'threefold_repetition')
+
+    def test_completed_game_rejects_more_moves(self):
+        game = ChessGame()
+        game.game_status = 'draw'
+        game.draw_reason = 'threefold_repetition'
+
+        success, message, _, status = game.make_move(7, 6, 5, 5)
+
+        self.assertFalse(success)
+        self.assertEqual(message, 'Game is already over.')
+        self.assertEqual(status, 'draw')
+
+    def test_position_key_ignores_unusable_en_passant_square(self):
+        game = ChessGame()
+        game.make_move(6, 4, 4, 4)
+
+        with_ep = game.generate_position_key()
+        game.en_passant_target = None
+        without_ep = game.generate_position_key()
+
+        self.assertEqual(with_ep, without_ep)
 
 
 class AIMoveTest(TestCase):

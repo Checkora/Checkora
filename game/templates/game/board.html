@@ -14,10 +14,10 @@
     </script>
     <script defer src="/_vercel/speed-insights/script.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
-    
+
+
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
-    
+
     <!-- Vercel Web Analytics -->
     <script>
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -28,7 +28,7 @@
         (function () {
             const VALID_THEMES = ['classic', 'dark', 'green', 'blue'];
             let saved = 'classic';
-            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) {}
+            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
             if (!VALID_THEMES.includes(saved)) saved = 'classic';
             document.documentElement.setAttribute('data-theme', saved);
         })();
@@ -44,12 +44,12 @@
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
             <div class="promo-title" style="font-size: 1.6rem; color: #fff; margin-bottom: 10px;">Checkora</div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
-            
+
             <!-- New Name Input Fields -->
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name" 
+                <input type="text" id="whiteNameInput" placeholder="White Player Name"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
-                <input type="text" id="blackNameInput" placeholder="Black Player Name" 
+                <input type="text" id="blackNameInput" placeholder="Black Player Name"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
             </div>
 
@@ -68,14 +68,14 @@
     <!-- ========== HEADER ========== -->
     <div class="header">
         <h1>Checkora <span class="badge" id="modeBadge">PVP</span></h1>
-        
+
         <div class="auth-buttons">
             {% if user.is_authenticated %}
-                <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-                <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
             {% else %}
-                <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-                <a href="{% url 'register' %}" class="btn-register">Register</a>
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
             {% endif %}
         </div>
     </div>
@@ -100,8 +100,8 @@
             <div class="turn-badge white" id="turnBadge">
                 <span id="turnBadgeText">White</span>'s Turn
             </div>
-            
-           <div class="clocks">
+
+            <div class="clocks">
                 <div id="whiteClock" class="clock white active">
                     <!-- We added id="whiteNameLabel" -->
                     <span class="label" id="whiteNameLabel">WHITE</span>
@@ -221,52 +221,63 @@
                 <button class="btn" id="shareMatchBtn" style="padding: 12px; font-size: 1rem;">Share Match</button>
             </div>
         </div>
-    
-    <!-- ========== SHARE CARD TEMPLATE (HIDDEN) ========== -->
-    <div id="shareCardTemplate" style="position: absolute; left: -9999px; top: 0; width: 600px; background: #0f0f1a; padding: 40px; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; gap: 25px; border: 1px solid #252545;">
-        <div style="font-size: 2.5rem; font-weight: 700; color: #f0c040; letter-spacing: 3px;">CHECKORA</div>
-        
-        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; padding: 0 20px;">
-            <div style="text-align: center; flex: 1;">
-                <div id="shareWhiteName" style="font-size: 1.4rem; font-weight: 600; color: #ddd; margin-bottom: 5px;">White</div>
-                <div style="font-size: 0.8rem; color: #6a6a8a; text-transform: uppercase;">Player 1</div>
+
+        <!-- ========== SHARE CARD TEMPLATE (HIDDEN) ========== -->
+        <div id="shareCardTemplate"
+            style="position: absolute; left: -9999px; top: 0; width: 600px; background: #0f0f1a; padding: 40px; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; gap: 25px; border: 1px solid #252545;">
+            <div style="font-size: 2.5rem; font-weight: 700; color: #f0c040; letter-spacing: 3px;">CHECKORA</div>
+
+            <div
+                style="display: flex; justify-content: space-between; width: 100%; align-items: center; padding: 0 20px;">
+                <div style="text-align: center; flex: 1;">
+                    <div id="shareWhiteName"
+                        style="font-size: 1.4rem; font-weight: 600; color: #ddd; margin-bottom: 5px;">White</div>
+                    <div style="font-size: 0.8rem; color: #6a6a8a; text-transform: uppercase;">Player 1</div>
+                </div>
+                <div
+                    style="font-size: 1.2rem; font-weight: 700; color: #f0c040; background: rgba(240, 192, 64, 0.1); padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(240, 192, 64, 0.3);">
+                    VS</div>
+                <div style="text-align: center; flex: 1;">
+                    <div id="shareBlackName"
+                        style="font-size: 1.4rem; font-weight: 600; color: #ddd; margin-bottom: 5px;">Black</div>
+                    <div style="font-size: 0.8rem; color: #6a6a8a; text-transform: uppercase;">Player 2</div>
+                </div>
             </div>
-            <div style="font-size: 1.2rem; font-weight: 700; color: #f0c040; background: rgba(240, 192, 64, 0.1); padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(240, 192, 64, 0.3);">VS</div>
-            <div style="text-align: center; flex: 1;">
-                <div id="shareBlackName" style="font-size: 1.4rem; font-weight: 600; color: #ddd; margin-bottom: 5px;">Black</div>
-                <div style="font-size: 0.8rem; color: #6a6a8a; text-transform: uppercase;">Player 2</div>
+
+            <div id="shareBoardContainer"
+                style="background: #16162a; padding: 15px; border-radius: 8px; border: 4px solid #3d3222; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                <!-- Board will be cloned here -->
+            </div>
+
+            <div style="text-align: center;">
+                <div id="shareResultTitle"
+                    style="font-size: 1.8rem; font-weight: 700; color: #f0c040; margin-bottom: 5px;">Checkmate!</div>
+                <div id="shareResultMessage" style="font-size: 1.1rem; color: #aaa;">White wins the match</div>
+            </div>
+
+            <div
+                style="width: 100%; border-top: 1px solid #252545; padding-top: 20px; text-align: center; font-size: 0.8rem; color: #4a4a6a;">
+                Play online at <span style="color: #f0c040;">checkora.vercel.app</span>
             </div>
         </div>
+        <style>
+            #shareMatchBtn {
+                background: linear-gradient(135deg, #3a3a60, #252545);
+                color: #fff;
+                border: 1px solid #4a4a7a;
+                transition: all 0.3s ease;
+            }
 
-        <div id="shareBoardContainer" style="background: #16162a; padding: 15px; border-radius: 8px; border: 4px solid #3d3222; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
-            <!-- Board will be cloned here -->
-        </div>
+            #shareMatchBtn:hover {
+                background: linear-gradient(135deg, #4a4a7a, #303055);
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+                transform: translateY(-1px);
+            }
 
-        <div style="text-align: center;">
-            <div id="shareResultTitle" style="font-size: 1.8rem; font-weight: 700; color: #f0c040; margin-bottom: 5px;">Checkmate!</div>
-            <div id="shareResultMessage" style="font-size: 1.1rem; color: #aaa;">White wins the match</div>
-        </div>
-
-        <div style="width: 100%; border-top: 1px solid #252545; padding-top: 20px; text-align: center; font-size: 0.8rem; color: #4a4a6a;">
-            Play online at <span style="color: #f0c040;">checkora.vercel.app</span>
-        </div>
-    </div>
-    <style>
-        #shareMatchBtn {
-            background: linear-gradient(135deg, #3a3a60, #252545);
-            color: #fff;
-            border: 1px solid #4a4a7a;
-            transition: all 0.3s ease;
-        }
-        #shareMatchBtn:hover {
-            background: linear-gradient(135deg, #4a4a7a, #303055);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transform: translateY(-1px);
-        }
-        #shareMatchBtn:active {
-            transform: translateY(0);
-        }
-    </style>
+            #shareMatchBtn:active {
+                transform: translateY(0);
+            }
+        </style>
     </div>
 
     <!-- ========================================================
@@ -337,7 +348,7 @@
             const shareMatchBtn = document.getElementById('shareMatchBtn');
 
             const resignBtn = document.getElementById('resignBtn');
-            
+
             const drawBtn = document.getElementById('drawBtn');
             const drawOverlay = document.getElementById('drawOverlay');
             const drawMessage = document.getElementById('drawMessage');
@@ -763,7 +774,7 @@
                 try {
                     const template = document.getElementById('shareCardTemplate');
                     const boardCloneContainer = document.getElementById('shareBoardContainer');
-                    
+
                     // Update names
                     const wName = document.getElementById('whiteNameLabel').textContent || "White";
                     const bName = document.getElementById('blackNameLabel').textContent || "Black";
@@ -777,16 +788,16 @@
                     // Clone board
                     boardCloneContainer.innerHTML = '';
                     const boardClone = boardEl.cloneNode(true);
-                    
+
                     // Clear unnecessary classes from clone
                     boardClone.querySelectorAll('.square').forEach(sq => {
                         sq.classList.remove('selected', 'playable');
                         sq.onclick = null;
                     });
-                    
+
                     // Remove dots/rings
                     boardClone.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
-                    
+
                     boardCloneContainer.appendChild(boardClone);
 
                     // Capture
@@ -812,7 +823,7 @@
                     shareMatchBtn.disabled = false;
                 }
             }
-            
+
 
             /* ==========================================================
             CLOCKS & PAUSE
@@ -990,7 +1001,7 @@
             if (gameOverPvPBtn) gameOverPvPBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('pvp'); };
             if (gameOverAIBtn) gameOverAIBtn.onclick = () => { gameOverOverlay.classList.remove('active'); startNewGame('ai'); };
             if (shareMatchBtn) shareMatchBtn.onclick = shareMatch;
-            
+
 
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
             window.addEventListener('beforeunload', () => {
