@@ -61,11 +61,11 @@ Welcome to GSSoC! Here's how the contribution flow works for this project:
 
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Python | ≥ 3.10 |
-| g++ | ≥ 11 (for C++ engine) |
-| pip | latest |
+| Tool   | Version               |
+| ------ | --------------------- |
+| Python | ≥ 3.12                |
+| g++    | ≥ 11 (for C++ engine) |
+| pip    | latest                |
 
 ### Installation
 
@@ -122,14 +122,14 @@ flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120
 
 Every PR and push to `main` runs the following automated checks via GitHub Actions:
 
-| Job | What it does | Required to merge |
-|-----|-------------|-------------------|
-| 🔍 **Lint** | `flake8` on all Python code | ✅ Yes |
-| ⚙️ **Compile Engine** | `g++ -O2` on `game/engine/main.cpp` | ✅ Yes |
-| 🧪 **Django Tests** | `python manage.py test game` | ✅ Yes |
-| 🗄️ **Migration Check** | `python manage.py migrate --check` | ✅ Yes |
-| 🔒 **Security Scan** | `pip-audit` on `requirements.txt` | ✅ Yes |
-| 🌐 **Deploy** | Vercel production deploy | 🔁 Push to `main` only |
+| Job                    | What it does                        | Required to merge      |
+| ---------------------- | ----------------------------------- | ---------------------- |
+| 🔍 **Lint**            | `flake8` on all Python code         | ✅ Yes                 |
+| ⚙️ **Compile Engine**  | `g++ -O2` on `game/engine/main.cpp` | ✅ Yes                 |
+| 🧪 **Django Tests**    | `python manage.py test game`        | ✅ Yes                 |
+| 🗄️ **Migration Check** | `python manage.py migrate --check`  | ✅ Yes                 |
+| 🔒 **Security Scan**   | `pip-audit` on `requirements.txt`   | ✅ Yes                 |
+| 🌐 **Deploy**          | Vercel production deploy            | 🔁 Push to `main` only |
 
 All checks must pass before a maintainer can merge your PR.
 
@@ -139,15 +139,15 @@ All checks must pass before a maintainer can merge your PR.
 
 Use the following prefixes:
 
-| Prefix | Use for |
-|--------|---------|
-| `feat/` | New features |
-| `fix/` | Bug fixes |
-| `docs/` | Documentation changes |
-| `refactor/` | Code refactoring |
-| `test/` | Adding or updating tests |
-| `chore/` | Maintenance tasks |
-| `engine/` | C++ engine changes |
+| Prefix      | Use for                  |
+| ----------- | ------------------------ |
+| `feat/`     | New features             |
+| `fix/`      | Bug fixes                |
+| `docs/`     | Documentation changes    |
+| `refactor/` | Code refactoring         |
+| `test/`     | Adding or updating tests |
+| `chore/`    | Maintenance tasks        |
+| `engine/`   | C++ engine changes       |
 
 **Example:** `feat/add-move-history-panel`
 
