@@ -46,3 +46,11 @@ CSP_SCRIPT_SRC = ("'self'",)
 # To be set via middleware or server configuration
 # Header: Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
+
+# SECURITY SETTINGS (Implemented via GSSoC Audit)
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
