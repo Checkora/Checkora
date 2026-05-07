@@ -57,11 +57,22 @@
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
             <!-- Name Input Fields (Only for PvP) -->
             <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17"
-
-                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
-                <input type="text" id="blackNameInput" placeholder="Black Player Name" maxlength="17"
-                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                <input type="text" id="whiteNameInput" placeholder="White Player Name" 
+                    required
+                    minlength="1"
+                    maxlength="20"
+                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
+                
+                <input type="text" id="blackNameInput" placeholder="Black Player Name"
+                    required
+                    minlength="1"
+                    maxlength="20"
+                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
+                
+                <!-- Error message -->
+                <div id="nameError" style="display: none; color: #ff6b6b; font-size: 0.85rem; text-align: center; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 4px; border: 1px solid rgba(255, 107, 107, 0.3);">
+                    ⚠️ Please enter both player names
+                </div>
             </div>
 
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">

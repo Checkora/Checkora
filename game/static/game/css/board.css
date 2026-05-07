@@ -957,3 +957,21 @@ body {
     background: linear-gradient(135deg, #ff4444, #cc0000);
     color: #fff;
 }
+/* ================= INPUT TRANSITIONS ================= */
+#whiteNameInput,
+#blackNameInput {
+    transition: all 0.3s ease;
+}
+
+#whiteNameInput:focus,
+#blackNameInput:focus {
+    border-color: #f0c040;
+    box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
+    outline: none;
+}
+
+/* Error state */
+.input-error {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+}
