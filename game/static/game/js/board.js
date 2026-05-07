@@ -883,6 +883,8 @@
 
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+                pauseBtn.classList.toggle('paused', paused);
+                boardEl.classList.toggle('paused', paused);
             }
 
             function startTimer() {
