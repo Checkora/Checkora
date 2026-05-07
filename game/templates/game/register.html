@@ -7,6 +7,41 @@
     <title>Register | Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <style>
+        /* Password Strength Indicator */
+        .password-strength {
+            margin-top: 8px;
+        }
+        .password-strength-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: #252545;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+        .password-strength-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 2px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+        .password-strength-text {
+            font-size: 0.78rem;
+            color: #6a6a8a;
+            transition: color 0.3s ease;
+        }
+        .strength-short .password-strength-fill { width: 25%; background: #ff6b6b; }
+        .strength-short .password-strength-text { color: #ff6b6b; }
+
+        .strength-weak .password-strength-fill { width: 50%; background: #f0c040; }
+        .strength-weak .password-strength-text { color: #f0c040; }
+
+        .strength-good .password-strength-fill { width: 75%; background: #4ecdc4; }
+        .strength-good .password-strength-text { color: #4ecdc4; }
+
+        .strength-strong .password-strength-fill { width: 100%; background: #2ecc71; }
+        .strength-strong .password-strength-text { color: #2ecc71; }
+    </style>
 </head>
 <body>
 
@@ -51,6 +86,65 @@
                 input.className = 'form-control';
             }
         });
+
+        // Password Strength Indicator
+        (function() {
+            const passwordInput = document.getElementById('id_password1');
+            if (!passwordInput) return;
+
+            // Create indicator DOM
+            const indicator = document.createElement('div');
+            indicator.className = 'password-strength';
+            indicator.id = 'password-strength-indicator';
+            indicator.innerHTML =
+                '<div class="password-strength-bar">' +
+                    '<div class="password-strength-fill"></div>' +
+                '</div>' +
+                '<span class="password-strength-text"></span>';
+
+            // Insert after the password input (or its help text)
+            const formGroup = passwordInput.closest('.form-group');
+            if (formGroup) {
+                formGroup.appendChild(indicator);
+            }
+
+            const textEl = indicator.querySelector('.password-strength-text');
+
+            function evaluateStrength(password) {
+                if (password.length === 0) {
+                    return { level: '', label: '' };
+                }
+                if (password.length < 8) {
+                    return { level: 'strength-short', label: '❌ Too short (less than 8 characters)' };
+                }
+
+                const hasLetters = /[a-zA-Z]/.test(password);
+                const hasNumbers = /[0-9]/.test(password);
+                const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+
+                if (hasLetters && hasNumbers && hasSpecial) {
+                    return { level: 'strength-strong', label: '💪 Strong' };
+                }
+                if (hasLetters && hasNumbers) {
+                    return { level: 'strength-good', label: '✅ Good (letters + numbers)' };
+                }
+                return { level: 'strength-weak', label: '⚠️ Weak (only letters or only numbers)' };
+            }
+
+            passwordInput.addEventListener('input', function() {
+                const result = evaluateStrength(this.value);
+
+                // Remove all strength classes
+                indicator.classList.remove('strength-short', 'strength-weak', 'strength-good', 'strength-strong');
+
+                if (result.level) {
+                    indicator.classList.add(result.level);
+                    textEl.textContent = result.label;
+                } else {
+                    textEl.textContent = '';
+                }
+            });
+        })();
     </script>
 </body>
 </html>
