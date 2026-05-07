@@ -6,6 +6,7 @@ from game import views as game_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', game_views.landing, name='landing'),
+    path('', include('game.urls')),
     path('play/', include('game.urls')),
 
     path('password-reset/',
