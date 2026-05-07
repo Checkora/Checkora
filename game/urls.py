@@ -3,32 +3,27 @@ from . import views
 
 urlpatterns = [
     # 1. The Game Board (for user access)
-    path('board/', views.board, name='board'),
-    
+    path("board/", views.board, name="board"),
     # 2. Index (always shows landing page for tests)
-    path('', views.index, name='index'),
-
+    path("", views.index, name="index"),
     # 3. Your NEW Landing Page
-    path('welcome/', views.landing_view, name='landing'),
-
+    path("welcome/", views.landing_view, name="landing"),
     # 3. Game API Endpoints (Tests rely on these being exactly as they are)
-    path('api/move/', views.make_move, name='make_move'),
-    path('api/valid-moves/', views.valid_moves, name='valid_moves'),
-    path('api/new-game/', views.new_game, name='new_game'),
-    path('api/check-promotion/', views.check_promotion, name='check_promotion'),
-    path('api/state/', views.get_state, name='get_state'),
-    path('api/pause/', views.set_pause),
-    path('api/resign/', views.resign_game, name='resign_game'),
-    path('api/ai-move/', views.ai_move, name='ai_move'),
-    path('api/draw/', views.offer_draw, name='offer_draw'),
-    
+    path("api/move/", views.make_move, name="make_move"),
+    path("api/valid-moves/", views.valid_moves, name="valid_moves"),
+    path("api/new-game/", views.new_game, name="new_game"),
+    path("api/check-promotion/", views.check_promotion, name="check_promotion"),
+    path("api/state/", views.get_state, name="get_state"),
+    path("api/pause/", views.set_pause),
+    path("api/resign/", views.resign_game, name="resign_game"),
+    path("api/ai-move/", views.ai_move, name="ai_move"),
+    path("api/draw/", views.offer_draw, name="offer_draw"),
     # 4. Other Pages
-    path('stats/', views.stats_view, name='stats'),
-    path('rules/', views.rules, name='rules'),
-
+    path("stats/", views.stats_view, name="stats"),
+    path("rules/", views.rules, name="rules"),
     # 5. Authentication
-    path('register/', views.register_view, name='register'),
-    path('verify-otp/', views.verify_otp, name='verify_otp'),
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
+    path("register/", views.register_view, name="register"),
+    path("verify-otp/", views.verify_otp, name="verify_otp"),
+    path("login/", views.login_view, name="login"),
+    path("logout/", views.logout_view, name="logout"),
 ]
