@@ -106,3 +106,55 @@ body {
     font-weight: 600;
 }
 .auth-footer a:hover { text-decoration: underline; }
+
+/* ── Password validation checklist ── */
+.password-checklist {
+    list-style: none;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    border: 1px solid #2a2a45;
+    transition: opacity 0.5s ease, max-height 0.5s ease;
+    overflow: hidden;
+    max-height: 200px;
+    opacity: 1;
+}
+
+.password-checklist li {
+    font-size: 0.82rem;
+    color: #7a7a9a;
+    padding: 4px 0;
+    transition: color 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Before icon: default bullet */
+.password-checklist li::before {
+    content: '✗';
+    color: #ff6b6b;
+    font-weight: 700;
+    transition: color 0.25s ease, content 0.25s ease;
+    flex-shrink: 0;
+}
+
+/* Met state — requirement is satisfied */
+.password-checklist li.met {
+    color: #4caf86;
+}
+.password-checklist li.met::before {
+    content: '✓';
+    color: #4caf86;
+}
+
+/* All requirements met — fade the whole checklist out */
+.password-checklist.all-met {
+    opacity: 0;
+    max-height: 0;
+    padding: 0 12px;
+    margin-top: 0;
+    border-color: transparent;
+    pointer-events: none;
+}

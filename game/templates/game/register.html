@@ -4,53 +4,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register | Checkora</title>
+    <title>Checkora - Register</title>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
 </head>
 <body>
-
     <div class="header">
         <h1>Checkora</h1>
         <p>Create an account to track your stats</p>
     </div>
 
     <div class="auth-card">
-        <form method="POST">
+        <form method="POST" action="{% url 'register' %}">
             {% csrf_token %}
-            
-            {% if form.non_field_errors %}
-                {{ form.non_field_errors }}
-            {% endif %}
-            
+
             {% for field in form %}
                 <div class="form-group">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field.label_tag }}
                     {{ field }}
-                    {% if field.help_text %}
-                        <span class="helptext">{{ field.help_text|safe }}</span>
+
+                    {% if field.name == 'password1' %}
+                    <!-- Real-time password validation checklist -->
+                    <ul class="password-checklist" id="password-checklist">
+                        <li id="req-length">  Minimum 8 characters</li>
+                        <li id="req-upper">  At least 1 uppercase letter</li>
+                        <li id="req-number">  At least 1 number</li>
+                        <li id="req-special">  At least 1 special character</li>
+                    </ul>
                     {% endif %}
+
                     {% if field.errors %}
-                        {{ field.errors }}
+                        <ul class="errorlist">
+                            {% for error in field.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    {% if field.help_text %}
+                        <span class="helptext">{{ field.help_text }}</span>
                     {% endif %}
                 </div>
             {% endfor %}
-            
+
             <button type="submit" class="btn btn-gold">Create Account</button>
         </form>
-        
+
         <div class="auth-footer">
             Already have an account? <a href="{% url 'login' %}">Sign In</a>
         </div>
     </div>
 
     <script>
-        // Add classes to Django generated inputs
-        document.querySelectorAll('input').forEach(input => {
-            if (input.type !== 'submit') {
-                input.className = 'form-control';
-            }
-        });
+        (function () {
+            // Find the password1 input (Django names it id_password1 by default)
+            const passwordInput = document.getElementById('id_password1');
+            const checklist = document.getElementById('password-checklist');
+
+            if (!passwordInput || !checklist) return;
+
+            const rules = [
+                { id: 'req-length',  test: v => v.length >= 8 },
+                { id: 'req-upper',   test: v => /[A-Z]/.test(v) },
+                { id: 'req-number',  test: v => /[0-9]/.test(v) },
+                { id: 'req-special', test: v => /[^A-Za-z0-9]/.test(v) },
+            ];
+
+            passwordInput.addEventListener('input', function () {
+                const value = this.value;
+                let allMet = true;
+
+                rules.forEach(function (rule) {
+                    const el = document.getElementById(rule.id);
+                    if (!el) return;
+                    const met = rule.test(value);
+                    el.classList.toggle('met', met);
+                    if (!met) allMet = false;
+                });
+
+                // Fade out the whole checklist once every requirement is satisfied
+                checklist.classList.toggle('all-met', allMet);
+            });
+        })();
     </script>
 </body>
 </html>
