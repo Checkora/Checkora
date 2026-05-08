@@ -45,6 +45,30 @@
             let flipped = false;
             let autoFlip = false;
 
+            function validatePlayerNames() {
+                const wNameInput = document.getElementById('whiteNameInput');
+                const bNameInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+            
+                const wName = wNameInput?.value.trim();
+                const bName = bNameInput?.value.trim();
+            
+                if (!wName || !bName) {
+                    if (errorDiv) {
+                        errorDiv.style.display = 'block';
+                        errorDiv.textContent = '⚠️ Please enter both player names';
+                    }
+                    if (!wName && wNameInput) wNameInput.classList.add('input-error');
+                    if (!bName && bNameInput) bNameInput.classList.add('input-error');
+                    return false;
+                }
+            
+                if (errorDiv) errorDiv.style.display = 'none';
+                if (wNameInput) wNameInput.classList.remove('input-error');
+                if (bNameInput) bNameInput.classList.remove('input-error');
+                return true;
+            }
+
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
@@ -62,6 +86,7 @@
             const autoFlipBtn = document.getElementById('autoFlipBtn');
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
+            const copyPgnBtn = document.getElementById('copyPgnBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -163,7 +188,25 @@
                 }
                 return b;
             }
+            const whiteNameInput = document.getElementById('whiteNameInput');
+            const blackNameInput = document.getElementById('blackNameInput');
 
+            if (whiteNameInput) {
+                whiteNameInput.addEventListener('input', () => {
+                    whiteNameInput.classList.remove('input-error');
+                    if (whiteNameInput.value.trim() && blackNameInput?.value.trim()) {
+                        document.getElementById('nameError').style.display = 'none';
+                    }
+                });
+            }
+            if (blackNameInput) {
+                blackNameInput.addEventListener('input', () => {
+                    blackNameInput.classList.remove('input-error');
+                    if (blackNameInput.value.trim() && whiteNameInput?.value.trim()) {
+                        document.getElementById('nameError').style.display = 'none';
+                    }
+                });
+            }
             /* ==========================================================
             LOAD GAME STATE
             ========================================================== */
@@ -882,6 +925,8 @@
 
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+                pauseBtn.classList.toggle('paused', paused);
+                boardEl.classList.toggle('paused', paused);
             }
 
             function startTimer() {
@@ -1030,20 +1075,61 @@
             let selectedPveColor = 'white';
 
             if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+                if (!validatePlayerNames()) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
                 startNewGame('pvp');
             };
 
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
-                nameInputs.style.display = 'none';
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                // Show ONLY white input for AI mode
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+                    whiteInput.value = '';
+                    whiteInput.classList.remove('input-error');
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'none';
+                    blackInput.value = 'AI';
+                    blackInput.classList.remove('input-error');
+                }
+                
+                // Hide error
+                if (errorDiv) errorDiv.style.display = 'none';
+                
+                nameInputs.style.display = 'flex';
                 modeSelection.style.display = 'none';
                 pveOptions.style.display = 'flex';
             };
 
             if (backToModes) backToModes.onclick = () => {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
+                
+                // Reset both inputs to visible for PvP
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.placeholder = 'Black Player Name';
+                    blackInput.classList.remove('input-error');
+                }
+                
+                // Hide error
+                if (errorDiv) errorDiv.style.display = 'none';
+                
                 nameInputs.style.display = 'flex';
             };
 
@@ -1061,6 +1147,29 @@
             });
 
             if (startAIBtn) startAIBtn.onclick = () => {
+                const wNameInput = document.getElementById('whiteNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                const playerName = wNameInput?.value.trim();
+                
+                // Validate: AI mode only needs ONE name
+                if (!playerName) {
+                    if (errorDiv) {
+                        errorDiv.style.display = 'block';
+                        errorDiv.textContent = '⚠️ Please enter your name';
+                    }
+                    if (wNameInput) {
+                        wNameInput.classList.add('input-error');
+                    }
+                    return;
+                }
+                
+                // Clear error
+                if (errorDiv) errorDiv.style.display = 'none';
+                if (wNameInput) {
+                    wNameInput.classList.remove('input-error');
+                }
+                
                 const diff = document.getElementById('welcomeDifficultySelect').value;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
@@ -1076,6 +1185,21 @@
                     buildBoard();
                 }
             };
+            if (copyPgnBtn) copyPgnBtn.onclick = async () => {
+    const data = await get('/api/state/');
+
+    if (data.pgn) {
+        navigator.clipboard.writeText(data.pgn);
+
+        const oldText = copyPgnBtn.textContent;
+
+        copyPgnBtn.textContent = 'Copied!';
+
+        setTimeout(() => {
+            copyPgnBtn.textContent = oldText;
+        }, 2000);
+    }
+};
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
@@ -1219,9 +1343,14 @@
                     e.returnValue = '';
                 }
             });
+            
 
-            /* ==========================================================
-            INIT
-            ========================================================== */
-            loadGame();
-        })();
+          if (typeof module !== "undefined" && module.exports) {
+          module.exports = { pColor, getSquareLabel, formatTime };
+        } else {
+          loadGame();
+        }
+
+})();
+
+
