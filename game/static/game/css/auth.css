@@ -106,3 +106,53 @@ body {
     font-weight: 600;
 }
 .auth-footer a:hover { text-decoration: underline; }
+/* Google Sign-In divider */
+.divider {
+    text-align: center;
+    color: #8a8aaa;
+    font-size: 0.85rem;
+    margin: 20px 0;
+    position: relative;
+}
+.divider::before,
+.divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 42%;
+    height: 1px;
+    background: #252545;
+}
+.divider::before { left: 0; }
+.divider::after { right: 0; }
+
+/* Google button container */
+.g_id_signin {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+}
+/* Google OAuth Button */
+.btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 0;
+    background: #fff;
+    color: #3c3c3c;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 5px;
+}
+.btn-google:hover {
+    background: #f5f5f5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}

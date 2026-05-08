@@ -17,6 +17,8 @@ urlpatterns = [
     path('stats/', views.stats_view, name='stats'),
 
     # Authentication
+    path('auth/google/', views.google_login_redirect, name='google_login'),
+    path('auth/google/callback/', views.google_callback, name='google_callback'),
     path('register/', views.register_view, name='register'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('login/', views.login_view, name='login'),

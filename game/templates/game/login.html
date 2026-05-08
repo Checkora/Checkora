@@ -38,7 +38,12 @@
             
             <button type="submit" class="btn btn-gold">Sign In</button>
         </form>
-        
+        <div class="divider">or</div>
+
+        <a href="{% url 'google_login' %}" class="btn-google">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20">
+    Continue with Google
+</a>
         <div class="auth-footer">
             Don't have an account? <a href="{% url 'register' %}">Register here</a>
             <br><br>

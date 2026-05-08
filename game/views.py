@@ -1,12 +1,15 @@
 """Game views for the Checkora chess platform."""
 
+import os
 import json
+import urllib.parse
+import urllib.request
 import time
 import hashlib
 import secrets
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -430,7 +433,10 @@ def register_view(request):
     else:
         form = CustomUserCreationForm()
     
-    return render(request, 'game/register.html', {'form': form})
+    return render(request, 'game/register.html', {
+    'form': form,
+    'GOOGLE_CLIENT_ID': settings.GOOGLE_CLIENT_ID,
+})
 
 
 def verify_otp(request):
@@ -489,7 +495,10 @@ def login_view(request):
     else:
         form = AuthenticationForm()
 
-    return render(request, 'game/login.html', {'form': form})
+    return render(request, 'game/login.html', {
+        'form': form,
+        'GOOGLE_CLIENT_ID': settings.GOOGLE_CLIENT_ID,
+    })
 
 @xframe_options_sameorigin
 def rules(request):
@@ -515,3 +524,68 @@ def stats_view(request):
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })
+def google_login_redirect(request):
+    """Redirect user to Google's OAuth consent page."""
+    params = urllib.parse.urlencode({
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'redirect_uri': 'http://127.0.0.1:8000/auth/google/callback/',
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'access_type': 'offline',
+    })
+    return redirect(f'https://accounts.google.com/o/oauth2/v2/auth?{params}')
+
+
+def google_callback(request):
+    """Handle Google OAuth callback and log user in."""
+    code = request.GET.get('code')
+    if not code:
+        messages.error(request, 'Google login failed. Please try again.')
+        return redirect('login')
+
+    token_data = urllib.parse.urlencode({
+        'code': code,
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'client_secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+        'redirect_uri': 'http://127.0.0.1:8000/auth/google/callback/',
+        'grant_type': 'authorization_code',
+    }).encode()
+
+    try:
+        token_req = urllib.request.urlopen(
+            'https://oauth2.googleapis.com/token',
+            data=token_data
+        )
+        token_response = json.loads(token_req.read().decode())
+        access_token = token_response['access_token']
+
+        user_info_req = urllib.request.Request(
+            'https://www.googleapis.com/oauth2/v2/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        user_info = json.loads(urllib.request.urlopen(user_info_req).read().decode())
+
+        email = user_info['email']
+        username = email.split('@')[0]
+
+        base_username = username
+        counter = 1
+        while User.objects.filter(username=username).exclude(email=email).exists():
+            username = f'{base_username}{counter}'
+            counter += 1
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={'username': username, 'is_active': True}
+        )
+        if created:
+            user.set_unusable_password()
+            user.save()
+
+        login(request, user)
+        request.session.cycle_key()
+        return redirect('index')
+
+    except Exception as e:
+        messages.error(request, f'Google login failed: {str(e)}')
+        return redirect('login')
