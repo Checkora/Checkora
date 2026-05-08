@@ -71,7 +71,7 @@ def make_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(game.mode, winner, 'checkmate')
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+            record_game_result(game.mode, 'draw', game.draw_reason or 'stalemate')
 
     return JsonResponse({
         'valid': success,
