@@ -3,7 +3,7 @@
 import json
 import time
 import hashlib
-import random
+import secrets
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -371,7 +371,7 @@ def register_view(request):
             user.save()
 
             # Generate 6-digit OTP
-            otp = str(random.randint(100000, 999999))
+            otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()

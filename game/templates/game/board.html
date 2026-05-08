@@ -44,23 +44,56 @@
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
             <div class="promo-title" style="font-size: 1.6rem; color: #fff; margin-bottom: 10px;">Checkora</div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
-
-            <!-- New Name Input Fields -->
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name"
-                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
-                <input type="text" id="blackNameInput" placeholder="Black Player Name"
-                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+            
+            <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
+                <input type="text" 
+                       id="whiteNameInput" 
+                       placeholder="White Player Name" 
+                       maxlength="17"
+                       required
+                       minlength="1"
+                       style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
+                
+                <input type="text" 
+                       id="blackNameInput" 
+                       placeholder="Black Player Name" 
+                       maxlength="17"
+                       required
+                       minlength="1"
+                       style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
+                
+                <!-- Error message div -->
+                <div id="nameError" style="display: none; color: #ff6b6b; font-size: 0.85rem; text-align: center; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 4px; border: 1px solid rgba(255, 107, 107, 0.3);">
+                    ⚠️ Please enter both player names
+                </div>
             </div>
-
-            <div style="display: flex; flex-direction: column; gap: 14px;">
-                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
-                    (PvP)</button>
-                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
-                    AI</button>
+            
+            <!-- Rest stays the same -->
+            <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
+                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play (PvP)</button>
+                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs AI</button>
                 <button class="btn" id="welcomeResumeBtn"
-                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
-                    Game</button>
+                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume Game</button>
+            </div>
+            
+            <div id="pveOptions" style="display: none; flex-direction: column; gap: 14px;">
+                <div style="color: #fff; font-size: 1.1rem; text-align: center; margin-bottom: 5px;">Play as:</div>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
+                    <button class="btn color-choice active" id="pveWhiteBtn" data-color="white" style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
+                    <button class="btn color-choice" id="pveBlackBtn" data-color="black" style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
+                </div>
+                
+                <div id="aiDifficultyContainer" style="margin-bottom: 10px;">
+                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem; text-align: center;">AI Difficulty</label>
+                    <select id="welcomeDifficultySelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <button class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start Game</button>
+                <button class="btn" id="backToModes" style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff;">Back</button>
             </div>
         </div>
     </div>
