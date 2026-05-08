@@ -739,3 +739,20 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class MoveHistoryColorTest(TestCase):
+    """Regression test for move_history always recording the wrong player color."""
+
+    def test_move_history_records_correct_color(self):
+        """After White's first move, color must be 'white'. After Black's reply, 'black'."""
+        game = ChessGame()
+
+        game.make_move(6, 4, 4, 4)  # White: e4
+        self.assertEqual(game.move_history[0]['color'], 'white',
+            "White's move must be recorded as 'white', not the next player's color.")
+
+        game.make_move(1, 4, 3, 4)  # Black: e5
+        self.assertEqual(game.move_history[1]['color'], 'black',
+            "Black's move must be recorded as 'black', not the next player's color.")
+
