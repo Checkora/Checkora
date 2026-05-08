@@ -425,6 +425,9 @@ DP cache is intentionally excluded to save cookie space."""
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
 
+        # Save who made this move before switching
+        moved_by = self.current_turn
+
         # Switch turn
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'
 
@@ -452,7 +455,7 @@ DP cache is intentionally excluded to save cookie space."""
             'from': [fr, fc],
             'to': [tr, tc],
             'captured': captured,
-            'color': self.current_turn,
+            'color': moved_by,
             'promoted_to': self.board[tr][tc] if promoted else None,
         })
 
