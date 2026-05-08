@@ -17,6 +17,8 @@ from django import forms
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
+
 
 from .engine import ChessGame
 from .models import GameResult
@@ -499,7 +501,7 @@ def logout_view(request):
     logout(request)
     return redirect('index')
 
-
+@login_required
 def stats_view(request):
     """Display game statistics."""
     # from django.db.models import Count
