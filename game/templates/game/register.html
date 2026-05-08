@@ -51,6 +51,31 @@
                 input.className = 'form-control';
             }
         });
+
+        document.querySelectorAll('input[type="password"]').forEach(input => {
+            const wrapper = document.createElement('div');
+            const toggle = document.createElement('button');
+
+            wrapper.className = 'password-field';
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+
+            toggle.type = 'button';
+            toggle.className = 'password-toggle';
+            toggle.textContent = 'Show';
+            toggle.setAttribute('aria-label', 'Show password');
+            wrapper.appendChild(toggle);
+
+            toggle.addEventListener('click', () => {
+                const isHidden = input.type === 'password';
+                input.type = isHidden ? 'text' : 'password';
+                toggle.textContent = isHidden ? 'Hide' : 'Show';
+                toggle.setAttribute(
+                    'aria-label',
+                    isHidden ? 'Hide password' : 'Show password'
+                );
+            });
+        });
     </script>
 </body>
 </html>

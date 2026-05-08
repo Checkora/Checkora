@@ -54,6 +54,30 @@ body {
     border-color: #f0c040;
     box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
 }
+.password-field {
+    position: relative;
+}
+.password-field input {
+    padding-right: 76px;
+}
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #f0c040;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 4px 6px;
+}
+.password-toggle:focus {
+    outline: 2px solid rgba(240, 192, 64, 0.45);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
 
 .helptext {
     font-size: 0.75rem;
