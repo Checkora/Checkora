@@ -55,12 +55,14 @@
             const wCapEl = document.getElementById('whiteCaptured');
             const bCapEl = document.getElementById('blackCaptured');
             const pauseBtn = document.getElementById('pauseBtn');
+            const flipBtn = document.getElementById('flipBtn');
             const promoOverlay = document.getElementById('promoOverlay');
             const promoChoices = document.getElementById('promoChoices');
             const modeBadge = document.getElementById('modeBadge');
             const autoFlipBtn = document.getElementById('autoFlipBtn');
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
+            const copyPgnBtn = document.getElementById('copyPgnBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -893,13 +895,14 @@
                 }, 1000);
             }
 
+            function toggleBoardOrientation() {
+                flipped = !flipped;
+                buildBoard();
+            }
+
             async function pauseGame() {
                 if (paused) return;
-                const d = await post('/api/pause/', {
-                    pause: true,
-                    white_time: whiteTime,
-                    black_time: blackTime
-                });
+                const d = await post('/api/pause/', { pause: true });
                 paused = d.paused;
                 whiteTime = d.white_time;
                 blackTime = d.black_time;
@@ -982,8 +985,8 @@
                     confettiContainer.remove();
                 }
                 
-                const wName = document.getElementById('whiteNameInput')?.value || 'White';
-                const bName = document.getElementById('blackNameInput')?.value || 'Black';
+            const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
+            const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
 
                 const d = await post('/api/new-game/', {
                     mode: mode,
@@ -1074,6 +1077,21 @@
                     buildBoard();
                 }
             };
+            if (copyPgnBtn) copyPgnBtn.onclick = async () => {
+    const data = await get('/api/state/');
+
+    if (data.pgn) {
+        navigator.clipboard.writeText(data.pgn);
+
+        const oldText = copyPgnBtn.textContent;
+
+        copyPgnBtn.textContent = 'Copied!';
+
+        setTimeout(() => {
+            copyPgnBtn.textContent = oldText;
+        }, 2000);
+    }
+};
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
@@ -1131,6 +1149,7 @@
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
@@ -1186,16 +1205,44 @@
             });
 
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
-            window.addEventListener('beforeunload', () => {
-                if (!paused) {
-                    navigator.sendBeacon('/api/pause/', JSON.stringify({
-                        pause: true, white_time: whiteTime, black_time: blackTime
-                    }));
+            document.addEventListener('keydown', e => {
+                if (e.repeat) return;
+
+                const tag = document.activeElement && document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+
+                const key = e.key.toLowerCase();
+                if (key === 'f' && flipBtn) {
+                    e.preventDefault();
+                    flipBtn.click();
+                } else if (key === 'r' && resignBtn) {
+                    e.preventDefault();
+                    resignBtn.click();
+                } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
+                    e.preventDefault();
+                    drawBtn.click();
                 }
             });
+            // Show browser confirmation dialog if user tries to leave during an active game
+            window.addEventListener('beforeunload', (e) => {
+                if (!paused) {
+                    navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+                }
+                if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+            
 
-            /* ==========================================================
-            INIT
-            ========================================================== */
-            loadGame();
-        })();
+          if (typeof module !== "undefined" && module.exports) {
+          module.exports = { pColor, getSquareLabel, formatTime };
+        } else {
+          loadGame();
+        }
+
+})();
+
+
