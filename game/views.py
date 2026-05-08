@@ -9,6 +9,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.core.mail import send_mail
@@ -23,12 +24,16 @@ from .engine import ChessGame
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
+    if not request.user.is_authenticated:
+        return render(request, 'game/login_replace_initial.html')
+        
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
     return render(request, 'game/board.html')
 
 
+@login_required
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -73,6 +78,7 @@ def make_move(request):
     })
 
 
+@login_required
 @require_GET
 def valid_moves(request):
     """Return every legal destination for a piece."""
@@ -94,6 +100,7 @@ def valid_moves(request):
     return JsonResponse({'valid_moves': moves})
 
 
+@login_required
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
@@ -135,6 +142,7 @@ def new_game(request):
     })
 
 
+@login_required
 @require_GET
 def check_promotion(request):
     """Return whether a planned move triggers pawn promotion."""
@@ -158,6 +166,7 @@ def check_promotion(request):
     return JsonResponse({'is_promotion': is_promo})
 
 
+@login_required
 @require_GET
 def get_state(request):
     """Return the full current game state, pausing on page load."""
@@ -197,6 +206,7 @@ def get_state(request):
     })
 
 
+@login_required
 @require_POST
 def set_pause(request):
     """Toggle the game clock between paused and running."""
@@ -223,6 +233,7 @@ def set_pause(request):
     })
 
 
+@login_required
 @require_POST
 def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
@@ -282,6 +293,7 @@ def ai_move(request):
     })
 
 
+@login_required
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -304,6 +316,7 @@ def offer_draw(request):
     return JsonResponse({'success': True})
 
 
+@login_required
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
@@ -339,73 +352,15 @@ class CustomUserCreationForm(UserCreationForm):
 
 
 def register_view(request):
-    if request.user.is_authenticated:
-        return redirect('index')
-        
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            user.is_active = False  # Deactivate account till OTP is verified
+            user.is_active = True  # Activate account immediately
             user.save()
 
-            # Generate 6-digit OTP
-            otp = str(random.randint(100000, 999999))
-            request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
-            otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
-            request.session['registration_otp_hash'] = otp_hash
-
-            # Send Email
-            try:
-                msg_plain = (
-                    f'Your OTP for registration is: {otp}\n\n'
-                    'Please enter this code to activate your account.'
-                )
-                html_message = (
-                    "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
-                    "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
-                    "20px; text-align: center;\"><div style=\"background-"
-                    "color: #16162a; border: 1px solid #252545; border-radius"
-                    ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
-                    "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
-                    "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
-                    ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
-                    "<span style=\"color: #f0c040;\">ORA</span></h1>"
-                    "<hr style=\"border: none; border-top: 1px solid #252545; "
-                    "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
-                    "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
-                    "to the elite chess platform. To activate your account "
-                    "and start playing, please use the verification code "
-                    "below:</p><div style=\"margin: 35px 0;\"><span style=\""
-                    "font-family: 'Consolas', monospace; font-size: 36px; "
-                    "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
-                    "background: #0f0f1a; padding: 15px 25px; border-radius: "
-                    "8px; border: 1px solid #3d3222; display: inline-block;"
-                    "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
-                    "size: 14px; margin-top: 30px;\">Enter this code on the "
-                    "verification page to complete your registration.</p>"
-                    "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
-                    "40px;\">If you didn't attempt to register on Checkora, "
-                    "please safely ignore this email.</p></div></div>"
-                ).format(otp=otp)
-                send_mail(
-                    'Your Checkora Verification Code',
-                    msg_plain,
-                    None,  # Will use EMAIL_HOST_USER
-                    [user.email],
-                    fail_silently=False,
-                    html_message=html_message
-                )
-                return redirect('verify_otp')
-            except Exception as e:
-                # If email fails, delete the user so they can try again
-                user.delete()
-                err_msg = (
-                    f'Failed to send OTP email: {str(e)}. '
-                    'Please check your email address and try again.'
-                )
-                messages.error(request, err_msg)
+            messages.success(request, 'Registration successful! You can now log in.')
+            return redirect('login')
     else:
         form = CustomUserCreationForm()
     
@@ -413,9 +368,6 @@ def register_view(request):
 
 
 def verify_otp(request):
-    if request.user.is_authenticated:
-        return redirect('index')
-        
     user_id = request.session.get('registration_user_id')
     stored_otp_hash = request.session.get('registration_otp_hash')
     
@@ -452,14 +404,12 @@ def verify_otp(request):
 
 
 def login_view(request):
-    if request.user.is_authenticated:
-        return redirect('index')
-
     if request.method == 'POST':
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            messages.success(request, f'Welcome back, {user.username}! Login successful.')
             return redirect('index')
     else:
         form = AuthenticationForm()
@@ -470,3 +420,9 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('index')
+
+
+@login_required
+def stats(request):
+    """Render the user's game statistics."""
+    return render(request, 'game/stats.html')
