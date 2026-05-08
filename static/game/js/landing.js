@@ -6,20 +6,24 @@ document.addEventListener('DOMContentLoaded', function(){
   const startBtn = document.querySelector('.primary');
   if(startBtn){
     startBtn.addEventListener('click', function(e){
-      e.preventDefault();
       const isUnmodifiedPrimaryClick = e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
-       if(!isUnmodifiedPrimaryClick){
-         return;
-       }
-       e.preventDefault();
-       const href = startBtn.getAttribute('href') || '/play/';
-       if(typeof startBtn.animate === 'function'){
-         startBtn.animate([
-           { transform: 'scale(1)', opacity: 1 },
-           { transform: 'scale(0.96)', opacity: 0.95 },
-           { transform: 'scale(1)', opacity: 1 }
-         ], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
-       }
+      if(!isUnmodifiedPrimaryClick){
+        return;
+      }
+
+      e.preventDefault();
+      const href = startBtn.getAttribute('href') || '/play/';
+      if(typeof startBtn.animate === 'function'){
+        try {
+          startBtn.animate([
+            { transform: 'scale(1)', opacity: 1 },
+            { transform: 'scale(0.96)', opacity: 0.95 },
+            { transform: 'scale(1)', opacity: 1 }
+          ], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        } catch (error) {
+          // Fall back to navigation even if animation is unavailable or fails.
+        }
+      }
       setTimeout(()=> { window.location.href = href; }, 280);
     });
   }
