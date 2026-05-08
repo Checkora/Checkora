@@ -45,6 +45,30 @@
             let flipped = false;
             let autoFlip = false;
 
+            function validatePlayerNames() {
+                const wNameInput = document.getElementById('whiteNameInput');
+                const bNameInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+            
+                const wName = wNameInput?.value.trim();
+                const bName = bNameInput?.value.trim();
+            
+                if (!wName || !bName) {
+                    if (errorDiv) {
+                        errorDiv.style.display = 'block';
+                        errorDiv.textContent = '⚠️ Please enter both player names';
+                    }
+                    if (!wName && wNameInput) wNameInput.classList.add('input-error');
+                    if (!bName && bNameInput) bNameInput.classList.add('input-error');
+                    return false;
+                }
+            
+                if (errorDiv) errorDiv.style.display = 'none';
+                if (wNameInput) wNameInput.classList.remove('input-error');
+                if (bNameInput) bNameInput.classList.remove('input-error');
+                return true;
+            }
+
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
@@ -164,7 +188,25 @@
                 }
                 return b;
             }
+            const whiteNameInput = document.getElementById('whiteNameInput');
+            const blackNameInput = document.getElementById('blackNameInput');
 
+            if (whiteNameInput) {
+                whiteNameInput.addEventListener('input', () => {
+                    whiteNameInput.classList.remove('input-error');
+                    if (whiteNameInput.value.trim() && blackNameInput?.value.trim()) {
+                        document.getElementById('nameError').style.display = 'none';
+                    }
+                });
+            }
+            if (blackNameInput) {
+                blackNameInput.addEventListener('input', () => {
+                    blackNameInput.classList.remove('input-error');
+                    if (blackNameInput.value.trim() && whiteNameInput?.value.trim()) {
+                        document.getElementById('nameError').style.display = 'none';
+                    }
+                });
+            }
             /* ==========================================================
             LOAD GAME STATE
             ========================================================== */
@@ -245,12 +287,17 @@
             function updatePlayerNames(data) {
                 let wName = data.white_name || 'White';
                 let bName = data.black_name || 'Black';
-            
+                
+                if (gameMode === 'ai') {
+                    if (playerColor === 'white') bName = bName + ' (AI)';
+                    else wName = wName + ' (AI)';
+                }
+
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
                 if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
                 if (whiteCapturedName) whiteCapturedName.textContent = wName;
                 if (blackCapturedName) blackCapturedName.textContent = bName;
-            
+
                 if (gameMode === 'ai') {
                     if (whiteYouTag) whiteYouTag.style.display = (playerColor === 'white') ? 'inline' : 'none';
                     if (blackYouTag) blackYouTag.style.display = (playerColor === 'black') ? 'inline' : 'none';
@@ -932,54 +979,6 @@
                 confirmCallback = callback;
                 confirmOverlay.classList.add('active');
             }
-            /* ==========================================================
-            NAME VALIDATION
-            ========================================================== */
-            function validatePlayerNames() {
-                const wNameInput = document.getElementById('whiteNameInput');
-                const bNameInput = document.getElementById('blackNameInput');
-                const errorDiv = document.getElementById('nameError');
-                
-                const wName = wNameInput?.value.trim();
-                const bName = bNameInput?.value.trim();
-                
-                if (!wName || !bName) {
-                    // Show error message
-                    if (errorDiv) {
-                        errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter both player names';
-                    }
-                    
-                    // Highlight empty fields
-                    if (!wName && wNameInput) {
-                        wNameInput.style.borderColor = '#ff6b6b';
-                        wNameInput.style.boxShadow = '0 0 0 2px rgba(255, 107, 107, 0.2)';
-                    }
-                    if (!bName && bNameInput) {
-                        bNameInput.style.borderColor = '#ff6b6b';
-                        bNameInput.style.boxShadow = '0 0 0 2px rgba(255, 107, 107, 0.2)';
-                    }
-                    
-                    return false;
-                }
-                
-                // Hide error if validation passes
-                if (errorDiv) {
-                    errorDiv.style.display = 'none';
-                }
-                
-                // Reset field styling
-                if (wNameInput) {
-                    wNameInput.style.borderColor = '#444';
-                    wNameInput.style.boxShadow = 'none';
-                }
-                if (bNameInput) {
-                    bNameInput.style.borderColor = '#444';
-                    bNameInput.style.boxShadow = 'none';
-                }
-                
-                return true;
-            }
 
             function requestNewGame(mode) {
                 const diffContainer = document.getElementById('confirmDifficultyContainer');
@@ -1060,7 +1059,7 @@
                     black_name: bName,
                     difficulty: difficulty
                 });
-            
+
                 board = d.board;
                 turn = d.current_turn;
                 paused = false;
@@ -1073,16 +1072,18 @@
                 } else {
                     flipped = false;
                 }
-            
+
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-            
+
                 await loadGame();
+                // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
                 paused = false;
                 updatePauseUI();
-            
+
+                // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
                     queueAIMoveIfNeeded();
                 }
@@ -1094,55 +1095,60 @@
             let selectedPveColor = 'white';
 
             if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
-                // Validate names before starting
-                if (!validatePlayerNames()) {
-                    return; // Stop if validation fails
-                }
-                
+                if (!validatePlayerNames()) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
                 startNewGame('pvp');
             };
 
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
-                // Show ONLY white name input for AI mode
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
                 
+                // Show ONLY white input for AI mode
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'Your Name';
-                    whiteInput.value = ''; // Clear previous value
+                    whiteInput.value = '';
+                    whiteInput.classList.remove('input-error');
                 }
                 if (blackInput) {
-                    blackInput.style.display = 'none'; // Hide second input
-                    blackInput.value = 'AI'; // Set AI name automatically
+                    blackInput.style.display = 'none';
+                    blackInput.value = 'AI';
+                    blackInput.classList.remove('input-error');
                 }
                 
-                // Hide error if showing
-                const errorDiv = document.getElementById('nameError');
+                // Hide error
                 if (errorDiv) errorDiv.style.display = 'none';
                 
+                nameInputs.style.display = 'flex';
                 modeSelection.style.display = 'none';
                 pveOptions.style.display = 'flex';
             };
 
             if (backToModes) backToModes.onclick = () => {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
                 
-                // Reset name inputs to show both
-                const whiteInput = document.getElementById('whiteNameInput');
-                const blackInput = document.getElementById('blackNameInput');
-                
+                // Reset both inputs to visible for PvP
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
                 }
                 if (blackInput) {
                     blackInput.style.display = 'block';
                     blackInput.placeholder = 'Black Player Name';
+                    blackInput.classList.remove('input-error');
                 }
+                
+                // Hide error
+                if (errorDiv) errorDiv.style.display = 'none';
                 
                 nameInputs.style.display = 'flex';
             };
@@ -1173,17 +1179,15 @@
                         errorDiv.textContent = '⚠️ Please enter your name';
                     }
                     if (wNameInput) {
-                        wNameInput.style.borderColor = '#ff6b6b';
-                        wNameInput.style.boxShadow = '0 0 0 2px rgba(255, 107, 107, 0.2)';
+                        wNameInput.classList.add('input-error');
                     }
-                    return; // Stop if no name
+                    return;
                 }
                 
-                // Clear error styling
+                // Clear error
                 if (errorDiv) errorDiv.style.display = 'none';
                 if (wNameInput) {
-                    wNameInput.style.borderColor = '#444';
-                    wNameInput.style.boxShadow = 'none';
+                    wNameInput.classList.remove('input-error');
                 }
                 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
@@ -1191,7 +1195,6 @@
                 gameLayout.style.visibility = 'visible';
                 startNewGame('ai', selectedPveColor, diff);
             };
-                
 
             if (autoFlipBtn) autoFlipBtn.onclick = () => {
                 autoFlip = !autoFlip;

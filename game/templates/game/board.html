@@ -55,37 +55,38 @@
                     
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
-            <!-- Name Input Fields (Only for PvP) -->
+            
             <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name" 
-                    required
-                    minlength="1"
-                    maxlength="20"
-                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
+                <input type="text" 
+                       id="whiteNameInput" 
+                       placeholder="White Player Name" 
+                       maxlength="17"
+                       required
+                       minlength="1"
+                       style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
                 
-                <input type="text" id="blackNameInput" placeholder="Black Player Name"
-                    required
-                    minlength="1"
-                    maxlength="20"
-                    style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
+                <input type="text" 
+                       id="blackNameInput" 
+                       placeholder="Black Player Name" 
+                       maxlength="17"
+                       required
+                       minlength="1"
+                       style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
                 
-                <!-- Error message -->
+                <!-- Error message div -->
                 <div id="nameError" style="display: none; color: #ff6b6b; font-size: 0.85rem; text-align: center; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 4px; border: 1px solid rgba(255, 107, 107, 0.3);">
                     ⚠️ Please enter both player names
                 </div>
             </div>
-
+            
+            <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
-                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
-                    (PvP)</button>
-                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
-                    AI</button>
-
+                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play (PvP)</button>
+                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs AI</button>
                 <button class="btn" id="welcomeResumeBtn"
-                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
-                    Game</button>
+                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume Game</button>
             </div>
-
+            
             <div id="pveOptions" style="display: none; flex-direction: column; gap: 14px;">
                 <div style="color: #fff; font-size: 1.1rem; text-align: center; margin-bottom: 5px;">Play as:</div>
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">

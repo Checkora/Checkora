@@ -961,6 +961,10 @@ body {
 #whiteNameInput,
 #blackNameInput {
     transition: all 0.3s ease;
+/* ================= INPUT ERROR STATE ================= */
+.input-error {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
 }
 
 #whiteNameInput:focus,
@@ -974,4 +978,5 @@ body {
 .input-error {
     border-color: #ff6b6b !important;
     box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+}
 }
