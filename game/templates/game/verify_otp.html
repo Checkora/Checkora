@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Email via terminal| Checkora</title>
+    <title>Verify your Email | Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <style>
@@ -47,12 +47,8 @@
 <body>
 
     <div class="header">
-        <h1>Verify Email via Terminal </h1>
-        {% if uses_console_email %}
-            <p>We've printed a 6-digit code in your server terminal.</p>
-        {% else %}
-            <p>We've sent a 6-digit code to your email address.</p>
-        {% endif %}
+        <h1>Verify your Email</h1>
+        <p>We've sent a 6-digit code to your email address.</p>
     </div>
 
     <div class="auth-card">

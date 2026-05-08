@@ -115,7 +115,7 @@ class RegistrationViewTest(TestCase):
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'
     )
-    def test_verify_page_mentions_terminal_for_console_email(self):
+    def test_verify_page_uses_professional_email_copy_for_console_email(self):
         session = self.client.session
         session['registration_user_id'] = 1
         session['registration_otp_hash'] = 'pending'
@@ -124,8 +124,9 @@ class RegistrationViewTest(TestCase):
 
         response = self.client.get('/verify-otp/')
 
-        self.assertContains(response, 'server terminal')
-        self.assertNotContains(response, 'email address')
+        self.assertContains(response, 'Verify your Email')
+        self.assertContains(response, 'email address')
+        self.assertNotContains(response, 'server terminal')
 
     def test_email_failure_renders_error_and_removes_pending_user(self):
         payload = {
