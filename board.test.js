@@ -92,3 +92,40 @@ describe("formatTime", () => {
     expect(formatTime(0)).toBe("0:00");
   });
 });
+
+const { updateTimerState } = require("./game/static/game/js/board");
+
+describe("updateTimerState", () => {
+  test("decrements exactly 1 second when delta is 1000ms", () => {
+    const result = updateTimerState(10, 0, 1000);
+    expect(result.newSeconds).toBe(9);
+    expect(result.newAccumulator).toBe(0);
+  });
+
+  test("does not decrement if delta is 500ms, accumulates time", () => {
+    const result = updateTimerState(10, 0, 500);
+    expect(result.newSeconds).toBe(10);
+    expect(result.newAccumulator).toBe(500);
+  });
+
+  test("accumulates multiple partial deltas into a second", () => {
+    let result = updateTimerState(10, 0, 400); // acc=400, sec=10
+    result = updateTimerState(result.newSeconds, result.newAccumulator, 400); // acc=800, sec=10
+    result = updateTimerState(result.newSeconds, result.newAccumulator, 300); // acc=1100 -> sec=9, acc=100
+    
+    expect(result.newSeconds).toBe(9);
+    expect(result.newAccumulator).toBe(100);
+  });
+
+  test("handles large time jump correctly (e.g. inactive tab for 5.2 seconds)", () => {
+    const result = updateTimerState(10, 0, 5200);
+    expect(result.newSeconds).toBe(5);
+    expect(result.newAccumulator).toBe(200);
+  });
+
+  test("does not decrement below zero", () => {
+    const result = updateTimerState(2, 0, 5000);
+    expect(result.newSeconds).toBe(0);
+    expect(result.newAccumulator).toBe(0);
+  });
+});

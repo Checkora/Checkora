@@ -22,6 +22,8 @@
             let blackTime = 0;
             let paused = false;
             let timerInterval = null;
+            let lastTimerTick = 0;
+            let timeAccumulator = 0;
             let pendingPromo = null;
 
             let gameMode = 'pvp';
@@ -929,14 +931,60 @@
                 boardEl.classList.toggle('paused', paused);
             }
 
+            function updateTimerState(currentSeconds, accumulator, deltaMs) {
+                let newAccumulator = accumulator + deltaMs;
+                const elapsedSeconds = Math.floor(newAccumulator / 1000);
+                let newSeconds = currentSeconds;
+                
+                if (elapsedSeconds > 0) {
+                    newAccumulator -= (elapsedSeconds * 1000);
+                    newSeconds = Math.max(0, currentSeconds - elapsedSeconds);
+                }
+                
+                return { newSeconds, newAccumulator };
+            }
+
             function startTimer() {
                 clearInterval(timerInterval);
+                if (paused || gameOver) return;
+                
+                lastTimerTick = Date.now();
+                timeAccumulator = 0;
+                
                 timerInterval = setInterval(() => {
-                    if (paused) return;
-                    if (turn === 'white' && whiteTime > 0) whiteTime--;
-                    if (turn === 'black' && blackTime > 0) blackTime--;
-                    renderClocks();
-                }, 1000);
+                    if (paused || gameOver) {
+                        clearInterval(timerInterval);
+                        return;
+                    }
+                    
+                    const now = Date.now();
+                    const deltaMs = now - lastTimerTick;
+                    lastTimerTick = now;
+                    
+                    if (turn === 'white' && whiteTime > 0) {
+                        const result = updateTimerState(whiteTime, timeAccumulator, deltaMs);
+                        if (whiteTime !== result.newSeconds) {
+                            whiteTime = result.newSeconds;
+                            timeAccumulator = result.newAccumulator;
+                            renderClocks();
+                        } else {
+                            timeAccumulator = result.newAccumulator;
+                        }
+                    } else if (turn === 'black' && blackTime > 0) {
+                        const result = updateTimerState(blackTime, timeAccumulator, deltaMs);
+                        if (blackTime !== result.newSeconds) {
+                            blackTime = result.newSeconds;
+                            timeAccumulator = result.newAccumulator;
+                            renderClocks();
+                        } else {
+                            timeAccumulator = result.newAccumulator;
+                        }
+                    }
+                    
+                    if ((turn === 'white' && whiteTime === 0) || (turn === 'black' && blackTime === 0)) {
+                        clearInterval(timerInterval);
+                    }
+                }, 100);
             }
 
             function toggleBoardOrientation() {
@@ -1312,7 +1360,15 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+            if (typeof document !== 'undefined') {
+                document.addEventListener('visibilitychange', () => { 
+                    if (!document.hidden) {
+                        if (typeof window !== 'undefined' && !gameOver) {
+                            loadGame();
+                        }
+                    } 
+                });
+            }
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 
@@ -1346,7 +1402,7 @@
             
 
           if (typeof module !== "undefined" && module.exports) {
-          module.exports = { pColor, getSquareLabel, formatTime };
+          module.exports = { pColor, getSquareLabel, formatTime, updateTimerState };
         } else {
           loadGame();
         }
