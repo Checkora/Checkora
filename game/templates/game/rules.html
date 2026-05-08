@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Rulebook – Checkora</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0f14;
+            --surface: #13161e;
+            --surface2: #1a1e28;
+            --border: #2a2f3d;
+            --gold: #f0c040;
+            --gold-dim: #a07c1a;
+            --text: #e8e8f0;
+            --muted: #7a7f9a;
+            --light-sq: #eedd99;
+            --dark-sq: #4a7c59;
+            --highlight: rgba(240,192,64,0.35);
+            --move-dot: rgba(0,0,0,0.35);
+            --danger: #e05555;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.2rem 2.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            color: var(--gold);
+            letter-spacing: 1px;
+            text-decoration: none;
+        }
+
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .back-btn:hover { color: var(--gold); }
+
+        /* ── Layout ── */
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: calc(100vh - 61px);
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem 0;
+            position: sticky;
+            top: 61px;
+            height: calc(100vh - 61px);
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 0.75rem;
+            letter-spacing: 3px;
+            color: var(--muted);
+            text-transform: uppercase;
+            padding: 0 1.5rem 1rem;
+        }
+
+        .rule-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.65rem 1.5rem;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-weight: 400;
+            transition: all 0.15s;
+            border-left: 3px solid transparent;
+        }
+
+        .rule-nav-item:hover {
+            background: var(--surface2);
+            color: var(--text);
+        }
+
+        .rule-nav-item.active {
+            background: var(--surface2);
+            color: var(--gold);
+            border-left-color: var(--gold);
+            font-weight: 500;
+        }
+
+        .rule-nav-item .icon { font-size: 1.1rem; width: 22px; text-align: center; }
+
+        /* ── Main Content ── */
+        main {
+            padding: 3rem 4rem;
+            max-width: 900px;
+        }
+
+        .page-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            color: var(--gold);
+            margin-bottom: 0.4rem;
+        }
+
+        .page-subtitle {
+            color: var(--muted);
+            font-size: 1rem;
+            margin-bottom: 3rem;
+            font-weight: 300;
+        }
+
+        /* ── Rule Card ── */
+        .rule-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .rule-card.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .rule-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .rule-icon { font-size: 1.8rem; }
+
+        .rule-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            color: var(--text);
+        }
+
+        .rule-desc {
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin-bottom: 1.8rem;
+            font-weight: 300;
+        }
+
+        .rule-desc strong { color: var(--gold); font-weight: 500; }
+
+        /* ── Board Demo ── */
+        .demo-wrapper {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .demo-label {
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+
+        .demo-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 1.2rem;
+            flex-wrap: wrap;
+        }
+
+        .demo-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.45rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.15s;
+        }
+
+        .demo-btn:hover, .demo-btn.active {
+            background: var(--gold);
+            color: #000;
+            border-color: var(--gold);
+            font-weight: 500;
+        }
+
+        /* ── Mini Chess Board ── */
+        .mini-board-container {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .mini-board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: 360px;
+    height: 360px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+        .mini-sq {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    cursor: default;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+        .mini-sq.light { background: var(--light-sq); }
+        .mini-sq.dark  { background: var(--dark-sq); }
+        .mini-sq.hl    { background: var(--highlight) !important; }
+        .mini-sq.check { background: rgba(220,60,60,0.5) !important; }
+        .mini-sq.last  { background: rgba(240,192,64,0.3) !important; }
+
+        .move-hint {
+            position: absolute;
+            width: 36%;
+            height: 36%;
+            border-radius: 50%;
+            background: var(--move-dot);
+            pointer-events: none;
+        }
+
+        .capture-hint {
+            position: absolute;
+            inset: 0;
+            border: 4px solid rgba(0,0,0,0.4);
+            border-radius: 2px;
+            pointer-events: none;
+        }
+
+        .piece-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            line-height: 1.6;
+            max-width: 220px;
+        }
+
+        .piece-label h4 {
+            color: var(--gold);
+            font-size: 0.9rem;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+        }
+
+        .piece-label ul {
+            padding-left: 1rem;
+            font-size: 0.82rem;
+        }
+
+        .piece-label li { margin-bottom: 0.3rem; }
+
+        /* ── Steps ── */
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-top: 0.5rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--muted);
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .step:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
+        .step.active { background: var(--surface); border-color: var(--gold-dim); color: var(--gold); }
+        .step-num {
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 600; flex-shrink: 0;
+        }
+        .step.active .step-num { background: var(--gold); color: #000; }
+
+        /* ── Piece Grid ── */
+        .piece-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .piece-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.8rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .piece-card:hover, .piece-card.active {
+            border-color: var(--gold);
+            background: var(--surface);
+        }
+
+        .piece-card .piece-emoji { font-size: 1.8rem; }
+        .piece-card .piece-name { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+        .piece-card.active .piece-name { color: var(--gold); }
+
+        /* Auto-play animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animating { animation: pulse 0.5s ease; }
+    </style>
+</head>
+<body>
+
+<header>
+    <a href="/" class="logo">♟ Checkora</a>
+    <!-- <a href="/" class="back-btn">← Back to Game</a> -->
+</header>
+
+<div class="layout">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-title">Rulebook</div>
+        <div class="rule-nav-item active" onclick="showRule('basics')" id="nav-basics">
+            <span class="icon">📖</span> The Basics
+        </div>
+        <div class="rule-nav-item" onclick="showRule('pieces')" id="nav-pieces">
+            <span class="icon">♟</span> Piece Moves
+        </div>
+        <div class="rule-nav-item" onclick="showRule('pawn')" id="nav-pawn">
+            <span class="icon">🔼</span> Pawn Special Rules
+        </div>
+        <div class="rule-nav-item" onclick="showRule('castling')" id="nav-castling">
+            <span class="icon">🏰</span> Castling
+        </div>
+        <div class="rule-nav-item" onclick="showRule('enpassant')" id="nav-enpassant">
+            <span class="icon">💨</span> En Passant
+        </div>
+        <div class="rule-nav-item" onclick="showRule('check')" id="nav-check">
+            <span class="icon">⚠️</span> Check & Checkmate
+        </div>
+        <div class="rule-nav-item" onclick="showRule('stalemate')" id="nav-stalemate">
+            <span class="icon">🤝</span> Stalemate & Draw
+        </div>
+        <div class="rule-nav-item" onclick="showRule('promotion')" id="nav-promotion">
+            <span class="icon">👑</span> Pawn Promotion
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <main>
+        <h1 class="page-title">Chess Rulebook</h1>
+        <p class="page-subtitle">Interactive visual guide — click any rule to see it in action.</p>
+
+        <!-- ══ BASICS ══ -->
+        <div class="rule-card active" id="rule-basics">
+            <div class="rule-header">
+                <span class="rule-icon">📖</span>
+                <h2 class="rule-title">The Basics</h2>
+            </div>
+            <p class="rule-desc">
+                Chess is played on an <strong>8×8 board</strong> between two players — White and Black.
+                Each player starts with <strong>16 pieces</strong>. White always moves first.
+                The goal is to <strong>checkmate</strong> the opponent's King.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Starting Position</div>
+                <div class="mini-board-container">
+                    <div id="board-basics" class="mini-board"></div>
+                    <div class="piece-label">
+                        <h4>Each side has:</h4>
+                        <ul>
+                            <li>1 King ♔</li>
+                            <li>1 Queen ♕</li>
+                            <li>2 Rooks ♖</li>
+                            <li>2 Bishops ♗</li>
+                            <li>2 Knights ♘</li>
+                            <li>8 Pawns ♙</li>
+                        </ul>
+                        <br>
+                        <p style="color:var(--muted); font-size:0.8rem">White pieces start on rows 1–2, Black on rows 7–8.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ PIECES ══ -->
+        <div class="rule-card" id="rule-pieces">
+            <div class="rule-header">
+                <span class="rule-icon">♟</span>
+                <h2 class="rule-title">How Pieces Move</h2>
+            </div>
+            <p class="rule-desc">
+                Every piece moves differently. Click a piece below to see its <strong>movement pattern</strong> highlighted on the board.
+                <strong>Yellow dots</strong> show where it can move.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Select a piece</div>
+                <div class="piece-grid">
+                    <div class="piece-card active" onclick="showPieceMove('king')" id="pc-king">
+                        <div class="piece-emoji">♔</div>
+                        <div class="piece-name">King</div>
+                    </div>
+                    <div class="piece-card" onclick="showPieceMove('queen')" id="pc-queen">
+                        <div class="piece-emoji">♕</div>
+                        <div class="piece-name">Queen</div>
+                    </div>
+                    <div class="piece-card" onclick="showPieceMove('rook')" id="pc-rook">
+                        <div class="piece-emoji">♖</div>
+                        <div class="piece-name">Rook</div>
+                    </div>
+                    <div class="piece-card" onclick="showPieceMove('bishop')" id="pc-bishop">
+                        <div class="piece-emoji">♗</div>
+                        <div class="piece-name">Bishop</div>
+                    </div>
+                    <div class="piece-card" onclick="showPieceMove('knight')" id="pc-knight">
+                        <div class="piece-emoji">♘</div>
+                        <div class="piece-name">Knight</div>
+                    </div>
+                    <div class="piece-card" onclick="showPieceMove('pawn')" id="pc-pawn">
+                        <div class="piece-emoji">♙</div>
+                        <div class="piece-name">Pawn</div>
+                    </div>
+                </div>
+                <div class="mini-board-container">
+                    <div id="board-pieces" class="mini-board"></div>
+                    <div id="piece-desc" class="piece-label">
+                        <h4>King</h4>
+                        <ul>
+                            <li>Moves 1 square in any direction</li>
+                            <li>Cannot move into check</li>
+                            <li>Most important piece — protect it!</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ PAWN ══ -->
+        <div class="rule-card" id="rule-pawn">
+            <div class="rule-header">
+                <span class="rule-icon">🔼</span>
+                <h2 class="rule-title">Pawn Special Rules</h2>
+            </div>
+            <p class="rule-desc">
+                Pawns are unique — they move <strong>forward only</strong> but capture <strong>diagonally</strong>.
+                On their first move they can advance <strong>1 or 2 squares</strong>.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Click a step to visualize</div>
+                <div class="mini-board-container">
+                    <div id="board-pawn" class="mini-board"></div>
+                    <div class="steps" id="pawn-steps">
+                        <div class="step active" onclick="pawnStep(0)" id="pstep-0">
+                            <div class="step-num">1</div> First move: can go 1 or 2 squares forward
+                        </div>
+                        <div class="step" onclick="pawnStep(1)" id="pstep-1">
+                            <div class="step-num">2</div> After first move: only 1 square forward
+                        </div>
+                        <div class="step" onclick="pawnStep(2)" id="pstep-2">
+                            <div class="step-num">3</div> Captures diagonally forward only
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ CASTLING ══ -->
+        <div class="rule-card" id="rule-castling">
+            <div class="rule-header">
+                <span class="rule-icon">🏰</span>
+                <h2 class="rule-title">Castling</h2>
+            </div>
+            <p class="rule-desc">
+                Castling is the only move where <strong>two pieces move at once</strong>. The King moves 2 squares toward a Rook,
+                and the Rook jumps to the other side of the King. Used to <strong>protect the King</strong> and activate the Rook.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Watch castling in action</div>
+                <div class="mini-board-container">
+                    <div id="board-castling" class="mini-board"></div>
+                    <div class="steps" id="castling-steps">
+                        <div class="step active" onclick="castleStep(0)" id="cstep-0">
+                            <div class="step-num">1</div> Before: King & Rook in starting positions
+                        </div>
+                        <div class="step" onclick="castleStep(1)" id="cstep-1">
+                            <div class="step-num">2</div> Kingside castling (O-O): King moves right
+                        </div>
+                        <div class="step" onclick="castleStep(2)" id="cstep-2">
+                            <div class="step-num">3</div> Queenside castling (O-O-O): King moves left
+                        </div>
+                        <div class="step" onclick="castleStep(3)" id="cstep-3">
+                            <div class="step-num">4</div> ❌ Cannot castle if King is in check
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ EN PASSANT ══ -->
+        <div class="rule-card" id="rule-enpassant">
+            <div class="rule-header">
+                <span class="rule-icon">💨</span>
+                <h2 class="rule-title">En Passant</h2>
+            </div>
+            <p class="rule-desc">
+                A special pawn capture. If an opponent's pawn advances <strong>2 squares</strong> and lands beside your pawn,
+                you can capture it <strong>as if it only moved 1 square</strong>. Must be done <strong>immediately</strong> — the opportunity expires next move.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">En Passant step by step</div>
+                <div class="mini-board-container">
+                    <div id="board-ep" class="mini-board"></div>
+                    <div class="steps">
+                        <div class="step active" onclick="epStep(0)" id="epstep-0">
+                            <div class="step-num">1</div> White pawn reaches 5th rank
+                        </div>
+                        <div class="step" onclick="epStep(1)" id="epstep-1">
+                            <div class="step-num">2</div> Black pawn advances 2 squares beside it
+                        </div>
+                        <div class="step" onclick="epStep(2)" id="epstep-2">
+                            <div class="step-num">3</div> White captures diagonally — black pawn removed!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ CHECK ══ -->
+        <div class="rule-card" id="rule-check">
+            <div class="rule-header">
+                <span class="rule-icon">⚠️</span>
+                <h2 class="rule-title">Check & Checkmate</h2>
+            </div>
+            <p class="rule-desc">
+                <strong>Check</strong> — your King is under attack. You must resolve it immediately by moving the King,
+                blocking, or capturing the attacker. <strong>Checkmate</strong> — the King is in check with no escape. Game over!
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Visualize check situations</div>
+                <div class="mini-board-container">
+                    <div id="board-check" class="mini-board"></div>
+                    <div class="steps">
+                        <div class="step active" onclick="checkStep(0)" id="chstep-0">
+                            <div class="step-num">1</div> King in Check — must escape
+                        </div>
+                        <div class="step" onclick="checkStep(1)" id="chstep-1">
+                            <div class="step-num">2</div> Block the check with another piece
+                        </div>
+                        <div class="step" onclick="checkStep(2)" id="chstep-2">
+                            <div class="step-num">3</div> Checkmate — no escape possible!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ STALEMATE ══ -->
+        <div class="rule-card" id="rule-stalemate">
+            <div class="rule-header">
+                <span class="rule-icon">🤝</span>
+                <h2 class="rule-title">Stalemate & Draw</h2>
+            </div>
+            <p class="rule-desc">
+                <strong>Stalemate</strong> happens when a player has <strong>no legal moves</strong> but is <strong>not in check</strong>. The game ends as a draw.
+                Other draws: insufficient material, threefold repetition, or 50-move rule.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Stalemate position</div>
+                <div class="mini-board-container">
+                    <div id="board-stale" class="mini-board"></div>
+                    <div class="piece-label">
+                        <h4>Draw conditions:</h4>
+                        <ul>
+                            <li>Stalemate — no legal moves, not in check</li>
+                            <li>Threefold repetition</li>
+                            <li>50-move rule (no capture/pawn move)</li>
+                            <li>Insufficient material</li>
+                            <li>Mutual agreement</li>
+                        </ul>
+                        <br>
+                        <p style="color:var(--gold); font-size:0.8rem">⬅ Black King has no legal moves but is not in check — Stalemate!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ PROMOTION ══ -->
+        <div class="rule-card" id="rule-promotion">
+            <div class="rule-header">
+                <span class="rule-icon">👑</span>
+                <h2 class="rule-title">Pawn Promotion</h2>
+            </div>
+            <p class="rule-desc">
+                When a pawn reaches the <strong>opposite end of the board</strong> (rank 8 for White, rank 1 for Black),
+                it must be promoted to a <strong>Queen, Rook, Bishop, or Knight</strong>. Almost always promoted to a Queen.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Watch promotion happen</div>
+                <div class="mini-board-container">
+                    <div id="board-promo" class="mini-board"></div>
+                    <div class="steps">
+                        <div class="step active" onclick="promoStep(0)" id="prostep-0">
+                            <div class="step-num">1</div> White pawn on 7th rank, one step from promotion
+                        </div>
+                        <div class="step" onclick="promoStep(1)" id="prostep-1">
+                            <div class="step-num">2</div> Pawn advances to rank 8
+                        </div>
+                        <div class="step" onclick="promoStep(2)" id="prostep-2">
+                            <div class="step-num">3</div> Promoted to Queen! ♕
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   PIECE UNICODE
+══════════════════════════════════════════════ */
+const P = {
+    wK:'♔', wQ:'♕', wR:'♖', wB:'♗', wN:'♘', wP:'♙',
+    bK:'♚', bQ:'♛', bR:'♜', bB:'♝', bN:'♞', bP:'♟'
+};
+
+/* ══════════════════════════════════════════════
+   BOARD BUILDER
+══════════════════════════════════════════════ */
+function buildBoard(id) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const sq = document.createElement('div');
+            sq.className = 'mini-sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+            sq.id = `${id}-${r}-${c}`;
+            el.appendChild(sq);
+        }
+    }
+}
+
+function clearBoard(id) {
+    for (let r = 0; r < 8; r++)
+        for (let c = 0; c < 8; c++) {
+            const sq = document.getElementById(`${id}-${r}-${c}`);
+            sq.textContent = '';
+            sq.className = 'mini-sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        }
+}
+
+function place(id, r, c, piece) {
+    const sq = document.getElementById(`${id}-${r}-${c}`);
+    if (sq) sq.textContent = piece;
+}
+
+function highlight(id, r, c, type = 'hl') {
+    const sq = document.getElementById(`${id}-${r}-${c}`);
+    if (!sq) return;
+    sq.classList.add(type);
+    if (type === 'hl') {
+        const dot = document.createElement('div');
+        dot.className = 'move-hint';
+        sq.appendChild(dot);
+    }
+}
+
+function highlightCapture(id, r, c) {
+    const sq = document.getElementById(`${id}-${r}-${c}`);
+    if (!sq) return;
+    sq.classList.add('hl');
+    const ring = document.createElement('div');
+    ring.className = 'capture-hint';
+    sq.appendChild(ring);
+}
+
+/* ══════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════ */
+const rules = ['basics','pieces','pawn','castling','enpassant','check','stalemate','promotion'];
+
+function showRule(name) {
+    rules.forEach(r => {
+        document.getElementById('rule-' + r).classList.remove('active');
+        document.getElementById('nav-' + r).classList.remove('active');
+    });
+    document.getElementById('rule-' + name).classList.add('active');
+    document.getElementById('nav-' + name).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ══════════════════════════════════════════════
+   BASICS — Starting Position
+══════════════════════════════════════════════ */
+function initBasics() {
+    buildBoard('board-basics');
+    const back = [P.bR, P.bN, P.bB, P.bQ, P.bK, P.bB, P.bN, P.bR];
+    back.forEach((p, c) => place('board-basics', 0, c, p));
+    for (let c = 0; c < 8; c++) place('board-basics', 1, c, P.bP);
+    for (let c = 0; c < 8; c++) place('board-basics', 6, c, P.wP);
+    const front = [P.wR, P.wN, P.wB, P.wQ, P.wK, P.wB, P.wN, P.wR];
+    front.forEach((p, c) => place('board-basics', 7, c, p));
+}
+
+/* ══════════════════════════════════════════════
+   PIECES — Movement patterns
+══════════════════════════════════════════════ */
+const pieceDescs = {
+    king:   { title: 'King ♔', points: ['Moves 1 square in any direction', 'Cannot move into check', 'Most important piece — protect it!'] },
+    queen:  { title: 'Queen ♕', points: ['Moves any number of squares', 'In any direction (rank, file, diagonal)', 'Most powerful piece on the board'] },
+    rook:   { title: 'Rook ♖', points: ['Moves any number of squares', 'Horizontally or vertically only', 'Used in castling with the King'] },
+    bishop: { title: 'Bishop ♗', points: ['Moves any number of squares diagonally', 'Always stays on the same color square', 'Each player has one light + one dark bishop'] },
+    knight: { title: 'Knight ♘', points: ['Moves in an "L" shape: 2+1 squares', 'Only piece that can jump over others', 'Always lands on opposite color square'] },
+    pawn:   { title: 'Pawn ♙', points: ['Moves forward 1 square (or 2 on first move)', 'Captures diagonally forward only', 'Can be promoted when reaching the last rank'] },
+};
+
+function showPieceMove(piece) {
+    document.querySelectorAll('.piece-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('pc-' + piece).classList.add('active');
+
+    buildBoard('board-pieces');
+    const r = 4, c = 3; // center-ish
+
+    const moves = {
+        king:   [[r-1,c-1],[r-1,c],[r-1,c+1],[r,c-1],[r,c+1],[r+1,c-1],[r+1,c],[r+1,c+1]],
+        queen:  [...Array.from({length:7},(_,i)=>[r,c-i-1]),...Array.from({length:7},(_,i)=>[r,c+i+1]),
+                 ...Array.from({length:7},(_,i)=>[r-i-1,c]),...Array.from({length:7},(_,i)=>[r+i+1,c]),
+                 ...Array.from({length:7},(_,i)=>[r-i-1,c-i-1]),...Array.from({length:7},(_,i)=>[r-i-1,c+i+1]),
+                 ...Array.from({length:7},(_,i)=>[r+i+1,c-i-1]),...Array.from({length:7},(_,i)=>[r+i+1,c+i+1])],
+        rook:   [...Array.from({length:7},(_,i)=>[r,c-i-1]),...Array.from({length:7},(_,i)=>[r,c+i+1]),
+                 ...Array.from({length:7},(_,i)=>[r-i-1,c]),...Array.from({length:7},(_,i)=>[r+i+1,c])],
+        bishop: [...Array.from({length:7},(_,i)=>[r-i-1,c-i-1]),...Array.from({length:7},(_,i)=>[r-i-1,c+i+1]),
+                 ...Array.from({length:7},(_,i)=>[r+i+1,c-i-1]),...Array.from({length:7},(_,i)=>[r+i+1,c+i+1])],
+        knight: [[r-2,c-1],[r-2,c+1],[r-1,c-2],[r-1,c+2],[r+1,c-2],[r+1,c+2],[r+2,c-1],[r+2,c+1]],
+        pawn:   [[r-1,c],[r-2,c]],
+    };
+
+    const icons = { king:P.wK, queen:P.wQ, rook:P.wR, bishop:P.wB, knight:P.wN, pawn:P.wP };
+    place('board-pieces', r, c, icons[piece]);
+    document.getElementById(`board-pieces-${r}-${c}`).classList.add('last');
+
+    moves[piece].filter(([mr,mc]) => mr>=0&&mr<8&&mc>=0&&mc<8)
+        .forEach(([mr,mc]) => highlight('board-pieces', mr, mc));
+
+    const desc = pieceDescs[piece];
+    document.getElementById('piece-desc').innerHTML =
+        `<h4>${desc.title}</h4><ul>${desc.points.map(p=>`<li>${p}</li>`).join('')}</ul>`;
+}
+
+/* ══════════════════════════════════════════════
+   PAWN STEPS
+══════════════════════════════════════════════ */
+function pawnStep(n) {
+    [0,1,2].forEach(i => {
+        document.getElementById('pstep-'+i).classList.remove('active');
+    });
+    document.getElementById('pstep-'+n).classList.add('active');
+
+    buildBoard('board-pawn');
+    if (n === 0) {
+        place('board-pawn', 6, 3, P.wP);
+        document.getElementById('board-pawn-6-3').classList.add('last');
+        highlight('board-pawn', 5, 3);
+        highlight('board-pawn', 4, 3);
+    } else if (n === 1) {
+        place('board-pawn', 4, 3, P.wP);
+        document.getElementById('board-pawn-4-3').classList.add('last');
+        highlight('board-pawn', 3, 3);
+    } else {
+        place('board-pawn', 4, 3, P.wP);
+        place('board-pawn', 3, 2, P.bP);
+        place('board-pawn', 3, 4, P.bP);
+        document.getElementById('board-pawn-4-3').classList.add('last');
+        highlightCapture('board-pawn', 3, 2);
+        highlightCapture('board-pawn', 3, 4);
+    }
+}
+
+/* ══════════════════════════════════════════════
+   CASTLING STEPS
+══════════════════════════════════════════════ */
+function castleStep(n) {
+    [0,1,2,3].forEach(i => document.getElementById('cstep-'+i).classList.remove('active'));
+    document.getElementById('cstep-'+n).classList.add('active');
+
+    buildBoard('board-castling');
+    if (n === 0) {
+        place('board-castling', 7, 4, P.wK);
+        place('board-castling', 7, 0, P.wR);
+        place('board-castling', 7, 7, P.wR);
+        document.getElementById('board-castling-7-4').classList.add('last');
+    } else if (n === 1) {
+        // Kingside
+        place('board-castling', 7, 6, P.wK);
+        place('board-castling', 7, 5, P.wR);
+        place('board-castling', 7, 0, P.wR);
+        document.getElementById('board-castling-7-6').classList.add('last');
+        document.getElementById('board-castling-7-5').classList.add('last');
+        highlight('board-castling', 7, 7);
+        highlight('board-castling', 7, 4);
+    } else if (n === 2) {
+        // Queenside
+        place('board-castling', 7, 2, P.wK);
+        place('board-castling', 7, 3, P.wR);
+        place('board-castling', 7, 7, P.wR);
+        document.getElementById('board-castling-7-2').classList.add('last');
+        document.getElementById('board-castling-7-3').classList.add('last');
+        highlight('board-castling', 7, 0);
+        highlight('board-castling', 7, 4);
+    } else {
+        // Cannot castle in check
+        place('board-castling', 7, 4, P.wK);
+        place('board-castling', 7, 0, P.wR);
+        place('board-castling', 7, 7, P.wR);
+        place('board-castling', 0, 4, P.bR);
+        document.getElementById('board-castling-7-4').classList.add('check');
+        document.getElementById('board-castling-0-4').classList.add('last');
+    }
+}
+
+/* ══════════════════════════════════════════════
+   EN PASSANT STEPS
+══════════════════════════════════════════════ */
+function epStep(n) {
+    [0,1,2].forEach(i => document.getElementById('epstep-'+i).classList.remove('active'));
+    document.getElementById('epstep-'+n).classList.add('active');
+    buildBoard('board-ep');
+
+    if (n === 0) {
+        // White pawn on 5th rank (row 3)
+        place('board-ep', 3, 3, P.wP);
+        document.getElementById('board-ep-3-3').classList.add('last');
+        // Show other pieces for context
+        place('board-ep', 6, 4, P.bP);
+        document.getElementById('board-ep-6-4').style.opacity = '0.4';
+    } else if (n === 1) {
+        // Black pawn jumps 2 squares, lands beside white
+        place('board-ep', 3, 3, P.wP);
+        place('board-ep', 3, 4, P.bP);
+        document.getElementById('board-ep-3-3').classList.add('last');
+        document.getElementById('board-ep-3-4').classList.add('hl');
+        // Arrow showing capture square
+        highlight('board-ep', 2, 4);
+    } else {
+        // White captures, black pawn gone
+        place('board-ep', 2, 4, P.wP);
+        document.getElementById('board-ep-2-4').classList.add('last');
+        document.getElementById('board-ep-3-4').style.background = 'rgba(220,60,60,0.3)';
+        // Show ghost of where black pawn was
+        document.getElementById('board-ep-3-4').textContent = '✕';
+        document.getElementById('board-ep-3-4').style.color = 'rgba(220,60,60,0.6)';
+        document.getElementById('board-ep-3-4').style.fontSize = '1rem';
+    }
+}
+/* ══════════════════════════════════════════════
+   CHECK STEPS
+══════════════════════════════════════════════ */
+function checkStep(n) {
+    [0,1,2].forEach(i => document.getElementById('chstep-'+i).classList.remove('active'));
+    document.getElementById('chstep-'+n).classList.add('active');
+    buildBoard('board-check');
+
+    if (n === 0) {
+        // King in check from rook
+        place('board-check', 7, 4, P.wK);
+        place('board-check', 0, 4, P.bR);
+        document.getElementById('board-check-7-4').classList.add('check');
+        document.getElementById('board-check-0-4').classList.add('last');
+        // Highlight the attack line
+        [1,2,3,4,5,6].forEach(r => {
+            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
+        });
+        // Show escape squares
+        [[6,3],[6,5],[7,3],[7,5]].forEach(([r,c]) => highlight('board-check',r,c));
+    } else if (n === 1) {
+        // Block with a piece
+        place('board-check', 7, 4, P.wK);
+        place('board-check', 0, 4, P.bR);
+        place('board-check', 4, 4, P.wR);
+        document.getElementById('board-check-0-4').classList.add('last');
+        document.getElementById('board-check-4-4').classList.add('last');
+        // Show the block working
+        [1,2,3].forEach(r => {
+            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
+        });
+        [5,6,7].forEach(r => {
+            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(64,192,64,0.15)';
+        });
+    } else {
+        // Clear checkmate position — king trapped in corner
+        place('board-check', 0, 0, P.bK);
+        place('board-check', 1, 2, P.wQ);
+        place('board-check', 0, 2, P.wR);
+        document.getElementById('board-check-0-0').classList.add('check');
+        document.getElementById('board-check-1-2').classList.add('last');
+        // All escape squares blocked
+        [[0,1],[1,0],[1,1]].forEach(([r,c]) => {
+            const sq = document.getElementById(`board-check-${r}-${c}`);
+            sq.style.background = 'rgba(220,60,60,0.3)';
+            sq.textContent = '✕';
+            sq.style.color = 'rgba(220,60,60,0.7)';
+            sq.style.fontSize = '0.9rem';
+        });
+    }
+}
+/* ══════════════════════════════════════════════
+   STALEMATE
+══════════════════════════════════════════════ */
+function initStalemate() {
+    buildBoard('board-stale');
+    place('board-stale', 0, 7, P.bK);
+    place('board-stale', 1, 5, P.wQ);
+    place('board-stale', 2, 7, P.wK);
+    // Black king has no legal moves but is NOT in check
+    document.getElementById('board-stale-0-7').classList.add('hl');
+}
+
+/* ══════════════════════════════════════════════
+   PROMOTION STEPS
+══════════════════════════════════════════════ */
+function promoStep(n) {
+    [0,1,2].forEach(i => document.getElementById('prostep-'+i).classList.remove('active'));
+    document.getElementById('prostep-'+n).classList.add('active');
+    buildBoard('board-promo');
+
+    if (n === 0) {
+        place('board-promo', 1, 4, P.wP);
+        document.getElementById('board-promo-1-4').classList.add('last');
+        highlight('board-promo', 0, 4);
+    } else if (n === 1) {
+        place('board-promo', 0, 4, P.wP);
+        document.getElementById('board-promo-0-4').classList.add('last');
+    } else {
+        place('board-promo', 0, 4, P.wQ);
+        document.getElementById('board-promo-0-4').classList.add('last');
+        // sparkle effect
+        document.getElementById('board-promo-0-4').style.background = 'rgba(240,192,64,0.6)';
+    }
+}
+
+/* ══════════════════════════════════════════════
+   INIT ALL
+══════════════════════════════════════════════ */
+window.onload = () => {
+    initBasics();
+    buildBoard('board-pieces'); showPieceMove('king');
+    buildBoard('board-pawn'); pawnStep(0);
+    buildBoard('board-castling'); castleStep(0);
+    buildBoard('board-ep'); epStep(0);
+    buildBoard('board-check'); checkStep(0);
+    initStalemate();
+    buildBoard('board-promo'); promoStep(0);
+};
+</script>
+</body>
+</html>
