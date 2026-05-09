@@ -10,6 +10,7 @@ body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    overflow-x: hidden;
 }
 .header { margin-bottom: 30px; text-align: center; }
 .header h1 {
@@ -106,6 +107,7 @@ body {
     font-weight: 600;
 }
 .auth-footer a:hover { text-decoration: underline; }
+
 /* Google Sign-In divider */
 .divider {
     text-align: center;
@@ -126,12 +128,6 @@ body {
 .divider::before { left: 0; }
 .divider::after { right: 0; }
 
-/* Google button container */
-.g_id_signin {
-    margin-top: 10px;
-    display: flex;
-    justify-content: center;
-}
 /* Google OAuth Button */
 .btn-google {
     display: flex;
@@ -155,4 +151,60 @@ body {
     background: #f5f5f5;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);
+}
+
+/* Back home link */
+.back-home {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    color: #f0c040;
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.back-home:hover {
+    color: #fff;
+}
+
+/* Password toggle */
+.pw-parent {
+    position: relative;
+}
+.password-with-toggle {
+    padding-right: 2.5rem;
+}
+.pw-toggle {
+    position: absolute;
+    right: 0.6rem;
+    top: 2.45rem;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    color: #f0c040;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    z-index: 2;
+}
+.pw-toggle:hover {
+    color: #fff;
+}
+.pw-toggle:focus-visible {
+    outline: 2px solid #c9a84c;
+    border-radius: 3px;
+}
+.pw-toggle svg {
+    display: block;
+}
+
+body.login-page .helptext {
+    display: none;
 }
