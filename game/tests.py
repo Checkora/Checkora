@@ -71,7 +71,7 @@ class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
 
     def test_page_loads(self):
-        response = self.client.get('/')
+        response = self.client.get('/play/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
@@ -193,7 +193,7 @@ class ValidMovesTest(TestCase):
     """Test /api/valid-moves/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
 
@@ -230,7 +230,7 @@ class NewGameTest(TestCase):
     """Test the /api/new-game/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def test_reset(self):
         # Manually update board to simulate game progress
@@ -289,7 +289,7 @@ class GameStateTest(TestCase):
     """Test the /api/state/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def _set_game_session(self, game):
         session = self.client.session
@@ -346,7 +346,7 @@ class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def _set_game_session(self, game):
         session = self.client.session
@@ -399,7 +399,7 @@ class DrawOfferTest(TestCase):
     """Test draw agreement persistence through the API."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def test_accept_draw_marks_game_as_draw_agreement(self):
         response = self.client.post(
@@ -531,7 +531,7 @@ class AIMoveTest(TestCase):
     """Test the /api/ai-move/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
         # Mock engine to return STATUS ok if checked, and BESTMOVE coords
