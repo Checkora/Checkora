@@ -24,6 +24,9 @@
             let timerInterval = null;
             let pendingPromo = null;
 
+            const moveSound = new Audio('/static/game/sounds/move.ogg');
+            const captureSound = new Audio('/static/game/sounds/capture.ogg');
+
             let gameMode = 'pvp';
             // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
@@ -548,9 +551,19 @@
                     };
                     if (promotionPiece) body.promotion_piece = promotionPiece;
 
+                    const targetPiece = board[tr][tc];
+
                     const data = await post('/api/move/', body);
+                    
+``
                     if (data.valid) {
                         board = parseBoard(data.board);
+
+                        if (targetPiece) {
+                            captureSound.play();
+                        } else {
+                            moveSound.play();
+                        }
                         turn = data.current_turn;
                         lastMove = { from: [fr, fc], to: [tr, tc] };
 
