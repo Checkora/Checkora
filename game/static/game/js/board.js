@@ -129,6 +129,14 @@
             const whiteCapturedName = document.getElementById('whiteCapturedName');
             const blackCapturedName = document.getElementById('blackCapturedName');
             const turnBadgeText = document.getElementById('turnBadgeText');
+            const a11yAnnouncer = document.getElementById('a11y-announcer');
+
+            function announceMove(msg) {
+                if (a11yAnnouncer) {
+                    a11yAnnouncer.textContent = '';
+                    setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
+                }
+            }
 
             let gameOver = false;
             let aiThinking = false;
@@ -648,15 +656,26 @@
                             renderClocks();
                             startTimer();
 
-                        if (handleGameStatus(data.game_status, data.draw_reason)) {
-                            // Game-ending status has been handled.
-                        } else if (data.game_status === 'check') {
-                            applyCheckHighlight();
-                            showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
-                        } else {
-                            highlightCheck();
-                            showStatus('', false);
-                        }
+                        let a11yMsg = '';
+                if (data.move_history && data.move_history.length > 0) {
+                    const lastMove = data.move_history[data.move_history.length - 1].notation;
+                    const playedColor = turn === 'white' ? 'Black' : 'White';
+                    a11yMsg = `${playedColor} played ${lastMove}. `;
+                }
+
+                if (handleGameStatus(data.game_status, data.draw_reason)) {
+                    // Game-ending status has been handled.
+                } else if (data.game_status === 'check') {
+                    applyCheckHighlight();
+                    const checkMsg = turn === 'white' ? 'White is in check!' : 'Black is in check!';
+                    showStatus(checkMsg, true);
+                    a11yMsg += checkMsg;
+                } else {
+                    highlightCheck();
+                    showStatus('', false);
+                }
+
+                if (a11yMsg) announceMove(a11yMsg);
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
@@ -695,15 +714,24 @@
                             renderClocks();
                             startTimer();
 
-                        if (handleGameStatus(data.game_status, data.draw_reason)) {
-                            // Game-ending status has been handled.
-                        } else if (data.game_status === 'check') {
-                            applyCheckHighlight();
-                            showStatus('You are in check!', true);
-                        } else {
-                            highlightCheck();
-                            showStatus('Your turn.', false);
-                        }
+                        let a11yMsg = '';
+                if (data.move_history && data.move_history.length > 0) {
+                    const lastMove = data.move_history[data.move_history.length - 1].notation;
+                    a11yMsg = `AI played ${lastMove}. `;
+                }
+
+                if (handleGameStatus(data.game_status, data.draw_reason)) {
+                    // Game-ending status has been handled.
+                } else if (data.game_status === 'check') {
+                    applyCheckHighlight();
+                    showStatus('You are in check!', true);
+                    a11yMsg += 'You are in check!';
+                } else {
+                    highlightCheck();
+                    showStatus('Your turn.', false);
+                }
+
+                if (a11yMsg) announceMove(a11yMsg);
                     } else {
                         showStatus(data.message, true);
                     }
@@ -885,6 +913,7 @@
                 
                 gameOverOverlay.classList.add('active');
                 showStatus(title + ': ' + message, false);
+                announceMove(title + ' ' + message);
                 document.title = 'Game Over - Checkora';
             }
 
