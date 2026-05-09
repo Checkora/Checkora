@@ -9,7 +9,7 @@
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}?v=1.1">
 </head>
 
 <body>
@@ -20,8 +20,8 @@
                 <span class="logo-text">CHECK<span style="color: #f0c040;">ORA</span></span>
             </a>
             <div class="nav-links">
+                <a href="#hero">About</a>
                 <a href="#features">Features</a>
-                <a href="#about">About</a>
             </div>
         </div>
         <div class="nav-right">
@@ -35,7 +35,7 @@
         </div>
     </nav>
 
-    <main class="hero">
+    <main class="hero" id="hero">
         <h1 class="hero-title">Master the Board with Hybrid Intelligence</h1>
         <p class="hero-subtitle">A lightweight Django frontend orchestrating Python logic with a high-performance C++
             minimax engine.</p>
@@ -112,6 +112,14 @@
 
         </div>
     </section>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <a href="{% url 'rules' %}" class="footer-link">Rulebook</a>
+            <a href="{% url 'stats' %}" class="footer-link">Statistics</a>
+            <span class="footer-copy">&copy; 2026 Checkora Hybrid Engine</span>
+        </div>
+    </footer>
 </body>
 
 </html>
