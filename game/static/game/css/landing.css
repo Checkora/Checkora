@@ -67,6 +67,10 @@ body {
     width: auto;
 }
 
+.logo-accent {
+    color: var(--accent-gold);
+}
+
 .nav-links {
     display: flex;
     gap: 2rem;
