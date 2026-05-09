@@ -9,7 +9,7 @@
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}?v=1.1">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
 </head>
 
 <body>
@@ -17,7 +17,7 @@
         <div class="nav-left">
             <a href="{% url 'landing' %}" class="logo-link">
                 <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
-                <span class="logo-text">CHECK<span style="color: #f0c040;">ORA</span></span>
+                <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
             </a>
             <div class="nav-links">
                 <a href="#hero">About</a>
@@ -120,7 +120,7 @@
         <div class="footer-content">
             <a href="{% url 'rules' %}" class="footer-link">Rulebook</a>
             <a href="{% url 'stats' %}" class="footer-link">Statistics</a>
-            <span class="footer-copy">&copy; 2026 Checkora Hybrid Engine</span>
+            <span class="footer-copy">&copy; {% now "Y" %} Checkora Hybrid Engine</span>
         </div>
     </footer>
 </body>
