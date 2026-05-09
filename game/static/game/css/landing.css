@@ -315,7 +315,7 @@ body {
 }
 
 .footer-copy {
-    color: #555;
+    color: var(--text-secondary);
     font-size: 0.85rem;
     margin-left: auto;
 }
