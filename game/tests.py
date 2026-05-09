@@ -76,6 +76,19 @@ class BoardViewTest(TestCase):
         self.assertContains(response, 'Checkora')
 
 
+class LandingViewTest(TestCase):
+    """The landing page at / should load and link to the game."""
+
+    def test_landing_page_loads(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Checkora')
+
+    def test_landing_page_links_to_play(self):
+        response = self.client.get('/')
+        self.assertContains(response, '/play/')
+
+
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
 

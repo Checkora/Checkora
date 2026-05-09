@@ -500,6 +500,7 @@ def login_view(request):
 def rules(request):
     return render(request, 'game/rules.html')
 
+@require_POST
 def logout_view(request):
     logout(request)
     return redirect('landing')
