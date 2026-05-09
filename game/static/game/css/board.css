@@ -3,6 +3,11 @@
    ============================================================ */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
 body {
     background-color: #0f0f1a;
     color: #d0d0d0;
@@ -485,7 +490,7 @@ body {
 @media (max-width: 768px) {
     :root {
         --board-border-width: 3px;
-        --mobile-board-size: min(calc(100vw - 52px), 480px);
+        --mobile-board-size: min(calc(100vw - 64px), 480px);
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
     }
 
@@ -597,14 +602,21 @@ body {
 
     .clocks {
         width: 100%;
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
     .clock {
-        padding: 12px;
+        padding: 8px 10px;
+        min-width: 0;
+    }
+
+    .clock .label {
+        font-size: 0.6rem;
     }
 
     .clock .time {
-        font-size: 1rem;
+        font-size: 0.95rem;
     }
 
     .btn {
@@ -968,4 +980,23 @@ body {
     border-color: #f0c040;
     box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
     outline: none;
+}
+
+/* ================= EXTRA MOBILE POLISH ================= */
+@media (max-width: 480px) {
+    .promo-dialog {
+        width: 95%;
+        max-width: 380px;
+        padding: 24px 20px;
+    }
+    .promo-title {
+        font-size: 0.9rem;
+    }
+    #welcomeDialog .promo-title,
+    #gameOverDialog .promo-title {
+        font-size: 1.3rem !important;
+    }
+    .btn {
+        min-height: 48px; /* touch optimization */
+    }
 }
