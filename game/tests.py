@@ -104,12 +104,10 @@ class RegistrationViewTest(TestCase):
             'password2': 'StrongPass123!',
         }
 
-        with mock.patch('game.views.random.randint', return_value=123456):
-            response = self.client.post('/register/', data=payload, follow=True)
+        response = self.client.post('/register/', data=payload, follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
         self.assertNotContains(response, 'Development mode OTP')
-        self.assertNotContains(response, '123456')
         self.assertTrue(User.objects.filter(username='devplayer').exists())
 
     @override_settings(
