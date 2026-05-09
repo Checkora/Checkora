@@ -363,6 +363,14 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
+    
+@require_GET
+def check_username(request):
+    username = request.GET.get('username', '').strip()
+    if not username:
+        return JsonResponse({'available': False, 'error': 'No username provided'})
+    exists = User.objects.filter(username__iexact=username).exists()
+    return JsonResponse({'available': not exists})    
 
 def register_view(request):
     if request.user.is_authenticated:

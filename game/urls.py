@@ -18,6 +18,7 @@ urlpatterns = [
     path('stats/', views.stats_view, name='stats'),
 
     # Authentication
+    path('api/check-username/', views.check_username, name='check_username'),
     path('register/', views.register_view, name='register'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('login/', views.login_view, name='login'),

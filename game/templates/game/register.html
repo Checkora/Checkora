@@ -51,5 +51,31 @@
     </div>
 
     <script src="{% static 'game/js/auth.js' %}?v=5"></script>
+    <script>
+      const usernameInput = document.querySelector('#id_username');
+      if (usernameInput) {
+        let debounceTimer;
+        const feedback = document.createElement('span');
+        feedback.className = 'helptext';
+        usernameInput.parentNode.appendChild(feedback);
+
+        usernameInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const val = usernameInput.value.trim();
+        if (!val) { feedback.textContent = ''; return; }
+
+        debounceTimer = setTimeout(async () => {
+            const res = await fetch(
+                `/api/check-username/?username=${encodeURIComponent(val)}`
+            );
+            const data = await res.json();
+            feedback.textContent = data.available 
+                ? '✔ Username available' 
+                : '✖ Username already taken';
+            feedback.style.color = data.available ? '#e5b639' : '#e57373';
+          }, 400);
+        });
+      }
+    </Script>
   </body>
 </html>
