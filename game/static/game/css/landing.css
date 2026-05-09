@@ -17,7 +17,13 @@
 }
 
 html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html {
+        scroll-behavior: smooth;
+    }
 }
 
 body {
@@ -266,11 +272,13 @@ body {
     line-height: 1.6;
 }
 
-.card:hover .card-front {
+.card:hover .card-front,
+.card:focus-within .card-front {
     opacity: 0;
 }
 
-.card:hover .card-back {
+.card:hover .card-back,
+.card:focus-within .card-back {
     opacity: 1;
     pointer-events: auto;
 }
