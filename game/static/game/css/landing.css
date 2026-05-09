@@ -35,7 +35,6 @@ body {
     flex-direction: column;
 }
 
-/* Navbar */
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -121,7 +120,6 @@ body {
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
 
-/* Hero Section */
 .hero {
     display: flex;
     flex-direction: column;
@@ -190,7 +188,6 @@ body {
     border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Features Section */
 .features {
     padding: 4rem 5%;
     max-width: 1200px;
@@ -218,7 +215,6 @@ body {
     border-radius: 10px;
     height: 180px;
     perspective: 1000px;
-    /* For hover flip effect if needed, but we'll do fade here */
     position: relative;
     overflow: hidden;
     cursor: pointer;
@@ -261,7 +257,6 @@ body {
     opacity: 0;
     pointer-events: none;
     text-align: left;
-    /* Align text left as shown in images */
     justify-content: center;
     background-color: var(--card-hover);
 }
@@ -293,7 +288,6 @@ body {
     color: var(--accent-gold);
 }
 
-/* Footer */
 .footer {
     padding: 2.5rem 5%;
     border-top: 1px solid var(--card-border);
@@ -328,7 +322,6 @@ body {
     margin-left: auto;
 }
 
-/* Responsiveness */
 @media (max-width: 768px) {
     .navbar {
         flex-direction: column;
@@ -343,7 +336,6 @@ body {
 
     .nav-links {
         display: none;
-        /* Hide on mobile to keep it simple, or add a hamburger */
     }
 
     .hero-title {
