@@ -23,6 +23,17 @@
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
+            let premove = null;
+
+            function setPremove(fr, fc, tr, tc) {
+                premove = { from: [fr, fc], to: [tr, tc] };
+                refreshHighlights();
+            }
+
+            function clearPremove() {
+                premove = null;
+                refreshHighlights();
+            }
 
             let gameMode = 'pvp';
             // Updates UI to highlight selected game mode button
@@ -335,6 +346,12 @@
                         boardEl.appendChild(d);
                     }
                 }
+                boardEl.oncontextmenu = e => {
+                    if (premove) {
+                        e.preventDefault();
+                        clearPremove();
+                    }
+                };
                 syncPieces();
                 updateLabels();
             }
@@ -392,6 +409,11 @@
                 if (lastMove) {
                     sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
                     sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
+                }
+
+                if (premove) {
+                    sq(premove.from[0], premove.from[1]).classList.add('premove-source');
+                    sq(premove.to[0], premove.to[1]).classList.add('premove-target');
                 }
 
                 if (selected) {
@@ -468,12 +490,17 @@
             ========================================================== */
             async function selectPiece(r, c) {
                 const p = board[r][c];
-                if (!p || pColor(p) !== turn || paused || gameOver) return;
+                if (!p || paused || gameOver) return;
 
                 if (gameMode === 'ai' && turn !== playerColor) {
-                    showStatus("Waiting for AI to move...", false);
+                    if (pColor(p) !== playerColor) return;
+                    selected = { r, c };
+                    hints = [];
+                    refreshHighlights();
                     return;
                 }
+
+                if (pColor(p) !== turn) return;
 
                 selected = { r, c };
                 const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
@@ -587,6 +614,8 @@
                     } else {
                         showStatus(data.message, true);
                         deselect();
+                        // If it was an invalid premove, clear it
+                        if (premove) clearPremove();
                     }
                 } catch (e) {
                     showStatus('Connection error.', true);
@@ -634,6 +663,14 @@
                 } finally {
                     aiThinking = false;
                 }
+
+                if (!gameOver && turn === playerColor && premove) {
+                    const pm = premove;
+                    clearPremove();
+                    setTimeout(() => {
+                        tryMove(pm.from[0], pm.from[1], pm.to[0], pm.to[1]);
+                    }, 50);
+                }
             }
 
             /* ==========================================================
@@ -641,19 +678,50 @@
             ========================================================== */
             async function onClick(r, c) {
                 if (dragging) return;
+                if (premove) clearPremove();
+
                 if (selected) {
+                    if (gameMode === 'ai' && turn !== playerColor) {
+                        if (board[r][c] && pColor(board[r][c]) === playerColor) {
+                            return selectPiece(r, c);
+                        }
+                        if (selected.r === r && selected.c === c) {
+                            return deselect();
+                        }
+                        setPremove(selected.r, selected.c, r, c);
+                        return deselect();
+                    }
+
                     if (hints.some(h => h.row === r && h.col === c))
                         return tryMove(selected.r, selected.c, r, c);
                     if (board[r][c] && pColor(board[r][c]) === turn)
                         return selectPiece(r, c);
                     return deselect();
                 }
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    if (board[r][c] && pColor(board[r][c]) === playerColor) {
+                        selectPiece(r, c);
+                    }
+                    return;
+                }
+
                 selectPiece(r, c);
             }
 
             function onDragStart(e, r, c) {
-                if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
-                if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+                if (paused || gameOver) return e.preventDefault();
+                const p = board[r][c];
+                if (!p) return e.preventDefault();
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    if (pColor(p) !== playerColor) return e.preventDefault();
+                } else {
+                    if (pColor(p) !== turn) return e.preventDefault();
+                }
+
+                if (premove) clearPremove();
+
                 dragging = true;
                 dragSrc = { r, c };
                 selectPiece(r, c);
@@ -661,8 +729,20 @@
 
             async function onDrop(e, tr, tc) {
                 if (!dragSrc) return;
-                await tryMove(dragSrc.r, dragSrc.c, tr, tc);
+                const sr = dragSrc.r;
+                const sc = dragSrc.c;
                 dragSrc = null;
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    if (sr === tr && sc === tc) {
+                        return;
+                    }
+                    setPremove(sr, sc, tr, tc);
+                    deselect();
+                    return;
+                }
+
+                await tryMove(sr, sc, tr, tc);
             }
 
             /* ==========================================================

@@ -305,6 +305,10 @@ body {
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
 
+/* Premove highlight */
+.square.premove-source { background-color: rgba(220, 50, 50, 0.6) !important; }
+.square.premove-target { background-color: rgba(220, 50, 50, 0.6) !important; }
+
 /* Valid-move dot (empty square) */
 .move-dot {
     width: 17px;
