@@ -657,25 +657,25 @@
                             startTimer();
 
                         let a11yMsg = '';
-                if (data.move_history && data.move_history.length > 0) {
-                    const lastMove = data.move_history[data.move_history.length - 1].notation;
-                    const playedColor = turn === 'white' ? 'Black' : 'White';
-                    a11yMsg = `${playedColor} played ${lastMove}. `;
-                }
+                        if (data.move_history && data.move_history.length > 0) {
+                            const lastMove = data.move_history[data.move_history.length - 1].notation;
+                            const playedColor = turn === 'white' ? 'Black' : 'White';
+                            a11yMsg = `${playedColor} played ${lastMove}. `;
+                        }
 
-                if (handleGameStatus(data.game_status, data.draw_reason)) {
-                    // Game-ending status has been handled.
-                } else if (data.game_status === 'check') {
-                    applyCheckHighlight();
-                    const checkMsg = turn === 'white' ? 'White is in check!' : 'Black is in check!';
-                    showStatus(checkMsg, true);
-                    a11yMsg += checkMsg;
-                } else {
-                    highlightCheck();
-                    showStatus('', false);
-                }
-
-                if (a11yMsg) announceMove(a11yMsg);
+                        const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
+                        if (!gameEnded) {
+                            if (data.game_status === 'check') {
+                                applyCheckHighlight();
+                                const checkMsg = turn === 'white' ? 'White is in check!' : 'Black is in check!';
+                                showStatus(checkMsg, true);
+                                a11yMsg += checkMsg;
+                            } else {
+                                highlightCheck();
+                                showStatus('', false);
+                            }
+                            if (a11yMsg) announceMove(a11yMsg);
+                        }
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
@@ -715,23 +715,23 @@
                             startTimer();
 
                         let a11yMsg = '';
-                if (data.move_history && data.move_history.length > 0) {
-                    const lastMove = data.move_history[data.move_history.length - 1].notation;
-                    a11yMsg = `AI played ${lastMove}. `;
-                }
+                        if (data.move_history && data.move_history.length > 0) {
+                            const lastMove = data.move_history[data.move_history.length - 1].notation;
+                            a11yMsg = `AI played ${lastMove}. `;
+                        }
 
-                if (handleGameStatus(data.game_status, data.draw_reason)) {
-                    // Game-ending status has been handled.
-                } else if (data.game_status === 'check') {
-                    applyCheckHighlight();
-                    showStatus('You are in check!', true);
-                    a11yMsg += 'You are in check!';
-                } else {
-                    highlightCheck();
-                    showStatus('Your turn.', false);
-                }
-
-                if (a11yMsg) announceMove(a11yMsg);
+                        const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
+                        if (!gameEnded) {
+                            if (data.game_status === 'check') {
+                                applyCheckHighlight();
+                                showStatus('You are in check!', true);
+                                a11yMsg += 'You are in check!';
+                            } else {
+                                highlightCheck();
+                                showStatus('Your turn.', false);
+                            }
+                            if (a11yMsg) announceMove(a11yMsg);
+                        }
                     } else {
                         showStatus(data.message, true);
                     }
@@ -913,7 +913,14 @@
                 
                 gameOverOverlay.classList.add('active');
                 showStatus(title + ': ' + message, false);
-                announceMove(title + ' ' + message);
+                
+                // Clean a11y announcement
+                const winnerColor = color === 'white' ? 'Black' : 'White';
+                let cleanMsg = reason === 'checkmate' || reason === 'resign' 
+                    ? `Game over. ${winnerColor} wins by ${reason}.` 
+                    : `Game over. Draw by ${reason || 'stalemate'}.`;
+                announceMove(cleanMsg);
+                
                 document.title = 'Game Over - Checkora';
             }
 
