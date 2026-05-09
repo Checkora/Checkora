@@ -232,26 +232,26 @@
         }
 
         .mini-board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    width: 360px;
-    height: 360px;
-    border: 2px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-    flex-shrink: 0;
-}
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            width: 360px;
+            height: 360px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
 
         .mini-sq {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    cursor: default;
-    transition: background 0.2s;
-    user-select: none;
-}
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            cursor: default;
+            transition: background 0.2s;
+            user-select: none;
+        }
 
         .mini-sq.light { background: var(--light-sq); }
         .mini-sq.dark  { background: var(--dark-sq); }
@@ -356,6 +356,71 @@
         .piece-card .piece-name { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
         .piece-card.active .piece-name { color: var(--gold); }
 
+        /* ── Illegal Moves List ── */
+        .illegal-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .illegal-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 0.7rem 1rem;
+            font-size: 0.88rem;
+            color: var(--muted);
+            line-height: 1.5;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .illegal-item:hover {
+            border-color: var(--danger);
+            color: var(--text);
+            background: rgba(224, 85, 85, 0.06);
+        }
+
+        .illegal-item.active {
+            border-color: var(--danger);
+            color: var(--text);
+            background: rgba(224, 85, 85, 0.1);
+        }
+
+        .illegal-item .ill-icon {
+            font-size: 1rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .illegal-item .ill-text strong {
+            color: var(--text);
+            font-weight: 500;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .ill-note {
+            margin-top: 1.2rem;
+            background: rgba(240, 192, 64, 0.07);
+            border: 1px solid var(--gold-dim);
+            border-radius: 8px;
+            padding: 0.85rem 1.1rem;
+            font-size: 0.85rem;
+            color: var(--gold);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.6;
+        }
+
+        .ill-note .note-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
         /* Auto-play animation */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -368,7 +433,6 @@
 
 <header>
     <a href="/" class="logo">♟ Checkora</a>
-    <!-- <a href="/" class="back-btn">← Back to Game</a> -->
 </header>
 
 <div class="layout">
@@ -398,6 +462,9 @@
         </div>
         <div class="rule-nav-item" onclick="showRule('promotion')" id="nav-promotion">
             <span class="icon">👑</span> Pawn Promotion
+        </div>
+        <div class="rule-nav-item" onclick="showRule('illegal')" id="nav-illegal">
+            <span class="icon">🚫</span> Illegal Moves
         </div>
     </nav>
 
@@ -668,6 +735,89 @@
             </div>
         </div>
 
+        <!-- ══ ILLEGAL MOVES ══ -->
+        <div class="rule-card" id="rule-illegal">
+            <div class="rule-header">
+                <span class="rule-icon">🚫</span>
+                <h2 class="rule-title">Illegal Moves</h2>
+            </div>
+            <p class="rule-desc">
+                Certain moves are <strong>not allowed</strong> in chess. A move is illegal if it breaks the rules of piece movement
+                or puts your own King in danger. Click any violation below to see it visualized.
+            </p>
+
+            <div class="illegal-list">
+                <div class="illegal-item active" onclick="illegalStep(0)" id="ill-0">
+                    <span class="ill-icon">🚷</span>
+                    <div class="ill-text">
+                        <strong>Wrong piece movement</strong>
+                        Moving a piece in a way it is not allowed to move (e.g. a Bishop moving in a straight line).
+                    </div>
+                </div>
+                <div class="illegal-item" onclick="illegalStep(1)" id="ill-1">
+                    <span class="ill-icon">👑</span>
+                    <div class="ill-text">
+                        <strong>Moving the King into check</strong>
+                        The King cannot voluntarily step onto a square attacked by an opponent's piece.
+                    </div>
+                </div>
+                <div class="illegal-item" onclick="illegalStep(2)" id="ill-2">
+                    <span class="ill-icon">🛑</span>
+                    <div class="ill-text">
+                        <strong>Leaving the King in check</strong>
+                        If your King is in check, every move must resolve it — you cannot ignore it.
+                    </div>
+                </div>
+                <div class="illegal-item" onclick="illegalStep(3)" id="ill-3">
+                    <span class="ill-icon">🧱</span>
+                    <div class="ill-text">
+                        <strong>Moving through pieces</strong>
+                        Rooks, Bishops, and Queens cannot jump over other pieces. Only the Knight can.
+                    </div>
+                </div>
+                <div class="illegal-item" onclick="illegalStep(4)" id="ill-4">
+                    <span class="ill-icon">🏰</span>
+                    <div class="ill-text">
+                        <strong>Illegal castling</strong>
+                        Cannot castle while in check, through a checked square, or into check.
+                    </div>
+                </div>
+                <div class="illegal-item" onclick="illegalStep(5)" id="ill-5">
+                    <span class="ill-icon">📌</span>
+                    <div class="ill-text">
+                        <strong>Moving a pinned piece</strong>
+                        Moving a piece that is shielding your King from attack will expose the King to check — illegal.
+                    </div>
+                </div>
+                <div class="illegal-item" onclick="illegalStep(6)" id="ill-6">
+                    <span class="ill-icon">🤴</span>
+                    <div class="ill-text">
+                        <strong>Kings on adjacent squares</strong>
+                        Kings can never stand next to each other — both would be in check simultaneously.
+                    </div>
+                </div>
+            </div>
+
+            <div class="demo-wrapper">
+                <div class="demo-label">Illegal move visualized</div>
+                <div class="mini-board-container">
+                    <div id="board-illegal" class="mini-board"></div>
+                    <div id="illegal-desc" class="piece-label">
+                        <h4 style="color:var(--danger)">Wrong piece movement</h4>
+                        <ul>
+                            <li>Bishop highlighted in red</li>
+                            <li>It cannot move horizontally</li>
+                            <li>Bishops only travel diagonally</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ill-note">
+                <span class="note-icon">⚠️</span>
+                In a formal game, if an illegal move is made it must be taken back and corrected. 
+        </div>
+
     </main>
 </div>
 
@@ -730,10 +880,17 @@ function highlightCapture(id, r, c) {
     sq.appendChild(ring);
 }
 
+function markIllegal(id, r, c) {
+    const sq = document.getElementById(`${id}-${r}-${c}`);
+    if (!sq) return;
+    sq.style.background = 'rgba(224,85,85,0.45)';
+    sq.style.outline = '2px solid rgba(224,85,85,0.8)';
+}
+
 /* ══════════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════════ */
-const rules = ['basics','pieces','pawn','castling','enpassant','check','stalemate','promotion'];
+const rules = ['basics','pieces','pawn','castling','enpassant','check','stalemate','promotion','illegal'];
 
 function showRule(name) {
     rules.forEach(r => {
@@ -775,7 +932,7 @@ function showPieceMove(piece) {
     document.getElementById('pc-' + piece).classList.add('active');
 
     buildBoard('board-pieces');
-    const r = 4, c = 3; // center-ish
+    const r = 4, c = 3;
 
     const moves = {
         king:   [[r-1,c-1],[r-1,c],[r-1,c+1],[r,c-1],[r,c+1],[r+1,c-1],[r+1,c],[r+1,c+1]],
@@ -846,7 +1003,6 @@ function castleStep(n) {
         place('board-castling', 7, 7, P.wR);
         document.getElementById('board-castling-7-4').classList.add('last');
     } else if (n === 1) {
-        // Kingside
         place('board-castling', 7, 6, P.wK);
         place('board-castling', 7, 5, P.wR);
         place('board-castling', 7, 0, P.wR);
@@ -855,7 +1011,6 @@ function castleStep(n) {
         highlight('board-castling', 7, 7);
         highlight('board-castling', 7, 4);
     } else if (n === 2) {
-        // Queenside
         place('board-castling', 7, 2, P.wK);
         place('board-castling', 7, 3, P.wR);
         place('board-castling', 7, 7, P.wR);
@@ -864,7 +1019,6 @@ function castleStep(n) {
         highlight('board-castling', 7, 0);
         highlight('board-castling', 7, 4);
     } else {
-        // Cannot castle in check
         place('board-castling', 7, 4, P.wK);
         place('board-castling', 7, 0, P.wR);
         place('board-castling', 7, 7, P.wR);
@@ -883,31 +1037,26 @@ function epStep(n) {
     buildBoard('board-ep');
 
     if (n === 0) {
-        // White pawn on 5th rank (row 3)
         place('board-ep', 3, 3, P.wP);
         document.getElementById('board-ep-3-3').classList.add('last');
-        // Show other pieces for context
         place('board-ep', 6, 4, P.bP);
         document.getElementById('board-ep-6-4').style.opacity = '0.4';
     } else if (n === 1) {
-        // Black pawn jumps 2 squares, lands beside white
         place('board-ep', 3, 3, P.wP);
         place('board-ep', 3, 4, P.bP);
         document.getElementById('board-ep-3-3').classList.add('last');
         document.getElementById('board-ep-3-4').classList.add('hl');
-        // Arrow showing capture square
         highlight('board-ep', 2, 4);
     } else {
-        // White captures, black pawn gone
         place('board-ep', 2, 4, P.wP);
         document.getElementById('board-ep-2-4').classList.add('last');
         document.getElementById('board-ep-3-4').style.background = 'rgba(220,60,60,0.3)';
-        // Show ghost of where black pawn was
         document.getElementById('board-ep-3-4').textContent = '✕';
         document.getElementById('board-ep-3-4').style.color = 'rgba(220,60,60,0.6)';
         document.getElementById('board-ep-3-4').style.fontSize = '1rem';
     }
 }
+
 /* ══════════════════════════════════════════════
    CHECK STEPS
 ══════════════════════════════════════════════ */
@@ -917,25 +1066,20 @@ function checkStep(n) {
     buildBoard('board-check');
 
     if (n === 0) {
-        // King in check from rook
         place('board-check', 7, 4, P.wK);
         place('board-check', 0, 4, P.bR);
         document.getElementById('board-check-7-4').classList.add('check');
         document.getElementById('board-check-0-4').classList.add('last');
-        // Highlight the attack line
         [1,2,3,4,5,6].forEach(r => {
             document.getElementById(`board-check-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
         });
-        // Show escape squares
         [[6,3],[6,5],[7,3],[7,5]].forEach(([r,c]) => highlight('board-check',r,c));
     } else if (n === 1) {
-        // Block with a piece
         place('board-check', 7, 4, P.wK);
         place('board-check', 0, 4, P.bR);
         place('board-check', 4, 4, P.wR);
         document.getElementById('board-check-0-4').classList.add('last');
         document.getElementById('board-check-4-4').classList.add('last');
-        // Show the block working
         [1,2,3].forEach(r => {
             document.getElementById(`board-check-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
         });
@@ -943,13 +1087,11 @@ function checkStep(n) {
             document.getElementById(`board-check-${r}-4`).style.background = 'rgba(64,192,64,0.15)';
         });
     } else {
-        // Clear checkmate position — king trapped in corner
         place('board-check', 0, 0, P.bK);
         place('board-check', 1, 2, P.wQ);
         place('board-check', 0, 2, P.wR);
         document.getElementById('board-check-0-0').classList.add('check');
         document.getElementById('board-check-1-2').classList.add('last');
-        // All escape squares blocked
         [[0,1],[1,0],[1,1]].forEach(([r,c]) => {
             const sq = document.getElementById(`board-check-${r}-${c}`);
             sq.style.background = 'rgba(220,60,60,0.3)';
@@ -959,6 +1101,7 @@ function checkStep(n) {
         });
     }
 }
+
 /* ══════════════════════════════════════════════
    STALEMATE
 ══════════════════════════════════════════════ */
@@ -967,7 +1110,6 @@ function initStalemate() {
     place('board-stale', 0, 7, P.bK);
     place('board-stale', 1, 5, P.wQ);
     place('board-stale', 2, 7, P.wK);
-    // Black king has no legal moves but is NOT in check
     document.getElementById('board-stale-0-7').classList.add('hl');
 }
 
@@ -989,9 +1131,151 @@ function promoStep(n) {
     } else {
         place('board-promo', 0, 4, P.wQ);
         document.getElementById('board-promo-0-4').classList.add('last');
-        // sparkle effect
         document.getElementById('board-promo-0-4').style.background = 'rgba(240,192,64,0.6)';
     }
+}
+
+/* ══════════════════════════════════════════════
+   ILLEGAL MOVES STEPS
+══════════════════════════════════════════════ */
+const illegalDescs = [
+    {
+        title: 'Wrong Piece Movement',
+        points: ['Bishop placed on e4 (highlighted)', 'Red squares = invalid horizontal path', 'Bishops can only move diagonally']
+    },
+    {
+        title: 'King Moving Into Check',
+        points: ['White King wants to move right', 'That square is covered by Black Rook', 'King cannot step onto an attacked square']
+    },
+    {
+        title: 'Leaving King in Check',
+        points: ['White King is already in check', 'Moving the Bishop away does nothing', 'Check must be resolved first']
+    },
+    {
+        title: 'Moving Through Pieces',
+        points: ['White Rook blocked by White Pawn', 'Red squares show blocked path', 'Only the Knight can jump over pieces']
+    },
+    {
+        title: 'Illegal Castling',
+        points: ['King is in check from Black Rook', 'Cannot castle while in check', 'Also illegal: castling through or into check']
+    },
+    {
+        title: 'Moving a Pinned Piece',
+        points: ['White Bishop shields King from Rook', 'Moving it exposes the King to check', 'A pinned piece cannot legally move']
+    },
+    {
+        title: 'Kings on Adjacent Squares',
+        points: ['Kings cannot stand next to each other', 'Both would be in check simultaneously', 'Always keep Kings separated by at least one square']
+    }
+];
+
+function illegalStep(n) {
+    for (let i = 0; i < 7; i++) {
+        document.getElementById('ill-'+i).classList.remove('active');
+    }
+    document.getElementById('ill-'+n).classList.add('active');
+    buildBoard('board-illegal');
+
+    if (n === 0) {
+        // Bishop trying to move horizontally
+        place('board-illegal', 4, 4, P.wB);
+        document.getElementById('board-illegal-4-4').classList.add('last');
+        // Show invalid horizontal squares in red
+        [3,2,1,0].forEach(c => markIllegal('board-illegal', 4, c));
+        [5,6,7].forEach(c => markIllegal('board-illegal', 4, c));
+        // Show valid diagonal moves faintly
+        [[3,3],[2,2],[1,1],[0,0],[3,5],[2,6],[1,7],[5,3],[6,2],[7,1],[5,5],[6,6],[7,7]]
+            .filter(([r,c])=>r>=0&&r<8&&c>=0&&c<8)
+            .forEach(([r,c]) => highlight('board-illegal', r, c));
+    } else if (n === 1) {
+        // King trying to walk into check
+        place('board-illegal', 7, 4, P.wK);
+        place('board-illegal', 5, 5, P.bR);
+        document.getElementById('board-illegal-7-4').classList.add('last');
+        document.getElementById('board-illegal-5-5').classList.add('last');
+        // Column 5 is attacked by rook — king can't go there
+        [5,6,7].forEach(r => markIllegal('board-illegal', r, 5));
+        // Safe escape squares
+        [[6,3],[6,4],[7,3],[7,5]].filter(([r,c])=>r>=0&&r<8&&c>=0&&c<8).forEach(([r,c])=>{
+            if (!(r===7&&c===5) && !(r===6&&c===5)) highlight('board-illegal',r,c);
+        });
+        highlight('board-illegal',6,3);
+        highlight('board-illegal',6,4);
+        highlight('board-illegal',7,3);
+    } else if (n === 2) {
+        // Leaving king in check
+        place('board-illegal', 7, 4, P.wK);
+        place('board-illegal', 0, 4, P.bR);
+        place('board-illegal', 6, 3, P.wB);
+        document.getElementById('board-illegal-7-4').classList.add('check');
+        document.getElementById('board-illegal-0-4').classList.add('last');
+        // Attack line
+        [1,2,3,4,5,6].forEach(r => {
+            document.getElementById(`board-illegal-${r}-4`).style.background = 'rgba(220,60,60,0.2)';
+        });
+        // Bishop is highlighted as "can't just move it"
+        document.getElementById('board-illegal-6-3').style.background = 'rgba(224,85,85,0.35)';
+        document.getElementById('board-illegal-6-3').style.outline = '2px solid rgba(224,85,85,0.7)';
+    } else if (n === 3) {
+        // Rook blocked by own pawn
+        place('board-illegal', 7, 0, P.wR);
+        place('board-illegal', 7, 3, P.wP);
+        document.getElementById('board-illegal-7-0').classList.add('last');
+        // Valid squares up to the pawn
+        [1,2].forEach(c => highlight('board-illegal', 7, c));
+        // Squares blocked beyond pawn
+        [4,5,6,7].forEach(c => markIllegal('board-illegal', 7, c));
+        // Vertical moves are still fine
+        [6,5,4,3,2,1,0].forEach(r => highlight('board-illegal', r, 0));
+    } else if (n === 4) {
+        // Castling while in check
+        place('board-illegal', 7, 4, P.wK);
+        place('board-illegal', 7, 7, P.wR);
+        place('board-illegal', 0, 4, P.bR);
+        document.getElementById('board-illegal-7-4').classList.add('check');
+        document.getElementById('board-illegal-0-4').classList.add('last');
+        // Attack line
+        [0,1,2,3,4,5,6].forEach(r => {
+            document.getElementById(`board-illegal-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
+        });
+        // Rook & king squares marked illegal for castling
+        markIllegal('board-illegal', 7, 5);
+        markIllegal('board-illegal', 7, 6);
+    } else if (n === 5) {
+        // Pinned piece
+        place('board-illegal', 7, 4, P.wK);
+        place('board-illegal', 5, 4, P.wB);
+        place('board-illegal', 0, 4, P.bR);
+        document.getElementById('board-illegal-7-4').classList.add('last');
+        document.getElementById('board-illegal-0-4').classList.add('last');
+        // Bishop is pinned — highlight it as danger
+        document.getElementById('board-illegal-5-4').style.background = 'rgba(224,85,85,0.4)';
+        document.getElementById('board-illegal-5-4').style.outline = '2px solid rgba(224,85,85,0.8)';
+        // Show the pin line
+        [1,2,3,4].forEach(r => {
+            document.getElementById(`board-illegal-${r}-4`).style.background = 'rgba(220,60,60,0.12)';
+        });
+        [6].forEach(r => {
+            document.getElementById(`board-illegal-${r}-4`).style.background = 'rgba(220,60,60,0.12)';
+        });
+    } else if (n === 6) {
+        // Kings adjacent
+        place('board-illegal', 4, 4, P.wK);
+        place('board-illegal', 4, 5, P.bK);
+        document.getElementById('board-illegal-4-4').classList.add('check');
+        document.getElementById('board-illegal-4-5').classList.add('check');
+        // Show overlap zone
+        [[3,4],[3,5],[4,4],[4,5],[5,4],[5,5]].forEach(([r,c]) => {
+            const sq = document.getElementById(`board-illegal-${r}-${c}`);
+            if (sq && sq.textContent === '') {
+                sq.style.background = 'rgba(220,60,60,0.2)';
+            }
+        });
+    }
+
+    const desc = illegalDescs[n];
+    document.getElementById('illegal-desc').innerHTML =
+        `<h4 style="color:var(--danger)">${desc.title}</h4><ul>${desc.points.map(p=>`<li>${p}</li>`).join('')}</ul>`;
 }
 
 /* ══════════════════════════════════════════════
@@ -1006,6 +1290,7 @@ window.onload = () => {
     buildBoard('board-check'); checkStep(0);
     initStalemate();
     buildBoard('board-promo'); promoStep(0);
+    buildBoard('board-illegal'); illegalStep(0);
 };
 </script>
 </body>
