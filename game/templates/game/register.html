@@ -16,7 +16,7 @@
     </div>
 
     <div class="auth-card">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             {% csrf_token %}
             
             {% if form.non_field_errors %}

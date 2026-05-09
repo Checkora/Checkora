@@ -120,7 +120,14 @@
 
     <div class="auth-buttons">
         {% if user.is_authenticated %}
-        <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+        <div class="user-profile">
+            {% if user.profile.avatar %}
+                <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}'s avatar" class="header-avatar">
+            {% else %}
+                <img src="{% static 'game/default_avatar.svg' %}" alt="Default avatar" class="header-avatar">
+            {% endif %}
+            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+        </div>
         <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
         {% else %}
         <a href="{% url 'login' %}" class="btn-signin">Sign In</a>

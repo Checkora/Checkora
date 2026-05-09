@@ -19,7 +19,14 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, UserProfile
+
+
+def get_user_avatar_url(user):
+    if not user.is_authenticated:
+        return None
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    return profile.avatar.url if profile.avatar else None
 
 
 @ensure_csrf_cookie
@@ -28,7 +35,9 @@ def index(request):
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
-    return render(request, 'game/board.html')
+    return render(request, 'game/board.html', {
+        'avatar_url': get_user_avatar_url(request.user),
+    })
 
 
 def record_game_result(mode, winner, reason):
@@ -364,11 +373,17 @@ def register_view(request):
         return redirect('index')
         
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
+
+            avatar = form.cleaned_data.get('avatar')
+            if avatar:
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+                profile.avatar = form.optimize_avatar(avatar)
+                profile.save()
 
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)

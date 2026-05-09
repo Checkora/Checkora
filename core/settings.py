@@ -132,6 +132,9 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 # Email Configuration for OTP
