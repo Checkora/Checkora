@@ -202,24 +202,67 @@
            Squares
            ============================================================ */
        .square {
-        width: 60px;
-        height: 60px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        position: relative;
-        cursor: default;  
-    }
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: default;
+        }
 
-    .square:has(.piece.playable) {
-        cursor: pointer;   
-    }
+        .square:has(.piece.playable) {
+            cursor: pointer;   
+        }
 
         .square.light { background-color: #eeeed2; }
         .square.dark  { background-color: #769656; }
-
+        
         /* Hint Highlight */
-        .hint-highlight {box-shadow: inset 0 0 0 4px gold;}
+        .hint-source {
+            border: 3px solid white;
+            box-shadow:
+            0 0 10px rgba(255,255,255,0.9),
+            0 0 20px rgba(173,216,230,0.8),
+            0 0 30px rgba(173,216,230,0.6);
+            animation: pulseSource 1.2s infinite;
+        }
+        
+        .hint-destination {
+            border: 3px solid gold;
+            box-shadow:
+                0 0 10px rgba(255,215,0,0.9),
+                0 0 20px rgba(255,215,0,0.7);
+            animation: pulseDestination 1.2s infinite;
+        }
+
+        @keyframes pulseSource {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.04);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes pulseDestination {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.03);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
 
         /* Selected piece */
         .square.selected.light { background-color: #f6f669; }
@@ -250,6 +293,12 @@
             pointer-events: none;
         }
         .square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
+
+        #hintBtn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: grayscale(40%);
+        }
 
         /* ============================================================
            Pieces
@@ -684,6 +733,7 @@
         let turn = 'white';
         let selected = null;
         let hints = [];
+        let remainingHints = 3;
         let lastMove = null;
 
         let dragging = false;
@@ -1100,6 +1150,12 @@
         }
 
         hintBtn.addEventListener("click", showHint);
+        /* =============================================
+                       INITIALIZATION
+        ============================================= */
+
+            hintBtn.textContent = `Hint (${remainingHints})`;
+
         /* ==========================================================
         UI UPDATES
         ========================================================== */
@@ -1198,17 +1254,66 @@
         /* ==========================================================
                             HINT SYSTEM
         ========================================================== */
-        function showHint() {
-        if (!hints.length) return;
-        const hint = hints[0];
-        const index = hint.row * 8 + hint.col;
-        const square = boardEl.children[index];
-        square.classList.add("hint-highlight");
-        setTimeout(() => {
-            square.classList.remove("hint-highlight");
-        }, 2000);
-        }   
 
+        
+        async function showHint() {
+            
+            if (remainingHints <= 0) {
+                showStatus('Hint limit reached for this round.', true);
+                return;
+            }
+
+            if (gameMode === 'ai' && turn === 'black') {
+                showStatus('Wait for your turn.', true);
+                return;
+            }
+
+            try {
+
+                showStatus('Analyzing best move...', false);
+                
+                const data = await post('/api/hint/', {});
+
+                if (!data.valid) {
+                    showStatus(data.message, true);
+                    return;
+                }
+
+                const hint = data.hint;
+
+                remainingHints--;
+                hintBtn.textContent = `Hint (${remainingHints})`;
+
+                if (remainingHints <= 0) {
+                    hintBtn.disabled = true;
+                }
+
+                const fromIndex = hint.from_row * 8 + hint.from_col;
+                const toIndex = hint.to_row * 8 + hint.to_col;
+
+                const sourceSquare = boardEl.children[fromIndex];
+                const destinationSquare = boardEl.children[toIndex];
+
+                sourceSquare.classList.add("hint-source");
+                destinationSquare.classList.add("hint-destination");
+                
+                setTimeout(() => {
+
+                    sourceSquare.classList.remove("hint-source");
+                    destinationSquare.classList.remove("hint-destination");
+
+                    renderBoard();
+                    
+                }, 2500);
+
+                showStatus('Suggested move highlighted.', false);
+
+            } catch (e) {
+
+                showStatus('Hint connection error.', true);
+            }
+
+        }
         /* ==========================================================
         CLOCKS & PAUSE
         ========================================================== */
@@ -1376,6 +1481,10 @@
             paused = false;
             gameOver = false;  
             gameMode = d.mode;
+
+            remainingHints = 3;
+            hintBtn.disabled = false;
+            hintBtn.textContent = `Hint (${remainingHints})`;
             
 
             // 4. Update the UI labels with the new names

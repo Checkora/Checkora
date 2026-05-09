@@ -257,6 +257,39 @@ def ai_move(request):
         'ai_move': best,
         'game_status': game_status,
     })
+    
+@require_POST
+def hint_move(request):
+    game_data = request.session.get('game')
+
+    if not game_data:
+        return JsonResponse({
+            'valid': False,
+            'message': 'No active game.'
+        }, status=400)
+
+    game = ChessGame.from_dict(game_data)
+    
+    # Prevent hints during AI turn
+    if game.mode == 'ai' and game.current_turn == 'black':
+        return JsonResponse({
+            'valid': False,
+            'message': 'Wait for your turn.'
+        })
+
+    best = game.get_ai_move()
+
+    if not best:
+        return JsonResponse({
+            'valid': False,
+            'message': 'No legal moves available.'
+        })
+
+    return JsonResponse({
+        'valid': True,
+        'hint': best
+    })    
+    
 
 
 @require_POST
