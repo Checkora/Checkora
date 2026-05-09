@@ -263,8 +263,11 @@ body {
     align-items: center;
     position: relative;
     cursor: default;  
+    transition: background-color 0.2s ease, transform 0.15s ease;
 }
-
+.square:hover {
+    transform: scale(1.03);
+}
 .square:has(.piece.playable) {
     cursor: pointer;   
 }
@@ -313,6 +316,7 @@ body {
     background: rgba(0, 0, 0, 0.18);
     position: absolute;
     pointer-events: none;
+    transition: all 0.2s ease-in-out;
 }
 .square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
 
@@ -324,6 +328,7 @@ body {
     border: 5px solid rgba(0, 0, 0, 0.18);
     position: absolute;
     pointer-events: none;
+    transition: all 0.2s ease-in-out;
 }
 .square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
 
