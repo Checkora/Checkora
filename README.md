@@ -6,20 +6,47 @@
 
 Built on Django with a high-performance C++ engine and a Python fallback for maximum compatibility.
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-5.x-092e20?style=flat&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776ab?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.x-092e20?style=flat&logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![C++](https://img.shields.io/badge/Engine-C++17-00599c?style=flat&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-28%20passing-brightgreen?style=flat&logo=github-actions&logoColor=white)](#tests)
 [![Issues](https://img.shields.io/github/issues/Checkora/Checkora?style=flat)](https://github.com/Checkora/Checkora/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/WfrpMuNZn)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/DvW3xVXw8g)
 
-Join our Discord community for updates, support, and games: https://discord.gg/WfrpMuNZn
+Join our Discord community for updates, support, and games: https://discord.gg/DvW3xVXw8g
 
-**Core Maintainers (2):** [@EDWARD-012](https://github.com/EDWARD-012) / [@triemerge](https://github.com/triemerge)
+### Core Maintainers
 
-Follow the core maintainers on GitHub to stay aligned with project updates and contribution direction.
+<table>
+       <tr>
+              <td align="center" style="padding: 6px 18px;">
+                     <a href="https://github.com/EDWARD-012">
+                            <img src="https://github.com/EDWARD-012.png?size=160" width="120" height="120" alt="EDWARD-012" style="border-radius: 50%; border: 3px solid #16A34A;" />
+                     </a>
+                     <br />
+                     <a href="https://github.com/EDWARD-012"><strong>@EDWARD-012</strong></a>
+                     <br />
+                     <a href="https://github.com/EDWARD-012">
+                            <img src="https://img.shields.io/badge/Follow-EDWARD--012-16A34A?style=for-the-badge&logo=github" alt="Follow EDWARD-012" />
+                     </a>
+              </td>
+              <td align="center" style="padding: 6px 18px;">
+                     <a href="https://github.com/triemerge">
+                            <img src="https://github.com/triemerge.png?size=160" width="120" height="120" alt="triemerge" style="border-radius: 50%; border: 3px solid #16A34A;" />
+                     </a>
+                     <br />
+                     <a href="https://github.com/triemerge"><strong>@triemerge</strong></a>
+                     <br />
+                     <a href="https://github.com/triemerge">
+                            <img src="https://img.shields.io/badge/Follow-triemerge-16A34A?style=for-the-badge&logo=github" alt="Follow triemerge" />
+                     </a>
+              </td>
+       </tr>
+</table>
+
+<sub>Click a profile or follow badge for release drops, roadmap notes, and engine updates.</sub>
 
 </div>
 
@@ -27,14 +54,14 @@ Follow the core maintainers on GitHub to stay aligned with project updates and c
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| AI Opponent | Minimax search with alpha-beta pruning for challenging gameplay |
-| Hybrid Engine | C++ binary for maximum speed with an automatic Python fallback |
-| Full Move Validation | Legal moves enforced for all pieces including castling, en passant, and promotion |
-| Game Timer | Per-player countdown clocks with pause support |
-| REST API | Clean JSON endpoints powering a decoupled frontend |
-| PvP & PvE Modes | Play against a friend or challenge the AI |
+| Feature              | Description                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| AI Opponent          | Minimax search with alpha-beta pruning for challenging gameplay                                     |
+| Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                                      |
+| Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
+| Game Timer           | Per-player countdown clocks with pause support                                                      |
+| REST API             | Clean JSON endpoints powering a decoupled frontend                                                  |
+| PvP & PvE Modes      | Play against a friend or challenge the AI                                                           |
 
 ---
 
@@ -50,17 +77,29 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS / Linux
 
+Note: Django 6.0 requires Python 3.12 or higher. If you have multiple versions on Windows, use a compatible installed version, for example: py -3.12 -m venv venv
+
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Run migrations and start the server
+# 4. Set up environment variables
+# Copy example env file
+# Windows (PowerShell)
+copy .env.example .env
+
+# macOS / Linux
+cp .env.example .env
+
+# Open `.env` and set SECRET_KEY if needed
+
+# 5. Run migrations and start the server
 python manage.py migrate
 python manage.py runserver
 ```
 
 Open `http://127.0.0.1:8000/` in your browser and start playing.
 
-### Compile the C++ Engine *(optional but recommended)*
+### Compile the C++ Engine _(optional but recommended)_
 
 The compiled binary is not committed to the repository. Each contributor compiles for their own platform. If the binary is absent, Checkora automatically falls back to the Python engine.
 
@@ -91,12 +130,12 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
        +---> Python Script (main.py)        <- Fallback: identical logic in Python
 ```
 
-| Layer | Technology | Path |
-|-------|-----------|------|
-| Frontend | HTML, CSS, JavaScript | `game/templates/game/board.html` |
-| Backend | Django 5.x | `game/views.py`, `game/engine.py` |
-| Engine (Primary) | C++17 | `game/engine/main.cpp` |
-| Engine (Fallback) | Python 3.10+ | `game/engine/main.py` |
+| Layer             | Technology            | Path                              |
+| ----------------- | --------------------- | --------------------------------- |
+| Frontend          | HTML, CSS, JavaScript | `game/templates/game/board.html`  |
+| Backend           | Django 6.x            | `game/views.py`, `game/engine.py` |
+| Engine (Primary)  | C++17                 | `game/engine/main.cpp`            |
+| Engine (Fallback) | Python 3.12+          | `game/engine/main.py`             |
 
 > For a full deep-dive into the backend components, execution flow, and AI internals, see the [Architecture Guide](structure.md).
 
@@ -110,12 +149,12 @@ When a player makes a move, the request flows through three layers:
 
 The engine speaks a simple text-based protocol:
 
-| Command | Example | Response |
-|---|---|---|
-| `VALIDATE` | `VALIDATE <board64> <rights> <turn> fr fc tr tc` | `VALID` / `INVALID <reason>` |
-| `MOVES` | `MOVES <board64> <rights> <turn> row col` | `MOVES tr tc is_capture is_promotion ...` |
-| `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <depth>` | `BESTMOVE fr fc tr tc` |
-| `STATUS` | `STATUS <board64> <rights> <turn>` | `STATUS CHECK / CHECKMATE / STALEMATE / OK` |
+| Command    | Example                                          | Response                                    |
+| ---------- | ------------------------------------------------ | ------------------------------------------- |
+| `VALIDATE` | `VALIDATE <board64> <rights> <turn> fr fc tr tc` | `VALID` / `INVALID <reason>`                |
+| `MOVES`    | `MOVES <board64> <rights> <turn> row col`        | `MOVES tr tc is_capture is_promotion ...`   |
+| `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <depth>`     | `BESTMOVE fr fc tr tc`                      |
+| `STATUS`   | `STATUS <board64> <rights> <turn>`               | `STATUS CHECK / CHECKMATE / STALEMATE / OK` |
 
 ```mermaid
 flowchart TD
@@ -134,16 +173,16 @@ flowchart TD
 
 ## API Reference
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Render the board UI |
-| `POST` | `/api/move/` | Execute a player move |
-| `GET` | `/api/valid-moves/` | Get legal moves for a piece |
-| `POST` | `/api/new-game/` | Start a new game (PvP or PvE) |
-| `GET` | `/api/check-promotion/` | Check if a move triggers pawn promotion |
-| `GET` | `/api/state/` | Retrieve the full current game state |
-| `POST` | `/api/pause/` | Pause or resume the game clock |
-| `POST` | `/api/ai-move/` | Request and execute an AI move |
+| Method | Endpoint                | Description                             |
+| ------ | ----------------------- | --------------------------------------- |
+| `GET`  | `/`                     | Render the board UI                     |
+| `POST` | `/api/move/`            | Execute a player move                   |
+| `GET`  | `/api/valid-moves/`     | Get legal moves for a piece             |
+| `POST` | `/api/new-game/`        | Start a new game (PvP or PvE)           |
+| `GET`  | `/api/check-promotion/` | Check if a move triggers pawn promotion |
+| `GET`  | `/api/state/`           | Retrieve the full current game state    |
+| `POST` | `/api/pause/`           | Pause or resume the game clock          |
+| `POST` | `/api/ai-move/`         | Request and execute an AI move          |
 
 ---
 

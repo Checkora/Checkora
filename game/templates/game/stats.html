@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Checkora - Game Stats</title>
+    <style>
+        body { background: #0f0f1a; color: #d0d0d0; font-family: Arial, sans-serif; padding: 40px; }
+        h1 { color: #f0c040; text-align: center; letter-spacing: 2px; }
+        h2 { color: #f0c040; margin-top: 40px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #1a1a2e; color: #f0c040; padding: 12px; text-align: left; }
+        td { padding: 10px 12px; border-bottom: 1px solid #252545; }
+        tr:hover { background: #16162a; }
+        .summary { display: flex; gap: 20px; margin-top: 20px; }
+        .card { background: #16162a; border: 1px solid #252545; border-radius: 8px; padding: 20px; flex: 1; text-align: center; }
+        .card .num { font-size: 36px; color: #f0c040; font-weight: bold; }
+        .card .label { color: #8a8aaa; margin-top: 8px; }
+        .empty { text-align: center; color: #5a5a7a; padding: 40px; }
+        a { color: #f0c040; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .back { text-align: center; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>CHECK<span>ORA</span> &mdash; Game Statistics</h1>
+
+    <h2>AI Game Summary</h2>
+    <div class="summary">
+        <div class="card"><div class="num">{{ ai_total }}</div><div class="label">Total AI Games</div></div>
+        <div class="card"><div class="num">{{ ai_wins }}</div><div class="label">AI Wins</div></div>
+        <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>
+    </div>
+
+    <h2>Recent Games</h2>
+    {% if recent %}
+    <table>
+        <thead>
+            <tr>
+                <th>Mode</th>
+                <th>Winner</th>
+                <th>End Reason</th>
+                <th>Played At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in recent %}
+            <tr>
+                <td>{{ result.get_mode_display }}</td>
+                <td>{{ result.get_winner_display }}</td>
+                <td>{{ result.get_end_reason_display }}</td>
+                <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No games played yet. Play a game to see stats here!</p>
+    {% endif %}
+
+    <div class="back"><a href="/">Back to Game</a></div>
+</body>
+</html>
