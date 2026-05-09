@@ -58,20 +58,28 @@ body {
     position: relative;
 }
 .password-field input {
-    padding-right: 76px;
+    padding-right: 48px;
 }
 .password-toggle {
     position: absolute;
     top: 50%;
     right: 10px;
     transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
     border: none;
     background: transparent;
     color: #f0c040;
     cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 4px 6px;
+    padding: 4px;
+}
+.password-toggle svg {
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
 }
 .password-toggle:focus {
     outline: 2px solid rgba(240, 192, 64, 0.45);
