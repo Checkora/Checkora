@@ -479,10 +479,21 @@ def generate_moves(side):
 
 
 def order_moves(moves):
+    """Sort moves using MVV-LVA (Most Valuable Victim - Least Valuable Aggressor).
+
+    Captures are scored as (10 * victim_value) - aggressor_value so that
+    winning captures (e.g. pawn takes queen) rise to the top while losing
+    captures (e.g. queen takes pawn) are deprioritised within the capture
+    group.  Promotions get a bonus applied on top.  Non-captures are scored
+    0 and sorted below all captures.
+    """
     def move_score(move):
         score = 0
-        if not is_empty(BOARD[move.tr][move.tc]):
-            score += piece_value(BOARD[move.tr][move.tc]) + 1000
+        victim = BOARD[move.tr][move.tc]
+        aggressor = BOARD[move.fr][move.fc]
+        if not is_empty(victim):
+            # MVV-LVA: favour capturing high-value pieces with low-value pieces
+            score += 10 * piece_value(victim) - piece_value(aggressor)
         if move.promo_piece != NO_PROMOTION:
             score += 900
         return score

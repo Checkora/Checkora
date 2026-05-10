@@ -561,16 +561,22 @@ vector<Move> generateMoves(const string &side) {
 }
 
 /**
- * Simple move-ordering heuristic: captures first, then promotions.
- * Helps alpha-beta prune more effectively.
+ * MVV-LVA move ordering: Most Valuable Victim - Least Valuable Aggressor.
+ *
+ * Captures are scored as (10 * victimValue) - aggressorValue so that
+ * winning captures (pawn takes queen) are tried first while losing
+ * captures (queen takes pawn) are deprioritised within the capture group.
+ * Promotions receive an additional +900 bonus.  Non-captures score 0.
  */
 void orderMoves(vector<Move> &moves) {
     sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
         int sa = 0, sb = 0;
 
-        // Captures scored by victim value
-        if (!isEmpty(board[a.tr][a.tc])) sa += pieceValue(board[a.tr][a.tc]) + 1000;
-        if (!isEmpty(board[b.tr][b.tc])) sb += pieceValue(board[b.tr][b.tc]) + 1000;
+        // MVV-LVA for captures
+        if (!isEmpty(board[a.tr][a.tc]))
+            sa += 10 * pieceValue(board[a.tr][a.tc]) - pieceValue(board[a.fr][a.fc]);
+        if (!isEmpty(board[b.tr][b.tc]))
+            sb += 10 * pieceValue(board[b.tr][b.tc]) - pieceValue(board[b.fr][b.fc]);
 
         // Promotions
         if (a.promoPiece) sa += 900;
