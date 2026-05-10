@@ -200,10 +200,10 @@
       <div class="notation-display" id="notation-display">—</div>
 
       <div class="controls">
-        <button id="btn-first"  title="First move">⏮</button>
-        <button id="btn-prev"   title="Previous">◀</button>
-        <button id="btn-next"   title="Next">▶</button>
-        <button id="btn-last"   title="Last move">⏭</button>
+        <button id="btn-first"  title="First move"  aria-label="First move">⏮</button>
+        <button id="btn-prev"   title="Previous"    aria-label="Previous move">◀</button>
+        <button id="btn-next"   title="Next"        aria-label="Next move">▶</button>
+        <button id="btn-last"   title="Last move"   aria-label="Last move">⏭</button>
       </div>
 
       <div class="move-list" id="move-list"><p class="loading">Loading…</p></div>
@@ -314,10 +314,13 @@
     document.getElementById('btn-last').addEventListener('click',  () => goToStep(totalMoves));
 
     document.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft')  goToStep(currentStep - 1);
-      if (e.key === 'ArrowRight') goToStep(currentStep + 1);
-      if (e.key === 'Home')       goToStep(0);
-      if (e.key === 'End')        goToStep(totalMoves);
+      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === 'ArrowLeft')  goToStep(currentStep - 1);
+        if (e.key === 'ArrowRight') goToStep(currentStep + 1);
+        if (e.key === 'Home')       goToStep(0);
+        if (e.key === 'End')        goToStep(totalMoves);
+      }
     });
 
     fetchReplayData();
