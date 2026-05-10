@@ -60,11 +60,17 @@ def make_move(request):
     game_data = request.session.get('game')
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
+    # Snapshot current state before the move so analysis takeback can restore it
+    pre_move_snapshot = game.to_dict() if game_data else None
+
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
     if success:
+        # Save pre-move snapshot for analysis takeback (AI mode only)
+        if pre_move_snapshot and game.mode == 'ai':
+            request.session['analysis_snapshot'] = pre_move_snapshot
         request.session['game'] = game.to_dict()
         request.session.modified = True
         if game_status == 'checkmate':
@@ -520,4 +526,77 @@ def stats_view(request):
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
+    })
+
+
+@require_POST
+def analysis_takeback(request):
+    """Temporarily revert to the board state before the player's last move.
+
+    Available only in AI mode at easy or medium difficulty.  Does NOT
+    modify move history or save a game result — it is a non-destructive
+    analysis tool.  The real game state is preserved in the session under
+    ``game`` so the player can resume at any time.
+    """
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    if game.mode != 'ai':
+        return JsonResponse(
+            {'valid': False, 'message': 'Takeback is only available in AI mode.'}, status=403
+        )
+
+    difficulty = request.session.get('difficulty', 'medium')
+    if difficulty == 'hard':
+        return JsonResponse(
+            {'valid': False, 'message': 'Takeback is not available on hard difficulty.'}, status=403
+        )
+
+    snapshot = request.session.get('analysis_snapshot')
+    if not snapshot:
+        return JsonResponse(
+            {'valid': False, 'message': 'No previous move to revert to.'}, status=400
+        )
+
+    analysis_game = ChessGame.from_dict(snapshot)
+
+    return JsonResponse({
+        'valid': True,
+        'message': 'Analysis takeback applied. This is a temporary view — your real game is preserved.',
+        'board': analysis_game.board,
+        'current_turn': analysis_game.current_turn,
+        'move_history': analysis_game.move_history,
+        'captured_pieces': analysis_game.captured,
+        'white_time': analysis_game.white_time,
+        'black_time': analysis_game.black_time,
+        'fen': analysis_game.generate_fen_key(),
+        'pgn': analysis_game.generate_pgn(),
+        'in_analysis': True,
+    })
+
+
+@require_POST
+def analysis_resume(request):
+    """Restore the real game state after analysis takeback."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    return JsonResponse({
+        'valid': True,
+        'message': 'Resumed real game.',
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
+        'in_analysis': False,
     })
