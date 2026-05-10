@@ -378,6 +378,20 @@ def toggle_mode(request):
     if game.mode == 'ai' and not request.session.get('difficulty'):
         request.session['difficulty'] = 'medium'
 
+    # If switching to PvP, rename "AI" to generic player name
+    if game.mode == 'pvp':
+        if request.session.get('white_name') == 'AI':
+            request.session['white_name'] = 'Player 1'
+        if request.session.get('black_name') == 'AI':
+            request.session['black_name'] = 'Player 2'
+    else:
+        # Switching to AI: set the non-player color to "AI"
+        player_color = request.session.get('player_color', 'white')
+        if player_color == 'white':
+            request.session['black_name'] = 'AI'
+        else:
+            request.session['white_name'] = 'AI'
+
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
