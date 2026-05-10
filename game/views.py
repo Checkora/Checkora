@@ -1,5 +1,6 @@
 """Game views for the Checkora chess platform."""
 
+import copy
 import json
 import time
 import hashlib
@@ -60,8 +61,9 @@ def make_move(request):
     game_data = request.session.get('game')
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
-    # Snapshot current state before the move so analysis takeback can restore it
-    pre_move_snapshot = game.to_dict() if game_data else None
+    # Deep-copy the dict so mutable nested objects (board, move_history, etc.)
+    # aren't shared with the game instance that make_move is about to mutate.
+    pre_move_snapshot = copy.deepcopy(game.to_dict()) if game_data else None
 
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
@@ -143,6 +145,7 @@ def new_game(request):
     game.paused = False
 
     request.session['game'] = game.to_dict()
+    request.session.pop('analysis_snapshot', None)
     request.session.modified = True
 
     return JsonResponse({
@@ -550,9 +553,9 @@ def analysis_takeback(request):
         )
 
     difficulty = request.session.get('difficulty', 'medium')
-    if difficulty == 'hard':
+    if difficulty not in ('easy', 'medium'):
         return JsonResponse(
-            {'valid': False, 'message': 'Takeback is not available on hard difficulty.'}, status=403
+            {'valid': False, 'message': 'Takeback is only available on easy or medium difficulty.'}, status=403
         )
 
     snapshot = request.session.get('analysis_snapshot')
