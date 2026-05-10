@@ -7,6 +7,7 @@
     <title>Sign In | Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .helptext { display: none; } /* Hide help text on login */
     </style>
@@ -19,6 +20,14 @@
     </div>
 
     <div class="auth-card">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="alert alert-{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        
         <form method="POST">
             {% csrf_token %}
             
@@ -44,5 +53,71 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add classes to Django generated inputs
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                if (input.type !== 'submit' && input.type !== 'hidden') {
+                    input.className = 'form-control';
+                }
+            });
+
+            // Password Visibility Toggle
+            const passwordFields = document.querySelectorAll('input[type="password"]');
+            passwordFields.forEach(field => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'password-wrapper';
+                field.parentNode.insertBefore(wrapper, field);
+                wrapper.appendChild(field);
+
+                const toggle = document.createElement('span');
+                toggle.className = 'toggle-password';
+                toggle.innerHTML = '<i class="fas fa-eye"></i>';
+                wrapper.appendChild(toggle);
+
+                toggle.addEventListener('click', () => {
+                    const isPassword = field.getAttribute('type') === 'password';
+                    field.setAttribute('type', isPassword ? 'text' : 'password');
+                    toggle.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+                });
+            });
+
+            // Handle form submission loading state
+            const form = document.querySelector('form');
+            const submitBtn = document.querySelector('button[type="submit"]');
+            
+            form.addEventListener('submit', () => {
+                submitBtn.classList.add('btn-loading');
+                
+                // Show a quick "Processing" toast if it's the first submission
+                const toastContainer = document.querySelector('.messages') || document.createElement('ul');
+                if (!toastContainer.parentNode) {
+                    toastContainer.className = 'messages';
+                    document.body.appendChild(toastContainer);
+                }
+                
+                const processingToast = document.createElement('li');
+                processingToast.className = 'alert alert-success';
+                processingToast.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+                toastContainer.appendChild(processingToast);
+            });
+        });
+
+        // Reset form state on back button navigation
+        window.addEventListener('pageshow', function(event) {
+            // Clear password fields
+            const passwordFields = document.querySelectorAll('input[type="password"]');
+            passwordFields.forEach(field => {
+                field.value = '';
+            });
+
+            // Remove loading state from button
+            const submitBtn = document.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.classList.remove('btn-loading');
+            }
+        });
+    </script>
 </body>
 </html>

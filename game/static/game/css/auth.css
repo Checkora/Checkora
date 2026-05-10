@@ -106,3 +106,153 @@ body {
     font-weight: 600;
 }
 .auth-footer a:hover { text-decoration: underline; }
+
+/* Toast Notifications (Messages) */
+.messages {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    list-style: none;
+    width: auto;
+    max-width: 350px;
+}
+@media (max-width: 480px) {
+    .messages {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        top: 10px;
+    }
+    .alert {
+        font-size: 0.85rem;
+        padding: 12px 16px;
+    }
+}
+.alert {
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    animation: slideIn 0.4s ease forwards, fadeOut 0.5s ease 4.5s forwards;
+    backdrop-filter: blur(8px);
+}
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@media (max-width: 480px) {
+    @keyframes slideIn {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+}
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+}
+
+.alert-success {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+.alert-error, .alert-danger {
+    background: rgba(255, 107, 107, 0.15);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+/* Password Visibility Toggle */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+}
+.toggle-password {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #6a6a8a;
+    transition: all 0.2s;
+    user-select: none;
+    z-index: 5;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+}
+.toggle-password:hover { 
+    color: #f0c040;
+}
+
+/* Password Requirements */
+.requirements-container {
+    background: #0f0f1a;
+    border: 1px solid #252545;
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 200px;
+}
+.requirements-container.hidden {
+    max-height: 0;
+    padding: 0 15px;
+    margin: 0;
+    border: none;
+    opacity: 0;
+}
+.requirement-item {
+    font-size: 0.75rem;
+    color: #8a8aaa;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.3s ease;
+}
+.requirement-item:last-child { margin-bottom: 0; }
+.requirement-item.valid { color: #4caf50; }
+.requirement-item i { font-size: 0.6rem; width: 14px; }
+
+/* Loader & Loading States */
+.btn-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+}
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin: -10px 0 0 -10px;
+    border: 3px solid rgba(26, 26, 46, 0.3);
+    border-top-color: #1a1a2e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Auth Card Responsiveness */
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 25px 20px;
+        margin: 0 15px;
+    }
+    .header h1 { font-size: 1.7rem; }
+}
