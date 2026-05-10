@@ -22,6 +22,11 @@ from .engine import ChessGame
 from .models import GameResult
 
 
+def landing(request):
+    """Render the landing page introduction to Checkora."""
+    return render(request, 'game/landing.html')
+
+
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
@@ -495,9 +500,10 @@ def login_view(request):
 def rules(request):
     return render(request, 'game/rules.html')
 
+@require_POST
 def logout_view(request):
     logout(request)
-    return redirect('index')
+    return redirect('landing')
 
 
 def stats_view(request):
