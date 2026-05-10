@@ -521,3 +521,62 @@ def stats_view(request):
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })
+
+
+def replay_view(request):
+    """Render the game replay page."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return redirect('index')
+    return render(request, 'game/replay.html')
+
+
+@require_GET
+def replay_data(request):
+    """Return move history and PGN for the current game session."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'error': 'No active game.'}, status=404)
+
+    game = ChessGame.from_dict(game_data)
+    return JsonResponse({
+        'move_history': game.move_history,
+        'pgn': game.generate_pgn(),
+        'total_moves': len(game.move_history),
+    })
+
+
+@require_GET
+def replay_step(request, step):
+    """Return the board state after N half-moves, replayed from the start."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'error': 'No active game.'}, status=404)
+
+    game = ChessGame.from_dict(game_data)
+    history = game.move_history
+
+    if step < 0 or step > len(history):
+        return JsonResponse({'error': 'Step out of range.'}, status=400)
+
+    # Replay from the initial position up to `step` half-moves.
+    replay = ChessGame()
+    replay.mode = game.mode
+    replay.player_color = game.player_color
+
+    for i in range(step):
+        entry = history[i]
+        fr, fc = entry['from']
+        tr, tc = entry['to']
+        promo = entry.get('promoted_to')
+        # Normalise promotion piece to lowercase letter for make_move.
+        promo_piece = promo.lower() if promo and promo.lower() in ('q', 'r', 'b', 'n') else None
+        replay.make_move(fr, fc, tr, tc, promo_piece)
+
+    return JsonResponse({
+        'board': replay.board,
+        'current_turn': replay.current_turn,
+        'step': step,
+        'total_moves': len(history),
+        'notation': history[step - 1]['notation'] if step > 0 else None,
+    })

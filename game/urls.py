@@ -17,6 +17,11 @@ urlpatterns = [
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
 
+    # Game replay
+    path('replay/', views.replay_view, name='replay'),
+    path('api/replay/', views.replay_data, name='replay_data'),
+    path('api/replay/step/<int:step>/', views.replay_step, name='replay_step'),
+
     # Authentication
     path('register/', views.register_view, name='register'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),

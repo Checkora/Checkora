@@ -1,0 +1,326 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkora | Game Replay</title>
+  <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f1a;
+      color: #d0d0e0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1.5rem 1rem;
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.8rem;
+      color: #f0c040;
+      margin-bottom: 0.25rem;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      color: #8a8aaa;
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .replay-layout {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* ── Board ── */
+    #board-wrap {
+      flex-shrink: 0;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      width: min(480px, 90vw);
+      height: min(480px, 90vw);
+      border: 2px solid #3a3a5a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1.4rem, 5vw, 2.2rem);
+      cursor: default;
+      user-select: none;
+    }
+
+    .cell.light { background: #e8d5b0; }
+    .cell.dark  { background: #b58863; }
+
+    .cell.highlight-from { outline: 3px inset rgba(255, 200, 0, 0.8); }
+    .cell.highlight-to   { background: rgba(255, 200, 0, 0.55); }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      flex: 1;
+      min-width: 200px;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .move-counter {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #8a8aaa;
+    }
+
+    .move-counter strong {
+      color: #f0c040;
+      font-size: 1.1rem;
+    }
+
+    .notation-display {
+      background: #16162a;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      min-height: 2.5rem;
+      font-size: 1rem;
+      color: #ffffff;
+      text-align: center;
+      font-family: monospace;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .controls button {
+      background: #1e1e38;
+      color: #d0d0e0;
+      border: 1px solid #3a3a5a;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .controls button:hover:not(:disabled) {
+      background: #2a2a50;
+      border-color: #f0c040;
+      color: #f0c040;
+    }
+
+    .controls button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .move-list {
+      background: #16162a;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 0.5rem;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+    }
+
+    .move-list table { width: 100%; border-collapse: collapse; }
+    .move-list td { padding: 0.2rem 0.4rem; color: #a0a0c0; }
+    .move-list td:first-child { color: #5a5a7a; width: 2rem; }
+    .move-list td.active { color: #f0c040; font-weight: 600; }
+    .move-list tr:hover td { background: #1e1e38; cursor: pointer; }
+
+    .pgn-box {
+      background: #16162a;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: #8a8aaa;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .back-link {
+      margin-top: 1.5rem;
+      color: #8a8aaa;
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+
+    .back-link:hover { color: #f0c040; }
+
+    .loading {
+      color: #5a5a7a;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>GAME REPLAY</h1>
+  <p class="subtitle">Step through the moves of your last game</p>
+
+  <div class="replay-layout">
+    <div id="board-wrap">
+      <div id="board"></div>
+    </div>
+
+    <div class="sidebar">
+      <div class="move-counter">
+        Move <strong id="step-display">0</strong> / <span id="total-display">—</span>
+      </div>
+
+      <div class="notation-display" id="notation-display">—</div>
+
+      <div class="controls">
+        <button id="btn-first"  title="First move">⏮</button>
+        <button id="btn-prev"   title="Previous">◀</button>
+        <button id="btn-next"   title="Next">▶</button>
+        <button id="btn-last"   title="Last move">⏭</button>
+      </div>
+
+      <div class="move-list" id="move-list"><p class="loading">Loading…</p></div>
+
+      <details>
+        <summary style="cursor:pointer;color:#8a8aaa;font-size:0.8rem;margin-bottom:0.5rem;">PGN</summary>
+        <div class="pgn-box" id="pgn-box">Loading…</div>
+      </details>
+    </div>
+  </div>
+
+  <a href="{% url 'index' %}" class="back-link">← Back to game</a>
+
+  <script>
+    const PIECE_UNICODE = {
+      K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙',
+      k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟',
+    };
+
+    let totalMoves = 0;
+    let moveHistory = [];
+    let currentStep = 0;
+
+    async function fetchReplayData() {
+      const res = await fetch('{% url "replay_data" %}');
+      if (!res.ok) { document.body.innerHTML = '<p style="color:#f55;padding:2rem">No active game to replay.</p>'; return; }
+      const data = await res.json();
+      totalMoves = data.total_moves;
+      moveHistory = data.move_history;
+      document.getElementById('total-display').textContent = totalMoves;
+      document.getElementById('pgn-box').textContent = data.pgn || '(no moves yet)';
+      buildMoveList();
+      await goToStep(0);
+    }
+
+    function buildMoveList() {
+      const table = document.createElement('table');
+      for (let i = 0; i < moveHistory.length; i += 2) {
+        const tr = document.createElement('tr');
+        const numTd = document.createElement('td');
+        numTd.textContent = (i / 2 + 1) + '.';
+        tr.appendChild(numTd);
+
+        [i, i + 1].forEach(idx => {
+          if (idx >= moveHistory.length) return;
+          const td = document.createElement('td');
+          td.textContent = moveHistory[idx].notation;
+          td.dataset.step = idx + 1;
+          td.addEventListener('click', () => goToStep(parseInt(td.dataset.step)));
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      }
+      const list = document.getElementById('move-list');
+      list.innerHTML = '';
+      list.appendChild(table);
+    }
+
+    function highlightMoveListEntry(step) {
+      document.querySelectorAll('#move-list td[data-step]').forEach(td => {
+        td.classList.toggle('active', parseInt(td.dataset.step) === step);
+      });
+    }
+
+    async function goToStep(step) {
+      if (step < 0 || step > totalMoves) return;
+      const res = await fetch(`/api/replay/step/${step}/`);
+      if (!res.ok) return;
+      const data = await res.json();
+      currentStep = step;
+      renderBoard(data.board, step > 0 ? moveHistory[step - 1] : null);
+      document.getElementById('step-display').textContent = step;
+      document.getElementById('notation-display').textContent = data.notation || '—';
+      highlightMoveListEntry(step);
+      updateButtons();
+    }
+
+    function renderBoard(board, lastMove) {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      const fromKey = lastMove ? lastMove.from[0] * 8 + lastMove.from[1] : -1;
+      const toKey   = lastMove ? lastMove.to[0]   * 8 + lastMove.to[1]   : -1;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = document.createElement('div');
+          const idx = r * 8 + c;
+          cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+          if (idx === fromKey) cell.classList.add('highlight-from');
+          if (idx === toKey)   cell.classList.add('highlight-to');
+          const piece = board[r][c];
+          if (piece) cell.textContent = PIECE_UNICODE[piece] || piece;
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function updateButtons() {
+      document.getElementById('btn-first').disabled = currentStep === 0;
+      document.getElementById('btn-prev').disabled  = currentStep === 0;
+      document.getElementById('btn-next').disabled  = currentStep >= totalMoves;
+      document.getElementById('btn-last').disabled  = currentStep >= totalMoves;
+    }
+
+    document.getElementById('btn-first').addEventListener('click', () => goToStep(0));
+    document.getElementById('btn-prev').addEventListener('click',  () => goToStep(currentStep - 1));
+    document.getElementById('btn-next').addEventListener('click',  () => goToStep(currentStep + 1));
+    document.getElementById('btn-last').addEventListener('click',  () => goToStep(totalMoves));
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft')  goToStep(currentStep - 1);
+      if (e.key === 'ArrowRight') goToStep(currentStep + 1);
+      if (e.key === 'Home')       goToStep(0);
+      if (e.key === 'End')        goToStep(totalMoves);
+    });
+
+    fetchReplayData();
+  </script>
+</body>
+</html>
