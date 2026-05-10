@@ -11,9 +11,14 @@ class GameResult(models.Model):
         ("timeout", "Timeout"),
         ("agreement", "Agreement"),
     ]
+    COLOR_CHOICES = [("white", "White"), ("black", "Black")]
     mode = models.CharField(max_length=10, choices=MODE_CHOICES)
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
     end_reason = models.CharField(max_length=15, choices=END_REASON_CHOICES)
+    # Only populated for AI games; stores which color the human was playing.
+    human_color = models.CharField(
+        max_length=10, choices=COLOR_CHOICES, null=True, blank=True
+    )
     played_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

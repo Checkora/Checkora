@@ -36,9 +36,11 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def record_game_result(mode, winner, reason):
+def record_game_result(mode, winner, reason, human_color=None):
     """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+    GameResult.objects.create(
+        mode=mode, winner=winner, end_reason=reason, human_color=human_color
+    )
 
 
 @require_POST
@@ -67,11 +69,12 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        human_color = request.session.get('player_color') if game.mode == 'ai' else None
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
+            record_game_result(game.mode, winner, 'checkmate', human_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+            record_game_result(game.mode, 'draw', 'stalemate', human_color)
 
     return JsonResponse({
         'valid': success,
@@ -286,6 +289,12 @@ def ai_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        human_color = request.session.get('player_color')
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(game.mode, winner, 'checkmate', human_color)
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(game.mode, 'draw', 'stalemate', human_color)
 
     return JsonResponse({
         'valid': success,
@@ -508,13 +517,23 @@ def logout_view(request):
 
 def stats_view(request):
     """Display game statistics."""
-    # from django.db.models import Count
     recent = GameResult.objects.order_by('-played_at')[:20]
     ai_results = GameResult.objects.filter(mode='ai')
-    ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    # ai_losses = 0
+
+    # Count AI wins: games where human_color is set and the winner is the
+    # opposite color (i.e. the AI side won).
+    ai_wins = (
+        ai_results.filter(human_color='white', winner='black').count()
+        + ai_results.filter(human_color='black', winner='white').count()
+    )
+    # For legacy rows that have no human_color recorded, fall back to treating
+    # all non-draw decisive results as AI wins to preserve historical counts.
+    ai_wins += ai_results.filter(
+        human_color__isnull=True, winner__in=['white', 'black']
+    ).count()
+
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
