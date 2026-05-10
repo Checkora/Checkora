@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/pause/', views.set_pause),
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
+    path('api/toggle-mode/', views.toggle_mode, name='toggle_mode'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
 

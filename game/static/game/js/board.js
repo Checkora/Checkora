@@ -107,6 +107,7 @@
 
             const newPvPBtn = document.getElementById('newPvPBtn');
             const newAIBtn = document.getElementById('newAIBtn');
+            const toggleModeBtn = document.getElementById('toggleModeBtn');
 
             const gameOverOverlay = document.getElementById('gameOverOverlay');
             const gameOverTitle = document.getElementById('gameOverTitle');
@@ -235,6 +236,7 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+                if (toggleModeBtn) toggleModeBtn.textContent = gameMode === 'ai' ? 'Switch to PvP' : 'Switch to AI';
 
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
@@ -1257,6 +1259,12 @@
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (toggleModeBtn) toggleModeBtn.onclick = async () => {
+                const data = await post('/api/toggle-mode/', {});
+                if (data.success) {
+                    await loadGame();
+                }
+            };
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             if (resignBtn) resignBtn.onclick = () => {

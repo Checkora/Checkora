@@ -364,6 +364,30 @@ def resign_game(request):
         'game_status': game_status
     })
 
+@require_POST
+def toggle_mode(request):
+    """Switch between AI and PvP mode for the current game."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'success': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+    game.mode = 'pvp' if game.mode == 'ai' else 'ai'
+    
+    # If switching to AI, we might need a default difficulty if not set
+    if game.mode == 'ai' and not request.session.get('difficulty'):
+        request.session['difficulty'] = 'medium'
+
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'success': True,
+        'mode': game.mode,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+    })
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
