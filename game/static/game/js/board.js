@@ -1040,7 +1040,7 @@
                     difficulty: difficulty
                 });
 
-                board = d.board;
+                board = parseBoard(d.board);
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
