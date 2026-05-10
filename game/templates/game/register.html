@@ -22,6 +22,15 @@
     </div>
 
     <div class="auth-card">
+      
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-danger">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+      
       <form method="POST">
         {% csrf_token %}
 
