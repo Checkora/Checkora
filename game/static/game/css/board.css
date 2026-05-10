@@ -336,9 +336,25 @@ body {
     z-index: 2;
     pointer-events: none;
     user-select: none;
+    transition: transform 0.25s ease-in-out, opacity 0.2s ease;
+    will-change: transform;
 }
 .piece.playable { cursor: pointer; }
-.piece.dragging { opacity: 0.35; }
+.piece.dragging { opacity: 0.3; transition: none; }
+.piece.moving {
+    z-index: 100;
+}
+.piece.captured {
+    opacity: 0;
+    transform: scale(0.5);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .piece {
+        transition: none !important;
+    }
+}
 
 /* ============================================================
    Status Bar
