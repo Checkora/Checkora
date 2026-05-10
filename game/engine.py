@@ -67,9 +67,14 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
+    # Class-level Python engine path (last entry in candidates list)
+    PYTHON_ENGINE_PATH = os.path.join(ENGINE_DIR, 'main.py')
+
     def __init__(self):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
+        # When True, skip the compiled binary and always use the Python fallback
+        self.force_python = False
         self.move_history = []
         self.captured = {'white': [], 'black': []}
         # DP Table: {(row, col): [list of moves]}
@@ -178,10 +183,15 @@ DP cache is intentionally excluded to save cookie space."""
     #  C++ engine communication
     # ------------------------------------------------------------------
 
-    @classmethod
-    def _resolve_engine_path(cls):
-        """Return the first available engine entrypoint for this platform."""
-        for path in cls.ENGINE_CANDIDATES:
+    def _resolve_engine_path(self):
+        """Return the engine entrypoint for this platform.
+
+        When ``self.force_python`` is True the Python fallback script is
+        returned directly (if it exists), bypassing any compiled binary.
+        """
+        if self.force_python:
+            return self.PYTHON_ENGINE_PATH if os.path.exists(self.PYTHON_ENGINE_PATH) else None
+        for path in self.ENGINE_CANDIDATES:
             if os.path.exists(path):
                 return path
         return None

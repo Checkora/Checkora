@@ -17,6 +17,9 @@ urlpatterns = [
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
 
+    # Developer settings
+    path('dev-settings/', views.dev_settings_view, name='dev_settings'),
+
     # Authentication
     path('register/', views.register_view, name='register'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),

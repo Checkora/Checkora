@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Checkora - Developer Settings</title>
+    <style>
+        body { background: #0f0f1a; color: #d0d0d0; font-family: Arial, sans-serif; padding: 40px; }
+        h1 { color: #f0c040; text-align: center; letter-spacing: 2px; }
+        .container { max-width: 560px; margin: 40px auto; background: #16162a; border: 1px solid #252545; border-radius: 10px; padding: 32px; }
+        .status { font-size: 15px; margin-bottom: 24px; color: #8a8aaa; }
+        .status strong { color: #f0c040; }
+        .radio-group { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+        .radio-group label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
+        .radio-group input[type="radio"] { accent-color: #f0c040; width: 16px; height: 16px; }
+        .desc { color: #6a6a8a; font-size: 13px; margin-left: 26px; margin-top: 2px; }
+        button { background: #f0c040; color: #0f0f1a; border: none; border-radius: 6px; padding: 10px 28px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #e0b030; }
+        .messages { margin-bottom: 20px; }
+        .messages li { list-style: none; background: #1e3a1e; border: 1px solid #2a5a2a; border-radius: 6px; padding: 10px 14px; color: #7fd07f; margin-bottom: 8px; }
+        .back { text-align: center; margin-top: 28px; }
+        a { color: #f0c040; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-left: 8px; }
+        .badge-python { background: #2a3a5a; color: #7ab4f0; }
+        .badge-cpp { background: #3a2a1a; color: #f0a840; }
+    </style>
+</head>
+<body>
+    <h1>CHECK<span style="color:#fff">ORA</span> &mdash; Developer Settings</h1>
+
+    <div class="container">
+        {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="status">
+            Current engine:
+            {% if force_python %}
+                <strong>Python fallback</strong>
+                <span class="badge badge-python">python</span>
+            {% else %}
+                <strong>C++ (auto-detect)</strong>
+                <span class="badge badge-cpp">c++</span>
+            {% endif %}
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="radio-group">
+                <div>
+                    <label>
+                        <input type="radio" name="engine_mode" value="auto" {% if not force_python %}checked{% endif %}>
+                        C++ engine (auto-detect)
+                    </label>
+                    <div class="desc">Default. Uses the compiled binary when available; falls back to Python automatically.</div>
+                </div>
+                <div>
+                    <label>
+                        <input type="radio" name="engine_mode" value="python" {% if force_python %}checked{% endif %}>
+                        Python fallback (force)
+                    </label>
+                    <div class="desc">Always use the pure-Python minimax engine. Slower but useful when build tools are unavailable.</div>
+                </div>
+            </div>
+            <button type="submit">Save</button>
+        </form>
+    </div>
+
+    <div class="back"><a href="{% url 'index' %}">&larr; Back to game</a></div>
+</body>
+</html>

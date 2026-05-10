@@ -257,6 +257,7 @@ def ai_move(request):
         )
 
     game = ChessGame.from_dict(game_data)
+    game.force_python = bool(request.session.get('force_python_engine', False))
 
     if game.mode != 'ai':
         err_msg = 'Not in AI mode.'
@@ -521,3 +522,18 @@ def stats_view(request):
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })
+
+
+def dev_settings_view(request):
+    """Developer settings: toggle between C++ engine and Python fallback."""
+    if request.method == 'POST':
+        force_python = request.POST.get('engine_mode') == 'python'
+        request.session['force_python_engine'] = force_python
+        messages.success(
+            request,
+            'Engine set to Python fallback.' if force_python else 'Engine set to C++ (auto-detect).',
+        )
+        return redirect('dev_settings')
+
+    current = bool(request.session.get('force_python_engine', False))
+    return render(request, 'game/dev_settings.html', {'force_python': current})
