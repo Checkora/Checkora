@@ -113,11 +113,11 @@
 
     <!-- ========== HEADER ========== -->
     <div class="header">
-        <div class="logo-container">
-            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+        <a href="{% url 'landing' %}" class="logo-container" style="text-decoration: none;">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora Logo - Back to Home">
             <span class="logo-text">Checkora</span>
             <span class="badge" id="modeBadge">PVP</span>
-        </div>
+        </a>
 
         <div class="auth-buttons">
             {% if user.is_authenticated %}
@@ -218,6 +218,7 @@
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
+                    <button class="btn btn-gold" id="downloadPgnBtn">Download PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>

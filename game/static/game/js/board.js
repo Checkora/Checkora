@@ -716,11 +716,16 @@
                 let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
                 let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
                 
+                const pieceNames = { 'p': 'Pawn', 'n': 'Knight', 'b': 'Bishop', 'r': 'Rook', 'q': 'Queen', 'k': 'King' };
                 cap.white.forEach((p) => {
-                    wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                    const pk = pKey(p);
+                    const label = `White ${pieceNames[pk[1]]}`;
+                    wCapEl.innerHTML += `<img src="${PIECE_IMG[pk]}" class="captured-img" alt="${label}" title="${label}">`;
                 });
                 cap.black.forEach((p) => {
-                    bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                    const pk = pKey(p);
+                    const label = `Black ${pieceNames[pk[1]]}`;
+                    bCapEl.innerHTML += `<img src="${PIECE_IMG[pk]}" class="captured-img" alt="${label}" title="${label}">`;
                 });
                 
                 const wPointsEl = document.getElementById('whitePoints');
@@ -1200,6 +1205,20 @@
         }, 2000);
     }
 };
+
+            const downloadPgnBtn = document.getElementById('downloadPgnBtn');
+            if (downloadPgnBtn) downloadPgnBtn.onclick = async () => {
+                const data = await get('/api/state/');
+                if (data.pgn) {
+                    const blob = new Blob([data.pgn], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `checkora_game_${new Date().getTime()}.pgn`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                }
+            };
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
