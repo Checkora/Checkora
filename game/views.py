@@ -38,6 +38,8 @@ def index(request):
 
 def record_game_result(mode, winner, reason, human_color=None):
     """Save a completed game result to the database."""
+    if human_color not in ('white', 'black'):
+        human_color = None
     GameResult.objects.create(
         mode=mode, winner=winner, end_reason=reason, human_color=human_color
     )
@@ -74,7 +76,8 @@ def make_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(game.mode, winner, 'checkmate', human_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate', human_color)
+            end_reason = game.draw_reason or game_status
+            record_game_result(game.mode, 'draw', end_reason, human_color)
 
     return JsonResponse({
         'valid': success,
@@ -294,7 +297,8 @@ def ai_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(game.mode, winner, 'checkmate', human_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate', human_color)
+            end_reason = game.draw_reason or game_status
+            record_game_result(game.mode, 'draw', end_reason, human_color)
 
     return JsonResponse({
         'valid': success,
