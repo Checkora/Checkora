@@ -487,13 +487,22 @@ def order_moves(moves):
     group.  Promotions get a bonus applied on top.  Non-captures are scored
     0 and sorted below all captures.
     """
+    CAPTURE_BASE = 200000  # ensures all captures sort above quiet moves (score 0)
+
     def move_score(move):
         score = 0
         victim = BOARD[move.tr][move.tc]
         aggressor = BOARD[move.fr][move.fc]
         if not is_empty(victim):
-            # MVV-LVA: favour capturing high-value pieces with low-value pieces
-            score += 10 * piece_value(victim) - piece_value(aggressor)
+            # MVV-LVA: favour capturing high-value pieces with low-value pieces.
+            # Add CAPTURE_BASE so even losing captures sort above quiet moves.
+            score += CAPTURE_BASE + 10 * piece_value(victim) - piece_value(aggressor)
+        elif (aggressor and aggressor.lower() == 'p'
+              and move.tc != move.fc
+              and move.tr == EN_PASSANT_R and move.tc == EN_PASSANT_C):
+            # En passant: destination is empty but a pawn is captured on (move.fr, move.tc).
+            ep_victim = BOARD[move.fr][move.tc]
+            score += CAPTURE_BASE + 10 * piece_value(ep_victim) - piece_value(aggressor)
         if move.promo_piece != NO_PROMOTION:
             score += 900
         return score
