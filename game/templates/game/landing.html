@@ -1,0 +1,128 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkora | Hybrid Chess Engine</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="{% url 'landing' %}" class="logo-link">
+                <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
+                <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
+            </a>
+            <div class="nav-links">
+                <a href="#hero">About</a>
+                <a href="#features">Features</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+            <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-register">Log Out</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="hero" id="hero">
+        <h1 class="hero-title">Master the Board with Hybrid Intelligence</h1>
+        <p class="hero-subtitle">A lightweight Django frontend orchestrating Python logic with a high-performance C++
+            minimax engine.</p>
+        <div class="hero-actions">
+            <a href="{% url 'index' %}" class="btn-primary">Start Game</a>
+            <a href="#features" class="btn-secondary">Learn More</a>
+        </div>
+    </main>
+
+    <section id="features" class="features">
+        <h2 class="section-title">Why Checkora</h2>
+        <div class="feature-cards">
+
+            <div class="card">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc"
+                                stroke-width="1.5">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="2" y1="12" x2="22" y2="12" />
+                                <path
+                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Web & UX</h3>
+                    </div>
+                    <div class="card-back">
+                        <p>Secure authentication, game state, and responsive UI are handled by Django and JavaScript for
+                            a seamless player experience.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc"
+                                stroke-width="1.5">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path
+                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Engine (C++)</h3>
+                    </div>
+                    <div class="card-back">
+                        <p>Compute-intensive minimax and evaluation run in optimized C++ modules to deliver fast, strong
+                            play.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc"
+                                stroke-width="1.5">
+                                <path
+                                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Hybrid Architecture</h3>
+                    </div>
+                    <div class="card-back">
+                        <p>Python orchestrates the app while C++ handles heavy computation — connected via bindings or
+                            subprocess calls.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <a href="{% url 'rules' %}" class="footer-link">Rulebook</a>
+            <a href="{% url 'stats' %}" class="footer-link">Statistics</a>
+            <span class="footer-copy">&copy; {% now "Y" %} Checkora Hybrid Engine</span>
+        </div>
+    </footer>
+</body>
+
+</html>

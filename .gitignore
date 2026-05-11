@@ -54,3 +54,5 @@ Desktop.ini
 ehthumbs.db
 .vercel
 .env*.local
+node_modules/
+package-lock.json 
