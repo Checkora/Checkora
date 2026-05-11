@@ -3,7 +3,7 @@
 import json
 import time
 import hashlib
-import random
+import secrets
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -21,6 +21,11 @@ from django.views.decorators.http import require_GET, require_POST
 from django.db import models as db_models
 from .engine import ChessGame
 from .models import GameResult
+
+
+def landing(request):
+    """Render the landing page introduction to Checkora."""
+    return render(request, 'game/landing.html')
 
 
 @ensure_csrf_cookie
@@ -86,6 +91,7 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -150,6 +156,7 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -210,6 +217,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -303,6 +311,7 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -377,7 +386,7 @@ def register_view(request):
             user.save()
 
             # Generate 6-digit OTP
-            otp = str(random.randint(100000, 999999))
+            otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
@@ -501,9 +510,10 @@ def login_view(request):
 def rules(request):
     return render(request, 'game/rules.html')
 
+@require_POST
 def logout_view(request):
     logout(request)
-    return redirect('index')
+    return redirect('landing')
 
 
 def stats_view(request):

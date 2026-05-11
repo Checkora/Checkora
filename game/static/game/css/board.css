@@ -208,6 +208,7 @@ body {
     display: flex;
     flex-direction: column;
     margin-top: 15px;
+    position: relative;
 }
 
 .board-row {
@@ -335,9 +336,25 @@ body {
     z-index: 2;
     pointer-events: none;
     user-select: none;
+    transition: transform 0.25s ease-in-out, opacity 0.2s ease;
+    will-change: transform;
 }
 .piece.playable { cursor: pointer; }
-.piece.dragging { opacity: 0.35; }
+.piece.dragging { opacity: 0.3; transition: none; }
+.piece.moving {
+    z-index: 100;
+}
+.piece.captured {
+    opacity: 0;
+    transform: scale(0.5);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .piece {
+        transition: none !important;
+    }
+}
 
 /* ============================================================
    Status Bar
@@ -944,4 +961,27 @@ body {
         box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5), 
                     0 0 20px rgba(220, 38, 38, 0.4);
     }
+}
+
+/* ================= PAUSE STATE ================= */
+.chessboard.paused {
+    filter: blur(1px);
+    pointer-events: none;
+}
+
+#pauseBtn.paused {
+    background: linear-gradient(135deg, #ff4444, #cc0000);
+    color: #fff;
+}
+/* ================= INPUT ERROR STATE ================= */
+.input-error {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+}
+
+#whiteNameInput:focus,
+#blackNameInput:focus {
+    border-color: #f0c040;
+    box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
+    outline: none;
 }
