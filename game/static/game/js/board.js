@@ -1097,6 +1097,15 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
+
+                if (copyPgnBtn) {
+                    copyPgnBtn.textContent = 'Export as PGN';
+                }
+
+                if (copyFenBtn) {
+                    copyFenBtn.textContent = 'Copy FEN';
+                }
+
                 // Clear celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
@@ -1164,6 +1173,8 @@
                     queueAIMoveIfNeeded();
                 }
             }
+
+            
 
             /* ==========================================================
             EVENT LISTENERS
