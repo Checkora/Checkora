@@ -924,6 +924,17 @@
             }
 
             function updatePauseUI() {
+                // In AI mode the pause button is completely disabled — hiding it
+                // prevents the cheating vector where a player pauses the clock
+                // to think without time pressure (Issue #516).
+                if (gameMode === 'ai') {
+                    pauseBtn.style.display = 'none';
+                    pauseBtn.disabled = true;
+                    boardEl.classList.remove('paused');
+                    return;
+                }
+                pauseBtn.style.display = '';
+                pauseBtn.disabled = false;
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
@@ -1256,7 +1267,11 @@
                 requestNewGame('ai');
             };
 
-            if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (pauseBtn) pauseBtn.onclick = () => {
+                // Pause is not allowed in AI mode (Issue #516).
+                if (gameMode === 'ai') return;
+                paused ? resumeGame() : pauseGame();
+            };
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             if (resignBtn) resignBtn.onclick = () => {
@@ -1312,7 +1327,12 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+            document.addEventListener('visibilitychange', () => {
+                // Do not auto-pause in AI mode — the clock only counts the
+                // player's own time, so hiding the tab should not be exploitable
+                // as an infinite think-time cheat (Issue #516).
+                if (document.hidden && gameMode !== 'ai') pauseGame();
+            });
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 
