@@ -134,6 +134,24 @@
             let aiThinking = false;
 
             /* ==========================================================
+            SOUNDS
+            ========================================================== */
+
+            const sounds = {
+                move: new Audio('/static/sounds/move.mp3'),
+                capture: new Audio('/static/sounds/capture.mp3'),
+                check: new Audio('/static/sounds/check.mp3'),
+                checkmate: new Audio('/static/sounds/checkmate.mp3')
+            };
+
+            function playSound(type) {
+                if (sounds[type]) {
+                    sounds[type].currentTime = 0;
+                    sounds[type].play();
+                }
+            }
+
+            /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
             function csrf() {
@@ -610,41 +628,76 @@
             async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
                 try {
                     const body = {
-                        from_row: fr, from_col: fc,
-                        to_row: tr, to_col: tc,
+                        from_row: fr,
+                        from_col: fc,
+                        to_row: tr,
+                        to_col: tc,
                     };
-                    if (promotionPiece) body.promotion_piece = promotionPiece;
+
+                    if (promotionPiece)
+                        body.promotion_piece = promotionPiece;
 
                     const data = await post('/api/move/', body);
-                        if (data.valid) {
-                            if (!skipAnimation) await animateMove(fr, fc, tr, tc);
-                            board = parseBoard(data.board);
-                            turn = data.current_turn;
-                            lastMove = { from: [fr, fc], to: [tr, tc] };
-    
-                            if (gameMode === 'pvp' && autoFlip) {
-                                flipped = (turn === 'black');
-                                buildBoard();
-                            }
-                            whiteTime = data.white_time;
-                            blackTime = data.black_time;
-    
-                            selected = null;
-                            hints = [];
-                            updatePlayerNames(data);
-                            updateTurn();
-                            updateMoves(data.move_history);
-                            updateCaptured(data.captured_pieces);
-                            syncPieces();
-                            renderClocks();
-                            startTimer();
 
-                        if (handleGameStatus(data.game_status, data.draw_reason)) {
-                            // Game-ending status has been handled.
-                        } else if (data.game_status === 'check') {
-                            applyCheckHighlight();
-                            showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
+                    if (data.valid) {
+
+                        // Detect capture BEFORE board update
+                        const isCapture = board[tr][tc] !== null;
+
+                        // Play sounds
+                        if (isCapture) {
+                            playSound('capture');
                         } else {
+                            playSound('move');
+                        }
+
+                        // Animate move
+                        if (!skipAnimation)
+                            await animateMove(fr, fc, tr, tc);
+
+                        // Update board
+                        board = parseBoard(data.board);
+                        turn = data.current_turn;
+                        lastMove = { from: [fr, fc], to: [tr, tc] };
+
+                        if (gameMode === 'pvp' && autoFlip) {
+                            flipped = (turn === 'black');
+                            buildBoard();
+                        }
+
+                        whiteTime = data.white_time;
+                        blackTime = data.black_time;
+
+                        selected = null;
+                        hints = [];
+
+                        updatePlayerNames(data);
+                        updateTurn();
+                        updateMoves(data.move_history);
+                        updateCaptured(data.captured_pieces);
+
+                        syncPieces();
+                        renderClocks();
+                        startTimer();
+
+                        // Game status
+                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+
+                        } else if (data.game_status === 'check') {
+
+                            playSound('check');
+
+                            applyCheckHighlight();
+
+                            showStatus(
+                                turn === 'white'
+                                    ? 'White is in check!'
+                                    : 'Black is in check!',
+                                true
+                            );
+
+                        } else {
+
                             highlightCheck();
                             showStatus('', false);
                         }
@@ -652,11 +705,16 @@
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
                         }
+
                     } else {
+
                         showStatus(data.message, true);
                         deselect();
                     }
+
                 } catch (e) {
+
+                    console.error(e);
                     showStatus('Connection error.', true);
                 }
             }
@@ -829,6 +887,7 @@
                 let isCelebration = false; // Track if this is a win (not draw/stalemate)
             
                 if (reason === 'checkmate') {
+                    playSound('checkmate');
                     const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     title = '🏆 CHECKMATE! 🏆';
