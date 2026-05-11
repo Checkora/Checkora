@@ -33,6 +33,14 @@ body {
     gap: 8px;   /* tighter = better */
 }
 
+/* Logo home link */
+.logo-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
 /* Logo image */
 .logo-icon-img {
     animation: logoGlow 2.5s ease-in-out infinite alternate;
