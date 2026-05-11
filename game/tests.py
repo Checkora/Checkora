@@ -752,3 +752,79 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class StreakTests(TestCase):
+    """Test suite for the Daily Streak Counter logic."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username='testuser', password='password')
+        # Profile is created via post_save signal if we added it, 
+        # but let's check if it exists or create it.
+        from .models import Profile
+        self.profile, _ = Profile.objects.get_or_create(user=self.user)
+
+    def test_new_user_streak_initialization(self):
+        self.assertEqual(self.profile.current_streak, 0)
+        self.assertEqual(self.profile.longest_streak, 0)
+        self.assertIsNone(self.profile.last_active_date)
+
+    def test_first_game_starts_streak(self):
+        from .views import update_user_streak
+        from django.utils import timezone
+        
+        today = timezone.now().date()
+        update_user_streak(self.user)
+        
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.current_streak, 1)
+        self.assertEqual(self.profile.longest_streak, 1)
+        self.assertEqual(self.profile.last_active_date, today)
+
+    def test_second_game_same_day_no_increment(self):
+        from .views import update_user_streak
+        
+        update_user_streak(self.user)
+        update_user_streak(self.user)
+        
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.current_streak, 1)
+
+    def test_streak_increment_next_day(self):
+        from .views import update_user_streak
+        from datetime import timedelta
+        from django.utils import timezone
+        
+        # Simulate yesterday's activity
+        yesterday = timezone.now().date() - timedelta(days=1)
+        self.profile.current_streak = 1
+        self.profile.longest_streak = 1
+        self.profile.last_active_date = yesterday
+        self.profile.save()
+        
+        update_user_streak(self.user)
+        
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.current_streak, 2)
+        self.assertEqual(self.profile.longest_streak, 2)
+        self.assertEqual(self.profile.last_active_date, timezone.now().date())
+
+    def test_streak_reset_after_gap(self):
+        from .views import update_user_streak
+        from datetime import timedelta
+        from django.utils import timezone
+        
+        # Simulate activity from 2 days ago
+        two_days_ago = timezone.now().date() - timedelta(days=2)
+        self.profile.current_streak = 5
+        self.profile.longest_streak = 5
+        self.profile.last_active_date = two_days_ago
+        self.profile.save()
+        
+        update_user_streak(self.user)
+        
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.current_streak, 1)
+        self.assertEqual(self.profile.longest_streak, 5) # Longest streak preserved
+        self.assertEqual(self.profile.last_active_date, timezone.now().date())

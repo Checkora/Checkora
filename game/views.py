@@ -18,8 +18,36 @@ from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from django.utils import timezone
+from datetime import timedelta
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, Profile
+
+
+def update_user_streak(user):
+    """Update the user's daily streak based on activity."""
+    if not user.is_authenticated:
+        return
+
+    profile, created = Profile.objects.get_or_create(user=user)
+    today = timezone.now().date()
+
+    if profile.last_active_date == today:
+        # Already updated today
+        return
+
+    if profile.last_active_date == today - timedelta(days=1):
+        # Played yesterday, increment streak
+        profile.current_streak += 1
+    else:
+        # Missed a day or first time, reset/start streak
+        profile.current_streak = 1
+
+    if profile.current_streak > profile.longest_streak:
+        profile.longest_streak = profile.current_streak
+
+    profile.last_active_date = today
+    profile.save()
 
 
 def landing(request):
@@ -33,12 +61,26 @@ def index(request):
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
-    return render(request, 'game/board.html')
+    
+    streak_info = None
+    if request.user.is_authenticated:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        today = timezone.now().date()
+        is_active = profile.last_active_date == today or profile.last_active_date == today - timedelta(days=1)
+        current_streak = profile.current_streak if is_active else 0
+        streak_info = {
+            'current': current_streak,
+            'updated_today': profile.last_active_date == today
+        }
+
+    return render(request, 'game/board.html', {'streak_info': streak_info})
 
 
-def record_game_result(mode, winner, reason):
-    """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+def record_game_result(mode, winner, reason, user=None):
+    """Save a completed game result to the database and update user streak."""
+    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason, user=user if user and user.is_authenticated else None)
+    if user and user.is_authenticated:
+        update_user_streak(user)
 
 
 @require_POST
@@ -69,9 +111,9 @@ def make_move(request):
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
+            record_game_result(game.mode, winner, 'checkmate', user=request.user)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+            record_game_result(game.mode, 'draw', 'stalemate', user=request.user)
 
     return JsonResponse({
         'valid': success,
@@ -326,7 +368,7 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(game.mode, 'draw', 'agreement')
+        record_game_result(game.mode, 'draw', 'agreement', user=request.user)
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -355,7 +397,7 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(game.mode, winner, 'resign') 
+    record_game_result(game.mode, winner, 'resign', user=request.user) 
 
     return JsonResponse({
         'valid': True,
@@ -508,16 +550,37 @@ def logout_view(request):
 
 def stats_view(request):
     """Display game statistics."""
-    # from django.db.models import Count
-    recent = GameResult.objects.order_by('-played_at')[:20]
+    recent = GameResult.objects.order_by('-played_at')
+    if request.user.is_authenticated:
+        recent = recent.filter(user=request.user)
+    recent = recent[:20]
+
     ai_results = GameResult.objects.filter(mode='ai')
+    if request.user.is_authenticated:
+        ai_results = ai_results.filter(user=request.user)
+
     ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    # ai_losses = 0
+
+    streak_info = None
+    if request.user.is_authenticated:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        # Check if streak is still valid (played today or yesterday)
+        today = timezone.now().date()
+        is_active = profile.last_active_date == today or profile.last_active_date == today - timedelta(days=1)
+        current_streak = profile.current_streak if is_active else 0
+        
+        streak_info = {
+            'current': current_streak,
+            'longest': profile.longest_streak,
+            'updated_today': profile.last_active_date == today
+        }
+
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
+        'streak_info': streak_info,
     })
