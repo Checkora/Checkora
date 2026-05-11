@@ -3,8 +3,8 @@
 import json
 import time
 import hashlib
-import random
-
+import secrets
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
 from django.http import HttpResponse
@@ -20,6 +20,12 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 from .engine import ChessGame
+from .models import GameResult
+
+
+def landing(request):
+    """Render the landing page introduction to Checkora."""
+    return render(request, 'game/landing.html')
 
 
 @ensure_csrf_cookie
@@ -29,6 +35,11 @@ def index(request):
         game = ChessGame()
         request.session['game'] = game.to_dict()
     return render(request, 'game/board.html')
+
+
+def record_game_result(mode, winner, reason):
+    """Save a completed game result to the database."""
+    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
 
 
 @require_POST
@@ -57,6 +68,11 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(game.mode, winner, 'checkmate')
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(game.mode, 'draw', 'stalemate')
 
     return JsonResponse({
         'valid': success,
@@ -71,6 +87,7 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -135,6 +152,7 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -165,7 +183,7 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
-    """Return the full current game state, pausing on page load."""
+    """Return the full current game state without mutating pause state."""
     game_data = request.session.get('game')
     if not game_data:
         game = ChessGame()
@@ -178,10 +196,6 @@ def get_state(request):
             game.paused = True  # pause without deducting lost time
         else:
             game.update_clock()
-
-    # Always start in paused state on page load/refresh
-    game.paused = False
-    game.last_ts = time.time()
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
@@ -199,6 +213,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -216,7 +231,9 @@ def set_pause(request):
 
     game = ChessGame.from_dict(game_data)
 
-    game.update_clock()
+    # Only deduct elapsed time when transitioning from running to paused.
+    if pause and not game.paused:
+        game.update_clock()
     game.paused = pause
     game.last_ts = time.time()
 
@@ -285,6 +302,7 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -309,12 +327,13 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        record_game_result(game.mode, 'draw', 'agreement')
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
-        
+   
     return JsonResponse({'success': True})
 
 
@@ -336,6 +355,8 @@ def resign_game(request):
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
+
+    record_game_result(game.mode, winner, 'resign') 
 
     return JsonResponse({
         'valid': True,
@@ -365,7 +386,7 @@ def register_view(request):
             user.save()
 
             # Generate 6-digit OTP
-            otp = str(random.randint(100000, 999999))
+            otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
@@ -489,7 +510,28 @@ def login_view(request):
 
     return render(request, 'game/login.html', {'form': form})
 
+@xframe_options_sameorigin
+def rules(request):
+    return render(request, 'game/rules.html')
 
+@require_POST
 def logout_view(request):
     logout(request)
-    return redirect('index')
+    return redirect('landing')
+
+
+def stats_view(request):
+    """Display game statistics."""
+    # from django.db.models import Count
+    recent = GameResult.objects.order_by('-played_at')[:20]
+    ai_results = GameResult.objects.filter(mode='ai')
+    ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
+    ai_draws = ai_results.filter(winner='draw').count()
+    ai_total = ai_results.count()
+    # ai_losses = 0
+    return render(request, 'game/stats.html', {
+        'recent': recent,
+        'ai_total': ai_total,
+        'ai_wins': ai_wins,
+        'ai_draws': ai_draws,
+    })

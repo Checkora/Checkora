@@ -61,11 +61,11 @@ Welcome to GSSoC! Here's how the contribution flow works for this project:
 
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Python | ≥ 3.10 |
-| g++ | ≥ 11 (for C++ engine) |
-| pip | latest |
+| Tool   | Version               |
+| ------ | --------------------- |
+| Python | ≥ 3.12                |
+| g++    | ≥ 11 (for C++ engine) |
+| pip    | latest                |
 
 ### Installation
 
@@ -77,6 +77,11 @@ source .venv/bin/activate        # Linux/macOS
 
 # Install Python dependencies
 pip install -r requirements.txt
+
+# Set up environment variables
+# Copy the example file to a local .env file
+cp .env.example .env              # Linux/macOS
+copy .env.example .env            # Windows (PowerShell)
 
 # Compile the C++ chess engine (Linux/macOS)
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
@@ -117,14 +122,14 @@ flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120
 
 Every PR and push to `main` runs the following automated checks via GitHub Actions:
 
-| Job | What it does | Required to merge |
-|-----|-------------|-------------------|
-| 🔍 **Lint** | `flake8` on all Python code | ✅ Yes |
-| ⚙️ **Compile Engine** | `g++ -O2` on `game/engine/main.cpp` | ✅ Yes |
-| 🧪 **Django Tests** | `python manage.py test game` | ✅ Yes |
-| 🗄️ **Migration Check** | `python manage.py migrate --check` | ✅ Yes |
-| 🔒 **Security Scan** | `pip-audit` on `requirements.txt` | ✅ Yes |
-| 🌐 **Deploy** | Vercel production deploy | 🔁 Push to `main` only |
+| Job                    | What it does                        | Required to merge      |
+| ---------------------- | ----------------------------------- | ---------------------- |
+| 🔍 **Lint**            | `flake8` on all Python code         | ✅ Yes                 |
+| ⚙️ **Compile Engine**  | `g++ -O2` on `game/engine/main.cpp` | ✅ Yes                 |
+| 🧪 **Django Tests**    | `python manage.py test game`        | ✅ Yes                 |
+| 🗄️ **Migration Check** | `python manage.py migrate --check`  | ✅ Yes                 |
+| 🔒 **Security Scan**   | `pip-audit` on `requirements.txt`   | ✅ Yes                 |
+| 🌐 **Deploy**          | Vercel production deploy            | 🔁 Push to `main` only |
 
 All checks must pass before a maintainer can merge your PR.
 
@@ -134,15 +139,15 @@ All checks must pass before a maintainer can merge your PR.
 
 Use the following prefixes:
 
-| Prefix | Use for |
-|--------|---------|
-| `feat/` | New features |
-| `fix/` | Bug fixes |
-| `docs/` | Documentation changes |
-| `refactor/` | Code refactoring |
-| `test/` | Adding or updating tests |
-| `chore/` | Maintenance tasks |
-| `engine/` | C++ engine changes |
+| Prefix      | Use for                  |
+| ----------- | ------------------------ |
+| `feat/`     | New features             |
+| `fix/`      | Bug fixes                |
+| `docs/`     | Documentation changes    |
+| `refactor/` | Code refactoring         |
+| `test/`     | Adding or updating tests |
+| `chore/`    | Maintenance tasks        |
+| `engine/`   | C++ engine changes       |
 
 **Example:** `feat/add-move-history-panel`
 
@@ -176,6 +181,21 @@ core: Remove deprecated settings configuration.
 ---
 
 ## 🔀 Pull Request Guidelines
+
+> ⚠️ **Before starting work, sync your fork with upstream `main`.**
+> Opening a PR from a stale fork causes unnecessary merge conflicts.
+> Run these steps before creating your feature branch:
+>
+> ```bash
+> # Step 1 — Sync your fork with upstream before starting work
+> git fetch upstream
+> git checkout main
+> git rebase upstream/main
+> git push origin main
+>
+> # Step 2 — Then create your feature branch
+> git checkout -b feat/your-feature-name
+> ```
 
 1. **One PR = One Purpose**: fix one bug, add one feature, or improve documentation.
 2. Keep PRs **small and focused** — large PRs are harder to review.
@@ -236,6 +256,6 @@ Violations can be reported to the project maintainers.
 ## ❓ Questions?
 
 - Open an **issue** for project-related questions.
-- For GSSoC-specific questions, refer to the official GSSoC Discord/community channels.
+- For GSSoC-specific questions, join our Discord community: [https://discord.gg/WfrpMuNZn](https://discord.gg/WfrpMuNZn)
 
 Thank you for contributing! ♟️🎮

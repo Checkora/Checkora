@@ -10,6 +10,7 @@ body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    overflow-x: hidden;
 }
 .header { margin-bottom: 30px; text-align: center; }
 .header h1 {
@@ -106,3 +107,62 @@ body {
     font-weight: 600;
 }
 .auth-footer a:hover { text-decoration: underline; }
+
+.back-home {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    color: #f0c040;
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.back-home:hover {
+    color: #fff;
+}
+
+/* ── Password visibility toggle ── */
+.pw-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.pw-input-wrapper input {
+    padding-right: 2.5rem;
+}
+.pw-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    color: #8a8aaa;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: color 0.2s ease;
+    z-index: 2;
+}
+.pw-toggle:hover {
+    color: #f0c040;
+}
+.pw-toggle:focus-visible {
+    outline: 2px solid #f0c040;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.pw-toggle svg {
+    display: block;
+    pointer-events: none;
+}
+
+body.login-page .helptext {
+    display: none;
+}
