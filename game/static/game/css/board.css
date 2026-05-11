@@ -35,6 +35,7 @@ body {
 
 /* Logo image */
 .logo-icon-img {
+    height: 40px;
     animation: logoGlow 2.5s ease-in-out infinite alternate;
 }
 
@@ -57,21 +58,7 @@ body {
     letter-spacing: 2px;
     color: #f0c040;
 }
-.logo-icon-img {
-    height: 40px;
-    filter: none;  /* no animation here */
-}
 
-@keyframes logoGlow {
-    0% {
-        filter: brightness(1.6) contrast(1.3)
-                drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
-    }
-    100% {
-        filter: brightness(1.6) contrast(1.3)
-                drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
-    }
-}
 
 /* Responsive */
 @media (max-width: 768px) {
