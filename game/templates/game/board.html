@@ -16,6 +16,7 @@
     <script defer src="/_vercel/speed-insights/script.js"></script>
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    {% block extra_css %}{% endblock %}
 
     <!-- Vercel Web Analytics -->
     <script>
@@ -120,8 +121,9 @@
         </div>
 
         <div class="auth-buttons">
+            <a href="{% url 'stats' %}" class="btn-signin">Global Stats</a>
             {% if user.is_authenticated %}
-            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
+            <a href="{% url 'profile' user.username %}" class="btn-signin">My Profile</a>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="btn-logout">Logout</button>
@@ -130,10 +132,10 @@
             <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
             <a href="{% url 'register' %}" class="btn-register">Register</a>
             {% endif %}
-            <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
 
+    {% block content %}
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
 
@@ -290,7 +292,20 @@
         <div class="promo-dialog" style="min-width: 320px; padding: 35px; text-align: center;">
             <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
                 Game Over</div>
-            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
+            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 15px; font-size: 1rem;"></p>
+            <div id="ratingChange" style="margin-bottom: 25px; display: none;">
+                <div style="font-size: 0.9rem; color: #888; margin-bottom: 8px;">New Ratings</div>
+                <div style="display: flex; justify-content: center; gap: 20px;">
+                    <div class="glass-card" style="padding: 10px 20px; margin: 0;">
+                        <div style="font-size: 0.7rem; color: #aaa;">White</div>
+                        <div id="whiteRatingEnd" style="font-size: 1.2rem; font-weight: bold; color: #fff;">-</div>
+                    </div>
+                    <div class="glass-card" style="padding: 10px 20px; margin: 0;">
+                        <div style="font-size: 0.7rem; color: #aaa;">Black</div>
+                        <div id="blackRatingEnd" style="font-size: 1.2rem; font-weight: bold; color: #fff;">-</div>
+                    </div>
+                </div>
+            </div>
             <div style="margin-bottom: 20px;">
                 <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -334,6 +349,7 @@
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
         </div>
     </div>
+    {% endblock %}
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->

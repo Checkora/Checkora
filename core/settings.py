@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_countries',
     'game',
 ]
 
@@ -131,6 +132,10 @@ STATICFILES_DIRS = [
     BASE_DIR / "game" / "static",
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (Avatars, etc.)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 

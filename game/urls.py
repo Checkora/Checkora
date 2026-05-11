@@ -16,6 +16,10 @@ urlpatterns = [
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
+    path('profile/<str:username>/', views.profile_view, name='profile'),
+    path('@<str:username>/', views.profile_view, name='profile_alias'),
+    path('settings/profile/', views.edit_profile, name='edit_profile'),
+    path('profile/<str:username>/history/', views.match_history, name='match_history'),
 
     # Authentication
     path('register/', views.register_view, name='register'),

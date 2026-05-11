@@ -1,0 +1,86 @@
+{% extends 'game/board.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'game/css/profile.css' %}">
+<script src="https://unpkg.com/lucide@latest"></script>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h2 class="card-title" style="margin: 0;">
+                <i data-lucide="history"></i> Match History: {{ history_user.username }}
+            </h2>
+            <a href="{% url 'profile' history_user.username %}" class="btn-primary" style="background: rgba(255,255,255,0.1); color: #fff;">
+                Back to Profile
+            </a>
+        </div>
+
+        <div class="match-list">
+            {% for game in games %}
+                <div class="match-item" style="grid-template-columns: auto 1fr 1fr auto auto;">
+                    {% if game.winner == 'draw' %}
+                        <div class="match-result result-draw">D</div>
+                    {% elif game.white_player == history_user and game.winner == 'white' or game.black_player == history_user and game.winner == 'black' %}
+                        <div class="match-result result-win">W</div>
+                    {% else %}
+                        <div class="match-result result-loss">L</div>
+                    {% endif %}
+                    
+                    <div class="match-players">
+                        <div style="font-weight: 600;">
+                            {{ game.white_player.username|default:"White (Guest)" }} 
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">vs</span> 
+                            {{ game.black_player.username|default:"Black (Guest)" }}
+                        </div>
+                        <div class="match-date">{{ game.played_at|date:"M d, Y H:i" }}</div>
+                    </div>
+
+                    <div class="match-meta" style="color: var(--text-muted); font-size: 0.9rem;">
+                        <div>Mode: {{ game.get_mode_display }}</div>
+                        <div>Reason: {{ game.get_end_reason_display }}</div>
+                    </div>
+                    
+                    <div class="match-rating" style="text-align: right;">
+                        {% if game.white_player == history_user %}
+                            <div title="Rating After">{{ game.white_rating_after|default:"-" }}</div>
+                        {% else %}
+                            <div title="Rating After">{{ game.black_rating_after|default:"-" }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="match-actions">
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="viewPGN('{{ game.id }}')">
+                            View PGN
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Hidden PGN data for the modal/alert -->
+                <div id="pgn-{{ game.id }}" style="display: none;">{{ game.pgn }}</div>
+            {% empty %}
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i data-lucide="info" style="width: 48px; height: 48px; margin-bottom: 10px;"></i>
+                    <p>No games recorded for this user yet.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+
+    function viewPGN(gameId) {
+        const pgn = document.getElementById('pgn-' + gameId).innerText;
+        if (!pgn) {
+            alert("No PGN available for this game.");
+            return;
+        }
+        // Simple alert for now, could be a modal
+        alert("PGN Data:\n\n" + pgn);
+    }
+</script>
+{% endblock %}

@@ -571,7 +571,7 @@
                         renderClocks();
                         startTimer();
 
-                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+                        if (handleGameStatus(data.game_status, data.draw_reason, data)) {
                             // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
                             applyCheckHighlight();
@@ -617,7 +617,7 @@
                         renderClocks();
                         startTimer();
 
-                        if (handleGameStatus(data.game_status, data.draw_reason)) {
+                        if (handleGameStatus(data.game_status, data.draw_reason, data)) {
                             // Game-ending status has been handled.
                         } else if (data.game_status === 'check') {
                             applyCheckHighlight();
@@ -734,23 +734,23 @@
                 statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
-            function handleGameStatus(status, drawReason) {
+            function handleGameStatus(status, drawReason, data = null) {
                 if (status === 'checkmate') {
-                    endGame('checkmate', turn);
+                    endGame('checkmate', turn, null, data);
                     return true;
                 }
                 if (status === 'stalemate') {
-                    endGame('stalemate', turn);
+                    endGame('stalemate', turn, null, data);
                     return true;
                 }
                 if (status === 'draw') {
-                    endGame('draw', turn, drawReason);
+                    endGame('draw', turn, drawReason, data);
                     return true;
                 }
                 return false;
             }
 
-            function endGame(reason, color, drawReason = null) {
+            function endGame(reason, color, drawReason = null, data = null) {
                 if (gameOver) return;
                 gameOver = true;
                 paused = true;
@@ -788,6 +788,18 @@
             
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
+
+                // Show rating changes if available
+                const ratingChangeEl = document.getElementById('ratingChange');
+                const wRatingEnd = document.getElementById('whiteRatingEnd');
+                const bRatingEnd = document.getElementById('blackRatingEnd');
+                if (data && data.white_rating_after && ratingChangeEl) {
+                    ratingChangeEl.style.display = 'block';
+                    if (wRatingEnd) wRatingEnd.textContent = data.white_rating_after;
+                    if (bRatingEnd) bRatingEnd.textContent = data.black_rating_after;
+                } else if (ratingChangeEl) {
+                    ratingChangeEl.style.display = 'none';
+                }
                 
                 // Add celebration effects for wins
                 if (isCelebration) {

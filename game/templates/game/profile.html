@@ -1,0 +1,198 @@
+{% extends 'game/board.html' %}
+{% load static %}
+{% load countries %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'game/css/profile.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Hero Header -->
+    <div class="profile-hero">
+        <div class="avatar-wrapper">
+            {% if profile.avatar %}
+                <img src="{{ profile.avatar.url }}" alt="{{ profile.user.username }}" class="profile-avatar">
+            {% else %}
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed={{ profile.user.username }}" alt="Default Avatar" class="profile-avatar">
+            {% endif %}
+        </div>
+        <div class="profile-info">
+            <h1>
+                {{ profile.user.username }}
+                {% if profile.country %}
+                    <img src="{{ profile.country.flag }}" alt="{{ profile.country.name }}" class="country-flag" title="{{ profile.country.name }}">
+                {% endif %}
+            </h1>
+            <div class="profile-meta">
+                <span><i data-lucide="calendar"></i> Joined {{ profile.user.date_joined|date:"M Y" }}</span>
+                {% if profile.favorite_opening %}
+                    <span><i data-lucide="book-open"></i> {{ profile.favorite_opening }}</span>
+                {% endif %}
+            </div>
+            <p class="profile-bio">{{ profile.bio|default:"No bio provided yet." }}</p>
+            
+            {% if request.user == profile.user %}
+                <a href="{% url 'edit_profile' %}" class="btn-primary" style="margin-top: 20px; display: inline-block;">
+                    <i data-lucide="settings"></i> Edit Profile
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Dashboard -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-label">Current Rating</span>
+            <span class="stat-value rating">{{ profile.rating }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Peak Rating</span>
+            <span class="stat-value">{{ profile.peak_rating }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Win Rate</span>
+            <span class="stat-value">{{ win_rate }}%</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Total Games</span>
+            <span class="stat-value">{{ total_games }}</span>
+        </div>
+    </div>
+
+    <div class="profile-content">
+        <!-- Main Column -->
+        <div class="main-col">
+            <!-- Rating Progression -->
+            <div class="glass-card" style="margin-bottom: 30px;">
+                <h3 class="card-title"><i data-lucide="trending-up"></i> Rating Progression</h3>
+                <canvas id="ratingChart"></canvas>
+            </div>
+
+            <!-- Recent Matches -->
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 class="card-title" style="margin: 0;"><i data-lucide="history"></i> Recent Matches</h3>
+                    <a href="{% url 'match_history' profile.user.username %}" class="text-primary">View All</a>
+                </div>
+                <div class="match-list">
+                    {% for game in recent_games %}
+                        <div class="match-item">
+                            {% if game.winner == 'draw' %}
+                                <div class="match-result result-draw">D</div>
+                            {% elif game.white_player == profile.user and game.winner == 'white' or game.black_player == profile.user and game.winner == 'black' %}
+                                <div class="match-result result-win">W</div>
+                            {% else %}
+                                <div class="match-result result-loss">L</div>
+                            {% endif %}
+                            
+                            <div class="match-info">
+                                <span class="match-opp">
+                                    vs 
+                                    {% if game.white_player == profile.user %}
+                                        {{ game.black_player.username|default:"Guest/AI" }}
+                                    {% else %}
+                                        {{ game.white_player.username|default:"Guest/AI" }}
+                                    {% endif %}
+                                </span>
+                                <div class="match-date">{{ game.played_at|timesince }} ago</div>
+                            </div>
+                            
+                            <div class="match-rating">
+                                {% if game.white_player == profile.user %}
+                                    {{ game.white_rating_after|default:profile.rating }}
+                                {% else %}
+                                    {{ game.black_rating_after|default:profile.rating }}
+                                {% endif %}
+                            </div>
+                            
+                            <div class="match-reason" style="color: var(--text-muted); font-size: 0.8rem;">
+                                {{ game.get_end_reason_display }}
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted">No games played yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="side-col">
+            <!-- Achievements -->
+            <div class="glass-card" style="margin-bottom: 30px;">
+                <h3 class="card-title"><i data-lucide="award"></i> Achievements</h3>
+                <div class="achievement-grid">
+                    {% for ach in all_achievements %}
+                        <div class="achievement-icon {% if ach.id in unlocked_achievement_ids %}unlocked{% else %}locked{% endif %}" 
+                             title="{{ ach.name }}: {{ ach.description }}">
+                            <i data-lucide="{{ ach.icon_name }}"></i>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Activity Feed (Mini) -->
+            <div class="glass-card">
+                <h3 class="card-title"><i data-lucide="activity"></i> Recent Activity</h3>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem;">
+                    {% for activity in activity_feed %}
+                        <li style="margin-bottom: 15px; display: flex; gap: 10px;">
+                            <i data-lucide="{{ activity.icon }}" style="width: 16px; color: var(--primary);"></i>
+                            <span>{{ activity.text }} <br><small style="color: var(--text-muted);">{{ activity.date|timesince }} ago</small></span>
+                        </li>
+                    {% empty %}
+                        <li class="text-muted">No recent activity.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Rating Chart
+    const ctx = document.getElementById('ratingChart').getContext('2d');
+    const ratingData = {{ rating_history_data|safe }};
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ratingData.labels,
+            datasets: [{
+                label: 'Rating',
+                data: ratingData.values,
+                borderColor: '#f0c040',
+                backgroundColor: 'rgba(240, 192, 64, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#f0c040'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#8a8aaa' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#8a8aaa' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+{% endblock %}

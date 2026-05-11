@@ -9,6 +9,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.mail import send_mail
@@ -17,9 +18,10 @@ from django import forms
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
-
+from django.db.models import Q
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, Profile, Achievement, UserAchievement, RatingHistory
+from .logic import update_game_ratings
 
 
 def landing(request):
@@ -36,9 +38,20 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def record_game_result(mode, winner, reason):
-    """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+def record_game_result(mode, winner, reason, white_user=None, black_user=None, pgn='', fen=''):
+    """Save a completed game result to the database and update ratings."""
+    res = GameResult.objects.create(
+        mode=mode, 
+        winner=winner, 
+        end_reason=reason,
+        white_player=white_user,
+        black_player=black_user,
+        pgn=pgn,
+        fen=fen
+    )
+    if mode == 'pvp' and white_user and black_user:
+        update_game_ratings(res)
+    return res
 
 
 @require_POST
@@ -67,13 +80,31 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        if game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
-        elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+        if game_status in ('checkmate', 'stalemate', 'draw'):
+            winner = 'draw'
+            if game_status == 'checkmate':
+                winner = 'black' if game.current_turn == 'white' else 'white'
+            
+            white_user = User.objects.filter(id=request.session.get('white_user_id')).first()
+            black_user = User.objects.filter(id=request.session.get('black_user_id')).first()
+            
+            result_obj = record_game_result(
+                game.mode, winner, game_status,
+                white_user=white_user,
+                black_user=black_user,
+                pgn=game.generate_pgn(),
+                fen=game.generate_fen_key()
+            )
+            
+            # Add ratings to response if available
+            extra_data = {
+                'white_rating_after': result_obj.white_rating_after,
+                'black_rating_after': result_obj.black_rating_after,
+            }
+        else:
+            extra_data = {}
 
-    return JsonResponse({
+    response_data = {
         'valid': success,
         'message': message,
         'captured': captured,
@@ -89,7 +120,9 @@ def make_move(request):
         'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
-    })
+    }
+    response_data.update(extra_data)
+    return JsonResponse(response_data)
 
 
 @require_GET
@@ -130,6 +163,19 @@ def new_game(request):
     player_color = data.get('player_color', 'white')
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
+
+    # User Tracking
+    if request.user.is_authenticated:
+        if mode == 'ai':
+            if player_color == 'white':
+                request.session['white_user_id'] = request.user.id
+                request.session['black_user_id'] = None
+            else:
+                request.session['white_user_id'] = None
+                request.session['black_user_id'] = request.user.id
+        else: # PvP
+            request.session['white_user_id'] = request.user.id
+            request.session['black_user_id'] = None # Local PvP assumes 2nd player is guest
 
     game = ChessGame()
     game.mode = mode
@@ -286,8 +332,29 @@ def ai_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        if game_status in ('checkmate', 'stalemate', 'draw'):
+            winner = 'draw'
+            if game_status == 'checkmate':
+                winner = 'black' if game.current_turn == 'white' else 'white'
+            
+            white_user = User.objects.filter(id=request.session.get('white_user_id')).first()
+            black_user = User.objects.filter(id=request.session.get('black_user_id')).first()
+            
+            result_obj = record_game_result(
+                game.mode, winner, game_status,
+                white_user=white_user,
+                black_user=black_user,
+                pgn=game.generate_pgn(),
+                fen=game.generate_fen_key()
+            )
+            extra_data = {
+                'white_rating_after': result_obj.white_rating_after,
+                'black_rating_after': result_obj.black_rating_after,
+            }
+        else:
+            extra_data = {}
 
-    return JsonResponse({
+    response_data = {
         'valid': success,
         'message': message,
         'captured': captured,
@@ -304,7 +371,9 @@ def ai_move(request):
         'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
-    })
+    }
+    response_data.update(extra_data)
+    return JsonResponse(response_data)
 
 
 @require_POST
@@ -326,7 +395,15 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(game.mode, 'draw', 'agreement')
+        white_user = User.objects.filter(id=request.session.get('white_user_id')).first()
+        black_user = User.objects.filter(id=request.session.get('black_user_id')).first()
+        record_game_result(
+            game.mode, 'draw', 'agreement',
+            white_user=white_user,
+            black_user=black_user,
+            pgn=game.generate_pgn(),
+            fen=game.generate_fen_key()
+        )
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -355,7 +432,15 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(game.mode, winner, 'resign') 
+    white_user = User.objects.filter(id=request.session.get('white_user_id')).first()
+    black_user = User.objects.filter(id=request.session.get('black_user_id')).first()
+    record_game_result(
+        game.mode, winner, 'resign',
+        white_user=white_user,
+        black_user=black_user,
+        pgn=game.generate_pgn(),
+        fen=game.generate_fen_key()
+    ) 
 
     return JsonResponse({
         'valid': True,
@@ -507,17 +592,100 @@ def logout_view(request):
 
 
 def stats_view(request):
-    """Display game statistics."""
-    # from django.db.models import Count
+    """Display global game statistics."""
     recent = GameResult.objects.order_by('-played_at')[:20]
     ai_results = GameResult.objects.filter(mode='ai')
     ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    # ai_losses = 0
+    
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })
+
+def profile_view(request, username):
+    """Display a user's professional profile dashboard."""
+    user = get_object_or_404(User, username=username)
+    profile, created = Profile.objects.get_or_create(user=user)
+    
+    # Aggregated Stats
+    games = GameResult.objects.filter(Q(white_player=user) | Q(black_player=user))
+    total_games = games.count()
+    wins = games.filter(
+        Q(white_player=user, winner='white') | Q(black_player=user, winner='black')
+    ).count()
+    draws = games.filter(winner='draw').count()
+    
+    win_rate = round((wins / total_games * 100), 1) if total_games > 0 else 0
+    
+    # Rating History for Chart
+    history = RatingHistory.objects.filter(user=user).order_by('recorded_at')
+    rating_history_data = {
+        'labels': [h.recorded_at.strftime('%b %d') for h in history],
+        'values': [h.rating for h in history]
+    }
+    if not rating_history_data['values']:
+        rating_history_data['labels'] = ['Start']
+        rating_history_data['values'] = [1200]
+
+    # Achievements
+    all_achievements = Achievement.objects.all()
+    unlocked_achievement_ids = user.achievements.values_list('achievement_id', flat=True)
+
+    # Activity Feed (Simplified)
+    activity_feed = []
+    for game in games.order_by('-played_at')[:5]:
+        activity_feed.append({
+            'icon': 'play-circle',
+            'text': f"Played a {game.mode} game vs {'AI' if game.mode=='ai' else 'Player'}",
+            'date': game.played_at
+        })
+    for ua in user.achievements.order_by('-unlocked_at')[:5]:
+        activity_feed.append({
+            'icon': 'award',
+            'text': f"Unlocked achievement: {ua.achievement.name}",
+            'date': ua.unlocked_at
+        })
+    activity_feed.sort(key=lambda x: x['date'], reverse=True)
+
+    context = {
+        'profile': profile,
+        'total_games': total_games,
+        'win_rate': win_rate,
+        'recent_games': games.order_by('-played_at')[:5],
+        'rating_history_data': json.dumps(rating_history_data),
+        'all_achievements': all_achievements,
+        'unlocked_achievement_ids': list(unlocked_achievement_ids),
+        'activity_feed': activity_feed[:10]
+    }
+    return render(request, 'game/profile.html', context)
+
+@login_required
+def edit_profile(request):
+    """Handle profile personalization."""
+    profile, created = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        profile.bio = request.POST.get('bio', '')
+        profile.favorite_opening = request.POST.get('favorite_opening', '')
+        if 'avatar' in request.FILES:
+            profile.avatar = request.FILES['avatar']
+        if 'country' in request.POST:
+            profile.country = request.POST.get('country')
+        profile.save()
+        messages.success(request, 'Profile updated successfully!')
+        return redirect('profile', username=request.user.username)
+        
+    return render(request, 'game/edit_profile.html', {'profile': profile})
+
+def match_history(request, username):
+    """Display full paginated match history."""
+    user = get_object_or_404(User, username=username)
+    games = GameResult.objects.filter(Q(white_player=user) | Q(black_player=user)).order_by('-played_at')
+    
+    return render(request, 'game/match_history.html', {
+        'history_user': user,
+        'games': games
+    })

@@ -1,0 +1,75 @@
+{% extends 'game/board.html' %}
+{% load static %}
+{% load countries %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'game/css/profile.css' %}">
+<script src="https://unpkg.com/lucide@latest"></script>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container" style="max-width: 800px;">
+    <div class="glass-card">
+        <h2 class="card-title"><i data-lucide="user-cog"></i> Edit Your Profile</h2>
+        
+        <form method="post" enctype="multipart/form-data" class="edit-form">
+            {% csrf_token %}
+            
+            <div class="form-group" style="align-items: center; text-align: center;">
+                <div class="avatar-wrapper" style="width: 120px; height: 120px;">
+                    {% if profile.avatar %}
+                        <img src="{{ profile.avatar.url }}" alt="{{ profile.user.username }}" class="profile-avatar" id="avatarPreview">
+                    {% else %}
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed={{ profile.user.username }}" alt="Default Avatar" class="profile-avatar" id="avatarPreview">
+                    {% endif %}
+                </div>
+                <label for="avatar" class="btn-primary" style="margin-top: 15px; cursor: pointer;">
+                    Change Avatar
+                </label>
+                <input type="file" id="avatar" name="avatar" style="display: none;" onchange="previewImage(this)">
+            </div>
+
+            <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" class="form-control" rows="4" placeholder="Tell us about yourself...">{{ profile.bio }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="country">Country</label>
+                <select id="country" name="country" class="form-control">
+                    <option value="">Select a country</option>
+                    {% for country in profile.country.countries %}
+                        <option value="{{ country.code }}" {% if profile.country.code == country.code %}selected{% endif %}>
+                            {{ country.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="favorite_opening">Favorite Opening</label>
+                <input type="text" id="favorite_opening" name="favorite_opening" class="form-control" value="{{ profile.favorite_opening }}" placeholder="e.g. Sicilian Defense">
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button type="submit" class="btn-primary">Save Changes</button>
+                <a href="{% url 'profile' request.user.username %}" class="btn-primary" style="background: rgba(255,255,255,0.1); color: #fff;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+    
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('avatarPreview').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+</script>
+{% endblock %}
