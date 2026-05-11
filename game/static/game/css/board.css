@@ -447,6 +447,23 @@ body {
     transform: translateY(-1px);
 }
 .btn-danger:active { transform: translateY(0); }
+.back-btn {
+    font-size: small;
+    background: var(--bg);
+    color: var(--bg) !important;
+    font-weight: bold;
+    margin-bottom: 2rem;
+    text-decoration: none;
+    display: flex; 
+    justify-content: flex-start;
+    
+}
+
+.back-btn:hover {
+    color: #d4a72d;
+    text-decoration: underline !important;
+    transform: scale(1.05);
+}
 
 /* ============================================================
    PvE Side Selection
