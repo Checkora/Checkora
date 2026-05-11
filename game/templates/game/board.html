@@ -121,6 +121,10 @@
 
         <div class="auth-buttons">
             {% if user.is_authenticated %}
+            <div class="streak-container {% if streak_info.updated_today %}active{% endif %}" title="Daily Streak">
+                <span class="streak-icon">🔥</span>
+                <span class="streak-count">{{ streak_info.current }}</span>
+            </div>
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}
