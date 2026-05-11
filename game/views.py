@@ -6,7 +6,7 @@ import hashlib
 import secrets
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -59,6 +59,7 @@ def make_move(request):
 
     game_data = request.session.get('game')
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
+    game.force_python = bool(request.session.get('force_python_engine', False))
 
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
@@ -109,6 +110,7 @@ def valid_moves(request):
         return JsonResponse({'valid_moves': []})
 
     game = ChessGame.from_dict(game_data)
+    game.force_python = bool(request.session.get('force_python_engine', False))
     moves = game.get_valid_moves(row, col)
     return JsonResponse({'valid_moves': moves})
 
@@ -526,6 +528,8 @@ def stats_view(request):
 
 def dev_settings_view(request):
     """Developer settings: toggle between C++ engine and Python fallback."""
+    if not settings.DEBUG:
+        return HttpResponseForbidden('Not available in production.')
     if request.method == 'POST':
         force_python = request.POST.get('engine_mode') == 'python'
         request.session['force_python_engine'] = force_python

@@ -130,6 +130,7 @@ DP cache is intentionally excluded to save cookie space."""
         return {
             'board': self.board,
             'current_turn': self.current_turn,
+            'force_python': self.force_python,
             'move_history': self.move_history,
             'captured': self.captured,
             'white_time': self.white_time,
@@ -152,6 +153,7 @@ DP cache is intentionally excluded to save cookie space."""
         game = cls.__new__(cls)
         game.board = data['board']
         game.current_turn = data['current_turn']
+        game.force_python = data.get('force_python', False)
         game.move_history = data.get('move_history', [])
         game.captured = data.get('captured', {'white': [], 'black': []})
         game.paused = data.get('paused', False)
