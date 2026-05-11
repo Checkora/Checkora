@@ -1075,6 +1075,22 @@
             let selectedPveColor = 'white';
 
             if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+                // Ensure both inputs are in PvP state before validating.
+                // A user could have visited the AI setup screen (which sets
+                // blackInput.value = 'AI' and whiteInput.placeholder = 'Your Name')
+                // and then navigated back here — make sure those side-effects are gone.
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'White Player Name';
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.placeholder = 'Black Player Name';
+                    // Clear any 'AI' value injected by the AI-mode setup screen.
+                    if (blackInput.value === 'AI') blackInput.value = '';
+                }
                 if (!validatePlayerNames()) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
@@ -1124,6 +1140,9 @@
                 if (blackInput) {
                     blackInput.style.display = 'block';
                     blackInput.placeholder = 'Black Player Name';
+                    // Clear the 'AI' sentinel value set by welcomeAIBtn.onclick
+                    // so it never leaks into a subsequent PvP game (Issue #513).
+                    blackInput.value = '';
                     blackInput.classList.remove('input-error');
                 }
                 
