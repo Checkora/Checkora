@@ -123,7 +123,23 @@ body {
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
+.back-btn {
+    font-size: small !important;
+    background: var(--bg);
+    color: var(--bg) !important;
+    font-weight: bold;
+    margin-bottom: 2rem;
+    text-decoration: none;
+    display: flex; 
+    justify-content: flex-start;
+    
+}
 
+.back-btn:hover {
+    color: #d4a72d;
+    text-decoration: underline !important;
+    transform: scale(1.05);
+}
 .hero {
     display: flex;
     flex-direction: column;
@@ -370,3 +386,4 @@ body {
         margin-top: 1rem;
     }
 }
+
