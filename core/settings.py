@@ -32,6 +32,9 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['.vercel.app', '*']
 
+# Required for django.template.context_processors.debug to expose `debug=True` to templates
+INTERNAL_IPS = ['127.0.0.1', 'localhost']
+
 
 # Application definition
 
@@ -68,6 +71,7 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
