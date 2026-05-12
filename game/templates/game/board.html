@@ -37,6 +37,37 @@
 
 
 <body>
+    <!-- ========== MESSAGES / TOASTS ========== -->
+    <div id="messageContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px;">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" style="background: rgba(22, 22, 42, 0.9); border: 1px solid #f0c040; color: #fff; padding: 15px 25px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(5px); animation: slideIn 0.3s ease-out;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <style>
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+    <script>
+        // Auto-hide messages after 5 seconds
+        setTimeout(() => {
+            const container = document.getElementById('messageContainer');
+            if (container) {
+                const alerts = container.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    alert.style.transition = 'opacity 0.5s ease-out';
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 500);
+                });
+            }
+        }, 5000);
+    </script>
 
     <!-- ========== WELCOME MESSAGE ========== -->
 

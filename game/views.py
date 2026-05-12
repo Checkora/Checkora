@@ -19,7 +19,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, Achievement, UserAchievement, UserProfile
+from .achievements import AchievementEngine
 
 
 def landing(request):
@@ -36,9 +37,34 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def record_game_result(mode, winner, reason):
-    """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+def record_game_result(request, mode, winner, reason):
+    """Save a completed game result to the database and check for achievements."""
+    user = request.user if request.user.is_authenticated else None
+    
+    # Extract metadata from session
+    player_color = request.session.get('player_color', 'white')
+    ai_difficulty = request.session.get('difficulty', 'medium') if mode == 'ai' else None
+    
+    # Create the result
+    game_result = GameResult.objects.create(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        player_color=player_color,
+        ai_difficulty=ai_difficulty
+    )
+    
+    # Check for achievements
+    if user:
+        # Ensure default achievements exist
+        if not Achievement.objects.exists():
+            AchievementEngine.initialize_default_achievements()
+            
+        new_unlocks = AchievementEngine.update_stats_and_check(user, game_result)
+        if new_unlocks:
+            for ach in new_unlocks:
+                messages.success(request, f"🏆 Achievement Unlocked: {ach.name}!")
 
 
 @require_POST
@@ -69,9 +95,9 @@ def make_move(request):
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
+            record_game_result(request, game.mode, winner, 'checkmate')
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+            record_game_result(request, game.mode, 'draw', 'stalemate')
 
     return JsonResponse({
         'valid': success,
@@ -326,7 +352,7 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(game.mode, 'draw', 'agreement')
+        record_game_result(request, game.mode, 'draw', 'agreement')
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -355,7 +381,7 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(game.mode, winner, 'resign') 
+    record_game_result(request, game.mode, winner, 'resign') 
 
     return JsonResponse({
         'valid': True,
@@ -507,17 +533,48 @@ def logout_view(request):
 
 
 def stats_view(request):
-    """Display game statistics."""
-    # from django.db.models import Count
+    """Display game statistics and achievements."""
     recent = GameResult.objects.order_by('-played_at')[:20]
+    
+    # Global AI Stats
     ai_results = GameResult.objects.filter(mode='ai')
     ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    # ai_losses = 0
-    return render(request, 'game/stats.html', {
+
+    context = {
         'recent': recent,
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
-    })
+    }
+
+    # User Specific Stats & Achievements
+    if request.user.is_authenticated:
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        user_achievements = UserAchievement.objects.filter(user=request.user).select_related('achievement')
+        unlocked_ach_ids = set(ua.achievement_id for ua in user_achievements)
+        
+        all_achievements = Achievement.objects.all().order_by('rarity', 'name')
+        
+        # Categorize achievements
+        badges = []
+        for ach in all_achievements:
+            badges.append({
+                'id': ach.id,
+                'name': ach.name,
+                'description': ach.description,
+                'rarity': ach.rarity,
+                'icon_name': ach.icon_name,
+                'is_unlocked': ach.id in unlocked_ach_ids,
+                'category': ach.get_category_display(),
+            })
+            
+        context.update({
+            'profile': profile,
+            'badges': badges,
+            'unlocked_count': len(unlocked_ach_ids),
+            'total_count': all_achievements.count(),
+        })
+
+    return render(request, 'game/stats.html', context)

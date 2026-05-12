@@ -1,0 +1,180 @@
+/* Achievements & Badges Styles */
+
+.achievements-container {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(22, 22, 42, 0.6);
+    border: 1px solid rgba(37, 37, 69, 0.8);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.achievements-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(37, 37, 69, 0.5);
+    padding-bottom: 1rem;
+}
+
+.achievements-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.achievement-progress {
+    font-size: 0.9rem;
+    color: #8a8aaa;
+    background: rgba(15, 15, 26, 0.8);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    border: 1px solid rgba(240, 192, 64, 0.3);
+}
+
+.badges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+}
+
+.badge-card {
+    position: relative;
+    background: rgba(15, 15, 26, 0.8);
+    border: 1px solid rgba(37, 37, 69, 0.5);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    overflow: hidden;
+}
+
+.badge-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(240, 192, 64, 0.5);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+.badge-card.locked {
+    filter: grayscale(1) opacity(0.5);
+}
+
+.badge-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #16162a, #0f0f1a);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 0.5rem;
+    border: 2px solid rgba(37, 37, 69, 0.8);
+    position: relative;
+}
+
+.badge-card.unlocked .badge-icon-wrapper {
+    background: linear-gradient(135deg, #1e1e3f, #16162a);
+    border-color: #f0c040;
+    color: #f0c040;
+    box-shadow: 0 0 15px rgba(240, 192, 64, 0.2);
+}
+
+/* Rarity Effects */
+.badge-card.rarity-rare .badge-icon-wrapper { border-color: #4a9eff; color: #4a9eff; }
+.badge-card.rarity-epic .badge-icon-wrapper { border-color: #a335ee; color: #a335ee; }
+.badge-card.rarity-legendary .badge-icon-wrapper { 
+    border-color: #ff8000; 
+    color: #ff8000;
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% { box-shadow: 0 0 5px rgba(255, 128, 0, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(255, 128, 0, 0.5); }
+    100% { box-shadow: 0 0 5px rgba(255, 128, 0, 0.2); }
+}
+
+.badge-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #fff;
+    margin: 0;
+}
+
+.badge-description {
+    font-size: 0.8rem;
+    color: #8a8aaa;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.badge-rarity {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(37, 37, 69, 0.5);
+    margin-top: auto;
+}
+
+.rarity-common { color: #d0d0d0; }
+.rarity-rare { color: #4a9eff; }
+.rarity-epic { color: #a335ee; }
+.rarity-legendary { color: #ff8000; font-weight: bold; }
+
+/* User Stats Section */
+.user-stats-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-item {
+    background: rgba(22, 22, 42, 0.4);
+    border: 1px solid rgba(37, 37, 69, 0.5);
+    padding: 1rem;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #f0c040;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #8a8aaa;
+    text-transform: uppercase;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+    .badges-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1rem;
+    }
+    
+    .badge-card {
+        padding: 1rem;
+    }
+    
+    .badge-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        font-size: 18px;
+    }
+}
