@@ -259,12 +259,14 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
+
     # Depth Mapping
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
     depth = depth_map.get(difficulty, 3)
 
     best = game.get_ai_move(depth=depth)
+
     if not best:
         return JsonResponse({
             'valid': False,
@@ -272,11 +274,15 @@ def ai_move(request):
             'board': game.board,
             'current_turn': game.current_turn,
         })
-
+        
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
     )
+
+    print("AI MOVE:", best)
+    print("MOVE SUCCESS:", success)
+    print("MESSAGE:", message)
 
     if success:
         request.session['game'] = game.to_dict()

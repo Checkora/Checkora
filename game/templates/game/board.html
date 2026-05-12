@@ -13,10 +13,11 @@
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/speed-insights/script.js"></script>
 
-    
+    {% comment %} <script defer src="/_vercel/speed-insights/script.js"></script> {% endcomment %}
+
     <style>
+
         /* ============================================================
            Reset & Base
            ============================================================ */
@@ -333,19 +334,24 @@
 
     <!-- Vercel Web Analytics -->
     <script>
-        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+        window.va = window.va || function () { 
+            (window.vaq = window.vaq || []).push(arguments); 
+        };
     </script>
-    <script defer src="/_vercel/insights/script.js"></script>
 
     <script>
         (function () {
             const VALID_THEMES = ['classic', 'dark', 'green', 'blue'];
             let saved = 'classic';
-            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
+            try {
+                 saved = localStorage.getItem('chessBoardTheme') || 'classic'; 
+                }catch (e) { }
             if (!VALID_THEMES.includes(saved)) saved = 'classic';
             document.documentElement.setAttribute('data-theme', saved);
         })();
     </script>
+
+    {% comment %} <script defer src="/_vercel/insights/script.js"></script> {% endcomment %}
 
 </head>
 
@@ -1294,10 +1300,10 @@
         pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
 
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) pauseGame();
+            //if (document.hidden) pauseGame();
         });
 
-        window.addEventListener('beforeunload', () => {
+        /* window.addEventListener('beforeunload', () => {
             if (!paused) {
                 navigator.sendBeacon('/api/pause/', JSON.stringify({
                     pause: true,
@@ -1305,7 +1311,7 @@
                     black_time: blackTime
                 }));
             }
-        });
+        }); */
 
         /* ==========================================================
         WELCOME & CONFIRMATION LOGIC

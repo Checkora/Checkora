@@ -781,22 +781,28 @@ DP cache is intentionally excluded to save cookie space."""
         # 2. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
         if depth is None:
             depth = self._get_ai_search_depth()
+            
         ep_str = self._serialize_ep()
         cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {ep_str} {depth}"
         resp = self._call_engine(cmd)
+
+        print("CMD:", cmd)
+        print("RESP:", resp)
 
         if not resp or not resp.startswith("BESTMOVE"):
             return None
 
         parts = resp.split()
+
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
         return {
             'from_row': int(parts[1]),
             'from_col': int(parts[2]),
-            'to_row':   int(parts[3]),
-            'to_col':   int(parts[4]),
+            'to_row': int(parts[3]),
+            'to_col': int(parts[4]),
         }
