@@ -342,6 +342,153 @@ body {
     margin-left: auto;
 }
 
+.about-page {
+    background:
+        radial-gradient(circle at top, rgba(240, 192, 64, 0.08), transparent 28%),
+        linear-gradient(180deg, #10101b 0%, #0f0f1a 100%);
+}
+
+.about-shell {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 3.5rem 5% 5rem;
+}
+
+.about-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+    gap: 2rem;
+    align-items: stretch;
+    padding: 1rem 0 2rem;
+}
+
+.about-hero-copy {
+    padding: 2.5rem 0;
+}
+
+.eyebrow {
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.22rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 0.9rem;
+}
+
+.about-title {
+    font-size: clamp(2.4rem, 4vw, 4.2rem);
+    line-height: 1.08;
+    color: var(--text-title);
+    max-width: 12ch;
+    margin-bottom: 1rem;
+}
+
+.about-lead,
+.info-card p,
+.info-card li {
+    color: var(--text-secondary);
+    line-height: 1.75;
+    font-size: 1rem;
+}
+
+.about-lead {
+    max-width: 62ch;
+    margin-bottom: 1.8rem;
+}
+
+.hero-actions {
+    flex-wrap: wrap;
+}
+
+.info-card {
+    background: linear-gradient(180deg, rgba(22, 22, 42, 0.96), rgba(18, 18, 31, 0.96));
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 1.5rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+.about-highlights {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.mini-heading {
+    color: var(--text-title);
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.feature-list,
+.contrib-list {
+    padding-left: 1.2rem;
+    display: grid;
+    gap: 0.8rem;
+}
+
+.section-block {
+    margin-top: 3.5rem;
+}
+
+.section-heading-wrap {
+    margin-bottom: 1.4rem;
+}
+
+.about-section-title {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.about-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+}
+
+.info-card h3 {
+    color: var(--text-title);
+    font-size: 1.15rem;
+    margin-bottom: 0.8rem;
+}
+
+.split-block {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+.engine-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .about-shell {
+        padding: 2.5rem 1rem 4rem;
+    }
+
+    .about-hero,
+    .split-block {
+        grid-template-columns: 1fr;
+    }
+
+    .about-hero-copy {
+        padding: 0;
+    }
+
+    .about-title {
+        max-width: none;
+    }
+
+    .about-section-title {
+        text-align: left;
+    }
+}
+
 @media (max-width: 768px) {
     .navbar {
         flex-direction: column;

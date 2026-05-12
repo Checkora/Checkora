@@ -20,7 +20,7 @@
                 <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
             </a>
             <div class="nav-links">
-                <a href="#hero">About</a>
+                <a href="{% url 'about' %}">About</a>
                 <a href="#features">Features</a>
             </div>
         </div>
@@ -118,6 +118,7 @@
 
     <footer class="footer">
         <div class="footer-content">
+            <a href="{% url 'about' %}" class="footer-link">About</a>
             <a href="{% url 'rules' %}" class="footer-link">Rulebook</a>
             <a href="{% url 'stats' %}" class="footer-link">Statistics</a>
             <span class="footer-copy">&copy; {% now "Y" %} Checkora Hybrid Engine</span>

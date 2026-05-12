@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About | Checkora Hybrid Chess Engine</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+</head>
+
+<body class="about-page">
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="{% url 'landing' %}" class="logo-link">
+                <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
+                <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
+            </a>
+            <div class="nav-links">
+                <a href="{% url 'landing' %}">Home</a>
+                <a href="{% url 'index' %}">Play</a>
+                <a href="#features">Features</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+            <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-register">Log Out</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="about-shell">
+        <section class="about-hero">
+            <div class="about-hero-copy">
+                <p class="eyebrow">About Checkora</p>
+                <h1 class="about-title">A chess platform built for sharp play, fast feedback, and clean practice.</h1>
+                <p class="about-lead">
+                    Checkora pairs a polished Django interface with a high-performance chess engine so players can
+                    study openings, explore AI support, and play without losing the feel of a focused chess workspace.
+                </p>
+                <div class="hero-actions">
+                    <a href="{% url 'index' %}" class="btn-primary">Start Playing</a>
+                    <a href="{% url 'rules' %}" class="btn-secondary">Read Rulebook</a>
+                </div>
+            </div>
+
+            <aside class="about-highlights info-card">
+                <h2 class="mini-heading">What makes it different</h2>
+                <ul class="feature-list">
+                    <li>Ranked and practice modes are kept separate.</li>
+                    <li>AI moves are powered by the same engine core.</li>
+                    <li>The UI stays responsive on mobile and desktop.</li>
+                    <li>Game feedback is immediate, simple, and readable.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <section class="section-block" id="features">
+            <div class="section-heading-wrap">
+                <p class="eyebrow">Features</p>
+                <h2 class="section-title about-section-title">Built to support real games and deliberate practice.</h2>
+            </div>
+            <div class="about-grid feature-grid">
+                <article class="info-card">
+                    <h3>Practice Mode</h3>
+                    <p>Play against the engine without affecting ratings, coins, streaks, or leaderboard placement.</p>
+                </article>
+                <article class="info-card">
+                    <h3>AI Suggestions</h3>
+                    <p>See a live recommendation panel in practice sessions and toggle hints on or off when you want a cleaner board.</p>
+                </article>
+                <article class="info-card">
+                    <h3>Session-Based Game State</h3>
+                    <p>Each game state is stored cleanly in the session, which keeps the frontend and backend aligned during play.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="section-block split-block">
+            <article class="info-card engine-card">
+                <p class="eyebrow">AI Engine</p>
+                <h2 class="section-title about-section-title">Fast move generation, reusable across ranked play and practice.</h2>
+                <p>
+                    Checkora reuses the existing chess engine infrastructure to compute legal moves and best responses.
+                    The practice suggestion layer simply asks the engine for guidance and presents it as readable chess notation.
+                </p>
+            </article>
+
+            <article class="info-card">
+                <p class="eyebrow">Open Source</p>
+                <h2 class="section-title about-section-title">Built to be understood, extended, and contributed to.</h2>
+                <p>
+                    The project is intentionally lightweight so contributors can inspect the game flow, improve the engine,
+                    or refine the interface without fighting a heavy framework layer.
+                </p>
+                <ol class="contrib-list">
+                    <li>Open an issue for bugs or feature ideas.</li>
+                    <li>Fork the project and test changes locally.</li>
+                    <li>Submit focused pull requests with clear intent.</li>
+                </ol>
+            </article>
+        </section>
+
+        <section class="section-block">
+            <div class="section-heading-wrap">
+                <p class="eyebrow">Technology Stack</p>
+                <h2 class="section-title about-section-title">A compact stack with a clear separation of concerns.</h2>
+            </div>
+            <div class="about-grid tech-grid">
+                <article class="info-card"><h3>Django</h3><p>Routes, templates, session state, and server-side orchestration.</p></article>
+                <article class="info-card"><h3>JavaScript</h3><p>Board interaction, mode switching, and live suggestion updates.</p></article>
+                <article class="info-card"><h3>C++ Engine</h3><p>Minimax search, evaluation, and move calculation under the hood.</p></article>
+                <article class="info-card"><h3>HTML and CSS</h3><p>Responsive presentation with reusable dark-theme components.</p></article>
+            </div>
+        </section>
+    </main>
+</body>
+
+</html>

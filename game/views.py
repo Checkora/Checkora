@@ -27,6 +27,11 @@ def landing(request):
     return render(request, 'game/landing.html')
 
 
+def about(request):
+    """Render the About page for the Checkora platform."""
+    return render(request, 'game/about.html')
+
+
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""

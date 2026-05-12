@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.landing, name='landing'),
+    path('about/', views.about, name='about'),
     path('play/', views.index, name='index'),
     path('api/move/', views.make_move, name='make_move'),
     path('api/valid-moves/', views.valid_moves, name='valid_moves'),
