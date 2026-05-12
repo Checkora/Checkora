@@ -33,6 +33,7 @@ env:
   # Dummy secret key — safe for CI, never used in production
   SECRET_KEY: "ci-insecure-k3y-f0r-t3sting-0nly-d0-n0t-use-1n-pr0d"
   PYTHON_VERSION: "3.12"
+  DATABASE_URL: "sqlite:///db.sqlite3"
 
 # ───────────────────────────────────────────────────────────────────
 # JOB 1 — Python Lint (flake8)

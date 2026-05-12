@@ -4,10 +4,11 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+            const PIECE_BASE = (window.CHECKORA_PIECE_BASE || '/static/game/pieces/').replace(/\/$/, '');
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
-                    PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
+                    PIECE_IMG[c + t] = `${PIECE_BASE}/${c}${t}.svg`;
 
             let board = [];
             let turn = 'white';
