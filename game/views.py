@@ -1,6 +1,7 @@
 """Game views for the Checkora chess platform."""
 
 import json
+import re
 import time
 import hashlib
 import secrets
@@ -22,9 +23,72 @@ from .engine import ChessGame
 from .models import GameResult
 
 
+_USERNAME_RE = re.compile(r'^[a-zA-Z0-9_.]{3,20}$')
+
+
+def _generate_suggestions(base: str) -> list[str]:
+    """Return up to 4 available username suggestions derived from *base*."""
+    import datetime
+    year = str(datetime.date.today().year)
+    candidates = [
+        f"{base}_123",
+        f"{base}_alt",
+        f"{base}_{year}",
+        f"{base}_dev",
+    ]
+    candidates = list(dict.fromkeys(c[:20] for c in candidates))
+    taken = set(
+        User.objects.filter(username__in=candidates).values_list(
+            'username', flat=True
+        )
+    )
+    return [c for c in candidates if c not in taken]
+
+
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
+
+
+@require_GET
+def check_username(request):
+    """
+    GET /api/check-username/?username=<value>
+
+    Returns JSON:
+        {
+            "available": bool,
+            "suggestions": list[str],   # only when available is False
+            "error": str | null          # format-validation error, if any
+        }
+    """
+    username = request.GET.get('username', '')
+
+    if username != username.strip():
+        return JsonResponse({
+            'available': False,
+            'suggestions': [],
+            'error': 'Username must not start or end with a space.',
+        })
+
+    if not _USERNAME_RE.match(username):
+        return JsonResponse({
+            'available': False,
+            'suggestions': [],
+            'error': (
+                'Username must be 3–20 characters and may only contain '
+                'letters, numbers, underscores (_), and periods (.).'
+            ),
+        })
+
+    taken = User.objects.filter(username__iexact=username).exists()
+    suggestions = _generate_suggestions(username) if taken else []
+
+    return JsonResponse({
+        'available': not taken,
+        'suggestions': suggestions,
+        'error': None,
+    })
 
 
 @ensure_csrf_cookie

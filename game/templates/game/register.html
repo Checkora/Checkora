@@ -5,7 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6" />
+    <meta name="description" content="Create a free Checkora account to track your chess stats and play against the AI." />
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7" />
     <link
       rel="icon"
       type="image/jpeg"
@@ -22,27 +23,68 @@
     </div>
 
     <div class="auth-card">
-      <form method="POST">
+      <form
+        id="register-form"
+        method="POST"
+        data-check-url="{% url 'check_username' %}"
+        data-csrf="{{ csrf_token }}"
+        novalidate
+      >
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-          {{ form.non_field_errors }}
+          <div class="errorlist-wrapper" role="alert">
+            {{ form.non_field_errors }}
+          </div>
         {% endif %}
 
         {% for field in form %}
-        <div class="form-group">
+        <div class="form-group{% if field.name == 'username' %} username-group{% endif %}">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-          {{ field }}
+
+          {% if field.name == 'username' %}
+            {# Username field gets special treatment #}
+            <div class="username-input-row">
+              {{ field }}
+              <span id="username-char-count" class="char-count" aria-live="polite">0 / 20</span>
+            </div>
+
+            {# Inline validation feedback #}
+            <div
+              id="username-feedback"
+              class="username-feedback"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            ></div>
+
+            {# Suggestion chips (shown when username is taken) #}
+            <div
+              id="username-suggestions"
+              class="suggestion-chips"
+              aria-label="Available username suggestions"
+            ></div>
+
+          {% else %}
+            {{ field }}
+          {% endif %}
+
           {% if field.help_text %}
-          <span class="helptext">{{ field.help_text|safe }}</span>
+            <span class="helptext">{{ field.help_text|safe }}</span>
           {% endif %}
           {% if field.errors %}
-            {{ field.errors }}
+            <div class="errorlist" role="alert">{{ field.errors }}</div>
           {% endif %}
         </div>
         {% endfor %}
 
-        <button type="submit" class="btn btn-gold">Create Account</button>
+        <button
+          type="submit"
+          id="submit-btn"
+          class="btn btn-gold"
+          disabled
+          aria-disabled="true"
+        >Create Account</button>
       </form>
 
       <div class="auth-footer">
@@ -50,6 +92,6 @@
       </div>
     </div>
 
-    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
+    <script src="{% static 'game/js/auth.js' %}?v=7"></script>
   </body>
 </html>

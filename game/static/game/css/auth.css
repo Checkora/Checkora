@@ -1,6 +1,13 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
 
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
     background-color: #0f0f1a;
     color: #d0d0d0;
@@ -12,7 +19,12 @@ body {
     flex-direction: column;
     overflow-x: hidden;
 }
-.header { margin-bottom: 30px; text-align: center; }
+
+.header {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
 .header h1 {
     font-size: 2rem;
     font-weight: 700;
@@ -20,7 +32,11 @@ body {
     letter-spacing: 2px;
     margin-bottom: 8px;
 }
-.header p { color: #8a8aaa; font-size: 0.95rem; }
+
+.header p {
+    color: #8a8aaa;
+    font-size: 0.95rem;
+}
 
 .auth-card {
     background: #16162a;
@@ -28,11 +44,14 @@ body {
     border-radius: 12px;
     padding: 30px 35px;
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
 }
 
-.form-group { margin-bottom: 20px; }
+.form-group {
+    margin-bottom: 20px;
+}
+
 .form-group label {
     display: block;
     font-size: 0.85rem;
@@ -40,6 +59,7 @@ body {
     margin-bottom: 8px;
     letter-spacing: 0.5px;
 }
+
 .form-group input {
     width: 100%;
     padding: 12px 14px;
@@ -50,6 +70,7 @@ body {
     font-size: 1rem;
     transition: all 0.2s ease;
 }
+
 .form-group input:focus {
     outline: none;
     border-color: #f0c040;
@@ -62,11 +83,13 @@ body {
     margin-top: 6px;
     display: block;
 }
-.errorlist {
+
+.errorlist,
+.errorlist-wrapper ul {
     list-style: none;
     color: #ff6b6b;
     font-size: 0.8rem;
-    margin-bottom: 10px;
+    margin-top: 6px;
     padding: 8px;
     background: rgba(255, 107, 107, 0.1);
     border-left: 3px solid #ff6b6b;
@@ -82,17 +105,29 @@ body {
     font-weight: 600;
     cursor: pointer;
     letter-spacing: 0.5px;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     margin-top: 10px;
 }
+
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);
     color: #1a1a2e;
 }
-.btn-gold:hover {
+
+.btn-gold:hover:not(:disabled) {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+}
+
+.btn-gold:disabled,
+.btn-gold[aria-disabled="true"] {
+    background: linear-gradient(135deg, #6b5a1e, #4a3e12);
+    color: #6a6a4a;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.6;
 }
 
 .auth-footer {
@@ -101,12 +136,16 @@ body {
     font-size: 0.9rem;
     color: #8a8aaa;
 }
+
 .auth-footer a {
     color: #f0c040;
     text-decoration: none;
     font-weight: 600;
 }
-.auth-footer a:hover { text-decoration: underline; }
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
 
 .back-home {
     position: fixed;
@@ -118,6 +157,7 @@ body {
     font-size: 1.2rem;
     font-weight: 700;
 }
+
 .back-home:hover {
     color: #fff;
 }
@@ -128,9 +168,11 @@ body {
     display: flex;
     align-items: center;
 }
+
 .pw-input-wrapper input {
     padding-right: 2.5rem;
 }
+
 .pw-toggle {
     position: absolute;
     right: 0.75rem;
@@ -150,14 +192,17 @@ body {
     transition: color 0.2s ease;
     z-index: 2;
 }
+
 .pw-toggle:hover {
     color: #f0c040;
 }
+
 .pw-toggle:focus-visible {
     outline: 2px solid #f0c040;
     outline-offset: 2px;
     border-radius: 4px;
 }
+
 .pw-toggle svg {
     display: block;
     pointer-events: none;
@@ -165,4 +210,132 @@ body {
 
 body.login-page .helptext {
     display: none;
+}
+
+.username-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.username-input-row input {
+    flex: 1;
+}
+
+.char-count {
+    font-size: 0.75rem;
+    color: #6a6a8a;
+    white-space: nowrap;
+    min-width: 44px;
+    text-align: right;
+    transition: color 0.2s;
+}
+
+.char-count-warn {
+    color: #f0c040;
+}
+
+.username-feedback {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    min-height: 22px;
+    margin-top: 6px;
+    transition: opacity 0.2s;
+}
+
+.username-feedback:empty {
+    display: none;
+}
+
+.feedback-available {
+    color: #4caf50;
+}
+
+.feedback-taken {
+    color: #ff6b6b;
+}
+
+.feedback-invalid {
+    color: #f0c040;
+}
+
+.feedback-loading {
+    color: #8a8aaa;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin-icon {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    border: 2px solid #8a8aaa;
+    border-top-color: #f0c040;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+.suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    min-height: 0;
+}
+
+.suggestion-chips:empty {
+    display: none;
+}
+
+.suggestions-label {
+    font-size: 0.75rem;
+    color: #6a6a8a;
+    margin-right: 2px;
+}
+
+.suggestion-chip {
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 20px;
+    color: #c0c0d8;
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    font-family: inherit;
+}
+
+.suggestion-chip:hover {
+    border-color: #f0c040;
+    color: #f0c040;
+    background: rgba(240, 192, 64, 0.06);
+}
+
+.suggestion-chip:focus-visible {
+    outline: 2px solid #f0c040;
+    outline-offset: 2px;
+}
+
+.username-group input.input-available {
+    border-color: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.15);
+}
+
+.username-group input.input-taken,
+.username-group input.input-invalid {
+    border-color: #ff6b6b;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.12);
+}
+
+.username-group input.input-invalid {
+    border-color: #f0c040;
+    box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.12);
 }
