@@ -11,7 +11,8 @@ document.body.innerHTML = `
   <div id="modeBadge"></div>
   <button id="autoFlipBtn"></button>
   <div id="flipControls"></div>
-  <button id="copyFenBtn"></button>
+  <button id="copyFenBtn">Copy FEN</button>
+  <button id="copyPgnBtn">Copy PGN</button>
   <div id="welcomeOverlay"></div>
   <button id="welcomeResumeBtn"></button>
   <button id="welcomePvPBtn"></button>
@@ -49,7 +50,7 @@ document.body.innerHTML = `
   <div id="turnBadgeText"></div>
 `;
 
-const { pColor, getSquareLabel, formatTime } = require("./game/static/game/js/board");
+const { pColor, getSquareLabel, formatTime, resetCopyButtonState } = require("./game/static/game/js/board");
 
 describe("pColor", () => {
   test("returns white for uppercase piece", () => {
@@ -90,5 +91,20 @@ describe("formatTime", () => {
 
   test("formats 0 seconds as 0:00", () => {
     expect(formatTime(0)).toBe("0:00");
+  });
+});
+
+describe("resetCopyButtonState", () => {
+  test("restores copied button labels before starting a new game", () => {
+    const fenButton = document.getElementById("copyFenBtn");
+    const pgnButton = document.getElementById("copyPgnBtn");
+
+    fenButton.textContent = "Copied!";
+    pgnButton.textContent = "Copied!";
+
+    resetCopyButtonState();
+
+    expect(fenButton.textContent).toBe("Copy FEN");
+    expect(pgnButton.textContent).toBe("Copy PGN");
   });
 });

@@ -1122,6 +1122,7 @@
                 gameOver = false;
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
+                resetCopyButtonState();
                 
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
@@ -1268,6 +1269,7 @@
         navigator.clipboard.writeText(data.pgn);
 
         const oldText = copyPgnBtn.textContent;
+        rememberCopyButtonDefault(copyPgnBtn);
 
         copyPgnBtn.textContent = 'Copied!';
 
@@ -1277,11 +1279,30 @@
     }
 };
 
+            const copyButtonDefaultText = new Map();
+
+            function rememberCopyButtonDefault(button) {
+                if (button && !copyButtonDefaultText.has(button)) {
+                    copyButtonDefaultText.set(button, button.textContent);
+                }
+            }
+
+            function resetCopyButtonState() {
+                [copyPgnBtn, copyFenBtn].forEach(button => {
+                    if (!button) return;
+                    rememberCopyButtonDefault(button);
+                    button.textContent = copyButtonDefaultText.get(button);
+                });
+            }
+
+            [copyPgnBtn, copyFenBtn].forEach(rememberCopyButtonDefault);
+
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
                 if (data.fen) {
                     navigator.clipboard.writeText(data.fen);
                     const oldText = copyFenBtn.textContent;
+                    rememberCopyButtonDefault(copyFenBtn);
                     copyFenBtn.textContent = 'Copied!';
                     setTimeout(() => copyFenBtn.textContent = oldText, 2000);
                 }
@@ -1422,7 +1443,7 @@
             
 
           if (typeof module !== "undefined" && module.exports) {
-          module.exports = { pColor, getSquareLabel, formatTime };
+          module.exports = { pColor, getSquareLabel, formatTime, resetCopyButtonState };
         } else {
           loadGame();
         }
