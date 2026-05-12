@@ -1317,10 +1317,31 @@
             // Store previous focus for modal focus restoration
             let previousFocus = null;
 
+            // Helper function to open modals and capture focus
+            function openModalWithFocusCapture(modalElement) {
+                if (modalElement) {
+                    previousFocus = document.activeElement;
+                    modalElement.classList.add('active');
+                    if (modalElement.hasAttribute('role')) {
+                        modalElement.removeAttribute('hidden');
+                    }
+                    // Move focus into modal
+                    const focusableElements = modalElement.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    if (focusableElements.length > 0) {
+                        focusableElements[0].focus();
+                    }
+                }
+            }
+
             // Helper function to close modals and restore focus
             function closeModalWithFocusRestore(modalElement) {
                 if (modalElement && modalElement.classList.contains('active')) {
                     modalElement.classList.remove('active');
+                    if (modalElement.hasAttribute('role')) {
+                        modalElement.setAttribute('hidden', '');
+                    }
                     // Restore focus to previous element
                     if (previousFocus && previousFocus.focus) {
                         setTimeout(() => previousFocus.focus(), 0);
@@ -1328,7 +1349,7 @@
                 }
             }
 
-            // Add Escape key handler for closing modals
+            // Add Escape and Tab key handlers for modal focus management
             document.addEventListener('keydown', e => {
                 if (e.key === 'Escape' || e.key === 'Esc') {
                     e.preventDefault();
@@ -1352,6 +1373,38 @@
                         }
                         return;
                     }
+                    // Close promo overlays if active
+                    const promoOverlays = document.querySelectorAll('.promo-overlay.active');
+                    promoOverlays.forEach(overlay => closeModalWithFocusRestore(overlay));
+                }
+                
+                // Implement focus-trap for modal dialogs
+                if (e.key === 'Tab') {
+                    const activeModal = document.querySelector(
+                        '.promo-overlay.active, [role="dialog"]:not([hidden]), .modal.show'
+                    );
+                    if (activeModal) {
+                        const focusableElements = activeModal.querySelectorAll(
+                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                        );
+                        if (focusableElements.length === 0) return;
+
+                        const firstElement = focusableElements[0];
+                        const lastElement = focusableElements[focusableElements.length - 1];
+                        const activeElement = document.activeElement;
+
+                        if (e.shiftKey) {
+                            if (activeElement === firstElement) {
+                                e.preventDefault();
+                                lastElement.focus();
+                            }
+                        } else {
+                            if (activeElement === lastElement) {
+                                e.preventDefault();
+                                firstElement.focus();
+                            }
+                        }
+                    }
                 }
             });
 
@@ -1361,7 +1414,8 @@
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+                // Check if any modal/dialog is currently visible and active
+                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active:not([hidden])')) return;
 
                 const key = e.key.toLowerCase();
                 if (key === 'f' && flipBtn) {
