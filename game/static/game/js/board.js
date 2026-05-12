@@ -357,13 +357,13 @@
                 if (gameMode === 'ai'){
                     // Fixing the naming system
                     let player_name = data.white_name; 
-    if(playerColor === 'white'){
-        wName = player_name;
-        bName = 'AI (Black)';
-    }else{
-        bName = player_name;
-        wName = 'AI (White)';
-    }
+                    if(playerColor === 'white'){
+                        wName = player_name;
+                        bName = 'AI (Black)';
+                    }else{
+                        bName = player_name;
+                        wName = 'AI (White)';
+                    }
                 }
 
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
