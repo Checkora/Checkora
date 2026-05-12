@@ -82,6 +82,7 @@
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
+                <button class="btn btn-gold" id="welcomePracticeBtn" style="padding: 12px; font-size: 1.05rem; background: linear-gradient(135deg, #8b6914, #c89e38);">🎓 Practice vs AI</button>
                 <button class="btn" id="welcomeResumeBtn"
                     style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
                     Game</button>
@@ -200,6 +201,22 @@
 
         <!-- Right Panel -->
         <div class="panel">
+            <!-- Suggestion Panel (Practice Mode Only) -->
+            <div class="card" id="suggestionPanel" style="display: none;">
+                <div class="card-title">
+                    AI Suggestion
+                    <button class="btn" id="toggleSuggestionBtn" style="float: right; padding: 4px 8px; font-size: 0.8rem; background: #333; color: #fff; border: 1px solid #555;">ON</button>
+                </div>
+                <div id="suggestionContent" style="padding: 10px; text-align: center;">
+                    <div id="suggestionMove" style="font-size: 1.2rem; color: #f0c040; font-weight: bold; margin: 8px 0;">
+                        <span style="color: #aaa; font-size: 0.9rem;">Waiting for your move...</span>
+                    </div>
+                    <div id="suggestionHint" style="font-size: 0.85rem; color: #888; margin-top: 8px; font-style: italic;">
+                        Suggestions help you learn. Try to find the move yourself first!
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-title">Board Theme</div>
                 <div class="theme-switcher">
@@ -222,6 +239,7 @@
                     <button class="btn btn-gold" id="flipBtn">Flip Board</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button class="btn btn-gold" id="newPracticeBtn" style="background: linear-gradient(135deg, #8b6914, #c89e38);">🎓 Practice vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
@@ -303,16 +321,21 @@
             <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
             <div style="margin-bottom: 20px;">
                 <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
                     <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
+                        style="flex: 1; min-width: 80px; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
                         <input type="radio" name="go_mode" value="pvp" checked
                             onchange="document.getElementById('goDifficultyContainer').style.display='none'"> PvP
                     </label>
                     <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
+                        style="flex: 1; min-width: 80px; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
                         <input type="radio" name="go_mode" value="ai"
                             onchange="document.getElementById('goDifficultyContainer').style.display='block'"> vs AI
+                    </label>
+                    <label
+                        style="flex: 1; min-width: 80px; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
+                        <input type="radio" name="go_mode" value="practice"
+                            onchange="document.getElementById('goDifficultyContainer').style.display='block'"> 🎓 Practice
                     </label>
                 </div>
 

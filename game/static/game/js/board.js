@@ -29,21 +29,33 @@
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
                 const aiBtn = document.getElementById("newAIBtn");
+                const practiceBtn = document.getElementById("newPracticeBtn");
 
                 if (!pvpBtn || !aiBtn) return;
                 
                 pvpBtn.classList.remove("active-mode");
                 aiBtn.classList.remove("active-mode");
+                if (practiceBtn) practiceBtn.classList.remove("active-mode");
 
                 if (mode === "pvp") {
                     pvpBtn.classList.add("active-mode");
-                } else {
+                } else if (mode === "ai") {
                     aiBtn.classList.add("active-mode");
+                } else if (mode === "practice") {
+                    if (practiceBtn) practiceBtn.classList.add("active-mode");
                 }
             }
             let playerColor = 'white';
             let flipped = false;
             let autoFlip = false;
+            
+            // Practice Mode & Suggestions
+            let isPracticeMode = false;
+            let suggestionsEnabled = true;
+            const suggestionPanel = document.getElementById('suggestionPanel');
+            const toggleSuggestionBtn = document.getElementById('toggleSuggestionBtn');
+            const suggestionMove = document.getElementById('suggestionMove');
+            const newPracticeBtn = document.getElementById('newPracticeBtn');
 
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
@@ -92,6 +104,7 @@
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
             const welcomePvPBtn = document.getElementById('welcomePvPBtn');
             const welcomeAIBtn = document.getElementById('welcomeAIBtn');
+            const welcomePracticeBtn = document.getElementById('welcomePracticeBtn');
             
             const modeSelection = document.getElementById('modeSelection');
             const pveOptions = document.getElementById('pveOptions');
@@ -165,6 +178,33 @@
                 setTimeout(() => {
                     if (isAITurn() && !aiThinking) requestAIMove();
                 }, 200);
+            }
+            
+            // Request AI suggestion for practice mode (educational only, doesn't play the move)
+            async function requestSuggestion() {
+                if (!isPracticeMode || !suggestionsEnabled || gameOver || turn !== playerColor) {
+                    return;
+                }
+                
+                try {
+                    const data = await get('/api/suggestion/');
+                    if (data.valid && suggestionMove) {
+                        suggestionMove.innerHTML = `<span style="color: #f0c040; font-size: 1.1rem;">${data.move_notation}</span>`;
+                    } else if (suggestionMove) {
+                        suggestionMove.innerHTML = '<span style="color: #888;">No suggestion available</span>';
+                    }
+                } catch (err) {
+                    if (suggestionMove) {
+                        suggestionMove.innerHTML = '<span style="color: #f08080;">Error getting suggestion</span>';
+                    }
+                }
+            }
+            
+            // Clear suggestion display (e.g., between moves)
+            function clearSuggestion() {
+                if (suggestionMove && suggestionsEnabled) {
+                    suggestionMove.innerHTML = '<span style="color: #aaa; font-size: 0.9rem;">Waiting for your move...</span>';
+                }
             }
 
             const pKey = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerCase()) : null;
@@ -289,22 +329,30 @@
                 // Sync UI with current game mode
                 updateModeButtonsUI(gameMode);
                 playerColor = data.player_color || 'white';
+                isPracticeMode = (gameMode === 'practice');
                 
                 if (flipControls) {
                     flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
                 }
+                
+                // Show suggestion panel in practice mode
+                if (suggestionPanel) {
+                    suggestionPanel.style.display = isPracticeMode ? 'block' : 'none';
+                }
+                // Disable draw button in practice mode
+                if (drawBtn) drawBtn.style.display = (gameMode === 'pvp' || gameMode === 'practice') ? 'none' : 'none';
 
-                if (gameMode === 'ai') {
+                if (gameMode === 'ai' || gameMode === 'practice') {
                     flipped = (playerColor === 'black');
                 } else {
                     flipped = false;
                 }
 
-                if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+                if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : gameMode === 'practice' ? 'PRACTICE' : 'PVP';
 
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
-                const isAI = data.mode === 'ai';
+                const isAI = data.mode === 'ai' || data.mode === 'practice';
                 if (hasMoves || isAI) {
                     if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'block';
                 } else {
@@ -659,6 +707,11 @@
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
                             requestAIMove();
                         }
+                        
+                        // Request suggestion in practice mode after player moves
+                        if (isPracticeMode && turn === playerColor && !gameOver) {
+                            setTimeout(requestSuggestion, 300);
+                        }
                     } else {
                         showStatus(data.message, true);
                         deselect();
@@ -701,6 +754,11 @@
                         } else {
                             highlightCheck();
                             showStatus('Your turn.', false);
+                        }
+                        
+                        // Request suggestion in practice mode after AI moves
+                        if (isPracticeMode && turn === playerColor && !gameOver) {
+                            setTimeout(requestSuggestion, 300);
                         }
                     } else {
                         showStatus(data.message, true);
@@ -1058,7 +1116,7 @@
 
             function requestNewGame(mode) {
                 const diffContainer = document.getElementById('confirmDifficultyContainer');
-                if (mode === 'ai') {
+                if (mode === 'ai' || mode === 'practice') {
                     diffContainer.style.display = 'block';
                 } else {
                     diffContainer.style.display = 'none';
@@ -1071,6 +1129,8 @@
                         const diff = document.getElementById('confirmDifficultySelect').value;
                         if (mode === 'ai') {
                             startNewGame('ai', 'white', diff);
+                        } else if (mode === 'practice') {
+                            startNewGame('practice', 'white', diff);
                         } else {
                             startNewGame('pvp');
                         }
@@ -1129,7 +1189,7 @@
                     flipped = false;
                 }
 
-                if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+                if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : gameMode === 'practice' ? 'PRACTICE' : 'PVP';
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
@@ -1182,6 +1242,35 @@
                 modeSelection.style.display = 'none';
                 pveOptions.style.display = 'flex';
             };
+            
+            // Practice Mode Button (from welcome overlay)
+            if (welcomePracticeBtn) welcomePracticeBtn.onclick = () => {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                // Show ONLY white input for practice mode (like AI mode)
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+                    whiteInput.value = '';
+                    whiteInput.classList.remove('input-error');
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'none';
+                    blackInput.value = 'AI';
+                    blackInput.classList.remove('input-error');
+                }
+                
+                // Hide error
+                if (errorDiv) errorDiv.style.display = 'none';
+                
+                nameInputs.style.display = 'flex';
+                modeSelection.style.display = 'none';
+                pveOptions.style.display = 'flex';
+                // Mark this as practice mode
+                pveOptions.dataset.mode = 'practice';
+            };
 
             if (backToModes) backToModes.onclick = () => {
                 const whiteInput = document.getElementById('whiteNameInput');
@@ -1190,6 +1279,7 @@
                 
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
+                delete pveOptions.dataset.mode;  // Clear mode marker
                 
                 // Reset both inputs to visible for PvP
                 if (whiteInput) {
@@ -1247,9 +1337,10 @@
                 }
                 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
+                const mode = pveOptions.dataset.mode === 'practice' ? 'practice' : 'ai';
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                startNewGame('ai', selectedPveColor, diff);
+                startNewGame(mode, selectedPveColor, diff);
             };
 
             if (autoFlipBtn) autoFlipBtn.onclick = () => {
@@ -1297,6 +1388,16 @@
                     queueAIMoveIfNeeded();
                 }
             };
+            
+            // Suggestion Toggle Button
+            if (toggleSuggestionBtn) toggleSuggestionBtn.onclick = () => {
+                suggestionsEnabled = !suggestionsEnabled;
+                toggleSuggestionBtn.textContent = suggestionsEnabled ? 'ON' : 'OFF';
+                toggleSuggestionBtn.style.background = suggestionsEnabled ? '#4a7c2c' : '#333';
+                if (!suggestionsEnabled && suggestionMove) {
+                    suggestionMove.innerHTML = '<span style="color: #aaa; font-size: 0.9rem;">Suggestions disabled</span>';
+                }
+            };
 
             if (confirmYesBtn) confirmYesBtn.onclick = () => {
                 confirmOverlay.classList.remove('active');
@@ -1330,6 +1431,18 @@
                 }
                 
                 requestNewGame('ai');
+            };
+            
+            if (newPracticeBtn) newPracticeBtn.onclick = () => {
+                // Clear any lingering celebration effects
+                const overlay = document.getElementById('gameOverOverlay');
+                overlay.classList.remove('game-over-celebration');
+                const confettiContainer = overlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
+                requestNewGame('practice');
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();

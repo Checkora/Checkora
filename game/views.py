@@ -37,7 +37,15 @@ def index(request):
 
 
 def record_game_result(mode, winner, reason):
-    """Save a completed game result to the database."""
+    """Save a completed game result to the database.
+    
+    Skips recording if the game was in practice mode, as practice games
+    should not affect ratings, coins, streaks, or leaderboard progression.
+    """
+    # Don't record practice mode games
+    if mode == 'practice':
+        return
+    
     GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
 
 
@@ -115,12 +123,16 @@ def valid_moves(request):
 
 @require_POST
 def new_game(request):
-    """Reset the game to the initial position with selected mode."""
+    """Reset the game to the initial position with selected mode.
+    
+    Supports modes: 'pvp' (player vs player), 'ai' (player vs AI), 'practice' (practice vs AI).
+    Practice mode games do not affect ratings, coins, streaks, or leaderboard.
+    """
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     
-    if mode not in ('pvp', 'ai'):
+    if mode not in ('pvp', 'ai', 'practice'):
         mode = 'pvp'
     
     player_color = data.get('player_color', 'white')
@@ -130,6 +142,7 @@ def new_game(request):
     player_color = data.get('player_color', 'white')
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
+    request.session['is_practice'] = (mode == 'practice')  # Flag for practice mode
 
     game = ChessGame()
     game.mode = mode
@@ -248,7 +261,11 @@ def set_pause(request):
 
 @require_POST
 def ai_move(request):
-    """Let the engine compute and play the best move for the current side."""
+    """Let the engine compute and play the best move for the current side.
+    
+    Works in both 'ai' (ranked) and 'practice' modes.
+    In practice mode, results are not recorded to the database.
+    """
     game_data = request.session.get('game')
     if not game_data:
         err_msg = 'No active game.'
@@ -258,8 +275,8 @@ def ai_move(request):
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode != 'ai':
-        err_msg = 'Not in AI mode.'
+    if game.mode not in ('ai', 'practice'):
+        err_msg = 'Not in AI or practice mode.'
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
         )
@@ -286,6 +303,13 @@ def ai_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        
+        # Only record results for ranked AI games, not practice games
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(game.mode, winner, 'checkmate')
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(game.mode, 'draw', game.draw_reason or 'stalemate')
 
     return JsonResponse({
         'valid': success,
@@ -304,6 +328,57 @@ def ai_move(request):
         'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+    })
+
+
+@require_GET
+def get_suggestion(request):
+    """Get AI suggestion (best move) for educational purposes without playing it.
+    
+    This endpoint is used in practice mode to show suggested moves to the player.
+    The suggestion is NOT automatically played - it's for learning only.
+    
+    Returns the best move in the format: from_row, from_col, to_row, to_col, and
+    the move in algebraic notation (e.g., "e2 → e4").
+    """
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse(
+            {'valid': False, 'message': 'No active game.'}, status=400
+        )
+
+    game = ChessGame.from_dict(game_data)
+    
+    # Allow suggestions in both practice and ai modes
+    if game.mode not in ('practice', 'ai'):
+        return JsonResponse(
+            {'valid': False, 'message': 'Suggestions not available in this mode.'}, status=400
+        )
+
+    # Get difficulty for depth calculation
+    difficulty = request.session.get('difficulty', 'medium')
+    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
+    depth = depth_map.get(difficulty, 3)
+
+    # Get best move without playing it
+    best = game.get_ai_move(depth=depth)
+    if not best:
+        return JsonResponse({
+            'valid': False,
+            'message': 'No legal moves available.',
+        })
+
+    # Convert coordinates to algebraic notation (e.g., "e2 → e4")
+    files = 'abcdefgh'
+    from_square = f"{files[best['from_col']]}{8 - best['from_row']}"
+    to_square = f"{files[best['to_col']]}{8 - best['to_row']}"
+    move_notation = f"{from_square} → {to_square}"
+
+    return JsonResponse({
+        'valid': True,
+        'move': best,
+        'move_notation': move_notation,
+        'message': f'Suggested move: {move_notation}',
     })
 
 

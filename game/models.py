@@ -2,7 +2,7 @@ from django.db import models
 
 
 class GameResult(models.Model):
-    MODE_CHOICES = [("pvp", "PvP"), ("ai", "AI")]
+    MODE_CHOICES = [("pvp", "PvP"), ("ai", "AI"), ("practice", "Practice")]
     WINNER_CHOICES = [("white", "White"), ("black", "Black"), ("draw", "Draw")]
     END_REASON_CHOICES = [
         ("checkmate", "Checkmate"),
