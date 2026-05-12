@@ -279,11 +279,8 @@ def ai_move(request):
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
     )
-
-    print("AI MOVE:", best)
-    print("MOVE SUCCESS:", success)
-    print("MESSAGE:", message)
-
+    
+    
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
