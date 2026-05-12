@@ -359,13 +359,30 @@
                     const p = board[r][c];
                     if (!p) continue;
 
-                    const img = document.createElement('img');
-                    img.src = PIECE_IMG[pKey(p)];
-                    img.className = 'piece';
-                    img.draggable = true;
-                    img.ondragstart = e => onDragStart(e, r, c);
-                    img.ondragend = () => dragging = false;
-                    el.appendChild(img);
+                    const pieceNames = {
+                                k: 'King',
+                                q: 'Queen',
+                                r: 'Rook',
+                                b: 'Bishop',
+                                n: 'Knight',
+                                p: 'Pawn'
+                            };
+
+                            const color = p === p.toUpperCase() ? 'White' : 'Black';
+                            const type = pieceNames[p.toLowerCase()];
+
+                            const img = document.createElement('img');
+
+                            img.src = PIECE_IMG[pKey(p)];
+                            img.className = 'piece';
+
+                            img.alt = `${color} ${type}`;
+
+                            img.draggable = true;
+                            img.ondragstart = e => onDragStart(e, r, c);
+                            img.ondragend = () => dragging = false;
+
+                            el.appendChild(img);
                 }
                 refreshHighlights();
                 markPlayable();
@@ -1186,20 +1203,36 @@
                 }
             };
             if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-    const data = await get('/api/state/');
+                const data = await get('/api/state/');
 
-    if (data.pgn) {
-        navigator.clipboard.writeText(data.pgn);
+                if (data.pgn) {
+                    const blob = new Blob([data.pgn], {
+                        type: 'text/plain'
+                    });
 
-        const oldText = copyPgnBtn.textContent;
+                    const link = document.createElement('a');
 
-        copyPgnBtn.textContent = 'Copied!';
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'game.pgn';
 
-        setTimeout(() => {
-            copyPgnBtn.textContent = oldText;
-        }, 2000);
-    }
-};
+                    document.body.appendChild(link);
+
+                    link.click();
+
+                    document.body.removeChild(link);
+
+                    URL.revokeObjectURL(link.href);
+
+                    const oldText = copyPgnBtn.textContent;
+
+                    copyPgnBtn.textContent = 'Downloaded!';
+
+                    setTimeout(() => {
+                        copyPgnBtn.textContent = oldText;
+                    }, 2000);
+                }
+            };
+        
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
