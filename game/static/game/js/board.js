@@ -23,6 +23,11 @@
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
+            
+            // Timer state for timestamp-based synchronization
+            let timerStartTime = null;  // When current timer started
+            let timerWhiteStart = 0;    // White time when timer started
+            let timerBlackStart = 0;    // Black time when timer started
 
             let gameMode = 'pvp';
             // Updates UI to highlight selected game mode button
@@ -931,12 +936,27 @@
 
             function startTimer() {
                 clearInterval(timerInterval);
+                // Record current time and initial values for elapsed-time calculation
+                timerStartTime = Date.now();
+                timerWhiteStart = whiteTime;
+                timerBlackStart = blackTime;
+                
                 timerInterval = setInterval(() => {
                     if (paused) return;
-                    if (turn === 'white' && whiteTime > 0) whiteTime--;
-                    if (turn === 'black' && blackTime > 0) blackTime--;
+                    
+                    // Calculate elapsed time since timer started (in seconds)
+                    const elapsedMs = Date.now() - timerStartTime;
+                    const elapsedSec = Math.floor(elapsedMs / 1000);
+                    
+                    // Update time based on elapsed time and current turn
+                    if (turn === 'white') {
+                        whiteTime = Math.max(0, timerWhiteStart - elapsedSec);
+                    } else if (turn === 'black') {
+                        blackTime = Math.max(0, timerBlackStart - elapsedSec);
+                    }
+                    
                     renderClocks();
-                }, 1000);
+                }, 100); // Update more frequently for smoother display
             }
 
             function toggleBoardOrientation() {
@@ -962,6 +982,7 @@
                 blackTime = d.black_time;
                 updatePauseUI();
                 renderClocks();
+                // Restart timer with fresh timestamps from server state
                 startTimer();
                 queueAIMoveIfNeeded();
             }
@@ -1312,7 +1333,34 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+            document.addEventListener('visibilitychange', async () => {
+                if (document.hidden) {
+                    // Tab is hidden, pause the game and timer
+                    if (!paused) pauseGame();
+                } else {
+                    // Tab is visible again, resync timer and board state from server
+                    // This ensures timer accuracy even if clock changed while tab was hidden
+                    try {
+                        const data = await get('/api/state/');
+                        board = parseBoard(data.board);
+                        turn = data.current_turn;
+                        whiteTime = data.white_time;
+                        blackTime = data.black_time;
+                        
+                        // Restart timer with fresh timestamps to ensure accuracy
+                        if (!paused && !gameOver) {
+                            startTimer();
+                        }
+                        
+                        updateTurn();
+                        buildBoard();
+                        renderClocks();
+                    } catch (e) {
+                        // If resync fails, just continue with current state
+                        console.error('Failed to resync timer state on tab focus:', e);
+                    }
+                }
+            });
 
             // Store previous focus for modal focus restoration
             let previousFocus = null;
