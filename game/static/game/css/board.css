@@ -970,7 +970,7 @@ body {
 
 /* ================= PAUSE STATE ================= */
 .chessboard.paused {
-    filter: blur(1px);
+    filter: blur(15px);
     pointer-events: none;
 }
 
