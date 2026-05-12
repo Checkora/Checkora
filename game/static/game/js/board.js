@@ -356,7 +356,7 @@
                 
                 if (gameMode === 'ai'){
                     // Fixing the naming system
-                    let player_name = data.white_name; 
+                    let player_name = data.white_name;
                     if(playerColor === 'white'){
                         wName = player_name;
                         bName = 'AI (Black)';
