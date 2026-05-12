@@ -30,38 +30,16 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;   /* tighter = better */
+    gap: 8px;
 }
 
-/* Logo image */
+/* Logo image - FIXED: Single rule with animation */
 .logo-icon-img {
+    height: 40px;
     animation: logoGlow 2.5s ease-in-out infinite alternate;
 }
 
-@keyframes logoGlow {
-    from {
-        filter: brightness(1.5) contrast(1.2)
-                drop-shadow(0 0 6px rgba(0, 200, 255, 0.4));
-    }
-    to {
-        filter: brightness(1.8) contrast(1.4)
-                drop-shadow(0 0 14px rgba(0, 200, 255, 0.7));
-    }
-}
-
-/* Text */ 
-.logo-text {
-    font-family: 'Cinzel', serif;
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: #f0c040;
-}
-.logo-icon-img {
-    height: 40px;
-    filter: none;  /* no animation here */
-}
-
+/* Logo glow animation - FIXED: Single keyframes definition */
 @keyframes logoGlow {
     0% {
         filter: brightness(1.6) contrast(1.3)
@@ -73,7 +51,16 @@ body {
     }
 }
 
-/* Responsive */
+/* Logo text */ 
+.logo-text {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #f0c040;
+}
+
+/* Responsive logo sizes */
 @media (max-width: 768px) {
     .logo-icon-img {
         height: 26px;
@@ -82,6 +69,7 @@ body {
         font-size: 20px;
     }
 }
+
 .header .badge {
     font-size: 0.55em;
     color: #d4a574;
