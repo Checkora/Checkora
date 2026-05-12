@@ -1313,6 +1313,48 @@
             });
 
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+
+            // Store previous focus for modal focus restoration
+            let previousFocus = null;
+
+            // Helper function to close modals and restore focus
+            function closeModalWithFocusRestore(modalElement) {
+                if (modalElement && modalElement.classList.contains('active')) {
+                    modalElement.classList.remove('active');
+                    // Restore focus to previous element
+                    if (previousFocus && previousFocus.focus) {
+                        setTimeout(() => previousFocus.focus(), 0);
+                    }
+                }
+            }
+
+            // Add Escape key handler for closing modals
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape' || e.key === 'Esc') {
+                    e.preventDefault();
+                    // Close welcome overlay if active
+                    if (welcomeOverlay && welcomeOverlay.classList.contains('active')) {
+                        closeModalWithFocusRestore(welcomeOverlay);
+                        return;
+                    }
+                    // Close confirmation overlay if active
+                    const confirmOverlay = document.getElementById('confirmOverlay');
+                    if (confirmOverlay && confirmOverlay.classList.contains('active')) {
+                        closeModalWithFocusRestore(confirmOverlay);
+                        return;
+                    }
+                    // Close rulebook modal if active
+                    const rulebookModal = document.getElementById('rulebookModal');
+                    if (rulebookModal && rulebookModal.style.display === 'flex') {
+                        rulebookModal.style.display = 'none';
+                        if (previousFocus && previousFocus.focus) {
+                            setTimeout(() => previousFocus.focus(), 0);
+                        }
+                        return;
+                    }
+                }
+            });
+
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 

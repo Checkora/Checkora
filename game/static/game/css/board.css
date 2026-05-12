@@ -728,6 +728,10 @@ body {
     padding: 24px 28px;
     text-align: center;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+    max-width: min(90vw, 500px);
+    min-height: auto;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .promo-title {

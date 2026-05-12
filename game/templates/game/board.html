@@ -40,8 +40,11 @@
 
     <!-- ========== WELCOME MESSAGE ========== -->
 
-    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
+    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;" role="dialog" aria-modal="true" aria-label="Start Game">
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
+            <div style="margin-bottom: 20px;">
+                <a href="/" class="back-home" aria-label="Back to home">← Back to Home</a>
+            </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
@@ -225,11 +228,14 @@
                     <button class="btn btn-gold" id="pauseBtn">Pause</button>
                     <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
                     <button class="btn btn-gold" style="width: 100%;"
-                        onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+                        onclick="previousFocus = document.activeElement; document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+                    <a href="/" class="btn btn-danger" style="text-align: center; text-decoration: none; line-height: 2.5; display: block; margin-top: 1rem; margin-bottom: 1.5rem;" aria-label="Exit to home">
+                        EXIT TO HOME
+                    </a>
 
                 </div>
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
-                    ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
+                    ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw &nbsp; <kbd>Esc</kbd> Close Modal
                 </div>
             </div>
             <div class="card">
@@ -329,8 +335,8 @@
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
         <div
             style="position:relative; width:95vw; height:90vh; background:#13161e; border-radius:12px; overflow:hidden;">
-            <button onclick="document.getElementById('rulebookModal').style.display='none'"
-                style="position:absolute; top:12px; right:12px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
+            <button onclick="document.getElementById('rulebookModal').style.display='none'; if(previousFocus && previousFocus.focus) setTimeout(() => previousFocus.focus(), 0);"
+                style="position:absolute; top:12px; right:12px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;" aria-label="Close rulebook">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
         </div>
     </div>
