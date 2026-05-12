@@ -10,10 +10,13 @@ class GameResult(models.Model):
         ("resign", "Resignation"),
         ("timeout", "Timeout"),
         ("agreement", "Agreement"),
+        ("threefold_repetition", "Threefold Repetition"),
+        ("fifty_move_rule", "Fifty-Move Rule"),
+        ("insufficient_material", "Insufficient Material"),
     ]
     mode = models.CharField(max_length=10, choices=MODE_CHOICES)
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
-    end_reason = models.CharField(max_length=15, choices=END_REASON_CHOICES)
+    end_reason = models.CharField(max_length=25, choices=END_REASON_CHOICES)
     played_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
