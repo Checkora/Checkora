@@ -270,7 +270,8 @@ DP cache is intentionally excluded to save cookie space."""
             return False
 
         target_row, target_col = self.en_passant_target
-        pawn_row = target_row + 1 if self.current_turn == 'white' else target_row - 1
+        is_w = self.current_turn == 'white'
+        pawn_row = target_row + 1 if is_w else target_row - 1
         pawn_piece = 'P' if self.current_turn == 'white' else 'p'
 
         if not (0 <= pawn_row < 8):
@@ -278,7 +279,8 @@ DP cache is intentionally excluded to save cookie space."""
 
         for delta_col in (-1, 1):
             pawn_col = target_col + delta_col
-            if 0 <= pawn_col < 8 and self.board[pawn_row][pawn_col] == pawn_piece:
+            if (0 <= pawn_col < 8
+                    and self.board[pawn_row][pawn_col] == pawn_piece):
                 return True
 
         return False
@@ -344,7 +346,9 @@ DP cache is intentionally excluded to save cookie space."""
 
         # Detect En Passant capture before moving piece
         if piece.lower() == 'p' and fc != tc and not captured:
-            if self.en_passant_target and tr == self.en_passant_target[0] and tc == self.en_passant_target[1]:
+            if (self.en_passant_target
+                    and tr == self.en_passant_target[0]
+                    and tc == self.en_passant_target[1]):
                 # The captured piece is of opposite color
                 captured = 'p' if piece.isupper() else 'P'
                 # In EP, the captured pawn is at (fr, tc)
@@ -418,15 +422,20 @@ DP cache is intentionally excluded to save cookie space."""
             self.halfmove_clock += 1
 
         notation = self._notation(
-            fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before)
+            fr, fc, tr, tc, piece, captured,
+            board_before, rights_before, ep_before)
         if promoted and '=' not in notation:
             notation += '=' + (self.board[tr][tc] or 'Q').upper()
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
 
+        # Save who made this move before switching
+        moved_by = self.current_turn
+
         # Switch turn
-        self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+        is_white = self.current_turn == 'white'
+        self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()
 
@@ -452,7 +461,7 @@ DP cache is intentionally excluded to save cookie space."""
             'from': [fr, fc],
             'to': [tr, tc],
             'captured': captured,
-            'color': self.current_turn,
+            'color': moved_by,
             'promoted_to': self.board[tr][tc] if promoted else None,
         })
 
@@ -487,7 +496,7 @@ DP cache is intentionally excluded to save cookie space."""
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
-        """Return legal moves from DP cache (fetches from engine if missing)."""
+        """Return legal moves from DP cache."""
         piece = self.board[row][col]
         if not piece or self._color(piece) != self.current_turn:
             return []
@@ -504,13 +513,17 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
-        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {ep_str} {row} {col}"
+        cmd = (
+            f"MOVES {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str} {row} {col}"
+        )
         resp = self._call_engine(cmd)
 
         moves = []
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
-            # C++ now returns 4 fields per move: row col is_capture is_promotion
+            # C++ returns 4 fields per move:
+            # row col is_capture is_promotion
             for i in range(0, len(parts), 4):
                 moves.append({
                     'row': int(parts[i]),
@@ -532,7 +545,11 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
-        cmd = f"PROMOTE {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc} {choice}"
+        cmd = (
+            f"PROMOTE {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str}"
+            f" {fr} {fc} {tr} {tc} {choice}"
+        )
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
             return resp.split()[1]
@@ -578,13 +595,19 @@ DP cache is intentionally excluded to save cookie space."""
             return False
         return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
 
-    def _notation(self, fr, fc, tr, tc, piece, captured, board_str=None, rights_str=None, ep_str=None):
+    def _notation(self, fr, fc, tr, tc, piece, captured,
+                  board_str=None, rights_str=None,
+                  ep_str=None):
         """
         Generate SAN notation via C++ engine if possible,
           else simplified fallback."""
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
-            cmd = f"NOTATION {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc}"
+            cmd = (
+                f"NOTATION {board_str} {rights_str}"
+                f" {self.current_turn} {ep_str}"
+                f" {fr} {fc} {tr} {tc}"
+            )
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -714,7 +737,8 @@ DP cache is intentionally excluded to save cookie space."""
         side = 'w' if self.current_turn == 'white' else 'b'
 
         # Castling rights
-        castling = self.serialize_castling_rights()  # already returns '-' if none
+        # Already returns '-' if none
+        castling = self.serialize_castling_rights()
 
         return f"{placement} {side} {castling}"
 
@@ -784,7 +808,10 @@ DP cache is intentionally excluded to save cookie space."""
         if depth is None:
             depth = self._get_ai_search_depth()
         ep_str = self._serialize_ep()
-        cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {ep_str} {depth}"
+        cmd = (
+            f"BESTMOVE {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str} {depth}"
+        )
         resp = self._call_engine(cmd)
 
         if not resp or not resp.startswith("BESTMOVE"):

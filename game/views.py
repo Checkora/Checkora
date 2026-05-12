@@ -577,4 +577,4 @@ def stats_view(request):
             'total_count': all_achievements.count(),
         })
 
-    return render(request, 'game/stats.html', context)
+    return render(request, 'game/stats.html', context)
