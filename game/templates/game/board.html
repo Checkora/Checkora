@@ -336,6 +336,29 @@
             </div>
         </div>
     </div>
+
+    <!-- ========== SIDE SELECTION MODAL ========== -->
+    <div class="promo-overlay" id="sideModal" style="display: none;">
+        <div class="promo-dialog" style="min-width: 300px; padding: 35px; text-align: center;">
+            <div class="promo-title" style="font-size: 1.4rem; color: #f0c040; margin-bottom: 10px;">Choose Your Side
+            </div>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">Which color do you want to play?</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn" id="chooseWhite"
+                    style="padding: 12px; background: #fff; color: #000; font-size: 1rem; border-radius: 6px;">
+                    Play as White
+                </button>
+                <button class="btn" id="chooseBlack"
+                    style="padding: 12px; background: #000; color: #fff; font-size: 1rem; border-radius: 6px; border: 1px solid #555;">
+                    Play as Black
+                </button>
+                <button class="btn btn-gold" id="chooseRandom" style="padding: 12px; font-size: 1rem;">
+                    Random
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- RULEBOOK MODAL -->
     <div id="rulebookModal"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
