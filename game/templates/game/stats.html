@@ -30,34 +30,39 @@
     <h2>AI Game Summary</h2>
     <div class="summary">
         <div class="card"><div class="num">{{ ai_total }}</div><div class="label">Total AI Games</div></div>
+        <div class="card"><div class="num">{{ user_ai_wins }}</div><div class="label">User Wins vs AI</div></div>
         <div class="card"><div class="num">{{ ai_wins }}</div><div class="label">AI Wins</div></div>
         <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>
     </div>
 
     <h2>Recent Games</h2>
     {% if recent %}
-    <table>
-        <thead>
-            <tr>
-                <th>Mode</th>
-                <th>Winner</th>
-                <th>End Reason</th>
-                <th>Played At</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for result in recent %}
-            <tr>
-                <td>{{ result.get_mode_display }}</td>
-                <td>{{ result.get_winner_display }}</td>
-                <td>{{ result.get_end_reason_display }}</td>
-                <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Winner</th>
+                    <th>End Reason</th>
+                    <th>Played At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in recent %}
+                <tr>
+                    <td>{{ result.get_mode_display }}</td>
+                    <td>{{ result.get_winner_display }}</td>
+                    <td>{{ result.get_end_reason_display }}</td>
+                    <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p class="empty">No games played yet. Play a game to see stats here!</p>
+    <div class="empty">
+        <p>No games played yet. Play a game to see your stats here!</p>
+    </div>
     {% endif %}
 
 </body>
