@@ -432,6 +432,33 @@ class DrawOfferTest(TestCase):
         self.assertEqual(state['draw_reason'], 'agreement')
         self.assertEqual(data['activity_streak']['current'], 1)
 
+    def test_accept_draw_is_idempotent_after_game_is_over(self):
+        for _ in range(2):
+            response = self.client.post(
+                '/api/draw/',
+                data=json.dumps({'action': 'accept'}),
+                content_type='application/json',
+            )
+            self.assertTrue(response.json()['success'])
+
+        self.assertEqual(GameResult.objects.count(), 1)
+
+
+class ResignGameTest(TestCase):
+    """Test resignation persistence through the API."""
+
+    def setUp(self):
+        self.client.get('/play/')
+
+    def test_resign_is_idempotent_after_game_is_over(self):
+        first = self.client.post('/api/resign/')
+        second = self.client.post('/api/resign/')
+
+        self.assertTrue(first.json()['valid'])
+        self.assertFalse(second.json()['valid'])
+        self.assertEqual(second.json()['message'], 'Game is already over.')
+        self.assertEqual(GameResult.objects.count(), 1)
+
 
 class ActivityStreakTest(TestCase):
     """Daily completed-game streak calculations."""

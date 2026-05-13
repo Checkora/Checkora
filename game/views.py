@@ -26,6 +26,7 @@ from .engine import ChessGame
 from .models import GameResult
 
 SESSION_ACTIVITY_DATES = 'activity_dates'
+TERMINAL_GAME_STATUSES = {'draw', 'checkmate', 'stalemate', 'resignation'}
 
 
 def landing(request):
@@ -146,6 +147,10 @@ def _record_terminal_game_result(request, game, game_status):
             'draw',
             game.draw_reason or 'stalemate',
         )
+
+
+def _is_terminal_game(game):
+    return game.game_status in TERMINAL_GAME_STATUSES
 
 
 @require_POST
@@ -430,6 +435,13 @@ def offer_draw(request):
 
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
+        if _is_terminal_game(game):
+            return JsonResponse({
+                'success': True,
+                'game_status': game.game_status,
+                'draw_reason': game.draw_reason,
+                'activity_streak': get_activity_streak(request),
+            })
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
@@ -454,6 +466,14 @@ def resign_game(request):
         return JsonResponse({'valid': False, 'message': err_msg}, status=400)
 
     game = ChessGame.from_dict(game_data)
+    if _is_terminal_game(game):
+        return JsonResponse({
+            'valid': False,
+            'message': 'Game is already over.',
+            'winner': None,
+            'game_status': game.game_status,
+            'activity_streak': get_activity_streak(request),
+        })
 
     resigning_player = game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
