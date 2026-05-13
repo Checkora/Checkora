@@ -7,16 +7,18 @@ import secrets
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.mail import send_mail
 from django.contrib import messages
-from django import forms
+from django.db.models import F
+
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
@@ -36,9 +38,10 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def record_game_result(mode, winner, reason):
+def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+    user = request.user if request.user.is_authenticated else None
+    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
 
 
 @require_POST
@@ -69,9 +72,9 @@ def make_move(request):
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
+            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', game.draw_reason or 'stalemate')
+            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
 
     return JsonResponse({
         'valid': success,
@@ -119,10 +122,8 @@ def new_game(request):
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
-    
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
-    
     player_color = data.get('player_color', 'white')
 
     request.session['white_name'] = data.get('white_name', 'White')
@@ -287,6 +288,12 @@ def ai_move(request):
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+
     return JsonResponse({
         'valid': success,
         'message': message,
@@ -326,13 +333,13 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(game.mode, 'draw', 'agreement')
+        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color)
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
-   
+
     return JsonResponse({'success': True})
 
 
@@ -346,7 +353,11 @@ def resign_game(request):
 
     game = ChessGame.from_dict(game_data)
 
-    resigning_player = game.current_turn
+    if game.mode == 'ai':
+        resigning_player = game.player_color
+    else:
+        resigning_player = game.current_turn
+
     winner = 'black' if resigning_player == 'white' else 'white'
 
     game_status = 'resignation'
@@ -355,7 +366,7 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(game.mode, winner, 'resign') 
+    record_game_result(request, game.mode, winner, 'resign', game.player_color)
 
     return JsonResponse({
         'valid': True,
@@ -364,10 +375,11 @@ def resign_game(request):
         'game_status': game_status
     })
 
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
-        
+
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -436,17 +448,17 @@ def register_view(request):
                 messages.error(request, err_msg)
     else:
         form = CustomUserCreationForm()
-    
+
     return render(request, 'game/register.html', {'form': form})
 
 
 def verify_otp(request):
     if request.user.is_authenticated:
         return redirect('index')
-        
+
     user_id = request.session.get('registration_user_id')
     stored_otp_hash = request.session.get('registration_otp_hash')
-    
+
     if not user_id or not stored_otp_hash:
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
@@ -455,7 +467,7 @@ def verify_otp(request):
         entered_otp = request.POST.get('otp', '').strip()
         # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
-        
+
         if entered_otp_hash == stored_otp_hash:
             try:
                 user = User.objects.get(id=user_id)
@@ -467,9 +479,9 @@ def verify_otp(request):
                 del request.session['registration_otp_hash']
 
                 login(request, user)
-                request.session.cycle_key()  
+                request.session.cycle_key()
                 return redirect('index')
-            
+
             except User.DoesNotExist:
                 messages.error(
                     request, 'User not found. Please register again.'
@@ -498,17 +510,19 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            request.session.cycle_key()  
+            request.session.cycle_key()
             return redirect('index')
-        
+
     else:
         form = AuthenticationForm()
 
     return render(request, 'game/login.html', {'form': form})
 
+
 @xframe_options_sameorigin
 def rules(request):
     return render(request, 'game/rules.html')
+
 
 @require_POST
 def logout_view(request):
@@ -516,18 +530,27 @@ def logout_view(request):
     return redirect('landing')
 
 
+@login_required
 def stats_view(request):
     """Display game statistics."""
-    # from django.db.models import Count
-    recent = GameResult.objects.order_by('-played_at')[:20]
-    ai_results = GameResult.objects.filter(mode='ai')
-    ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
+    # Only show real database records linked to the logged-in user
+    user_results = GameResult.objects.filter(user=request.user).exclude(mode__in=['', None])
+
+    recent = user_results.order_by('-played_at')[:20]
+    ai_results = user_results.filter(mode='ai')
+
+    # If winner == player_color, the user won
+    user_ai_wins = ai_results.filter(winner=F('player_color')).count()
+    # If winner != player_color and not a draw, the AI won
+    ai_wins = ai_results.exclude(winner=F('player_color')).exclude(winner='draw').count()
+
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
-    # ai_losses = 0
+
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
+        'user_ai_wins': user_ai_wins,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })

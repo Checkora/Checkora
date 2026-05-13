@@ -885,3 +885,92 @@ class MoveHistoryColorTest(TestCase):
             game.move_history[1]['color'], 'black',
             "Black's move must be recorded as 'black'."
         )
+
+
+class StatsCleanupTest(TestCase):
+    """Tests for the cleaned-up stats view and user isolation."""
+
+    def setUp(self):
+        self.user_a = User.objects.create_user(username='usera', password='password123')
+        self.user_b = User.objects.create_user(username='userb', password='password123')
+        from .models import GameResult
+        self.GameResult = GameResult
+
+    def test_stats_requires_login(self):
+        """Stats page should redirect unauthenticated users to login."""
+        response = self.client.get('/stats/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_user_isolation(self):
+        """Users should only see their own game results."""
+        # Create game for user A
+        self.GameResult.objects.create(user=self.user_a, mode='pvp', winner='white', end_reason='checkmate')
+        # Create game for user B
+        self.GameResult.objects.create(user=self.user_b, mode='ai', winner='black', end_reason='resign')
+
+        # Check as User A
+        self.client.login(username='usera', password='password123')
+        response = self.client.get('/stats/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<td>PvP</td>')
+        self.assertNotContains(response, '<td>AI</td>')
+        self.client.logout()
+
+        # Check as User B
+        self.client.login(username='userb', password='password123')
+        response = self.client.get('/stats/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<td>AI</td>')
+        self.assertNotContains(response, '<td>PvP</td>')
+
+    def test_empty_stats_page(self):
+        """Users with no games should see a clean empty state."""
+        self.client.login(username='usera', password='password123')
+        response = self.client.get('/stats/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No games played yet.')
+        # Summary cards should show 0 (now 4 cards)
+        self.assertContains(response, '<div class="num">0</div>', count=4)
+        # No <tr> should be present in the tbody
+        self.assertNotContains(response, '<tr><td>')
+
+    def test_stats_aggregation(self):
+        """Stats counts should accurately reflect only the current user's games."""
+        # User A plays as white, wins as white (1 user win, 0 AI win)
+        self.GameResult.objects.create(
+            user=self.user_a, mode='ai', winner='white', player_color='white', end_reason='checkmate'
+        )
+        # User A plays as black, AI wins as white (0 user win, 1 AI win)
+        self.GameResult.objects.create(
+            user=self.user_a, mode='ai', winner='white', player_color='black', end_reason='checkmate'
+        )
+        # User A plays as black, wins as black (1 user win, 0 AI win)
+        self.GameResult.objects.create(
+            user=self.user_a, mode='ai', winner='black', player_color='black', end_reason='checkmate'
+        )
+        # User A draws
+        self.GameResult.objects.create(
+            user=self.user_a, mode='ai', winner='draw', player_color='white', end_reason='stalemate'
+        )
+        # User B has 5 AI wins
+        for _ in range(5):
+            self.GameResult.objects.create(
+                user=self.user_b, mode='ai', winner='white', player_color='white', end_reason='checkmate'
+            )
+
+        self.client.login(username='usera', password='password123')
+        response = self.client.get('/stats/')
+        self.assertContains(response, '<div class="num">4</div>')  # Total AI Games
+        self.assertContains(response, '<div class="num">2</div>')  # User Wins vs AI
+        self.assertContains(response, '<div class="num">1</div>')  # AI Wins
+        self.assertContains(response, '<div class="num">1</div>')  # Draws
+
+    def test_filter_invalid_records(self):
+        """Records with empty mode should be filtered out."""
+        # This shouldn't happen with the model but the view handles it
+        self.GameResult.objects.create(user=self.user_a, mode='', winner='white', end_reason='checkmate')
+        self.client.login(username='usera', password='password123')
+        response = self.client.get('/stats/')
+        self.assertNotContains(response, 'Checkmate')
+        self.assertContains(response, 'No games played yet.')
