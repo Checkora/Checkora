@@ -36,9 +36,17 @@
                 </div>
             {% endif %}
             
-            {% if form.non_field_errors %}
-                {{ form.non_field_errors }}
-            {% endif %}
+        {% if messages %}
+          <div class="message-list" role="alert">
+            {% for message in messages %}
+              <div class="message message-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if form.non_field_errors %}
+          {{ form.non_field_errors }}
+        {% endif %}
             
             {% for field in form %}
                 <div class="form-group">
