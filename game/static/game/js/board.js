@@ -1058,6 +1058,24 @@
                 confirmOverlay.classList.add('active');
             }
 
+            function showSideSelectionModal(onChoose) {
+                const modal = document.getElementById('sideModal');
+                modal.style.display = 'flex';
+
+                function pick(side) {
+                    modal.style.display = 'none';
+                    document.getElementById('chooseWhite').onclick = null;
+                    document.getElementById('chooseBlack').onclick = null;
+                    document.getElementById('chooseRandom').onclick = null;
+                    onChoose(side);
+                }
+
+                document.getElementById('chooseWhite').onclick = () => pick('white');
+                document.getElementById('chooseBlack').onclick = () => pick('black');
+                document.getElementById('chooseRandom').onclick = () =>
+                    pick(Math.random() < 0.5 ? 'white' : 'black');
+            }
+
             function requestNewGame(mode) {
                 const diffContainer = document.getElementById('confirmDifficultyContainer');
                 if (mode === 'ai') {
@@ -1072,7 +1090,7 @@
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
                         if (mode === 'ai') {
-                            startNewGame('ai', 'white', diff);
+                            showSideSelectionModal(side => startNewGame('ai', side, diff));
                         } else {
                             startNewGame('pvp');
                         }
@@ -1405,7 +1423,11 @@
                     confettiContainer.remove();
                 }
                 
-                startNewGame(mode, 'white', diff);
+                if (mode === 'ai') {
+                    showSideSelectionModal(side => startNewGame(mode, side, diff));
+                } else {
+                    startNewGame(mode, 'white', diff);
+                }
             };
 
             // Theme Switcher
