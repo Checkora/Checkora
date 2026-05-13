@@ -47,7 +47,7 @@ class NavigationTest(BaseE2ETest):
 
         # Mode buttons
         pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
-        ai_btn  = self.driver.find_element(By.ID, 'welcomeAIBtn')
+        ai_btn = self.driver.find_element(By.ID, 'welcomeAIBtn')
         self.assertIsNotNone(pvp_btn)
         self.assertIsNotNone(ai_btn)
         log_ok("PvP and AI buttons present")

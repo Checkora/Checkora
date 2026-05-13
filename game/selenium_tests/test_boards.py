@@ -30,7 +30,7 @@ class UITest(BaseE2ETest):
         log_ok("Name inputs found")
 
         pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
-        ai_btn  = self.driver.find_element(By.ID, 'welcomeAIBtn')
+        ai_btn = self.driver.find_element(By.ID, 'welcomeAIBtn')
         self.assertIsNotNone(pvp_btn)
         self.assertIsNotNone(ai_btn)
         log_ok("PvP and AI buttons found")
@@ -62,7 +62,7 @@ class UITest(BaseE2ETest):
 
         squares = board.find_elements(By.CLASS_NAME, 'square')
         self.assertEqual(len(squares), 64, f"Expected 64 squares, got {len(squares)}")
-        log_ok(f"64 squares found")
+        log_ok("64 squares found")
 
         pieces = board.find_elements(By.TAG_NAME, 'img')
         self.assertGreater(len(pieces), 0, "No pieces found on board")

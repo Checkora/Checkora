@@ -9,12 +9,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 # ── ANSI colours for readable terminal output ──────────────────────
-GREEN  = "\033[92m"
-RED    = "\033[91m"
+GREEN = "\033[92m"
+RED = "\033[91m"
 YELLOW = "\033[93m"
-CYAN   = "\033[96m"
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
 
 
 def log_ok(msg):
