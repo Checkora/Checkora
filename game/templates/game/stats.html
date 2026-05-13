@@ -15,6 +15,8 @@
         .card { background: #16162a; border: 1px solid #252545; border-radius: 8px; padding: 20px; flex: 1; text-align: center; }
         .card .num { font-size: 36px; color: #f0c040; font-weight: bold; }
         .card .label { color: #8a8aaa; margin-top: 8px; }
+        .streak-card { border-color: rgba(240, 192, 64, 0.55); box-shadow: 0 0 22px rgba(240, 192, 64, 0.08); }
+        .streak-meta { color: #8a8aaa; font-size: 13px; margin-top: 10px; }
         .empty { text-align: center; color: #5a5a7a; padding: 40px; }
         a { color: #f0c040; text-decoration: none; }
         a:hover { text-decoration: underline; }
@@ -29,6 +31,11 @@
 
     <h2>AI Game Summary</h2>
     <div class="summary">
+        <div class="card streak-card">
+            <div class="num">{{ activity_streak.current }}</div>
+            <div class="label">Current Daily Streak</div>
+            <div class="streak-meta">Best: {{ activity_streak.best }} days</div>
+        </div>
         <div class="card"><div class="num">{{ ai_total }}</div><div class="label">Total AI Games</div></div>
         <div class="card"><div class="num">{{ ai_wins }}</div><div class="label">AI Wins</div></div>
         <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>

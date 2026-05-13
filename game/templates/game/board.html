@@ -124,6 +124,14 @@
             <span class="logo-text">Checkora</span>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
+
+        <div class="streak-pill" id="streakPill" title="Daily activity streak">
+            <span class="streak-icon" aria-hidden="true">S</span>
+            <span class="streak-copy">
+                <span class="streak-value" id="streakValue">{{ activity_streak.current|default:0 }}</span>
+                <span class="streak-label">day streak</span>
+            </span>
+        </div>
         
         <div class="auth-buttons">
             {% if user.is_authenticated %}

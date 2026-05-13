@@ -87,6 +87,8 @@
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
             const copyPgnBtn = document.getElementById('copyPgnBtn');
+            const streakPill = document.getElementById('streakPill');
+            const streakValue = document.getElementById('streakValue');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -158,6 +160,14 @@
 
             function isAITurn() {
                 return gameMode === 'ai' && turn !== playerColor && !gameOver;
+            }
+
+            function updateActivityStreak(streak) {
+                if (!streak || !streakValue || !streakPill) return;
+                const current = Number(streak.current || 0);
+                streakValue.textContent = current;
+                streakPill.classList.toggle('active', Boolean(streak.active_today));
+                streakPill.title = `Daily activity streak. Best: ${streak.best || 0} days`;
             }
 
             function queueAIMoveIfNeeded() {
@@ -301,6 +311,7 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+                updateActivityStreak(data.activity_streak);
 
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
@@ -642,6 +653,7 @@
                             updateTurn();
                             updateMoves(data.move_history);
                             updateCaptured(data.captured_pieces);
+                            updateActivityStreak(data.activity_streak);
                             syncPieces();
                             renderClocks();
                             startTimer();
@@ -689,6 +701,7 @@
                             updateTurn();
                             updateMoves(data.move_history);
                             updateCaptured(data.captured_pieces);
+                            updateActivityStreak(data.activity_streak);
                             syncPieces();
                             renderClocks();
                             startTimer();
@@ -824,6 +837,20 @@
                     return true;
                 }
                 return false;
+            }
+
+            async function resignCurrentGame() {
+                try {
+                    const data = await post('/api/resign/', {});
+                    if (data.valid) {
+                        updateActivityStreak(data.activity_streak);
+                        endGame('resign', turn);
+                    } else {
+                        showStatus(data.message || 'Could not resign.', true);
+                    }
+                } catch (e) {
+                    showStatus('Connection error.', true);
+                }
             }
 
             function endGame(reason, color, drawReason = null) {
@@ -1337,7 +1364,7 @@
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
-                    showConfirm("Resign?", "Are you sure you want to resign?", () => endGame('resign', turn));
+                    showConfirm("Resign?", "Are you sure you want to resign?", resignCurrentGame);
                 }
             };
 
@@ -1345,7 +1372,10 @@
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
-                if (data.success) endGame('draw', turn, data.draw_reason);
+                if (data.success) {
+                    updateActivityStreak(data.activity_streak);
+                    endGame('draw', turn, data.draw_reason);
+                }
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');

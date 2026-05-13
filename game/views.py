@@ -14,12 +14,15 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.mail import send_mail
 from django.contrib import messages
 from django import forms
+from django.utils import timezone
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
 from .models import GameResult
+
+SESSION_ACTIVITY_DATES = 'activity_dates'
 
 
 def landing(request):
@@ -33,12 +36,112 @@ def index(request):
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
-    return render(request, 'game/board.html')
+    return render(request, 'game/board.html', {
+        'activity_streak': get_activity_streak(request),
+    })
 
 
-def record_game_result(mode, winner, reason):
+def _calculate_activity_streak(dates, today=None):
+    """Return current and best streaks from an iterable of date objects."""
+    today = today or timezone.localdate()
+    unique_dates = sorted(set(dates))
+
+    if not unique_dates:
+        return {
+            'current': 0,
+            'best': 0,
+            'active_today': False,
+            'last_played': None,
+        }
+
+    best = 1
+    run = 1
+    for prev, current in zip(unique_dates, unique_dates[1:]):
+        if (current - prev).days == 1:
+            run += 1
+        else:
+            run = 1
+        best = max(best, run)
+
+    last_played = unique_dates[-1]
+    if (today - last_played).days > 1:
+        current = 0
+    else:
+        current = 1
+        cursor = last_played
+        for played_on in reversed(unique_dates[:-1]):
+            if (cursor - played_on).days == 1:
+                current += 1
+                cursor = played_on
+            elif played_on == cursor:
+                continue
+            else:
+                break
+
+    return {
+        'current': current,
+        'best': best,
+        'active_today': last_played == today,
+        'last_played': last_played.isoformat(),
+    }
+
+
+def _session_activity_dates(request):
+    dates = []
+    for raw_date in request.session.get(SESSION_ACTIVITY_DATES, []):
+        try:
+            dates.append(timezone.datetime.fromisoformat(raw_date).date())
+        except (TypeError, ValueError):
+            continue
+    return dates
+
+
+def _mark_session_activity(request):
+    dates = {date.isoformat() for date in _session_activity_dates(request)}
+    dates.add(timezone.localdate().isoformat())
+    request.session[SESSION_ACTIVITY_DATES] = sorted(dates)[-370:]
+    request.session.modified = True
+
+
+def get_activity_streak(request):
+    """Calculate the current visitor's daily completed-game streak."""
+    if request.user.is_authenticated:
+        played_dates = [
+            timezone.localtime(played_at).date()
+            for played_at in request.user.game_results.values_list(
+                'played_at', flat=True
+            )
+        ]
+    else:
+        played_dates = _session_activity_dates(request)
+
+    return _calculate_activity_streak(played_dates)
+
+
+def record_game_result(request, mode, winner, reason):
     """Save a completed game result to the database."""
-    GameResult.objects.create(mode=mode, winner=winner, end_reason=reason)
+    user = request.user if request.user.is_authenticated else None
+    GameResult.objects.create(
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        user=user,
+    )
+    if not user:
+        _mark_session_activity(request)
+
+
+def _record_terminal_game_result(request, game, game_status):
+    if game_status == 'checkmate':
+        winner = 'black' if game.current_turn == 'white' else 'white'
+        record_game_result(request, game.mode, winner, 'checkmate')
+    elif game_status in ('stalemate', 'draw'):
+        record_game_result(
+            request,
+            game.mode,
+            'draw',
+            game.draw_reason or 'stalemate',
+        )
 
 
 @require_POST
@@ -67,11 +170,7 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        if game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(game.mode, winner, 'checkmate')
-        elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', game.draw_reason or 'stalemate')
+        _record_terminal_game_result(request, game, game_status)
 
     return JsonResponse({
         'valid': success,
@@ -89,6 +188,7 @@ def make_move(request):
         'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+        'activity_streak': get_activity_streak(request),
     })
 
 
@@ -154,6 +254,7 @@ def new_game(request):
         'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'activity_streak': get_activity_streak(request),
     })
 
 
@@ -215,6 +316,7 @@ def get_state(request):
         'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'activity_streak': get_activity_streak(request),
     })
 
 
@@ -286,6 +388,7 @@ def ai_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        _record_terminal_game_result(request, game, game_status)
 
     return JsonResponse({
         'valid': success,
@@ -304,6 +407,7 @@ def ai_move(request):
         'pgn': game.generate_pgn(),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+        'activity_streak': get_activity_streak(request),
     })
 
 
@@ -326,11 +430,12 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(game.mode, 'draw', 'agreement')
+        record_game_result(request, game.mode, 'draw', 'agreement')
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
+            'activity_streak': get_activity_streak(request),
         })
    
     return JsonResponse({'success': True})
@@ -355,13 +460,14 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(game.mode, winner, 'resign') 
+    record_game_result(request, game.mode, winner, 'resign') 
 
     return JsonResponse({
         'valid': True,
         'message': f'{resigning_player.capitalize()} resigned.',
         'winner': winner,
-        'game_status': game_status
+        'game_status': game_status,
+        'activity_streak': get_activity_streak(request),
     })
 
 def register_view(request):
@@ -509,8 +615,12 @@ def logout_view(request):
 def stats_view(request):
     """Display game statistics."""
     # from django.db.models import Count
-    recent = GameResult.objects.order_by('-played_at')[:20]
-    ai_results = GameResult.objects.filter(mode='ai')
+    results = GameResult.objects.all()
+    if request.user.is_authenticated:
+        results = results.filter(user=request.user)
+
+    recent = results.order_by('-played_at')[:20]
+    ai_results = results.filter(mode='ai')
     ai_wins = ai_results.filter(winner='white').count() + ai_results.filter(winner='black').count()
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
@@ -520,4 +630,5 @@ def stats_view(request):
         'ai_total': ai_total,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
+        'activity_streak': get_activity_streak(request),
     })

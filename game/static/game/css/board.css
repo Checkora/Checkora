@@ -33,6 +33,60 @@ body {
     gap: 8px;
 }
 
+.streak-pill {
+    position: absolute;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 146px;
+    padding: 8px 12px;
+    border: 1px solid rgba(240, 192, 64, 0.45);
+    border-radius: 8px;
+    background: #16162a;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.streak-pill.active {
+    border-color: rgba(240, 192, 64, 0.85);
+    box-shadow: 0 0 18px rgba(240, 192, 64, 0.16);
+}
+
+.streak-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0c040;
+    color: #16162a;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.streak-copy {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.streak-value {
+    color: #f0c040;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.streak-label {
+    color: #8a8aaa;
+    font-size: 0.66rem;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
 /* Logo image - FIXED: Single rule with animation */
 .logo-icon-img {
     height: 40px;
@@ -538,6 +592,14 @@ body {
     .header h1 {
         font-size: 1.5rem;
         margin: 0;
+    }
+
+    .streak-pill {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        min-width: 0;
     }
 
     .auth-buttons {

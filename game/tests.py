@@ -2,12 +2,14 @@
 
 import json
 import sys
+from datetime import date
 from unittest import mock
 
 from django.conf import settings
 from django.test import SimpleTestCase, TestCase
 
 from .engine import ChessGame
+from .views import _calculate_activity_streak
 
 
 class EnginePathResolutionTest(SimpleTestCase):
@@ -426,6 +428,52 @@ class DrawOfferTest(TestCase):
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'draw')
         self.assertEqual(state['draw_reason'], 'agreement')
+        self.assertEqual(data['activity_streak']['current'], 1)
+
+
+class ActivityStreakTest(TestCase):
+    """Daily completed-game streak calculations."""
+
+    def test_empty_activity_has_zero_streak(self):
+        streak = _calculate_activity_streak([], today=date(2026, 5, 13))
+
+        self.assertEqual(streak['current'], 0)
+        self.assertEqual(streak['best'], 0)
+        self.assertFalse(streak['active_today'])
+
+    def test_current_and_best_streaks_are_calculated(self):
+        streak = _calculate_activity_streak(
+            [
+                date(2026, 5, 7),
+                date(2026, 5, 8),
+                date(2026, 5, 11),
+                date(2026, 5, 12),
+                date(2026, 5, 13),
+            ],
+            today=date(2026, 5, 13),
+        )
+
+        self.assertEqual(streak['current'], 3)
+        self.assertEqual(streak['best'], 3)
+        self.assertTrue(streak['active_today'])
+
+    def test_streak_remains_current_after_yesterday(self):
+        streak = _calculate_activity_streak(
+            [date(2026, 5, 11), date(2026, 5, 12)],
+            today=date(2026, 5, 13),
+        )
+
+        self.assertEqual(streak['current'], 2)
+        self.assertFalse(streak['active_today'])
+
+    def test_streak_breaks_after_missing_more_than_one_day(self):
+        streak = _calculate_activity_streak(
+            [date(2026, 5, 10), date(2026, 5, 11)],
+            today=date(2026, 5, 13),
+        )
+
+        self.assertEqual(streak['current'], 0)
+        self.assertEqual(streak['best'], 2)
 
 
 class DrawRuleTest(SimpleTestCase):
