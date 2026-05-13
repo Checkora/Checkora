@@ -4,7 +4,9 @@ import json
 import time
 import hashlib
 import secrets
+from collections.abc import Iterable
 from datetime import date
+from itertools import pairwise
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -42,7 +44,10 @@ def index(request):
     })
 
 
-def _calculate_activity_streak(dates, today=None):
+def _calculate_activity_streak(
+    dates: Iterable[date],
+    today: date | None = None,
+) -> dict[str, int | bool | str | None]:
     """Return current and best streaks from an iterable of date objects."""
     today = today or timezone.localdate()
     unique_dates = sorted(set(dates))
@@ -57,7 +62,7 @@ def _calculate_activity_streak(dates, today=None):
 
     best = 1
     run = 1
-    for prev, current in zip(unique_dates, unique_dates[1:]):
+    for prev, current in pairwise(unique_dates):
         if (current - prev).days == 1:
             run += 1
         else:
@@ -118,12 +123,14 @@ def get_activity_streak(request):
 def record_game_result(request, mode, winner, reason):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(
+    result = GameResult(
         mode=mode,
         winner=winner,
         end_reason=reason,
         user=user,
     )
+    result.full_clean()
+    result.save()
     if not user:
         _mark_session_activity(request)
 

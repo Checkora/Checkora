@@ -125,7 +125,7 @@
             <span class="badge" id="modeBadge">PVP</span>
         </div>
 
-        <div class="streak-pill" id="streakPill" title="Daily activity streak">
+        <div class="streak-pill" id="streakPill" title="Daily activity streak" role="status" aria-label="Daily activity streak: {{ activity_streak.current|default:0 }} days">
             <span class="streak-icon" aria-hidden="true">&#128293;</span>
             <span class="streak-copy">
                 <span class="streak-value" id="streakValue">{{ activity_streak.current|default:0 }}</span>

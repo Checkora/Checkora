@@ -168,6 +168,7 @@
                 streakValue.textContent = current;
                 streakPill.classList.toggle('active', Boolean(streak.active_today));
                 streakPill.title = `Daily activity streak. Best: ${streak.best || 0} days`;
+                streakPill.setAttribute('aria-label', `Daily activity streak: ${current} days. Best: ${streak.best || 0} days`);
             }
 
             function queueAIMoveIfNeeded() {
