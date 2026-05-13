@@ -13,11 +13,14 @@
     />
   </head>
   <body>
-    <!-- Back-to-home arrow -->
-    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
+       <!-- Back-to-home arrow -->
+       <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
 
-    <div class="header">
-      <h1>Checkora</h1>
+       <div class="header">
+           <div class="logo-container">
+               <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+               <span class="logo-text">Checkora</span>
+           </div>
       <p>Create an account to track your stats</p>
     </div>
 
