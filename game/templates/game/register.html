@@ -1,24 +1,41 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-</head>
-<body>
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6" />
+    <link
+      rel="icon"
+      type="image/jpeg"
+      href="{% static 'game/favicon.jpeg' %}"
+    />
+  </head>
+  <body>
+       <!-- Back-to-home arrow -->
+       <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
 
-    <div class="header">
-        <h1>Checkora</h1>
-        <p>Create an account to track your stats</p>
+       <div class="header">
+           <div class="logo-container">
+               <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+               <span class="logo-text">Checkora</span>
+           </div>
+      <p>Create an account to track your stats</p>
     </div>
 
     <div class="auth-card">
         <form method="POST">
             {% csrf_token %}
-            
+
+            {% if messages %}
+                <div class="message-list" role="alert">
+                    {% for message in messages %}
+                        <div class="message message-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
             {% endif %}
@@ -44,13 +61,6 @@
         </div>
     </div>
 
-    <script>
-        // Add classes to Django generated inputs
-        document.querySelectorAll('input').forEach(input => {
-            if (input.type !== 'submit') {
-                input.className = 'form-control';
-            }
-        });
-    </script>
-</body>
+    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
+  </body>
 </html>

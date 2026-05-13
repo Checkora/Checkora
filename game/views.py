@@ -11,7 +11,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
-from django.core.mail import send_mail
+from smtplib import SMTPException
+from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django import forms
 from .forms import CustomUserCreationForm
@@ -20,6 +21,11 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .engine import ChessGame
 from .models import GameResult
+
+
+def landing(request):
+    """Render the landing page introduction to Checkora."""
+    return render(request, 'game/landing.html')
 
 
 @ensure_csrf_cookie
@@ -66,7 +72,7 @@ def make_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(game.mode, winner, 'checkmate')
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(game.mode, 'draw', 'stalemate')
+            record_game_result(game.mode, 'draw', game.draw_reason or 'stalemate')
 
     return JsonResponse({
         'valid': success,
@@ -419,11 +425,13 @@ def register_view(request):
                     html_message=html_message
                 )
                 return redirect('verify_otp')
-            except Exception as e:
+            except (SMTPException, BadHeaderError, OSError):
                 # If email fails, delete the user so they can try again
                 user.delete()
+                request.session.pop('registration_user_id', None)
+                request.session.pop('registration_otp_hash', None)
                 err_msg = (
-                    f'Failed to send OTP email: {str(e)}. '
+                    'Failed to send OTP email. '
                     'Please check your email address and try again.'
                 )
                 messages.error(request, err_msg)
@@ -495,9 +503,10 @@ def login_view(request):
 def rules(request):
     return render(request, 'game/rules.html')
 
+@require_POST
 def logout_view(request):
     logout(request)
-    return redirect('index')
+    return redirect('landing')
 
 
 def stats_view(request):

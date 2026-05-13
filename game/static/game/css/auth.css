@@ -10,16 +10,68 @@ body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    overflow-x: hidden;
 }
-.header { margin-bottom: 30px; text-align: center; }
-.header h1 {
-    font-size: 2rem;
+/* .header { margin-bottom: 30px; text-align: center; } */
+/* ============================================================
+   Header
+   ============================================================ */
+
+   .header { 
+    padding: 20px 0 8px; 
+    display: flex;
+    flex-direction: column; /* Stack logo container and subtitle <p> */
+
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+/* Logo image - FIXED: Single rule with animation */
+.logo-icon-img {
+    height: 40px;
+    animation: logoGlow 2.5s ease-in-out infinite alternate;
+}
+
+/* Logo glow animation - FIXED: Single keyframes definition */
+@keyframes logoGlow {
+    0% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
+    }
+    100% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
+    }
+}
+
+/* Logo text */ 
+.logo-text {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
     font-weight: 700;
-    color: #fff;
     letter-spacing: 2px;
-    margin-bottom: 8px;
+    color: #f0c040;
 }
-.header p { color: #8a8aaa; font-size: 0.95rem; }
+
+/* Responsive logo sizes */
+@media (max-width: 768px) {
+    .logo-icon-img {
+        height: 26px;
+    }
+    .logo-text {
+        font-size: 20px;
+    }
+}
 
 .auth-card {
     background: #16162a;
@@ -71,6 +123,26 @@ body {
     border-left: 3px solid #ff6b6b;
     border-radius: 4px;
 }
+.message-list {
+    margin-bottom: 18px;
+}
+.message {
+    color: #ffb4b4;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    padding: 10px 12px;
+    background: rgba(255, 107, 107, 0.1);
+    border-left: 3px solid #ff6b6b;
+    border-radius: 4px;
+}
+.message + .message {
+    margin-top: 8px;
+}
+.message-success {
+    color: #b5f5c8;
+    background: rgba(76, 175, 80, 0.12);
+    border-left-color: #4caf50;
+}
 
 .btn {
     width: 100%;
@@ -106,3 +178,62 @@ body {
     font-weight: 600;
 }
 .auth-footer a:hover { text-decoration: underline; }
+
+.back-home {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    color: #f0c040;
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.back-home:hover {
+    color: #fff;
+}
+
+/* ── Password visibility toggle ── */
+.pw-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.pw-input-wrapper input {
+    padding-right: 2.5rem;
+}
+.pw-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    color: #8a8aaa;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: color 0.2s ease;
+    z-index: 2;
+}
+.pw-toggle:hover {
+    color: #f0c040;
+}
+.pw-toggle:focus-visible {
+    outline: 2px solid #f0c040;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.pw-toggle svg {
+    display: block;
+    pointer-events: none;
+}
+
+body.login-page .helptext {
+    display: none;
+}

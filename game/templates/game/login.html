@@ -5,16 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <style>
-        .helptext { display: none; } /* Hide help text on login */
-    </style>
 </head>
-<body>
+<body class="login-page">
+    <!-- Back-to-home arrow -->
+    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
 
     <div class="header">
-        <h1>Checkora</h1>
+        <div class="logo-container">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+            <span class="logo-text">Checkora</span>
+        </div>
         <p>Welcome back! Sign in to continue</p>
     </div>
 
@@ -46,5 +48,6 @@
         </div>
     </div>
 
+    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
 </body>
 </html>

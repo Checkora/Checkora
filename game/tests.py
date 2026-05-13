@@ -2,10 +2,12 @@
 
 import json
 import sys
+from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
-from django.test import SimpleTestCase, TestCase
+from django.contrib.auth.models import User
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
 
@@ -22,7 +24,10 @@ class EnginePathResolutionTest(SimpleTestCase):
 
         with (
             mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates),
-            mock.patch('game.engine.os.path.exists', side_effect=lambda path: path == candidates[0]),
+            mock.patch(
+                'game.engine.os.path.exists',
+                side_effect=lambda path: path == candidates[0],
+            ),
         ):
             self.assertEqual(ChessGame._resolve_engine_path(), candidates[0])
 
@@ -35,7 +40,11 @@ class EnginePathResolutionTest(SimpleTestCase):
 
         with (
             mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates),
-            mock.patch('game.engine.os.path.exists', side_effect=lambda path: path in {candidates[1], candidates[2]}),
+            mock.patch(
+                'game.engine.os.path.exists',
+                side_effect=lambda path: path in {
+                    candidates[1], candidates[2]},
+            ),
         ):
             self.assertEqual(ChessGame._resolve_engine_path(), candidates[1])
 
@@ -48,7 +57,10 @@ class EnginePathResolutionTest(SimpleTestCase):
 
         with (
             mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates),
-            mock.patch('game.engine.os.path.exists', side_effect=lambda path: path == candidates[2]),
+            mock.patch(
+                'game.engine.os.path.exists',
+                side_effect=lambda path: path == candidates[2],
+            ),
         ):
             self.assertEqual(ChessGame._resolve_engine_path(), candidates[2])
             self.assertEqual(
@@ -61,22 +73,74 @@ class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
 
     def test_page_loads(self):
+        response = self.client.get('/play/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Checkora')
+
+
+class LandingViewTest(TestCase):
+    """The landing page at / should load and link to the game."""
+
+    def test_landing_page_loads(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
+
+    def test_landing_page_links_to_play(self):
+        response = self.client.get('/')
+        self.assertContains(response, '/play/')
+
+
+class RegistrationViewTest(TestCase):
+    """Registration should send OTP by email only and show failures."""
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'
+    )
+    def test_successful_registration_redirects_without_showing_otp(self):
+        payload = {
+            'username': 'devplayer',
+            'email': 'devplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        response = self.client.post('/register/', data=payload, follow=True)
+
+        self.assertRedirects(response, '/verify-otp/')
+        self.assertNotContains(response, 'Development mode OTP')
+        self.assertTrue(User.objects.filter(username='devplayer').exists())
+
+    def test_email_failure_renders_error_and_removes_pending_user(self):
+        payload = {
+            'username': 'newplayer',
+            'email': 'newplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        with mock.patch('game.views.send_mail', side_effect=SMTPException('SMTP unavailable')):
+            response = self.client.post('/register/', data=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Failed to send OTP email.')
+        self.assertContains(response, 'Please check your email address and try again.')
+        self.assertFalse(User.objects.filter(username='newplayer').exists())
+        self.assertNotIn('registration_user_id', self.client.session)
+        self.assertNotIn('registration_otp_hash', self.client.session)
 
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
         
         # We mock validate_move to return specific booleans to simulate engine validation
         # and _call_engine to bypass game status and promotion checks
         self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
         self.mock_validate = self.validate_patcher.start()
-        
+
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
         self.mock_engine.return_value = "STATUS ok"
@@ -113,13 +177,20 @@ class MoveValidationTest(TestCase):
     # -- Turn enforcement -------------------------------------------
 
     def test_wrong_turn(self):
-        """Black cannot move first. Handled by native Python checks, validation isn't reached if fail."""
-        self.mock_validate.return_value = (True, "")  # Bypass validate to ensure python wrapper rejects it
-        r = self.client.post('/api/move/', data=json.dumps({'from_row': 1, 'from_col': 4, 'to_row': 3, 'to_col': 4}), content_type='application/json')
+        """Black cannot move first."""
+        self.mock_validate.return_value = (True, "")
+        r = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 1, 'from_col': 4,
+                'to_row': 3, 'to_col': 4,
+            }),
+            content_type='application/json',
+        )
         self.assertFalse(r.json()['valid'])
 
     def test_turn_alternation(self):
-        r = self._move(6, 4, 4, 4, True) 
+        r = self._move(6, 4, 4, 4, True)
         self.assertTrue(r.json()['valid'])
         self.assertEqual(r.json()['current_turn'], 'black')
 
@@ -155,14 +226,15 @@ class MoveValidationTest(TestCase):
     def test_capture_tracked(self):
         self._move(6, 4, 4, 4, True)
         self._move(1, 3, 3, 3, True)
-        
-        # To test capture, we spoof 'p' in the destination square before sending move
+
+        # To test capture, we spoof 'p' in the
+        # destination square before sending move
         session = self.client.session
         game_data = session['game']
         game_data['board'][3][3] = 'p'
         session['game'] = game_data
         session.save()
-        
+
         r = self._move(4, 4, 3, 3, True)
         data = r.json()
         self.assertTrue(data['valid'])
@@ -170,10 +242,10 @@ class MoveValidationTest(TestCase):
 
 
 class ValidMovesTest(TestCase):
-    """Test the /api/valid-moves/ endpoint. Mock _call_engine heavily to test parsers."""
+    """Test /api/valid-moves/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
 
@@ -181,7 +253,7 @@ class ValidMovesTest(TestCase):
         self.engine_patcher.stop()
 
     def test_pawn_initial_has_two_moves(self):
-        self.mock_engine.return_value = "MOVES 5 4 0 0 4 4 0 0" 
+        self.mock_engine.return_value = "MOVES 5 4 0 0 4 4 0 0"
         r = self.client.get('/api/valid-moves/?row=6&col=4')
         self.assertEqual(len(r.json()['valid_moves']), 2)
 
@@ -196,7 +268,7 @@ class ValidMovesTest(TestCase):
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
     def test_opponent_piece_no_moves(self):
-        self.mock_engine.return_value = "MOVES" # Python shortcircuits this, but mock covers edge case
+        self.mock_engine.return_value = "MOVES"  # mock edge case
         r = self.client.get('/api/valid-moves/?row=1&col=4')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
@@ -210,10 +282,10 @@ class NewGameTest(TestCase):
     """Test the /api/new-game/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def test_reset(self):
-        # We manually update board without _call_engine to simulate game progress
+        # Manually update board to simulate game progress
         session = self.client.session
         game_data = session['game']
         game_data['current_turn'] = 'black'
@@ -235,7 +307,7 @@ class CheckPromotionTest(TestCase):
         pass
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
         self.promo_patcher = mock.patch('game.engine.ChessGame.is_promotion_move')
         self.mock_promo = self.promo_patcher.start()
 
@@ -244,7 +316,8 @@ class CheckPromotionTest(TestCase):
 
     def test_white_pawn_promotion(self):
         self.mock_promo.return_value = True
-        r = self.client.get('/api/check-promotion/?from_row=1&from_col=0&to_row=0')
+        url = '/api/check-promotion/?from_row=1&from_col=0&to_row=0'
+        r = self.client.get(url)
         self.assertTrue(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
@@ -267,7 +340,7 @@ class GameStateTest(TestCase):
     """Test the /api/state/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def _set_game_session(self, game):
         session = self.client.session
@@ -324,7 +397,7 @@ class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def _set_game_session(self, game):
         session = self.client.session
@@ -377,7 +450,7 @@ class DrawOfferTest(TestCase):
     """Test draw agreement persistence through the API."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
 
     def test_accept_draw_marks_game_as_draw_agreement(self):
         response = self.client.post(
@@ -400,7 +473,9 @@ class DrawRuleTest(SimpleTestCase):
     """Test rule-based draw detection in the engine."""
 
     def setUp(self):
-        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok'))
+        self.validate_patcher = mock.patch.object(
+            ChessGame, 'validate_move',
+            return_value=(True, 'ok'))
         self.validate_patcher.start()
 
     def tearDown(self):
@@ -507,7 +582,7 @@ class AIMoveTest(TestCase):
     """Test the /api/ai-move/ endpoint."""
 
     def setUp(self):
-        self.client.get('/')
+        self.client.get('/play/')
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
         # Mock engine to return STATUS ok if checked, and BESTMOVE coords
@@ -540,7 +615,7 @@ class AIMoveTest(TestCase):
         data = r.json()
         self.assertTrue(data['valid'])
         self.assertEqual(data['current_turn'], 'black')
-        # The opening book (or engine) picks the move; just verify coordinates are present
+        # Just verify coordinates are present
         self.assertIn('from_row', data['ai_move'])
         self.assertIn('from_col', data['ai_move'])
         self.assertIn('to_row', data['ai_move'])
@@ -573,7 +648,10 @@ class OpeningBookTest(SimpleTestCase):
     def test_fen_key_reflects_castling_rights_loss(self):
         """Losing castling rights must be reflected in the FEN key."""
         game = ChessGame()
-        game.castling_rights = {'w_k': False, 'w_q': False, 'b_k': False, 'b_q': False}
+        game.castling_rights = {
+            'w_k': False, 'w_q': False,
+            'b_k': False, 'b_q': False,
+        }
         key = game.generate_fen_key()
         self.assertTrue(key.endswith(' -'))
 
@@ -606,7 +684,10 @@ class OpeningBookTest(SimpleTestCase):
     def test_book_falls_back_gracefully_on_missing_file(self):
         """A missing book file should produce an empty dict, not a crash."""
         ChessGame._opening_book = None
-        with mock.patch.object(ChessGame, 'OPENING_BOOK_PATH', '/nonexistent/path.json'):
+        with mock.patch.object(
+            ChessGame, 'OPENING_BOOK_PATH',
+            '/nonexistent/path.json',
+        ):
             book = ChessGame._load_opening_book()
         self.assertEqual(book, {})
         # Restore so other tests use the real book
@@ -621,17 +702,21 @@ class OpeningBookTest(SimpleTestCase):
         game = ChessGame()
         ChessGame._opening_book = None
 
-        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')):
+        with mock.patch.object(
+            ChessGame, 'validate_move',
+            return_value=(True, 'ok'),
+        ):
             move = game.get_opening_book_move()
 
-        self.assertIsNotNone(move, 'Expected a book move for the starting position')
+        self.assertIsNotNone(
+            move, 'Expected a book move for starting pos')
         self.assertIn('from_row', move)
         self.assertIn('from_col', move)
         self.assertIn('to_row', move)
         self.assertIn('to_col', move)
 
     def test_unknown_position_returns_none(self):
-        """An out-of-book position must return None (fall through to engine)."""
+        """Out-of-book position must return None."""
         game = ChessGame()
         # Force a book with no matching key
         ChessGame._opening_book = {}
@@ -648,7 +733,10 @@ class OpeningBookTest(SimpleTestCase):
             game.generate_fen_key(): [[6, 4, 4, 4]],
         }
 
-        with mock.patch.object(ChessGame, 'validate_move', return_value=(False, 'illegal')):
+        with mock.patch.object(
+            ChessGame, 'validate_move',
+            return_value=(False, 'illegal'),
+        ):
             move = game.get_opening_book_move()
 
         self.assertIsNone(move)
@@ -669,8 +757,8 @@ class OpeningBookTest(SimpleTestCase):
         self.assertIsNone(move)
         ChessGame._opening_book = None
 
-    def test_first_legal_candidate_returned_when_first_is_malformed(self):
-        """A valid second candidate is returned after a malformed first entry."""
+    def test_first_legal_candidate_when_first_malformed(self):
+        """Valid second candidate returned after malformed first."""
         game = ChessGame()
         fen = game.generate_fen_key()
         ChessGame._opening_book = {
@@ -678,33 +766,48 @@ class OpeningBookTest(SimpleTestCase):
         }
 
         def fake_validate(fr, fc, tr, tc):
-            return (True, 'ok') if [fr, fc, tr, tc] == [6, 4, 4, 4] else (False, 'bad')
+            coords = [fr, fc, tr, tc]
+            if coords == [6, 4, 4, 4]:
+                return (True, 'ok')
+            return (False, 'bad')
 
-        with mock.patch.object(ChessGame, 'validate_move', side_effect=fake_validate):
+        with mock.patch.object(
+            ChessGame, 'validate_move',
+            side_effect=fake_validate,
+        ):
             move = game.get_opening_book_move()
 
         self.assertIsNotNone(move)
         self.assertEqual(
-            [move['from_row'], move['from_col'], move['to_row'], move['to_col']],
+            [move['from_row'], move['from_col'],
+             move['to_row'], move['to_col']],
             [6, 4, 4, 4],
         )
         ChessGame._opening_book = None
 
     def test_book_moves_show_variety(self):
-        """With multiple candidates different moves should be chosen over many calls."""
+        """Multiple candidates should show variety."""
         game = ChessGame()
         fen = game.generate_fen_key()
         ChessGame._opening_book = {
             fen: [[6, 4, 4, 4], [6, 3, 4, 3], [7, 6, 5, 5]],
         }
         seen = set()
-        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')):
+        with mock.patch.object(
+            ChessGame, 'validate_move',
+            return_value=(True, 'ok'),
+        ):
             for _ in range(60):
                 m = game.get_opening_book_move()
                 if m:
-                    seen.add((m['from_row'], m['from_col'], m['to_row'], m['to_col']))
+                    seen.add((
+                        m['from_row'], m['from_col'],
+                        m['to_row'], m['to_col'],
+                    ))
 
-        self.assertGreater(len(seen), 1, 'Book should produce variety across 60 calls')
+        self.assertGreater(
+            len(seen), 1,
+            'Book should produce variety across 60 calls')
         ChessGame._opening_book = None
 
     # ------------------------------------------------------------------
@@ -712,12 +815,14 @@ class OpeningBookTest(SimpleTestCase):
     # ------------------------------------------------------------------
 
     def test_get_ai_move_uses_book_before_engine(self):
-        """get_ai_move() must return the book move without calling the engine."""
+        """get_ai_move() must use the book first."""
         game = ChessGame()
         ChessGame._opening_book = None
 
         with (
-            mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')),
+            mock.patch.object(
+                ChessGame, 'validate_move',
+                return_value=(True, 'ok')),
             mock.patch.object(ChessGame, '_call_engine') as mock_engine,
         ):
             move = game.get_ai_move()
@@ -731,7 +836,10 @@ class OpeningBookTest(SimpleTestCase):
         game = ChessGame()
         ChessGame._opening_book = {}  # empty book
 
-        with mock.patch.object(ChessGame, '_call_engine', return_value='BESTMOVE 6 4 4 4') as mock_engine:
+        with mock.patch.object(
+            ChessGame, '_call_engine',
+            return_value='BESTMOVE 6 4 4 4',
+        ) as mock_engine:
             move = game.get_ai_move()
 
         mock_engine.assert_called_once()
@@ -739,3 +847,23 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class MoveHistoryColorTest(TestCase):
+    """Test that move_history records the correct player color."""
+
+    def test_move_history_records_correct_color(self):
+        """White's first move must be 'white'. Black's reply, 'black'."""
+        game = ChessGame()
+
+        game.make_move(6, 4, 4, 4)  # White: e4
+        self.assertEqual(
+            game.move_history[0]['color'], 'white',
+            "White's move must be recorded as 'white'."
+        )
+
+        game.make_move(1, 4, 3, 4)  # Black: e5
+        self.assertEqual(
+            game.move_history[1]['color'], 'black',
+            "Black's move must be recorded as 'black'."
+        )
