@@ -11,7 +11,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
-from django.core.mail import send_mail
+from smtplib import SMTPException
+from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django import forms
 from .forms import CustomUserCreationForm
@@ -424,11 +425,13 @@ def register_view(request):
                     html_message=html_message
                 )
                 return redirect('verify_otp')
-            except Exception as e:
+            except (SMTPException, BadHeaderError, OSError):
                 # If email fails, delete the user so they can try again
                 user.delete()
+                request.session.pop('registration_user_id', None)
+                request.session.pop('registration_otp_hash', None)
                 err_msg = (
-                    f'Failed to send OTP email: {str(e)}. '
+                    'Failed to send OTP email. '
                     'Please check your email address and try again.'
                 )
                 messages.error(request, err_msg)
