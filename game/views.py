@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import secrets
+from datetime import date
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -73,8 +74,6 @@ def _calculate_activity_streak(dates, today=None):
             if (cursor - played_on).days == 1:
                 current += 1
                 cursor = played_on
-            elif played_on == cursor:
-                continue
             else:
                 break
 
@@ -90,7 +89,7 @@ def _session_activity_dates(request):
     dates = []
     for raw_date in request.session.get(SESSION_ACTIVITY_DATES, []):
         try:
-            dates.append(timezone.datetime.fromisoformat(raw_date).date())
+            dates.append(date.fromisoformat(raw_date))
         except (TypeError, ValueError):
             continue
     return dates
@@ -106,12 +105,10 @@ def _mark_session_activity(request):
 def get_activity_streak(request):
     """Calculate the current visitor's daily completed-game streak."""
     if request.user.is_authenticated:
-        played_dates = [
-            timezone.localtime(played_at).date()
-            for played_at in request.user.game_results.values_list(
-                'played_at', flat=True
-            )
-        ]
+        played_dates = request.user.game_results.values_list(
+            'played_at__date',
+            flat=True,
+        ).distinct()
     else:
         played_dates = _session_activity_dates(request)
 
@@ -615,9 +612,10 @@ def logout_view(request):
 def stats_view(request):
     """Display game statistics."""
     # from django.db.models import Count
-    results = GameResult.objects.all()
     if request.user.is_authenticated:
-        results = results.filter(user=request.user)
+        results = GameResult.objects.filter(user=request.user)
+    else:
+        results = GameResult.objects.none()
 
     recent = results.order_by('-played_at')[:20]
     ai_results = results.filter(mode='ai')

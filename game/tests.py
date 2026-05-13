@@ -6,10 +6,12 @@ from datetime import date
 from unittest import mock
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
 
 from .engine import ChessGame
-from .views import _calculate_activity_streak
+from .models import GameResult
+from .views import _calculate_activity_streak, get_activity_streak
 
 
 class EnginePathResolutionTest(SimpleTestCase):
@@ -474,6 +476,43 @@ class ActivityStreakTest(TestCase):
 
         self.assertEqual(streak['current'], 0)
         self.assertEqual(streak['best'], 2)
+
+    def test_authenticated_streak_uses_distinct_play_dates(self):
+        user = User.objects.create_user(username='player', password='pw')
+        self.client.force_login(user)
+        for _ in range(3):
+            GameResult.objects.create(
+                mode='ai',
+                winner='white',
+                end_reason='checkmate',
+                user=user,
+            )
+
+        request = self.client.get('/play/').wsgi_request
+        streak = get_activity_streak(request)
+
+        self.assertEqual(streak['current'], 1)
+        self.assertEqual(streak['best'], 1)
+
+
+class StatsViewTest(TestCase):
+    """Stats should only expose the current visitor's games."""
+
+    def test_anonymous_stats_do_not_include_user_results(self):
+        user = User.objects.create_user(username='player', password='pw')
+        GameResult.objects.create(
+            mode='ai',
+            winner='white',
+            end_reason='checkmate',
+            user=user,
+        )
+
+        response = self.client.get('/stats/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context['recent']), [])
+        self.assertEqual(response.context['ai_total'], 0)
+        self.assertEqual(response.context['ai_wins'], 0)
 
 
 class DrawRuleTest(SimpleTestCase):
