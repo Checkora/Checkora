@@ -47,7 +47,7 @@
 
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
 </head>
 
@@ -78,9 +78,10 @@
     </nav>
 
     <main class="hero" id="hero">
+        <p class="hero-kicker">Hybrid chess intelligence</p>
         <h1 class="hero-title">Master Chess with Checkora's Hybrid Intelligence</h1>
-        <p class="hero-subtitle">A lightweight Django frontend orchestrating Python logic with a high-performance C++
-            minimax engine.</p>
+        <p class="hero-subtitle">A focused chess arena where Python orchestration, a C++ engine, and clean game tracking
+            work together in one polished experience.</p>
         <div class="hero-actions">
             <a href="{% url 'index' %}" class="btn-primary">Start Game</a>
             <a href="#features" class="btn-secondary">Learn More</a>

@@ -1,13 +1,17 @@
 :root {
-    --bg-dark: #0f0f1a;
-    --nav-bg: #12121f;
-    --card-bg: #16162a;
-    --card-border: #252545;
-    --card-hover: #1a1a35;
-    --text-primary: #d0d0d0;
+    --bg-dark: #0b1020;
+    --bg-panel: #111936;
+    --nav-bg: rgba(11, 16, 32, 0.88);
+    --card-bg: rgba(17, 25, 54, 0.78);
+    --card-border: rgba(120, 148, 255, 0.18);
+    --card-hover: rgba(22, 35, 75, 0.94);
+    --text-primary: #e4e8f4;
     --text-title: #ffffff;
-    --text-secondary: #aaaaaa;
-    --accent-gold: #f0c040;
+    --text-secondary: #aab4cf;
+    --accent-gold: #f7c948;
+    --accent-blue: #6ee7f9;
+    --accent-violet: #9f7aea;
+    --shadow-glow: 0 24px 80px rgba(31, 91, 255, 0.2);
 }
 
 * {
@@ -28,7 +32,10 @@ html {
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: var(--bg-dark);
+    background:
+        radial-gradient(circle at 18% 18%, rgba(110, 231, 249, 0.14), transparent 28rem),
+        radial-gradient(circle at 85% 8%, rgba(159, 122, 234, 0.16), transparent 24rem),
+        linear-gradient(135deg, #0b1020 0%, #111936 52%, #080b16 100%);
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
@@ -40,8 +47,12 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 5%;
-    background-color: var(--bg-dark);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--nav-bg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(18px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .nav-left {
@@ -65,6 +76,7 @@ body {
 .logo-img {
     height: 35px;
     width: auto;
+    filter: drop-shadow(0 0 18px rgba(247, 201, 72, 0.35));
 }
 
 .logo-accent {
@@ -108,7 +120,7 @@ body {
 
 .btn-register {
     text-decoration: none;
-    background: linear-gradient(135deg, #f0c040, #d4a020);
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
     color: #1a1a2e;
     padding: 0.6rem 1.5rem;
     border-radius: 6px;
@@ -119,7 +131,7 @@ body {
 }
 
 .btn-register:hover {
-    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    background: linear-gradient(135deg, #ffe08a, #8beeff);
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
@@ -146,19 +158,48 @@ body {
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 5rem 1rem 3rem;
-    max-width: 800px;
+    padding: 6rem 1rem 4rem;
+    max-width: 880px;
     margin: 0 auto;
+    position: relative;
+}
+
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 2rem 0 auto;
+    height: 280px;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle, black 0%, transparent 68%);
+    pointer-events: none;
+    z-index: -1;
 }
 
 .hero-title {
-    font-size: 2.8rem;
+    font-size: clamp(2.8rem, 7vw, 5.8rem);
     font-weight: 700;
     line-height: 1.25;
     margin-bottom: 1rem;
     color: var(--text-title);
     letter-spacing: -0.5px;
+    background: linear-gradient(110deg, #ffffff, var(--accent-blue), var(--accent-gold));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
+
+.hero-kicker {
+    color: var(--accent-blue);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+}
+
 
 .hero-subtitle {
     font-size: 1.05rem;
@@ -175,7 +216,7 @@ body {
 
 .btn-primary {
     text-decoration: none;
-    background: linear-gradient(135deg, #f0c040, #d4a020);
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
     color: #1a1a2e;
     padding: 0.8rem 2rem;
     border-radius: 6px;
@@ -186,7 +227,7 @@ body {
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    background: linear-gradient(135deg, #ffe08a, #8beeff);
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
@@ -217,7 +258,7 @@ body {
 
 .section-title {
     text-align: center;
-    font-size: 1.8rem;
+    font-size: 2rem;
     font-weight: 600;
     margin-bottom: 3rem;
     color: var(--text-primary);
@@ -230,21 +271,25 @@ body {
 }
 
 .card {
-    background-color: var(--card-bg);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 38%),
+        var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: 10px;
+    border-radius: 22px;
     height: 180px;
     perspective: 1000px;
     position: relative;
     overflow: hidden;
     cursor: pointer;
+    box-shadow: var(--shadow-glow);
+    backdrop-filter: blur(12px);
     transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
 }
 
 .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    border-color: rgba(240, 192, 64, 0.3);
+    transform: translateY(-6px);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+    border-color: rgba(110, 231, 249, 0.42);
 }
 
 .card-inner {
@@ -278,7 +323,9 @@ body {
     pointer-events: none;
     text-align: left;
     justify-content: center;
-    background-color: var(--card-hover);
+    background:
+        linear-gradient(145deg, rgba(110, 231, 249, 0.08), rgba(247, 201, 72, 0.06)),
+        var(--card-hover);
 }
 
 .card-back p {
@@ -304,15 +351,16 @@ body {
 
 .card-title {
     font-size: 1.1rem;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--accent-gold);
+    letter-spacing: 0.03em;
 }
 
 .footer {
     padding: 2.5rem 5%;
     border-top: 1px solid var(--card-border);
     margin-top: 3rem;
-    background-color: var(--nav-bg);
+    background: rgba(8, 11, 22, 0.8);
 }
 
 .footer-content {
