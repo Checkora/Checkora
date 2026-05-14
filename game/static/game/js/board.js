@@ -614,9 +614,28 @@
                     return;
                 }
                 await executeMove(fr, fc, tr, tc, null);
-            }
+            }let reconnecting = false;
+                async function handleReconnect() {
+                    if (reconnecting) return;
+                    reconnecting = true;
+                    showStatus('Reconnecting...', false);
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment before trying
+                        await loadGame();
+                        showStatus('Connection restored', false);
+                        setTimeout(() => {
+                            showStatus('', false);
+                        }, 2000);
+                    } catch (err) {
+                        showStatus(
+                            'Unable to reconnect. Please refresh.',
+                            true
+                        );
+                    } finally {
+                        reconnecting = false;
+                    }
 
-            async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+            }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
                 try {
                     const body = {
                         from_row: fr, from_col: fc,
@@ -666,22 +685,7 @@
                         deselect();
                     }
                 } catch (e) {
-                        showStatus('Reconnecting...', false);
-                        setTimeout(async () => {
-                            try {
-                                await loadGame();
-                                showStatus('Connection restored', false);
-                                setTimeout(() => {
-                                    showStatus('', false);
-                                }, 2000);
-
-                            } catch (err) {
-                                showStatus(
-                                    'Unable to reconnect. Please refresh.',
-                                    true
-                                );
-                        }
-                    }, 1000);
+                        await handleReconnect();
                 }
             }
 
@@ -723,21 +727,8 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                    showStatus('Reconnecting...', true);
-                    setTimeout(async () => {
-                        try {
-                            await loadGame();
-                            showStatus('Connection restored', false);
-                            setTimeout(() => {
-                                showStatus('', false);
-                            }, 2000);
-                        } catch (err) {
-                            showStatus(
-                                'Unable to reconnect. Please refresh.',
-                                true
-                            );
-                        }
-                    }, 1000);
+                   
+                        await handleReconnect();
                 }
             }
 
@@ -1469,7 +1460,7 @@
                 await loadGame();
 
             } catch (e) {
-                showStatus('Reconnecting...', false);
+                await handleReconnect();
             }
         }
     });
