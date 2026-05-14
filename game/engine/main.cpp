@@ -28,7 +28,6 @@
 #include <vector>
 #include <climits>
 #include <algorithm>
-#include <bits/stdc++.h>
 
 using namespace std;
 
