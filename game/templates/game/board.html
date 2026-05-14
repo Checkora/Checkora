@@ -84,6 +84,14 @@
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
+
+                <div class="fen-input-group">
+                    <label class="fen-label" for="welcomeFenInput">Optional FEN</label>
+                    <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste FEN to start from a custom position">
+                    <div class="fen-hint">Leave blank to start from the default position.</div>
+                    <div class="fen-error" id="welcomeFenError"></div>
+                </div>
+
                 <button class="btn" id="welcomeResumeBtn"
                     style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
                     Game</button>
@@ -226,6 +234,7 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <button class="btn btn-gold" id="newFenBtn">Load Game</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
@@ -286,6 +295,19 @@
                 <button class="btn btn-gold" id="drawAcceptBtn" style="width: 90px;">Accept</button>
                 <button class="btn" id="drawDeclineBtn"
                     style="width: 90px; background: #333; color: #fff;">Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== FEN MODAL ========== -->
+    <div class="promo-overlay" id="fenOverlay">
+        <div class="promo-dialog">
+            <div class="promo-title">Start from FEN</div>
+            <input type="text" id="fenInput" class="fen-input" placeholder="Paste FEN string">
+            <div class="fen-error" id="fenError"></div>
+            <div class="fen-actions">
+                <button class="btn btn-gold" id="fenStartBtn" style="width: 110px;">Start</button>
+                <button class="btn" id="fenCancelBtn" style="width: 110px; background: #333; color: #fff;">Cancel</button>
             </div>
         </div>
     </div>

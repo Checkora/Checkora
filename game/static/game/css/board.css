@@ -159,6 +159,50 @@ body {
     font-weight: 600;
 }
 
+.fen-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.fen-label {
+    color: #ccc;
+    font-size: 0.85rem;
+    text-align: left;
+}
+
+.fen-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1a1a2e;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.fen-hint {
+    color: #777;
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+.fen-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.fen-error {
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    min-height: 18px;
+    margin-top: 8px;
+    text-align: center;
+}
+
 /* ============================================================
    Turn Indicator
    ============================================================ */

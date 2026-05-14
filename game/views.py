@@ -122,6 +122,8 @@ def new_game(request):
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
+    fen = data.get('fen')
+
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
     player_color = data.get('player_color', 'white')
@@ -138,11 +140,20 @@ def new_game(request):
     request.session['black_name'] = _clean_name(
         data.get('black_name'), 'Black'
     )
-    player_color = data.get('player_color', 'white')
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
 
-    game = ChessGame()
+    fen = fen.strip() if isinstance(fen, str) else None
+    if fen:
+        try:
+            game = ChessGame.from_fen(fen)
+        except ValueError as exc:
+            return JsonResponse(
+                {'valid': False, 'message': f'Invalid FEN: {exc}'},
+                status=400,
+            )
+    else:
+        game = ChessGame()
     game.mode = mode
     game.player_color = player_color
     game.paused = False
@@ -151,13 +162,13 @@ def new_game(request):
     request.session.modified = True
 
     return JsonResponse({
+        'valid': True,
         'board': game.board,
         'current_turn': game.current_turn,
         'move_history': [],
         'captured_pieces': {'white': [], 'black': []},
         'mode': game.mode,
         'player_color': game.player_color,
-        # We send names back just to confirm they were saved
         'white_name': request.session['white_name'],
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
@@ -220,6 +231,7 @@ def get_state(request):
         'captured_pieces': game.captured,
         'mode': game.mode,
         'player_color': game.player_color,
+        'difficulty': request.session.get('difficulty', 'medium'),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
