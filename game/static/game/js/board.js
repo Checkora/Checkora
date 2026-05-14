@@ -25,6 +25,7 @@
             let pendingPromo = null;
 
             let gameMode = 'pvp';
+            let currentDifficulty = 'medium';
             // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
@@ -92,7 +93,9 @@
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
             const welcomePvPBtn = document.getElementById('welcomePvPBtn');
             const welcomeAIBtn = document.getElementById('welcomeAIBtn');
-            
+            const welcomeFenInput = document.getElementById('welcomeFenInput');
+            const welcomeFenError = document.getElementById('welcomeFenError');
+
             const modeSelection = document.getElementById('modeSelection');
             const pveOptions = document.getElementById('pveOptions');
             const startAIBtn = document.getElementById('startAIBtn');
@@ -107,6 +110,13 @@
 
             const newPvPBtn = document.getElementById('newPvPBtn');
             const newAIBtn = document.getElementById('newAIBtn');
+            const newFenBtn = document.getElementById('newFenBtn');
+
+            const fenOverlay = document.getElementById('fenOverlay');
+            const fenInput = document.getElementById('fenInput');
+            const fenError = document.getElementById('fenError');
+            const fenStartBtn = document.getElementById('fenStartBtn');
+            const fenCancelBtn = document.getElementById('fenCancelBtn');
 
             const gameOverOverlay = document.getElementById('gameOverOverlay');
             const gameOverTitle = document.getElementById('gameOverTitle');
@@ -299,7 +309,8 @@
                 // Sync UI with current game mode
                 updateModeButtonsUI(gameMode);
                 playerColor = data.player_color || 'white';
-                
+                currentDifficulty = data.difficulty || currentDifficulty;
+
                 if (flipControls) {
                     flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
                 }
@@ -1165,8 +1176,7 @@
                 );
             }
 
-            async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
-
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null) {
                 clearTimeout(pgnCopyTimeout);
                 clearTimeout(fenCopyTimeout);
 
@@ -1208,13 +1218,31 @@
                     }
                 }
             
-                const d = await post('/api/new-game/', {
+                 const payload = {
                     mode: mode,
                     player_color: pColor,
                     white_name: wName,
                     black_name: bName,
                     difficulty: difficulty
-                });
+                };
+
+                const fenValue = fen ? fen.trim() : null;
+                if (fenValue) payload.fen = fenValue;
+
+                if (fenError) fenError.textContent = '';
+                if (welcomeFenError) welcomeFenError.textContent = '';
+
+                const d = await post('/api/new-game/', payload);
+
+                if (d.valid === false || !d.board) {
+                    const message = d.message || 'Unable to start a new game.';
+                    if (fenError) fenError.textContent = message;
+                    if (welcomeFenError && welcomeOverlay?.classList.contains('active')) {
+                        welcomeFenError.textContent = message;
+                    }
+                    showStatus(message, true);
+                    return false;
+                }
 
                 board = d.board;
                 turn = d.current_turn;
@@ -1222,7 +1250,8 @@
                 gameOver = false;
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
-                
+                currentDifficulty = d.difficulty || difficulty;
+
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
@@ -1243,6 +1272,8 @@
                 if (gameMode === 'ai' && turn !== playerColor) {
                     queueAIMoveIfNeeded();
                 }
+
+                return true;
             }
 
             
@@ -1252,11 +1283,13 @@
             ========================================================== */
             let selectedPveColor = 'white';
 
-            if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
                 if (!validatePlayerNames()) return;
+                const fen = welcomeFenInput?.value || null;
+                const started = await startNewGame('pvp', 'white', 'medium', fen);
+                if (!started) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                startNewGame('pvp');
             };
 
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
@@ -1324,12 +1357,12 @@
                 };
             });
 
-            if (startAIBtn) startAIBtn.onclick = () => {
+            if (startAIBtn) startAIBtn.onclick = async () => {
                 const wNameInput = document.getElementById('whiteNameInput');
                 const errorDiv = document.getElementById('nameError');
-                
+
                 const playerName = wNameInput?.value.trim();
-                
+
                 // Validate: AI mode only needs ONE name
                 if (!playerName) {
                     if (errorDiv) {
@@ -1341,17 +1374,19 @@
                     }
                     return;
                 }
-                
+
                 // Clear error
                 if (errorDiv) errorDiv.style.display = 'none';
                 if (wNameInput) {
                     wNameInput.classList.remove('input-error');
                 }
-                
+
                 const diff = document.getElementById('welcomeDifficultySelect').value;
+                const fen = welcomeFenInput?.value || null;
+                const started = await startNewGame('ai', selectedPveColor, diff, fen);
+                if (!started) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                startNewGame('ai', selectedPveColor, diff);
             };
 
             if (autoFlipBtn) autoFlipBtn.onclick = () => {
@@ -1438,6 +1473,41 @@
                 }
                 
                 requestNewGame('ai');
+            };
+
+            if (newFenBtn) newFenBtn.onclick = () => {
+                showConfirm(
+                    "Load from FEN?",
+                    "Your current progress will be lost.<br>Do you want to continue?",
+                    () => {
+                        if (fenError) fenError.textContent = '';
+                        if (fenInput) fenInput.value = '';
+                        fenOverlay.classList.add('active');
+                    },
+                    '#ff6b6b'
+                );
+            };
+
+            if (fenStartBtn) fenStartBtn.onclick = async () => {
+                const fenValue = fenInput?.value?.trim() || '';
+                if (!fenValue) {
+                    if (fenError) fenError.textContent = 'Please enter a FEN string.';
+                    return;
+                }
+
+                const mode = gameMode === 'ai' ? 'ai' : 'pvp';
+                const pColor = mode === 'ai' ? playerColor : 'white';
+                const diff = mode === 'ai' ? currentDifficulty : 'medium';
+                const started = await startNewGame(mode, pColor, diff, fenValue);
+                if (!started) return;
+
+                fenOverlay.classList.remove('active');
+                welcomeOverlay.classList.remove('active');
+                gameLayout.style.visibility = 'visible';
+            };
+
+            if (fenCancelBtn) fenCancelBtn.onclick = () => {
+                fenOverlay.classList.remove('active');
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
@@ -1531,35 +1601,10 @@
                 }
                 if (!gameOver && !welcomeOverlay.classList.contains('active')) {
                     e.preventDefault();
-                    e.returnValue = '';
+e.returnValue = '';
                 }
             });
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 2999aa95 (fix: add validatePlayerNames and wire to PvP and AI entry points)
-            
 
-          if (typeof module !== "undefined" && module.exports) {
-          module.exports = { pColor, getSquareLabel, formatTime };
-        } else {
-          loadGame();
-        }
-
-})();
-<<<<<<< HEAD
-
-
-=======
-            // Clear error styling when user types
-            const whiteNameInput = document.getElementById('whiteNameInput');
-            const blackNameInput = document.getElementById('blackNameInput');
-            const nameError = document.getElementById('nameError');
-=======
->>>>>>> 2999aa95 (fix: add validatePlayerNames and wire to PvP and AI entry points)
-
-
-<<<<<<< HEAD
             if (blackNameInput) {
                 blackNameInput.addEventListener('input', () => {
                     blackNameInput.style.borderColor = '#444';
@@ -1569,11 +1614,9 @@
                     }
                 });
             }
+
             /* ==========================================================
             INIT
             ========================================================== */
             loadGame();
         })();
->>>>>>> 0ebf62c3 (fix: make player name inputs mandatory before starting game)
-=======
->>>>>>> 2999aa95 (fix: add validatePlayerNames and wire to PvP and AI entry points)

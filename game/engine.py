@@ -174,6 +174,102 @@ DP cache is intentionally excluded to save cookie space."""
         game.valid_moves_cache = {}
         return game
 
+    @classmethod
+    def from_fen(cls, fen: str):
+        """Create a new game state from a FEN string (board, side, castling)."""
+        if not isinstance(fen, str):
+            raise ValueError("FEN must be a string.")
+
+        fen = fen.strip()
+        if not fen:
+            raise ValueError("FEN is empty.")
+
+        parts = fen.split()
+        if len(parts) < 3:
+            raise ValueError("FEN must have at least 3 fields.")
+
+        placement, active_color, castling = parts[0], parts[1], parts[2]
+        board = cls._parse_fen_placement(placement)
+
+        if active_color not in ('w', 'b'):
+            raise ValueError("Active color must be 'w' or 'b'.")
+
+        castling_rights = cls._parse_fen_castling(castling)
+
+        white_king = sum(1 for row in board for p in row if p == 'K')
+        black_king = sum(1 for row in board for p in row if p == 'k')
+        if white_king != 1 or black_king != 1:
+            raise ValueError(
+                "FEN must include exactly one white and one black king.")
+
+        game = cls()
+        game.board = board
+        game.current_turn = 'white' if active_color == 'w' else 'black'
+        game.castling_rights = castling_rights
+        game.en_passant_target = None
+        game.halfmove_clock = 0
+        game.move_history = []
+        game.captured = {'white': [], 'black': []}
+        game.valid_moves_cache = {}
+        game.repetition_history = [game.generate_position_key()]
+        game._rebuild_repetition_counts()
+        game.game_status = 'active'
+        game.draw_reason = None
+        game.last_ts = time.time()
+        return game
+
+    @staticmethod
+    def _parse_fen_placement(placement: str):
+        rows = placement.split('/')
+        if len(rows) != 8:
+            raise ValueError("FEN must have 8 ranks.")
+
+        valid_pieces = set('prnbqkPRNBQK')
+        board = []
+
+        for row in rows:
+            row_cells = []
+            for ch in row:
+                if ch.isdigit():
+                    count = int(ch)
+                    if count < 1 or count > 8:
+                        raise ValueError(
+                            "Invalid empty-square count in FEN.")
+                    row_cells.extend([None] * count)
+                else:
+                    if ch not in valid_pieces:
+                        raise ValueError(
+                            "Invalid piece character in FEN.")
+                    row_cells.append(ch)
+
+            if len(row_cells) != 8:
+                raise ValueError("Each FEN rank must have 8 files.")
+            board.append(row_cells)
+
+        return board
+
+    @staticmethod
+    def _parse_fen_castling(castling: str):
+        rights = {'w_k': False, 'w_q': False, 'b_k': False, 'b_q': False}
+
+        if castling == '-':
+            return rights
+
+        valid_chars = set('KQkq')
+        for ch in castling:
+            if ch not in valid_chars:
+                raise ValueError("Invalid castling rights in FEN.")
+            if ch == 'K':
+                rights['w_k'] = True
+            elif ch == 'Q':
+                rights['w_q'] = True
+            elif ch == 'k':
+                rights['b_k'] = True
+            elif ch == 'q':
+                rights['b_q'] = True
+
+        return rights
+
     # ------------------------------------------------------------------
     #  C++ engine communication
     # ------------------------------------------------------------------
