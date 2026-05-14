@@ -22,7 +22,22 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, GameSession
+
+
+def get_game_session(request):
+    session_id = request.session.get('game_session_id')
+    if not session_id:
+        return None
+    try:
+        return GameSession.objects.get(session_id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return None
+
+
+def save_game_session(game_session, game):
+    game_session.game_data = game.to_dict()
+    game_session.save()
 
 
 def landing(request):
@@ -32,10 +47,14 @@ def landing(request):
 
 @ensure_csrf_cookie
 def index(request):
-    """Render the board and initialise a new game in the session."""
-    if 'game' not in request.session:
+    if 'game_session_id' not in request.session:
         game = ChessGame()
-        request.session['game'] = game.to_dict()
+        game_session = GameSession.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            game_data=game.to_dict(),
+        )
+        request.session['game_session_id'] = str(game_session.session_id)
+        request.session.modified = True
     return render(request, 'game/board.html')
 
 
@@ -47,7 +66,6 @@ def record_game_result(request, mode, winner, reason, player_color='white'):
 
 @require_POST
 def make_move(request):
-    """Validate and execute a chess move via the C++ engine."""
     try:
         data = json.loads(request.body)
         from_row = int(data['from_row'])
@@ -61,16 +79,19 @@ def make_move(request):
             status=400,
         )
 
-    game_data = request.session.get('game')
-    game = ChessGame.from_dict(game_data) if game_data else ChessGame()
+    game_session = get_game_session(request)
+    if not game_session:
+        game = ChessGame()
+    else:
+        game = ChessGame.from_dict(game_session.game_data)
 
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
     if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        if game_session:
+            save_game_session(game_session, game)
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
@@ -119,26 +140,40 @@ def valid_moves(request):
 
 @require_POST
 def new_game(request):
-    """Reset the game to the initial position with selected mode."""
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid JSON.'}, status=400)
+    
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
+    player_color = data.get('player_color', 'white')
+    
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
-    player_color = data.get('player_color', 'white')
+    if difficulty not in ('easy', 'medium', 'hard'):
+        difficulty = 'medium'
+    if player_color not in ('white', 'black'):
+        player_color = 'white'
 
-    request.session['white_name'] = data.get('white_name', 'White')
-    request.session['black_name'] = data.get('black_name', 'Black')
-    player_color = data.get('player_color', 'white')
-    request.session['difficulty'] = difficulty
-    request.session['player_color'] = player_color
+    white_name = data.get('white_name', 'White')
+    black_name = data.get('black_name', 'Black')
 
     game = ChessGame()
     game.mode = mode
     game.player_color = player_color
     game.paused = False
 
-    request.session['game'] = game.to_dict()
+    game_session = GameSession.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        game_data=game.to_dict(),
+        white_name=white_name,
+        black_name=black_name,
+        difficulty=difficulty,
+        player_color=player_color,
+    )
+    
+    request.session['game_session_id'] = str(game_session.session_id)
     request.session.modified = True
 
     return JsonResponse({
@@ -148,9 +183,8 @@ def new_game(request):
         'captured_pieces': {'white': [], 'black': []},
         'mode': game.mode,
         'player_color': game.player_color,
-        # We send names back just to confirm they were saved
-        'white_name': request.session['white_name'],
-        'black_name': request.session['black_name'],
+        'white_name': white_name,
+        'black_name': black_name,
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
         'pgn': game.generate_pgn(),
@@ -184,22 +218,18 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
-    """Return the full current game state without mutating pause state."""
-    game_data = request.session.get('game')
-    if not game_data:
+    game_session = get_game_session(request)
+    if not game_session:
         game = ChessGame()
     else:
-        game = ChessGame.from_dict(game_data)
-
-        # Skip clock deduction if tab was closed for too long
+        game = ChessGame.from_dict(game_session.game_data)
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
-            game.paused = True  # pause without deducting lost time
+            game.paused = True
         else:
             game.update_clock()
-
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+        if game_session:
+            save_game_session(game_session, game)
 
     return JsonResponse({
         'board': game.board,
@@ -222,24 +252,25 @@ def get_state(request):
 
 @require_POST
 def set_pause(request):
-    """Toggle the game clock between paused and running."""
-    game_data = request.session.get('game')
-    if not game_data:
+    game_session = get_game_session(request)
+    if not game_session:
         return JsonResponse({'paused': False})
 
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid JSON.'}, status=400)
+    
     pause = data.get('pause', True)
 
-    game = ChessGame.from_dict(game_data)
+    game = ChessGame.from_dict(game_session.game_data)
 
-    # Only deduct elapsed time when transitioning from running to paused.
     if pause and not game.paused:
         game.update_clock()
     game.paused = pause
     game.last_ts = time.time()
 
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    save_game_session(game_session, game)
 
     return JsonResponse({
         'paused': game.paused,
@@ -250,15 +281,14 @@ def set_pause(request):
 
 @require_POST
 def ai_move(request):
-    """Let the engine compute and play the best move for the current side."""
-    game_data = request.session.get('game')
-    if not game_data:
+    game_session = get_game_session(request)
+    if not game_session:
         err_msg = 'No active game.'
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
         )
 
-    game = ChessGame.from_dict(game_data)
+    game = ChessGame.from_dict(game_session.game_data)
 
     if game.mode != 'ai':
         err_msg = 'Not in AI mode.'
@@ -266,8 +296,7 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-    # Depth Mapping
-    difficulty = request.session.get('difficulty', 'medium')
+    difficulty = game_session.difficulty
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
     depth = depth_map.get(difficulty, 3)
 
@@ -286,8 +315,7 @@ def ai_move(request):
     )
 
     if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        save_game_session(game_session, game)
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -317,23 +345,25 @@ def ai_move(request):
 
 @require_POST
 def offer_draw(request):
-    """Handle draw offers and agreements."""
-    game_data = request.session.get('game')
-    if not game_data:
+    game_session = get_game_session(request)
+    if not game_session:
         err_msg = 'No active game.'
         return JsonResponse(
             {'success': False, 'message': err_msg}, status=400
         )
 
-    data = json.loads(request.body or '{}')
-    action = data.get('action')  # 'offer' or 'accept'
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON.'}, status=400)
+    
+    action = data.get('action')
 
     if action == 'accept':
-        game = ChessGame.from_dict(game_data)
+        game = ChessGame.from_dict(game_session.game_data)
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        save_game_session(game_session, game)
         record_game_result(request, game.mode, 'draw', 'agreement', game.player_color)
         return JsonResponse({
             'success': True,
@@ -391,9 +421,10 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            request.session['registration_otp_timestamp'] = time.time()
+            request.session['registration_otp_attempts'] = 0
 
             # Send Email
             try:
@@ -459,14 +490,41 @@ def verify_otp(request):
 
     user_id = request.session.get('registration_user_id')
     stored_otp_hash = request.session.get('registration_otp_hash')
+    otp_timestamp = request.session.get('registration_otp_timestamp')
+    otp_attempts = request.session.get('registration_otp_attempts', 0)
 
     if not user_id or not stored_otp_hash:
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
 
+    if otp_timestamp and time.time() - otp_timestamp > 300:
+        del request.session['registration_user_id']
+        del request.session['registration_otp_hash']
+        request.session.pop('registration_otp_timestamp', None)
+        request.session.pop('registration_otp_attempts', None)
+        try:
+            user = User.objects.get(id=user_id)
+            user.delete()
+        except User.DoesNotExist:
+            pass
+        messages.error(request, 'OTP expired. Please register again.')
+        return redirect('register')
+
+    if otp_attempts >= 3:
+        del request.session['registration_user_id']
+        del request.session['registration_otp_hash']
+        request.session.pop('registration_otp_timestamp', None)
+        request.session.pop('registration_otp_attempts', None)
+        try:
+            user = User.objects.get(id=user_id)
+            user.delete()
+        except User.DoesNotExist:
+            pass
+        messages.error(request, 'Too many incorrect attempts. Please register again.')
+        return redirect('register')
+
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
-        # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
 
         if entered_otp_hash == stored_otp_hash:
@@ -475,9 +533,10 @@ def verify_otp(request):
                 user.is_active = True
                 user.save()
 
-                # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('registration_otp_timestamp', None)
+                request.session.pop('registration_otp_attempts', None)
 
                 login(request, user)
                 request.session.cycle_key()
@@ -489,7 +548,9 @@ def verify_otp(request):
                 )
                 return redirect('register')
         else:
-            messages.error(request, 'Invalid OTP. Please try again.')
+            request.session['registration_otp_attempts'] = otp_attempts + 1
+            attempts_left = 3 - (otp_attempts + 1)
+            messages.error(request, f'Invalid OTP. {attempts_left} attempts remaining.')
 
     return render(request, 'game/verify_otp.html')
 

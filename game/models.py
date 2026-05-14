@@ -1,5 +1,31 @@
 from django.db import models
 from django.conf import settings
+import uuid
+
+
+class GameSession(models.Model):
+    session_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="game_sessions"
+    )
+    game_data = models.JSONField(default=dict)
+    white_name = models.CharField(max_length=255, default='White')
+    black_name = models.CharField(max_length=255, default='Black')
+    difficulty = models.CharField(max_length=10, default='medium')
+    player_color = models.CharField(max_length=5, default='white')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"GameSession {self.session_id}"
 
 
 class GameResult(models.Model):
