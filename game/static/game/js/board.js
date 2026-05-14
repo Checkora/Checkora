@@ -666,7 +666,22 @@
                         deselect();
                     }
                 } catch (e) {
-                    showStatus('Connection error.', true);
+                        showStatus('Reconnecting...', false);
+                        setTimeout(async () => {
+                            try {
+                                await loadGame();
+                                showStatus('Connection restored', false);
+                                setTimeout(() => {
+                                    showStatus('', false);
+                                }, 2000);
+
+                            } catch (err) {
+                                showStatus(
+                                    'Unable to reconnect. Please refresh.',
+                                    true
+                                );
+                        }
+                    }, 1000);
                 }
             }
 
@@ -708,9 +723,21 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                    showStatus('AI connection error.', true);
-                } finally {
-                    aiThinking = false;
+                    showStatus('Reconnecting...', true);
+                    setTimeout(async () => {
+                        try {
+                            await loadGame();
+                            showStatus('Connection restored', false);
+                            setTimeout(() => {
+                                showStatus('', false);
+                            }, 2000);
+                        } catch (err) {
+                            showStatus(
+                                'Unable to reconnect. Please refresh.',
+                                true
+                            );
+                        }
+                    }, 1000);
                 }
             }
 
@@ -1434,7 +1461,18 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+    document.addEventListener('visibilitychange', async() => {
+        if (document.hidden) {
+            pauseGame();
+        } else {
+            try {
+                await loadGame();
+
+            } catch (e) {
+                showStatus('Reconnecting...', false);
+            }
+        }
+    });
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 
