@@ -14,11 +14,14 @@
     />
   </head>
   <body>
-    <!-- Back-to-home arrow -->
-    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
+       <!-- Back-to-home arrow -->
+       <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
 
-    <div class="header">
-      <h1>Checkora</h1>
+       <div class="header">
+           <div class="logo-container">
+               <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+               <span class="logo-text">Checkora</span>
+           </div>
       <p>Create an account to track your stats</p>
     </div>
 
@@ -90,6 +93,40 @@
       <div class="auth-footer">
         Already have an account? <a href="{% url 'login' %}">Sign In</a>
       </div>
+        <form method="POST">
+            {% csrf_token %}
+
+            {% if messages %}
+                <div class="message-list" role="alert">
+                    {% for message in messages %}
+                        <div class="message message-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                {{ form.non_field_errors }}
+            {% endif %}
+            
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <span class="helptext">{{ field.help_text|safe }}</span>
+                    {% endif %}
+                    {% if field.errors %}
+                        {{ field.errors }}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-gold">Create Account</button>
+        </form>
+        
+        <div class="auth-footer">
+            Already have an account? <a href="{% url 'login' %}">Sign In</a>
+        </div>
     </div>
 
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>

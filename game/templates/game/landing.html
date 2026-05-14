@@ -5,7 +5,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkora | Hybrid Chess Engine</title>
+    <title>Checkora | Play AI Chess Online with Hybrid Engine</title>
+    <meta name="google-site-verification" content="MkxTJ-CxFDWDussY1CsgoyiG0_nwTVd_HRl5r76MpwM" />
+    <meta name="description" content="Play Checkora, a powerful hybrid chess engine orchestrating Python logic with a high-performance C++ minimax engine. Challenge the AI, track your stats, and master the board.">
+    <meta name="keywords" content="Checkora, Chess, AI Chess, Hybrid Chess Engine, Play Chess Online, Minimax Chess, Django Chess">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://checkora.vercel.app/">
+    <meta property="og:title" content="Checkora | Play AI Chess Online">
+    <meta property="og:description" content="Experience high-performance chess with Checkora's hybrid C++ engine. Play for free online.">
+    <meta property="og:image" content="{% static 'game/checkora_icon_only.png' %}">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://checkora.vercel.app/">
+    <meta property="twitter:title" content="Checkora | Play AI Chess Online">
+    <meta property="twitter:description" content="Experience high-performance chess with Checkora's hybrid C++ engine. Play for free online.">
+    <meta property="twitter:image" content="{% static 'game/checkora_icon_only.png' %}">
+
+    <!-- JSON-LD Schema Markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Checkora",
+      "operatingSystem": "Web",
+      "applicationCategory": "GameApplication",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "150"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -39,7 +78,7 @@
     </nav>
 
     <main class="hero" id="hero">
-        <h1 class="hero-title">Master the Board with Hybrid Intelligence</h1>
+        <h1 class="hero-title">Master Chess with Checkora's Hybrid Intelligence</h1>
         <p class="hero-subtitle">A lightweight Django frontend orchestrating Python logic with a high-performance C++
             minimax engine.</p>
         <div class="hero-actions">

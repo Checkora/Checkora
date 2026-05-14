@@ -133,6 +133,8 @@
             let gameOver = false;
             let aiThinking = false;
 
+            let pgnCopyTimeout = null;
+            let fenCopyTimeout = null;
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
@@ -354,9 +356,16 @@
                 let wName = data.white_name || 'White';
                 let bName = data.black_name || 'Black';
                 
-                if (gameMode === 'ai') {
-                    if (playerColor === 'white') bName = bName + ' (AI)';
-                    else wName = wName + ' (AI)';
+                if (gameMode === 'ai'){
+                    // Fixing the naming system
+                    let player_name = data.white_name;
+                    if(playerColor === 'white'){
+                        wName = player_name;
+                        bName = 'AI (Black)';
+                    }else{
+                        bName = player_name;
+                        wName = 'AI (White)';
+                    }
                 }
 
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
@@ -1049,6 +1058,24 @@
                 confirmOverlay.classList.add('active');
             }
 
+            function showSideSelectionModal(onChoose) {
+                const modal = document.getElementById('sideModal');
+                modal.style.display = 'flex';
+
+                function pick(side) {
+                    modal.style.display = 'none';
+                    document.getElementById('chooseWhite').onclick = null;
+                    document.getElementById('chooseBlack').onclick = null;
+                    document.getElementById('chooseRandom').onclick = null;
+                    onChoose(side);
+                }
+
+                document.getElementById('chooseWhite').onclick = () => pick('white');
+                document.getElementById('chooseBlack').onclick = () => pick('black');
+                document.getElementById('chooseRandom').onclick = () =>
+                    pick(Math.random() < 0.5 ? 'white' : 'black');
+            }
+
             function requestNewGame(mode) {
                 const diffContainer = document.getElementById('confirmDifficultyContainer');
                 if (mode === 'ai') {
@@ -1063,7 +1090,7 @@
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
                         if (mode === 'ai') {
-                            startNewGame('ai', 'white', diff);
+                            showSideSelectionModal(side => startNewGame('ai', side, diff));
                         } else {
                             startNewGame('pvp');
                         }
@@ -1090,6 +1117,17 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium') {
+
+                clearTimeout(pgnCopyTimeout);
+                clearTimeout(fenCopyTimeout);
+
+                if (copyPgnBtn) {
+                    copyPgnBtn.textContent = 'Export as PGN';
+                }
+
+                if (copyFenBtn) {
+                    copyFenBtn.textContent = 'Copy FEN';
+                }
                 // Clear celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
@@ -1137,6 +1175,8 @@
                     queueAIMoveIfNeeded();
                 }
             }
+
+            
 
             /* ==========================================================
             EVENT LISTENERS
@@ -1260,12 +1300,14 @@
     if (data.pgn) {
         navigator.clipboard.writeText(data.pgn);
 
-        const oldText = copyPgnBtn.textContent;
+        
 
         copyPgnBtn.textContent = 'Copied!';
 
-        setTimeout(() => {
-            copyPgnBtn.textContent = oldText;
+        clearTimeout(pgnCopyTimeout);
+
+        pgnCopyTimeout = setTimeout(() => {
+            copyPgnBtn.textContent = 'Export as PGN';
         }, 2000);
     }
 };
@@ -1274,9 +1316,13 @@
                 const data = await get('/api/state/');
                 if (data.fen) {
                     navigator.clipboard.writeText(data.fen);
-                    const oldText = copyFenBtn.textContent;
+                    
                     copyFenBtn.textContent = 'Copied!';
-                    setTimeout(() => copyFenBtn.textContent = oldText, 2000);
+                    clearTimeout(fenCopyTimeout);
+
+                    fenCopyTimeout = setTimeout(() => {
+                        copyFenBtn.textContent = 'Copy FEN';
+                    }, 2000);
                 }
             };
 
@@ -1330,7 +1376,10 @@
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
-                    showConfirm("Resign?", "Are you sure you want to resign?", () => endGame('resign', turn));
+                    showConfirm("Resign?", "Are you sure you want to resign?", async () => {
+                        await post('/api/resign/', {});
+                        endGame('resign', turn);
+                    });
                 }
             };
 
@@ -1357,7 +1406,11 @@
                     confettiContainer.remove();
                 }
                 
-                startNewGame(mode, 'white', diff);
+                if (mode === 'ai') {
+                    showSideSelectionModal(side => startNewGame(mode, side, diff));
+                } else {
+                    startNewGame(mode, 'white', diff);
+                }
             };
 
             // Theme Switcher

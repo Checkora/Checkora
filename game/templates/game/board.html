@@ -5,7 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkora | AI Chess</title>
+    <title>Play Chess | Checkora AI</title>
+    <meta name="description" content="Challenge the Checkora AI engine. Play a professional game of chess with advanced AI analysis and move history.">
+    <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
@@ -42,6 +44,9 @@
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
+            <div style="margin-bottom: 20px; color:#f0c040;">
+                <a href="/" class="back-btn">← Back to Home</a>
+            </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
@@ -74,6 +79,7 @@
 
             <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
+                
                 <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
@@ -110,15 +116,17 @@
             </div>
         </div>
     </div>
-
+    
     <!-- ========== HEADER ========== -->
+    
     <div class="header">
+        
         <div class="logo-container">
             <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
             <span class="logo-text">Checkora</span>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
-
+        
         <div class="auth-buttons">
             {% if user.is_authenticated %}
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
@@ -133,7 +141,7 @@
             <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
-
+    
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
 
@@ -231,6 +239,10 @@
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
                     ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
                 </div>
+                <a href="/" class="btn" 
+   style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
+    EXIT TO HOME
+</a>
             </div>
             <div class="card">
                 <div class="card-title">Move History</div>
@@ -324,6 +336,29 @@
             </div>
         </div>
     </div>
+
+    <!-- ========== SIDE SELECTION MODAL ========== -->
+    <div class="promo-overlay" id="sideModal" style="display: none;">
+        <div class="promo-dialog" style="min-width: 300px; padding: 35px; text-align: center;">
+            <div class="promo-title" style="font-size: 1.4rem; color: #f0c040; margin-bottom: 10px;">Choose Your Side
+            </div>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">Which color do you want to play?</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn" id="chooseWhite"
+                    style="padding: 12px; background: #fff; color: #000; font-size: 1rem; border-radius: 6px;">
+                    Play as White
+                </button>
+                <button class="btn" id="chooseBlack"
+                    style="padding: 12px; background: #000; color: #fff; font-size: 1rem; border-radius: 6px; border: 1px solid #555;">
+                    Play as Black
+                </button>
+                <button class="btn btn-gold" id="chooseRandom" style="padding: 12px; font-size: 1rem;">
+                    Random
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- RULEBOOK MODAL -->
     <div id="rulebookModal"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
