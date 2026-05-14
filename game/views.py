@@ -19,6 +19,7 @@ from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 
 from .engine import ChessGame
 from .models import GameResult
@@ -564,7 +565,9 @@ def stats_view(request):
     # If winner == player_color, the user won
     user_ai_wins = ai_results.filter(winner=F('player_color')).count()
     # If winner != player_color and not a draw, the AI won
-    ai_wins = ai_results.exclude(winner=F('player_color')).exclude(winner='draw').count()
+    ai_wins = ai_results.filter(
+        Q(winner='white', player_color='black') | Q(winner='black', player_color='white')
+    ).count()
 
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
