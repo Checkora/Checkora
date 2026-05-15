@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify your Email | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <style>
         .otp-container {
@@ -34,17 +34,131 @@
             box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
         }
         /* Hide number arrows */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
         input[type=number] {
             -moz-appearance: textfield;
         }
+
+        /* ── Resend OTP section ── */
+        .resend-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+            min-height: 38px;
+        }
+        .resend-btn {
+            background: none;
+            border: 1px solid #f0c040;
+            color: #f0c040;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .resend-btn:hover:not(:disabled) {
+            background: rgba(240, 192, 64, 0.12);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 10px rgba(240, 192, 64, 0.15);
+        }
+        .resend-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: #555;
+            color: #777;
+        }
+
+        /* Spinner inside button */
+        .resend-spinner {
+            display: none;
+            width: 14px;
+            height: 14px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        .resend-btn.loading .resend-spinner {
+            display: inline-block;
+        }
+        .resend-btn.loading .resend-label {
+            opacity: 0.7;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Cooldown text */
+        .cooldown-text {
+            font-size: 0.82rem;
+            color: #8a8aaa;
+            letter-spacing: 0.3px;
+        }
+        .cooldown-text .cooldown-seconds {
+            color: #f0c040;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Toast notification ── */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+            max-width: 340px;
+            line-height: 1.4;
+        }
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .toast-success {
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+            border-left: 4px solid #66bb6a;
+        }
+        .toast-error {
+            background: linear-gradient(135deg, #b71c1c, #c62828);
+            border-left: 4px solid #ef5350;
+        }
+        .toast-warning {
+            background: linear-gradient(135deg, #e65100, #ef6c00);
+            border-left: 4px solid #ffa726;
+        }
     </style>
 </head>
 <body>
+
+    <!-- Toast container for notifications -->
+    <div class="toast-container" id="toast-container"></div>
 
     <div class="header">
         <h1>Verify your Email</h1>
@@ -52,9 +166,9 @@
     </div>
 
     <div class="auth-card">
-        <form method="POST">
+        <form method="POST" id="otp-form">
             {% csrf_token %}
-            
+
             {% if messages %}
                 <div class="message-list" role="alert">
                     {% for message in messages %}
@@ -62,21 +176,164 @@
                     {% endfor %}
                 </div>
             {% endif %}
-            
+
             <div class="form-group">
                 <label for="otp">Enter 6-Digit OTP</label>
                 <div class="otp-container">
                     <input type="text" id="otp" name="otp" class="otp-input" maxlength="6" pattern="\d{6}" placeholder="000000" autocomplete="off" required>
                 </div>
             </div>
-            
-            <button type="submit" class="btn btn-gold">Verify & Activate</button>
+
+            <button type="submit" class="btn btn-gold" id="verify-btn">Verify &amp; Activate</button>
         </form>
-        
+
+        <!-- Resend OTP section -->
+        <div class="resend-section" id="resend-section">
+            <button type="button" class="resend-btn" id="resend-btn" aria-label="Resend OTP">
+                <span class="resend-spinner"></span>
+                <span class="resend-label">Resend OTP</span>
+            </button>
+            <span class="cooldown-text" id="cooldown-text" style="display: none;">
+                Resend OTP in <span class="cooldown-seconds" id="cooldown-seconds">0</span>s
+            </span>
+        </div>
+
         <div class="auth-footer">
-            Didn't receive the code? <a href="{% url 'register' %}">Try again</a>
+            Need to change your email? <a href="{% url 'register' %}">Go back</a>
         </div>
     </div>
+
+    <script>
+    (function () {
+        "use strict";
+
+        /* ── DOM refs ── */
+        const resendBtn     = document.getElementById("resend-btn");
+        const cooldownText  = document.getElementById("cooldown-text");
+        const cooldownSecs  = document.getElementById("cooldown-seconds");
+        const toastBox      = document.getElementById("toast-container");
+
+        /* ── State ── */
+        let cooldownTimer   = null;
+        let isRequesting    = false;
+
+        /* CSRF token from the form */
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        /* Initial cooldown from Django template (server-rendered) */
+        const initialCooldown = {{ cooldown_remaining|default:"0" }};
+
+        /* ────────────────────────────────────────────
+           Toast notifications
+           ──────────────────────────────────────────── */
+        function showToast(message, type) {
+            const toast = document.createElement("div");
+            toast.className = "toast toast-" + type;
+            toast.textContent = message;
+            toastBox.appendChild(toast);
+
+            /* Trigger slide-in on next frame */
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    toast.classList.add("show");
+                });
+            });
+
+            /* Auto-dismiss after 4s */
+            setTimeout(function () {
+                toast.classList.remove("show");
+                setTimeout(function () { toast.remove(); }, 400);
+            }, 4000);
+        }
+
+        /* ────────────────────────────────────────────
+           Cooldown timer
+           ──────────────────────────────────────────── */
+        function startCooldown(seconds) {
+            if (cooldownTimer) clearInterval(cooldownTimer);
+
+            let remaining = Math.max(0, Math.ceil(seconds));
+            resendBtn.disabled = true;
+            resendBtn.style.display = "none";
+            cooldownText.style.display = "inline";
+            cooldownSecs.textContent = remaining;
+
+            cooldownTimer = setInterval(function () {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    clearInterval(cooldownTimer);
+                    cooldownTimer = null;
+                    resendBtn.disabled = false;
+                    resendBtn.style.display = "inline-flex";
+                    cooldownText.style.display = "none";
+                } else {
+                    cooldownSecs.textContent = remaining;
+                }
+            }, 1000);
+        }
+
+        /* ────────────────────────────────────────────
+           Resend OTP handler
+           ──────────────────────────────────────────── */
+        resendBtn.addEventListener("click", function () {
+            if (isRequesting || resendBtn.disabled) return;
+            isRequesting = true;
+
+            /* Loading state */
+            resendBtn.classList.add("loading");
+            resendBtn.disabled = true;
+
+            fetch("{% url 'resend_otp' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                    "Content-Type": "application/json",
+                },
+                credentials: "same-origin",
+            })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { status: res.status, data: data };
+                });
+            })
+            .then(function (result) {
+                var data   = result.data;
+                var status = result.status;
+
+                if (data.success) {
+                    showToast(data.message || "OTP resent successfully!", "success");
+                    startCooldown(data.cooldown || 60);
+                } else if (status === 429) {
+                    showToast(data.message || "Too many attempts. Please wait.", "warning");
+                    if (data.cooldown_remaining) {
+                        startCooldown(data.cooldown_remaining);
+                    }
+                } else if (status === 404) {
+                    showToast(data.message || "Session not found. Please register again.", "error");
+                    setTimeout(function () {
+                        window.location.href = "{% url 'register' %}";
+                    }, 2000);
+                } else {
+                    showToast(data.message || "Something went wrong. Please try again.", "error");
+                    resendBtn.disabled = false;
+                }
+            })
+            .catch(function () {
+                showToast("Network error. Please check your connection and try again.", "error");
+                resendBtn.disabled = false;
+            })
+            .finally(function () {
+                isRequesting = false;
+                resendBtn.classList.remove("loading");
+            });
+        });
+
+        /* ── Kick off initial cooldown if server says so ── */
+        if (initialCooldown > 0) {
+            startCooldown(initialCooldown);
+        }
+    })();
+    </script>
 
 </body>
 </html>

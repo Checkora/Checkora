@@ -462,6 +462,43 @@ def resign_game(request):
     })
 
 
+def _build_otp_email_html(otp):
+    """Build the branded HTML email body for OTP verification."""
+    return (
+        "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
+        "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
+        "20px; text-align: center;\"><div style=\"background-"
+        "color: #16162a; border: 1px solid #252545; border-radius"
+        ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
+        "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
+        "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
+        ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
+        "<span style=\"color: #f0c040;\">ORA</span></h1>"
+        "<hr style=\"border: none; border-top: 1px solid #252545; "
+        "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
+        "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
+        "to the elite chess platform. To activate your account "
+        "and start playing, please use the verification code "
+        "below:</p><div style=\"margin: 35px 0;\"><span style=\""
+        "font-family: 'Consolas', monospace; font-size: 36px; "
+        "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
+        "background: #0f0f1a; padding: 15px 25px; border-radius: "
+        "8px; border: 1px solid #3d3222; display: inline-block;"
+        "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
+        "size: 14px; margin-top: 30px;\">Enter this code on the "
+        "verification page to complete your registration.</p>"
+        "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
+        "40px;\">If you didn't attempt to register on Checkora, "
+        "please safely ignore this email.</p></div></div>"
+    ).format(otp=otp)
+
+
+# OTP configuration constants
+OTP_EXPIRY_SECONDS = 300       # 5 minutes
+OTP_COOLDOWN_SECONDS = 60      # 1 minute between resends
+OTP_MAX_RESEND_ATTEMPTS = 5    # Maximum resend attempts per session
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
@@ -476,9 +513,13 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
+            request.session['registration_email'] = user.email
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            request.session['registration_otp_created_at'] = time.time()
+            request.session['registration_resend_count'] = 0
+            request.session['registration_last_resend_at'] = 0.0
 
             # Send Email
             try:
@@ -486,33 +527,7 @@ def register_view(request):
                     f'Your OTP for registration is: {otp}\n\n'
                     'Please enter this code to activate your account.'
                 )
-                html_message = (
-                    "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
-                    "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
-                    "20px; text-align: center;\"><div style=\"background-"
-                    "color: #16162a; border: 1px solid #252545; border-radius"
-                    ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
-                    "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
-                    "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
-                    ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
-                    "<span style=\"color: #f0c040;\">ORA</span></h1>"
-                    "<hr style=\"border: none; border-top: 1px solid #252545; "
-                    "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
-                    "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
-                    "to the elite chess platform. To activate your account "
-                    "and start playing, please use the verification code "
-                    "below:</p><div style=\"margin: 35px 0;\"><span style=\""
-                    "font-family: 'Consolas', monospace; font-size: 36px; "
-                    "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
-                    "background: #0f0f1a; padding: 15px 25px; border-radius: "
-                    "8px; border: 1px solid #3d3222; display: inline-block;"
-                    "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
-                    "size: 14px; margin-top: 30px;\">Enter this code on the "
-                    "verification page to complete your registration.</p>"
-                    "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
-                    "40px;\">If you didn't attempt to register on Checkora, "
-                    "please safely ignore this email.</p></div></div>"
-                ).format(otp=otp)
+                html_message = _build_otp_email_html(otp)
                 send_mail(
                     'Your Checkora Verification Code',
                     msg_plain,
@@ -527,6 +542,10 @@ def register_view(request):
                 user.delete()
                 request.session.pop('registration_user_id', None)
                 request.session.pop('registration_otp_hash', None)
+                request.session.pop('registration_email', None)
+                request.session.pop('registration_otp_created_at', None)
+                request.session.pop('registration_resend_count', None)
+                request.session.pop('registration_last_resend_at', None)
                 err_msg = (
                     'Failed to send OTP email. '
                     'Please check your email address and try again.'
@@ -549,10 +568,29 @@ def verify_otp(request):
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
 
+    # Calculate remaining cooldown seconds for the template
+    last_resend = request.session.get('registration_last_resend_at', 0.0)
+    elapsed_since_resend = time.time() - last_resend
+    cooldown_remaining = max(0, int(OTP_COOLDOWN_SECONDS - elapsed_since_resend))
+
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
+
+        # Check OTP expiry before verifying
+        otp_created_at = request.session.get('registration_otp_created_at', 0)
+        if time.time() - otp_created_at > OTP_EXPIRY_SECONDS:
+            messages.error(
+                request,
+                'OTP has expired. Please click "Resend OTP" to get a new code.'
+            )
+            return render(request, 'game/verify_otp.html', {
+                'cooldown_remaining': cooldown_remaining,
+            })
+
         # Verify hash
-        entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+        entered_otp_hash = hashlib.sha256(
+            f"{entered_otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
 
         if entered_otp_hash == stored_otp_hash:
             try:
@@ -560,9 +598,14 @@ def verify_otp(request):
                 user.is_active = True
                 user.save()
 
-                # Clear session data
-                del request.session['registration_user_id']
-                del request.session['registration_otp_hash']
+                # Clear all registration session data
+                for key in (
+                    'registration_user_id', 'registration_otp_hash',
+                    'registration_email', 'registration_otp_created_at',
+                    'registration_resend_count',
+                    'registration_last_resend_at',
+                ):
+                    request.session.pop(key, None)
 
                 login(request, user)
                 request.session.cycle_key()
@@ -576,7 +619,126 @@ def verify_otp(request):
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
-    return render(request, 'game/verify_otp.html')
+    return render(request, 'game/verify_otp.html', {
+        'cooldown_remaining': cooldown_remaining,
+    })
+
+
+@require_POST
+def resend_otp(request):
+    """Resend a fresh OTP to the user's registered email.
+
+    Returns JSON responses:
+        200 - OTP resent successfully
+        400 - Invalid request (missing session data)
+        404 - User/session not found
+        429 - Resend limit exceeded or cooldown active
+        500 - Internal server error
+    """
+    try:
+        user_id = request.session.get('registration_user_id')
+        stored_email = request.session.get('registration_email')
+
+        # 400 – missing registration session
+        if not user_id or not stored_email:
+            return JsonResponse(
+                {'success': False, 'message': 'No active registration session. Please register again.'},
+                status=400,
+            )
+
+        # 404 – user record not found
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            # Clean up orphan session keys
+            for key in (
+                'registration_user_id', 'registration_otp_hash',
+                'registration_email', 'registration_otp_created_at',
+                'registration_resend_count',
+                'registration_last_resend_at',
+            ):
+                request.session.pop(key, None)
+            return JsonResponse(
+                {'success': False, 'message': 'User not found. Please register again.'},
+                status=404,
+            )
+
+        # Reject if user is already active (already verified)
+        if user.is_active:
+            return JsonResponse(
+                {'success': False, 'message': 'Account already verified. Please sign in.'},
+                status=400,
+            )
+
+        # 429 – cooldown check
+        last_resend = request.session.get('registration_last_resend_at', 0.0)
+        elapsed = time.time() - last_resend
+        if elapsed < OTP_COOLDOWN_SECONDS:
+            remaining = int(OTP_COOLDOWN_SECONDS - elapsed)
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': f'Please wait {remaining} seconds before requesting a new OTP.',
+                    'cooldown_remaining': remaining,
+                },
+                status=429,
+            )
+
+        # 429 – resend limit check
+        resend_count = request.session.get('registration_resend_count', 0)
+        if resend_count >= OTP_MAX_RESEND_ATTEMPTS:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': 'Maximum resend attempts exceeded. Please register again.',
+                },
+                status=429,
+            )
+
+        # Generate a fresh OTP and invalidate the old one
+        otp = str(secrets.randbelow(900000) + 100000)
+        otp_hash = hashlib.sha256(
+            f"{otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+
+        request.session['registration_otp_hash'] = otp_hash
+        request.session['registration_otp_created_at'] = time.time()
+        request.session['registration_resend_count'] = resend_count + 1
+        request.session['registration_last_resend_at'] = time.time()
+        request.session.modified = True
+
+        # Send the new OTP email
+        msg_plain = (
+            f'Your new OTP for registration is: {otp}\n\n'
+            'Please enter this code to activate your account.'
+        )
+        html_message = _build_otp_email_html(otp)
+        send_mail(
+            'Your Checkora Verification Code',
+            msg_plain,
+            None,
+            [stored_email],
+            fail_silently=False,
+            html_message=html_message,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'OTP resent successfully.',
+            'cooldown': OTP_COOLDOWN_SECONDS,
+        })
+
+    except (SMTPException, BadHeaderError, OSError):
+        return JsonResponse(
+            {'success': False, 'message': 'Failed to send OTP email. Please try again.'},
+            status=500,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception('resend_otp: Unexpected error.')
+        return JsonResponse(
+            {'success': False, 'message': 'Internal server error.'},
+            status=500,
+        )
 
 
 def login_view(request):
