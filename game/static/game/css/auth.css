@@ -1,10 +1,47 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+    /* Colors */
+    --bg-dark: #0a0a0c;
+    --bg-darker: #050506;
+    --nav-bg: rgba(10, 10, 12, 0.85);
+    --card-bg: rgba(255, 255, 255, 0.03);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-hover: rgba(255, 255, 255, 0.06);
+    
+    --text-primary: #e0e0e0;
+    --text-title: #ffffff;
+    --text-secondary: #999999;
+    --text-muted: #666666;
+    
+    --accent-gold: #d4af37;
+    --accent-gold-hover: #f1c40f;
+    --accent-gold-soft: rgba(212, 175, 55, 0.1);
+    
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    
+    /* Typography */
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Cinzel', serif;
+    
+    /* Transitions */
+    --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-dark);
+    background-image: 
+        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08) 0%, transparent 60%),
+        linear-gradient(45deg, rgba(255, 255, 255, 0.01) 25%, transparent 25%), 
+        linear-gradient(-45deg, rgba(255, 255, 255, 0.01) 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.01) 75%), 
+        linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.01) 75%);
+    background-size: 100% 100%, 60px 60px, 60px 60px, 60px 60px, 60px 60px;
+    background-position: 0 0, 0 0, 0 30px, 30px 30px, 30px 0;
+    color: var(--text-primary);
+    font-family: var(--font-main);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -74,13 +111,20 @@ body {
 }
 
 .auth-card {
-    background: #16162a;
-    border: 1px solid #252545;
-    border-radius: 12px;
-    padding: 30px 35px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    padding: 40px;
     width: 100%;
-    max-width: 400px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+    max-width: 420px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    transition: var(--transition-base);
+}
+
+.auth-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
 }
 
 .form-group { margin-bottom: 20px; }
@@ -157,13 +201,25 @@ body {
     margin-top: 10px;
 }
 .btn-gold {
-    background: linear-gradient(135deg, #f0c040, #d4a020);
-    color: #1a1a2e;
+    background: linear-gradient(135deg, #d4af37 0%, #a67c00 50%, #d4af37 100%);
+    background-size: 200% auto;
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 800;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 
+        0 4px 10px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    transition: var(--transition-base);
 }
+
 .btn-gold:hover {
-    background: linear-gradient(135deg, #f5cc55, #e0b030);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 
+        0 8px 20px rgba(212, 175, 55, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .auth-footer {
@@ -211,6 +267,7 @@ body {
     border: none;
     outline: none;
     -webkit-appearance: none;
+    appearance: none;
     cursor: pointer;
     color: #8a8aaa;
     padding: 4px;

@@ -4,6 +4,48 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+            const SOUNDS = {
+                move: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-self.mp3'),
+                capture: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/capture.mp3'),
+                check: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-check.mp3'),
+                castle: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/castle.mp3'),
+                promote: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/promote.mp3'),
+                gameEnd: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3'),
+                illegal: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/illegal.mp3'),
+                flip: new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'),
+                win: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),
+                loss: new Audio('https://assets.mixkit.co/active_storage/sfx/132/132-preview.mp3')
+            };
+
+            function playSound(type) {
+                const s = SOUNDS[type];
+                if (s) {
+                    s.currentTime = 0;
+                    s.play().catch(() => {});
+                }
+            }
+
+            function playMoveSound(data) {
+                if (!data.move_history || data.move_history.length === 0) return;
+                const last = data.move_history[data.move_history.length - 1].notation;
+                
+                if (data.game_status === 'checkmate' || data.game_status === 'stalemate' || data.game_status === 'draw' || last.includes('#')) {
+                    playSound('gameEnd');
+                    return;
+                }
+                
+                if (last.includes('+')) {
+                    playSound('check');
+                } else if (last.includes('x')) {
+                    playSound('capture');
+                } else if (last.includes('O-O')) {
+                    playSound('castle');
+                } else if (last.includes('=')) {
+                    playSound('promote');
+                } else {
+                    playSound('move');
+                }
+            }
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
@@ -218,6 +260,11 @@
                             p.classList.remove('moving');
                             p.style.transform = 'none';
                             p.style.transition = '';
+                            
+                            // Add ripple on drop
+                            const targetSq = sq(tr, tc);
+                            createRipple(targetSq);
+                            
                             resolve();
                         };
                         p.addEventListener('transitionend', onEnd);
@@ -671,6 +718,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
+                            playMoveSound(data);
 
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
@@ -698,6 +746,7 @@
                         }
                     } else {
                         showStatus(data.message, true);
+                        playSound('illegal');
                         deselect();
                     }
                 } catch (e) {
@@ -729,6 +778,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
+                            playMoveSound(data);
 
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
@@ -864,7 +914,9 @@
 
             function handleGameStatus(status, drawReason) {
                 if (status === 'checkmate') {
-                    endGame('checkmate', turn);
+                    // Turn is the player currently in checkmate (loser), so winner is opponent
+                    const winner = turn === 'white' ? 'black' : 'white';
+                    endGame('checkmate', winner);
                     return true;
                 }
                 if (status === 'stalemate') {
@@ -880,6 +932,26 @@
 
             function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
+                
+                // color is the winner's color
+                const isWin = (reason === 'checkmate' && playerColor === color) || 
+                              (reason === 'resign' && playerColor === color) || 
+                              (reason === 'timeout' && playerColor === color);
+                              
+                const isLoss = (reason === 'checkmate' && playerColor !== color) || 
+                               (reason === 'resign' && playerColor !== color) || 
+                               (reason === 'timeout' && playerColor !== color);
+                
+                if (isWin) {
+                    playSound('win');
+                    showCelebration('win');
+                } else if (isLoss) {
+                    playSound('loss');
+                    showCelebration('loss');
+                } else {
+                    playSound('gameEnd');
+                }
+
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
@@ -1523,7 +1595,9 @@
                 if (!gameOver && !paused) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         await post('/api/resign/', {});
-                        endGame('resign', turn);
+                        // The winner is the opponent
+                        const winner = playerColor === 'white' ? 'black' : 'white';
+                        endGame('resign', winner);
                     });
                 }
             };
@@ -1579,7 +1653,22 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+            if (flipBtn) {
+                flipBtn.onclick = () => {
+                    const isFlipped = boardEl.classList.toggle('flipped');
+                    playSound('flip');
+                    
+                    // Rotate the board container 180deg
+                    boardEl.style.transform = isFlipped ? 'rotate(180deg)' : 'rotate(0deg)';
+                    
+                    // Keep pieces upright
+                    document.querySelectorAll('.piece').forEach(p => {
+                        p.style.transform = isFlipped ? 'rotate(180deg)' : 'rotate(0deg)';
+                    });
+                };
+            }
+
+
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 
@@ -1618,6 +1707,31 @@
           loadGame();
         }
 
-})();
+            function createRipple(el) {
+                const ripple = document.createElement('div');
+                ripple.className = 'drop-ripple';
+                el.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            }
+            function showCelebration(type) {
+                const overlay = document.createElement('div');
+                overlay.className = `game-over-overlay ${type}`;
+                overlay.innerHTML = `
+                    <div class="overlay-content">
+                        <h2 class="overlay-title">${type === 'win' ? 'VICTORY' : 'DEFEAT'}</h2>
+                        <p class="overlay-subtitle">${type === 'win' ? 'Congratulations, Grandmaster!' : 'Better luck next time.'}</p>
+                        <button class="btn-brass" onclick="location.reload()">Play Again</button>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                
+                if (type === 'win') {
+                    // Start confetti or sparkle effect
+                    boardEl.classList.add('celebrate-win');
+                } else {
+                    boardEl.classList.add('celebrate-loss');
+                }
+            }
+        })();
 
 

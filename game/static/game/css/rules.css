@@ -1,0 +1,366 @@
+/* rules.css - High-end premium styling for the Rulebook */
+
+:root {
+    --bg-dark: #0a0a0c;
+    --bg-darker: #050506;
+    --nav-bg: rgba(10, 10, 12, 0.9);
+    --card-bg: rgba(255, 255, 255, 0.03);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-hover: rgba(255, 255, 255, 0.06);
+    
+    --text-primary: #e0e0e0;
+    --text-title: #ffffff;
+    --text-secondary: #999999;
+    --text-muted: #666666;
+    
+    --accent-gold: #d4af37;
+    --accent-gold-hover: #f1c40f;
+    --accent-gold-soft: rgba(212, 175, 55, 0.1);
+    
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Cinzel', serif;
+    
+    --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    --sq-light: #e8e8e8;
+    --sq-dark: #1a1a1a;
+}
+
+body {
+    background-color: var(--bg-dark);
+    background-image: 
+        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08) 0%, transparent 60%),
+        linear-gradient(45deg, rgba(255, 255, 255, 0.005) 25%, transparent 25%), 
+        linear-gradient(-45deg, rgba(255, 255, 255, 0.005) 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.005) 75%), 
+        linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.005) 75%);
+    background-size: 100% 100%, 60px 60px, 60px 60px, 60px 60px, 60px 60px;
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    min-height: 100vh;
+}
+
+/* ── Navbar ── */
+.navbar {
+    padding: 1rem 2.5rem;
+    background: var(--nav-bg);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--card-border);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+}
+
+.logo-img {
+    height: 32px;
+    animation: logoGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes logoGlow {
+    from { filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.4)); }
+    to { filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.8)); }
+}
+
+.logo-text {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    letter-spacing: 2px;
+}
+
+/* ── Layout ── */
+.layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+    padding: 2rem 1.5rem;
+    border-right: 1px solid var(--card-border);
+    height: calc(100vh - 70px);
+    position: sticky;
+    top: 70px;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.back-btn {
+    display: inline-block;
+    margin-bottom: 2rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: var(--transition-base);
+}
+
+.back-btn:hover {
+    color: var(--accent-gold);
+    transform: translateX(-5px);
+}
+
+.sidebar-title {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+}
+
+.rule-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.8rem 1.2rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-base);
+    font-size: 0.95rem;
+}
+
+.rule-nav-item:hover {
+    background: var(--card-bg);
+    color: var(--text-primary);
+}
+
+.rule-nav-item.active {
+    background: var(--accent-gold-soft);
+    color: var(--accent-gold);
+    box-shadow: inset 0 0 10px rgba(212, 175, 55, 0.1);
+}
+
+/* ── Main Content ── */
+main {
+    padding: 4rem 5rem;
+    max-width: 1000px;
+}
+
+.page-title {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    color: transparent;
+    background: linear-gradient(to bottom, #fff 40%, var(--accent-gold));
+    -webkit-background-clip: text;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-bottom: 4rem;
+    font-weight: 300;
+}
+
+/* ── Rule Card ── */
+.rule-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 3rem;
+    margin-bottom: 3rem;
+    display: none;
+    animation: slideUp 0.5s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.rule-card.active {
+    display: block;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.rule-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 1.5rem;
+}
+
+.rule-icon {
+    font-size: 2rem;
+}
+
+.rule-title {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    color: var(--text-title);
+    letter-spacing: 1px;
+}
+
+.rule-desc {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+}
+
+.rule-desc strong {
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+
+/* ── Demo Wrapper ── */
+.demo-wrapper {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 2rem;
+}
+
+.demo-label {
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+}
+
+/* ── Mini Board ── */
+.mini-board-container {
+    display: flex;
+    gap: 3rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.mini-board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: 400px;
+    height: 400px;
+    border: 8px solid #2c1a0a;
+    border-radius: 6px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+.mini-sq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+.mini-sq.light { background: #e8e8e8; }
+.mini-sq.dark { background: #1a1a1a; }
+.mini-sq.hl { background: rgba(212, 175, 55, 0.4) !important; }
+
+.move-hint {
+    width: 15px;
+    height: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+}
+
+/* ── Piece Grid ── */
+.piece-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.piece-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.piece-card:hover, .piece-card.active {
+    border-color: var(--accent-gold);
+    background: var(--accent-gold-soft);
+    transform: translateY(-5px);
+}
+
+.piece-emoji {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.piece-name {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+}
+
+.piece-card.active .piece-name {
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+/* ── Steps ── */
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.step {
+    padding: 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: var(--transition-base);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.step:hover {
+    background: var(--card-hover);
+    color: var(--text-primary);
+}
+
+.step.active {
+    border-color: var(--accent-gold);
+    background: var(--accent-gold-soft);
+    color: var(--accent-gold);
+}
+
+.step-num {
+    width: 24px;
+    height: 24px;
+    background: var(--card-border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.step.active .step-num {
+    background: var(--accent-gold);
+    color: #000;
+}
