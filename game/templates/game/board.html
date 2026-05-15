@@ -129,7 +129,7 @@
     
     <!-- ========== HEADER ========== -->
     
-    <div class="header">
+    <div class="sidebar" role="complementary" aria-label="Game Sidebar">
         
         <div class="logo-container">
             <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
@@ -153,7 +153,7 @@
     </div>
     
     <!-- ========== GAME ========== -->
-    <div class="game-layout" style="visibility: hidden;">
+    <div class="game-layout" role="main" aria-label="Main Chess Game" style="visibility: hidden;">
 
         <!-- Left Panel -->
         <div class="panel">
@@ -199,7 +199,7 @@
                         <span>8</span><span>7</span><span>6</span><span>5</span>
                         <span>4</span><span>3</span><span>2</span><span>1</span>
                     </div>
-                    <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                    <div id="board" class="chessboard" role="grid" aria-label="Chess Board"></div>
                     <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
                 </div>
                 <div class="files" id="filesLabels">

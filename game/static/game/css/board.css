@@ -521,9 +521,7 @@ body {
     100% { width: 100px; height: 100px; opacity: 0; }
 }
 
-.square.dark {
-    background-image: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 100%);
-}
+
 
 
 /* ================= GAME OVER OVERLAYS ================= */
@@ -1085,26 +1083,6 @@ body {
 
 /* ================= THEME SWITCHER ================= */
 
-/* ================= PROMO OVERLAYS (MODALS) ================= */
-
-.promo-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    opacity: 0;
-    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.promo-overlay.active {
-    display: flex;
     opacity: 1;
 }
 
