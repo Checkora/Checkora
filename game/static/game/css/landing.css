@@ -309,19 +309,45 @@ body {
 }
 
 .footer {
-    padding: 2.5rem 5%;
-    border-top: 1px solid var(--card-border);
-    margin-top: 3rem;
-    background-color: var(--nav-bg);
+    max-width: 1200px;
+    margin: 4rem auto 2rem;
+    padding: 3rem 4rem 1.5rem;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
-.footer-content {
-    max-width: 1200px;
-    margin: 0 auto;
+.footer-container {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2.5rem;
+    justify-content: space-between;
+    gap: 3rem;
+    padding-bottom: 2rem;
+}
+
+.footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.footer-col:first-child {
+    max-width: 380px;
+}
+
+.footer-col p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.footer-col h4 {
+    color: var(--text-title);
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    margin-bottom: 0.5rem;
+    letter-spacing: 1px;
 }
 
 .footer-link {
@@ -329,17 +355,43 @@ body {
     color: var(--text-secondary);
     font-size: 0.95rem;
     font-weight: 500;
-    transition: color 0.2s;
+    transition: all 0.2s ease;
+    display: inline-block;
 }
 
 .footer-link:hover {
     color: var(--accent-gold);
+    transform: translateX(3px);
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer-copy {
     color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-left: auto;
+    font-size: 0.9rem;
+}
+
+.footer-socials {
+    display: flex;
+    gap: 1.2rem;
+}
+
+.footer-socials a {
+    color: var(--text-secondary);
+    transition: color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.footer-socials a:hover {
+    color: var(--accent-gold);
+    transform: scale(1.1);
 }
 
 @media (max-width: 768px) {
@@ -376,14 +428,15 @@ body {
         width: 100%;
     }
 
-    .footer-content {
+    .footer-container {
         flex-direction: column;
-        gap: 1.2rem;
+        gap: 2rem;
     }
 
-    .footer-copy {
-        margin-left: 0;
-        margin-top: 1rem;
+    .footer-bottom {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
     }
 }
 
