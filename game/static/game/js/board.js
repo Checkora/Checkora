@@ -424,6 +424,31 @@
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
 
+                        // ADD THESE:
+                        d.draggable = true;
+                        d.ondragstart = e => {
+                            const piece = board[r][c];
+                            if (!piece || pColor(piece) !== turn || paused || gameOver) return e.preventDefault();
+                            if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+                            
+                            if (e.dataTransfer) {
+                                e.dataTransfer.setData('text/plain', 'piece-move');
+                                e.dataTransfer.effectAllowed = 'move';
+                            }
+                            
+                            const pieceImg = d.querySelector('.piece');
+                            if (pieceImg) e.dataTransfer.setDragImage(pieceImg, pieceImg.offsetWidth / 2, pieceImg.offsetHeight / 2);
+                            
+                            dragging = true;
+                            dragSrc = { r, c };
+                            setTimeout(() => selectPiece(r, c), 10);
+                        };
+
+                        d.ondragend = () => {
+                            dragging = false;
+                            dragSrc = null;
+                        };
+
                         d.setAttribute('tabindex', '0');
                         d.setAttribute('role', 'gridcell');
                         d.setAttribute('data-row', r);
@@ -461,9 +486,10 @@
                     const img = document.createElement('img');
                     img.src = PIECE_IMG[pKey(p)];
                     img.className = 'piece';
-                    img.draggable = true;
-                    img.ondragstart = e => onDragStart(e, r, c);
-                    img.ondragend = () => dragging = false;
+                    //Set to false, as the parent div now handles dragging
+                    img.draggable = false;
+                    // Keep this so drops work smoothly on occupied squares
+                    img.ondragover = e => e.preventDefault();
                     el.appendChild(img);
                 }
                 refreshHighlights();
