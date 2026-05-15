@@ -1,0 +1,15 @@
+This PR implements a major visual and functional overhaul of the Checkora platform, transforming it into a premium, cinematic experience. 
+
+### Key Changes:
+- **Cinematic Landing Page**: Metallic title rendering, glassmorphism feature cards, and dynamic animations.
+- **3D Interactive Board**: 180° board flip mechanism with upright piece maintenance and realistic wood depth.
+- **Audio Integration**: High-fidelity open-source SFX for moves, captures, checks, and flips.
+- **Game-Over Experience**: Victory sparkles and Defeat grayscale overlays.
+- **Rulebook Revamp**: Modernized theme and interactive mini-boards with mobile responsiveness.
+- **Stability Fixes**: Corrected resignation winner logic and ensured asset license compliance.
+
+## Testing Performed
+- Verified all move sounds trigger correctly for both human and AI turns.
+- Tested the 3D flip mechanism across Chrome, Safari, and Firefox.
+- Validated Win/Loss/Draw overlays by completing full games against the AI.
+- **Asset Verification**: Confirmed all external assets (audio, images, fonts) are properly licensed (CC0, MIT, or open-source).

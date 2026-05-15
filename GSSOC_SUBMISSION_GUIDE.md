@@ -62,6 +62,7 @@ This PR implements a major visual and functional overhaul of the Checkora platfo
 - Tested the 3D flip mechanism across Chrome, Safari, and Firefox.
 - Validated Win/Loss/Draw overlays by completing full games against the AI.
 - Checked mobile responsiveness for the new feature-card grid.
+- **Asset Verification**: Confirmed all external assets (audio, images, fonts) are properly licensed (CC0, MIT, or open-source) to comply with GSSoC standards.
 
 ## AI Disclosure
 This contribution was developed with the assistance of **Antigravity (Google DeepMind)**. The AI was used to architect the 3D CSS transforms, refine the metallic design tokens, and assist in debugging complex JavaScript game-state transitions. Every line of code has been reviewed, tested, and understood by the contributor.
