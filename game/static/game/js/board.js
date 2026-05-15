@@ -849,13 +849,17 @@
                     return;
                 }
                 movesEl.innerHTML = '';
-                for (let i = 0; i < history.length; i += 2) {
+                const totalPairs = Math.ceil(history.length / 2);
+                for (let i = history.length - 1; i >= 0; i -= 2) {
+                    const whiteIdx = i % 2 === 0 ? i : i - 1;
+                    const blackIdx = whiteIdx + 1;
+                    const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
                     row.className = 'move-row';
                     row.innerHTML = `
-                        <span class="move-num">${i / 2 + 1}.</span>
-                        <span class="move-white">${history[i].notation}</span>
-                        ${history[i + 1] ? `<span class="move-black">${history[i + 1].notation}</span>` : ''}
+                        <span class="move-num">${moveNum}.</span>
+                        <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
+                        ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
                     `;
                     movesEl.appendChild(row);
                 }
