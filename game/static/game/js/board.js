@@ -656,8 +656,8 @@
                 }
 
                 if (success) {
-                    // Only show toast if game is not in a terminal/check state
-                    if (!gameOver) {
+                    // Only show toast if game is not in terminal or check state
+                    if (!gameOver && !document.querySelector('.square.in-check')) {
                         showStatus('Connection restored', false);
                         setTimeout(() => { showStatus('', false); }, 2000);
                     }
@@ -895,6 +895,10 @@
                     endGame('checkmate', turn);
                     return true;
                 }
+                if (status === 'timeout') {
+                    endGame('timeout', turn);
+                    return true;
+                }
                 if (status === 'stalemate') {
                     endGame('stalemate', turn);
                     return true;
@@ -1083,6 +1087,19 @@
 
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
+
+                // Reset all clock styles first to avoid stale AI styling
+                [whiteClock, blackClock].forEach(clock => {
+                    if (!clock) return;
+                    clock.style.border = '';
+                    clock.style.boxShadow = '';
+                });
+                [wTime, bTime].forEach(timeEl => {
+                    if (!timeEl) return;
+                    timeEl.style.fontSize = '';
+                    timeEl.style.color = '';
+                });
+
                 if (gameMode === 'ai') {
                     const playerClock = playerColor === 'white' ? whiteClock : blackClock;
                     const playerTimeEl = playerColor === 'white' ? wTime : bTime;
@@ -1092,8 +1109,16 @@
                     if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
                     if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
 
-                    if (aiTimeEl) aiTimeEl.textContent = '🤖';
-                    if (aiClock) aiClock.classList.remove('active');
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = '🤖';
+                        aiTimeEl.style.fontSize = '1.8em';
+                        aiTimeEl.style.color = '#888';
+                    }
+                    if (aiClock) {
+                        aiClock.classList.remove('active');
+                        aiClock.style.border = '2px dashed #444';
+                        aiClock.style.boxShadow = 'none';
+                    }
 
                 } else {
                     if (wTime) wTime.textContent = formatTime(whiteTime);
