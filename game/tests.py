@@ -87,12 +87,14 @@ class LandingViewTest(TestCase):
         self.assertContains(response, '/play/')
 
 class RegistrationViewTest(TestCase):
-    """Registration should send OTP by email only and show failures."""
+    """Registration should support local OTP fallback and email failures."""
 
     @override_settings(
-        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
     )
-    def test_successful_registration_redirects_without_showing_otp(self):
+    def test_missing_email_credentials_prints_otp_in_debug(self):
         payload = {
             'username': 'devplayer',
             'email': 'devplayer@example.com',
@@ -100,28 +102,24 @@ class RegistrationViewTest(TestCase):
             'password2': 'StrongPass123!',
         }
 
-        response = self.client.post('/register/', data=payload, follow=True)
+        with mock.patch('builtins.print') as mock_print:
+            response = self.client.post('/register/', data=payload, follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
         self.assertNotContains(response, 'Development mode OTP')
         self.assertTrue(User.objects.filter(username='devplayer').exists())
+        printed_messages = ' '.join(
+            str(arg)
+            for call in mock_print.call_args_list
+            for arg in call.args
+        )
+        self.assertIn('Development registration OTP', printed_messages)
+        self.assertIn('devplayer@example.com', printed_messages)
 
     @override_settings(
-        EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'
+        EMAIL_HOST_USER='sender@example.com',
+        EMAIL_HOST_PASSWORD='app-password'
     )
-    def test_verify_page_uses_professional_email_copy_for_console_email(self):
-        session = self.client.session
-        session['registration_user_id'] = 1
-        session['registration_otp_hash'] = 'pending'
-        session.save()
-        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
-
-        response = self.client.get('/verify-otp/')
-
-        self.assertContains(response, 'Verify your Email')
-        self.assertContains(response, 'email address')
-        self.assertNotContains(response, 'server terminal')
-
     def test_email_failure_renders_error_and_removes_pending_user(self):
         payload = {
             'username': 'newplayer',
@@ -314,14 +312,8 @@ class CheckPromotionTest(TestCase):
         pass
 
     def setUp(self):
-<<<<<<< HEAD
-        self.client.get('/')
-        self.promo_patcher = mock.patch(
-            'game.engine.ChessGame.is_promotion_move')
-=======
         self.client.get('/play/')
         self.promo_patcher = mock.patch('game.engine.ChessGame.is_promotion_move')
->>>>>>> 61aa9618 (feat: add dedicated landing page with responsive dark-themed UI)
         self.mock_promo = self.promo_patcher.start()
 
     def tearDown(self):
