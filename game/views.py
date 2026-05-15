@@ -24,6 +24,7 @@ from django.db.models import Q
 
 from .engine import ChessGame
 from .models import GameResult
+from .services import detect_opening
 
 
 def landing(request):
@@ -572,3 +573,35 @@ def stats_view(request):
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
     })
+
+
+@require_GET
+def opening_lookup(request):
+    """Return the chess opening matching the given FEN position.
+
+    Query params:
+        fen – a 3-field FEN key (board / side / castling).
+
+    Response (200):
+        {"eco": "B20", "name": "Sicilian Defense", "moves": "1. e4 c5"}
+
+    Response (404):
+        {"error": "No opening found for this position."}
+    Response (400):
+        {"error": "Missing or invalid 'fen' query parameter."}
+    """
+    fen = request.GET.get('fen', '').strip()
+    if not fen:
+        return JsonResponse(
+            {'error': "Missing or invalid 'fen' query parameter."},
+            status=400,
+        )
+
+    result = detect_opening(fen)
+    if result is None:
+        return JsonResponse(
+            {'error': 'No opening found for this position.'},
+            status=404,
+        )
+
+    return JsonResponse(result)

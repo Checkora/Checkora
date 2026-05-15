@@ -66,6 +66,7 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 | Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                                      |
 | Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
 | Game Timer           | Per-player countdown clocks with pause support                                                      |
+| Opening Recognition  | Automatic ECO opening detection displayed live below the board                                      |
 | REST API             | Clean JSON endpoints powering a decoupled frontend                                                  |
 | PvP & PvE Modes      | Play against a friend or challenge the AI                                                           |
 
@@ -98,8 +99,9 @@ cp .env.example .env
 
 # Open `.env` and set SECRET_KEY if needed
 
-# 5. Run migrations and start the server
+# 5. Run migrations, import openings, and start the server
 python manage.py migrate
+python manage.py import_openings
 python manage.py runserver
 ```
 
@@ -189,6 +191,7 @@ flowchart TD
 | `GET`  | `/api/state/`           | Retrieve the full current game state    |
 | `POST` | `/api/pause/`           | Pause or resume the game clock          |
 | `POST` | `/api/ai-move/`         | Request and execute an AI move          |
+| `GET`  | `/api/opening/`         | Look up chess opening by FEN position   |
 
 ---
 
@@ -200,7 +203,17 @@ The test suite runs fully in-memory — no compiled engine binary required.
 python manage.py test game
 ```
 
-28 tests covering all API endpoints, move validation, engine path resolution, promotion logic, and AI mode enforcement.
+42+ tests covering all API endpoints, move validation, engine path resolution, promotion logic, AI mode enforcement, and opening recognition.
+
+### Opening Recognition
+
+The opening recognition system automatically identifies ECO chess openings as you play:
+
+- **Database**: 150+ ECO openings covering categories A–E (303 intermediate positions)
+- **Detection**: FEN-based lookup after every move via `GET /api/opening/?fen=<FEN>`
+- **Display**: Opening name and ECO code shown below the board in real-time
+- **Import**: `python manage.py import_openings` loads bundled data from `game/data/eco_openings.tsv`
+- **Extensible**: Add custom openings via TSV or swap in a larger PGN dataset
 
 ---
 

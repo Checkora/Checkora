@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models        
 from django.conf import settings
 
 
@@ -35,3 +35,31 @@ class GameResult(models.Model):
 
     def __str__(self):
         return f"{self.mode} | {self.winner} | {self.end_reason}"
+
+
+class Opening(models.Model):
+    """Chess opening from the ECO classification system.
+
+    Each row stores a single position reachable via a standard opening
+    line.  The ``fen`` field uses the same 3-field format produced by
+    ``ChessGame.generate_fen_key()`` (board / side / castling rights)
+    so lookups are a direct string comparison.
+    """
+    eco = models.CharField(max_length=10, help_text="ECO code, e.g. B20")
+    name = models.CharField(max_length=255, help_text="Opening name")
+    moves = models.TextField(help_text="SAN move sequence, e.g. '1. e4 c5'")
+    fen = models.TextField(unique=True, db_index=True,
+                           help_text="3-field FEN (board side castling)")
+    move_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of half-moves to reach this position",
+    )
+
+    class Meta:
+        ordering = ["eco", "move_count"]
+        indexes = [
+            models.Index(fields=["eco"], name="idx_opening_eco"),
+        ]
+
+    def __str__(self):
+        return f"{self.eco} — {self.name}"

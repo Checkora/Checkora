@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
+    path('api/opening/', views.opening_lookup, name='opening_lookup'),
     path('stats/', views.stats_view, name='stats'),
 
     # Authentication

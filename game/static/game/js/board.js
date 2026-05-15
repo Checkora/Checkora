@@ -140,6 +140,8 @@
             const blackCapturedName = document.getElementById('blackCapturedName');
             const turnBadgeText = document.getElementById('turnBadgeText');
             const a11yAnnouncer = document.getElementById('a11y-announcer');
+            const openingInfo = document.getElementById('openingInfo');
+            const openingLabel = document.getElementById('openingLabel');
 
             function announceMove(msg) {
                 if (a11yAnnouncer) {
@@ -153,6 +155,24 @@
 
             let pgnCopyTimeout = null;
             let fenCopyTimeout = null;
+
+            /**
+             * Query the opening API for the given FEN and update the display.
+             * Silently handles errors / unknown positions.
+             */
+            async function fetchOpening(fen) {
+                if (!fen || !openingLabel) return;
+                try {
+                    const resp = await fetch('/api/opening/?fen=' + encodeURIComponent(fen));
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        openingLabel.textContent = data.name + ' (' + data.eco + ')';
+                        if (openingInfo) openingInfo.classList.add('active');
+                    } else {
+                        // No matching opening — keep last known or show default
+                    }
+                } catch (_) { /* network errors are non-critical */ }
+            }
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
@@ -343,6 +363,7 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
+                if (data.fen) fetchOpening(data.fen);
                 if (gameMode === 'ai') {
                     const aiClock = playerColor === 'white' ?
                         document.getElementById('blackClock') :
@@ -666,6 +687,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
+                            if (data.fen) fetchOpening(data.fen);
 
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
@@ -724,6 +746,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
+                            if (data.fen) fetchOpening(data.fen);
 
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
@@ -1247,6 +1270,8 @@
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
+                if (openingLabel) openingLabel.textContent = 'Starting Position';
+                if (openingInfo) openingInfo.classList.remove('active');
 
                 await loadGame();
                 // Apply active state after UI reload

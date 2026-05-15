@@ -956,3 +956,151 @@ class StatsCleanupTest(TestCase):
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
         self.assertContains(response, 'No games played yet.')
+
+
+# ===================================================================
+#  Opening Recognition Tests
+# ===================================================================
+
+class OpeningModelTest(TestCase):
+    """Test the Opening model and import pipeline."""
+
+    def test_opening_str_representation(self):
+        from game.models import Opening
+        opening = Opening.objects.create(
+            eco='B20', name='Sicilian Defense',
+            moves='1. e4 c5', fen='test-fen', move_count=2,
+        )
+        self.assertEqual(str(opening), 'B20 — Sicilian Defense')
+
+    def test_fen_unique_constraint(self):
+        from game.models import Opening
+        from django.db import IntegrityError
+        Opening.objects.create(
+            eco='B20', name='Sicilian Defense',
+            moves='1. e4 c5', fen='unique-fen', move_count=2,
+        )
+        with self.assertRaises(IntegrityError):
+            Opening.objects.create(
+                eco='C20', name='Open Game',
+                moves='1. e4 e5', fen='unique-fen', move_count=2,
+            )
+
+
+class OpeningDetectionServiceTest(TestCase):
+    """Test the detect_opening service function."""
+
+    def setUp(self):
+        from game.models import Opening
+        Opening.objects.create(
+            eco='B20', name='Sicilian Defense',
+            moves='1. e4 c5',
+            fen='rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq',
+            move_count=2,
+        )
+        Opening.objects.create(
+            eco='C20', name='Open Game',
+            moves='1. e4 e5',
+            fen='rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq',
+            move_count=2,
+        )
+        Opening.objects.create(
+            eco='D00', name="Queen's Pawn Game",
+            moves='1. d4 d5',
+            fen='rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq',
+            move_count=2,
+        )
+
+    def test_sicilian_defense_detected(self):
+        from game.services import detect_opening
+        result = detect_opening(
+            'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['eco'], 'B20')
+        self.assertEqual(result['name'], 'Sicilian Defense')
+
+    def test_open_game_detected(self):
+        from game.services import detect_opening
+        result = detect_opening(
+            'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['eco'], 'C20')
+        self.assertEqual(result['name'], 'Open Game')
+
+    def test_queens_pawn_game_detected(self):
+        from game.services import detect_opening
+        result = detect_opening(
+            'rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['eco'], 'D00')
+        self.assertEqual(result['name'], "Queen's Pawn Game")
+
+    def test_unknown_position_returns_none(self):
+        from game.services import detect_opening
+        result = detect_opening('8/8/8/8/8/8/8/8 w -')
+        self.assertIsNone(result)
+
+    def test_empty_fen_returns_none(self):
+        from game.services import detect_opening
+        self.assertIsNone(detect_opening(''))
+        self.assertIsNone(detect_opening(None))
+
+
+class OpeningAPITest(TestCase):
+    """Test the /api/opening/ endpoint."""
+
+    def setUp(self):
+        from game.models import Opening
+        Opening.objects.create(
+            eco='B20', name='Sicilian Defense',
+            moves='1. e4 c5',
+            fen='rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq',
+            move_count=2,
+        )
+
+    def test_opening_found(self):
+        fen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq'
+        r = self.client.get(f'/api/opening/?fen={fen}')
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['eco'], 'B20')
+        self.assertEqual(data['name'], 'Sicilian Defense')
+
+    def test_opening_not_found(self):
+        r = self.client.get('/api/opening/?fen=8/8/8/8/8/8/8/8 w -')
+        self.assertEqual(r.status_code, 404)
+        self.assertIn('error', r.json())
+
+    def test_missing_fen_param(self):
+        r = self.client.get('/api/opening/')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('error', r.json())
+
+    def test_empty_fen_param(self):
+        r = self.client.get('/api/opening/?fen=')
+        self.assertEqual(r.status_code, 400)
+
+    def test_only_get_allowed(self):
+        r = self.client.post('/api/opening/', content_type='application/json')
+        self.assertEqual(r.status_code, 405)
+
+
+class ImportOpeningsCommandTest(TestCase):
+    """Test the import_openings management command."""
+
+    def test_import_creates_openings(self):
+        from django.core.management import call_command
+        from game.models import Opening
+        Opening.objects.all().delete()
+        call_command('import_openings', '--clear')
+        self.assertGreater(Opening.objects.count(), 0)
+
+    def test_import_is_idempotent(self):
+        from django.core.management import call_command
+        from game.models import Opening
+        Opening.objects.all().delete()
+        call_command('import_openings')
+        count_first = Opening.objects.count()
+        call_command('import_openings')  # run again without --clear
+        count_second = Opening.objects.count()
+        self.assertEqual(count_first, count_second)

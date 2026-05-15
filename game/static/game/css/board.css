@@ -411,6 +411,36 @@ body {
 .status-bar.error { color: #ff6b6b; }
 
 /* ============================================================
+   Opening Info
+   ============================================================ */
+.opening-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 16px;
+    margin-top: 4px;
+    min-height: 28px;
+    background: rgba(22, 22, 42, 0.8);
+    border: 1px solid #252545;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: #b0b0c0;
+    transition: opacity 0.3s ease, color 0.3s ease;
+}
+.opening-icon {
+    color: #f0c040;
+    font-size: 0.9rem;
+}
+.opening-label {
+    letter-spacing: 0.3px;
+}
+.opening-info.active {
+    color: #e0e0f0;
+    border-color: rgba(240, 192, 64, 0.25);
+}
+
+/* ============================================================
    Move History
    ============================================================ */
 .moves-list {
