@@ -166,6 +166,32 @@ body {
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
 
+.btn.loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    margin-left: -10px;
+    border: 3px solid rgba(26, 26, 46, 0.3);
+    border-top: 3px solid #1a1a2e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .auth-footer {
     margin-top: 25px;
     text-align: center;
