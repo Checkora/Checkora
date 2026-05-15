@@ -34,7 +34,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (input.name.includes("confirm") || input.name.includes("2")|| input.id.includes("confirm")) {
       input.addEventListener("paste", (e) => {
         e.preventDefault(); // This stops the paste action
-        alert("For security, please type your password manually.");
+        if (typeof showToast !== 'undefined') {
+            showToast("Please type your password manually.", "warning");
+        } else {
+            alert("Please type your password manually.");
+        }
       });
     }
     /* Create a wrapper that sits inside .form-group, around the input only.
