@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import secrets
+import logging
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -15,6 +16,8 @@ from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
+from django.db import DatabaseError
+from django.core.exceptions import ValidationError
 
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -23,6 +26,8 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+
+logger = logging.getLogger(__name__)
 
 
 def landing(request):
@@ -43,18 +48,17 @@ def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
     try:
         user = request.user if request.user.is_authenticated else None
-        GameResult.objects.create(
+        result = GameResult(
             user=user,
             mode=mode,
             winner=winner,
             end_reason=reason,
-            player_color=player_color
+            player_color=player_color,
         )
-    except Exception as e:
-        # Log the error but don't fail the request
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to record game result: {e}")
+        result.full_clean()
+        result.save()
+    except (DatabaseError, ValidationError):
+        logger.exception("Failed to record game result")
 
 
 @require_POST
@@ -352,7 +356,6 @@ def ai_move(request):
     depth = depth_map.get(difficulty, 3)
 
     best = game.get_ai_move(depth=depth)
-    best = game.get_ai_move(depth=depth)
 
     if not best:
         if game.game_status == 'checkmate':
@@ -454,10 +457,18 @@ def resign_game(request):
 
         game = ChessGame.from_dict(game_data)
 
-        if game.mode == 'ai':
-            resigning_player = game.player_color
-        else:
-            resigning_player = game.current_turn
+        # Reject resign requests if game is already finished
+        if game.game_status != 'active':
+            return JsonResponse(
+                {
+                    'valid': False,
+                    'message': 'Game already finished.',
+                    'game_status': game.game_status,
+                },
+                status=409,
+            )
+
+        resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
 
         winner = 'black' if resigning_player == 'white' else 'white'
 
@@ -475,13 +486,17 @@ def resign_game(request):
             'winner': winner,
             'game_status': game_status
         })
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error in resign_game: {e}")
+    except (ValueError, AttributeError, KeyError) as e:
+        logger.exception("Error deserializing game data in resign_game")
         return JsonResponse({
             'valid': False,
-            'message': 'Failed to process resignation. Please try again.'
+            'message': 'Invalid game state. Please start a new game.'
+        }, status=400)
+    except DatabaseError:
+        logger.exception("Database error in resign_game")
+        return JsonResponse({
+            'valid': False,
+            'message': 'Failed to save resignation. Please try again.'
         }, status=500)
 
 
