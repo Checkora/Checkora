@@ -161,7 +161,7 @@ EMAIL_BACKEND = os.getenv(
 
 # Redirect after login
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = 'index'
 
 # SECURITY SETTINGS (Implemented via GSSoC Audit)
 SECURE_BROWSER_XSS_FILTER = True
