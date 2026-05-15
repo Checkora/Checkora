@@ -41,8 +41,20 @@ def index(request):
 
 def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
-    user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+    try:
+        user = request.user if request.user.is_authenticated else None
+        GameResult.objects.create(
+            user=user,
+            mode=mode,
+            winner=winner,
+            end_reason=reason,
+            player_color=player_color
+        )
+    except Exception as e:
+        # Log the error but don't fail the request
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to record game result: {e}")
 
 
 @require_POST
@@ -188,6 +200,7 @@ def new_game(request):
         'draw_reason': game.draw_reason,
     })
 
+
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
@@ -223,6 +236,7 @@ def resume_game(request):
         'pgn': game.generate_pgn(),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
+
 
 @require_GET
 def check_promotion(request):
@@ -339,7 +353,7 @@ def ai_move(request):
 
     best = game.get_ai_move(depth=depth)
     best = game.get_ai_move(depth=depth)
-    
+
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -432,34 +446,43 @@ def offer_draw(request):
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
-    game_data = request.session.get('game')
-    if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse({'valid': False, 'message': err_msg}, status=400)
+    try:
+        game_data = request.session.get('game')
+        if not game_data:
+            err_msg = 'No active game.'
+            return JsonResponse({'valid': False, 'message': err_msg}, status=400)
 
-    game = ChessGame.from_dict(game_data)
+        game = ChessGame.from_dict(game_data)
 
-    if game.mode == 'ai':
-        resigning_player = game.player_color
-    else:
-        resigning_player = game.current_turn
+        if game.mode == 'ai':
+            resigning_player = game.player_color
+        else:
+            resigning_player = game.current_turn
 
-    winner = 'black' if resigning_player == 'white' else 'white'
+        winner = 'black' if resigning_player == 'white' else 'white'
 
-    game_status = 'resignation'
+        game_status = 'resignation'
 
-    game.game_status = game_status
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+        game.game_status = game_status
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
 
-    record_game_result(request, game.mode, winner, 'resign', game.player_color)
+        record_game_result(request, game.mode, winner, 'resign', game.player_color)
 
-    return JsonResponse({
-        'valid': True,
-        'message': f'{resigning_player.capitalize()} resigned.',
-        'winner': winner,
-        'game_status': game_status
-    })
+        return JsonResponse({
+            'valid': True,
+            'message': f'{resigning_player.capitalize()} resigned.',
+            'winner': winner,
+            'game_status': game_status
+        })
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in resign_game: {e}")
+        return JsonResponse({
+            'valid': False,
+            'message': 'Failed to process resignation. Please try again.'
+        }, status=500)
 
 
 def register_view(request):
