@@ -1142,3 +1142,37 @@ body {
     white-space: nowrap;
     border: 0;
 }
+
+/* ================= EMOTE PANEL ================= */
+.emote-btn:hover {
+    transform: scale(1.2);
+}
+.floating-emote {
+    position: absolute;
+    font-size: 2.5rem;
+    pointer-events: none;
+    z-index: 1000;
+    animation: floatUp 2s ease-out forwards;
+}
+.floating-emote.white-emote {
+    left: 10%;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+}
+.floating-emote.black-emote {
+    right: 10%;
+    filter: drop-shadow(0 0 8px rgba(0, 100, 255, 0.8));
+}
+@keyframes floatUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.5);
+    }
+    10% {
+        opacity: 1;
+        transform: translateY(0) scale(1.2);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-100px) scale(1);
+    }
+}

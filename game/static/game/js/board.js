@@ -323,6 +323,11 @@
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
+                const emotePanel = document.getElementById('emotePanel');
+                if (emotePanel) {
+                    emotePanel.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                }
+
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
                 const isResumable = hasMoves && data.game_status === 'active';
@@ -1321,6 +1326,11 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+
+                const emotePanel = document.getElementById('emotePanel');
+                if (emotePanel) {
+                    emotePanel.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                }
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
@@ -1753,6 +1763,31 @@
                     drawBtn.click();
                 }
             });
+            // Emote Logic
+            let emoteCooldown = false;
+            document.querySelectorAll('.emote-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (gameMode !== 'pvp') return;
+                    if (emoteCooldown) {
+                        showStatus('Emote cooldown (1s)', true);
+                        setTimeout(() => showStatus(''), 1000);
+                        return;
+                    }
+                    emoteCooldown = true;
+                    setTimeout(() => emoteCooldown = false, 1000);
+
+                    const emoteChar = e.currentTarget.getAttribute('data-emote');
+                    const emoteEl = document.createElement('div');
+                    emoteEl.className = 'floating-emote ' + (turn === 'white' ? 'white-emote' : 'black-emote');
+                    emoteEl.textContent = emoteChar;
+                    const boardOuter = document.querySelector('.board-outer');
+                    if (boardOuter) {
+                        boardOuter.appendChild(emoteEl);
+                        setTimeout(() => emoteEl.remove(), 2000);
+                    }
+                });
+            });
+
             // Show browser confirmation dialog if user tries to leave during an active game
             window.addEventListener('beforeunload', (e) => {
                 if (!paused) {
