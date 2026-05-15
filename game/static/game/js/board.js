@@ -5,13 +5,13 @@
             CONSTANTS & STATE
             ========================================================== */
             const SOUNDS = {
-                move: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-self.mp3'),
-                capture: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/capture.mp3'),
-                check: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-check.mp3'),
-                castle: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/castle.mp3'),
-                promote: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/promote.mp3'),
-                gameEnd: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3'),
-                illegal: new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/illegal.mp3'),
+                move: new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'), // Generic move whoosh
+                capture: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
+                check: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3'),
+                castle: new Audio('https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3'),
+                promote: new Audio('https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3'),
+                gameEnd: new Audio('https://assets.mixkit.co/active_storage/sfx/132/132-preview.mp3'),
+                illegal: new Audio('https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3'),
                 flip: new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'),
                 win: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),
                 loss: new Audio('https://assets.mixkit.co/active_storage/sfx/132/132-preview.mp3')
@@ -1174,7 +1174,19 @@
 
             function toggleBoardOrientation() {
                 flipped = !flipped;
-                buildBoard();
+                boardEl.classList.toggle('flipped', flipped);
+                playSound('flip');
+                
+                // Rotate the board container 180deg
+                boardEl.style.transform = flipped ? 'rotate(180deg)' : 'rotate(0deg)';
+                
+                // Keep pieces upright
+                document.querySelectorAll('.piece').forEach(p => {
+                    p.style.transform = flipped ? 'rotate(180deg)' : 'rotate(0deg)';
+                });
+                
+                syncPieces();
+                updateLabels();
             }
 
             async function pauseGame() {
@@ -1653,20 +1665,7 @@
                 };
             });
 
-            if (flipBtn) {
-                flipBtn.onclick = () => {
-                    const isFlipped = boardEl.classList.toggle('flipped');
-                    playSound('flip');
-                    
-                    // Rotate the board container 180deg
-                    boardEl.style.transform = isFlipped ? 'rotate(180deg)' : 'rotate(0deg)';
-                    
-                    // Keep pieces upright
-                    document.querySelectorAll('.piece').forEach(p => {
-                        p.style.transform = isFlipped ? 'rotate(180deg)' : 'rotate(0deg)';
-                    });
-                };
-            }
+            if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
 
             document.addEventListener('keydown', e => {
@@ -1714,19 +1713,30 @@
                 setTimeout(() => ripple.remove(), 600);
             }
             function showCelebration(type) {
+                // Remove any existing celebration overlay
+                const existing = document.querySelector('.game-over-overlay-cinematic');
+                if (existing) existing.remove();
+
                 const overlay = document.createElement('div');
-                overlay.className = `game-over-overlay ${type}`;
+                overlay.className = `game-over-overlay-cinematic ${type}`;
+                overlay.setAttribute('role', 'dialog');
+                overlay.setAttribute('aria-modal', 'true');
+                overlay.setAttribute('aria-labelledby', 'celebration-title');
+                
                 overlay.innerHTML = `
                     <div class="overlay-content">
-                        <h2 class="overlay-title">${type === 'win' ? 'VICTORY' : 'DEFEAT'}</h2>
+                        <h2 id="celebration-title" class="overlay-title">${type === 'win' ? 'VICTORY' : 'DEFEAT'}</h2>
                         <p class="overlay-subtitle">${type === 'win' ? 'Congratulations, Grandmaster!' : 'Better luck next time.'}</p>
-                        <button class="btn-brass" onclick="location.reload()">Play Again</button>
+                        <button class="btn-brass" id="celebrationPlayAgain">Play Again</button>
                     </div>
                 `;
                 document.body.appendChild(overlay);
                 
+                const btn = overlay.querySelector('#celebrationPlayAgain');
+                btn.onclick = () => location.reload();
+                btn.focus();
+                
                 if (type === 'win') {
-                    // Start confetti or sparkle effect
                     boardEl.classList.add('celebrate-win');
                 } else {
                     boardEl.classList.add('celebrate-loss');

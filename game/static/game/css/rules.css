@@ -66,10 +66,10 @@ body {
 
 .logo-img {
     height: 32px;
-    animation: logoGlow 3s ease-in-out infinite alternate;
+    animation: logo-glow 2s ease-in-out infinite alternate;
 }
 
-@keyframes logoGlow {
+@keyframes logo-glow {
     from { filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.4)); }
     to { filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.8)); }
 }
@@ -88,6 +88,29 @@ body {
     grid-template-columns: 300px 1fr;
     max-width: 1600px;
     margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    main {
+        padding: 2rem 1rem;
+    }
+
+    .mini-board {
+        width: min(100%, 400px) !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1;
+    }
 }
 
 /* ── Sidebar ── */
@@ -119,7 +142,7 @@ body {
     font-family: var(--font-heading);
     font-size: 0.75rem;
     letter-spacing: 3px;
-    color: var(--muted);
+    color: var(--text-muted);
     text-transform: uppercase;
     margin-bottom: 1.5rem;
 }
@@ -180,14 +203,14 @@ main {
     padding: 3rem;
     margin-bottom: 3rem;
     display: none;
-    animation: slideUp 0.5s cubic-bezier(0.2, 0, 0.2, 1);
+    animation: slide-up 0.5s ease forwards;
 }
 
 .rule-card.active {
     display: block;
 }
 
-@keyframes slideUp {
+@keyframes slide-up {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }

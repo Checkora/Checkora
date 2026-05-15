@@ -1,9 +1,11 @@
 # GSSoC 2026 Submission Guide - Checkora UI Overhaul
 
 ## 🚀 1. Draft the Issue
+
 **Title:** `[ENHANCEMENT] Cinematic UI/UX Modernization & 3D Interactive Experience`
 
 **Body:**
+
 ```markdown
 ## Problem
 The current UI of Checkora, while functional, lacks the premium aesthetic and immersive feel expected of a modern Chess application. Specifically:
@@ -26,9 +28,11 @@ This modernization will significantly improve user retention and provide a "Trip
 ---
 
 ## 🚀 2. Draft the Pull Request
+
 **Title:** `feat: Cinematic UI Overhaul, 3D Board Interactions, and Audio Integration`
 
 **Body:**
+
 ```markdown
 ## Overview
 This PR implements a major visual and functional overhaul of the Checkora platform, transforming it into a premium, cinematic experience. All changes have been locally tested for performance and cross-browser stability.
@@ -36,14 +40,14 @@ This PR implements a major visual and functional overhaul of the Checkora platfo
 ## Detailed Changes
 
 ### 1. Cinematic Landing Page
-- **Hero Section**: Added metallic gold gradients and `titleEntrance` animations.
+- **Hero Section**: Added metallic gold gradients and `title-entrance` animations.
 - **Feature Cards**: Refactored to a modern "glassmorphism" style with floating animations and dynamic ripple effects.
 - **Watermarks**: Added thematic "STRATEGY" watermarks for brand depth.
 
 ### 2. Premium 3D Game Board
 - **Physical Flip**: Implemented a 0.8s 3D rotation for the "Flip Board" action with piece counter-rotation.
 - **Realistic Depth**: Added 3D board thickness and realistic wood/marble textures to squares.
-- **Audio Integration**: Integrated standard Chess.com sound assets for moves, captures, checks, and board flips.
+- **Audio Integration**: Integrated high-quality open-source sound assets for moves, captures, checks, and board flips.
 
 ### 3. Rulebook Revamp
 - Modernized the `rules.html` with a premium documentation layout.
@@ -67,6 +71,7 @@ This contribution was developed with the assistance of **Antigravity (Google Dee
 ```
 
 ## 🎯 Tips for Success
+
 1. **Wait for Assignment**: Do not open the PR until the maintainers have assigned you the issue.
 2. **Quality Documentation**: Your PR description is as important as your code. Ensure it is clear and professional.
 3. **Visual Proof**: Maintainers LOVE screen recordings for UI changes. It saves them time during review.
