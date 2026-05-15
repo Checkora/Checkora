@@ -684,9 +684,33 @@
                     return;
                 }
                 await executeMove(fr, fc, tr, tc, null);
-            }
-
-            async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+            }            let reconnecting = false;
+            async function handleReconnect() {
+                if (reconnecting) return;
+                reconnecting = true;
+                showStatus('Reconnecting...', false);
+                let retries = 0;
+                let success = false;
+                while (retries < 3 && !success) {
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+                        await loadGame();
+                        success = true;
+                    } catch (err) {
+                        retries++;
+                    }
+                }
+                
+                if (success) {
+                    showStatus('Connection restored', false);
+                    setTimeout(() => {
+                        showStatus('', false);
+                    }, 2000);
+                } else {
+                    showStatus('Unable to reconnect. Please refresh.', true);
+                }
+                reconnecting = false;
+            }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
                 try {
                     const body = {
                         from_row: fr, from_col: fc,
@@ -749,7 +773,7 @@
                         deselect();
                     }
                 } catch (e) {
-                    showStatus('Connection error.', true);
+                        await handleReconnect();
                 }
             }
 
@@ -801,7 +825,8 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                    showStatus('AI connection error.', true);
+                   
+                        await handleReconnect();
                 } finally {
                     aiThinking = false;
                 }
@@ -1253,10 +1278,11 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
+                        const timeLimitMins = parseInt(document.getElementById('confirmTimerSelect').value, 10);
                         if (mode === 'ai') {
-                            showSideSelectionModal(side => startNewGame('ai', side, diff));
+                            showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeLimitMins));
                         } else {
-                            startNewGame('pvp');
+                            startNewGame('pvp', 'white', diff, null, timeLimitMins);
                         }
                     },
                     '#ff6b6b'
@@ -1280,7 +1306,7 @@
                 );
             }
 
-            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null) {
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
                 clearTimeout(pgnCopyTimeout);
                 clearTimeout(fenCopyTimeout);
 
@@ -1307,13 +1333,16 @@
 
                 const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
                 const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
+                const defaultTimeLimitMins = parseInt(document.getElementById('timeLimitInput')?.value || 10, 10);
+                const timeLimit = (timeLimitMins !== null ? timeLimitMins : defaultTimeLimitMins) * 60;
 
                 const payload = {
                     mode: mode,
                     player_color: pColor,
                     white_name: wName,
                     black_name: bName,
-                    difficulty: difficulty
+                    difficulty: difficulty,
+                    time_limit: timeLimit
                 };
 
                 const fenValue = fen ? fen.trim() : null;
@@ -1631,6 +1660,7 @@
             if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
+                const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
                 
@@ -1641,9 +1671,9 @@
                 }
                 
                 if (mode === 'ai') {
-                    showSideSelectionModal(side => startNewGame(mode, side, diff));
+                    showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
-                    startNewGame(mode, 'white', diff);
+                    startNewGame(mode, 'white', diff, null, timeLimitMins);
                 }
             };
 
@@ -1666,6 +1696,20 @@
                     btn.classList.add('active');
                     btn.setAttribute('aria-pressed', 'true');
                 };
+            });
+
+            document.addEventListener('visibilitychange', async() => {
+                if (document.hidden) {
+                    pauseGame().catch(() => {});
+                } else {
+                    await handleReconnect();
+                }
+            });
+
+            window.addEventListener('online', async () => {
+                if (!gameOver) {
+                    await handleReconnect();
+                }
             });
 
             document.addEventListener('keydown', e => {
