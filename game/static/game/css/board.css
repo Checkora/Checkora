@@ -30,38 +30,16 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;   /* tighter = better */
+    gap: 8px;
 }
 
-/* Logo image */
+/* Logo image - FIXED: Single rule with animation */
 .logo-icon-img {
+    height: 40px;
     animation: logoGlow 2.5s ease-in-out infinite alternate;
 }
 
-@keyframes logoGlow {
-    from {
-        filter: brightness(1.5) contrast(1.2)
-                drop-shadow(0 0 6px rgba(0, 200, 255, 0.4));
-    }
-    to {
-        filter: brightness(1.8) contrast(1.4)
-                drop-shadow(0 0 14px rgba(0, 200, 255, 0.7));
-    }
-}
-
-/* Text */ 
-.logo-text {
-    font-family: 'Cinzel', serif;
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: #f0c040;
-}
-.logo-icon-img {
-    height: 40px;
-    filter: none;  /* no animation here */
-}
-
+/* Logo glow animation - FIXED: Single keyframes definition */
 @keyframes logoGlow {
     0% {
         filter: brightness(1.6) contrast(1.3)
@@ -73,7 +51,16 @@ body {
     }
 }
 
-/* Responsive */
+/* Logo text */ 
+.logo-text {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #f0c040;
+}
+
+/* Responsive logo sizes */
 @media (max-width: 768px) {
     .logo-icon-img {
         height: 26px;
@@ -82,6 +69,7 @@ body {
         font-size: 20px;
     }
 }
+
 .header .badge {
     font-size: 0.55em;
     color: #d4a574;
@@ -150,7 +138,7 @@ body {
 }
 
 .panel {
-    width: 192px;
+    width: 260px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -169,6 +157,50 @@ body {
     color: #6a6a8a;
     margin-bottom: 8px;
     font-weight: 600;
+}
+
+.fen-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.fen-label {
+    color: #ccc;
+    font-size: 0.85rem;
+    text-align: left;
+}
+
+.fen-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1a1a2e;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.fen-hint {
+    color: #777;
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+.fen-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.fen-error {
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    min-height: 18px;
+    margin-top: 8px;
+    text-align: center;
 }
 
 /* ============================================================
@@ -318,8 +350,8 @@ body {
 
 /* Capture ring (enemy piece) */
 .capture-ring {
-    width: 54px;
-    height: 54px;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
     border: 5px solid rgba(0, 0, 0, 0.18);
     position: absolute;
@@ -331,14 +363,30 @@ body {
    Pieces
    ============================================================ */
 .piece {
-    width: 54px;
-    height: 54px;
+    width: 58px;
+    height: 58px;
     z-index: 2;
     pointer-events: none;
     user-select: none;
+    transition: transform 0.25s ease-in-out, opacity 0.2s ease;
+    will-change: transform;
 }
 .piece.playable { cursor: pointer; }
-.piece.dragging { opacity: 0.35; }
+.piece.dragging { opacity: 0.3; transition: none; }
+.piece.moving {
+    z-index: 100;
+}
+.piece.captured {
+    opacity: 0;
+    transform: scale(0.5);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .piece {
+        transition: none !important;
+    }
+}
 
 /* ============================================================
    Status Bar
@@ -366,32 +414,62 @@ body {
    Move History
    ============================================================ */
 .moves-list {
-    max-height: 340px;
+    max-height: 560px;
     overflow-y: auto;
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 0.82rem;
-    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 .moves-list::-webkit-scrollbar { width: 4px; }
 .moves-list::-webkit-scrollbar-thumb {
-    background: #333;
+    background: #444;
     border-radius: 2px;
 }
-.move-row { display: flex; gap: 6px; padding: 1px 0; }
+.move-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 1fr;
+    gap: 8px;
+    padding: 4px 8px;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background-color 0.2s;
+}
+.move-row:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+.move-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
 .move-num {
-    color: #4a4a6a;
-    min-width: 26px;
-    text-align: right;
+    font-size: 12px;
+    color: #6a6a8a;
+    text-align: center;
+    user-select: none;
+    font-weight: 500;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 2px 0;
 }
 .move-white, .move-black {
-    min-width: 48px;
-    padding: 1px 4px;
-    border-radius: 3px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 13.5px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.move-white { color: #e8e8e8; }
+.move-black { color: #a0a0a0; }
 .move-white:hover, .move-black:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
 }
-.placeholder { color: #3a3a5a; font-style: italic; font-family: inherit; }
+.placeholder { color: #5a5a7a; font-style: italic; font-size: 13px; text-align: center; padding: 16px 0; }
 
 /* ============================================================
    Captured Pieces
@@ -443,6 +521,23 @@ body {
     transform: translateY(-1px);
 }
 .btn-danger:active { transform: translateY(0); }
+.back-btn {
+    font-size: small;
+    background: var(--bg);
+    color: var(--bg) !important;
+    font-weight: bold;
+    margin-bottom: 2rem;
+    text-decoration: none;
+    display: flex; 
+    justify-content: flex-start;
+    
+}
+
+.back-btn:hover {
+    color: #d4a72d;
+    text-decoration: underline !important;
+    transform: scale(1.05);
+}
 
 /* ============================================================
    PvE Side Selection
@@ -580,10 +675,14 @@ body {
         width: var(--mobile-square-size);
     }
 
-    .piece,
+    .piece {
+        width: 96%;
+        height: 96%;
+    }
+
     .capture-ring {
-        width: 90%;
-        height: 90%;
+        width: 96%;
+        height: 96%;
     }
 
     .move-dot {
@@ -765,6 +864,59 @@ body {
     width: 100%;
     height: 100%;
     pointer-events: none;
+}
+
+/* Mobile FAB controls  */
+.m-fab {
+  display: none; 
+}
+
+@media (max-width: 768px) {
+  .m-fab {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
+    top: 14px;
+    right: 12px;
+    z-index: 10000;
+  }
+  .m-fab-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(212, 175, 55, 0.35);
+    background: rgba(15, 15, 28, 0.92);
+    color: #f0c040;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.55),
+                0 0 0 1px rgba(212,175,55,0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .m-fab-btn:active {
+    transform: scale(0.9);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  }
+  /* Resign = red tint  */
+  .m-fab-resign {
+    border-color: rgba(220, 60, 50, 0.4);
+    color: #ff7b6b;
+    background: rgba(28, 10, 10, 0.92);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.55),
+                0 0 0 1px rgba(220,60,50,0.1);
+  }
+  
+  .m-fab:has(~ .promo-overlay.active),
+  body:has(.promo-overlay.active) .m-fab {
+    display: none;
+  }
 }
 .promo-logo {
     display: flex;
@@ -949,7 +1101,7 @@ body {
 
 /* ================= PAUSE STATE ================= */
 .chessboard.paused {
-    filter: blur(1px);
+    filter: blur(15px);
     pointer-events: none;
 }
 
@@ -968,4 +1120,16 @@ body {
     border-color: #f0c040;
     box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
     outline: none;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
