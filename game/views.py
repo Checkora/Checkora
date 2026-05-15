@@ -544,8 +544,7 @@ def rules(request):
 def logout_view(request):
     logout(request)
     return redirect('landing')
-
-
+    
 @login_required
 def stats_view(request):
     """Display game statistics."""

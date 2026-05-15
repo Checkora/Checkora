@@ -333,7 +333,6 @@
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
-
                 updatePlayerNames(data);
                 updateTurn();
                 updateMoves(data.move_history);
@@ -374,16 +373,17 @@
             function updatePlayerNames(data) {
                 let wName = data.white_name || 'White';
                 let bName = data.black_name || 'Black';
-                
+
+
                 if (gameMode === 'ai'){
-                    // Fixing the naming system
+                    const diffLabel = (currentDifficulty || 'medium').charAt(0).toUpperCase() + (currentDifficulty || 'medium').slice(1);
                     let player_name = data.white_name;
                     if(playerColor === 'white'){
                         wName = player_name;
-                        bName = 'AI (Black)';
+                        bName = `AI (Black) · ${diffLabel}`;
                     }else{
                         bName = player_name;
-                        wName = 'AI (White)';
+                        wName = `AI (White) · ${diffLabel}`;
                     }
                 }
 
@@ -1570,7 +1570,6 @@
                     btn.setAttribute('aria-pressed', 'true');
                 };
             });
-
             document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
