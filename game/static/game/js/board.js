@@ -1172,10 +1172,11 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
+                        const timeLimitMins = parseInt(document.getElementById('confirmTimerSelect').value, 10);
                         if (mode === 'ai') {
-                            showSideSelectionModal(side => startNewGame('ai', side, diff));
+                            showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeLimitMins));
                         } else {
-                            startNewGame('pvp');
+                            startNewGame('pvp', 'white', diff, null, timeLimitMins);
                         }
                     },
                     '#ff6b6b'
@@ -1199,7 +1200,7 @@
                 );
             }
 
-            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null) {
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
                 clearTimeout(pgnCopyTimeout);
                 clearTimeout(fenCopyTimeout);
 
@@ -1246,7 +1247,8 @@
                     player_color: pColor,
                     white_name: wName,
                     black_name: bName,
-                    difficulty: difficulty
+                    difficulty: difficulty,
+                    time_limit: timeLimit
                 };
 
                 const fenValue = fen ? fen.trim() : null;
@@ -1562,6 +1564,7 @@
             if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
+                const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
                 
@@ -1572,9 +1575,9 @@
                 }
                 
                 if (mode === 'ai') {
-                    showSideSelectionModal(side => startNewGame(mode, side, diff));
+                    showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
-                    startNewGame(mode, 'white', diff);
+                    startNewGame(mode, 'white', diff, null, timeLimitMins);
                 }
             };
 
