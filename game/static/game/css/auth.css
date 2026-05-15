@@ -76,11 +76,11 @@ body {
 /* Logo image - FIXED: Single rule with animation */
 .logo-icon-img {
     height: 40px;
-    animation: logoGlow 2.5s ease-in-out infinite alternate;
+    animation: logo-glow 2.5s ease-in-out infinite alternate;
 }
 
 /* Logo glow animation - FIXED: Single keyframes definition */
-@keyframes logoGlow {
+@keyframes logo-glow {
     0% {
         filter: brightness(1.6) contrast(1.3)
                 drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
