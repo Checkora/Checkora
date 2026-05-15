@@ -153,7 +153,6 @@
 
             let pgnCopyTimeout = null;
             let fenCopyTimeout = null;
-
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
@@ -248,6 +247,7 @@
 
                 // 3. Capture detection (including En Passant)
                 let capturedSq = sq(tr, tc);
+                // En Passant: capture pawn is not on target square
                 const isEnPassant = piece && piece.src.includes('p.png') && fc !== tc && !board[tr][tc];
                 if (isEnPassant) {
                     capturedSq = sq(fr, tc);
@@ -274,7 +274,6 @@
                 }
                 return b;
             }
-
             const whiteNameInput = document.getElementById('whiteNameInput');
             const blackNameInput = document.getElementById('blackNameInput');
 
@@ -294,32 +293,6 @@
                     }
                 });
             }
-
-            /* ==========================================================
-            GAME STATUS INDICATOR
-            ========================================================== */
-            function updateGameStatusBadge(status) {
-                const badge = document.getElementById('gameStatusBadge');
-                if (!badge) return;
-
-                badge.style.display = 'inline-block';
-                badge.classList.remove('status-inprogress', 'status-check', 'status-checkmate', 'status-stalemate');
-
-                if (status === 'check') {
-                    badge.textContent = '⚠ Check';
-                    badge.classList.add('status-check');
-                } else if (status === 'checkmate') {
-                    badge.textContent = '♚ Checkmate';
-                    badge.classList.add('status-checkmate');
-                } else if (status === 'stalemate' || status === 'draw' || status === 'resignation') {
-                    badge.textContent = '⚖ Stalemate';
-                    badge.classList.add('status-stalemate');
-                } else {
-                    badge.textContent = '● In Progress';
-                    badge.classList.add('status-inprogress');
-                }
-            }
-
             /* ==========================================================
             LOAD GAME STATE
             ========================================================== */
@@ -333,6 +306,7 @@
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
+                // Sync UI with current game mode
                 updateModeButtonsUI(gameMode);
                 playerColor = data.player_color || 'white';
                 currentDifficulty = data.difficulty || currentDifficulty;
@@ -349,6 +323,7 @@
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
+                // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
                 const isResumable = hasMoves && data.game_status === 'active';
                 if (isResumable) {
@@ -373,7 +348,6 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
-
                 if (gameMode === 'ai') {
                     const aiClock = playerColor === 'white' ?
                         document.getElementById('blackClock') :
@@ -394,9 +368,6 @@
                     }
                 }
 
-                // Update status badge on load
-                updateGameStatusBadge(data.game_status || 'active');
-
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
                 }
@@ -410,6 +381,7 @@
                 let bName = data.black_name || 'Black';
                 
                 if (gameMode === 'ai'){
+                    // Fixing the naming system
                     let player_name = data.white_name;
                     if(playerColor === 'white'){
                         wName = player_name;
@@ -433,6 +405,7 @@
                     if (blackYouTag) blackYouTag.style.display = 'none';
                 }
             }
+
 
             /* ==========================================================
             BOARD RENDERING
@@ -550,12 +523,14 @@
                 }
             }
 
+            // converts row/col to chess notation e.g. row=0,col=0 → "a8"
             function getSquareLabel(row, col) {
                 const files = ['a','b','c','d','e','f','g','h'];
                 const ranks = ['8','7','6','5','4','3','2','1'];
                     return files[col] + ranks[row];
             }
 
+            // Arrow keys to move focus, Enter/Space to click, Escape to cancel
             function handleSquareKeydown(e, row, col) {
                 let newRow = row;
                 let newCol = col;
@@ -578,6 +553,7 @@
                 default:
                     return;
              }
+          // clamp within board
             newRow = Math.max(0, Math.min(7, newRow));
             newCol = Math.max(0, Math.min(7, newCol));
             const target = boardEl.querySelector(
@@ -662,9 +638,7 @@
                     return;
                 }
                 await executeMove(fr, fc, tr, tc, null);
-            }
-
-            let reconnecting = false;
+            }            let reconnecting = false;
             async function handleReconnect() {
                 if (reconnecting) return;
                 reconnecting = true;
@@ -690,9 +664,7 @@
                     showStatus('Unable to reconnect. Please refresh.', true);
                 }
                 reconnecting = false;
-            }
-
-            async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+            }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
                 try {
                     const body = {
                         from_row: fr, from_col: fc,
@@ -732,7 +704,6 @@
                         }
 
                         const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
-                        updateGameStatusBadge(data.game_status);
                         if (!gameEnded) {
                             if (data.game_status === 'check') {
                                 applyCheckHighlight();
@@ -790,7 +761,7 @@
                         }
 
                         const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
-                        updateGameStatusBadge(data.game_status);
+const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                         if (!gameEnded) {
                             if (data.game_status === 'check') {
                                 applyCheckHighlight();
@@ -806,6 +777,7 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
+                   
                         await handleReconnect();
                 } finally {
                     aiThinking = false;
@@ -818,7 +790,10 @@
             async function onClick(r, c) {
                 if (dragging) return;
                 if (selected) {
-                    if (selected.r === r && selected.c === c){
+
+                    //New toggle logic:
+                    //If the clicked square is the exact same as the selected square, deselect it.
+                    if (selected .r === r && selected.c ===c){
                         return deselect();
                     }
                     if (hints.some(h => h.row === r && h.col === c))
@@ -936,7 +911,7 @@
                 clearInterval(timerInterval);
             
                 let title = '', message = '';
-                let isCelebration = false;
+                let isCelebration = false; // Track if this is a win (not draw/stalemate)
             
                 if (reason === 'checkmate') {
                     const winner = color === 'white' ? 'Black' : 'White';
@@ -975,7 +950,9 @@
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
                 
+                // Delay the overlay and celebration effects by 1 second
                 setTimeout(() => {
+                    // Add celebration effects for wins
                     if (isCelebration) {
                         gameOverOverlay.classList.add('game-over-celebration');
                         createConfetti();
@@ -984,10 +961,12 @@
                         gameOverOverlay.classList.remove('game-over-celebration');
                     }
                     
+                    // Prepare for fade-in animation
                     gameOverOverlay.style.transition = 'opacity 0.5s ease-in-out';
                     gameOverOverlay.style.opacity = '0';
                     gameOverOverlay.classList.add('active');
                     
+                    // Trigger fade-in after a short delay
                     setTimeout(() => {
                         gameOverOverlay.style.opacity = '1';
                     }, 700);
@@ -995,6 +974,7 @@
                 
                 showStatus(title + ': ' + message, false);
                 
+                // Clean a11y announcement
                 const winnerColor = color === 'white' ? 'Black' : 'White';
                 let cleanMsg = reason === 'checkmate' || reason === 'resign' 
                     ? `Game over. ${winnerColor} wins by ${reason}.` 
@@ -1011,6 +991,7 @@
                 const overlay = document.getElementById('gameOverOverlay');
                 const dialog = overlay.querySelector('.promo-dialog');
                 
+                // Create confetti container if it doesn't exist
                 let confettiContainer = dialog.querySelector('.confetti-container');
                 if (!confettiContainer) {
                     confettiContainer = document.createElement('div');
@@ -1019,8 +1000,10 @@
                     dialog.appendChild(confettiContainer);
                 }
                 
+                // Clear existing confetti
                 confettiContainer.innerHTML = '';
                 
+                // Create confetti pieces
                 const colors = ['#ffd700', '#f0c040', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff9ff3'];
                 const confettiCount = 50;
                 
@@ -1028,6 +1011,7 @@
                     const confetti = document.createElement('div');
                     confetti.className = 'confetti';
                     
+                    // Random properties
                     const randomColor = colors[Math.floor(Math.random() * colors.length)];
                     const randomLeft = Math.random() * 100;
                     const randomDelay = Math.random() * 0.5;
@@ -1040,6 +1024,7 @@
                     confetti.style.animationDuration = randomDuration + 's';
                     confetti.style.transform = `rotate(${randomRotation}deg)`;
                     
+                    // Random shapes
                     if (Math.random() > 0.5) {
                         confetti.style.borderRadius = '50%';
                     }
@@ -1060,6 +1045,7 @@
                     dialog.appendChild(confettiContainer);
                 }
                 
+                // Create sparkles
                 const sparkleCount = 20;
                 
                 for (let i = 0; i < sparkleCount; i++) {
@@ -1087,26 +1073,31 @@
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
+                
 
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
                 if (gameMode === 'ai') {
-                    const playerClock = playerColor === 'white' ? whiteClock : blackClock;
-                    const playerTimeEl = playerColor === 'white' ? wTime : bTime;
-                    const aiClock = playerColor === 'white' ? blackClock : whiteClock;
-                    const aiTimeEl = playerColor === 'white' ? bTime : wTime;
+        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
-                    if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-                    if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+        // Player clock — update time and highlight on their turn
+        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
 
-                    if (aiTimeEl) aiTimeEl.textContent = '🤖';
-                    if (aiClock) aiClock.classList.remove('active');
-                } else {
-                    if (wTime) wTime.textContent = formatTime(whiteTime);
-                    if (bTime) bTime.textContent = formatTime(blackTime);
-                    if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-                    if (blackClock) blackClock.classList.toggle('active', turn === 'black');
-                }
+        // AI clock — static, never highlights, never updates time
+        if (aiTimeEl) aiTimeEl.textContent = '🤖';
+        if (aiClock) aiClock.classList.remove('active');
+
+    } else {
+        // PvP — both clocks update normally
+        if (wTime) wTime.textContent = formatTime(whiteTime);
+        if (bTime) bTime.textContent = formatTime(blackTime);
+        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+    }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
@@ -1239,13 +1230,20 @@
                 clearTimeout(pgnCopyTimeout);
                 clearTimeout(fenCopyTimeout);
 
-                if (copyPgnBtn) copyPgnBtn.textContent = 'Export as PGN';
-                if (copyFenBtn) copyFenBtn.textContent = 'Copy FEN';
+                if (copyPgnBtn) {
+                    copyPgnBtn.textContent = 'Export as PGN';
+                }
 
+                if (copyFenBtn) {
+                    copyFenBtn.textContent = 'Copy FEN';
+                }
+                // Clear celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
-                if (confettiContainer) confettiContainer.remove();
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
 
                 const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
                 const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
@@ -1297,20 +1295,21 @@
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
-                // Reset status badge for new game
-                updateGameStatusBadge('active');
-
                 await loadGame();
+                // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
                 paused = false;
                 updatePauseUI();
 
+                // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
                     queueAIMoveIfNeeded();
                 }
 
                 return true;
             }
+
+            
 
             /* ==========================================================
             EVENT LISTENERS
@@ -1331,6 +1330,7 @@
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
                 
+                // Show ONLY white input for AI mode
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'Your Name';
@@ -1343,6 +1343,7 @@
                     blackInput.classList.remove('input-error');
                 }
                 
+                // Hide error
                 if (errorDiv) errorDiv.style.display = 'none';
                 
                 nameInputs.style.display = 'flex';
@@ -1358,6 +1359,7 @@
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
                 
+                // Reset both inputs to visible for PvP
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'White Player Name';
@@ -1369,6 +1371,7 @@
                     blackInput.classList.remove('input-error');
                 }
                 
+                // Hide error
                 if (errorDiv) errorDiv.style.display = 'none';
                 
                 nameInputs.style.display = 'flex';
@@ -1393,17 +1396,23 @@
 
                 const playerName = wNameInput?.value.trim();
 
+                // Validate: AI mode only needs ONE name
                 if (!playerName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
                         errorDiv.textContent = '⚠️ Please enter your name';
                     }
-                    if (wNameInput) wNameInput.classList.add('input-error');
+                    if (wNameInput) {
+                        wNameInput.classList.add('input-error');
+                    }
                     return;
                 }
 
+                // Clear error
                 if (errorDiv) errorDiv.style.display = 'none';
-                if (wNameInput) wNameInput.classList.remove('input-error');
+                if (wNameInput) {
+                    wNameInput.classList.remove('input-error');
+                }
 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
                 const fen = welcomeFenInput?.value || null;
@@ -1422,25 +1431,32 @@
                     buildBoard();
                 }
             };
-
             if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-                const data = await get('/api/state/');
-                if (data.pgn) {
-                    navigator.clipboard.writeText(data.pgn);
-                    copyPgnBtn.textContent = 'Copied!';
-                    clearTimeout(pgnCopyTimeout);
-                    pgnCopyTimeout = setTimeout(() => {
-                        copyPgnBtn.textContent = 'Export as PGN';
-                    }, 2000);
-                }
-            };
+    const data = await get('/api/state/');
+
+    if (data.pgn) {
+        navigator.clipboard.writeText(data.pgn);
+
+        
+
+        copyPgnBtn.textContent = 'Copied!';
+
+        clearTimeout(pgnCopyTimeout);
+
+        pgnCopyTimeout = setTimeout(() => {
+            copyPgnBtn.textContent = 'Export as PGN';
+        }, 2000);
+    }
+};
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
                 if (data.fen) {
                     navigator.clipboard.writeText(data.fen);
+                    
                     copyFenBtn.textContent = 'Copied!';
                     clearTimeout(fenCopyTimeout);
+
                     fenCopyTimeout = setTimeout(() => {
                         copyFenBtn.textContent = 'Copy FEN';
                     }, 2000);
@@ -1470,20 +1486,28 @@
                 confirmOverlay.classList.remove('active');
                 confirmCallback = null;
             };
-
+                //added new line here
             if (newPvPBtn) newPvPBtn.onclick = () => {
+                // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
-                if (confettiContainer) confettiContainer.remove();
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
                 requestNewGame('pvp');
             };
             
             if (newAIBtn) newAIBtn.onclick = () => {
+                // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
-                if (confettiContainer) confettiContainer.remove();
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
                 requestNewGame('ai');
             };
 
@@ -1552,8 +1576,11 @@
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
                 
+                // Add this: Clear confetti container
                 const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
-                if (confettiContainer) confettiContainer.remove();
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
                 
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
@@ -1583,20 +1610,19 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', async() => {
-                if (document.hidden) {
-                    pauseGame().catch(() => {});
-                } else {
-                    await handleReconnect();
-                }
-            });
+    document.addEventListener('visibilitychange', async() => {
+        if (document.hidden) {
+            pauseGame().catch(() => {});
+        } else {
+            await handleReconnect();
+        }
+    });
 
-            window.addEventListener('online', async () => {
-                if (!gameOver) {
-                    await handleReconnect();
-                }
-            });
-
+    window.addEventListener('online', async () => {
+        if (!gameOver) {
+            await handleReconnect();
+        }
+    });
             const manualMoveInput = document.getElementById('manualMoveInput');
             const manualMoveError = document.getElementById('manualMoveError');
 
@@ -1687,7 +1713,7 @@
                     drawBtn.click();
                 }
             });
-
+            // Show browser confirmation dialog if user tries to leave during an active game
             window.addEventListener('beforeunload', (e) => {
                 if (!paused) {
                     navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
@@ -1697,11 +1723,46 @@
                     e.returnValue = '';
                 }
             });
+            
 
-            if (typeof module !== "undefined" && module.exports) {
-                module.exports = { pColor, getSquareLabel, formatTime };
-            } else {
-                loadGame();
-            }
+          if (typeof module !== "undefined" && module.exports) {
+          module.exports = { pColor, getSquareLabel, formatTime };
+        } else {
+          loadGame();
+        }
 
 })();
+
+
+// ── Game Status Indicator ──────────────────────────────────
+function updateGameStatusBadge(status) {
+    const badge = document.getElementById('gameStatusBadge');
+    if (!badge) return;
+
+    badge.style.display = 'inline-block';
+    badge.classList.remove('status-inprogress', 'status-check', 'status-checkmate', 'status-stalemate');
+
+    if (status === 'check') {
+        badge.textContent = '⚠ Check';
+        badge.classList.add('status-check');
+    } else if (status === 'checkmate') {
+        badge.textContent = '♚ Checkmate';
+        badge.classList.add('status-checkmate');
+
+} else if (status === 'stalemate') {
+    badge.textContent = '⚖ Stalemate';
+    badge.classList.add('status-stalemate');
+} else if (status === 'draw') {
+    badge.textContent = '⚖ Draw';
+    badge.classList.add('status-stalemate');
+} else if (status === 'resign' || status === 'resignation') {
+    badge.textContent = '🏳 Resigned';
+    badge.classList.add('status-checkmate');
+
+        badge.textContent = '⚖ Stalemate';
+        badge.classList.add('status-stalemate');
+    } else {
+        badge.textContent = '● In Progress';
+        badge.classList.add('status-inprogress');
+    }
+}
