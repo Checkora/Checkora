@@ -11,7 +11,8 @@
       type="image/jpeg"
       href="{% static 'game/favicon.jpeg' %}"
     />
-  </head>
+      <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+</head>
   <body>
        <!-- Back-to-home arrow -->
        <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
@@ -62,5 +63,6 @@
     </div>
 
     <script src="{% static 'game/js/auth.js' %}?v=6"></script>
-  </body>
+      <script src="{% static 'game/js/toast.js' %}"></script>
+</body>
 </html>

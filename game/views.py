@@ -181,6 +181,7 @@ def new_game(request):
         'draw_reason': game.draw_reason,
     })
 
+
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
@@ -216,6 +217,7 @@ def resume_game(request):
         'pgn': game.generate_pgn(),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
+
 
 @require_GET
 def check_promotion(request):
@@ -332,7 +334,7 @@ def ai_move(request):
 
     best = game.get_ai_move(depth=depth)
     best = game.get_ai_move(depth=depth)
-    
+
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -581,6 +583,7 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            messages.success(request, f'Welcome back, {user.username}! Login successful.')
             request.session.cycle_key()
             return redirect('index')
 
@@ -602,6 +605,8 @@ def logout_view(request):
 
 
 # Protect the stats page with login requirement
+
+
 @login_required
 def stats_view(request):
     """Display game statistics."""
