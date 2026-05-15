@@ -60,7 +60,6 @@ def make_move(request):
             {'valid': False, 'message': 'Invalid request data.'},
             status=400,
         )
-
     game_data = request.session.get('game')
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
@@ -402,7 +401,6 @@ def offer_draw(request):
         return JsonResponse(
             {'success': False, 'message': err_msg}, status=400
         )
-
     data = json.loads(request.body or '{}')
     action = data.get('action')  # 'offer' or 'accept'
 
@@ -420,8 +418,6 @@ def offer_draw(request):
         })
 
     return JsonResponse({'success': True})
-
-
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
@@ -599,15 +595,8 @@ def rules(request):
 def logout_view(request):
     logout(request)
     return redirect('landing')
-
-
-
-
-# Protect the stats page with login requirement
-
 @login_required
 def stats_view(request):
-    """Display game statistics."""
     # Only show real database records linked to the logged-in user
     user_results = GameResult.objects.filter(
         user=request.user
@@ -636,5 +625,9 @@ def stats_view(request):
         'user_ai_wins': user_ai_wins,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
+<<<<<<< HEAD
         'win_percentage': round(win_percentage, 2),
     })
+=======
+    })
+>>>>>>> 0ce5e9e (fix: remove extra blank lines to pass flake8 E303)
