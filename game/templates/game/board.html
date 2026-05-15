@@ -40,6 +40,24 @@
 
 <body>
 
+    <!-- MOBILE FAB -->
+<div class="m-fab" id="mFab">
+  <button class="m-fab-btn" title="Pause"
+    onclick="document.getElementById('pauseBtn').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="5" y="3" width="4" height="18" rx="1.5"/>
+      <rect x="15" y="3" width="4" height="18" rx="1.5"/>
+    </svg>
+  </button>
+  <button class="m-fab-btn m-fab-resign" title="Resign"
+    onclick="document.getElementById('resignBtn').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4 3h14l-4 4.5 4 4.5H4V3z"/>
+      <line x1="4" y1="21" x2="4" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+
     <!-- ========== WELCOME MESSAGE ========== -->
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
