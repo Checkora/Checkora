@@ -33,6 +33,15 @@ body {
     gap: 8px;
 }
 
+/* Logo home link */
+.logo-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: inherit;
+}
+
 /* Logo image - FIXED: Single rule with animation */
 .logo-icon-img {
     height: 40px;
