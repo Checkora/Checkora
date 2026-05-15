@@ -17,7 +17,7 @@ from django.contrib import messages
 from django.db.models import F, Q
 
 from .forms import CustomUserCreationForm
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
@@ -652,3 +652,35 @@ def stats_view(request):
         'ai_draws': ai_draws,
         'win_percentage': round(win_percentage, 2),
     })
+
+
+import secrets as secrets_module
+from django.views.decorators.http import require_POST
+from game.services import cleanup_stale_games
+
+@require_POST
+@csrf_exempt
+def cleanup_cron(request):
+    """Secure cron-triggered cleanup endpoint for abandoned games."""
+    cron_secret = getattr(settings, 'CRON_SECRET', None)
+    
+    # Check authorization header
+    auth_header = request.headers.get('Authorization')
+    expected = f"Bearer {cron_secret}" if cron_secret else ""
+    provided = auth_header or ""
+    
+    if not cron_secret or not secrets_module.compare_digest(expected, provided):
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+        
+    try:
+        deleted, resigned = cleanup_stale_games()
+        return JsonResponse({
+            'status': 'success',
+            'deleted_games': deleted,
+            'resigned_games': resigned
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

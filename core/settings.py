@@ -162,3 +162,6 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Secret token for authenticating Vercel cron job requests to /api/cron/cleanup-stale-games/
+CRON_SECRET = os.environ.get('CRON_SECRET')
