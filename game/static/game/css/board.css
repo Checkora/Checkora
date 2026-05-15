@@ -861,6 +861,59 @@ body {
     height: 100%;
     pointer-events: none;
 }
+
+/* Mobile FAB controls  */
+.m-fab {
+  display: none; 
+}
+
+@media (max-width: 768px) {
+  .m-fab {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
+    top: 14px;
+    right: 12px;
+    z-index: 10000;
+  }
+  .m-fab-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(212, 175, 55, 0.35);
+    background: rgba(15, 15, 28, 0.92);
+    color: #f0c040;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.55),
+                0 0 0 1px rgba(212,175,55,0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .m-fab-btn:active {
+    transform: scale(0.9);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  }
+  /* Resign = red tint  */
+  .m-fab-resign {
+    border-color: rgba(220, 60, 50, 0.4);
+    color: #ff7b6b;
+    background: rgba(28, 10, 10, 0.92);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.55),
+                0 0 0 1px rgba(220,60,50,0.1);
+  }
+  
+  .m-fab:has(~ .promo-overlay.active),
+  body:has(.promo-overlay.active) .m-fab {
+    display: none;
+  }
+}
 .promo-logo {
     display: flex;
     align-items: center;
