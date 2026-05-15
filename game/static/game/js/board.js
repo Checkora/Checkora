@@ -361,8 +361,16 @@
                     }
                 }
 
-                if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
-                    handleGameStatus(data.game_status, data.draw_reason);
+                const status = data.game_status || 'active';
+                const gameEnded = handleGameStatus(status, data.draw_reason);
+                if (!gameEnded) {
+                    if (status === 'check') {
+                        applyCheckHighlight();
+                        showStatus(turn === 'white' ? 'White is in check!' : 'Black is in check!', true);
+                    } else {
+                        highlightCheck();
+                        showStatus('', false);
+                    }
                 }
                 if (!welcomeOverlay.classList.contains('active')) {
                     queueAIMoveIfNeeded();
@@ -902,6 +910,11 @@
 
             function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
+                if (reason === 'resign') {
+                    updateGameStatusBadge('resign');
+                } else if (reason === 'draw' || reason === 'stalemate' || reason === 'checkmate') {
+                    updateGameStatusBadge(reason);
+                }
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
@@ -1403,26 +1416,34 @@
             };
 
             if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-                const data = await get('/api/state/');
-                if (data.pgn) {
-                    navigator.clipboard.writeText(data.pgn);
-                    copyPgnBtn.textContent = 'Copied!';
-                    clearTimeout(pgnCopyTimeout);
-                    pgnCopyTimeout = setTimeout(() => {
-                        copyPgnBtn.textContent = 'Export as PGN';
-                    }, 2000);
+                try {
+                    const data = await get('/api/state/');
+                    if (data.pgn) {
+                        await navigator.clipboard.writeText(data.pgn);
+                        copyPgnBtn.textContent = 'Copied!';
+                        clearTimeout(pgnCopyTimeout);
+                        pgnCopyTimeout = setTimeout(() => {
+                            copyPgnBtn.textContent = 'Export as PGN';
+                        }, 2000);
+                    }
+                } catch (e) {
+                    showStatus('Failed to copy PGN.', true);
                 }
             };
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
-                const data = await get('/api/state/');
-                if (data.fen) {
-                    navigator.clipboard.writeText(data.fen);
-                    copyFenBtn.textContent = 'Copied!';
-                    clearTimeout(fenCopyTimeout);
-                    fenCopyTimeout = setTimeout(() => {
-                        copyFenBtn.textContent = 'Copy FEN';
-                    }, 2000);
+                try {
+                    const data = await get('/api/state/');
+                    if (data.fen) {
+                        await navigator.clipboard.writeText(data.fen);
+                        copyFenBtn.textContent = 'Copied!';
+                        clearTimeout(fenCopyTimeout);
+                        fenCopyTimeout = setTimeout(() => {
+                            copyFenBtn.textContent = 'Copy FEN';
+                        }, 2000);
+                    }
+                } catch (e) {
+                    showStatus('Failed to copy FEN.', true);
                 }
             };
 
