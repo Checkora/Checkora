@@ -624,5 +624,7 @@ def stats_view(request):
         'ai_total': ai_total,
         'user_ai_wins': user_ai_wins,
         'ai_wins': ai_wins,
-        'ai_draws': ai_dr
+        'ai_draws': ai_draws,
+        'win_percentage': round(win_percentage, 2),
+    })
 
