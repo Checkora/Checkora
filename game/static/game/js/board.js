@@ -46,6 +46,16 @@
             let flipped = false;
             let autoFlip = false;
 
+            const SOUND_BASE_URL = window.SOUND_BASE_URL || '/static/game/sounds/';
+            const sounds = {
+              move:    new Audio(`${SOUND_BASE_URL}move.wav`),
+              capture: new Audio(`${SOUND_BASE_URL}capture.mp3`),
+              check:   new Audio(`${SOUND_BASE_URL}check.wav`),
+              draw:    new Audio(`${SOUND_BASE_URL}draw.mp3`),
+            };
+
+            let soundEnabled = true;
+
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
                 const bNameInput = document.getElementById('blackNameInput');
@@ -70,6 +80,32 @@
                 return true;
             }
 
+            
+            function playSound(data) {
+                if (!soundEnabled || !data?.valid) return;
+
+                let sound = sounds.move;
+                if (['checkmate', 'stalemate', 'draw', 'timeout'].includes(data.game_status)) {
+                    sound = sounds.draw;
+                } else if (data.game_status === 'check') {
+                    sound = sounds.check;
+                } else if (data.captured || data.is_capture) {
+                    sound = sounds.capture;
+                }
+
+                sound.currentTime = 0;
+                const playback = sound.play();
+                if (playback?.catch) playback.catch(() => {});
+            }
+
+            function toggleMute() {
+                soundEnabled = !soundEnabled;
+                if (muteBtn) {
+                    muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
+                    muteBtn.setAttribute('aria-pressed', String(soundEnabled));
+                }
+            }
+
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
@@ -88,6 +124,7 @@
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
             const copyPgnBtn = document.getElementById('copyPgnBtn');
+            const muteBtn = document.getElementById('muteBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -705,6 +742,7 @@
 
                     const data = await post('/api/move/', body);
                         if (data.valid) {
+                            playSound(data);
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
                             turn = data.current_turn;
@@ -767,6 +805,7 @@
                 try {
                     const data = await post('/api/ai-move/', {});
                         if (data.valid) {
+                            playSound(data);
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                             board = parseBoard(data.board);
@@ -1608,12 +1647,14 @@
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         await post('/api/resign/', {});
+                        if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
                         endGame('resign', turn);
                     });
                 }
@@ -1623,7 +1664,10 @@
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
-                if (data.success) endGame('draw', turn, data.draw_reason);
+                if (data.success) {
+                    if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                    endGame('draw', turn, data.draw_reason);
+                }
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
@@ -1800,15 +1844,18 @@
             });
 
             // Show browser confirmation dialog if user tries to leave during an active game
-            window.addEventListener('beforeunload', (e) => {
-                if (!paused) {
-                    navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
-                }
-                if (!gameOver && !welcomeOverlay.classList.contains('active')) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
-            });
+            // Skip beforeunload alert in Selenium tests to prevent UnexpectedAlertPresentException
+            if (!navigator.webdriver) {
+                window.addEventListener('beforeunload', (e) => {
+                    if (!paused) {
+                        navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+                    }
+                    if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                });
+            }
             
 
           if (typeof module !== "undefined" && module.exports) {

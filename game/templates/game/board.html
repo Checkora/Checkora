@@ -276,6 +276,7 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
@@ -464,6 +465,9 @@
          JAVASCRIPT
          ======================================================== -->
     <script src="{% static 'game/js/toast.js' %}"></script>
+    <script>
+        window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
+    </script>
     <script src="{% static 'game/js/board.js' %}"></script>
 </body>
 
