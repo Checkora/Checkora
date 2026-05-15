@@ -1129,3 +1129,39 @@ body {
     white-space: nowrap;
     border: 0;
 }
+/* Game Status Indicator */
+#gameStatusBadge {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    background: #2a2a4a;
+    color: #a0a0c0;
+    border: 1px solid #3a3a5a;
+    transition: background 0.3s, color 0.3s;
+}
+
+#gameStatusBadge.status-inprogress {
+    background: #1a2a1a;
+    color: #6fcf6f;
+    border-color: #3a6a3a;
+}
+
+#gameStatusBadge.status-check {
+    background: #2a2000;
+    color: #f0c040;
+    border-color: #6a5000;
+}
+
+#gameStatusBadge.status-checkmate {
+    background: #2a0000;
+    color: #ff6b6b;
+    border-color: #6a0000;
+}
+
+#gameStatusBadge.status-stalemate {
+    background: #1a1a2e;
+    color: #a0a0ff;
+    border-color: #3a3a7a;
+}
