@@ -919,16 +919,28 @@
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
                 
-                // Add celebration effects for wins
-                if (isCelebration) {
-                    gameOverOverlay.classList.add('game-over-celebration');
-                    createConfetti();
-                    createSparkles();
-                } else {
-                    gameOverOverlay.classList.remove('game-over-celebration');
-                }
+                // Delay the overlay and celebration effects by 1 second
+                setTimeout(() => {
+                    // Add celebration effects for wins
+                    if (isCelebration) {
+                        gameOverOverlay.classList.add('game-over-celebration');
+                        createConfetti();
+                        createSparkles();
+                    } else {
+                        gameOverOverlay.classList.remove('game-over-celebration');
+                    }
+                    
+                    // Prepare for fade-in animation
+                    gameOverOverlay.style.transition = 'opacity 0.5s ease-in-out';
+                    gameOverOverlay.style.opacity = '0';
+                    gameOverOverlay.classList.add('active');
+                    
+                    // Trigger fade-in after a short delay
+                    setTimeout(() => {
+                        gameOverOverlay.style.opacity = '1';
+                    }, 700);
+                }, 500);
                 
-                gameOverOverlay.classList.add('active');
                 showStatus(title + ': ' + message, false);
                 
                 // Clean a11y announcement
