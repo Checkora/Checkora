@@ -294,24 +294,29 @@ def ai_move(request):
 
     best = game.get_ai_move(depth=depth)
     if not best:
-        if game.game_status == 'checkmate':
-            record_game_result(request, game.mode, game.current_turn, 'checkmate', game.player_color)
-            game_status = 'checkmate'
-        else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color)
-            game_status = 'stalemate'
-        return JsonResponse({
-            'valid': True,
-            'game_status': game_status,
-            'board': game.board,
-            'current_turn': game.current_turn,
-            'white_time': game.white_time,
-            'black_time': game.black_time,
-            'move_history': game.move_history,
-            'captured_pieces': game.captured,
-            'message': '',
-        })
+    if game.game_status == 'checkmate':
+        winner = 'black' if game.current_turn == 'white' else 'white'
+        record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+        game_status = 'checkmate'
+    else:
+        record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color)
+        game_status = 'stalemate'
 
+    game.game_status = game_status
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'valid': True,
+        'game_status': game_status,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'message': '',
+    })
     if game.game_status == 'checkmate':
         winner = 'black' if game.current_turn == 'white' else 'white'
         record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
