@@ -123,6 +123,13 @@ def new_game(request):
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
+    time_limit_raw = data.get('time_limit', 600)
+
+    try:
+        time_limit = int(time_limit_raw)
+        time_limit = max(60, min(18000, time_limit))
+    except (ValueError, TypeError):
+        time_limit = 600
 
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
@@ -148,14 +155,14 @@ def new_game(request):
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
-            game = ChessGame.from_fen(fen)
+            game = ChessGame.from_fen(fen, time_limit=time_limit)
         except ValueError as exc:
             return JsonResponse(
                 {'valid': False, 'message': f'Invalid FEN: {exc}'},
                 status=400,
             )
     else:
-        game = ChessGame()
+        game = ChessGame(time_limit=time_limit)
     game.mode = mode
     game.player_color = player_color
     game.paused = False

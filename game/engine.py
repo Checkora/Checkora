@@ -67,15 +67,15 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self):
+    def __init__(self, time_limit=600):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
         self.captured = {'white': [], 'black': []}
         # DP Table: {(row, col): [list of moves]}
         self.valid_moves_cache = {}
-        self.white_time = 10 * 60  # 10 minutes
-        self.black_time = 10 * 60
+        self.white_time = time_limit
+        self.black_time = time_limit
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -175,7 +175,7 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str):
+    def from_fen(cls, fen: str, time_limit=600):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -202,7 +202,7 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls()
+        game = cls(time_limit=time_limit)
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
