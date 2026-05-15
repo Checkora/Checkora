@@ -313,8 +313,17 @@ def hint_move(request):
             'valid': False,
             'message': 'No active game.'
         }, status=400)
-
+        
     game = ChessGame.from_dict(game_data)
+    hint_count = request.session.get('hint_count', 0)
+
+    if hint_count >= 3:
+        return JsonResponse({
+            'valid': False,
+            'message': 'Hint limit reached'
+        })
+
+    request.session['hint_count'] = hint_count + 1
     
     # Prevent hints during AI turn
     if game.mode == 'ai' and game.current_turn == 'black':
@@ -322,8 +331,12 @@ def hint_move(request):
             'valid': False,
             'message': 'Wait for your turn.'
         })
-
-    best = game.get_ai_move()
+        
+    difficulty = request.session.get('difficulty', 'medium')
+    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
+    depth = depth_map.get(difficulty, 3)
+    
+    best = game.get_ai_move(depth=depth)
 
     if not best:
         return JsonResponse({

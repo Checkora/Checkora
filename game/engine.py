@@ -789,9 +789,6 @@ DP cache is intentionally excluded to save cookie space."""
         cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {ep_str} {depth}"
         resp = self._call_engine(cmd)
 
-        print("CMD:", cmd)
-        print("RESP:", resp)
-
         if not resp or not resp.startswith("BESTMOVE"):
             return None
 
@@ -800,9 +797,12 @@ DP cache is intentionally excluded to save cookie space."""
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
-        return {
-            'from_row': int(parts[1]),
-            'from_col': int(parts[2]),
-            'to_row': int(parts[3]),
-            'to_col': int(parts[4]),
-        }
+        try:
+            return {
+                'from_row': int(parts[1]),
+                'from_col': int(parts[2]),
+                'to_row': int(parts[3]),
+                'to_col': int(parts[4]),
+            }
+        except (ValueError, IndexError):
+            return None
