@@ -134,6 +134,15 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
+# Session Cookie Security
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# SSL Redirect
+SECURE_SSL_REDIRECT = not DEBUG
+
+
 # Email Configuration for OTP
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

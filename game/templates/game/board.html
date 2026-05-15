@@ -5,7 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkora | AI Chess</title>
+    <title>Play Chess | Checkora AI</title>
+    <meta name="description" content="Challenge the Checkora AI engine. Play a professional game of chess with advanced AI analysis and move history.">
+    <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
@@ -38,10 +40,31 @@
 
 <body>
 
+    <!-- MOBILE FAB -->
+<div class="m-fab" id="mFab">
+  <button class="m-fab-btn" title="Pause"
+    onclick="document.getElementById('pauseBtn').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="5" y="3" width="4" height="18" rx="1.5"/>
+      <rect x="15" y="3" width="4" height="18" rx="1.5"/>
+    </svg>
+  </button>
+  <button class="m-fab-btn m-fab-resign" title="Resign"
+    onclick="document.getElementById('resignBtn').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4 3h14l-4 4.5 4 4.5H4V3z"/>
+      <line x1="4" y1="21" x2="4" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+
     <!-- ========== WELCOME MESSAGE ========== -->
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
         <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
+            <div style="margin-bottom: 20px; color:#f0c040;">
+                <a href="/" class="back-btn">← Back to Home</a>
+            </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
@@ -70,14 +93,33 @@
                     style="display: none; color: #ff6b6b; font-size: 0.85rem; text-align: center; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 4px; border: 1px solid rgba(255, 107, 107, 0.3);">
                     ⚠️ Please enter both player names
                 </div>
+
+                <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                    <label for="timeLimitInput" style="color: #ccc; font-size: 0.9rem;">Game Timer</label>
+                    <select id="timeLimitInput" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease; cursor: pointer;">
+                        <option value="1">Bullet (1 min)</option>
+                        <option value="3">Blitz (3 min)</option>
+                        <option value="5">Blitz (5 min)</option>
+                        <option value="10" selected>Rapid (10 min)</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
+                
                 <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
+
+                <div class="fen-input-group">
+                    <label class="fen-label" for="welcomeFenInput">Optional FEN</label>
+                    <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste FEN to start from a custom position">
+                    <div class="fen-hint">Leave blank to start from the default position.</div>
+                    <div class="fen-error" id="welcomeFenError"></div>
+                </div>
+
                 <button class="btn" id="welcomeResumeBtn"
                     style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
                     Game</button>
@@ -110,15 +152,17 @@
             </div>
         </div>
     </div>
-
+    
     <!-- ========== HEADER ========== -->
+    
     <div class="header">
+        
         <div class="logo-container">
             <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
             <span class="logo-text">Checkora</span>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
-
+        
         <div class="auth-buttons">
             {% if user.is_authenticated %}
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
@@ -133,7 +177,7 @@
             <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
-
+    
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
 
@@ -181,7 +225,8 @@
                         <span>8</span><span>7</span><span>6</span><span>5</span>
                         <span>4</span><span>3</span><span>2</span><span>1</span>
                     </div>
-                    <div class="chessboard" id="board"></div>
+                    <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                    <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
                 </div>
                 <div class="files" id="filesLabels">
                     <span>a</span><span>b</span><span>c</span><span>d</span>
@@ -213,10 +258,15 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px;">
+                        <input type="text" id="manualMoveInput" placeholder="Move (e.g. e2e4)" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;" maxlength="5">
+                        <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move format</div>
+                    </div>
                     <button class="btn btn-gold" id="flipBtn">Flip Board</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <button class="btn btn-gold" id="newFenBtn">Load Game</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
@@ -231,6 +281,10 @@
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
                     ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
                 </div>
+                <a href="/" class="btn" 
+   style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
+    EXIT TO HOME
+</a>
             </div>
             <div class="card">
                 <div class="card-title">Move History</div>
@@ -248,6 +302,16 @@
             <p id="confirmMessage" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem; letter-spacing: 0.5px;">
                 Your current progress will be lost.<br>Are you sure you want to start a new game?
             </p>
+            <div id="confirmTimerContainer" style="margin-bottom: 20px; text-align: left;">
+                <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
+                <select id="confirmTimerSelect"
+                    style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
+                    <option value="1">Bullet (1 min)</option>
+                    <option value="3">Blitz (3 min)</option>
+                    <option value="5">Blitz (5 min)</option>
+                    <option value="10" selected>Rapid (10 min)</option>
+                </select>
+            </div>
             <div id="confirmDifficultyContainer" style="display: none; margin-bottom: 20px; text-align: left;">
                 <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">AI Difficulty</label>
                 <select id="confirmDifficultySelect"
@@ -273,6 +337,19 @@
                 <button class="btn btn-gold" id="drawAcceptBtn" style="width: 90px;">Accept</button>
                 <button class="btn" id="drawDeclineBtn"
                     style="width: 90px; background: #333; color: #fff;">Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== FEN MODAL ========== -->
+    <div class="promo-overlay" id="fenOverlay">
+        <div class="promo-dialog">
+            <div class="promo-title">Start from FEN</div>
+            <input type="text" id="fenInput" class="fen-input" placeholder="Paste FEN string">
+            <div class="fen-error" id="fenError"></div>
+            <div class="fen-actions">
+                <button class="btn btn-gold" id="fenStartBtn" style="width: 110px;">Start</button>
+                <button class="btn" id="fenCancelBtn" style="width: 110px; background: #333; color: #fff;">Cancel</button>
             </div>
         </div>
     </div>
@@ -306,6 +383,17 @@
                     </label>
                 </div>
 
+                <div id="goTimerContainer" style="margin-bottom: 15px; text-align: left;">
+                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
+                    <select id="goTimerSelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
+                        <option value="1">Bullet (1 min)</option>
+                        <option value="3">Blitz (3 min)</option>
+                        <option value="5">Blitz (5 min)</option>
+                        <option value="10" selected>Rapid (10 min)</option>
+                    </select>
+                </div>
+
                 <div id="goDifficultyContainer" style="display: none; margin-bottom: 15px;">
                     <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">AI
                         Difficulty</label>
@@ -324,13 +412,36 @@
             </div>
         </div>
     </div>
+
+    <!-- ========== SIDE SELECTION MODAL ========== -->
+    <div class="promo-overlay" id="sideModal" style="display: none;">
+        <div class="promo-dialog" style="min-width: 300px; padding: 35px; text-align: center;">
+            <div class="promo-title" style="font-size: 1.4rem; color: #f0c040; margin-bottom: 10px;">Choose Your Side
+            </div>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">Which color do you want to play?</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn" id="chooseWhite"
+                    style="padding: 12px; background: #fff; color: #000; font-size: 1rem; border-radius: 6px;">
+                    Play as White
+                </button>
+                <button class="btn" id="chooseBlack"
+                    style="padding: 12px; background: #000; color: #fff; font-size: 1rem; border-radius: 6px; border: 1px solid #555;">
+                    Play as Black
+                </button>
+                <button class="btn btn-gold" id="chooseRandom" style="padding: 12px; font-size: 1rem;">
+                    Random
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- RULEBOOK MODAL -->
     <div id="rulebookModal"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
         <div
-            style="position:relative; width:95vw; height:90vh; background:#13161e; border-radius:12px; overflow:hidden;">
-            <button onclick="document.getElementById('rulebookModal').style.display='none'"
-                style="position:absolute; top:12px; right:12px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
+            style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
+            <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
+                style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
         </div>
     </div>

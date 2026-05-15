@@ -20,14 +20,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const isHidden = input.type === "password";
     input.type = isHidden ? "text" : "password";
     btn.innerHTML = isHidden ? eyeOffIcon : eyeIcon;
-    btn.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
+    btn.setAttribute(
+      "aria-label",
+      isHidden ? "Hide password" : "Show password"
+    );
     btn.setAttribute("aria-pressed", String(isHidden));
   }
 
   /* ── Inject toggle into every password field ── */
   document.querySelectorAll('input[type="password"]').forEach((input, i) => {
     if (!input.id) input.id = "pw-field-" + i;
-
+    // This checks if the field name contains 'confirm' or '2' (standard Django naming)
+    if (input.name.includes("confirm") || input.name.includes("2")|| input.id.includes("confirm")) {
+      input.addEventListener("paste", (e) => {
+        e.preventDefault(); // This stops the paste action
+        alert("For security, please type your password manually.");
+      });
+    }
     /* Create a wrapper that sits inside .form-group, around the input only.
        This keeps the toggle button positioned relative to the input,
        regardless of labels, help-text or error messages around it. */

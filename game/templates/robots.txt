@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /verify-otp/
+
+Sitemap: https://checkora.vercel.app/sitemap.xml
