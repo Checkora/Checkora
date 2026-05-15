@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=5" />
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6" />
     <link
       rel="icon"
       type="image/jpeg"
@@ -49,33 +49,45 @@
         Already have an account? <a href="{% url 'login' %}">Sign In</a>
       </div>
     </div>
-
-    <script src="{% static 'game/js/auth.js' %}?v=5"></script>
+    
+    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
     <script>
       const usernameInput = document.querySelector('#id_username');
+
       if (usernameInput) {
         let debounceTimer;
         const feedback = document.createElement('span');
+
         feedback.className = 'helptext';
         usernameInput.parentNode.appendChild(feedback);
 
         usernameInput.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        const val = usernameInput.value.trim();
-        if (!val) { feedback.textContent = ''; return; }
+          clearTimeout(debounceTimer);
 
-        debounceTimer = setTimeout(async () => {
+          const val = usernameInput.value.trim();
+
+          if (!val) {
+            feedback.textContent = '';
+            return;
+          }
+
+          debounceTimer = setTimeout(async () => {
             const res = await fetch(
-                `/api/check-username/?username=${encodeURIComponent(val)}`
+              `/api/check-username/?username=${encodeURIComponent(val)}`
             );
+
             const data = await res.json();
-            feedback.textContent = data.available 
-                ? '✔ Username available' 
-                : '✖ Username already taken';
-            feedback.style.color = data.available ? '#e5b639' : '#e57373';
+
+            feedback.textContent = data.available
+              ? '✔ Username available'
+              : '✖ Username already taken';
+
+            feedback.style.color = data.available
+              ? '#e5b639'
+              : '#e57373';
           }, 400);
         });
       }
-    </Script>
+    </script>
   </body>
 </html>
