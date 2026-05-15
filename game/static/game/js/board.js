@@ -1180,13 +1180,13 @@
                 // Rotate the board container 180deg
                 boardEl.style.transform = flipped ? 'rotate(180deg)' : 'rotate(0deg)';
                 
-                // Keep pieces upright
+                syncPieces();
+                updateLabels();
+
+                // Keep pieces upright - must run AFTER syncPieces creates new elements
                 document.querySelectorAll('.piece').forEach(p => {
                     p.style.transform = flipped ? 'rotate(180deg)' : 'rotate(0deg)';
                 });
-                
-                syncPieces();
-                updateLabels();
             }
 
             async function pauseGame() {

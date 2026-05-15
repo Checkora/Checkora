@@ -451,29 +451,7 @@ body {
     filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.6));
 }
 
-.card-icon {
-    margin-bottom: 1rem;
-}
 
-.card-title {
-    font-family: var(--font-heading);
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--accent-gold);
-    letter-spacing: 1px;
-    margin-top: 0.5rem;
-}
-
-.card-icon svg {
-    transition: var(--transition-base);
-    filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0));
-}
-
-.feature-card:hover .card-icon svg {
-    stroke: var(--accent-gold);
-    transform: scale(1.1);
-    filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.5));
-}
 
 .footer {
     padding: 4rem 8%;

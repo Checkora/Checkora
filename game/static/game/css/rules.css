@@ -257,7 +257,7 @@ main {
     font-size: 0.8rem;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--text-muted);
     margin-bottom: 1.5rem;
 }
 
