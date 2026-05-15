@@ -26,13 +26,12 @@
 
             let gameMode = 'pvp';
             let currentDifficulty = 'medium';
-            // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
                 const aiBtn = document.getElementById("newAIBtn");
 
                 if (!pvpBtn || !aiBtn) return;
-                
+
                 pvpBtn.classList.remove("active-mode");
                 aiBtn.classList.remove("active-mode");
 
@@ -50,10 +49,10 @@
                 const wNameInput = document.getElementById('whiteNameInput');
                 const bNameInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
-            
+
                 const wName = wNameInput?.value.trim();
                 const bName = bNameInput?.value.trim();
-            
+
                 if (!wName || !bName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
@@ -63,7 +62,7 @@
                     if (!bName && bNameInput) bNameInput.classList.add('input-error');
                     return false;
                 }
-            
+
                 if (errorDiv) errorDiv.style.display = 'none';
                 if (wNameInput) wNameInput.classList.remove('input-error');
                 if (bNameInput) bNameInput.classList.remove('input-error');
@@ -225,12 +224,10 @@
                     });
                 }
 
-                // 1. Moving piece
                 const piece = sq(fr, fc).querySelector('.piece');
                 if (piece) {
                     animations.push(createAnim(piece, tr - fr, tc - fc));
-                    
-                    // 2. Castling detection
+
                     const pType = board[fr][fc];
                     if (pType && pType.toLowerCase() === 'k' && Math.abs(tc - fc) === 2) {
                         const isShort = tc > fc;
@@ -245,14 +242,12 @@
                     }
                 }
 
-                // 3. Capture detection (including En Passant)
                 let capturedSq = sq(tr, tc);
-                // En Passant: capture pawn is not on target square
                 const isEnPassant = piece && piece.src.includes('p.png') && fc !== tc && !board[tr][tc];
                 if (isEnPassant) {
                     capturedSq = sq(fr, tc);
                 }
-                
+
                 const targetPiece = capturedSq.querySelector('.piece');
                 if (targetPiece) {
                     targetPiece.classList.add('captured');
@@ -306,7 +301,6 @@
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
-                // Sync UI with current game mode
                 updateModeButtonsUI(gameMode);
                 playerColor = data.player_color || 'white';
                 currentDifficulty = data.difficulty || currentDifficulty;
@@ -323,7 +317,6 @@
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
-                // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
                 const isResumable = hasMoves && data.game_status === 'active';
                 if (isResumable) {
@@ -379,9 +372,8 @@
             function updatePlayerNames(data) {
                 let wName = data.white_name || 'White';
                 let bName = data.black_name || 'Black';
-                
+
                 if (gameMode === 'ai'){
-                    // Fixing the naming system
                     let player_name = data.white_name;
                     if(playerColor === 'white'){
                         wName = player_name;
@@ -509,7 +501,7 @@
                     el.classList.remove('in-check');
                 });
             }
-            
+
             function applyCheckHighlight() {
                 highlightCheck();
                 const kingPiece = turn === 'white' ? 'K' : 'k';
@@ -523,14 +515,12 @@
                 }
             }
 
-            // converts row/col to chess notation e.g. row=0,col=0 → "a8"
             function getSquareLabel(row, col) {
                 const files = ['a','b','c','d','e','f','g','h'];
                 const ranks = ['8','7','6','5','4','3','2','1'];
                     return files[col] + ranks[row];
             }
 
-            // Arrow keys to move focus, Enter/Space to click, Escape to cancel
             function handleSquareKeydown(e, row, col) {
                 let newRow = row;
                 let newCol = col;
@@ -553,7 +543,6 @@
                 default:
                     return;
              }
-          // clamp within board
             newRow = Math.max(0, Math.min(7, newRow));
             newCol = Math.max(0, Math.min(7, newCol));
             const target = boardEl.querySelector(
@@ -638,7 +627,9 @@
                     return;
                 }
                 await executeMove(fr, fc, tr, tc, null);
-            }            let reconnecting = false;
+            }
+
+            let reconnecting = false;
             async function handleReconnect() {
                 if (reconnecting) return;
                 reconnecting = true;
@@ -654,7 +645,7 @@
                         retries++;
                     }
                 }
-                
+
                 if (success) {
                     showStatus('Connection restored', false);
                     setTimeout(() => {
@@ -664,7 +655,9 @@
                     showStatus('Unable to reconnect. Please refresh.', true);
                 }
                 reconnecting = false;
-            }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+            }
+
+            async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
                 try {
                     const body = {
                         from_row: fr, from_col: fc,
@@ -678,14 +671,14 @@
                             board = parseBoard(data.board);
                             turn = data.current_turn;
                             lastMove = { from: [fr, fc], to: [tr, tc] };
-    
+
                             if (gameMode === 'pvp' && autoFlip) {
                                 flipped = (turn === 'black');
                                 buildBoard();
                             }
                             whiteTime = data.white_time;
                             blackTime = data.black_time;
-    
+
                             selected = null;
                             hints = [];
                             updatePlayerNames(data);
@@ -743,7 +736,7 @@
                             lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
                             whiteTime = data.white_time;
                             blackTime = data.black_time;
-    
+
                             selected = null;
                             hints = [];
                             updatePlayerNames(data);
@@ -760,14 +753,15 @@
                             a11yMsg = `AI played ${lastMove}. `;
                         }
 
+                        // BUG 1 FIX: Removed duplicate const gameEnded declaration
                         const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
-const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                         if (!gameEnded) {
                             if (data.game_status === 'check') {
                                 applyCheckHighlight();
                                 showStatus('You are in check!', true);
                                 a11yMsg += 'You are in check!';
                             } else {
+                                updateGameStatusBadge('active');
                                 highlightCheck();
                                 showStatus('Your turn.', false);
                             }
@@ -777,7 +771,6 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                   
                         await handleReconnect();
                 } finally {
                     aiThinking = false;
@@ -790,10 +783,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
             async function onClick(r, c) {
                 if (dragging) return;
                 if (selected) {
-
-                    //New toggle logic:
-                    //If the clicked square is the exact same as the selected square, deselect it.
-                    if (selected .r === r && selected.c ===c){
+                    if (selected.r === r && selected.c === c){
                         return deselect();
                     }
                     if (hints.some(h => h.row === r && h.col === c))
@@ -825,11 +815,11 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
             function updateTurn() {
                 const badge = turnEl;
                 badge.className = 'turn-badge ' + turn;
-                
+
                 let label = turn.charAt(0).toUpperCase() + turn.slice(1) + "'s Turn";
                 const pName = turn === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
                 label = pName + "'s Turn";
-                
+
                 if (gameMode === 'ai') {
                     if (turn === playerColor) {
                         label = "Your Turn";
@@ -839,7 +829,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 }
                 badge.textContent = label;
                 if (turnBadgeText) turnBadgeText.textContent = pName;
-                
+
                 wCapEl.classList.toggle('active', turn === 'white');
                 bCapEl.classList.toggle('active', turn === 'black');
             }
@@ -864,19 +854,19 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
 
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-                
+
                 const point_vals = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
-                
+
                 let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
                 let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
-                
+
                 cap.white.forEach((p) => {
                     wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
                 });
                 cap.black.forEach((p) => {
                     bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
                 });
-                
+
                 const wPointsEl = document.getElementById('whitePoints');
                 const bPointsEl = document.getElementById('blackPoints');
                 if (wPointsEl) wPointsEl.textContent = `+${whitePoints}`;
@@ -888,7 +878,9 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
+            // BUG 3 FIX: handleGameStatus now calls updateGameStatusBadge
             function handleGameStatus(status, drawReason) {
+                updateGameStatusBadge(status || 'active');
                 if (status === 'checkmate') {
                     endGame('checkmate', turn);
                     return true;
@@ -901,6 +893,10 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     endGame('draw', turn, drawReason);
                     return true;
                 }
+                if (status === 'resign' || status === 'resignation') {
+                    endGame('resign', turn);
+                    return true;
+                }
                 return false;
             }
 
@@ -909,14 +905,14 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
-            
+
                 let title = '', message = '';
-                let isCelebration = false; // Track if this is a win (not draw/stalemate)
-            
+                let isCelebration = false;
+
                 if (reason === 'checkmate') {
                     const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
-                    title = '🏆 CHECKMATE! 🏆';
+                    title = '🎉 CHECKMATE! 🎉';
                     message = `${winnerName} WINS!`;
                     isCelebration = true;
                 } else if (reason === 'stalemate') {
@@ -935,7 +931,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = '🏆 VICTORY! 🏆';
+                    title = '🎉 VICTORY! 🎉';
                     message = `${loserName} resigned. ${winnerName} WINS!`;
                     isCelebration = true;
                 } else if (reason === 'timeout') {
@@ -949,10 +945,8 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 if (pauseBtn) pauseBtn.style.display = 'none';
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
-                
-                // Delay the overlay and celebration effects by 1 second
+
                 setTimeout(() => {
-                    // Add celebration effects for wins
                     if (isCelebration) {
                         gameOverOverlay.classList.add('game-over-celebration');
                         createConfetti();
@@ -960,27 +954,24 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     } else {
                         gameOverOverlay.classList.remove('game-over-celebration');
                     }
-                    
-                    // Prepare for fade-in animation
+
                     gameOverOverlay.style.transition = 'opacity 0.5s ease-in-out';
                     gameOverOverlay.style.opacity = '0';
                     gameOverOverlay.classList.add('active');
-                    
-                    // Trigger fade-in after a short delay
+
                     setTimeout(() => {
                         gameOverOverlay.style.opacity = '1';
                     }, 700);
                 }, 500);
-                
+
                 showStatus(title + ': ' + message, false);
-                
-                // Clean a11y announcement
+
                 const winnerColor = color === 'white' ? 'Black' : 'White';
-                let cleanMsg = reason === 'checkmate' || reason === 'resign' 
-                    ? `Game over. ${winnerColor} wins by ${reason}.` 
+                let cleanMsg = reason === 'checkmate' || reason === 'resign'
+                    ? `Game over. ${winnerColor} wins by ${reason}.`
                     : `Game over. Draw by ${reason || 'stalemate'}.`;
                 announceMove(cleanMsg);
-                
+
                 document.title = 'Game Over - Checkora';
             }
 
@@ -990,8 +981,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
             function createConfetti() {
                 const overlay = document.getElementById('gameOverOverlay');
                 const dialog = overlay.querySelector('.promo-dialog');
-                
-                // Create confetti container if it doesn't exist
+
                 let confettiContainer = dialog.querySelector('.confetti-container');
                 if (!confettiContainer) {
                     confettiContainer = document.createElement('div');
@@ -999,36 +989,32 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     dialog.style.position = 'relative';
                     dialog.appendChild(confettiContainer);
                 }
-                
-                // Clear existing confetti
+
                 confettiContainer.innerHTML = '';
-                
-                // Create confetti pieces
+
                 const colors = ['#ffd700', '#f0c040', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff9ff3'];
                 const confettiCount = 50;
-                
+
                 for (let i = 0; i < confettiCount; i++) {
                     const confetti = document.createElement('div');
                     confetti.className = 'confetti';
-                    
-                    // Random properties
+
                     const randomColor = colors[Math.floor(Math.random() * colors.length)];
                     const randomLeft = Math.random() * 100;
                     const randomDelay = Math.random() * 0.5;
                     const randomDuration = 2 + Math.random() * 2;
                     const randomRotation = Math.random() * 360;
-                    
+
                     confetti.style.left = randomLeft + '%';
                     confetti.style.background = randomColor;
                     confetti.style.animationDelay = randomDelay + 's';
                     confetti.style.animationDuration = randomDuration + 's';
                     confetti.style.transform = `rotate(${randomRotation}deg)`;
-                    
-                    // Random shapes
+
                     if (Math.random() > 0.5) {
                         confetti.style.borderRadius = '50%';
                     }
-                    
+
                     confettiContainer.appendChild(confetti);
                 }
             }
@@ -1036,7 +1022,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
             function createSparkles() {
                 const overlay = document.getElementById('gameOverOverlay');
                 const dialog = overlay.querySelector('.promo-dialog');
-                
+
                 let confettiContainer = dialog.querySelector('.confetti-container');
                 if (!confettiContainer) {
                     confettiContainer = document.createElement('div');
@@ -1044,22 +1030,21 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     dialog.style.position = 'relative';
                     dialog.appendChild(confettiContainer);
                 }
-                
-                // Create sparkles
+
                 const sparkleCount = 20;
-                
+
                 for (let i = 0; i < sparkleCount; i++) {
                     const sparkle = document.createElement('div');
                     sparkle.className = 'sparkle';
-                    
+
                     const randomLeft = Math.random() * 100;
                     const randomTop = Math.random() * 100;
                     const randomDelay = Math.random() * 1.5;
-                    
+
                     sparkle.style.left = randomLeft + '%';
                     sparkle.style.top = randomTop + '%';
                     sparkle.style.animationDelay = randomDelay + 's';
-                    
+
                     confettiContainer.appendChild(sparkle);
                 }
             }
@@ -1073,31 +1058,27 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
-                
 
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
                 if (gameMode === 'ai') {
-        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
-        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
-        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
-        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
+                    const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+                    const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+                    const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+                    const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
-        // Player clock — update time and highlight on their turn
-        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+                    if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+                    if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
 
-        // AI clock — static, never highlights, never updates time
-        if (aiTimeEl) aiTimeEl.textContent = '🤖';
-        if (aiClock) aiClock.classList.remove('active');
+                    if (aiTimeEl) aiTimeEl.textContent = '🤖';
+                    if (aiClock) aiClock.classList.remove('active');
 
-    } else {
-        // PvP — both clocks update normally
-        if (wTime) wTime.textContent = formatTime(whiteTime);
-        if (bTime) bTime.textContent = formatTime(blackTime);
-        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
-    }
+                } else {
+                    if (wTime) wTime.textContent = formatTime(whiteTime);
+                    if (bTime) bTime.textContent = formatTime(blackTime);
+                    if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+                    if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+                }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
@@ -1237,7 +1218,6 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 if (copyFenBtn) {
                     copyFenBtn.textContent = 'Copy FEN';
                 }
-                // Clear celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
@@ -1296,20 +1276,16 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 await loadGame();
-                // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
                 paused = false;
                 updatePauseUI();
 
-                // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
                     queueAIMoveIfNeeded();
                 }
 
                 return true;
             }
-
-            
 
             /* ==========================================================
             EVENT LISTENERS
@@ -1329,8 +1305,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
-                
-                // Show ONLY white input for AI mode
+
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'Your Name';
@@ -1342,10 +1317,9 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     blackInput.value = 'AI';
                     blackInput.classList.remove('input-error');
                 }
-                
-                // Hide error
+
                 if (errorDiv) errorDiv.style.display = 'none';
-                
+
                 nameInputs.style.display = 'flex';
                 modeSelection.style.display = 'none';
                 pveOptions.style.display = 'flex';
@@ -1355,11 +1329,10 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
-                
+
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
-                
-                // Reset both inputs to visible for PvP
+
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'White Player Name';
@@ -1370,10 +1343,9 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     blackInput.placeholder = 'Black Player Name';
                     blackInput.classList.remove('input-error');
                 }
-                
-                // Hide error
+
                 if (errorDiv) errorDiv.style.display = 'none';
-                
+
                 nameInputs.style.display = 'flex';
             };
 
@@ -1396,7 +1368,6 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
 
                 const playerName = wNameInput?.value.trim();
 
-                // Validate: AI mode only needs ONE name
                 if (!playerName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
@@ -1408,7 +1379,6 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     return;
                 }
 
-                // Clear error
                 if (errorDiv) errorDiv.style.display = 'none';
                 if (wNameInput) {
                     wNameInput.classList.remove('input-error');
@@ -1431,32 +1401,25 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     buildBoard();
                 }
             };
+
             if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-    const data = await get('/api/state/');
-
-    if (data.pgn) {
-        navigator.clipboard.writeText(data.pgn);
-
-        
-
-        copyPgnBtn.textContent = 'Copied!';
-
-        clearTimeout(pgnCopyTimeout);
-
-        pgnCopyTimeout = setTimeout(() => {
-            copyPgnBtn.textContent = 'Export as PGN';
-        }, 2000);
-    }
-};
+                const data = await get('/api/state/');
+                if (data.pgn) {
+                    navigator.clipboard.writeText(data.pgn);
+                    copyPgnBtn.textContent = 'Copied!';
+                    clearTimeout(pgnCopyTimeout);
+                    pgnCopyTimeout = setTimeout(() => {
+                        copyPgnBtn.textContent = 'Export as PGN';
+                    }, 2000);
+                }
+            };
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
                 const data = await get('/api/state/');
                 if (data.fen) {
                     navigator.clipboard.writeText(data.fen);
-                    
                     copyFenBtn.textContent = 'Copied!';
                     clearTimeout(fenCopyTimeout);
-
                     fenCopyTimeout = setTimeout(() => {
                         copyFenBtn.textContent = 'Copy FEN';
                     }, 2000);
@@ -1486,28 +1449,24 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 confirmOverlay.classList.remove('active');
                 confirmCallback = null;
             };
-                //added new line here
+
             if (newPvPBtn) newPvPBtn.onclick = () => {
-                // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
                 requestNewGame('pvp');
             };
-            
+
             if (newAIBtn) newAIBtn.onclick = () => {
-                // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
                 requestNewGame('ai');
             };
 
@@ -1575,13 +1534,12 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
-                
-                // Add this: Clear confetti container
+
                 const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
+
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
@@ -1589,7 +1547,6 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 }
             };
 
-            // Theme Switcher
             const themeBtns = document.querySelectorAll('.theme-btn');
             const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
             themeBtns.forEach(btn => {
@@ -1610,19 +1567,20 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                 };
             });
 
-    document.addEventListener('visibilitychange', async() => {
-        if (document.hidden) {
-            pauseGame().catch(() => {});
-        } else {
-            await handleReconnect();
-        }
-    });
+            document.addEventListener('visibilitychange', async() => {
+                if (document.hidden) {
+                    pauseGame().catch(() => {});
+                } else {
+                    await handleReconnect();
+                }
+            });
 
-    window.addEventListener('online', async () => {
-        if (!gameOver) {
-            await handleReconnect();
-        }
-    });
+            window.addEventListener('online', async () => {
+                if (!gameOver) {
+                    await handleReconnect();
+                }
+            });
+
             const manualMoveInput = document.getElementById('manualMoveInput');
             const manualMoveError = document.getElementById('manualMoveError');
 
@@ -1632,7 +1590,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                         e.preventDefault();
                         const val = manualMoveInput.value.trim().toLowerCase();
                         if (!val) return;
-                        
+
                         const match = val.match(/^([a-h])([1-8])([a-h])([1-8])([qrbn])?$/);
                         if (!match) {
                             if (manualMoveError) {
@@ -1641,17 +1599,17 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                             }
                             return;
                         }
-                        
+
                         if (manualMoveError) manualMoveError.style.display = 'none';
                         const files = ['a','b','c','d','e','f','g','h'];
                         const ranks = ['8','7','6','5','4','3','2','1'];
-                        
+
                         const fc = files.indexOf(match[1]);
                         const fr = ranks.indexOf(match[2]);
                         const tc = files.indexOf(match[3]);
                         const tr = ranks.indexOf(match[4]);
                         const promo = match[5] || null;
-                        
+
                         if (paused || gameOver) {
                             if (manualMoveError) {
                                 manualMoveError.textContent = 'Game is not active';
@@ -1674,7 +1632,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                             }
                             return;
                         }
-                        
+
                         if (isPromotionMove(fr, fc, tr) && !promo) {
                             if (manualMoveError) {
                                 manualMoveError.textContent = 'Promotion piece required (e.g. e7e8q)';
@@ -1682,12 +1640,12 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                             }
                             return;
                         }
-                        
+
                         manualMoveInput.value = '';
                         await executeMove(fr, fc, tr, tc, promo);
                     }
                 });
-                
+
                 manualMoveInput.addEventListener('input', () => {
                     if (manualMoveError) manualMoveError.style.display = 'none';
                 });
@@ -1713,7 +1671,7 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     drawBtn.click();
                 }
             });
-            // Show browser confirmation dialog if user tries to leave during an active game
+
             window.addEventListener('beforeunload', (e) => {
                 if (!paused) {
                     navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
@@ -1723,18 +1681,18 @@ const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                     e.returnValue = '';
                 }
             });
-            
 
-          if (typeof module !== "undefined" && module.exports) {
-          module.exports = { pColor, getSquareLabel, formatTime };
-        } else {
-          loadGame();
-        }
+            if (typeof module !== "undefined" && module.exports) {
+                module.exports = { pColor, getSquareLabel, formatTime };
+            } else {
+                loadGame();
+            }
 
 })();
 
 
-// ── Game Status Indicator ──────────────────────────────────
+// ── Game Status Badge ──────────────────────────────────────────────────────────
+// BUG 2 FIX: Removed stalemate lines that were overwriting the resign block
 function updateGameStatusBadge(status) {
     const badge = document.getElementById('gameStatusBadge');
     if (!badge) return;
@@ -1748,19 +1706,15 @@ function updateGameStatusBadge(status) {
     } else if (status === 'checkmate') {
         badge.textContent = '♚ Checkmate';
         badge.classList.add('status-checkmate');
-
-} else if (status === 'stalemate') {
-    badge.textContent = '⚖ Stalemate';
-    badge.classList.add('status-stalemate');
-} else if (status === 'draw') {
-    badge.textContent = '⚖ Draw';
-    badge.classList.add('status-stalemate');
-} else if (status === 'resign' || status === 'resignation') {
-    badge.textContent = '🏳 Resigned';
-    badge.classList.add('status-checkmate');
-
+    } else if (status === 'stalemate') {
         badge.textContent = '⚖ Stalemate';
         badge.classList.add('status-stalemate');
+    } else if (status === 'draw') {
+        badge.textContent = '⚖ Draw';
+        badge.classList.add('status-stalemate');
+    } else if (status === 'resign' || status === 'resignation') {
+        badge.textContent = '🏳 Resigned';
+        badge.classList.add('status-checkmate');
     } else {
         badge.textContent = '● In Progress';
         badge.classList.add('status-inprogress');
