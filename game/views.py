@@ -127,6 +127,8 @@ def new_game(request):
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
     player_color = data.get('player_color', 'white')
+    if player_color not in ('white', 'black'):
+        player_color = 'white'
 
     def _clean_name(raw, fallback):
         name = (raw or '').strip()
