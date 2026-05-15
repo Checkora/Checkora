@@ -178,6 +178,41 @@ def new_game(request):
         'draw_reason': game.draw_reason,
     })
 
+@require_POST
+def resume_game(request):
+    """Resume the existing session game without resetting it."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
+
+    game = ChessGame.from_dict(game_data)
+
+    if game.game_status != 'active':
+        return JsonResponse({'valid': False, 'message': 'No active game to resume.'}, status=404)
+
+    game.paused = False
+    game.last_ts = time.time()
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'valid': True,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'mode': game.mode,
+        'player_color': game.player_color,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
+        'difficulty': request.session.get('difficulty', 'medium'),
+    })
 
 @require_GET
 def check_promotion(request):
