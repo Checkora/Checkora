@@ -1345,6 +1345,31 @@
             ========================================================== */
             let selectedPveColor = 'white';
 
+            function prepareWelcomeForPvP(clearAIValue = false) {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                pveOptions.style.display = 'none';
+                modeSelection.style.display = 'flex';
+                nameInputs.style.display = 'flex';
+                
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.placeholder = 'Black Player Name';
+                    blackInput.classList.remove('input-error');
+                    if (clearAIValue && blackInput.value === 'AI') {
+                        blackInput.value = '';
+                    }
+                }
+                if (errorDiv) errorDiv.style.display = 'none';
+            }
+
             if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
                 if (!validatePlayerNames()) return;
                 const fen = welcomeFenInput?.value || null;
@@ -1381,29 +1406,7 @@
             };
 
             if (backToModes) backToModes.onclick = () => {
-                const whiteInput = document.getElementById('whiteNameInput');
-                const blackInput = document.getElementById('blackNameInput');
-                const errorDiv = document.getElementById('nameError');
-                
-                pveOptions.style.display = 'none';
-                modeSelection.style.display = 'flex';
-                
-                // Reset both inputs to visible for PvP
-                if (whiteInput) {
-                    whiteInput.style.display = 'block';
-                    whiteInput.placeholder = 'White Player Name';
-                    whiteInput.classList.remove('input-error');
-                }
-                if (blackInput) {
-                    blackInput.style.display = 'block';
-                    blackInput.placeholder = 'Black Player Name';
-                    blackInput.classList.remove('input-error');
-                }
-                
-                // Hide error
-                if (errorDiv) errorDiv.style.display = 'none';
-                
-                nameInputs.style.display = 'flex';
+                prepareWelcomeForPvP(false);
             };
 
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
@@ -1525,7 +1528,15 @@
                     confettiContainer.remove();
                 }
                 
-                requestNewGame('pvp');
+                showConfirm(
+                    "Abandon Game?",
+                    "Your current progress will be lost.<br>Are you sure you want to start a new game?",
+                    () => {
+                        prepareWelcomeForPvP(true);
+                        welcomeOverlay.classList.add('active');
+                    },
+                    '#ff6b6b'
+                );
             };
             
             if (newAIBtn) newAIBtn.onclick = () => {
