@@ -151,7 +151,7 @@
             let gameOver = false;
             let aiThinking = false;
 
-            let pgnCopyTimeout = null;
+            let pgnDownloadTimeout = null;
             let fenCopyTimeout = null;
             /* ==========================================================
             CSRF & API HELPERS
@@ -1261,7 +1261,7 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
-                clearTimeout(pgnCopyTimeout);
+                clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
 
                 if (copyPgnBtn) {
@@ -1477,15 +1477,26 @@
     const data = await get('/api/state/');
 
     if (data.pgn) {
-        navigator.clipboard.writeText(data.pgn);
-
+        const blob = new Blob([data.pgn], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
         
+        const wName = whiteNameLabel ? whiteNameLabel.textContent : 'White';
+        const bName = blackNameLabel ? blackNameLabel.textContent : 'Black';
+        const date = new Date().toISOString().split('T')[0];
+        
+        a.download = `checkora_${wName}_vs_${bName}_${date}.pgn`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-        copyPgnBtn.textContent = 'Copied!';
+        copyPgnBtn.textContent = 'Downloaded!';
 
-        clearTimeout(pgnCopyTimeout);
+        clearTimeout(pgnDownloadTimeout);
 
-        pgnCopyTimeout = setTimeout(() => {
+        pgnDownloadTimeout = setTimeout(() => {
             copyPgnBtn.textContent = 'Export as PGN';
         }, 2000);
     }
