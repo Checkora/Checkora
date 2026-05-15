@@ -55,4 +55,34 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => togglePassword(input, btn));
     wrapper.appendChild(btn);
   });
+
+  /* ── Submit button loading state ── */
+  document.querySelectorAll("form").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        // Prevent double submission
+        if (submitBtn.classList.contains("loading")) {
+          e.preventDefault();
+          return;
+        }
+
+        submitBtn.classList.add("loading");
+        const spinner = document.createElement("span");
+        spinner.className = "spinner";
+        submitBtn.appendChild(spinner);
+      }
+    });
+  });
+
+  /* ── Reset button state when navigating back ── */
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      document.querySelectorAll('button[type="submit"]').forEach((btn) => {
+        btn.classList.remove("loading");
+        const spinner = btn.querySelector(".spinner");
+        if (spinner) spinner.remove();
+      });
+    }
+  });
 });
