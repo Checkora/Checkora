@@ -11,7 +11,6 @@ from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
 
-
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
 
@@ -68,7 +67,6 @@ class EnginePathResolutionTest(SimpleTestCase):
                 [sys.executable, candidates[2]],
             )
 
-
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
 
@@ -76,7 +74,6 @@ class BoardViewTest(TestCase):
         response = self.client.get('/play/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
-
 
 class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
@@ -89,7 +86,6 @@ class LandingViewTest(TestCase):
     def test_landing_page_links_to_play(self):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
-
 
 class RegistrationViewTest(TestCase):
     """Registration should send OTP by email only and show failures."""
@@ -128,7 +124,6 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
-
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
@@ -240,7 +235,6 @@ class MoveValidationTest(TestCase):
         self.assertTrue(data['valid'])
         self.assertEqual(data['captured'], 'p')
 
-
 class ValidMovesTest(TestCase):
     """Test /api/valid-moves/ endpoint."""
 
@@ -277,7 +271,6 @@ class ValidMovesTest(TestCase):
         r = self.client.get('/api/valid-moves/?row=7&col=0')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
-
 class NewGameTest(TestCase):
     """Test the /api/new-game/ endpoint."""
 
@@ -297,7 +290,6 @@ class NewGameTest(TestCase):
         data = r.json()
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(len(data['move_history']), 0)
-
 
 class CheckPromotionTest(TestCase):
     """Test the /api/check-promotion/ endpoint."""
@@ -334,7 +326,6 @@ class CheckPromotionTest(TestCase):
         r = self.client.get(url)
         self.assertFalse(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
-
 
 class GameStateTest(TestCase):
     """Test the /api/state/ endpoint."""
@@ -392,7 +383,6 @@ class GameStateTest(TestCase):
         self.assertEqual(data['white_time'], 600)
         self.assertEqual(data['black_time'], 600)
 
-
 class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
@@ -445,7 +435,6 @@ class PauseTest(TestCase):
         self.assertEqual(data['white_time'], 597)
         self.assertEqual(data['black_time'], 600)
 
-
 class DrawOfferTest(TestCase):
     """Test draw agreement persistence through the API."""
 
@@ -467,7 +456,6 @@ class DrawOfferTest(TestCase):
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'draw')
         self.assertEqual(state['draw_reason'], 'agreement')
-
 
 class DrawRuleTest(SimpleTestCase):
     """Test rule-based draw detection in the engine."""
@@ -576,7 +564,6 @@ class DrawRuleTest(SimpleTestCase):
         without_ep = game.generate_position_key()
 
         self.assertEqual(with_ep, without_ep)
-
 
 class AIMoveTest(TestCase):
     """Test the /api/ai-move/ endpoint."""
@@ -848,7 +835,6 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
 
-
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
 
@@ -956,3 +942,99 @@ class StatsCleanupTest(TestCase):
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
         self.assertContains(response, 'No games played yet.')
+
+class StaleGameCleanupTest(TestCase):
+    def setUp(self):
+        self.url = '/api/cron/cleanup-stale-games/'
+        self.secret = 'test_secret_123'
+        
+    @override_settings(CRON_SECRET='test_secret_123')
+    def test_stale_game_deletion(self):
+        from django.contrib.sessions.backends.db import SessionStore
+        import time
+        
+        s = SessionStore()
+        s.create()
+        # low engagement: < 5 moves
+        s['game'] = {
+            'game_status': 'active',
+            'move_history': [1, 2, 3],
+            'last_ts': time.time() - (50 * 3600)
+        }
+        s.save()
+        
+        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['deleted_games'], 1)
+        
+        s = SessionStore(session_key=s.session_key)
+        self.assertNotIn('game', s)
+
+    @override_settings(CRON_SECRET='test_secret_123')
+    def test_stale_game_auto_resignation(self):
+        from django.contrib.sessions.backends.db import SessionStore
+        import time
+        from game.models import GameResult
+        
+        s = SessionStore()
+        s.create()
+        # high engagement: >= 5 moves
+        s['game'] = {
+            'game_status': 'active',
+            'move_history': [1, 2, 3, 4, 5, 6],
+            'current_turn': 'white',
+            'player_color': 'white',
+            'mode': 'pvp',
+            'last_ts': time.time() - (50 * 3600)
+        }
+        s.save()
+        
+        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['resigned_games'], 1)
+        
+        s = SessionStore(session_key=s.session_key)
+        self.assertEqual(s['game']['game_status'], 'resignation')
+        
+        self.assertEqual(GameResult.objects.count(), 1)
+        res = GameResult.objects.first()
+        self.assertEqual(res.winner, 'black')
+        self.assertEqual(res.end_reason, 'resign')
+
+    @override_settings(CRON_SECRET='test_secret_123')
+    def test_edge_cases(self):
+        from django.contrib.sessions.backends.db import SessionStore
+        import time
+        
+        # 1. Game less than 48 hours old
+        s1 = SessionStore()
+        s1.create()
+        s1['game'] = {'game_status': 'active', 'move_history': [1], 'last_ts': time.time() - (10 * 3600)}
+        s1.save()
+        
+        # 2. Game already completed
+        s2 = SessionStore()
+        s2.create()
+        s2['game'] = {'game_status': 'checkmate', 'move_history': [1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
+        s2.save()
+        
+        # 3. Session without game data
+        s3 = SessionStore()
+        s3.create()
+        s3.save()
+        
+        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['deleted_games'], 0)
+        self.assertEqual(response.json()['resigned_games'], 0)
+        
+        s1 = SessionStore(session_key=s1.session_key)
+        self.assertEqual(s1['game']['game_status'], 'active')
+
+    @override_settings(CRON_SECRET='test_secret_123')
+    def test_protected_endpoint(self):
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 401)
+        
+        response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
+        self.assertEqual(response.status_code, 401)
