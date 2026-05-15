@@ -325,11 +325,16 @@
 
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
-                const isAI = data.mode === 'ai';
-                if (hasMoves || isAI) {
-                    if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'block';
-                } else {
-                    if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'none';
+                const isResumable = hasMoves && data.game_status === 'active';
+                if (isResumable) {
+                    if (welcomeResumeBtn) {
+                        welcomeResumeBtn.style.display = 'block';
+                        welcomeResumeBtn.textContent = data.mode === 'ai'
+                            ? 'Replay Previous Game'
+                            : 'Resume Game';
+                        }
+                    } else {
+                        if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'none';
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
@@ -1428,15 +1433,18 @@
                 }
             };
 
-            if (welcomeResumeBtn) welcomeResumeBtn.onclick = () => {
+            if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
+                const data = await post('/api/resume/', {});
+                if (!data.valid) {
+                    welcomeResumeBtn.style.display = 'none';
+                    return;
+                }
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                if (paused) {
-                    resumeGame();
-                } else {
-                    startTimer();
-                    queueAIMoveIfNeeded();
-                }
+                paused = false;
+                updatePauseUI();
+                startTimer();
+                queueAIMoveIfNeeded();
             };
 
             if (confirmYesBtn) confirmYesBtn.onclick = () => {
