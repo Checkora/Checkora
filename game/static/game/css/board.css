@@ -312,6 +312,8 @@ body {
 
 :root {
     --page-bg: #0f0f1a;
+
+    /* Classic */
     --sq-light: #eeeed2;
     --sq-dark: #769656;
     --sq-selected-light: #f6f669;
@@ -320,19 +322,44 @@ body {
     --sq-last-dark: #b8cc36;
 }
 
-[data-theme="dark"] {
+/* Dark Theme */
+:root[data-theme="dark"] {
     --sq-light: #9c9c9c;
     --sq-dark: #4d4d4d;
+
+    /* stronger contrast */
+    --sq-selected-light: #707070;
+    --sq-selected-dark: #2c2c2c;
+
+    --sq-last-light: #7c7c7c;
+    --sq-last-dark: #3a3a3a;
+
+    --move-dot: rgba(30, 30, 30, 0.55);
+    --move-dot-hover: rgba(10, 10, 10, 0.75);
 }
 
-[data-theme="green"] {
+/* Green Theme */
+:root[data-theme="green"] {
     --sq-light: #9dbb94;
     --sq-dark: #2e5a31;
+
+    --sq-selected-light: #c7e89c;
+    --sq-selected-dark: #8fbc5a;
+
+    --sq-last-light: #b8d98a;
+    --sq-last-dark: #6f9a45;
 }
 
-[data-theme="blue"] {
+/* Blue Theme */
+:root[data-theme="blue"] {
     --sq-light: #a4b1bd;
     --sq-dark: #2e4a5a;
+
+    --sq-selected-light: #9fd8ff;
+    --sq-selected-dark: #5ca8d6;
+
+    --sq-last-light: #8cc9f0;
+    --sq-last-dark: #4e8fb8;
 }
 
 .square.light { background-color: var(--sq-light); }
@@ -346,7 +373,7 @@ body {
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
 
-/* Valid-move dot (empty square) */
+/* Valid-move dot */
 .move-dot {
     width: 17px;
     height: 17px;
@@ -355,9 +382,12 @@ body {
     position: absolute;
     pointer-events: none;
 }
-.square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
 
-/* Capture ring (enemy piece) */
+.square:hover .move-dot {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Capture ring */
 .capture-ring {
     width: 58px;
     height: 58px;
@@ -366,8 +396,10 @@ body {
     position: absolute;
     pointer-events: none;
 }
-.square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
 
+.square:hover .capture-ring {
+    border-color: rgba(0, 0, 0, 0.3);
+}
 /* ============================================================
    Pieces
    ============================================================ */
@@ -407,15 +439,37 @@ body {
     color: #f0c040;
     padding: 4px 0;
 }
-.square:focus {
-    outline: 3px solid #4A90D9;
-    outline-offset: -3px;
+.square:focus,
+.square:focus-visible {
+    outline: 2px solid #baca2b;
+    outline-offset: -2px;
     z-index: 10;
     position: relative;
+    box-shadow: none;
 }
 
-.square:focus-visible {
-    outline: 3px solid #4A90D9;
+/* Dark theme */
+:root[data-theme="dark"] .square:focus,
+:root[data-theme="dark"] .square:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: -2px;
+    box-shadow: none;
+}
+
+/* Green theme */
+:root[data-theme="green"] .square:focus,
+:root[data-theme="green"] .square:focus-visible {
+    outline: 2px solid #1f4d1f;
+    outline-offset: -2px;
+    box-shadow: none;
+}
+
+/* Blue theme */
+:root[data-theme="blue"] .square:focus,
+:root[data-theme="blue"] .square:focus-visible {
+    outline: 2px solid #4A90D9;
+    outline-offset: -2px;
+    box-shadow: none;
 }
 .status-bar.error { color: #ff6b6b; }
 
