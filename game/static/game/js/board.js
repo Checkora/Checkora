@@ -638,9 +638,33 @@
                     return;
                 }
                 await executeMove(fr, fc, tr, tc, null);
-            }
-
-            async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+            }            let reconnecting = false;
+            async function handleReconnect() {
+                if (reconnecting) return;
+                reconnecting = true;
+                showStatus('Reconnecting...', false);
+                let retries = 0;
+                let success = false;
+                while (retries < 3 && !success) {
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+                        await loadGame();
+                        success = true;
+                    } catch (err) {
+                        retries++;
+                    }
+                }
+                
+                if (success) {
+                    showStatus('Connection restored', false);
+                    setTimeout(() => {
+                        showStatus('', false);
+                    }, 2000);
+                } else {
+                    showStatus('Unable to reconnect. Please refresh.', true);
+                }
+                reconnecting = false;
+            }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
                 try {
                     const body = {
                         from_row: fr, from_col: fc,
@@ -701,7 +725,7 @@
                         deselect();
                     }
                 } catch (e) {
-                    showStatus('Connection error.', true);
+                        await handleReconnect();
                 }
             }
 
@@ -752,7 +776,8 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                    showStatus('AI connection error.', true);
+                   
+                        await handleReconnect();
                 } finally {
                     aiThinking = false;
                 }
@@ -1602,7 +1627,19 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+    document.addEventListener('visibilitychange', async() => {
+        if (document.hidden) {
+            pauseGame().catch(() => {});
+        } else {
+            await handleReconnect();
+        }
+    });
+
+    window.addEventListener('online', async () => {
+        if (!gameOver) {
+            await handleReconnect();
+        }
+    });
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 
