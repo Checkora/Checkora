@@ -414,7 +414,7 @@ body {
    Move History
    ============================================================ */
 .moves-list {
-    max-height: 340px;
+    max-height: 560px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
