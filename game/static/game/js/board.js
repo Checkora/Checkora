@@ -759,6 +759,12 @@
             async function onClick(r, c) {
                 if (dragging) return;
                 if (selected) {
+
+                    //New toggle logic:
+                    //If the clicked square is the exact same as the selected square, deselect it.
+                    if (selected .r === r && selected.c ===c){
+                        return deselect();
+                    }
                     if (hints.some(h => h.row === r && h.col === c))
                         return tryMove(selected.r, selected.c, r, c);
                     if (board[r][c] && pColor(board[r][c]) === turn)
