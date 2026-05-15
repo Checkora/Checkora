@@ -556,26 +556,59 @@ def logout_view(request):
 @login_required
 def stats_view(request):
     """Display game statistics."""
-    # Only show real database records linked to the logged-in user
-    user_results = GameResult.objects.filter(user=request.user).exclude(mode__in=['', None])
+    try:
+        # Only show real database records linked to the logged-in user
+        user_results = GameResult.objects.filter(
+            user=request.user
+        ).exclude(mode__in=['', None])
 
-    recent = user_results.order_by('-played_at')[:20]
-    ai_results = user_results.filter(mode='ai')
+        recent = user_results.order_by('-played_at')[:20]
+        ai_results = user_results.filter(mode='ai')
 
-    # If winner == player_color, the user won
-    user_ai_wins = ai_results.filter(winner=F('player_color')).count()
-    # If winner != player_color and not a draw, the AI won
-    ai_wins = ai_results.filter(
-        Q(winner='white', player_color='black') | Q(winner='black', player_color='white')
-    ).count()
+        # If winner == player_color, the user won
+        user_ai_wins = ai_results.filter(winner=F('player_color')).count()
+        # If winner != player_color and not a draw, the AI won
+        ai_wins = ai_results.filter(
+            Q(winner='white', player_color='black') |
+            Q(winner='black', player_color='white')
+        ).count()
 
-    ai_draws = ai_results.filter(winner='draw').count()
-    ai_total = ai_results.count()
+        ai_draws = ai_results.filter(winner='draw').count()
+        ai_total = ai_results.count()
 
-    return render(request, 'game/stats.html', {
-        'recent': recent,
-        'ai_total': ai_total,
-        'user_ai_wins': user_ai_wins,
-        'ai_wins': ai_wins,
-        'ai_draws': ai_draws,
-    })
+        # Handle explicit edge cases (e.g. division by zero for win rate)
+        win_percentage = (user_ai_wins / ai_total * 100) if ai_total > 0 else 0
+
+        # Optional: check if they want a JSON response instead of HTML
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({
+                'ai_total': ai_total,
+                'user_ai_wins': user_ai_wins,
+                'ai_wins': ai_wins,
+                'ai_draws': ai_draws,
+                'win_percentage': round(win_percentage, 2),
+                'recent_games': [
+                    {
+                        'mode': r.get_mode_display(),
+                        'winner': r.get_winner_display(),
+                        'end_reason': r.get_end_reason_display(),
+                        'played_at': r.played_at.isoformat()
+                    } for r in recent
+                ]
+            })
+
+        return render(request, 'game/stats.html', {
+            'recent': recent,
+            'ai_total': ai_total,
+            'user_ai_wins': user_ai_wins,
+            'ai_wins': ai_wins,
+            'ai_draws': ai_draws,
+            'win_percentage': round(win_percentage, 2),
+        })
+    except Exception as e:
+        # Sanitize response: return clean JSON response instead of raw HTML
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error while fetching statistics.',
+            'details': str(e)
+        }, status=500)
