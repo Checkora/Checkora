@@ -25,6 +25,12 @@ from .engine import ChessGame
 from .models import GameResult
 
 
+import logging
+from django.db import DatabaseError
+
+logger = logging.getLogger(__name__)
+
+
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
@@ -580,7 +586,7 @@ def stats_view(request):
         win_percentage = (user_ai_wins / ai_total * 100) if ai_total > 0 else 0
 
         # Optional: check if they want a JSON response instead of HTML
-        if request.headers.get('Accept') == 'application/json':
+        if 'application/json' in request.headers.get('Accept', ''):
             return JsonResponse({
                 'ai_total': ai_total,
                 'user_ai_wins': user_ai_wins,
@@ -605,10 +611,18 @@ def stats_view(request):
             'ai_draws': ai_draws,
             'win_percentage': round(win_percentage, 2),
         })
-    except Exception as e:
+    except DatabaseError as e:
+        logger.error(f"Database error in stats_view: {e}", exc_info=True)
         # Sanitize response: return clean JSON response instead of raw HTML
         return JsonResponse({
             'success': False,
             'error': 'Internal server error while fetching statistics.',
-            'details': str(e)
+            'details': str(e) if settings.DEBUG else "Contact support."
+        }, status=500)
+    except Exception as e:
+        logger.error(f"Unexpected error in stats_view: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'An unexpected error occurred.',
+            'details': str(e) if settings.DEBUG else "Contact support."
         }, status=500)
