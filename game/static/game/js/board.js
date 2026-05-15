@@ -1295,6 +1295,11 @@
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 boardEl.classList.remove('celebrate-win', 'celebrate-loss');
+                
+                // Remove cinematic celebration overlay if present
+                const cinematicOverlay = document.querySelector('.game-over-overlay-cinematic');
+                if (cinematicOverlay) cinematicOverlay.remove();
+                
                 const confettiContainer = overlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
