@@ -490,6 +490,15 @@ def register_view(request):
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
 
+            missing_email_credentials = (
+                not settings.EMAIL_HOST_USER or
+                not settings.EMAIL_HOST_PASSWORD
+            )
+
+            if settings.DEBUG and missing_email_credentials:
+                print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
+                return redirect('verify_otp')
+
             # Send Email
             try:
                 msg_plain = (
