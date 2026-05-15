@@ -271,6 +271,7 @@
             }
             const whiteNameInput = document.getElementById('whiteNameInput');
             const blackNameInput = document.getElementById('blackNameInput');
+            const nameInputs = document.getElementById('nameInputs');
 
             if (whiteNameInput) {
                 whiteNameInput.addEventListener('input', () => {
@@ -655,10 +656,11 @@
                 }
 
                 if (success) {
-                    showStatus('Connection restored', false);
-                    setTimeout(() => {
-                        showStatus('', false);
-                    }, 2000);
+                    // Only show toast if game is not in a terminal/check state
+                    if (!gameOver) {
+                        showStatus('Connection restored', false);
+                        setTimeout(() => { showStatus('', false); }, 2000);
+                    }
                 } else {
                     showStatus('Unable to reconnect. Please refresh.', true);
                 }
@@ -912,7 +914,7 @@
                 if (gameOver) return;
                 if (reason === 'resign') {
                     updateGameStatusBadge('resign');
-                } else if (reason === 'draw' || reason === 'stalemate' || reason === 'checkmate') {
+                } else if (reason === 'draw' || reason === 'stalemate' || reason === 'checkmate' || reason === 'timeout') {
                     updateGameStatusBadge(reason);
                 }
                 gameOver = true;
@@ -980,9 +982,16 @@
                 showStatus(title + ': ' + message, false);
 
                 const winnerColor = color === 'white' ? 'Black' : 'White';
-                let cleanMsg = reason === 'checkmate' || reason === 'resign'
-                    ? `Game over. ${winnerColor} wins by ${reason}.`
-                    : `Game over. Draw by ${reason || 'stalemate'}.`;
+                let cleanMsg;
+                if (reason === 'checkmate' || reason === 'resign') {
+                    cleanMsg = `Game over. ${winnerColor} wins by ${reason}.`;
+                } else if (reason === 'draw') {
+                    cleanMsg = message; // reuse specific draw message already built above
+                } else if (reason === 'timeout') {
+                    cleanMsg = message;
+                } else {
+                    cleanMsg = `Game over. Draw by stalemate.`;
+                }
                 announceMove(cleanMsg);
 
                 document.title = 'Game Over - Checkora';
@@ -1333,7 +1342,7 @@
 
                 if (errorDiv) errorDiv.style.display = 'none';
 
-                nameInputs.style.display = 'flex';
+                if (nameInputs) nameInputs.style.display = 'flex';
                 modeSelection.style.display = 'none';
                 pveOptions.style.display = 'flex';
             };
@@ -1359,7 +1368,7 @@
 
                 if (errorDiv) errorDiv.style.display = 'none';
 
-                nameInputs.style.display = 'flex';
+                if (nameInputs) nameInputs.style.display = 'flex';
             };
 
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
@@ -1735,6 +1744,9 @@ function updateGameStatusBadge(status) {
         badge.classList.add('status-stalemate');
     } else if (status === 'resign' || status === 'resignation') {
         badge.textContent = '🏳 Resigned';
+        badge.classList.add('status-checkmate');
+    } else if (status === 'timeout') {
+        badge.textContent = '⏰ Timeout';
         badge.classList.add('status-checkmate');
     } else {
         badge.textContent = '● In Progress';
