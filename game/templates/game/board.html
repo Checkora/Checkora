@@ -236,8 +236,8 @@
 
             <div class="status-bar" id="statusBar"></div>
         </div>
-
-        <!-- Right Panel -->
+        
+<!-- Right Panel: Controls -->
         <div class="panel">
             <div class="card">
                 <div class="card-title">Board Theme</div>
@@ -258,10 +258,6 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px;">
-                        <input type="text" id="manualMoveInput" placeholder="Move (e.g. e2e4)" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;" maxlength="5">
-                        <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move format</div>
-                    </div>
                     <button class="btn btn-gold" id="flipBtn">Flip Board</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
@@ -276,7 +272,6 @@
                     <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
-
                 </div>
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
                     ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
@@ -286,7 +281,11 @@
     EXIT TO HOME
 </a>
             </div>
-            <div class="card">
+        </div>
+
+        <!-- Right Panel: Move History -->
+        <div class="panel">
+            <div class="card" style="height: 100%;">
                 <div class="card-title">Move History</div>
                 <div class="moves-list" id="movesList">
                     <span class="placeholder">No moves yet</span>
