@@ -486,7 +486,7 @@ def resign_game(request):
             'winner': winner,
             'game_status': game_status
         })
-    except (ValueError, AttributeError, KeyError) as e:
+    except (ValueError, AttributeError, KeyError):
         logger.exception("Error deserializing game data in resign_game")
         return JsonResponse({
             'valid': False,
