@@ -166,30 +166,29 @@ body {
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
 
-.btn.loading {
+/* ── Loading spinner state ── */
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+.btn.is-loading {
+    pointer-events: none;
+    opacity: 0.75;
     position: relative;
     color: transparent !important;
-    pointer-events: none;
-    opacity: 0.8;
+    cursor: not-allowed;
 }
-
-.spinner {
+.btn.is-loading::after {
+    content: '';
     position: absolute;
     top: 50%;
     left: 50%;
     width: 20px;
     height: 20px;
-    margin-top: -10px;
-    margin-left: -10px;
+    margin: -10px 0 0 -10px;
     border: 3px solid rgba(26, 26, 46, 0.3);
-    border-top: 3px solid #1a1a2e;
+    border-top-color: #1a1a2e;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    animation: btn-spin 0.6s linear infinite;
 }
 
 .auth-footer {

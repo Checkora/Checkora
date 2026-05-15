@@ -56,32 +56,23 @@ document.addEventListener("DOMContentLoaded", () => {
     wrapper.appendChild(btn);
   });
 
-  /* ── Submit button loading state ── */
-  document.querySelectorAll("form").forEach((form) => {
-    form.addEventListener("submit", (e) => {
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        // Prevent double submission
-        if (submitBtn.classList.contains("loading")) {
-          e.preventDefault();
-          return;
-        }
-
-        submitBtn.classList.add("loading");
-        const spinner = document.createElement("span");
-        spinner.className = "spinner";
-        submitBtn.appendChild(spinner);
+  /* ── Loading spinner on form submit ── */
+  document.querySelectorAll(".auth-card form").forEach((form) => {
+    form.addEventListener("submit", () => {
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn && !btn.classList.contains("is-loading")) {
+        btn.classList.add("is-loading");
+        btn.setAttribute("disabled", "disabled");
       }
     });
   });
 
-  /* ── Reset button state when navigating back ── */
-  window.addEventListener("pageshow", (event) => {
-    if (event.persisted) {
-      document.querySelectorAll('button[type="submit"]').forEach((btn) => {
-        btn.classList.remove("loading");
-        const spinner = btn.querySelector(".spinner");
-        if (spinner) spinner.remove();
+  /* Reset button state when user navigates back (bfcache) */
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) {
+      document.querySelectorAll(".btn.is-loading").forEach((btn) => {
+        btn.classList.remove("is-loading");
+        btn.removeAttribute("disabled");
       });
     }
   });
