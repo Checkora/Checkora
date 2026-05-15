@@ -386,9 +386,9 @@
     <div id="rulebookModal"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
         <div
-            style="position:relative; width:95vw; height:90vh; background:#13161e; border-radius:12px; overflow:hidden;">
-            <button onclick="document.getElementById('rulebookModal').style.display='none'"
-                style="position:absolute; top:12px; right:12px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
+            style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
+            <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
+                style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
         </div>
     </div>
