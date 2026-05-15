@@ -624,10 +624,5 @@ def stats_view(request):
         'ai_total': ai_total,
         'user_ai_wins': user_ai_wins,
         'ai_wins': ai_wins,
-        'ai_draws': ai_draws,
-<<<<<<< HEAD
-        'win_percentage': round(win_percentage, 2),
-    })
-=======
-    })
->>>>>>> 0ce5e9e (fix: remove extra blank lines to pass flake8 E303)
+        'ai_draws': ai_dr
+
