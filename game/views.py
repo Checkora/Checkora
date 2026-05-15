@@ -575,6 +575,7 @@ def verify_otp(request):
                 del request.session['registration_otp_hash']
 
                 login(request, user)
+                messages.success(request, 'Registration successful! Welcome to Checkora.')
                 request.session.cycle_key()
                 return redirect('index')
 
@@ -598,6 +599,7 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            messages.success(request, f'Welcome back, {user.username}! Login successful.')
             request.session.cycle_key()
             return redirect('index')
 
@@ -615,6 +617,7 @@ def rules(request):
 @require_POST
 def logout_view(request):
     logout(request)
+    messages.info(request, 'You have been logged out.')
     return redirect('landing')
 
 
