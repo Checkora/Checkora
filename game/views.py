@@ -1,6 +1,8 @@
 """Game views for the Checkora chess platform."""
 
+import copy
 import json
+import logging
 import time
 import hashlib
 import secrets
@@ -24,6 +26,14 @@ from django.contrib.auth.decorators import login_required
 from .engine import ChessGame
 from .models import GameResult
 
+logger = logging.getLogger(__name__)
+
+def _count_legal_moves(game):
+    return sum(
+        len(game.get_valid_moves(row, col))
+        for row in range(8)
+        for col in range(8)
+    )
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -169,7 +179,18 @@ def new_game(request):
     game.paused = False
 
     request.session['game'] = game.to_dict()
+    request.session['hint_count'] = 0
     request.session.modified = True
+
+    logger.debug(
+        'New game started: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s',
+        game.current_turn,
+        game.mode,
+        game.game_status,
+        game.draw_reason,
+        game.generate_fen_key(),
+        request.session['hint_count'],
+    )
 
     return JsonResponse({
         'valid': True,
@@ -186,6 +207,8 @@ def new_game(request):
         'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'hint_count': 0,
+        'remaining_hints': 3,
     })
 
 @require_POST
@@ -266,6 +289,7 @@ def get_state(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+    hint_count = request.session.get('hint_count', 0)
     return JsonResponse({
         'board': game.board,
         'current_turn': game.current_turn,
@@ -283,6 +307,8 @@ def get_state(request):
         'pgn': game.generate_pgn(),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'hint_count': hint_count,
+        'remaining_hints': max(0, 3 - hint_count),
     })
 
 
@@ -337,8 +363,36 @@ def ai_move(request):
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
     depth = depth_map.get(difficulty, 3)
+    
+    before_fen = game.generate_fen_key()
+    before_turn = game.current_turn
+    before_status = game.game_status
 
-    best = game.get_ai_move(depth=depth)
+    temp_game = copy.deepcopy(game)
+    legal_move_count = "debug-disabled"
+    logger.debug(
+        'AI move request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, depth=%s, legal_moves=%s',
+        game.current_turn,
+        game.mode,
+        game.game_status,
+        game.draw_reason,
+        before_fen,
+        depth,
+        legal_move_count,
+    )
+
+    best = temp_game.get_ai_move(depth=depth)
+
+    if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
+        logger.error(
+            'AI evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
+            before_fen,
+            game.generate_fen_key(),
+            before_turn,
+            game.current_turn,
+            before_status,
+            game.game_status,
+        )
     
     if not best:
         if game.game_status == 'checkmate':
@@ -409,8 +463,9 @@ def hint_move(request):
             'valid': False,
             'message': 'No active game.'
         }, status=400)
-        
+
     game = ChessGame.from_dict(game_data)
+
     hint_count = request.session.get('hint_count', 0)
 
     if hint_count >= 3:
@@ -419,30 +474,67 @@ def hint_move(request):
             'message': 'Hint limit reached'
         })
 
-    request.session['hint_count'] = hint_count + 1
-    
     # Prevent hints during AI turn
-    if game.mode == 'ai' and game.current_turn == 'black':
+    player_color = request.session.get('player_color', 'white')
+
+    if game.mode == 'ai' and game.current_turn != player_color:
         return JsonResponse({
             'valid': False,
             'message': 'Wait for your turn.'
         })
-        
+
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
     depth = depth_map.get(difficulty, 3)
-    
-    best = game.get_ai_move(depth=depth)
+
+    before_fen = game.generate_fen_key()
+    before_turn = game.current_turn
+    before_status = game.game_status
+
+    temp_game = copy.deepcopy(game)
+    legal_move_count = "debug-disabled"
+    logger.debug(
+        'Hint request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s, depth=%s, legal_moves=%s',
+        game.current_turn,
+        game.mode,
+        game.game_status,
+        game.draw_reason,
+        before_fen,
+        hint_count,
+        depth,
+        legal_move_count,
+    )
+
+    best = temp_game.get_ai_move(depth=depth)
+
+    if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
+        logger.error(
+            'Hint evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
+            before_fen,
+            game.generate_fen_key(),
+            before_turn,
+            game.current_turn,
+            before_status,
+            game.game_status,
+        )
 
     if not best:
+        logger.debug('Hint calculation returned no move for current position. game_status=%s draw_reason=%s', game.game_status, game.draw_reason)
         return JsonResponse({
             'valid': False,
             'message': 'No legal moves available.'
         })
 
+    request.session['hint_count'] = hint_count + 1
+    request.session.modified = True
+
+    logger.debug('Hint returned: best=%s, new_hint_count=%s', best, request.session['hint_count'])
+
     return JsonResponse({
         'valid': True,
-        'hint': best
+        'hint': best,
+        'hint_count': request.session['hint_count'],
+        'remaining_hints': max(0, 3 - request.session['hint_count']),
     })    
     
 

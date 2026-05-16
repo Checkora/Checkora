@@ -291,6 +291,123 @@ class NewGameTest(TestCase):
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(len(data['move_history']), 0)
 
+class HintTest(TestCase):
+    """Test the /api/hint/ endpoint and hint count session behavior."""
+
+    def setUp(self):
+        self.client.get('/play/')
+        self.ai_move_patcher = mock.patch.object(ChessGame, 'get_ai_move')
+        self.mock_ai_move = self.ai_move_patcher.start()
+
+    def tearDown(self):
+        self.ai_move_patcher.stop()
+
+    def test_hint_increments_count_on_valid_hint(self):
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'white',
+                'difficulty': 'medium',
+            }),
+            content_type='application/json',
+        )
+
+        self.mock_ai_move.return_value = {
+            'from_row': 6,
+            'from_col': 4,
+            'to_row': 4,
+            'to_col': 4,
+        }
+
+        response = self.client.post(
+            '/api/hint/',
+            data=json.dumps({}),
+            content_type='application/json',
+        )
+
+        self.assertTrue(response.json()['valid'])
+        self.assertEqual(response.json()['hint'], self.mock_ai_move.return_value)
+        self.assertEqual(self.client.session['hint_count'], 1)
+
+    def test_hint_does_not_increment_on_no_legal_moves(self):
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'white',
+                'difficulty': 'medium',
+            }),
+            content_type='application/json',
+        )
+
+        self.mock_ai_move.return_value = None
+
+        response = self.client.post(
+            '/api/hint/',
+            data=json.dumps({}),
+            content_type='application/json',
+        )
+
+        self.assertFalse(response.json()['valid'])
+        self.assertEqual(response.json()['message'], 'No legal moves available.')
+        self.assertEqual(self.client.session['hint_count'], 0)
+
+    def test_hint_blocked_when_not_players_turn(self):
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'white',
+                'difficulty': 'medium',
+            }),
+            content_type='application/json',
+        )
+
+        session = self.client.session
+        game_data = session['game']
+        game_data['current_turn'] = 'black'
+        session['game'] = game_data
+        session.save()
+
+        response = self.client.post(
+            '/api/hint/',
+            data=json.dumps({}),
+            content_type='application/json',
+        )
+
+        self.assertFalse(response.json()['valid'])
+        self.assertEqual(response.json()['message'], 'Wait for your turn.')
+        self.assertEqual(self.client.session['hint_count'], 0)
+
+    def test_hint_state_synces_remaining_hints(self):
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'white',
+                'difficulty': 'medium',
+            }),
+            content_type='application/json',
+        )
+
+        self.mock_ai_move.return_value = {
+            'from_row': 6,
+            'from_col': 4,
+            'to_row': 4,
+            'to_col': 4,
+        }
+
+        self.client.post(
+            '/api/hint/',
+            data=json.dumps({}),
+            content_type='application/json',
+        )
+
+        state_resp = self.client.get('/api/state/')
+        self.assertEqual(state_resp.json()['hint_count'], 1)
+        self.assertEqual(state_resp.json()['remaining_hints'], 2)
+
 class CheckPromotionTest(TestCase):
     """Test the /api/check-promotion/ endpoint."""
 

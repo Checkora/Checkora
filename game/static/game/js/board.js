@@ -132,6 +132,8 @@
             const drawAcceptBtn = document.getElementById('drawAcceptBtn');
             const drawDeclineBtn = document.getElementById('drawDeclineBtn');
 
+            const hintBtn = document.getElementById('hintBtn');
+
             const whiteNameLabel = document.getElementById('whiteNameLabel');
             const blackNameLabel = document.getElementById('blackNameLabel');
             const whiteYouTag = document.getElementById('whiteYouTag');
@@ -150,6 +152,8 @@
 
             let gameOver = false;
             let aiThinking = false;
+
+            let remainingHints = 3;
 
             let pgnCopyTimeout = null;
             let fenCopyTimeout = null;
@@ -343,6 +347,13 @@
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
+
+                const serverHintCount = data.hint_count ?? 0;
+                remainingHints = Math.max(0, 3 - serverHintCount);
+                if (hintBtn) {
+                    hintBtn.textContent = `Hint (${remainingHints})`;
+                    hintBtn.disabled = remainingHints <= 0;
+                }
 
                 buildBoard();
                 renderClocks();
@@ -891,6 +902,67 @@
                 statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
+            async function showHint() {
+                if (remainingHints <= 0) {
+                    showStatus('Hint limit reached for this round.', true);
+                    return;
+                }
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    showStatus('Wait for your turn.', true);
+                    return;
+                }
+
+                try {
+                    showStatus('Analyzing best move...', false);
+                    
+                    const data = await post('/api/hint/', {});
+
+                    if (!data.valid) {
+                        if (typeof data.remaining_hints === 'number') {
+                            remainingHints = data.remaining_hints;
+                            if (hintBtn) {
+                                hintBtn.textContent = `Hint (${remainingHints})`;
+                                hintBtn.disabled = remainingHints <= 0;
+                            }
+                        } else if (hintBtn && data.message === 'Hint limit reached') {
+                            hintBtn.disabled = true;
+                        }
+                        showStatus(data.message, true);
+                        return;
+                    }
+
+                    const hint = data.hint;
+
+                    if (typeof data.remaining_hints === 'number') {
+                        remainingHints = data.remaining_hints;
+                    } else {
+                        remainingHints = Math.max(0, remainingHints - 1);
+                    }
+
+                    if (hintBtn) {
+                        hintBtn.textContent = `Hint (${remainingHints})`;
+                        hintBtn.disabled = remainingHints <= 0;
+                    }
+
+                    const sourceSquare = sq(hint.from_row, hint.from_col);
+                    const destinationSquare = sq(hint.to_row, hint.to_col);
+
+                    sourceSquare.classList.add("hint-source");
+                    destinationSquare.classList.add("hint-destination");
+                    
+                    setTimeout(() => {
+                        sourceSquare.classList.remove("hint-source");
+                        destinationSquare.classList.remove("hint-destination");
+                    }, 2500);
+
+                    showStatus('Suggested move highlighted.', false);
+
+                } catch (e) {
+                    showStatus('Hint connection error.', true);
+                }
+            }
+
             function handleGameStatus(status, drawReason) {
                 if (status === 'checkmate') {
                     endGame('checkmate', turn);
@@ -1230,6 +1302,15 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
+                
+                remainingHints = 3;
+
+                if (hintBtn) {
+                    hintBtn.disabled = false;
+                    hintBtn.textContent = 'Hint (3)';
+                }
+
+                // rest of code
                 clearTimeout(pgnCopyTimeout);
                 clearTimeout(fenCopyTimeout);
 
@@ -1465,6 +1546,7 @@
                     }, 2000);
                 }
             };
+            if (hintBtn) hintBtn.addEventListener('click', showHint);
 
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
                 const data = await post('/api/resume/', {});
