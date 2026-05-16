@@ -33,12 +33,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // This checks if the field name contains 'confirm' or '2' (standard Django naming)
     if (input.name.includes("confirm") || input.name.includes("2")|| input.id.includes("confirm")) {
       input.addEventListener("paste", (e) => {
-        e.preventDefault(); // This stops the paste action
-        if (typeof showToast !== 'undefined') {
-            showToast("Please type your password manually.", "warning");
-        } else {
-            alert("Please type your password manually.");
-        }
+        e.preventDefault();
+        const msg = document.createElement("div");
+        msg.setAttribute("role", "alert");
+        msg.className = "paste-block-msg";
+        msg.textContent = "For security, please type your password manually.";
+        input.parentNode.parentNode.insertBefore(msg, input.parentNode.nextSibling);
+        setTimeout(() => msg.remove(), 3000);
       });
     }
     /* Create a wrapper that sits inside .form-group, around the input only.
@@ -80,4 +81,49 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   });
+
+  /* ── Password validation checklist (register page only) ── */
+  const passwordInput = document.querySelector('input[name="password1"]');
+  if (passwordInput) {
+    const rules = [
+      { id: "rule-length", text: "Minimum 8 characters", test: (v) => v.length >= 8 },
+      { id: "rule-upper", text: "At least 1 uppercase letter", test: (v) => /[A-Z]/.test(v) },
+      { id: "rule-number", text: "At least 1 number", test: (v) => /[0-9]/.test(v) },
+      { id: "rule-special", text: "At least 1 special character", test: (v) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/`~]/.test(v) },
+    ];
+
+    const checklist = document.createElement("ul");
+    checklist.className = "password-checklist";
+    checklist.setAttribute("role", "status");
+    checklist.setAttribute("aria-live", "polite");
+
+    rules.forEach((rule) => {
+      const li = document.createElement("li");
+      li.id = rule.id;
+      li.innerHTML = `<span class="check-icon" aria-hidden="true"></span>${rule.text}`;
+      checklist.appendChild(li);
+    });
+
+    // Insert checklist after the password input wrapper
+    const wrapper = passwordInput.closest(".pw-input-wrapper") || passwordInput.parentNode;
+    wrapper.parentNode.insertBefore(checklist, wrapper.nextSibling);
+
+    // Real-time validation
+    const validatePassword = () => {
+      const value = passwordInput.value;
+      let allMet = true;
+
+      rules.forEach((rule) => {
+        const li = document.getElementById(rule.id);
+        const met = rule.test(value);
+        li.classList.toggle("met", met);
+        if (!met) allMet = false;
+      });
+
+      checklist.classList.toggle("all-met", allMet && value.length > 0);
+    };
+
+    passwordInput.addEventListener("input", validatePassword);
+    validatePassword(); // Run on initial load (handles autofill/form restoration)
+  }
 });
