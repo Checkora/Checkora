@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import AuthenticationForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm
 from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
@@ -594,7 +594,7 @@ def login_view(request):
         return redirect('index')
 
     if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
+        form = CustomAuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
@@ -603,7 +603,7 @@ def login_view(request):
             return redirect('index')
 
     else:
-        form = AuthenticationForm()
+        form = CustomAuthenticationForm()
 
     return render(request, 'game/login.html', {'form': form})
 
