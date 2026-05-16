@@ -920,9 +920,9 @@
                 }
                 movesEl.innerHTML = '';
                 const totalPairs = Math.ceil(history.length / 2);
-                for (let i = history.length - 1; i >= 0; i -= 2) {
-                    const whiteIdx = i % 2 === 0 ? i : i - 1;
-                    const blackIdx = whiteIdx + 1;
+                for (let i = 0; i < history.length; i += 2) {
+                    const whiteIdx = i;
+                    const blackIdx = i + 1;
                     const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
                     row.className = 'move-row';
