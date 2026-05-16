@@ -1951,7 +1951,58 @@
                     }
                 });
             }
-            
+            function showAssetWarning() {
+                const t = document.getElementById('confirmTimerContainer');
+                const d = document.getElementById('confirmDifficultyContainer');
+                if (t) t.style.display = 'none';
+                if (d) d.style.display = 'none';
+
+                // 1. Pause the timer while the alert is open
+                if (!paused && typeof pauseGame === 'function') {
+                    pauseGame().catch(() => {}); // Catch prevents crash if backend hasn't initialized
+                }
+
+                showConfirm( //the message on alert
+                    "⚠️ Assets Blocked",
+                    "<div style='line-height: 1.5; font-size: 0.95rem;'>The chess pieces failed to load.<br><br>Please check your browser permissions (allow images) or disable any ad-blockers on this site.</div>",
+                    () => { 
+                        // 2. Set a memory flag to bypass the main menu on reload
+                        sessionStorage.setItem('checkoraAutoResume', 'true');
+                        window.location.reload(); 
+                    },
+                    '#f0c040'
+                );
+                
+                const yesBtn = document.getElementById('confirmYesBtn');
+                const noBtn = document.getElementById('confirmNoBtn');
+                if (yesBtn) yesBtn.textContent = 'Reload Page';
+                
+                // 3. Resume the timer if they click Close
+                if (noBtn) {
+                    noBtn.textContent = 'Close';
+                    const defaultClose = noBtn.onclick; 
+                    noBtn.onclick = () => {
+                        if (defaultClose) defaultClose();
+                        if (paused && typeof resumeGame === 'function') {
+                            resumeGame().catch(() => {});
+                        }
+                    };
+                }
+            }            function checkAssets() {
+                const img = document.querySelector('.piece');
+                
+                // If a piece exists in the HTML but still has 0 width after 2 seconds, Chrome blocked it.
+                if (img && img.naturalWidth === 0) {
+                    if (!window.assetWarningShown) {
+                        window.assetWarningShown = true;
+                        showAssetWarning();
+                    }
+                }
+            }
+
+            // Wait exactly 2 seconds after the script loads to check the assets
+            // This gives normal connections plenty of time to load, while catching strict blockers.
+            setInterval(checkAssets, 5000);
 
           if (typeof module !== "undefined" && module.exports) {
           module.exports = { pColor, getSquareLabel, formatTime };
