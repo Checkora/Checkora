@@ -5,6 +5,9 @@ behind ``is_active=False`` records that permanently lock their username
 due to Django's unique constraint.  This command deletes those *ghost*
 accounts once they exceed a configurable age threshold (default: 24 h).
 
+Only accounts that have **never logged in** (``last_login IS NULL``) are
+considered ghosts.  Intentionally disabled accounts are never touched.
+
 Usage
 -----
 ::
@@ -21,17 +24,19 @@ Usage
 
 from datetime import timedelta
 
-from django.contrib.auth.models import User
-from django.core.management.base import BaseCommand
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
+
+User = get_user_model()
 
 
 class Command(BaseCommand):
     """Delete inactive user accounts from abandoned registrations."""
 
     help = (
-        'Delete inactive (is_active=False) user accounts that were '
-        'created more than --hours ago and never verified their OTP.'
+        'Delete inactive (is_active=False, last_login=NULL) user accounts '
+        'that were created more than --hours ago and never verified.'
     )
 
     def add_arguments(self, parser):
@@ -51,10 +56,17 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         hours = options['hours']
         dry_run = options['dry_run']
+
+        if hours < 1:
+            raise CommandError(
+                '--hours must be a positive integer (got %d).' % hours
+            )
+
         cutoff = timezone.now() - timedelta(hours=hours)
 
         ghosts = User.objects.filter(
             is_active=False,
+            last_login__isnull=True,
             date_joined__lt=cutoff,
         )
         count = ghosts.count()
