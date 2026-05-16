@@ -133,6 +133,7 @@
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
             const copyPgnBtn = document.getElementById('copyPgnBtn');
+            const nameInputs = document.getElementById('nameInputs');
             const muteBtn = document.getElementById('muteBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');

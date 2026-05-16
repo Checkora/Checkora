@@ -1052,3 +1052,217 @@ class StaleGameCleanupTest(TestCase):
         
         response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
+
+
+class GhostAccountCleanupTest(TestCase):
+    """Test that abandoned OTP registrations do not lock out usernames."""
+
+    def test_stale_ghost_is_replaced_on_re_register(self):
+        """A ghost account older than 1 hour should be auto-deleted
+        when a new user registers with the same username, and
+        re-registration should succeed."""
+        from django.utils import timezone
+        from datetime import timedelta
+
+        ghost = User.objects.create_user(
+            username='ghostuser',
+            email='ghost@example.com',
+            password='OldPass123!',
+        )
+        ghost.is_active = False
+        ghost.last_login = None
+        ghost.date_joined = timezone.now() - timedelta(hours=2)
+        ghost.save()
+
+        old_id = ghost.id
+        self.client.post('/register/', {
+            'username': 'ghostuser',
+            'email': 'ghost2@example.com',
+            'password1': 'NewSecure99!',
+            'password2': 'NewSecure99!',
+        })
+
+        # The old ghost should be deleted
+        self.assertFalse(
+            User.objects.filter(id=old_id).exists(),
+            'Stale ghost account should be deleted on re-registration.',
+        )
+        # A new user with the same username should now exist
+        new_user = User.objects.filter(username='ghostuser').first()
+        self.assertIsNotNone(
+            new_user,
+            'Re-registration should create a new user.',
+        )
+        self.assertNotEqual(new_user.id, old_id)
+
+    def test_recent_ghost_is_not_deleted(self):
+        """A ghost account younger than 1 hour must NOT be deleted."""
+        ghost = User.objects.create_user(
+            username='recentghost',
+            email='recent@example.com',
+            password='Pass123!',
+        )
+        ghost.is_active = False
+        ghost.last_login = None
+        ghost.save()  # date_joined = now (< 1 hour ago)
+
+        # Attempting to register with the same username should fail
+        # because the recent ghost is preserved by the 1-hour guard.
+        self.client.post('/register/', {
+            'username': 'recentghost',
+            'email': 'recent2@example.com',
+            'password1': 'NewSecure99!',
+            'password2': 'NewSecure99!',
+        })
+        self.assertTrue(
+            User.objects.filter(id=ghost.id).exists(),
+            'Recent ghost account (< 1h) must NOT be deleted.',
+        )
+
+    def test_active_accounts_are_never_deleted(self):
+        """Active (verified) users must never be touched."""
+        from django.utils import timezone
+        from datetime import timedelta
+
+        active = User.objects.create_user(
+            username='activeuser',
+            email='active@example.com',
+            password='Pass123!',
+        )
+        active.is_active = True
+        active.date_joined = timezone.now() - timedelta(hours=48)
+        active.save()
+
+        self.client.post('/register/', {
+            'username': 'activeuser',
+            'email': 'other@example.com',
+            'password1': 'NewSecure99!',
+            'password2': 'NewSecure99!',
+        })
+
+        self.assertTrue(
+            User.objects.filter(id=active.id, is_active=True).exists(),
+            'Active accounts must never be deleted.',
+        )
+
+    def test_intentionally_disabled_account_is_not_deleted(self):
+        """An account that was disabled by an admin (has last_login)
+        must never be treated as a ghost."""
+        from django.utils import timezone
+        from datetime import timedelta
+
+        disabled = User.objects.create_user(
+            username='disableduser',
+            email='disabled@example.com',
+            password='Pass123!',
+        )
+        disabled.is_active = False
+        disabled.last_login = timezone.now() - timedelta(days=30)
+        disabled.date_joined = timezone.now() - timedelta(days=90)
+        disabled.save()
+
+        self.client.post('/register/', {
+            'username': 'disableduser',
+            'email': 'other@example.com',
+            'password1': 'NewSecure99!',
+            'password2': 'NewSecure99!',
+        })
+
+        self.assertTrue(
+            User.objects.filter(id=disabled.id).exists(),
+            'Intentionally disabled accounts (has last_login) '
+            'must never be deleted.',
+        )
+
+
+class CleanupGhostAccountsCommandTest(TestCase):
+    """Test the cleanup_ghost_accounts management command."""
+
+    def test_command_deletes_old_ghosts(self):
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+        from io import StringIO
+
+        ghost = User.objects.create_user(
+            username='cmd_ghost',
+            email='cmd@example.com',
+            password='Pass123!',
+        )
+        ghost.is_active = False
+        ghost.last_login = None
+        ghost.date_joined = timezone.now() - timedelta(hours=48)
+        ghost.save()
+
+        out = StringIO()
+        call_command('cleanup_ghost_accounts', '--hours=24', stdout=out)
+
+        self.assertFalse(
+            User.objects.filter(id=ghost.id).exists(),
+            'Management command should delete ghost accounts '
+            'older than the threshold.',
+        )
+        self.assertIn('Deleted 1', out.getvalue())
+
+    def test_command_dry_run_does_not_delete(self):
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+        from io import StringIO
+
+        ghost = User.objects.create_user(
+            username='dryrun_ghost',
+            email='dryrun@example.com',
+            password='Pass123!',
+        )
+        ghost.is_active = False
+        ghost.last_login = None
+        ghost.date_joined = timezone.now() - timedelta(hours=48)
+        ghost.save()
+
+        out = StringIO()
+        call_command(
+            'cleanup_ghost_accounts',
+            '--hours=24', '--dry-run',
+            stdout=out,
+        )
+
+        self.assertTrue(
+            User.objects.filter(id=ghost.id).exists(),
+            'Dry-run must not delete any accounts.',
+        )
+        self.assertIn('DRY RUN', out.getvalue())
+
+    def test_command_rejects_negative_hours(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command('cleanup_ghost_accounts', '--hours=-1')
+
+    def test_command_skips_disabled_accounts_with_last_login(self):
+        """Accounts disabled by admin (has last_login) must not be
+        deleted even if old and inactive."""
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+        from io import StringIO
+
+        disabled = User.objects.create_user(
+            username='admin_disabled',
+            email='admin_disabled@example.com',
+            password='Pass123!',
+        )
+        disabled.is_active = False
+        disabled.last_login = timezone.now() - timedelta(days=30)
+        disabled.date_joined = timezone.now() - timedelta(days=90)
+        disabled.save()
+
+        out = StringIO()
+        call_command('cleanup_ghost_accounts', '--hours=24', stdout=out)
+
+        self.assertTrue(
+            User.objects.filter(id=disabled.id).exists(),
+            'Admin-disabled accounts must not be deleted.',
+        )
+
