@@ -52,15 +52,16 @@
 </head>
 
 <body>
-    <nav class="navbar">
+    <nav class="navbar" id="navbar">
         <div class="nav-left">
-            <a href="{% url 'landing' %}" class="logo-link">
+            <a href="{% url 'landing' %}" class="logo-link" aria-label="Checkora Home">
                 <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
                 <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
             </a>
-            <div class="nav-links">
+            <div class="nav-links" id="nav-links">
                 <a href="#hero">About</a>
                 <a href="#features">Features</a>
+                <a href="{% url 'rules' %}">Rulebook</a>
             </div>
         </div>
         <div class="nav-right">
@@ -74,8 +75,32 @@
             <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
             <a href="{% url 'register' %}" class="btn-register">Register</a>
             {% endif %}
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
         </div>
     </nav>
+
+    <!-- Mobile overlay menu -->
+    <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
+    <div class="mobile-menu" id="mobile-menu">
+        <a href="#hero" class="mobile-menu-link" onclick="closeMobileMenu()">About</a>
+        <a href="#features" class="mobile-menu-link" onclick="closeMobileMenu()">Features</a>
+        <a href="{% url 'rules' %}" class="mobile-menu-link">Rulebook</a>
+        <div class="mobile-menu-divider"></div>
+        {% if user.is_authenticated %}
+        <a href="{% url 'index' %}" class="mobile-menu-link">Dashboard</a>
+        <form method="post" action="{% url 'logout' %}" style="width:100%;">
+            {% csrf_token %}
+            <button type="submit" class="btn-register mobile-menu-btn">Log Out</button>
+        </form>
+        {% else %}
+        <a href="{% url 'login' %}" class="mobile-menu-link">Sign In</a>
+        <a href="{% url 'register' %}" class="btn-register mobile-menu-btn">Register</a>
+        {% endif %}
+    </div>
 
     <main class="hero" id="hero">
         <h1 class="hero-title">Master Chess with Checkora's Hybrid Intelligence</h1>
@@ -271,6 +296,49 @@
             </div>
         </div>
     </footer>
+
+    <script>
+    // Navbar scroll effect
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 40) {
+            navbar.classList.add('navbar-scrolled');
+        } else {
+            navbar.classList.remove('navbar-scrolled');
+        }
+    });
+
+    // Mobile menu toggle
+    const hamburger = document.getElementById('nav-hamburger');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const overlay = document.getElementById('mobile-menu-overlay');
+
+    function openMobileMenu() {
+        mobileMenu.classList.add('open');
+        overlay.classList.add('open');
+        hamburger.classList.add('open');
+        hamburger.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileMenu() {
+        mobileMenu.classList.remove('open');
+        overlay.classList.remove('open');
+        hamburger.classList.remove('open');
+        hamburger.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+    }
+
+    hamburger.addEventListener('click', () => {
+        if (mobileMenu.classList.contains('open')) {
+            closeMobileMenu();
+        } else {
+            openMobileMenu();
+        }
+    });
+
+    overlay.addEventListener('click', closeMobileMenu);
+    </script>
 </body>
 
 </html>
