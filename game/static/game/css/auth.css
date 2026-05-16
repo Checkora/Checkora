@@ -1,6 +1,6 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
-
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
 html, body {
     height: 100%;
     scroll-behavior: smooth;
@@ -12,7 +12,7 @@ body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     flex-direction: column;
     padding: 40px 20px;
@@ -80,6 +80,11 @@ body {
     }
 }
 
+.header p {
+    color: #8a8aaa;
+    font-size: 1.1rem;
+}
+
 .auth-card {
     background: #16162a;
     border: 1px solid #252545;
@@ -91,6 +96,7 @@ body {
 }
 
 .form-group { margin-bottom: 20px; }
+
 .form-group label {
     display: block;
     font-size: 1rem;
@@ -98,6 +104,7 @@ body {
     margin-bottom: 8px;
     letter-spacing: 0.5px;
 }
+
 .form-group input {
     width: 100%;
     padding: 16px 18px;
@@ -108,6 +115,7 @@ body {
     font-size: 1.1rem;
     transition: all 0.2s ease;
 }
+
 .form-group input:focus {
     outline: none;
     border-color: #f0c040;
@@ -132,6 +140,18 @@ body {
     color: #9a9abb;
     line-height: 1.8;
 }
+
+.helptext ul {
+    padding-left: 16px;
+    margin-top: 6px;
+}
+
+.helptext li {
+    font-size: 0.82rem;
+    color: #9a9abb;
+    line-height: 1.8;
+}
+
 .errorlist {
     list-style: none;
     color: #ff6b6b;
@@ -175,10 +195,12 @@ body {
     transition: all 0.2s ease;
     margin-top: 10px;
 }
+
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);
     color: #1a1a2e;
 }
+
 .btn-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-1px);
@@ -216,11 +238,13 @@ body {
     font-size: 0.95rem;
     color: #8a8aaa;
 }
+
 .auth-footer a {
     color: #f0c040;
     text-decoration: none;
     font-weight: 600;
 }
+
 .auth-footer a:hover { text-decoration: underline; }
 
 .back-home {
@@ -391,3 +415,7 @@ body.login-page .helptext {
         padding: 30px 20px;
     }
 }
+    .header h1 {
+        font-size: 2rem;
+    }
+
