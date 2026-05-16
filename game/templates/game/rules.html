@@ -406,7 +406,7 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center;">
-            <a href="#" class="back-btn" onclick="window.parent.document.getElementById('rulebookModal').style.display='none'; return false;">← Back to Home</a>
+            <a href="#" class="back-btn" onclick="try { var modal = window.parent.document.getElementById('rulebookModal'); if (modal) modal.style.display='none'; } catch(e) { console.error('Cannot close modal:', e); } return false;">← Back to Home</a>
         </div>
         <div class="sidebar-title">Rulebook</div>
         <div class="rule-nav-item active" onclick="showRule('basics')" id="nav-basics">
