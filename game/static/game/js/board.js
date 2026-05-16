@@ -478,16 +478,16 @@
                 
                     // Inject difficulty badge after names are set
                     setTimeout(() => {
-                        const aiLabel = playerColor === 'white'? document.getElementById('blackNameLabel')
-                        : document.getElementById('whiteNameLabel');
+                        const aiLabel = playerColor === 'white'
+                            ? document.getElementById('blackNameLabel')
+                            : document.getElementById('whiteNameLabel');
                         if (aiLabel) {
-                            const base = aiLabel.textContent || '';
-                            aiLabel.textContent = `${base} `;
+                            aiLabel.innerHTML = '';
+                            const textNode = document.createTextNode(`AI (${playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
                             const badge = document.createElement('span');
-                            badge.style.color = '`#f0c040`';
-                            badge.style.fontWeight = '700';
-                            badge.style.fontSize = '1.35em';
                             badge.textContent = diffLabel;
+                            badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:1.20em; letter-spacing:1px;';
+                            aiLabel.appendChild(textNode);
                             aiLabel.appendChild(badge);
                         }
                     }, 0);
