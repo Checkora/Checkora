@@ -25,6 +25,8 @@
         <form method="POST">
             {% csrf_token %}
             
+            {% include 'game/includes/messages.html' %}
+            
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
             {% endif %}

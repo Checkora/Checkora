@@ -126,4 +126,16 @@ document.addEventListener("DOMContentLoaded", () => {
     passwordInput.addEventListener("input", validatePassword);
     validatePassword(); // Run on initial load (handles autofill/form restoration)
   }
+
+  /* ── Auto-dismiss Toast Notifications ── */
+  const toasts = document.querySelectorAll('.toast');
+  toasts.forEach(toast => {
+    // Critical auth errors should stay visible
+    if (!toast.classList.contains('toast-error')) {
+      setTimeout(() => {
+        toast.classList.add('toast-exit');
+        setTimeout(() => toast.remove(), 400); // Wait for animation to finish
+      }, 5000);
+    }
+  });
 });
