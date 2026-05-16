@@ -317,10 +317,9 @@ body {
 
 :root {
     --page-bg: #0f0f1a;
-
     /* Classic */
-    --sq-light: #eeeed2;
-    --sq-dark: #769656;
+    --sq-light: #f0c040;
+    --sq-dark: #2f2f2f;
     --sq-selected-light: #f6f669;
     --sq-selected-dark: #baca2b;
     --sq-last-light: #f5f682;
@@ -329,28 +328,22 @@ body {
 
 /* Dark Theme */
 :root[data-theme="dark"] {
-    --sq-light: #9c9c9c;
-    --sq-dark: #4d4d4d;
-
-    /* stronger contrast */
-    --sq-selected-light: #707070;
-    --sq-selected-dark: #2c2c2c;
-
-    --sq-last-light: #7c7c7c;
-    --sq-last-dark: #3a3a3a;
-
-    --move-dot: rgba(30, 30, 30, 0.55);
-    --move-dot-hover: rgba(10, 10, 10, 0.75);
+    --sq-light: #b0b0b0;
+    --sq-dark: #3a3a3a;
+    --sq-selected-light: #5271ff;
+    --sq-selected-dark: #1a36b8;
+    --sq-last-light: #e6b800;
+    --sq-last-dark: #b38f00;
+    --move-dot: rgba(255, 255, 255, 0.35);
+    --move-dot-hover: rgba(255, 255, 255, 0.65);
 }
 
 /* Green Theme */
 :root[data-theme="green"] {
     --sq-light: #9dbb94;
     --sq-dark: #2e5a31;
-
     --sq-selected-light: #c7e89c;
     --sq-selected-dark: #8fbc5a;
-
     --sq-last-light: #b8d98a;
     --sq-last-dark: #6f9a45;
 }
@@ -359,12 +352,21 @@ body {
 :root[data-theme="blue"] {
     --sq-light: #a4b1bd;
     --sq-dark: #2e4a5a;
-
     --sq-selected-light: #9fd8ff;
     --sq-selected-dark: #5ca8d6;
-
     --sq-last-light: #8cc9f0;
     --sq-last-dark: #4e8fb8;
+}
+/* Pastel Theme */
+   :root[data-theme="pastel"] {
+    --sq-light: #fff0f5;
+    --sq-dark: #ffb6c1;
+    --sq-selected-light: #e6b8ff;
+    --sq-selected-dark: #b380ff;
+    --sq-last-light: #f5d6ff;
+    --sq-last-dark: #cc99ff;
+    --move-dot: rgba(100, 100, 100, 0.3);
+    --move-dot-hover: rgba(50, 50, 50, 0.6);
 }
 
 .square.light { background-color: var(--sq-light); }
@@ -896,10 +898,11 @@ body {
     box-shadow: 0 0 8px rgba(240, 192, 64, 0.4);
 }
 
-.theme-btn[data-theme="classic"] { background-color: #769656; }
+.theme-btn[data-theme="classic"] { background-color: #facc15; }
 .theme-btn[data-theme="dark"]    { background-color: #444; }
 .theme-btn[data-theme="green"]   { background-color: #2e5a31; }
 .theme-btn[data-theme="blue"]    { background-color: #2e4a5a; }
+.theme-btn[data-theme="pastel"]  { background-color: #a55cc7; }
 
 /* ================= PROMOTION MODAL ================= */
 
