@@ -682,9 +682,7 @@ body {
 }
 
 .footer-main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 3.5rem 4rem 2rem;
+    padding: 3.5rem 5% 2rem;
 }
 
 .footer-container {
@@ -898,12 +896,10 @@ body {
    ═══════════════════════════════════════════════ */
 
 .footer-bottom {
-    max-width: 1200px;
-    margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 4rem;
+    padding: 1.5rem 5%;
 }
 
 .footer-bottom-wrap {
