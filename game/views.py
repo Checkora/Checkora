@@ -467,6 +467,22 @@ def register_view(request):
         return redirect('index')
 
     if request.method == 'POST':
+        # Clean up ghost accounts from abandoned OTP sessions before validation.
+        # If an inactive user with the same username or email was created over
+        # 1 hour ago and never verified, delete it so the new registrant
+        # can pass the unique constraint check.
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        if username:
+            from django.utils import timezone
+            from datetime import timedelta
+            ghost_cutoff = timezone.now() - timedelta(hours=1)
+            ghost_filter = Q(is_active=False, date_joined__lt=ghost_cutoff)
+            u_filter = Q(username=username)
+            if email:
+                u_filter |= Q(email=email)
+            User.objects.filter(ghost_filter & u_filter).delete()
+
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
