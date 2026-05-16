@@ -196,6 +196,12 @@
                 <div class="captured-list" id="blackCaptured"></div>
                 <div class="captured-score">Points: <span id="blackPoints">+0</span></div>
             </div>
+            <div style="margin-top: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <input type="text" id="manualMoveInput" placeholder="Move (e.g. e2e4)" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;" maxlength="5">
+                    <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move format</div>
+                </div>
+            </div>
 
             <div class="card" id="emotePanel" style="display: none;">
                 <div class="card-title">React</div>
