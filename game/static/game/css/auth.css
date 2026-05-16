@@ -262,3 +262,68 @@ body {
 body.login-page .helptext {
     display: none;
 }
+
+/* ── Password validation checklist ── */
+.password-checklist {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+    font-size: 0.8rem;
+    color: #6a6a8a;
+    opacity: 1;
+    max-height: 120px;
+    overflow: hidden;
+    transition: opacity 0.4s ease, max-height 0.4s ease, margin 0.4s ease;
+}
+.password-checklist li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    transition: color 0.25s ease, opacity 0.4s ease;
+}
+.password-checklist .check-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #444;
+    border-radius: 50%;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+}
+.password-checklist li.met .check-icon {
+    border-color: #4caf50;
+    background: #4caf50;
+}
+.password-checklist li.met .check-icon::after {
+    content: '✓';
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+}
+.password-checklist li.met {
+    color: #4caf50;
+}
+.password-checklist.all-met {
+    opacity: 0;
+    max-height: 0;
+    margin: 0;
+    pointer-events: none;
+}
+
+.paste-block-msg {
+    font-size: 0.75rem;
+    color: #ffb4b4;
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: rgba(255, 107, 107, 0.1);
+    border-left: 2px solid #ff6b6b;
+    border-radius: 4px;
+    animation: fade-out 0.3s ease 2.7s forwards;
+}
+
+@keyframes fade-out {
+    to { opacity: 0; height: 0; padding: 0; margin: 0; }
+}
