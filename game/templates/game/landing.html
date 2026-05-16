@@ -149,92 +149,106 @@
 
     <!-- About Section -->
     <section id="about" class="about-section">
-        <h2 class="section-title">About Checkora</h2>
-        <p class="about-intro">Checkora is an open-source chess platform built for players, learners, and developers. Our dual-engine architecture combines the best of both worlds.</p>
+        <div class="section-header">
+            <span class="section-badge">About the Project</span>
+            <h2 class="section-title">What is Checkora?</h2>
+            <p class="section-subtitle">Checkora is an open-source chess platform that fuses a high-performance C++ minimax engine with a Django-powered web frontend. Designed for players who want a real challenge and developers who want to learn engine architecture.</p>
+        </div>
         <div class="about-grid">
-            <div class="about-card">
-                <div class="about-card-icon">🧠</div>
-                <h3>Hybrid Intelligence</h3>
-                <p>A high-performance C++ minimax engine handles AI computation, while Python orchestrates game logic, authentication, and state management via Django.</p>
+            <div class="about-card about-card-wide">
+                <div class="about-card-icon">⚙️</div>
+                <h3>Dual-Engine Architecture</h3>
+                <p>At its core, Checkora runs a compiled C++ binary for move generation, validation, and AI search. The engine communicates with Django via subprocess pipes — sending board states as 64-character strings and receiving structured responses. If the C++ binary is unavailable (e.g., on shared hosting), an identical Python fallback engine takes over transparently, so gameplay never breaks.</p>
             </div>
             <div class="about-card">
-                <div class="about-card-icon">🛡️</div>
-                <h3>Crash-Proof Design</h3>
-                <p>If the C++ binary can't run on a server, Checkora automatically falls back to an identical Python engine — so your game never crashes.</p>
+                <div class="about-card-icon">🧠</div>
+                <h3>Minimax + Alpha-Beta Pruning</h3>
+                <p>The AI uses a minimax search tree with alpha-beta pruning for optimal play. Search depth adapts dynamically — going deeper in endgames (≤6 pieces → depth+2) for stronger tactical play when it matters most.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-icon">📖</div>
+                <h3>Opening Book System</h3>
+                <p>In early moves, the AI consults a JSON opening book keyed by FEN strings instead of running expensive search. Multiple book moves per position add variety — no two games feel the same.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-icon">⚡</div>
+                <h3>DP Move Caching</h3>
+                <p>Valid moves are computed once per piece position and stored in a dynamic programming cache. The cache auto-invalidates after every move, ensuring 100% accuracy with zero redundant calculation.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-icon">🏰</div>
+                <h3>Full Rule Compliance</h3>
+                <p>Every rule is implemented — castling (kingside & queenside), en passant, pawn promotion (Queen/Rook/Bishop/Knight), check, checkmate, stalemate, and three types of draw detection.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-icon">📝</div>
+                <h3>PGN & FEN Support</h3>
+                <p>Every game generates Standard Algebraic Notation (SAN) via the C++ engine. Full FEN parsing lets you set up any board position. Games serialize to PGN format for analysis or export.</p>
             </div>
             <div class="about-card">
                 <div class="about-card-icon">🌍</div>
-                <h3>Open Source & GSSoC</h3>
-                <p>Built by contributors worldwide under GSSoC 2026. Fork it, improve it, and contribute — everyone is welcome to shape the future of Checkora.</p>
+                <h3>Open Source — GSSoC 2026</h3>
+                <p>Checkora is proudly part of GirlScript Summer of Code 2026. Every feature, from the engine to the UI, is open-source and built by a global community of contributors.</p>
             </div>
         </div>
     </section>
 
-    <section id="features" class="features">
-        <h2 class="section-title">Why Checkora</h2>
-        <div class="feature-cards">
-
-            <div class="card">
-                <div class="card-inner">
-                    <div class="card-front">
-                        <div class="card-icon">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc"
-                                stroke-width="1.5">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="2" y1="12" x2="22" y2="12" />
-                                <path
-                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                            </svg>
-                        </div>
-                        <h3 class="card-title">Web & UX</h3>
-                    </div>
-                    <div class="card-back">
-                        <p>Secure authentication, game state, and responsive UI are handled by Django and JavaScript for
-                            a seamless player experience.</p>
-                    </div>
+    <!-- Features Section -->
+    <section id="features" class="features-section">
+        <div class="section-header">
+            <span class="section-badge">Platform Features</span>
+            <h2 class="section-title">Everything You Need to Play</h2>
+            <p class="section-subtitle">From the chessboard UI to AI difficulty scaling — Checkora is designed to be a complete chess experience right in your browser.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 </div>
+                <h3>Play vs AI (PvE)</h3>
+                <p>Challenge Checkora's hybrid AI engine. Choose your color (White or Black), and the AI adapts its search depth based on game phase — playing cautiously in openings and aggressively in endgames.</p>
+                <div class="feature-tag">AI Engine</div>
             </div>
-
-            <div class="card">
-                <div class="card-inner">
-                    <div class="card-front">
-                        <div class="card-icon">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc"
-                                stroke-width="1.5">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path
-                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                                </path>
-                            </svg>
-                        </div>
-                        <h3 class="card-title">Engine (C++)</h3>
-                    </div>
-                    <div class="card-back">
-                        <p>Compute-intensive minimax and evaluation run in optimized C++ modules to deliver fast, strong
-                            play.</p>
-                    </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
+                <h3>Play vs Friend (PvP)</h3>
+                <p>Play locally with a friend on the same device. The board flips perspective each turn, with independent chess clocks for both players and full move history tracking.</p>
+                <div class="feature-tag">Multiplayer</div>
             </div>
-
-            <div class="card">
-                <div class="card-inner">
-                    <div class="card-front">
-                        <div class="card-icon">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc"
-                                stroke-width="1.5">
-                                <path
-                                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
-                        </div>
-                        <h3 class="card-title">Hybrid Architecture</h3>
-                    </div>
-                    <div class="card-back">
-                        <p>Python orchestrates the app while C++ handles heavy computation — connected via bindings or
-                            subprocess calls.</p>
-                    </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
+                <h3>Chess Clocks & Timers</h3>
+                <p>Each player gets a configurable timer (default: 10 minutes). Clocks tick in real time, pause during game pauses, and trigger automatic timeout detection if a player runs out of time.</p>
+                <div class="feature-tag">Timing</div>
             </div>
-
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <h3>Move History & PGN Export</h3>
+                <p>Every move is recorded in Standard Algebraic Notation (SAN). View the full move list in real-time, and the engine generates PGN-format game records you can analyze externally.</p>
+                <div class="feature-tag">Analysis</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Draw Detection Suite</h3>
+                <p>Checkora detects all draw conditions automatically — stalemate, insufficient material, threefold repetition (tracked via position keys), and the 50-move rule (100 half-moves). Players can also offer/accept draws manually.</p>
+                <div class="feature-tag">Rules Engine</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                </div>
+                <h3>Player Statistics</h3>
+                <p>Track your wins, losses, and draws across sessions. View your performance history with detailed game-by-game breakdowns — all stored securely with Django's authentication system.</p>
+                <div class="feature-tag">Dashboard</div>
+            </div>
         </div>
     </section>
 

@@ -479,22 +479,51 @@ body {
 }
 
 /* ═══════════════════════════════════════════════
-   ABOUT SECTION
+   SECTION COMMON STYLES
+   ═══════════════════════════════════════════════ */
+
+.section-header {
+    text-align: center;
+    margin-bottom: 3.5rem;
+}
+
+.section-badge {
+    display: inline-block;
+    padding: 0.35rem 1rem;
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent-gold);
+    letter-spacing: 0.5px;
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+}
+
+.section-title {
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-title);
+    letter-spacing: -0.5px;
+}
+
+.section-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════════
+   ABOUT SECTION — Full Width
    ═══════════════════════════════════════════════ */
 
 .about-section {
     padding: 5rem 5%;
-    max-width: 1100px;
-    margin: 0 auto;
-}
-
-.about-intro {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 1.05rem;
-    line-height: 1.7;
-    max-width: 650px;
-    margin: -1.5rem auto 3rem;
 }
 
 .about-grid {
@@ -503,10 +532,19 @@ body {
     gap: 1.5rem;
 }
 
+.about-card-wide {
+    grid-column: span 3;
+    padding: 2.5rem 2rem !important;
+}
+
+.about-card-wide p {
+    max-width: 900px;
+}
+
 .about-card {
     background: linear-gradient(145deg, rgba(22, 22, 42, 0.8), rgba(20, 20, 40, 0.4));
     border: 1px solid var(--card-border);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 2rem 1.5rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -518,13 +556,13 @@ body {
 }
 
 .about-card-icon {
-    font-size: 2rem;
+    font-size: 1.8rem;
     margin-bottom: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     background: rgba(240, 192, 64, 0.08);
     border-radius: 12px;
 }
@@ -538,109 +576,78 @@ body {
 
 .about-card p {
     color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.65;
+    font-size: 0.92rem;
+    line-height: 1.7;
 }
 
+/* ═══════════════════════════════════════════════
+   FEATURES SECTION — Full Width
+   ═══════════════════════════════════════════════ */
 
-.features {
-    padding: 4rem 5%;
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
+.features-section {
+    padding: 5rem 5%;
+    background: linear-gradient(180deg, rgba(20, 20, 40, 0.3) 0%, transparent 100%);
 }
 
-.section-title {
-    text-align: center;
-    font-size: 1.8rem;
-    font-weight: 600;
-    margin-bottom: 3rem;
-    color: var(--text-primary);
-}
-
-.feature-cards {
+.features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
 }
 
-.card {
-    background-color: var(--card-bg);
+.feature-card {
+    background: linear-gradient(145deg, rgba(22, 22, 42, 0.8), rgba(20, 20, 40, 0.4));
     border: 1px solid var(--card-border);
-    border-radius: 10px;
-    height: 180px;
-    perspective: 1000px;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
-}
-
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    border-color: rgba(240, 192, 64, 0.3);
-}
-
-.card-inner {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transition: opacity 0.3s;
-}
-
-.card-front,
-.card-back {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    border-radius: 16px;
+    padding: 2rem 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(240, 192, 64, 0.25);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+}
+
+.feature-icon {
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
-    transition: opacity 0.3s ease;
+    width: 48px;
+    height: 48px;
+    background: rgba(240, 192, 64, 0.08);
+    border-radius: 12px;
+    margin-bottom: 1.2rem;
 }
 
-.card-front {
-    opacity: 1;
-}
-
-.card-back {
-    opacity: 0;
-    pointer-events: none;
-    text-align: left;
-    justify-content: center;
-    background-color: var(--card-hover);
-}
-
-.card-back p {
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.6;
-}
-
-.card:hover .card-front,
-.card:focus-within .card-front {
-    opacity: 0;
-}
-
-.card:hover .card-back,
-.card:focus-within .card-back {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.card-icon {
-    margin-bottom: 1rem;
-}
-
-.card-title {
+.feature-card h3 {
+    color: var(--text-title);
     font-size: 1.1rem;
     font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+
+.feature-card p {
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    flex: 1;
+}
+
+.feature-tag {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.25rem 0.8rem;
+    background: rgba(240, 192, 64, 0.06);
+    border: 1px solid rgba(240, 192, 64, 0.15);
+    border-radius: 50px;
+    font-size: 0.72rem;
+    font-weight: 600;
     color: var(--accent-gold);
+    letter-spacing: 0.3px;
+    width: fit-content;
 }
 
 
@@ -991,6 +998,18 @@ body {
     .footer-bottom {
         padding: 1.2rem 2rem;
     }
+
+    .about-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .about-card-wide {
+        grid-column: span 2;
+    }
+
+    .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 /* ═══════════════════════════════════════════════
@@ -1050,6 +1069,19 @@ body {
     .about-grid {
         grid-template-columns: 1fr;
         gap: 1rem;
+    }
+
+    .about-card-wide {
+        grid-column: span 1;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .section-title {
+        font-size: 1.8rem;
     }
 }
 
