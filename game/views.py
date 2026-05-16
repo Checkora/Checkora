@@ -476,6 +476,18 @@ def register_view(request):
         return redirect('index')
 
     if request.method == 'POST':
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        
+        # Ghost Account Cleanup: Delete unverified users blocking this registration
+        if username and email:
+            ghost_user = User.objects.filter(
+                Q(username=username) | Q(email=email),
+                is_active=False
+            ).first()
+            if ghost_user:
+                ghost_user.delete()
+
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
