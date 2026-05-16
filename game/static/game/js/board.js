@@ -1535,12 +1535,35 @@
                 nameInputs.style.display = 'flex';
                 modeSelection.style.display = 'none';
                 pveOptions.style.display = 'flex';
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+                }
+
+                if (blackInput) {
+                    blackInput.style.display = 'none';
+                }
             };
 
             if (backToModes) backToModes.onclick = () => {
                 prepareWelcomeForPvP(false);
             };
 
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+
+                if (whiteInput) {
+                    whiteInput.placeholder = 'White Player Name';
+                }
+
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                }
+            };
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
             colorBtns.forEach(btn => {
                 btn.onclick = () => {
@@ -1937,17 +1960,6 @@
             });
 
             // Show browser confirmation dialog if user tries to leave during an active game
-<<<<<<< HEAD
-            window.addEventListener('beforeunload', (e) => {
-                if (!paused) {
-                    navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
-                }
-                if (!gameOver && !welcomeOverlay.classList.contains('active')) {
-                    e.preventDefault();
-e.returnValue = '';
-                }
-            });
-=======
             // Skip beforeunload alert in Selenium tests to prevent UnexpectedAlertPresentException
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
@@ -1969,7 +1981,6 @@ e.returnValue = '';
         }
 
 })();
->>>>>>> b66d7e5c (feat: add sound effects with mute toggle)
 
             if (blackNameInput) {
                 blackNameInput.addEventListener('input', () => {
