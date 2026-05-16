@@ -1235,6 +1235,12 @@
         if (bTime) bTime.textContent = formatTime(blackTime);
         if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
         if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+        if (whiteClock) {
+               whiteClock.classList.toggle('low', whiteTime <= 60 && whiteTime > 0 && turn===            'white');
+}
+      if (blackClock) {
+    blackClock.classList.toggle('low', blackTime <= 60 && blackTime > 0 && turn === 'black');
+}
     }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
@@ -1775,7 +1781,7 @@
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
-                    startNewGame(mode, 'white', diff, null, timeLimitMins);
+                    startNewGame(mode,playerColor, diff, null, timeLimitMins);
                 }
             };
 
