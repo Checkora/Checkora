@@ -465,17 +465,27 @@
                 let bName = data.black_name || 'Black';
                 
                 if (gameMode === 'ai'){
-                    // Fixing the naming system
+                    const diffLabel = (currentDifficulty || 'medium').charAt(0).toUpperCase() + (currentDifficulty || 'medium').slice(1);
                     let player_name = data.white_name;
                     if(playerColor === 'white'){
                         wName = player_name;
-                        bName = 'AI (Black)';
+                        bName = `AI (Black)`;
                     }else{
                         bName = player_name;
-                        wName = 'AI (White)';
-                    }
-                }
+                        wName = `AI (White)`;
 
+                    }
+                
+                    // Inject difficulty badge after names are set
+                    setTimeout(() => {
+                        const aiLabel = playerColor === 'white' 
+                            ? document.getElementById('blackNameLabel')
+                            : document.getElementById('whiteNameLabel');
+                        if (aiLabel) {
+                            aiLabel.innerHTML = `${aiLabel.textContent} <span style="color:#f0c040; font-weight:700; font-size:1.35em;">${diffLabel}</span>`;
+                        }
+                    }, 0);
+                }
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
                 if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
                 if (whiteCapturedName) whiteCapturedName.textContent = wName;
