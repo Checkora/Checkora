@@ -672,6 +672,15 @@ def register_view(request):
             ).hexdigest()
             request.session["registration_otp_hash"] = otp_hash
 
+            missing_email_credentials = (
+                not settings.EMAIL_HOST_USER or
+                not settings.EMAIL_HOST_PASSWORD
+            )
+
+            if settings.DEBUG and missing_email_credentials:
+                print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
+                return redirect('verify_otp')
+
             # Send Email
             try:
                 msg_plain = (
@@ -759,6 +768,7 @@ def verify_otp(request):
                 del request.session["registration_otp_hash"]
 
                 login(request, user)
+                messages.success(request, 'Registration successful! Welcome to Checkora.')
                 request.session.cycle_key()
                 return redirect("index")
 
@@ -780,6 +790,7 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            messages.success(request, f'Welcome back, {user.username}! Login successful.')
             request.session.cycle_key()
             return redirect("index")
 
@@ -798,6 +809,9 @@ def rules(request):
 def logout_view(request):
     logout(request)
     return redirect("landing")
+
+    messages.info(request, 'You have been logged out.')
+    return redirect('landing')
 
 
 # Protect the stats page with login requirement

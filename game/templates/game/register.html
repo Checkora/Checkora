@@ -5,13 +5,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6" />
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7" />
     <link
       rel="icon"
       type="image/jpeg"
       href="{% static 'game/favicon.jpeg' %}"
     />
-  </head>
+      <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+</head>
   <body>
        <!-- Back-to-home arrow -->
        <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
@@ -28,13 +29,7 @@
         <form method="POST">
             {% csrf_token %}
 
-            {% if messages %}
-                <div class="message-list" role="alert">
-                    {% for message in messages %}
-                        <div class="message message-{{ message.tags }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
+            {% include 'game/includes/messages.html' %}
 
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
@@ -61,6 +56,7 @@
         </div>
     </div>
 
-    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
-  </body>
+    <script src="{% static 'game/js/auth.js' %}?v=7"></script>
+      <script src="{% static 'game/js/toast.js' %}"></script>
+</body>
 </html>

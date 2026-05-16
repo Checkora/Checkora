@@ -55,13 +55,7 @@
         <form method="POST">
             {% csrf_token %}
             
-            {% if messages %}
-                <div class="message-list" role="alert">
-                    {% for message in messages %}
-                        <div class="message message-{{ message.tags }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
+            {% include 'game/includes/messages.html' %}
             
             <div class="form-group">
                 <label for="otp">Enter 6-Digit OTP</label>

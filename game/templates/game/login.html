@@ -5,8 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6">
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 </head>
 <body class="login-page">
     <!-- Back-to-home arrow -->
@@ -23,6 +24,8 @@
     <div class="auth-card">
         <form method="POST">
             {% csrf_token %}
+            
+            {% include 'game/includes/messages.html' %}
             
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
@@ -48,6 +51,7 @@
         </div>
     </div>
 
-    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
+    <script src="{% static 'game/js/auth.js' %}?v=7"></script>
+    <script src="{% static 'game/js/toast.js' %}"></script>
 </body>
 </html>

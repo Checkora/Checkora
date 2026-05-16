@@ -4,6 +4,15 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+             const MATERIAL_VALUES = {
+                  p: 1,
+                  n: 3,
+                  b: 3,
+                  r: 5,
+                  q: 9,
+                  k: 0
+             };
+
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
@@ -46,6 +55,16 @@
             let flipped = false;
             let autoFlip = false;
 
+            const SOUND_BASE_URL = window.SOUND_BASE_URL || '/static/game/sounds/';
+            const sounds = {
+              move:    new Audio(`${SOUND_BASE_URL}move.wav`),
+              capture: new Audio(`${SOUND_BASE_URL}capture.mp3`),
+              check:   new Audio(`${SOUND_BASE_URL}check.wav`),
+              draw:    new Audio(`${SOUND_BASE_URL}draw.mp3`),
+            };
+
+            let soundEnabled = true;
+
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
                 const bNameInput = document.getElementById('blackNameInput');
@@ -70,6 +89,32 @@
                 return true;
             }
 
+            
+            function playSound(data) {
+                if (!soundEnabled || !data?.valid) return;
+
+                let sound = sounds.move;
+                if (['checkmate', 'stalemate', 'draw', 'timeout'].includes(data.game_status)) {
+                    sound = sounds.draw;
+                } else if (data.game_status === 'check') {
+                    sound = sounds.check;
+                } else if (data.captured || data.is_capture) {
+                    sound = sounds.capture;
+                }
+
+                sound.currentTime = 0;
+                const playback = sound.play();
+                if (playback?.catch) playback.catch(() => {});
+            }
+
+            function toggleMute() {
+                soundEnabled = !soundEnabled;
+                if (muteBtn) {
+                    muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
+                    muteBtn.setAttribute('aria-pressed', String(soundEnabled));
+                }
+            }
+
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
@@ -88,6 +133,7 @@
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
             const copyPgnBtn = document.getElementById('copyPgnBtn');
+            const muteBtn = document.getElementById('muteBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -152,14 +198,46 @@
 
             let gameOver = false;
             let aiThinking = false;
-
             let remainingHints = 3;
-
             let pgnCopyTimeout = null;
+            let pgnDownloadTimeout = null;
             let fenCopyTimeout = null;
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
+            function calculateMaterial(board) {
+                let white = 0;
+                let black = 0;
+            
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = board[r][c];
+                        if (!piece) continue;
+            
+                        const value = MATERIAL_VALUES[piece.toLowerCase()] || 0;
+                       if (piece === piece.toUpperCase()) {
+                     white += value;
+                    } 
+                     else {
+                      black += value;
+                     }
+                 }
+                } 
+            
+                return {
+                    white,
+                    black
+                            };
+            }
+
+            function updateMaterialUI(board) {
+                const { white, black } = calculateMaterial(board);
+
+              document.getElementById("whiteScore").innerText = white;
+
+              document.getElementById("blackScore").innerText = black;
+            }
+            
             function csrf() {
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
                 return m ? decodeURIComponent(m[1]) : '';
@@ -327,6 +405,11 @@
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
+                const emotePanel = document.getElementById('emotePanel');
+                if (emotePanel) {
+                    emotePanel.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                }
+
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
                 const isResumable = hasMoves && data.game_status === 'active';
@@ -392,17 +475,34 @@
                 let bName = data.black_name || 'Black';
                 
                 if (gameMode === 'ai'){
-                    // Fixing the naming system
-                    let player_name = data.white_name;
+                    const diffLabel = (currentDifficulty || 'medium').toUpperCase();
+                    const player_name = playerColor === 'white' ? data.white_name : data.black_name;
                     if(playerColor === 'white'){
                         wName = player_name;
-                        bName = 'AI (Black)';
+                        bName = `AI (Black)`;
                     }else{
                         bName = player_name;
-                        wName = 'AI (White)';
-                    }
-                }
+                        wName = `AI (White)`;
 
+                    }
+                
+                    // Inject difficulty badge after names are set
+                    setTimeout(() => {
+                        const aiLabel = playerColor === 'white'
+                            ? document.getElementById('blackNameLabel')
+                            : document.getElementById('whiteNameLabel');
+                        if (aiLabel) {
+                            aiLabel.innerHTML = '';
+                            const textNode = document.createTextNode(`AI (${playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
+                            const badge = document.createElement('span');
+                            badge.textContent = diffLabel;
+                            badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:1.20em; letter-spacing:1px;';
+                            badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
+                            aiLabel.appendChild(textNode);
+                            aiLabel.appendChild(badge);
+                        }
+                    }, 0);
+                }
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
                 if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
                 if (whiteCapturedName) whiteCapturedName.textContent = wName;
@@ -434,6 +534,31 @@
                         d.onclick = () => onClick(r, c);
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
+
+                        // ADD THESE:
+                        d.draggable = true;
+                        d.ondragstart = e => {
+                            const piece = board[r][c];
+                            if (!piece || pColor(piece) !== turn || paused || gameOver) return e.preventDefault();
+                            if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+                            
+                            if (e.dataTransfer) {
+                                e.dataTransfer.setData('text/plain', 'piece-move');
+                                e.dataTransfer.effectAllowed = 'move';
+                            }
+                            
+                            const pieceImg = d.querySelector('.piece');
+                            if (pieceImg) e.dataTransfer.setDragImage(pieceImg, pieceImg.offsetWidth / 2, pieceImg.offsetHeight / 2);
+                            
+                            dragging = true;
+                            dragSrc = { r, c };
+                            setTimeout(() => selectPiece(r, c), 10);
+                        };
+
+                        d.ondragend = () => {
+                            dragging = false;
+                            dragSrc = null;
+                        };
 
                         d.setAttribute('tabindex', '0');
                         d.setAttribute('role', 'gridcell');
@@ -472,13 +597,15 @@
                     const img = document.createElement('img');
                     img.src = PIECE_IMG[pKey(p)];
                     img.className = 'piece';
-                    img.draggable = true;
-                    img.ondragstart = e => onDragStart(e, r, c);
-                    img.ondragend = () => dragging = false;
+                    //Set to false, as the parent div now handles dragging
+                    img.draggable = false;
+                    // Keep this so drops work smoothly on occupied squares
+                    img.ondragover = e => e.preventDefault();
                     el.appendChild(img);
                 }
                 refreshHighlights();
                 markPlayable();
+                updateMaterialUI(board);
             }
 
             function markPlayable() {
@@ -685,6 +812,7 @@
 
                     const data = await post('/api/move/', body);
                         if (data.valid) {
+                            playSound(data);
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
                             turn = data.current_turn;
@@ -706,7 +834,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
-
+                            updateMaterialUI(board);
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -747,6 +875,7 @@
                 try {
                     const data = await post('/api/ai-move/', {});
                         if (data.valid) {
+                            playSound(data);
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                             board = parseBoard(data.board);
@@ -764,7 +893,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
-
+                            updateMaterialUI(board);
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -898,8 +1027,13 @@
             }
 
             function showStatus(msg, err) {
-                statusEl.textContent = msg;
-                statusEl.className = 'status-bar' + (err ? ' error' : '');
+                const gameStatusEl = document.getElementById("game-status");
+
+                   if (gameStatusEl) {
+                       gameStatusEl.textContent = msg;
+                   }
+               
+                   statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
             async function showHint() {
@@ -1312,6 +1446,7 @@
 
                 // rest of code
                 clearTimeout(pgnCopyTimeout);
+                clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
 
                 if (copyPgnBtn) {
@@ -1376,6 +1511,11 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+
+                const emotePanel = document.getElementById('emotePanel');
+                if (emotePanel) {
+                    emotePanel.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                }
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
@@ -1400,50 +1540,15 @@
             ========================================================== */
             let selectedPveColor = 'white';
 
-            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
-                if (!validatePlayerNames()) return;
-                const fen = welcomeFenInput?.value || null;
-                const started = await startNewGame('pvp', 'white', 'medium', fen);
-                if (!started) return;
-                welcomeOverlay.classList.remove('active');
-                gameLayout.style.visibility = 'visible';
-            };
-
-            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
-                const whiteInput = document.getElementById('whiteNameInput');
-                const blackInput = document.getElementById('blackNameInput');
-                const errorDiv = document.getElementById('nameError');
-                
-                // Show ONLY white input for AI mode
-                if (whiteInput) {
-                    whiteInput.style.display = 'block';
-                    whiteInput.placeholder = 'Your Name';
-                    whiteInput.value = '';
-                    whiteInput.classList.remove('input-error');
-                }
-                if (blackInput) {
-                    blackInput.style.display = 'none';
-                    blackInput.value = 'AI';
-                    blackInput.classList.remove('input-error');
-                }
-                
-                // Hide error
-                if (errorDiv) errorDiv.style.display = 'none';
-                
-                nameInputs.style.display = 'flex';
-                modeSelection.style.display = 'none';
-                pveOptions.style.display = 'flex';
-            };
-
-            if (backToModes) backToModes.onclick = () => {
+            function prepareWelcomeForPvP(clearAIValue = false) {
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
                 
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
+                nameInputs.style.display = 'flex';
                 
-                // Reset both inputs to visible for PvP
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'White Player Name';
@@ -1453,14 +1558,72 @@
                     blackInput.style.display = 'block';
                     blackInput.placeholder = 'Black Player Name';
                     blackInput.classList.remove('input-error');
+                    if (clearAIValue && blackInput.value === 'AI') {
+                        blackInput.value = '';
+                    }
                 }
-                
-                // Hide error
                 if (errorDiv) errorDiv.style.display = 'none';
-                
-                nameInputs.style.display = 'flex';
+            }
+
+            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
+                if (!validatePlayerNames()) return;
+                const fen = welcomeFenInput?.value || null;
+                const started = await startNewGame('pvp', 'white', 'medium', fen);
+                if (!started) return;
+                welcomeOverlay.classList.remove('active');
+                gameLayout.style.visibility = 'visible';
             };
 
+            
+            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
+                modeSelection.style.display = 'none';
+                pveOptions.style.display = 'flex';
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+                    whiteInput.classList.remove('input-error');
+                }
+
+                if (blackInput) {
+                    blackInput.style.display = 'none';
+                    blackInput.value = 'AI';
+                    blackInput.classList.remove('input-error');
+                }
+
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+
+                nameInputs.style.display = 'flex';
+            };
+            
+            
+            if (backToModes) backToModes.onclick = () => {
+                prepareWelcomeForPvP(false);
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+
+                if (whiteInput) {
+                    whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
+                }
+
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.classList.remove('input-error');
+                }
+
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+            };
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
             colorBtns.forEach(btn => {
                 btn.onclick = () => {
@@ -1519,15 +1682,26 @@
     const data = await get('/api/state/');
 
     if (data.pgn) {
-        navigator.clipboard.writeText(data.pgn);
-
+        const blob = new Blob([data.pgn], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
         
+        const wName = whiteNameLabel ? whiteNameLabel.textContent : 'White';
+        const bName = blackNameLabel ? blackNameLabel.textContent : 'Black';
+        const date = new Date().toISOString().split('T')[0];
+        
+        a.download = `checkora_${wName}_vs_${bName}_${date}.pgn`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-        copyPgnBtn.textContent = 'Copied!';
+        copyPgnBtn.textContent = 'Downloaded!';
 
-        clearTimeout(pgnCopyTimeout);
+        clearTimeout(pgnDownloadTimeout);
 
-        pgnCopyTimeout = setTimeout(() => {
+        pgnDownloadTimeout = setTimeout(() => {
             copyPgnBtn.textContent = 'Export as PGN';
         }, 2000);
     }
@@ -1581,7 +1755,15 @@
                     confettiContainer.remove();
                 }
                 
-                requestNewGame('pvp');
+                showConfirm(
+                    "Abandon Game?",
+                    "Your current progress will be lost.<br>Are you sure you want to start a new game?",
+                    () => {
+                        prepareWelcomeForPvP(true);
+                        welcomeOverlay.classList.add('active');
+                    },
+                    '#ff6b6b'
+                );
             };
             
             if (newAIBtn) newAIBtn.onclick = () => {
@@ -1632,12 +1814,14 @@
             };
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         await post('/api/resign/', {});
+                        if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
                         endGame('resign', turn);
                     });
                 }
@@ -1647,7 +1831,10 @@
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
-                if (data.success) endGame('draw', turn, data.draw_reason);
+                if (data.success) {
+                    if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                    endGame('draw', turn, data.draw_reason);
+                }
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
@@ -1675,25 +1862,35 @@
             };
 
             // Theme Switcher
-            const themeBtns = document.querySelectorAll('.theme-btn');
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
-            themeBtns.forEach(btn => {
-                if (btn.dataset.theme === currentTheme) {
-                    btn.classList.add('active');
-                    btn.setAttribute('aria-pressed', 'true');
-                }
-                btn.onclick = () => {
-                    const theme = btn.dataset.theme;
-                    document.documentElement.setAttribute('data-theme', theme);
-                    localStorage.setItem('chessBoardTheme', theme);
-                    themeBtns.forEach(b => {
-                        b.classList.remove('active');
-                        b.setAttribute('aria-pressed', 'false');
-                    });
-                    btn.classList.add('active');
-                    btn.setAttribute('aria-pressed', 'true');
-                };
-            });
+            function initThemeSwitcher() {
+                const themeBtns = document.querySelectorAll('.theme-btn');
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
+                document.documentElement.setAttribute('data-theme', currentTheme);
+
+                themeBtns.forEach(btn => {
+                    if (btn.dataset.theme === currentTheme) {
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    }
+                    btn.onclick = () => {
+                        const theme = btn.dataset.theme;
+                        document.documentElement.setAttribute('data-theme', theme);
+                        localStorage.setItem('chessBoardTheme', theme);
+                        themeBtns.forEach(b => {
+                            b.classList.remove('active');
+                            b.setAttribute('aria-pressed', 'false');
+                        });
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    };
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initThemeSwitcher);
+            } else {
+                initThemeSwitcher();
+            }
 
     document.addEventListener('visibilitychange', async() => {
         if (document.hidden) {
@@ -1798,16 +1995,44 @@
                     drawBtn.click();
                 }
             });
-            // Show browser confirmation dialog if user tries to leave during an active game
-            window.addEventListener('beforeunload', (e) => {
-                if (!paused) {
-                    navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
-                }
-                if (!gameOver && !welcomeOverlay.classList.contains('active')) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
+            // Emote Logic
+            let emoteCooldown = false;
+            document.querySelectorAll('.emote-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (gameMode !== 'pvp') return;
+                    if (emoteCooldown) {
+                        showStatus('Emote cooldown (1s)', true);
+                        setTimeout(() => showStatus(''), 1000);
+                        return;
+                    }
+                    emoteCooldown = true;
+                    setTimeout(() => emoteCooldown = false, 1000);
+
+                    const emoteChar = e.currentTarget.getAttribute('data-emote');
+                    const emoteEl = document.createElement('div');
+                    emoteEl.className = 'floating-emote ' + (turn === 'white' ? 'white-emote' : 'black-emote');
+                    emoteEl.textContent = emoteChar;
+                    const boardOuter = document.querySelector('.board-outer');
+                    if (boardOuter) {
+                        boardOuter.appendChild(emoteEl);
+                        setTimeout(() => emoteEl.remove(), 2000);
+                    }
+                });
             });
+
+            // Show browser confirmation dialog if user tries to leave during an active game
+            // Skip beforeunload alert in Selenium tests to prevent UnexpectedAlertPresentException
+            if (!navigator.webdriver) {
+                window.addEventListener('beforeunload', (e) => {
+                    if (!paused) {
+                        navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+                    }
+                    if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                });
+            }
             
 
           if (typeof module !== "undefined" && module.exports) {
