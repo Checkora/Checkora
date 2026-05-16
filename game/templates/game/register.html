@@ -67,42 +67,56 @@
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>
     <script>
-      const usernameInput = document.querySelector('#id_username');
+        const usernameInput = document.querySelector('#id_username');
+        const checkUsernameUrl = "{% url 'check_username' %}";
 
-      if (usernameInput) {
-        let debounceTimer;
-        const feedback = document.createElement('span');
+        if (usernameInput) {
+            let debounceTimer;
+            let latestVal = '';
+            const feedback = document.createElement('span');
 
-        feedback.className = 'helptext';
-        usernameInput.parentNode.appendChild(feedback);
+            feedback.className = 'helptext';
+            usernameInput.parentNode.appendChild(feedback);
 
-        usernameInput.addEventListener('input', () => {
-          clearTimeout(debounceTimer);
+            usernameInput.addEventListener('input', () => { 
+                clearTimeout(debounceTimer);
+                const val = usernameInput.value.trim();
+                latestVal = val;  
 
-          const val = usernameInput.value.trim();
+                if (!val) {
+                    feedback.textContent = '';
+                    return;
+                }
 
-          if (!val) {
-            feedback.textContent = '';
-            return;
-          }
+                debounceTimer = setTimeout(async () => {
+                    if (val !== latestVal) return;  
 
-          debounceTimer = setTimeout(async () => {
-            const res = await fetch(
-              `/api/check-username/?username=${encodeURIComponent(val)}`
-            );
+                    try {  
+                        const res = await fetch(
+                        `${checkUsernameUrl}?username=${encodeURIComponent(val)}`
+                        );
 
-            const data = await res.json();
+                        if (!res.ok) throw new Error('Request failed');
 
-            feedback.textContent = data.available
-              ? '✔ Username available'
-              : '✖ Username already taken';
+                        const data = await res.json();
 
-            feedback.style.color = data.available
-              ? '#e5b639'
-              : '#e57373';
-          }, 400);
-        });
-      }
-    </script>  
+                        if (val !== latestVal) return;  
+
+                        feedback.textContent = data.available
+                        ? '✔ Username available'
+                        : '✖ Username already taken';
+
+                         feedback.style.color = data.available
+                        ? '#e5b639'
+                        : '#e57373';
+
+                    } catch (err) {
+                        feedback.textContent = '⚠ Could not check username';
+                        feedback.style.color = '#aaa';
+                    }
+                }, 400);
+            });
+        }
+    </script>
 </body>
 </html>
