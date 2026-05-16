@@ -29,21 +29,7 @@
         <form method="POST">
             {% csrf_token %}
 
-            {% if messages %}
-                <div class="message-list" role="alert">
-                    {% for message in messages %}
-                        <div class="message message-{{ message.tags }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-            
-        {% if messages %}
-          <div class="message-list" role="alert">
-            {% for message in messages %}
-              <div class="message message-{{ message.tags }}">{{ message }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
+            {% include 'game/includes/messages.html' %}
 
         {% if form.non_field_errors %}
           {{ form.non_field_errors }}

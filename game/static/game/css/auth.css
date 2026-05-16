@@ -327,3 +327,42 @@ body.login-page .helptext {
 @keyframes fade-out {
     to { opacity: 0; height: 0; padding: 0; margin: 0; }
 }
+
+/* ── Toast Notifications ── */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.toast {
+    background: #16162a;
+    color: #fff;
+    padding: 16px 20px;
+    border-radius: 8px;
+    border-left: 4px solid #f0c040;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    font-size: 0.95rem;
+    animation: toast-enter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    display: flex;
+    align-items: center;
+    max-width: calc(100vw - 40px);
+}
+.toast-success { border-left-color: #4caf50; }
+.toast-error { border-left-color: #ff6b6b; }
+.toast-warning { border-left-color: #f0c040; }
+
+@keyframes toast-enter {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+.toast-exit {
+    animation: toast-exit-anim 0.4s ease forwards !important;
+}
+@keyframes toast-exit-anim {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
