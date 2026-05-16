@@ -147,6 +147,7 @@
             const startAIBtn = document.getElementById('startAIBtn');
             const backToModes = document.getElementById('backToModes');
             const gameLayout = document.querySelector('.game-layout');
+            const nameInputs = document.getElementById('nameInputs'); 
 
             const confirmOverlay = document.getElementById('confirmOverlay');
             const confirmTitle = document.getElementById('confirmTitle');
