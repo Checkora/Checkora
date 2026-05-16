@@ -1,5 +1,7 @@
 """Game views for the Checkora chess platform."""
 
+from game.services import cleanup_stale_games
+import secrets as secrets_module
 import copy
 import json
 import logging
@@ -30,9 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 def _count_legal_moves(game):
-    return sum(
-        len(game.get_valid_moves(row, col)) for row in range(8) for col in range(8)
-    )
+    return sum(len(game.get_valid_moves(row, col))
+               for row in range(8) for col in range(8))
 
 
 def landing(request):
@@ -174,8 +175,10 @@ def new_game(request):
             return fallback
         return name
 
-    request.session["white_name"] = _clean_name(data.get("white_name"), "White")
-    request.session["black_name"] = _clean_name(data.get("black_name"), "Black")
+    request.session["white_name"] = _clean_name(
+        data.get("white_name"), "White")
+    request.session["black_name"] = _clean_name(
+        data.get("black_name"), "Black")
     request.session["difficulty"] = difficulty
     request.session["player_color"] = player_color
 
@@ -509,7 +512,8 @@ def hint_move(request):
     game_data = request.session.get("game")
 
     if not game_data:
-        return JsonResponse({"valid": False, "message": "No active game."}, status=400)
+        return JsonResponse(
+            {"valid": False, "message": "No active game."}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
@@ -569,14 +573,14 @@ def hint_move(request):
             game.game_status,
             game.draw_reason,
         )
-        return JsonResponse({"valid": False, "message": "No legal moves available."})
+        return JsonResponse(
+            {"valid": False, "message": "No legal moves available."})
 
     request.session["hint_count"] = hint_count + 1
     request.session.modified = True
 
-    logger.debug(
-        "Hint returned: best=%s, new_hint_count=%s", best, request.session["hint_count"]
-    )
+    logger.debug("Hint returned: best=%s, new_hint_count=%s",
+                 best, request.session["hint_count"])
 
     return JsonResponse(
         {
@@ -605,7 +609,12 @@ def offer_draw(request):
         game.draw_reason = "agreement"
         request.session["game"] = game.to_dict()
         request.session.modified = True
-        record_game_result(request, game.mode, "draw", "agreement", game.player_color)
+        record_game_result(
+            request,
+            game.mode,
+            "draw",
+            "agreement",
+            game.player_color)
         return JsonResponse(
             {
                 "success": True,
@@ -666,7 +675,8 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session["registration_user_id"] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
+            # Hash OTP with SECRET_KEY as salt to prevent reading from signed
+            # cookies
             otp_hash = hashlib.sha256(
                 f"{otp}:{settings.SECRET_KEY}".encode()
             ).hexdigest()
@@ -773,7 +783,8 @@ def verify_otp(request):
                 return redirect("index")
 
             except User.DoesNotExist:
-                messages.error(request, "User not found. Please register again.")
+                messages.error(
+                    request, "User not found. Please register again.")
                 return redirect("register")
         else:
             messages.error(request, "Invalid OTP. Please try again.")
@@ -854,11 +865,6 @@ def stats_view(request):
     )
 
 
-import secrets as secrets_module
-from django.views.decorators.http import require_POST
-from game.services import cleanup_stale_games
-
-
 @require_POST
 @csrf_exempt
 def cleanup_cron(request):
@@ -870,13 +876,14 @@ def cleanup_cron(request):
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
 
-    if not cron_secret or not secrets_module.compare_digest(expected, provided):
+    if not cron_secret or not secrets_module.compare_digest(
+            expected, provided):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
     try:
         deleted, resigned = cleanup_stale_games()
-        return JsonResponse(
-            {"status": "success", "deleted_games": deleted, "resigned_games": resigned}
-        )
+        return JsonResponse({"status": "success",
+                             "deleted_games": deleted,
+                             "resigned_games": resigned})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)

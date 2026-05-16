@@ -15,11 +15,17 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='gameresult',
-            options={'ordering': ['-played_at']},
+            options={
+                'ordering': ['-played_at']},
         ),
         migrations.AddField(
             model_name='gameresult',
             name='user',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='game_results', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name='game_results',
+                to=settings.AUTH_USER_MODEL),
         ),
     ]

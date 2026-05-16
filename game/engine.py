@@ -313,7 +313,12 @@ DP cache is intentionally excluded to save cookie space."""
             timeout = base_timeout * (2 ** (attempt - 1))
             proc = None
             try:
-                logger.debug('Calling engine (attempt %s/%s, timeout=%ss): %s', attempt, attempts, timeout, command)
+                logger.debug(
+                    'Calling engine (attempt %s/%s, timeout=%ss): %s',
+                    attempt,
+                    attempts,
+                    timeout,
+                    command)
                 proc = subprocess.Popen(
                     self._build_engine_command(engine_path),
                     stdin=subprocess.PIPE,
@@ -321,7 +326,8 @@ DP cache is intentionally excluded to save cookie space."""
                     stderr=subprocess.PIPE,
                     text=True,
                 )
-                stdout, stderr = proc.communicate(input=command, timeout=timeout)
+                stdout, stderr = proc.communicate(
+                    input=command, timeout=timeout)
                 if stderr:
                     logger.debug('Engine stderr: %s', stderr.strip())
                 resp = stdout.strip()
@@ -329,7 +335,11 @@ DP cache is intentionally excluded to save cookie space."""
                 return resp
 
             except subprocess.TimeoutExpired:
-                logger.exception('Engine call timed out (attempt %s/%s) for command: %s', attempt, attempts, command)
+                logger.exception(
+                    'Engine call timed out (attempt %s/%s) for command: %s',
+                    attempt,
+                    attempts,
+                    command)
                 # Try to terminate the process and capture any partial output
                 try:
                     if proc:
@@ -339,8 +349,12 @@ DP cache is intentionally excluded to save cookie space."""
                 try:
                     if proc:
                         out, err = proc.communicate(timeout=1)
-                        logger.debug('Partial stdout after timeout: %s', (out or '').strip())
-                        logger.debug('Partial stderr after timeout: %s', (err or '').strip())
+                        logger.debug(
+                            'Partial stdout after timeout: %s',
+                            (out or '').strip())
+                        logger.debug(
+                            'Partial stderr after timeout: %s',
+                            (err or '').strip())
                 except Exception:
                     pass
 
@@ -349,7 +363,8 @@ DP cache is intentionally excluded to save cookie space."""
                 logger.debug('Retrying engine command: %s', command)
 
             except OSError:
-                logger.exception('Engine call failed (OSError) for command: %s', command)
+                logger.exception(
+                    'Engine call failed (OSError) for command: %s', command)
                 return None
 
         return None
@@ -669,9 +684,9 @@ DP cache is intentionally excluded to save cookie space."""
             for i in range(0, len(parts), 4):
                 moves.append({
                     'row': int(parts[i]),
-                    'col': int(parts[i+1]),
-                    'is_capture': bool(int(parts[i+2])),
-                    'is_promotion': bool(int(parts[i+3])),
+                    'col': int(parts[i + 1]),
+                    'is_capture': bool(int(parts[i + 2])),
+                    'is_promotion': bool(int(parts[i + 3])),
                 })
         return moves
 
@@ -838,7 +853,11 @@ DP cache is intentionally excluded to save cookie space."""
 
         logger.debug(
             'check_game_status: current_turn=%s, fen=%s, rights=%s, ep=%s, legal_moves=%s',
-            self.current_turn, self.generate_fen_key(), rights_str, ep_str, legal_moves,
+            self.current_turn,
+            self.generate_fen_key(),
+            rights_str,
+            ep_str,
+            legal_moves,
         )
 
         resp = self._call_engine(cmd)
@@ -964,7 +983,7 @@ DP cache is intentionally excluded to save cookie space."""
 
         if depth is None:
             depth = self._get_ai_search_depth()
-            
+
         ep_str = self._serialize_ep()
         cmd = (
             f"BESTMOVE {board_str} {rights_str}"
@@ -988,7 +1007,10 @@ DP cache is intentionally excluded to save cookie space."""
                 'to_row': int(parts[3]),
                 'to_col': int(parts[4]),
             }
-            logger.debug('get_ai_move selected: %s (engine resp: %s)', best, resp)
+            logger.debug(
+                'get_ai_move selected: %s (engine resp: %s)',
+                best,
+                resp)
             return best
         except (ValueError, IndexError):
             logger.exception('Failed to parse BESTMOVE response: %s', resp)
