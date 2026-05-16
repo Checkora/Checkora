@@ -66,6 +66,7 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 | Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                                      |
 | Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
 | Game Timer           | Per-player countdown clocks with pause support                                                      |
+| Material Score Panel | Live material advantage tracking that updates dynamically during gameplay                           |
 | REST API             | Clean JSON endpoints powering a decoupled frontend                                                  |
 | PvP & PvE Modes      | Play against a friend or challenge the AI                                                           |
 

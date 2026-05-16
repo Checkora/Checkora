@@ -1275,3 +1275,50 @@ body {
         transform: translateY(-100px) scale(1);
     }
 }
+
+.score-panel {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.score-box {
+    background: #141638;
+
+    border: 1px solid #d4af37;
+
+    border-radius: 10px;
+
+    padding: 8px 16px;
+
+    min-width: 80px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-label {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.score-box span:last-child {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #f5d76e;
+}
+
+@media (max-width: 600px) {
+    .score-panel {
+        gap: 8px;
+    }
+
+    .score-box {
+        min-width: 65px;
+        padding: 6px 10px;
+    }
+}
