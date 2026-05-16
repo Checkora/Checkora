@@ -1222,12 +1222,18 @@
         const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
         // Player clock — update time and highlight on their turn
-        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+if (playerClock) {
+    playerClock.classList.toggle('active', turn === playerColor);
+    playerClock.classList.remove('low');
+}
 
-        // AI clock — static, never highlights, never updates time
-        if (aiTimeEl) aiTimeEl.textContent = '🤖';
-        if (aiClock) aiClock.classList.remove('active');
+// AI clock — static, never highlights, never updates time
+if (aiTimeEl) aiTimeEl.textContent = '🤖';
+if (aiClock) {
+    aiClock.classList.remove('active');
+    aiClock.classList.remove('low');
+}
 
     } else {
         // PvP — both clocks update normally
