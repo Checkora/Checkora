@@ -4,6 +4,15 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+             const MATERIAL_VALUES = {
+                  p: 1,
+                  n: 3,
+                  b: 3,
+                  r: 5,
+                  q: 9,
+                  k: 0
+             };
+
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
@@ -193,6 +202,39 @@
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
+            function calculateMaterial(board) {
+                let white = 0;
+                let black = 0;
+            
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = board[r][c];
+                        if (!piece) continue;
+            
+                        const value = MATERIAL_VALUES[piece.toLowerCase()] || 0;
+                       if (piece === piece.toUpperCase()) {
+                     white += value;
+                    } 
+                     else {
+                      black += value;
+                     }
+                 }
+                } 
+            
+                return {
+                    white,
+                    black
+                            };
+            }
+
+            function updateMaterialUI(board) {
+                const { white, black } = calculateMaterial(board);
+
+              document.getElementById("whiteScore").innerText = white;
+
+              document.getElementById("blackScore").innerText = black;
+            }
+            
             function csrf() {
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
                 return m ? decodeURIComponent(m[1]) : '';
@@ -536,6 +578,7 @@
                 }
                 refreshHighlights();
                 markPlayable();
+                updateMaterialUI(board);
             }
 
             function markPlayable() {
@@ -764,7 +807,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
-
+                            updateMaterialUI(board);
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -823,7 +866,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
-
+                            updateMaterialUI(board);
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -957,8 +1000,13 @@
             }
 
             function showStatus(msg, err) {
-                statusEl.textContent = msg;
-                statusEl.className = 'status-bar' + (err ? ' error' : '');
+                const gameStatusEl = document.getElementById("game-status");
+
+                   if (gameStatusEl) {
+                       gameStatusEl.textContent = msg;
+                   }
+               
+                   statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
             function handleGameStatus(status, drawReason) {
