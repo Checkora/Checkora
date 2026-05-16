@@ -159,7 +159,7 @@ jobs:
         run: |
           # set -o pipefail ensures test failures aren't swallowed by tee
           set -o pipefail
-          python manage.py test game --verbosity=2 2>&1 | tee test_output.txt
+          python manage.py test game.tests --verbosity=2 2>&1 | tee test_output.txt
 
       - name: 📋 Print test summary to Actions UI
         if: always()
@@ -266,6 +266,73 @@ jobs:
         # Non-zero exit = vulnerabilities found → fails CI
         # Remove the next line if you want warnings-only mode:
         continue-on-error: false
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 6 — Selenium E2E Tests
+# ───────────────────────────────────────────────────────────────────
+  selenium-tests:
+    name: 🌐 Selenium E2E Tests
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-selenium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-selenium-${{ runner.os }}-
+
+      - name: 📥 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔧 Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: 📦 Collect static files
+        run: python manage.py collectstatic --noinput
+
+      - name: 🧪 Run Selenium E2E Tests
+        id: selenium_test
+        run: |
+          set -o pipefail
+          python manage.py test game.selenium_tests -v 2 2>&1 | tee selenium_output.txt
+
+      - name: 📋 Print E2E test summary
+        if: always()
+        run: |
+          echo "## 🌐 Selenium E2E Test Results — $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test suites:** UITest (9 tests), NavigationTest (11 tests)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Output (last 30 lines)" >> $GITHUB_STEP_SUMMARY
+          if [ -f selenium_output.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -30 selenium_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📤 Upload Selenium test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-output-${{ github.run_id }}
+          path: selenium_output.txt
+          if-no-files-found: ignore
+          retention-days: 7
 
 # ───────────────────────────────────────────────────────────────────
 # NOTE: Deployment is handled natively by Vercel's GitHub integration.
