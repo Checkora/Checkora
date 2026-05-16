@@ -358,7 +358,6 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-
     # Depth Mapping
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
@@ -423,7 +422,6 @@ def ai_move(request):
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
     )
-    
     
     if success:
         request.session['game'] = game.to_dict()
@@ -537,8 +535,6 @@ def hint_move(request):
         'remaining_hints': max(0, 3 - request.session['hint_count']),
     })    
     
-
-
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
