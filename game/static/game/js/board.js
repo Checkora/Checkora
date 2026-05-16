@@ -1511,6 +1511,7 @@
                 gameLayout.style.visibility = 'visible';
             };
 
+            
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
@@ -1548,6 +1549,7 @@
 
                 if (blackInput) {
                     blackInput.style.display = 'none';
+                    blackInput.value = 'AI';
                     blackInput.classList.remove('input-error');
                 }
 
@@ -1557,6 +1559,8 @@
 
                 nameInputs.style.display = 'flex';
             };
+            
+            
             if (backToModes) backToModes.onclick = () => {
                 prepareWelcomeForPvP(false);
             };
@@ -1579,7 +1583,6 @@
                     errorDiv.style.display = 'none';
                 }
             };
-            
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
             colorBtns.forEach(btn => {
                 btn.onclick = () => {
