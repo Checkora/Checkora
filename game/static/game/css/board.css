@@ -11,6 +11,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* ============================================================
@@ -166,6 +168,9 @@ body {
     color: #6a6a8a;
     margin-bottom: 8px;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .fen-input-group {
@@ -643,74 +648,71 @@ body {
 @media (max-width: 768px) {
     :root {
         --board-border-width: 3px;
-        --mobile-board-size: min(calc(100vw - 52px), 480px);
+        --mobile-board-size: min(calc(100vw - 64px), 480px);
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
     }
 
     .header {
-        padding: 16px 0 10px;
+        padding: 12px 10px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 12px;
+        width: 100%;
+        gap: 10px;
     }
+
     .logo-container {
         gap: 6px;
+        margin-bottom: 4px;
     }
-    
-    /*.logo-icon {
-        font-size: 1.1rem;
-    }*/
     
     .logo-text {
-        font-size: 1.4rem;
+        font-size: 1.3rem;
     }
-    
+
     .auth-buttons {
         position: relative;
         right: auto;
         top: auto;
         transform: none;
-    }
-    .header h1 {
-        font-size: 1.5rem;
-        margin: 0;
+        gap: 8px;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        width: 100%;
+        flex-wrap: wrap;
     }
 
-    .auth-buttons {
-        position: relative;
-        right: auto;
-        top: auto;
-        gap: 10px;
-        flex-wrap: wrap;
-        justify-content: center;
-        flex-wrap: wrap;
-        justify-content: center;
+    .welcome-msg {
+        display: none; /* Hide on very small screens to save space */
     }
 
     .game-layout {
         width: 100%;
-        gap: 16px;
-        padding: 10px 12px 24px;
-    }
-
-    .panel,
-    .board-container {
-        width: 100%;
-        max-width: 100%;
+        gap: 20px;
+        padding: 10px 8px 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     .panel {
-        flex-direction: column;
+        width: 100%;
+        max-width: var(--mobile-board-size);
+        order: 2; /* Put panels below board by default */
+        padding: 0 4px;
     }
 
-    .panel .card {
-        min-width: 0;
+    .board-container {
+        width: 100%;
+        max-width: 100%;
+        order: 1;
     }
 
     .board-outer {
-        width: 100%;
-        max-width: calc(100vw - 24px);
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto;
     }
 
     .chessboard {
@@ -726,16 +728,23 @@ body {
         height: 100%;
     }
 
+    .ranks {
+        padding-right: 4px;
+    }
+
     .ranks span {
         height: var(--mobile-square-size);
+        width: 16px;
+        font-size: 0.65rem;
     }
 
     .files {
-        padding-left: 24px;
+        padding-left: 20px;
     }
 
     .files span {
         width: var(--mobile-square-size);
+        font-size: 0.65rem;
     }
 
     .piece {
@@ -744,38 +753,60 @@ body {
     }
 
     .capture-ring {
-        width: 96%;
-        height: 96%;
+        width: 85%;
+        height: 85%;
     }
 
     .move-dot {
-        width: 28%;
-        height: 28%;
-    }
-
-    .capture-ring {
-        border-width: max(3px, 0.08rem);
+        width: 25%;
+        height: 25%;
     }
 
     .clocks {
-        width: 100%;
+        width: var(--mobile-board-size);
+        margin: 0 0 10px;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .clock {
-        padding: 12px;
+        padding: 6px 12px;
+        min-width: 0;
+        width: 100%;
+        justify-content: space-between;
     }
 
     .clock .time {
-        font-size: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .clock .label {
+        font-size: 0.55rem;
     }
 
     .btn {
-        min-height: 44px;
+        min-height: 42px;
+        font-size: 0.8rem;
     }
 
-    .turn-badge,
-    #pauseBtn {
-        width: 100%;
+    /* Move history specific mobile tweaks */
+    .moves-list {
+        max-height: 200px;
+    }
+
+    .captured-img {
+        width: 22px;
+        height: 22px;
+    }
+
+    .logo-icon-img {
+        height: 32px;
+    }
+
+    .turn-badge {
+        width: var(--mobile-board-size);
+        padding: 6px 12px;
+        font-size: 0.8rem;
     }
 }
 
@@ -887,9 +918,14 @@ body {
     background: #1a1a30;
     border: 2px solid #f0c040;
     border-radius: 12px;
-    padding: 24px 28px;
+    padding: clamp(16px, 5vw, 32px);
     text-align: center;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+    width: 90%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
 }
 
 .promo-title {
