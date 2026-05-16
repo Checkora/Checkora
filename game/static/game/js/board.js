@@ -1911,6 +1911,9 @@
                 } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
                     e.preventDefault();
                     drawBtn.click();
+                } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none' && !pauseBtn.disabled) {
+                    e.preventDefault();
+                    pauseBtn.click();
                 }
             });
             // Emote Logic
