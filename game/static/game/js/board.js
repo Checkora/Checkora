@@ -466,7 +466,7 @@
                 
                 if (gameMode === 'ai'){
                     const diffLabel = (currentDifficulty || 'medium').toUpperCase();
-                    let player_name = data.white_name;
+                    const player_name = playerColor === 'white' ? data.white_name : data.black_name;
                     if(playerColor === 'white'){
                         wName = player_name;
                         bName = `AI (Black)`;
@@ -487,6 +487,7 @@
                             const badge = document.createElement('span');
                             badge.textContent = diffLabel;
                             badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:1.20em; letter-spacing:1px;';
+                            badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
                             aiLabel.appendChild(textNode);
                             aiLabel.appendChild(badge);
                         }
