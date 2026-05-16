@@ -1236,10 +1236,10 @@
         if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
         if (blackClock) blackClock.classList.toggle('active', turn === 'black');
         if (whiteClock) {
-               whiteClock.classList.toggle('low', whiteTime <= 60 && whiteTime > 0 && turn===            'white');
+    whiteClock.classList.toggle('low', whiteTime <= 60 && whiteTime > 0);
 }
-      if (blackClock) {
-    blackClock.classList.toggle('low', blackTime <= 60 && blackTime > 0 && turn === 'black');
+if (blackClock) {
+    blackClock.classList.toggle('low', blackTime <= 60 && blackTime > 0);
 }
     }
                 const wYou = document.getElementById('whiteYouTag');
