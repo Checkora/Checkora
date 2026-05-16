@@ -1212,17 +1212,18 @@
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
-                
-                // Show ONLY white input for AI mode
+                const previousName = whiteInput.value.trim();
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
-                    whiteInput.placeholder = 'Your Name';
-                    whiteInput.value = '';
+                    whiteInput.placeholder = "Your Name";
                     whiteInput.classList.remove('input-error');
+                    if (previousName !== "") {
+                        whiteInput.value = previousName;
+                    }
                 }
+
                 if (blackInput) {
                     blackInput.style.display = 'none';
-                    blackInput.value = 'AI';
                     blackInput.classList.remove('input-error');
                 }
                 
@@ -1238,7 +1239,8 @@
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
-                
+                blackInput.style.display = "block";
+                whiteInput.style.display = "White Player Name";
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
                 
