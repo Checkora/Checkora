@@ -308,9 +308,6 @@ body {
     color: var(--accent-gold);
 }
 
-/* ═══════════════════════════════════════════════
-   FOOTER — Premium Redesign
-   ═══════════════════════════════════════════════ */
 
 .footer {
     width: 100%;
@@ -343,7 +340,9 @@ body {
 }
 
 .footer-main {
-    padding: 3.5rem 5% 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3.5rem 4rem 2rem;
 }
 
 .footer-container {
@@ -527,6 +526,15 @@ body {
     color: #2ecc71;
     letter-spacing: 0.5px;
     width: fit-content;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.footer-badge:hover {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.08));
+    border-color: rgba(46, 204, 113, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.15);
 }
 
 .badge-dot {
@@ -548,10 +556,12 @@ body {
    ═══════════════════════════════════════════════ */
 
 .footer-bottom {
+    max-width: 1200px;
+    margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 5%;
+    padding: 1.5rem 4rem;
 }
 
 .footer-bottom-wrap {
@@ -689,7 +699,6 @@ body {
 @media (max-width: 600px) {
     .footer {
         margin-top: 3rem;
-        border-radius: 16px 16px 0 0;
     }
 
     .footer-main {
