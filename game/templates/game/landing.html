@@ -59,7 +59,7 @@
                 <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
             </a>
             <div class="nav-links" id="nav-links">
-                <a href="#hero">About</a>
+                <a href="#about">About</a>
                 <a href="#features">Features</a>
                 <a href="{% url 'rules' %}">Rulebook</a>
             </div>
@@ -86,7 +86,7 @@
     <!-- Mobile overlay menu -->
     <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
     <div class="mobile-menu" id="mobile-menu">
-        <a href="#hero" class="mobile-menu-link" onclick="closeMobileMenu()">About</a>
+        <a href="#about" class="mobile-menu-link" onclick="closeMobileMenu()">About</a>
         <a href="#features" class="mobile-menu-link" onclick="closeMobileMenu()">Features</a>
         <a href="{% url 'rules' %}" class="mobile-menu-link">Rulebook</a>
         <div class="mobile-menu-divider"></div>
@@ -103,14 +103,72 @@
     </div>
 
     <main class="hero" id="hero">
-        <h1 class="hero-title">Master Chess with Checkora's Hybrid Intelligence</h1>
-        <p class="hero-subtitle">A lightweight Django frontend orchestrating Python logic with a high-performance C++
-            minimax engine.</p>
+        <!-- Floating chess pieces background -->
+        <div class="hero-chess-bg" aria-hidden="true">
+            <span class="floating-piece fp-1">♔</span>
+            <span class="floating-piece fp-2">♛</span>
+            <span class="floating-piece fp-3">♞</span>
+            <span class="floating-piece fp-4">♜</span>
+            <span class="floating-piece fp-5">♝</span>
+            <span class="floating-piece fp-6">♟</span>
+        </div>
+
+        <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            Open Source &bull; Free Forever
+        </div>
+        <h1 class="hero-title">Your Next Move<br><span class="hero-title-accent">Starts Here</span></h1>
+        <p class="hero-subtitle">Challenge Checkora's hybrid AI engine — where Python strategy meets C++ speed. Play, learn, and master the 64 squares.</p>
         <div class="hero-actions">
-            <a href="{% url 'index' %}" class="btn-primary">Start Game</a>
-            <a href="#features" class="btn-secondary">Learn More</a>
+            <a href="{% url 'index' %}" class="btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Play Now
+            </a>
+            <a href="#about" class="btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                Learn More
+            </a>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="hero-stat-number">♟ C++</span>
+                <span class="hero-stat-label">Minimax Engine</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <span class="hero-stat-number">♔ PvE</span>
+                <span class="hero-stat-label">Play vs AI</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <span class="hero-stat-number">⚡ Fast</span>
+                <span class="hero-stat-label">Hybrid Architecture</span>
+            </div>
         </div>
     </main>
+
+    <!-- About Section -->
+    <section id="about" class="about-section">
+        <h2 class="section-title">About Checkora</h2>
+        <p class="about-intro">Checkora is an open-source chess platform built for players, learners, and developers. Our dual-engine architecture combines the best of both worlds.</p>
+        <div class="about-grid">
+            <div class="about-card">
+                <div class="about-card-icon">🧠</div>
+                <h3>Hybrid Intelligence</h3>
+                <p>A high-performance C++ minimax engine handles AI computation, while Python orchestrates game logic, authentication, and state management via Django.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-icon">🛡️</div>
+                <h3>Crash-Proof Design</h3>
+                <p>If the C++ binary can't run on a server, Checkora automatically falls back to an identical Python engine — so your game never crashes.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-icon">🌍</div>
+                <h3>Open Source & GSSoC</h3>
+                <p>Built by contributors worldwide under GSSoC 2026. Fork it, improve it, and contribute — everyone is welcome to shape the future of Checkora.</p>
+            </div>
+        </div>
+    </section>
 
     <section id="features" class="features">
         <h2 class="section-title">Why Checkora</h2>
