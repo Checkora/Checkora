@@ -465,7 +465,7 @@
                 let bName = data.black_name || 'Black';
                 
                 if (gameMode === 'ai'){
-                    const diffLabel = (currentDifficulty || 'medium').charAt(0).toUpperCase() + (currentDifficulty || 'medium').slice(1);
+                    const diffLabel = (currentDifficulty || 'medium').toUpperCase();
                     let player_name = data.white_name;
                     if(playerColor === 'white'){
                         wName = player_name;
@@ -478,11 +478,17 @@
                 
                     // Inject difficulty badge after names are set
                     setTimeout(() => {
-                        const aiLabel = playerColor === 'white' 
-                            ? document.getElementById('blackNameLabel')
-                            : document.getElementById('whiteNameLabel');
+                        const aiLabel = playerColor === 'white'? document.getElementById('blackNameLabel')
+                        : document.getElementById('whiteNameLabel');
                         if (aiLabel) {
-                            aiLabel.innerHTML = `${aiLabel.textContent} <span style="color:#f0c040; font-weight:700; font-size:1.35em;">${diffLabel}</span>`;
+                            const base = aiLabel.textContent || '';
+                            aiLabel.textContent = `${base} `;
+                            const badge = document.createElement('span');
+                            badge.style.color = '`#f0c040`';
+                            badge.style.fontWeight = '700';
+                            badge.style.fontSize = '1.35em';
+                            badge.textContent = diffLabel;
+                            aiLabel.appendChild(badge);
                         }
                     }, 0);
                 }
