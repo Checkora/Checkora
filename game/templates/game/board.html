@@ -309,7 +309,7 @@
                     <button class="btn btn-gold" id="pauseBtn">Pause</button>
                     <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
                     <button class="btn btn-gold" style="width: 100%;"
-                        onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+                       onclick="document.getElementById('rulebookModal').style.display='flex'; document.getElementById('rulebookFrame').src='/rules/';""
                 </div>
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
                     ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
@@ -479,7 +479,7 @@
             style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
             <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
                 style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
-            <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
+            <iframe id="rulebookFrame" src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
         </div>
     </div>
     <div id="toast-container" class="toast-container"></div>
