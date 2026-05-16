@@ -1,6 +1,11 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    height: 100%;
+    scroll-behavior: smooth;
+}
+
 body {
     background-color: #0f0f1a;
     color: #d0d0d0;
@@ -10,6 +15,7 @@ body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    padding: 40px 20px;
     overflow-x: hidden;
 }
 /* .header { margin-bottom: 30px; text-align: center; } */
@@ -25,6 +31,7 @@ body {
     align-items: center;
     justify-content: center;
     width: 100%;
+    max-width: 580px;
     text-align: center;
 }
 
@@ -77,28 +84,28 @@ body {
     background: #16162a;
     border: 1px solid #252545;
     border-radius: 12px;
-    padding: 30px 35px;
+    padding: 50px 60px;
     width: 100%;
-    max-width: 400px;
+    max-width: 580px;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
 }
 
 .form-group { margin-bottom: 20px; }
 .form-group label {
     display: block;
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: #8a8aaa;
     margin-bottom: 8px;
     letter-spacing: 0.5px;
 }
 .form-group input {
     width: 100%;
-    padding: 12px 14px;
+    padding: 16px 18px;
     background: #0f0f1a;
     border: 1px solid #333;
     border-radius: 6px;
     color: #fff;
-    font-size: 1rem;
+    font-size: 1.1rem;
     transition: all 0.2s ease;
 }
 .form-group input:focus {
@@ -108,10 +115,22 @@ body {
 }
 
 .helptext {
-    font-size: 0.75rem;
-    color: #6a6a8a;
+    font-size: 0.82rem;
+    color: #9a9abb;
     margin-top: 6px;
     display: block;
+    line-height: 1.5;
+}
+
+.helptext ul {
+    padding-left: 16px;
+    margin-top: 6px;
+}
+
+.helptext li {
+    font-size: 0.82rem;
+    color: #9a9abb;
+    line-height: 1.8;
 }
 .errorlist {
     list-style: none;
@@ -146,10 +165,10 @@ body {
 
 .btn {
     width: 100%;
-    padding: 12px 0;
+    padding: 14px 0;
     border: none;
     border-radius: 6px;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 600;
     cursor: pointer;
     letter-spacing: 0.5px;
@@ -194,7 +213,7 @@ body {
 .auth-footer {
     margin-top: 25px;
     text-align: center;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: #8a8aaa;
 }
 .auth-footer a {
@@ -365,4 +384,10 @@ body.login-page .helptext {
 @keyframes toast-exit-anim {
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(100%); opacity: 0; }
+}
+
+@media (max-width: 600px) {
+    .auth-card {
+        padding: 30px 20px;
+    }
 }
