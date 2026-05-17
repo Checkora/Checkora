@@ -140,6 +140,97 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
+    )
+    def test_duplicate_email_rejected(self):
+        """Registration must fail when email is already taken."""
+        User.objects.create_user(
+            username='existing', email='taken@example.com', password='Pass123!'
+        )
+        payload = {
+            'username': 'newuser',
+            'email': 'taken@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+        response = self.client.post('/register/', data=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'An account with this email already exists. Please log in instead.'
+        )
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
+    )
+    def test_duplicate_email_case_insensitive(self):
+        """Email uniqueness check must be case-insensitive."""
+        User.objects.create_user(
+            username='existing', email='Player@Example.com', password='Pass123!'
+        )
+        payload = {
+            'username': 'newuser',
+            'email': 'player@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+        response = self.client.post('/register/', data=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'An account with this email already exists. Please log in instead.'
+        )
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
+    )
+    def test_unique_email_succeeds(self):
+        """Registration with a fresh email must still work normally."""
+        User.objects.create_user(
+            username='existing', email='old@example.com', password='Pass123!'
+        )
+        payload = {
+            'username': 'brandnew',
+            'email': 'fresh@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+        with mock.patch('builtins.print'):
+            response = self.client.post('/register/', data=payload, follow=True)
+        self.assertRedirects(response, '/verify-otp/')
+        self.assertTrue(User.objects.filter(username='brandnew').exists())
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
+    )
+    def test_duplicate_email_does_not_create_user(self):
+        """No new User row should be created when email is duplicate."""
+        User.objects.create_user(
+            username='first', email='dup@example.com', password='Pass123!'
+        )
+        initial_count = User.objects.count()
+        payload = {
+            'username': 'second',
+            'email': 'dup@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+        self.client.post('/register/', data=payload)
+        self.assertEqual(User.objects.count(), initial_count)
+
+
+
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
 
