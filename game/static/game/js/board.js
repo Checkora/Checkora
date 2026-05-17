@@ -4,10 +4,19 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+            let pieceTheme = localStorage.getItem("pieceTheme") || "classic";
             const PIECE_IMG = {};
-            for (const c of ['w', 'b'])
-                for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
-                    PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
+            function loadPieceTheme() {
+                for (const c of ['w', 'b']) {
+                    for (const t of ['k', 'q', 'r', 'b', 'n', 'p']) {
+                        PIECE_IMG[c + t] =
+                            `/static/game/pieces/${pieceTheme}/${c}${t}.svg`;
+                    }
+                }
+
+            }
+
+            loadPieceTheme();
 
             let board = [];
             let turn = 'white';
@@ -1158,9 +1167,19 @@
                     }));
                 }
             });
-
+            const pieceThemeSelect = document.getElementById("pieceTheme");
+            if (pieceThemeSelect) {
+                pieceThemeSelect.value = pieceTheme;
+                pieceThemeSelect.addEventListener("change", (e) => {
+                    pieceTheme = e.target.value;
+                    localStorage.setItem("pieceTheme", pieceTheme);
+                    loadPieceTheme();
+                    syncPieces();
+                });
+        }
             /* ==========================================================
             INIT
             ========================================================== */
+            
             loadGame();
         })();
