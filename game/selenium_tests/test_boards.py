@@ -2,7 +2,7 @@
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from .base import BaseE2ETest, log_ok, log_fail, log_info
+from .base import BaseE2ETest, log_ok, log_info
 
 
 class UITest(BaseE2ETest):
@@ -64,6 +64,7 @@ class UITest(BaseE2ETest):
             len(squares),
             64,
             f"Expected 64 squares, got {len(squares)}"
+        )
         log_ok("64 squares found")
 
         pieces = board.find_elements(By.TAG_NAME, 'img')
@@ -88,7 +89,7 @@ class UITest(BaseE2ETest):
         self.assertTrue(black_time.is_displayed())
         log_ok(
             f"White timer: {white_time.text} | Black timer: {black_time.text}"
-            )
+        )
 
     # ───────────────────────────────────────────────────────────────
     # Test 5: Login Page
@@ -170,5 +171,7 @@ class UITest(BaseE2ETest):
             len(theme_btns),
             4,
             f"Expected 4 theme buttons, got {len(theme_btns)}"
-            )
-        log_ok(f"{len(theme_btns)} theme buttons found")
+        )
+        log_ok(
+            f"{len(theme_btns)} theme buttons found"
+        )

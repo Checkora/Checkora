@@ -683,8 +683,8 @@ def register_view(request):
             request.session["registration_otp_hash"] = otp_hash
 
             missing_email_credentials = (
-                not settings.EMAIL_HOST_USER or
-                not settings.EMAIL_HOST_PASSWORD
+                not settings.EMAIL_HOST_USER
+                or not settings.EMAIL_HOST_PASSWORD
             )
 
             if settings.DEBUG and missing_email_credentials:
@@ -819,8 +819,6 @@ def rules(request):
 @require_POST
 def logout_view(request):
     logout(request)
-    return redirect("landing")
-
     messages.info(request, 'You have been logged out.')
     return redirect('landing')
 
