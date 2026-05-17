@@ -1,4 +1,4 @@
-/* auth.css - Shared styles for Checkora Authentication Pages */
+/* auth.css - Shared styles for Checkora Authentication Pages*/
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -107,6 +107,7 @@ body {
     color: #fff;
     font-size: 1.1rem;
     transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 .form-group input:focus {
     outline: none;
@@ -389,5 +390,11 @@ body.login-page .helptext {
 @media (max-width: 600px) {
     .auth-card {
         padding: 30px 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .auth-card {
+        padding: 30px 16px;
     }
 }
