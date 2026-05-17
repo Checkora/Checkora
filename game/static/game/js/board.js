@@ -4,7 +4,17 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+            const VALID_PIECE_THEMES = [
+                "classic",
+                "pixel",
+                "minimal",
+                "wooden",
+                "stylish"
+            ];
             let pieceTheme = localStorage.getItem("pieceTheme") || "classic";
+            if (!VALID_PIECE_THEMES.includes(pieceTheme)) {
+                pieceTheme = "classic";
+            }
             const PIECE_IMG = {};
             function loadPieceTheme() {
                 for (const c of ['w', 'b']) {
