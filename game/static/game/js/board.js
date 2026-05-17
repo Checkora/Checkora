@@ -428,6 +428,8 @@
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                if (pauseBtn)  pauseBtn.style.display  = 'block';  
+                if (resignBtn) resignBtn.style.display = 'block'; 
 
                 updatePlayerNames(data);
                 updateTurn();

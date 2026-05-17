@@ -604,6 +604,17 @@ body {
     transform: translateY(-1px);
 }
 .btn-danger:active { transform: translateY(0); }
+.btn-pause {
+    background: linear-gradient(135deg, #b8860b, #8b6508);
+    color: #fff;
+    border: 1px solid #a07808;
+}
+.btn-pause:hover {
+    background: linear-gradient(135deg, #cc9a10, #a07808);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(184, 134, 11, 0.3);
+}
+.btn-pause:active { transform: translateY(0); }
 .back-btn {
     font-size: small;
     background: var(--bg);
@@ -1236,13 +1247,15 @@ body {
 }
 
 #pauseBtn.paused {
-    background: linear-gradient(135deg, #ff4444, #cc0000);
+    background: linear-gradient(135deg, #27ae60, #1e8449);
     color: #fff;
+    border-color: #1a7a3c;
 }
 /* ================= INPUT TRANSITIONS ================= */
 #whiteNameInput,
 #blackNameInput {
     transition: all 0.3s ease;
+
 /* ================= INPUT ERROR STATE ================= */
 .input-error {
     border-color: #ff6b6b !important;
