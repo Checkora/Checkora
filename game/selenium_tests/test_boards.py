@@ -167,10 +167,12 @@ class UITest(BaseE2ETest):
             message="Theme buttons not found"
         )
 
+        expected_buttons = 5
+
         self.assertEqual(
+            expected_buttons,
             len(theme_btns),
-            5,
-            f"Expected 5 theme buttons, got {len(theme_btns)}"
+            f"Expected {expected_buttons} theme buttons, got {len(theme_btns)}"
         )
         log_ok(
             f"{len(theme_btns)} theme buttons found"
