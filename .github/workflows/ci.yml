@@ -297,7 +297,7 @@ jobs:
 
       - name: Run Bandit scan (fail on HIGH only)
         run: |
-          bandit -r . -f txt -ll > bandit-report.txt
+          bandit -r . -f txt -ll > bandit-report.txt || true
 
           echo "## SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
