@@ -846,19 +846,16 @@ DP cache is intentionally excluded to save cookie space."""
         ep_str = self._serialize_ep()
         cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
 
-        legal_moves = sum(
-            len(self.get_valid_moves(r, c))
-            for r in range(8) for c in range(8)
-        )
-
-        logger.debug(
-            'check_game_status: current_turn=%s, fen=%s, rights=%s, ep=%s, legal_moves=%s',
-            self.current_turn,
-            self.generate_fen_key(),
-            rights_str,
-            ep_str,
-            legal_moves,
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            legal_moves = sum(
+                len(self.get_valid_moves(r, c))
+                for r in range(8) for c in range(8)
+                )
+            
+            logger.debug(
+                'check_game_status: current_turn=%s, fen=%s, rights=%s, ep=%s, legal_moves=%s',
+                self.current_turn,self.generate_fen_key(),rights_str,ep_str,legal_moves,
+                )
 
         resp = self._call_engine(cmd)
         logger.debug('STATUS raw response: %s', resp)
