@@ -3,8 +3,10 @@ from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from game.models import GameResult
+import logging
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 def cleanup_stale_games():
@@ -24,7 +26,12 @@ def cleanup_stale_games():
     for session in Session.objects.all():
         try:
             session_data = session.get_decoded()
-        except Exception:
+        except (ValueError, TypeError) as exc:
+            logger.warning(
+                "Skipping undecodable session %s: %s",
+                session.session_key,
+                exc
+            )
             continue
 
         game_data = session_data.get('game')
