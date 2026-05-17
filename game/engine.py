@@ -302,8 +302,8 @@ DP cache is intentionally excluded to save cookie space."""
         # Best-move searches can legitimately take longer; use a larger
         # base timeout and exponential backoff with multiple attempts.
         if command.startswith('BESTMOVE'):
-            base_timeout = 30
-            attempts = 3
+            base_timeout = 5
+            attempts = 2
         else:
             base_timeout = 5
             attempts = 1
