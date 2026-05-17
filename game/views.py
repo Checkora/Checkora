@@ -15,6 +15,7 @@ from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
+from django.db import IntegrityError
 
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
@@ -471,7 +472,11 @@ def register_view(request):
         if form.is_valid():
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
-            user.save()
+            try:
+                user.save()
+            except IntegrityError:
+                form.add_error('email', 'An account with this email already exists. Please log in instead.')
+                return render(request, 'game/register.html', {'form': form})
 
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
