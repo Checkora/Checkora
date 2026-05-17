@@ -1953,7 +1953,10 @@
                 } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
                     e.preventDefault();
                     drawBtn.click();
-                }
+                } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
+                    e.preventDefault();
+                    pauseBtn.click();
+                }// added pause/resume button shortcut
             });
             // Emote Logic
             let emoteCooldown = false;
