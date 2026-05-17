@@ -58,5 +58,57 @@
 
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>
+    <script>
+        const usernameInput = document.querySelector('#id_username');
+        const checkUsernameUrl = "{% url 'check_username' %}";
+
+        if (usernameInput) {
+            let debounceTimer;
+            let latestVal = '';
+            const feedback = document.createElement('span');
+
+            feedback.className = 'helptext';
+            usernameInput.parentNode.appendChild(feedback);
+
+            usernameInput.addEventListener('input', () => { 
+                clearTimeout(debounceTimer);
+                const val = usernameInput.value.trim();
+                latestVal = val;  
+
+                if (!val) {
+                    feedback.textContent = '';
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    if (val !== latestVal) return;  
+
+                    try {  
+                        const res = await fetch(
+                        `${checkUsernameUrl}?username=${encodeURIComponent(val)}`
+                        );
+
+                        if (!res.ok) throw new Error('Request failed');
+
+                        const data = await res.json();
+
+                        if (val !== latestVal) return;  
+
+                        feedback.textContent = data.available
+                        ? '✔ Username available'
+                        : '✖ Username already taken';
+
+                         feedback.style.color = data.available
+                        ? '#e5b639'
+                        : '#e57373';
+
+                    } catch (err) {
+                        feedback.textContent = '⚠ Could not check username';
+                        feedback.style.color = '#aaa';
+                    }
+                }, 400);
+            });
+        }
+    </script>
 </body>
 </html>

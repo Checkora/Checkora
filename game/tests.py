@@ -7,6 +7,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.urls import reverse
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
@@ -1232,3 +1233,59 @@ class StaleGameCleanupTest(TestCase):
         response = self.client.post(
             self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
+
+class CheckUsernameViewTest(TestCase):
+
+    def setUp(self):
+        """Create a test user to simulate a taken username."""
+        User.objects.create_user(username='existinguser', password='testpass123')
+
+    def test_username_available(self):
+        """Should return available=True for a username that does not exist."""
+        response = self.client.get(reverse('check_username'), {'username': 'newuser'})
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'available': True})
+
+    def test_username_taken(self):
+        """Should return available=False for a username that already exists."""
+        response = self.client.get(reverse('check_username'), {'username': 'existinguser'})
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'available': False})
+
+    def test_username_taken_case_insensitive(self):
+        """Should be case insensitive — ExistingUser should match existinguser."""
+        response = self.client.get(reverse('check_username'), {'username': 'ExistingUser'})
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'available': False})
+
+    def test_missing_username_param(self):
+        """Should return 400 when no username param is provided."""
+        response = self.client.get(reverse('check_username'))
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {
+            'available': False,
+            'error': 'No username provided'
+        })
+
+    def test_empty_username_param(self):
+        """Should return 400 when username param is an empty string."""
+        response = self.client.get(reverse('check_username'), {'username': ''})
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {
+            'available': False,
+            'error': 'No username provided'
+        })
+
+    def test_whitespace_only_username(self):
+        """Should return 400 when username is only whitespace."""
+        response = self.client.get(reverse('check_username'), {'username': '   '})
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {
+            'available': False,
+            'error': 'No username provided'
+        })
+
+    def test_endpoint_only_accepts_get(self):
+        """Should return 405 Method Not Allowed for POST requests."""
+        response = self.client.post(reverse('check_username'), {'username': 'newuser'})
+        self.assertEqual(response.status_code, 405)
