@@ -2100,17 +2100,12 @@
                 });
             });
 
-            // Show browser confirmation dialog if user tries to leave during an active game
-            // Skip beforeunload alert in Selenium tests to prevent UnexpectedAlertPresentException
+           // Custom leave confirmation modal instead of browser default dialog
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
-                    if (!paused) {
-                        navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
-                    }
-                    if (!gameOver && !welcomeOverlay.classList.contains('active')) {
-                        e.preventDefault();
-                        e.returnValue = '';
-                    }
+               if (!paused) {
+            navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+                   }
                 });
             }
             function showAssetWarning() {
