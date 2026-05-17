@@ -399,6 +399,27 @@
         </div>
     </div>
 
+   <!-- ========== LEAVE GAME CONFIRMATION MODAL ========== -->
+<div class="promo-overlay" id="leaveConfirmOverlay" style="display:none;">
+    <div class="promo-dialog" style="max-width: 340px; text-align: center;">
+        <div class="promo-title" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
+            Leave the Game?
+        </div>
+        <p style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
+            Are you sure you want to go back to Home? Your current game progress will be lost.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button class="btn" id="leaveConfirmNo"
+                style="background: #333; color: #fff; flex: 1;">
+                Cancel
+            </button>
+            <button class="btn btn-gold" id="leaveConfirmYes"
+                style="flex: 1;">
+                Back to Home
+            </button>
+        </div>
+    </div>
+</div> 
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay">
         <div class="promo-dialog">
