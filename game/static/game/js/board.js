@@ -1440,7 +1440,9 @@
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
-
+                if (resignBtn) resignBtn.style.display = '';
+                if (pauseBtn) pauseBtn.style.display = '';
+                if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
