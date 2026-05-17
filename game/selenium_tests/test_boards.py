@@ -63,8 +63,7 @@ class UITest(BaseE2ETest):
         self.assertEqual(
             len(squares),
             64,
-            f"Expected 64 squares, got {
-                len(squares)}")
+            f"Expected 64 squares, got {len(squares)}"
         log_ok("64 squares found")
 
         pieces = board.find_elements(By.TAG_NAME, 'img')
@@ -88,9 +87,8 @@ class UITest(BaseE2ETest):
         self.assertTrue(white_time.is_displayed())
         self.assertTrue(black_time.is_displayed())
         log_ok(
-            f"White timer: {
-                white_time.text} | Black timer: {
-                black_time.text}")
+            f"White timer: {white_time.text} | Black timer: {black_time.text}"
+            )
 
     # ───────────────────────────────────────────────────────────────
     # Test 5: Login Page
