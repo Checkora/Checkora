@@ -1,6 +1,8 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
 import json
+import os
+import subprocess
 import sys
 from smtplib import SMTPException
 from unittest import mock
@@ -68,6 +70,63 @@ class EnginePathResolutionTest(SimpleTestCase):
                 ChessGame._build_engine_command(candidates[2]),
                 [sys.executable, candidates[2]],
             )
+
+
+class EngineValidateLegalityTest(SimpleTestCase):
+    """Direct engine validation should reject self-check moves."""
+
+    def _run_python_engine(self, command):
+        engine_path = os.path.join(
+            settings.BASE_DIR, 'game', 'engine', 'main.py'
+        )
+        result = subprocess.run(
+            [sys.executable, engine_path],
+            input=f'{command}\n',
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def test_validate_rejects_move_that_exposes_own_king(self):
+        board = ''.join(
+            [
+                'k...r...',
+                '........',
+                '........',
+                '........',
+                '........',
+                '........',
+                '....R...',
+                '....K...',
+            ]
+        )
+
+        response = self._run_python_engine(
+            f'VALIDATE {board} - white -1 -1 6 4 6 3'
+        )
+
+        self.assertEqual(response, 'INVALID Leaves king in check')
+
+    def test_validate_allows_move_that_keeps_king_shielded(self):
+        board = ''.join(
+            [
+                'k...r...',
+                '........',
+                '........',
+                '........',
+                '........',
+                '........',
+                '....R...',
+                '....K...',
+            ]
+        )
+
+        response = self._run_python_engine(
+            f'VALIDATE {board} - white -1 -1 6 4 5 4'
+        )
+
+        self.assertEqual(response, 'VALID')
 
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""

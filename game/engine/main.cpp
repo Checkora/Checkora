@@ -623,6 +623,29 @@ bool leavesKingInCheck(const Move &m, const string &side) {
     return inCheck;
 }
 
+void handleValidate(const string &turn, int fr, int fc, int tr, int tc) {
+    if (!validateMove(turn, fr, fc, tr, tc, true)) {
+        cout << "INVALID Illegal move" << endl;
+        return;
+    }
+
+    char piece = board[fr][fc];
+    Move move;
+    move.fr = fr;
+    move.fc = fc;
+    move.tr = tr;
+    move.tc = tc;
+    move.promoPiece = isPromotionMove(piece, tr)
+        ? (isWhite(piece) ? 'Q' : 'q') : '\0';
+
+    if (leavesKingInCheck(move, turn)) {
+        cout << "INVALID Leaves king in check" << endl;
+        return;
+    }
+
+    cout << "VALID" << endl;
+}
+
 /**
  * Minimax with alpha-beta pruning.
  *
@@ -977,7 +1000,7 @@ int main() {
             loadBoard(b);
             loadCastlingRights(rights);
             EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            validateMove(t, fr, fc, tr, tc);
+            handleValidate(t, fr, fc, tr, tc);
         } 
         else if (command == "MOVES") {
             string b, rights, t; int epR, epC, r, c;
