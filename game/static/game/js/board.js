@@ -1223,12 +1223,18 @@
         const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
         // Player clock — update time and highlight on their turn
-        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+if (playerClock) {
+    playerClock.classList.toggle('active', turn === playerColor);
+    playerClock.classList.remove('low');
+}
 
-        // AI clock — static, never highlights, never updates time
-        if (aiTimeEl) aiTimeEl.textContent = '🤖';
-        if (aiClock) aiClock.classList.remove('active');
+// AI clock — static, never highlights, never updates time
+if (aiTimeEl) aiTimeEl.textContent = '🤖';
+if (aiClock) {
+    aiClock.classList.remove('active');
+    aiClock.classList.remove('low');
+}
 
     } else {
         // PvP — both clocks update normally
@@ -1236,6 +1242,12 @@
         if (bTime) bTime.textContent = formatTime(blackTime);
         if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
         if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+        if (whiteClock) {
+    whiteClock.classList.toggle('low', whiteTime <= 60 && whiteTime > 0);
+}
+if (blackClock) {
+    blackClock.classList.toggle('low', blackTime <= 60 && blackTime > 0);
+}
     }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
@@ -1778,7 +1790,7 @@
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
-                    startNewGame(mode, 'white', diff, null, timeLimitMins);
+                    startNewGame(mode,playerColor, diff, null, timeLimitMins);
                 }
             };
 
