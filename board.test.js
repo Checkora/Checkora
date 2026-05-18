@@ -49,7 +49,7 @@ document.body.innerHTML = `
   <div id="turnBadgeText"></div>
 `;
 
-const { pColor, getSquareLabel, formatTime } = require("./game/static/game/js/board");
+const { pColor, getSquareLabel, formatTime, post } = require("./game/static/game/js/board");
 
 describe("pColor", () => {
   test("returns white for uppercase piece", () => {
@@ -90,5 +90,33 @@ describe("formatTime", () => {
 
   test("formats 0 seconds as 0:00", () => {
     expect(formatTime(0)).toBe("0:00");
+  });
+});
+
+describe("post", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  test("aborts requests after the configured timeout", async () => {
+    jest.useFakeTimers();
+    global.fetch = jest.fn((url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+    }));
+
+    const request = post("/api/ai-move/", {}, { timeoutMs: 1000 });
+    jest.advanceTimersByTime(1000);
+
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/ai-move/",
+      expect.objectContaining({
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      })
+    );
   });
 });
