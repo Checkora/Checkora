@@ -960,10 +960,34 @@
             let selectedPveColor = 'white';
 
             if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
-                welcomeOverlay.classList.remove('active');
-                gameLayout.style.visibility = 'visible';
-                startNewGame('pvp');
-            };
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+
+                const nameError =document.getElementById('nameError');
+                const whiteName =whiteInput.value.trim();
+
+                const blackName =blackInput.value.trim();
+
+                if (!whiteName || !blackName) {
+
+                if (nameError) {
+                    nameError.style.display = 'block';
+                    nameError.textContent ='Please enter both player names.';
+                }
+
+                return;
+            }
+
+            if (nameError) {
+                nameError.style.display = 'none';
+            }
+
+            welcomeOverlay.classList.remove('active');
+            gameLayout.style.visibility = 'visible';
+
+            startNewGame('pvp');
+        };
 
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
                 nameInputs.style.display = 'none';
