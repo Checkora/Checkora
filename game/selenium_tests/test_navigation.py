@@ -260,5 +260,6 @@ class NavigationTest(BaseE2ETest):
             EC.visibility_of_element_located((By.ID, 'nameError')),
             message="Validation error not shown after empty name submit"
         )
+
         self.assertTrue(error_div.is_displayed())
         log_ok(f"Validation error shown: '{error_div.text}'")

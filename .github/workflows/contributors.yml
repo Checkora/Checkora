@@ -1,0 +1,81 @@
+name: Contributor Gallery Automation
+
+on:
+  schedule:
+    - cron: '0 0 * * *'     # runs daily at midnight
+  push:
+    branches:
+      - main          # also updates when a new pr is merged into main
+  workflow_dispatch:
+      # allows manual trigger
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch Merged PR Authors (Pagination)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PAGE=1
+          echo "[]" > final_list.json
+          while true; do
+            # Using pulls endpoint to capture only merged contributors
+            RESPONSE=$(gh api "/repos/${{ github.repository }}/pulls?state=closed&per_page=100&page=${PAGE}")
+            COUNT=$(echo "$RESPONSE" | jq '. | length')
+            if [ "$COUNT" -eq 0 ]; then break; fi
+            jq -s '.[0] + .[1]' final_list.json <(echo "$RESPONSE") > tmp.json && mv tmp.json final_list.json
+            PAGE=$((PAGE + 1))
+          done
+          # Filters for actual merged PRs and unique users
+          jq '[.[] | select(.merged_at != null and .user != null and .user.type != "Bot") | .user.login] | unique' final_list.json > contributors.json
+
+      - name: Build Gallery HTML
+        run: |
+          set -euo pipefail
+          GALLERY_HTML=""
+          for USERNAME in $(jq -r '.[]' contributors.json); do
+            GALLERY_HTML="${GALLERY_HTML}<a href=\"https://github.com/${USERNAME}\"><img src=\"https://github.com/${USERNAME}.png\" width=\"50px\" style=\"border-radius:50%;margin:5px;\" alt=\"${USERNAME}\" /></a>"
+          done
+          echo "$GALLERY_HTML" > gallery_fragment.txt
+
+      - name: Update README.md
+        run: |
+          set -euo pipefail
+          # Safety check for markers
+          start_count=$(grep -c '<!-- CONTRIBUTORS_START -->' README.md || true)
+          end_count=$(grep -c '<!-- CONTRIBUTORS_END -->' README.md || true)
+          if [ "$start_count" -ne 1 ] || [ "$end_count" -ne 1 ]; then
+            echo "Error: README.md must contain exactly one pair of markers."
+            exit 1
+          fi
+
+          start_line=$(grep -n '<!-- CONTRIBUTORS_START -->' README.md | cut -d: -f1)
+          end_line=$(grep -n '<!-- CONTRIBUTORS_END -->' README.md | cut -d: -f1)
+          if [ "$start_line" -ge "$end_line" ]; then
+            echo "Error: CONTRIBUTORS_START must appear before CONTRIBUTORS_END."
+            exit 1
+          fi
+          
+          sed -i '/<!-- CONTRIBUTORS_START -->/,/<!-- CONTRIBUTORS_END -->/ {
+            /<!-- CONTRIBUTORS_START -->/! { /<!-- CONTRIBUTORS_END -->/! d; }
+          }' README.md
+          sed -i '/<!-- CONTRIBUTORS_START -->/r gallery_fragment.txt' README.md
+ 
+      - name: Commit and Push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if git diff --staged --quiet; then
+            echo "No changes to README."
+          else
+            git commit -m "docs: update contributor gallery [skip ci]"
+            git push
+          fi

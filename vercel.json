@@ -4,11 +4,11 @@
   "buildCommand": "g++ -O2 -o game/engine/main game/engine/main.cpp && chmod +x game/engine/main && mkdir -p public && echo '<!-- -->' > public/placeholder.html",
   "outputDirectory": "public",
   "functions": {
-    "api/wsgi.py": {
+    "core/wsgi.py": {
       "includeFiles": "game/**"
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/wsgi" }
+    { "source": "/(.*)", "destination": "/core/wsgi" }
   ]
 }
