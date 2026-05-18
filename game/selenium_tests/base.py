@@ -93,7 +93,7 @@ class BaseE2ETest(StaticLiveServerTestCase):
                 EC.visibility_of_element_located((By.ID, 'board')),
                 message="Board element not visible after starting PvP game. Check that game initialization completed successfully."
             )
-        except Exception :
+        except Exception:
             # Capture diagnostic info on failure
             page_source = self.driver.page_source[:500]
             log_fail(f"Board failed to load. Page source snippet: {page_source}")
