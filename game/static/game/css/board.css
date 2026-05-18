@@ -327,6 +327,12 @@ body {
 
     --sq-last-light: #FFEAA0;
     --sq-last-dark: #F4D35E;
+
+    --move-dot: rgba(209, 213, 219, 0.78);
+    --move-dot-hover: rgba(229, 231, 235, 0.92);
+    --move-dot-border: rgba(255, 255, 255, 0.45);
+    --move-dot-glow: rgba(255, 255, 255, 0.28);
+    --move-dot-hover-glow: rgba(255, 255, 255, 0.45);
 }
 
 /* Dark Theme */
@@ -388,17 +394,17 @@ body {
     width: 17px;
     height: 17px;
     border-radius: 50%;
-    background: rgba(209, 213, 219, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.28);
+    background: var(--move-dot);
+    border: 1px solid var(--move-dot-border);
+    box-shadow: 0 0 8px var(--move-dot-glow);
     position: absolute;
     pointer-events: none;
     transition: all 0.2s ease;
 }
 
 .square:hover .move-dot {
-    background: rgba(229, 231, 235, 0.92);
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+    background: var(--move-dot-hover);
+    box-shadow: 0 0 10px var(--move-dot-hover-glow);
 }
 
 /* Capture ring */
