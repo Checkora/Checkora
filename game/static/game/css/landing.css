@@ -65,10 +65,10 @@ body {
 .logo-img {
     height: 35px;
     width: auto;
-    animation: logoGlow 2.5s ease-in-out infinite alternate;
+    animation: logo-glow 2.5s ease-in-out infinite alternate;
 }
 
-@keyframes logoGlow {
+`@keyframes` logo-glow {
     0% {
         filter: brightness(1.6) contrast(1.3)
                 drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
