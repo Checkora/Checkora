@@ -142,6 +142,32 @@
                 }
             }
 
+            
+            function playSound(data) {
+                if (!soundEnabled || !data?.valid) return;
+
+                let sound = sounds.move;
+                if (['checkmate', 'stalemate', 'draw', 'timeout'].includes(data.game_status)) {
+                    sound = sounds.draw;
+                } else if (data.game_status === 'check') {
+                    sound = sounds.check;
+                } else if (data.captured || data.is_capture) {
+                    sound = sounds.capture;
+                }
+
+                sound.currentTime = 0;
+                const playback = sound.play();
+                if (playback?.catch) playback.catch(() => {});
+            }
+
+            function toggleMute() {
+                soundEnabled = !soundEnabled;
+                if (muteBtn) {
+                    muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
+                    muteBtn.setAttribute('aria-pressed', String(soundEnabled));
+                }
+            }
+
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
@@ -794,6 +820,7 @@
                     return;
                 }
                 await executeMove(fr, fc, tr, tc, null);
+
                 }
                 let reconnecting = false; 
                 async function handleReconnect() {
@@ -831,6 +858,49 @@
                                 board = parseBoard(data.board);
                                 turn = data.current_turn;
                                 lastMove = { from: [fr, fc], to: [tr, tc] };
+
+            }            let reconnecting = false;
+            async function handleReconnect() {
+                if (reconnecting) return;
+                reconnecting = true;
+                showStatus('Reconnecting...', false);
+                let retries = 0;
+                let success = false;
+                while (retries < 3 && !success) {
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+                        await loadGame();
+                        success = true;
+                    } catch (err) {
+                        retries++;
+                    }
+                }
+                
+                if (success) {
+                    showStatus('Connection restored', false);
+                    setTimeout(() => {
+                        showStatus('', false);
+                    }, 2000);
+                } else {
+                    showStatus('Unable to reconnect. Please refresh.', true);
+                }
+                reconnecting = false;
+            }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+                try {
+                    const body = {
+                        from_row: fr, from_col: fc,
+                        to_row: tr, to_col: tc,
+                    };
+                    if (promotionPiece) body.promotion_piece = promotionPiece;
+
+                    const data = await post('/api/move/', body);
+                        if (data.valid) {
+                            playSound(data);
+                            if (!skipAnimation) await animateMove(fr, fc, tr, tc);
+                            board = parseBoard(data.board);
+                            turn = data.current_turn;
+                            lastMove = { from: [fr, fc], to: [tr, tc] };
+
     
                                 if (gameMode === 'pvp' && autoFlip) {
                                     flipped = (turn === 'black');
@@ -839,6 +909,7 @@
                                 whiteTime = data.white_time;
                                 blackTime = data.black_time;
     
+
                                 selected = null;
                                 hints = [];
                                 updatePlayerNames(data);
@@ -867,6 +938,36 @@
                                         highlightCheck();
                                         showStatus('', false);
                                 }
+
+                            selected = null;
+                            hints = [];
+                            updatePlayerNames(data);
+                            updateTurn();
+                            updateMoves(data.move_history);
+                            updateCaptured(data.captured_pieces);
+                            syncPieces();
+                            renderClocks();
+                            startTimer();
+                            updateMaterialUI(board);
+                        let a11yMsg = '';
+                        if (data.move_history && data.move_history.length > 0) {
+                            const lastMove = data.move_history[data.move_history.length - 1].notation;
+                            const playedColor = turn === 'white' ? 'Black' : 'White';
+                            a11yMsg = `${playedColor} played ${lastMove}. `;
+                        }
+
+                        const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
+                        if (!gameEnded) {
+                            if (data.game_status === 'check') {
+                                applyCheckHighlight();
+                                const checkMsg = turn === 'white' ? 'White is in check!' : 'Black is in check!';
+                                showStatus(checkMsg, true);
+                                a11yMsg += checkMsg;
+                            } else {
+                                highlightCheck();
+                                showStatus('', false);
+                            }
+
                             if (a11yMsg) announceMove(a11yMsg);
                         }
 
@@ -911,8 +1012,12 @@
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
+
                             const playedColor = turn === 'white' ? 'Black' : 'White';
                             a11yMsg = `${playedColor} played ${lastMove}. `;
+
+                            a11yMsg = `AI played ${lastMove}. `;
+
                         }
 
                         const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
@@ -1448,6 +1553,12 @@
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
 
+
+
+                if (resignBtn) resignBtn.style.display = '';
+                if (pauseBtn) pauseBtn.style.display = '';
+                if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
+
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
@@ -1507,9 +1618,39 @@
             ========================================================== */
             let selectedPveColor = 'white';
 
+
             if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
                 if (!validatePlayerNames()) return;
                 gameMode = 'pvp';
+
+            function prepareWelcomeForPvP(clearAIValue = false) {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                pveOptions.style.display = 'none';
+                modeSelection.style.display = 'flex';
+                nameInputs.style.display = 'flex';
+                
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.placeholder = 'Black Player Name';
+                    blackInput.classList.remove('input-error');
+                    if (clearAIValue && blackInput.value === 'AI') {
+                        blackInput.value = '';
+                    }
+                }
+                if (errorDiv) errorDiv.style.display = 'none';
+            }
+
+            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
+                if (!validatePlayerNames()) return;
+
                 const fen = welcomeFenInput?.value || null;
                 const started = await startNewGame('pvp', 'white', 'medium', fen);
                 if (!started) return;
@@ -1525,10 +1666,17 @@
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
+
                 const previousName = whiteInput.value.trim();
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = "Your Name";
+
+
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+
                     whiteInput.classList.remove('input-error');
                     if (previousName !== "") {
                         whiteInput.value = previousName;
@@ -1555,6 +1703,7 @@
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
+
                 blackInput.style.display = "block";
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
@@ -1613,7 +1762,9 @@
 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
                 const fen = welcomeFenInput?.value || null;
+
                 gameMode = 'ai';
+
                 const started = await startNewGame('ai', selectedPveColor, diff, fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
@@ -2023,8 +2174,12 @@
                         }
                     };
                 }
+
             }
             function checkAssets() {
+
+            }            function checkAssets() {
+
                 const img = document.querySelector('.piece');
                 
                 // If a piece exists in the HTML but still has 0 width after 2 seconds, Chrome blocked it.
@@ -2035,6 +2190,7 @@
                     }
                 }
             }
+
             /* ==========================================================
             REALTIME ONLINE STATUS
             ========================================================== */
@@ -2100,6 +2256,12 @@ try {
     };
 
 } catch (e) {
+
+
+            // Wait exactly 2 seconds after the script loads to check the assets
+            // This gives normal connections plenty of time to load, while catching strict blockers.
+            setInterval(checkAssets, 5000);
+
 
     console.log("WebSocket disabled:", e);
 }
