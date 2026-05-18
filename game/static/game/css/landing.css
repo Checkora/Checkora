@@ -307,6 +307,41 @@ body {
     font-weight: 600;
     color: var(--accent-gold);
 }
+.about {
+    padding: 4rem 5%;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+
+.footer {
+    max-width: 1200px;
+    margin: 4rem auto 2rem;
+    padding: 3rem 4rem 1.5rem;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.section-container {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.about-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.about-content p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.8;
+}
 
 .footer {
     max-width: 1200px;
@@ -431,12 +466,44 @@ body {
     .footer-container {
         flex-direction: column;
         gap: 2rem;
+
     }
 
     .footer-bottom {
         flex-direction: column;
         gap: 1.5rem;
         text-align: center;
+
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+    }
+        .card {
+        height: auto;
+        min-height: 260px;
+        cursor: default;
+    }
+
+    .card-front,
+    .card-back {
+        position: relative;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .card-back {
+        background-color: transparent;
+        padding-top: 0;
+    }
+
+    .card:hover .card-front,
+    .card:hover .card-back,
+    .card:focus-within .card-front,
+    .card:focus-within .card-back {
+        opacity: 1;
     }
 }
 
