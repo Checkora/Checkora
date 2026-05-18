@@ -914,9 +914,6 @@ body {
     z-index: 100;
     justify-content: center;
     align-items: center;
-    width: 100vw;
-    height: 100vh;
-    display: flex;
     padding: 20px;             
     overflow: hidden;
 }
