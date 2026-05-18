@@ -1,0 +1,9 @@
+{% if messages %}
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+        <div class="toast toast-{{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+            <div class="toast-content">{{ message }}</div>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
