@@ -6,24 +6,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Play Chess | Checkora AI</title>
-    <meta name="description" content="Challenge the Checkora AI engine. Play a professional game of chess with advanced AI analysis and move history.">
+    <meta name="description"
+        content="Challenge the Checkora AI engine. Play a professional game of chess with advanced AI analysis and move history.">
     <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
-   {% if not DEBUG %}
-<!-- Vercel Speed Insights -->
-<script>
-    window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
-</script>
-<script defer src="/_vercel/speed-insights/script.js"></script>
+    {% if not DEBUG %}
+    <!-- Vercel Speed Insights -->
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 
-<!-- Vercel Web Analytics -->
-<script>
-    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
-<script defer src="/_vercel/insights/script.js"></script>
-{% endif %}
+    <!-- Vercel Web Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+    {% endif %}
 
     <script>
         (function () {
@@ -34,25 +35,25 @@
             document.documentElement.setAttribute('data-theme', saved);
         })();
     </script>
+</head>
+
 <body>
 
     <!-- MOBILE FAB -->
-<div class="m-fab" id="mFab">
-  <button class="m-fab-btn" title="Pause"
-    onclick="document.getElementById('pauseBtn').click()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="5" y="3" width="4" height="18" rx="1.5"/>
-      <rect x="15" y="3" width="4" height="18" rx="1.5"/>
-    </svg>
-  </button>
-  <button class="m-fab-btn m-fab-resign" title="Resign"
-    onclick="document.getElementById('resignBtn').click()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M4 3h14l-4 4.5 4 4.5H4V3z"/>
-      <line x1="4" y1="21" x2="4" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  </button>
-</div>
+    <div class="m-fab" id="mFab">
+        <button class="m-fab-btn" title="Pause" onclick="document.getElementById('pauseBtn').click()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="5" y="3" width="4" height="18" rx="1.5" />
+                <rect x="15" y="3" width="4" height="18" rx="1.5" />
+            </svg>
+        </button>
+        <button class="m-fab-btn m-fab-resign" title="Resign" onclick="document.getElementById('resignBtn').click()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 3h14l-4 4.5 4 4.5H4V3z" />
+                <line x1="4" y1="21" x2="4" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+        </button>
+    </div>
 
     <!-- ========== WELCOME MESSAGE ========== -->
 
@@ -98,7 +99,8 @@
 
                 <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
                     <label for="timeLimitInput" style="color: #ccc; font-size: 0.9rem;">Game Timer</label>
-                    <select id="timeLimitInput" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease; cursor: pointer;">
+                    <select id="timeLimitInput"
+                        style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease; cursor: pointer;">
                         <option value="1">Bullet (1 min)</option>
                         <option value="3">Blitz (3 min)</option>
                         <option value="5">Blitz (5 min)</option>
@@ -109,7 +111,7 @@
 
             <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
-                
+
                 <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
@@ -117,7 +119,8 @@
 
                 <div class="fen-input-group">
                     <label class="fen-label" for="welcomeFenInput">Optional FEN</label>
-                    <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste FEN to start from a custom position">
+                    <input type="text" id="welcomeFenInput" class="fen-input"
+                        placeholder="Paste FEN to start from a custom position">
                     <div class="fen-hint">Leave blank to start from the default position.</div>
                     <div class="fen-error" id="welcomeFenError"></div>
                 </div>
@@ -154,11 +157,11 @@
             </div>
         </div>
     </div>
-    
+
     <!-- ========== HEADER ========== -->
-    
+
     <div class="header">
-        
+
         <div class="logo-container">
             <a href="{% url 'landing' %}" class="logo-link">
                 <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
@@ -166,7 +169,7 @@
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
-        
+
         <div class="auth-buttons">
             {% if user.is_authenticated %}
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
@@ -181,7 +184,7 @@
             <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
-    
+
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
 
@@ -199,19 +202,28 @@
             </div>
             <div style="margin-top: 10px;">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <input type="text" id="manualMoveInput" placeholder="Move (e.g. e2e4)" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;" maxlength="5">
-                    <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move format</div>
+                    <input type="text" id="manualMoveInput" placeholder="Move (e.g. e2e4)"
+                        style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;"
+                        maxlength="5">
+                    <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move
+                        format</div>
                 </div>
             </div>
 
             <div class="card" id="emotePanel" style="display: none;">
                 <div class="card-title">React</div>
-                <div style="display: flex; gap: 8px; justify-content: space-around; font-size: 1.5rem; flex-wrap: wrap;">
-                    <button class="emote-btn" data-emote="👍" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
-                    <button class="emote-btn" data-emote="🤝" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
-                    <button class="emote-btn" data-emote="😂" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
-                    <button class="emote-btn" data-emote="😮" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
-                    <button class="emote-btn" data-emote="🏳️" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
+                <div
+                    style="display: flex; gap: 8px; justify-content: space-around; font-size: 1.5rem; flex-wrap: wrap;">
+                    <button class="emote-btn" data-emote="👍"
+                        style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
+                    <button class="emote-btn" data-emote="🤝"
+                        style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
+                    <button class="emote-btn" data-emote="😂"
+                        style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
+                    <button class="emote-btn" data-emote="😮"
+                        style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
+                    <button class="emote-btn" data-emote="🏳️"
+                        style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
                 </div>
             </div>
         </div>
@@ -257,23 +269,23 @@
 
             <div class="status-bar" id="statusBar" style="height: 22px; box-sizing: border-box;">
                 <!--Score bar-->
-                  <div id="game-status">Game started</div>
-                   <div class="score-panel">
-                   <div class="score-box">
-                       <span class="score-label">White</span>
-                       <span id="whiteScore">0</span>
-                   </div>
-           
-                   <div class="score-box">
-                       <span class="score-label">Black</span>
-                       <span id="blackScore">0</span>
-                   </div>
-               </div>
-                
+                <div id="game-status">Game started</div>
+                <div class="score-panel">
+                    <div class="score-box">
+                        <span class="score-label">White</span>
+                        <span id="whiteScore">0</span>
+                    </div>
+
+                    <div class="score-box">
+                        <span class="score-label">Black</span>
+                        <span id="blackScore">0</span>
+                    </div>
+                </div>
+
             </div>
         </div>
-        
-<!-- Right Panel: Controls -->
+
+        <!-- Right Panel: Controls -->
         <div class="panel">
             <div class="card">
                 <div class="card-title">Board Theme</div>
@@ -315,10 +327,10 @@
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
                     ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
                 </div>
-                <a href="/" class="btn" 
-   style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
-    EXIT TO HOME
-</a>
+                <a href="/" class="btn"
+                    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
+                    EXIT TO HOME
+                </a>
             </div>
         </div>
 
@@ -387,7 +399,8 @@
             <div class="fen-error" id="fenError"></div>
             <div class="fen-actions">
                 <button class="btn btn-gold" id="fenStartBtn" style="width: 110px;">Start</button>
-                <button class="btn" id="fenCancelBtn" style="width: 110px; background: #333; color: #fff;">Cancel</button>
+                <button class="btn" id="fenCancelBtn"
+                    style="width: 110px; background: #333; color: #fff;">Cancel</button>
             </div>
         </div>
     </div>
@@ -422,7 +435,8 @@
                 </div>
 
                 <div id="goTimerContainer" style="margin-bottom: 15px; text-align: left;">
-                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
+                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game
+                        Timer</label>
                     <select id="goTimerSelect"
                         style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
                         <option value="1">Bullet (1 min)</option>
@@ -478,7 +492,8 @@
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
         <div
             style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
-            <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
+            <button type="button" aria-label="Close rulebook"
+                onclick="document.getElementById('rulebookModal').style.display='none'"
                 style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
         </div>
