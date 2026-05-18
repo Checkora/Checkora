@@ -148,7 +148,6 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_otp_hash', self.client.session)
 
 
-
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
 
