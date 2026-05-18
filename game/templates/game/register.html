@@ -108,5 +108,43 @@
             });
         }
     </script>
+    // Add classes to Django generated inputs
+    document.querySelectorAll('input').forEach(input => {
+        if (input.type !== 'submit') {
+            input.className = 'form-control';
+        }
+    });
+
+    // Add eye toggle to password fields
+    document.querySelectorAll('input[type="password"]').forEach(input => {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position: relative;';
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+
+        const eye = document.createElement('span');
+        eye.textContent = '👁';
+        eye.style.cssText = `
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: rgba(255,255,255,0.5);
+            font-size: 16px;
+            user-select: none;
+        `;
+        eye.addEventListener('click', () => {
+            if (input.type === 'password') {
+                input.type = 'text';
+                eye.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                eye.textContent = '👁';
+            }
+        });
+        wrapper.appendChild(eye);
+    });
+</script>
 </body>
 </html>
