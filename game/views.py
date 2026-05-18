@@ -333,13 +333,12 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-    # Depth Mapping
+    # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
-    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
-    depth = depth_map.get(difficulty, 3)
+    depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
+    depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)
-    best = game.get_ai_move(depth=depth)
+    best = game.get_ai_move(depth=depth)  # called once only
     
     if not best:
         if game.game_status == 'checkmate':
