@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
+from .forms import CustomSetPasswordForm
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -139,6 +140,56 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
+
+
+class CustomSetPasswordFormTest(TestCase):
+    """Password reset form should reject reusing the current password."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='resetuser',
+            password='StrongPass123!',
+        )
+
+    def test_rejects_reusing_current_password(self):
+        form = CustomSetPasswordForm(
+            self.user,
+            data={
+                'new_password1': 'StrongPass123!',
+                'new_password2': 'StrongPass123!',
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('new_password2', form.errors)
+        self.assertIn(
+            'This password has been used before. Please choose a new password.',
+            form.errors['new_password2'],
+        )
+
+    def test_accepts_different_valid_password(self):
+        form = CustomSetPasswordForm(
+            self.user,
+            data={
+                'new_password1': 'NewStrongPass456!',
+                'new_password2': 'NewStrongPass456!',
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_unusable_password_accounts_keep_default_validation_flow(self):
+        self.user.set_unusable_password()
+        self.user.save()
+        form = CustomSetPasswordForm(
+            self.user,
+            data={
+                'new_password1': 'NewStrongPass456!',
+                'new_password2': 'NewStrongPass456!',
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
