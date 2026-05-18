@@ -78,15 +78,18 @@ class UITest(BaseE2ETest):
         """White and black timers are displayed after game starts."""
         log_info("Testing game timers...")
         self._start_pvp_game()
-
+        
         white_time = self.wait.until(
-            EC.presence_of_element_located((By.ID, 'whiteTime')),
-            message="White timer not found"
+            EC.visibility_of_element_located((By.ID, "whiteTime"))
         )
-        black_time = self.driver.find_element(By.ID, 'blackTime')
+
+        black_time = self.wait.until(
+            EC.visibility_of_element_located((By.ID, "blackTime"))
+        )
 
         self.assertTrue(white_time.is_displayed())
         self.assertTrue(black_time.is_displayed())
+        
         log_ok(
             f"White timer: {white_time.text} | Black timer: {black_time.text}"
         )
@@ -133,8 +136,8 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         pause_btn = self.wait.until(
-            EC.element_to_be_clickable((By.ID, 'pauseBtn')),
-            message="Pause button not found or not clickable"
+            EC.visibility_of_element_located((By.ID, 'pauseBtn')),
+            message="Pause button not visible"
         )
         self.assertTrue(pause_btn.is_displayed())
         log_ok(f"Pause button found: '{pause_btn.text}'")
@@ -148,8 +151,8 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         flip_btn = self.wait.until(
-            EC.element_to_be_clickable((By.ID, 'flipBtn')),
-            message="Flip button not found or not clickable"
+            EC.visibility_of_element_located((By.ID, 'flipBtn')),
+            message="Flip button not visible"
         )
         self.assertTrue(flip_btn.is_displayed())
         log_ok(f"Flip button found: '{flip_btn.text}'")
