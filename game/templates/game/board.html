@@ -11,31 +11,19 @@
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
-    <!-- Vercel Speed Insights -->
-    <script>
-        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
-    </script>
-    <script>
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            const siScript = document.createElement('script');
-            siScript.defer = true;
-            siScript.src = '/_vercel/speed-insights/script.js';
-            document.head.appendChild(siScript);
-        }
-    </script>
+   {% if not DEBUG %}
+<!-- Vercel Speed Insights -->
+<script>
+    window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 
-    <!-- Vercel Web Analytics -->
-    <script>
-        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
-    <script>
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            const vaScript = document.createElement('script');
-            vaScript.defer = true;
-            vaScript.src = '/_vercel/insights/script.js';
-            document.head.appendChild(vaScript);
-        }
-    </script>
+<!-- Vercel Web Analytics -->
+<script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+{% endif %}
 
     <script>
         (function () {
