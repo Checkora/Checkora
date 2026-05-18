@@ -317,13 +317,16 @@ body {
 
 :root {
     --page-bg: #0f0f1a;
+
     /* Classic */
-    --sq-light: #f0c040;
-    --sq-dark: #2f2f2f;
-    --sq-selected-light: #f6f669;
-    --sq-selected-dark: #baca2b;
-    --sq-last-light: #f5f682;
-    --sq-last-dark: #b8cc36;
+    --sq-light: #FFF6D5;
+    --sq-dark: #E1B12C;
+
+    --sq-selected-light: #FFE27A;
+    --sq-selected-dark: #FFD84D;
+
+    --sq-last-light: #FFEAA0;
+    --sq-last-dark: #F4D35E;
 }
 
 /* Dark Theme */
@@ -385,13 +388,17 @@ body {
     width: 17px;
     height: 17px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.18);
+    background: rgba(209, 213, 219, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.28);
     position: absolute;
     pointer-events: none;
+    transition: all 0.2s ease;
 }
 
 .square:hover .move-dot {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(229, 231, 235, 0.92);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
 }
 
 /* Capture ring */
