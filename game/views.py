@@ -265,6 +265,14 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
+    # Check if it's the AI's turn
+    if game.current_turn == game.player_color:
+        err_msg = 'Not AI\'s turn.'
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
+
+
     # Depth Mapping
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
