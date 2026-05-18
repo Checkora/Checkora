@@ -48,9 +48,23 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.checkora.com',
 ]
 
-# Allow Vercel preview deployments by matching subdomains in ALLOWED_HOSTS.
-if not DEBUG:
-    ALLOWED_HOSTS.append('.vercel.app')
+# Vercel-specific configuration for preview and production deployments.
+# We explicitly allow the main production domains and dynamically add
+# preview domains only when in a Vercel preview environment.
+VERCEL_ENV = os.environ.get('VERCEL_ENV')
+
+if VERCEL_ENV == 'preview':
+    # Support specific preview domains via environment variables.
+    # Comma-separated values, for example:
+    # VERCEL_PREVIEW_ALLOWED_HOSTS=checkora-git-feature-x-team.vercel.app
+    preview_hosts = os.environ.get('VERCEL_PREVIEW_ALLOWED_HOSTS', '').split(',')
+    ALLOWED_HOSTS.extend([h.strip() for h in preview_hosts if h.strip()])
+    
+    preview_origins = os.environ.get('VERCEL_PREVIEW_TRUSTED_ORIGINS', '').split(',')
+    CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in preview_origins if o.strip()])
+elif not DEBUG and not VERCEL_ENV:
+    # Fallback safety: ensure no wildcards in unknown non-debug environments.
+    pass
 
 
 # Application definition
