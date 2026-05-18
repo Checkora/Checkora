@@ -25,7 +25,10 @@ class GameResult(models.Model):
     PLAYER_COLOR_CHOICES = [("white", "White"), ("black", "Black")]
 
     mode = models.CharField(max_length=10, choices=MODE_CHOICES)
-    player_color = models.CharField(max_length=5, choices=PLAYER_COLOR_CHOICES, default="white")
+    player_color = models.CharField(
+        max_length=5,
+        choices=PLAYER_COLOR_CHOICES,
+        default="white")
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
     end_reason = models.CharField(max_length=25, choices=END_REASON_CHOICES)
     played_at = models.DateTimeField(auto_now_add=True)

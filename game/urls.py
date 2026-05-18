@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.landing, name='landing'),
     path('play/', views.index, name='index'),
     path('api/move/', views.make_move, name='make_move'),
+    path('api/hint/', views.hint_move, name='hint_move'),
     path('api/valid-moves/', views.valid_moves, name='valid_moves'),
     path('api/new-game/', views.new_game, name='new_game'),
     path('api/resume/', views.resume_game, name='resume_game'),
@@ -17,7 +18,10 @@ urlpatterns = [
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
-    path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
+    path(
+        'api/cron/cleanup-stale-games/',
+        views.cleanup_cron,
+        name='cleanup_cron'),
 
     # Authentication
     path('api/check-username/', views.check_username, name='check_username'),

@@ -23,6 +23,10 @@ import json
 import sys
 import time
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class ChessGame:
     """Manage a single chess game: state, validation,
@@ -295,18 +299,75 @@ DP cache is intentionally excluded to save cookie space."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-        try:
-            proc = subprocess.Popen(
-                self._build_engine_command(engine_path),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, _ = proc.communicate(input=command, timeout=5)
-            return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
-            return None
+        # Best-move searches can legitimately take longer; use a larger
+        # base timeout and exponential backoff with multiple attempts.
+        if command.startswith('BESTMOVE'):
+            base_timeout = 5
+            attempts = 2
+        else:
+            base_timeout = 5
+            attempts = 1
+
+        for attempt in range(1, attempts + 1):
+            # exponential backoff: timeout doubles each retry
+            timeout = base_timeout * (2 ** (attempt - 1))
+            proc = None
+            try:
+                logger.debug(
+                    'Calling engine (attempt %s/%s, timeout=%ss): %s',
+                    attempt,
+                    attempts,
+                    timeout,
+                    command)
+                proc = subprocess.Popen(
+                    self._build_engine_command(engine_path),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                stdout, stderr = proc.communicate(
+                    input=command, timeout=timeout)
+                if stderr:
+                    logger.debug('Engine stderr: %s', stderr.strip())
+                resp = stdout.strip()
+                logger.debug('Engine response: %s', resp)
+                return resp
+
+            except subprocess.TimeoutExpired:
+                logger.exception(
+                    'Engine call timed out (attempt %s/%s) for command: %s',
+                    attempt,
+                    attempts,
+                    command)
+                # Try to terminate the process and capture any partial output
+                try:
+                    if proc:
+                        proc.kill()
+                except Exception:
+                    logger.exception('Failed to kill timed-out engine process')
+                try:
+                    if proc:
+                        out, err = proc.communicate(timeout=1)
+                        logger.debug(
+                            'Partial stdout after timeout: %s',
+                            (out or '').strip())
+                        logger.debug(
+                            'Partial stderr after timeout: %s',
+                            (err or '').strip())
+                except Exception:
+                    pass
+
+                if attempt == attempts:
+                    return None
+                logger.debug('Retrying engine command: %s', command)
+
+            except OSError:
+                logger.exception(
+                    'Engine call failed (OSError) for command: %s', command)
+                return None
+
+        return None
 
     def _count_active_pieces(self):
         """Helper to count the total pieces currently alive
@@ -623,9 +684,9 @@ DP cache is intentionally excluded to save cookie space."""
             for i in range(0, len(parts), 4):
                 moves.append({
                     'row': int(parts[i]),
-                    'col': int(parts[i+1]),
-                    'is_capture': bool(int(parts[i+2])),
-                    'is_promotion': bool(int(parts[i+3])),
+                    'col': int(parts[i + 1]),
+                    'is_capture': bool(int(parts[i + 2])),
+                    'is_promotion': bool(int(parts[i + 3])),
                 })
         return moves
 
@@ -784,9 +845,28 @@ DP cache is intentionally excluded to save cookie space."""
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
         cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
+
+        if logger.isEnabledFor(logging.DEBUG):
+            legal_moves = sum(
+                len(self.get_valid_moves(r, c))
+                for r in range(8) for c in range(8)
+            )
+
+            logger.debug(
+                'check_game_status: current_turn=%s, fen=%s, rights=%s, ep=%s, legal_moves=%s',
+                self.current_turn,
+                self.generate_fen_key(),
+                rights_str,
+                ep_str,
+                legal_moves,
+            )
+
         resp = self._call_engine(cmd)
+        logger.debug('STATUS raw response: %s', resp)
         if resp and resp.startswith("STATUS"):
-            status = resp.split()[1].lower()
+            parts = resp.split()
+            status = parts[1].lower() if len(parts) > 1 else 'ok'
+            logger.debug('Parsed engine status: %s', status)
             if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 return status
         return 'ok'
@@ -901,8 +981,10 @@ DP cache is intentionally excluded to save cookie space."""
         # 2. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
         if depth is None:
             depth = self._get_ai_search_depth()
+
         ep_str = self._serialize_ep()
         cmd = (
             f"BESTMOVE {board_str} {rights_str}"
@@ -911,15 +993,26 @@ DP cache is intentionally excluded to save cookie space."""
         resp = self._call_engine(cmd)
 
         if not resp or not resp.startswith("BESTMOVE"):
+            logger.debug('BESTMOVE engine returned no result: %s', resp)
             return None
 
         parts = resp.split()
+
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
-        return {
-            'from_row': int(parts[1]),
-            'from_col': int(parts[2]),
-            'to_row':   int(parts[3]),
-            'to_col':   int(parts[4]),
-        }
+        try:
+            best = {
+                'from_row': int(parts[1]),
+                'from_col': int(parts[2]),
+                'to_row': int(parts[3]),
+                'to_col': int(parts[4]),
+            }
+            logger.debug(
+                'get_ai_move selected: %s (engine resp: %s)',
+                best,
+                resp)
+            return best
+        except (ValueError, IndexError):
+            logger.exception('Failed to parse BESTMOVE response: %s', resp)
+            return None

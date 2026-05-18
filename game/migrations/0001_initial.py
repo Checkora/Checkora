@@ -14,11 +14,47 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='GameResult',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('mode', models.CharField(choices=[('pvp', 'PvP'), ('ai', 'AI')], max_length=10)),
-                ('winner', models.CharField(choices=[('white', 'White'), ('black', 'Black'), ('draw', 'Draw')], max_length=10)),
-                ('end_reason', models.CharField(choices=[('checkmate', 'Checkmate'), ('stalemate', 'Stalemate'), ('resign', 'Resignation'), ('timeout', 'Timeout'), ('agreement', 'Agreement')], max_length=15)),
-                ('played_at', models.DateTimeField(auto_now_add=True)),
+                ('id',
+                 models.BigAutoField(
+                     auto_created=True,
+                     primary_key=True,
+                     serialize=False,
+                     verbose_name='ID')),
+                ('mode',
+                 models.CharField(
+                     choices=[
+                         ('pvp',
+                          'PvP'),
+                         ('ai',
+                          'AI')],
+                     max_length=10)),
+                ('winner',
+                 models.CharField(
+                     choices=[
+                         ('white',
+                          'White'),
+                         ('black',
+                          'Black'),
+                         ('draw',
+                          'Draw')],
+                     max_length=10)),
+                ('end_reason',
+                 models.CharField(
+                     choices=[
+                         ('checkmate',
+                          'Checkmate'),
+                         ('stalemate',
+                          'Stalemate'),
+                         ('resign',
+                          'Resignation'),
+                         ('timeout',
+                          'Timeout'),
+                         ('agreement',
+                          'Agreement')],
+                     max_length=15)),
+                ('played_at',
+                 models.DateTimeField(
+                     auto_now_add=True)),
             ],
         ),
     ]

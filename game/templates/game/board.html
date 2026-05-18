@@ -15,26 +15,346 @@
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/speed-insights/script.js"></script>
+
+    {% comment %} <script defer src="/_vercel/speed-insights/script.js"></script> {% endcomment %}
+
+    <style>
+
+        /* ============================================================
+           Reset & Base
+           ============================================================ */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #0f0f1a;
+            color: #d0d0d0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ============================================================
+           Header
+           ============================================================ */
+        .header { padding: 20px 0 8px; text-align: center; }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 2px;
+        }
+        .header .badge {
+            font-size: 0.45em;
+            color: #f0c040;
+            vertical-align: super;
+            font-weight: 400;
+            letter-spacing: 1px;
+        }
+
+        .auth-buttons {
+            position: absolute;
+            right: 20px;
+            top: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .welcome-msg {
+            color: #8a8aaa;
+            font-size: 0.9rem;
+        }
+        .username {
+            color: #f0c040;
+            font-weight: 600;
+        }
+        .btn-logout {
+            color: #ff6b6b;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(255, 107, 107, 0.1);
+        }
+        .btn-signin {
+            color: #f0c040;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .btn-register {
+            background: #f0c040;
+            color: #1a1a2a;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        /* ============================================================
+           Game Layout  (left panel · board · right panel)
+           ============================================================ */
+        .game-layout {
+            display: flex;
+            gap: 22px;
+            padding: 10px 20px 30px;
+            align-items: flex-start;
+        }
+
+        .panel {
+            width: 192px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .card-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #6a6a8a;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        /* ============================================================
+           Turn Indicator
+           ============================================================ */
+        .turn-badge {
+            text-align: center;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+        .turn-badge.white {
+            background: linear-gradient(135deg, #f5f5dc, #e0e0c0);
+            color: #333;
+        }
+        .turn-badge.black {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            color: #ccc;
+            border: 1px solid #444;
+        }
+
+        /* ============================================================
+           Board Area  (ranks · board grid · files)
+           ============================================================ */
+        .board-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .board-outer {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .board-row {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .ranks {
+            display: flex;
+            flex-direction: column;
+            padding: 3px 6px 3px 0;
+        }
+        .ranks span {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #5a5a7a;
+            font-weight: 600;
+        }
+
+        .files {
+            display: flex;
+            padding: 4px 0 0 28px;
+        }
+        .files span {
+            width: 60px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #5a5a7a;
+            font-weight: 600;
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            border: 3px solid #3d3222;
+            border-radius: 2px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        /* ============================================================
+           Squares
+           ============================================================ */
+       .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: default;
+        }
+
+        .square:has(.piece.playable) {
+            cursor: pointer;   
+        }
+
+        .square.light { background-color: #eeeed2; }
+        .square.dark  { background-color: #769656; }
+        
+        /* Hint Highlight */
+        .hint-source {
+            border: 3px solid white;
+            box-shadow:
+            0 0 10px rgba(255,255,255,0.9),
+            0 0 20px rgba(173,216,230,0.8),
+            0 0 30px rgba(173,216,230,0.6);
+            animation: pulseSource 1.2s infinite;
+        }
+        
+        .hint-destination {
+            border: 3px solid gold;
+            box-shadow:
+                0 0 10px rgba(255,215,0,0.9),
+                0 0 20px rgba(255,215,0,0.7);
+            animation: pulseDestination 1.2s infinite;
+        }
+
+        @keyframes pulseSource {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.04);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes pulseDestination {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.03);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Selected piece */
+        .square.selected.light { background-color: #f6f669; }
+        .square.selected.dark  { background-color: #baca2b; }
+
+        /* Last-move highlight */
+        .square.last-move.light { background-color: #f5f682; }
+        .square.last-move.dark  { background-color: #b8cc36; }
+
+        /* Valid-move dot (empty square) */
+        .move-dot {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.18);
+            position: absolute;
+            pointer-events: none;
+        }
+        .square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
+
+        /* Capture ring (enemy piece) */
+        .capture-ring {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: 5px solid rgba(0, 0, 0, 0.18);
+            position: absolute;
+            pointer-events: none;
+        }
+        .square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
+
+        #hintBtn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: grayscale(40%);
+        }
+
+        /* ============================================================
+           Pieces
+           ============================================================ */
+        .piece {
+            width: 54px;
+            height: 54px;
+            z-index: 2;
+            pointer-events: none;
+            user-select: none;
+        }
+        .piece.playable { cursor: pointer; }
+        .piece.dragging { opacity: 0.35; }
+
+        /* ============================================================
+           Status Bar
+           ============================================================ */
+        .status-bar {
+            min-height: 22px;
+            text-align: center;
+            font-size: 0.82rem;
+            color: #f0c040;
+            padding: 4px 0;
+        }
+        .status-bar.error { color: #ff6b6b; }
+    </style>
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 
     <!-- Vercel Web Analytics -->
     <script>
-        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+        window.va = window.va || function () { 
+            (window.vaq = window.vaq || []).push(arguments); 
+        };
     </script>
-    <script defer src="/_vercel/insights/script.js"></script>
 
     <script>
         (function () {
             const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
             let saved = 'classic';
-            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
+            try {
+                 saved = localStorage.getItem('chessBoardTheme') || 'classic'; 
+                }catch (e) { }
             if (!VALID_THEMES.includes(saved)) saved = 'classic';
             document.documentElement.setAttribute('data-theme', saved);
         })();
     </script>
+
+    {% comment %} <script defer src="/_vercel/insights/script.js"></script> {% endcomment %}
 
 </head>
 
@@ -239,9 +559,13 @@
                     <span class="time" id="blackTime">10:00</span>
                 </div>
             </div>
+
+
+            <button id="pauseBtn" class="btn btn-gold">Pause</button>
+            <button id="resignBtn" class="btn btn-danger" onclick="showResignModal()">Resign</button>
+            <button id="hintBtn" class="btn btn-gold">Hint</button>
             <div class="board-outer">
-                <div class="board-row">
-                    <div class="ranks" id="ranksLabels">
+                <div class="board-row"><div class="ranks" id="ranksLabels">
                         <span>8</span><span>7</span><span>6</span><span>5</span>
                         <span>4</span><span>3</span><span>2</span><span>1</span>
                     </div>
@@ -306,8 +630,8 @@
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
                     <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
-                    <button class="btn btn-gold" id="pauseBtn">Pause</button>
-                    <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
+                    <button class="btn btn-gold" id="pauseBtnPanel">Pause</button>
+                    <button class="btn" id="resignBtnPanel" style="background: #333; color: #fff;">Resign</button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
@@ -525,10 +849,16 @@
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
+
+    <!-- Game logic is loaded from external board.js file -->
+
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
+
+
+    <script src="{% static 'game/js/board.js' %}"></script>
     <script src="{% static 'game/js/board.js' %}" defer></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 

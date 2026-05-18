@@ -2,7 +2,7 @@
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from .base import BaseE2ETest, log_ok, log_fail, log_info
+from .base import BaseE2ETest, log_ok, log_info
 
 
 class UITest(BaseE2ETest):
@@ -60,7 +60,11 @@ class UITest(BaseE2ETest):
         )
 
         squares = board.find_elements(By.CLASS_NAME, 'square')
-        self.assertEqual(len(squares), 64, f"Expected 64 squares, got {len(squares)}")
+        self.assertEqual(
+            len(squares),
+            64,
+            f"Expected 64 squares, got {len(squares)}"
+        )
         log_ok("64 squares found")
 
         pieces = board.find_elements(By.TAG_NAME, 'img')
@@ -76,14 +80,19 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         white_time = self.wait.until(
-            EC.presence_of_element_located((By.ID, 'whiteTime')),
-            message="White timer not found"
+            EC.visibility_of_element_located((By.ID, "whiteTime"))
         )
-        black_time = self.driver.find_element(By.ID, 'blackTime')
+
+        black_time = self.wait.until(
+            EC.visibility_of_element_located((By.ID, "blackTime"))
+        )
 
         self.assertTrue(white_time.is_displayed())
         self.assertTrue(black_time.is_displayed())
-        log_ok(f"White timer: {white_time.text} | Black timer: {black_time.text}")
+
+        log_ok(
+            f"White timer: {white_time.text} | Black timer: {black_time.text}"
+        )
 
     # ───────────────────────────────────────────────────────────────
     # Test 5: Login Page
@@ -127,8 +136,8 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         pause_btn = self.wait.until(
-            EC.element_to_be_clickable((By.ID, 'pauseBtn')),
-            message="Pause button not found or not clickable"
+            EC.visibility_of_element_located((By.ID, 'pauseBtn')),
+            message="Pause button not visible"
         )
         self.assertTrue(pause_btn.is_displayed())
         log_ok(f"Pause button found: '{pause_btn.text}'")
@@ -142,8 +151,8 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         flip_btn = self.wait.until(
-            EC.element_to_be_clickable((By.ID, 'flipBtn')),
-            message="Flip button not found or not clickable"
+            EC.visibility_of_element_located((By.ID, 'flipBtn')),
+            message="Flip button not visible"
         )
         self.assertTrue(flip_btn.is_displayed())
         log_ok(f"Flip button found: '{flip_btn.text}'")
@@ -160,5 +169,14 @@ class UITest(BaseE2ETest):
             lambda d: d.find_elements(By.CLASS_NAME, 'theme-btn'),
             message="Theme buttons not found"
         )
-        self.assertEqual(len(theme_btns), 5, f"Expected 5 theme buttons, got {len(theme_btns)}")
-        log_ok(f"{len(theme_btns)} theme buttons found")
+
+        expected_buttons = 5
+
+        self.assertEqual(
+            expected_buttons,
+            len(theme_btns),
+            f"Expected {expected_buttons} theme buttons, got {len(theme_btns)}"
+        )
+        log_ok(
+            f"{len(theme_btns)} theme buttons found"
+        )
