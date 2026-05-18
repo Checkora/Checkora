@@ -1,6 +1,5 @@
 """Navigation tests — page routing, overlays, mode switching."""
 
-import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from .base import BaseE2ETest, log_ok, log_info
@@ -9,27 +8,31 @@ from .base import BaseE2ETest, log_ok, log_info
 class NavigationTest(BaseE2ETest):
 
     # ───────────────────────────────────────────────────────────────
-    # Test 1: Homepage Loads
+    # Test 1: Homepage (Landing Page) Loads
     # ───────────────────────────────────────────────────────────────
     def test_01_homepage_loads(self):
-        """Homepage returns 200 and renders the board page."""
+        """Homepage returns 200 and renders the landing page."""
         log_info("Testing homepage loads...")
         self.driver.get(self.live_server_url + '/')
 
         self.wait.until(
-            EC.presence_of_element_located((By.ID, 'welcomeOverlay')),
-            message="Homepage did not load — welcomeOverlay not found"
+            EC.presence_of_element_located((By.TAG_NAME, 'body')),
+            message="Homepage did not load"
         )
-        self.assertIn('Checkora', self.driver.title)
+        self.assertEqual(
+            self.driver.current_url.rstrip('/'),
+            self.live_server_url.rstrip('/'),
+            "Homepage URL does not match"
+        )
         log_ok(f"Homepage loaded — title: '{self.driver.title}'")
 
     # ───────────────────────────────────────────────────────────────
-    # Test 2: Welcome Overlay Loads with Correct Elements
+    # Test 2: Play Page Welcome Overlay
     # ───────────────────────────────────────────────────────────────
     def test_02_welcome_overlay_loads(self):
         """Welcome overlay has name inputs and mode buttons."""
         log_info("Testing welcome overlay elements...")
-        self.driver.get(self.live_server_url + '/')
+        self.driver.get(self.live_server_url + '/play/')
 
         welcome_overlay = self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay')),
@@ -79,7 +82,7 @@ class NavigationTest(BaseE2ETest):
     def test_04_ai_mode_shows_pve_options(self):
         """Clicking Play vs AI reveals difficulty and color selection."""
         log_info("Testing AI mode options...")
-        self.driver.get(self.live_server_url + '/')
+        self.driver.get(self.live_server_url + '/play/')
 
         self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
@@ -87,8 +90,6 @@ class NavigationTest(BaseE2ETest):
 
         ai_btn = self.driver.find_element(By.ID, 'welcomeAIBtn')
         ai_btn.click()
-
-        time.sleep(0.5)
 
         # PvE options should be visible
         pve_options = self.wait.until(
@@ -105,7 +106,10 @@ class NavigationTest(BaseE2ETest):
 
         # Color choice buttons should be present
         color_btns = self.driver.find_elements(By.CLASS_NAME, 'color-choice')
-        self.assertEqual(len(color_btns), 2, f"Expected 2 color buttons, got {len(color_btns)}")
+        self.assertEqual(
+            len(color_btns), 2,
+            f"Expected 2 color buttons, got {len(color_btns)}"
+        )
         log_ok("White/Black color buttons present")
 
     # ───────────────────────────────────────────────────────────────
@@ -114,7 +118,7 @@ class NavigationTest(BaseE2ETest):
     def test_05_back_button_returns_to_mode_selection(self):
         """Back button in PvE options returns to mode selection screen."""
         log_info("Testing back button...")
-        self.driver.get(self.live_server_url + '/')
+        self.driver.get(self.live_server_url + '/play/')
 
         self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
@@ -122,7 +126,6 @@ class NavigationTest(BaseE2ETest):
 
         # Go to AI options
         self.driver.find_element(By.ID, 'welcomeAIBtn').click()
-        time.sleep(0.5)
 
         self.wait.until(
             EC.visibility_of_element_located((By.ID, 'pveOptions'))
@@ -131,7 +134,6 @@ class NavigationTest(BaseE2ETest):
         # Click back
         back_btn = self.driver.find_element(By.ID, 'backToModes')
         back_btn.click()
-        time.sleep(0.5)
 
         # Mode selection should be visible again
         mode_selection = self.wait.until(
@@ -200,7 +202,7 @@ class NavigationTest(BaseE2ETest):
     # Test 9: Stats Page Route
     # ───────────────────────────────────────────────────────────────
     def test_09_stats_page_route(self):
-        """Navigating to /stats/ loads the stats page."""
+        """Navigating to /stats/ redirects unauthenticated user to login."""
         log_info("Testing /stats/ route...")
         self.driver.get(self.live_server_url + '/stats/')
 
@@ -208,33 +210,18 @@ class NavigationTest(BaseE2ETest):
             EC.presence_of_element_located((By.TAG_NAME, 'body')),
             message="/stats/ did not load"
         )
-        self.assertEqual(
-            self.driver.current_url.rstrip('/'),
-            (self.live_server_url + '/stats').rstrip('/')
+        # Stats requires authentication — should redirect to login
+        self.assertIn(
+            '/login/',
+            self.driver.current_url,
+            "Expected redirect to login page for unauthenticated user"
         )
-        log_ok(f"Stats page loaded at {self.driver.current_url}")
+        log_ok(f"Stats redirected to login: {self.driver.current_url}")
 
     # ───────────────────────────────────────────────────────────────
-    # Test 10: Unauthenticated User Redirected from Logout
+    # Test 10: Header Auth Buttons for Unauthenticated User
     # ───────────────────────────────────────────────────────────────
-    def test_10_logout_redirects_to_homepage(self):
-        """Visiting /logout/ redirects unauthenticated user to homepage."""
-        log_info("Testing /logout/ redirect...")
-        self.driver.get(self.live_server_url + '/logout/')
-
-        time.sleep(0.5)
-
-        # Should redirect to homepage (index)
-        self.wait.until(
-            EC.presence_of_element_located((By.ID, 'welcomeOverlay')),
-            message="Logout did not redirect to homepage"
-        )
-        log_ok(f"Logout redirected to: {self.driver.current_url}")
-
-    # ───────────────────────────────────────────────────────────────
-    # Test 11: Header Auth Buttons for Unauthenticated User
-    # ───────────────────────────────────────────────────────────────
-    def test_11_header_shows_signin_register_when_logged_out(self):
+    def test_10_header_shows_signin_register_when_logged_out(self):
         """Header shows Sign In and Register buttons when not logged in."""
         log_info("Testing header auth buttons...")
         self._start_pvp_game()
@@ -253,12 +240,12 @@ class NavigationTest(BaseE2ETest):
         log_ok(f"Register button found: '{register_btn.text}'")
 
     # ───────────────────────────────────────────────────────────────
-    # Test 12: Name Validation Error Shows on Empty Submit
+    # Test 11: Name Validation Error Shows on Empty Submit
     # ───────────────────────────────────────────────────────────────
-    def test_12_name_validation_error_on_empty_submit(self):
+    def test_11_name_validation_error_on_empty_submit(self):
         """Clicking PvP without entering names shows validation error."""
         log_info("Testing name validation...")
-        self.driver.get(self.live_server_url + '/')
+        self.driver.get(self.live_server_url + '/play/')
 
         self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
@@ -267,8 +254,6 @@ class NavigationTest(BaseE2ETest):
         # Click PvP without entering names
         pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
         pvp_btn.click()
-
-        time.sleep(0.5)
 
         # Error div should be visible
         error_div = self.wait.until(

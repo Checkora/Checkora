@@ -1,6 +1,5 @@
 """UI tests — overlay, board render, timers, buttons, theme."""
 
-import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from .base import BaseE2ETest, log_ok, log_fail, log_info
@@ -14,7 +13,7 @@ class UITest(BaseE2ETest):
     def test_01_welcome_overlay_loads(self):
         """Welcome overlay loads with name inputs and mode buttons."""
         log_info("Testing welcome overlay...")
-        self.driver.get(self.live_server_url + '/')
+        self.driver.get(self.live_server_url + '/play/')
 
         welcome_overlay = self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay')),
@@ -153,7 +152,7 @@ class UITest(BaseE2ETest):
     # Test 9: Theme Switcher
     # ───────────────────────────────────────────────────────────────
     def test_09_theme_switcher_buttons_exist(self):
-        """4 theme buttons (classic, dark, green, blue) are present."""
+        """5 theme buttons (classic, dark, green, blue, pastel) are present."""
         log_info("Testing theme switcher...")
         self._start_pvp_game()
 
@@ -161,5 +160,5 @@ class UITest(BaseE2ETest):
             lambda d: d.find_elements(By.CLASS_NAME, 'theme-btn'),
             message="Theme buttons not found"
         )
-        self.assertEqual(len(theme_btns), 4, f"Expected 4 theme buttons, got {len(theme_btns)}")
+        self.assertEqual(len(theme_btns), 5, f"Expected 5 theme buttons, got {len(theme_btns)}")
         log_ok(f"{len(theme_btns)} theme buttons found")

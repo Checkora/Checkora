@@ -1,7 +1,6 @@
 """Base class for Checkora Selenium E2E tests."""
 
-import time
-from django.test import LiveServerTestCase
+from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -33,7 +32,7 @@ def log_warn(msg):
     print(f"  {YELLOW}⚠  {msg}{RESET}")
 
 
-class BaseE2ETest(LiveServerTestCase):
+class BaseE2ETest(StaticLiveServerTestCase):
     """Shared Selenium setup, teardown, and helper methods."""
 
     @classmethod
@@ -52,7 +51,9 @@ class BaseE2ETest(LiveServerTestCase):
             log_ok("Chrome WebDriver initialized")
         except Exception as e:
             log_fail(f"Failed to initialize Chrome WebDriver: {e}")
-            raise RuntimeError(f"Failed to initialize Chrome WebDriver: {e}")
+            raise RuntimeError(
+                f"Failed to initialize Chrome WebDriver: {e}"
+            ) from e
 
         cls.wait = WebDriverWait(cls.driver, 15)
 
@@ -65,8 +66,8 @@ class BaseE2ETest(LiveServerTestCase):
 
     def _start_pvp_game(self):
         """Helper: navigate to homepage and start a PvP game."""
-        log_info(f"Starting PvP game at {self.live_server_url}")
-        self.driver.get(self.live_server_url + '/')
+        log_info(f"Starting PvP game at {self.live_server_url}/play/")
+        self.driver.get(self.live_server_url + '/play/')
 
         self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
@@ -80,8 +81,6 @@ class BaseE2ETest(LiveServerTestCase):
         black_input.send_keys('Bob')
 
         self.driver.find_element(By.ID, 'welcomePvPBtn').click()
-
-        time.sleep(1.5)
 
         self.wait.until(
             EC.visibility_of_element_located((By.ID, 'board'))
