@@ -11,12 +11,57 @@ body {
     align-items: center;
     flex-direction: column;
 }
-.header { margin-bottom: 30px; text-align: center; }
-.header h1 {
-    font-size: 2rem;
+/* .header { margin-bottom: 30px; text-align: center; } */
+/* ============================================================
+   Header
+   ============================================================ */
+
+   .header { 
+    padding: 20px 0 8px; 
+    display: flex;
+    flex-direction: column; /* Stack logo container and subtitle <p> */
+
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 580px;
+    text-align: center;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+/* Logo image - FIXED: Single rule with animation */
+.logo-icon-img {
+    height: 40px;
+    animation: logoGlow 2.5s ease-in-out infinite alternate;
+}
+
+/* Logo glow animation - FIXED: Single keyframes definition */
+@keyframes logoGlow {
+    0% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
+    }
+    100% {
+        filter: brightness(1.6) contrast(1.3)
+                drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
+    }
+}
+
+/* Logo text */ 
+.logo-text {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
     font-weight: 700;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
     color: #f0c040;
+    text-transform: uppercase;
 }
 
 /* Responsive logo sizes */
