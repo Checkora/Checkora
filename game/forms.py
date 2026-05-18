@@ -2,7 +2,6 @@ from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 
 
-
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
@@ -31,5 +30,3 @@ class CustomSetPasswordForm(SetPasswordForm):
                 ),
             )
         return cleaned_data
-
-

@@ -78,7 +78,7 @@ class UITest(BaseE2ETest):
         """White and black timers are displayed after game starts."""
         log_info("Testing game timers...")
         self._start_pvp_game()
-        
+
         white_time = self.wait.until(
             EC.visibility_of_element_located((By.ID, "whiteTime"))
         )
@@ -89,7 +89,7 @@ class UITest(BaseE2ETest):
 
         self.assertTrue(white_time.is_displayed())
         self.assertTrue(black_time.is_displayed())
-        
+
         log_ok(
             f"White timer: {white_time.text} | Black timer: {black_time.text}"
         )

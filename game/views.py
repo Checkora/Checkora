@@ -678,12 +678,12 @@ def register_view(request):
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
-        
+
         # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
         if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
             username = request.POST.get('username')
             email = request.POST.get('email')
-            
+
             if username and email:
                 deleted = False
                 # 1. Exact match (User retrying with the exact same details)
@@ -699,7 +699,7 @@ def register_view(request):
                     if User.objects.filter(email=email, is_active=False).exists():
                         User.objects.filter(email=email, is_active=False).delete()
                         deleted = True
-                
+
                 if deleted:
                     # Re-validate the form now that conflicts are cleared
                     form = CustomUserCreationForm(request.POST)

@@ -1285,6 +1285,7 @@ class StaleGameCleanupTest(TestCase):
             self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
 
+
 class CheckUsernameViewTest(TestCase):
 
     def setUp(self):
