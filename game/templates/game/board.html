@@ -10,6 +10,7 @@
     <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
     <!-- Vercel Speed Insights -->
     <script>
@@ -33,6 +34,13 @@
             try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
             if (!VALID_THEMES.includes(saved)) saved = 'classic';
             document.documentElement.setAttribute('data-theme', saved);
+
+            // Day/Night page theme
+            const VALID_PAGE_THEMES = ['light', 'dark'];
+            let savedPageTheme = 'dark';
+            try { savedPageTheme = localStorage.getItem('pageTheme') || 'dark'; } catch (e) { }
+            if (!VALID_PAGE_THEMES.includes(savedPageTheme)) savedPageTheme = 'dark';
+            document.documentElement.setAttribute('data-page-theme', savedPageTheme);
         })();
     </script>
 
@@ -167,6 +175,9 @@
         </div>
         
         <div class="auth-buttons">
+            <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Day/Night" aria-label="Toggle Day/Night mode">
+                <i class="material-icons theme-icon">dark_mode</i>
+            </button>
             {% if user.is_authenticated %}
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
@@ -467,6 +478,38 @@
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
+    </script>
+    <script>
+        // Day/Night theme toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            const themeIcon = document.querySelector('.theme-icon');
+            const htmlElement = document.documentElement;
+
+            function updateIcon() {
+                const currentTheme = htmlElement.getAttribute('data-page-theme') || 'dark';
+                if (themeIcon) {
+                    themeIcon.textContent = currentTheme === 'dark' ? 'light_mode' : 'dark_mode';
+                }
+            }
+
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', function() {
+                    const currentTheme = htmlElement.getAttribute('data-page-theme') || 'dark';
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+                    htmlElement.setAttribute('data-page-theme', newTheme);
+                    updateIcon();
+                    try {
+                        localStorage.setItem('pageTheme', newTheme);
+                    } catch (e) {
+                        console.warn('Could not save theme to localStorage:', e);
+                    }
+                });
+            }
+
+            updateIcon();
+        });
     </script>
     <script src="{% static 'game/js/board.js' %}"></script>
 </body>

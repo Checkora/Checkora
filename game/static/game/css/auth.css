@@ -1,9 +1,39 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Theme Variables */
+:root[data-page-theme="dark"] {
+    --bg-primary: #0f0f1a;
+    --bg-secondary: #16162a;
+    --text-primary: #d0d0d0;
+    --text-secondary: #8a8aaa;
+    --border-color: #252545;
+    --input-bg: #0f0f1a;
+    --input-border: #333;
+    --accent-gold: #f0c040;
+    --accent-gold-hover: #f5cc55;
+    --error-color: #ff6b6b;
+    --success-color: #4caf50;
+}
+
+:root[data-page-theme="light"] {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #555;
+    --border-color: #ddd;
+    --input-bg: #ffffff;
+    --input-border: #ccc;
+    --accent-gold: #d4a020;
+    --accent-gold-hover: #e0b030;
+    --error-color: #c41c3b;
+    --success-color: #2e7d32;
+}
+
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     display: flex;
@@ -11,6 +41,7 @@ body {
     align-items: center;
     flex-direction: column;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 /* .header { margin-bottom: 30px; text-align: center; } */
 /* ============================================================
@@ -74,54 +105,58 @@ body {
 }
 
 .auth-card {
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 30px 35px;
     width: 100%;
     max-width: 400px;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .form-group { margin-bottom: 20px; }
 .form-group label {
     display: block;
     font-size: 0.85rem;
-    color: #8a8aaa;
+    color: var(--text-secondary);
     margin-bottom: 8px;
     letter-spacing: 0.5px;
+    transition: color 0.3s ease;
 }
 .form-group input {
     width: 100%;
     padding: 12px 14px;
-    background: #0f0f1a;
-    border: 1px solid #333;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
     border-radius: 6px;
-    color: #fff;
+    color: var(--text-primary);
     font-size: 1rem;
     transition: all 0.2s ease;
 }
 .form-group input:focus {
     outline: none;
-    border-color: #f0c040;
+    border-color: var(--accent-gold);
     box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
 }
 
 .helptext {
     font-size: 0.75rem;
-    color: #6a6a8a;
+    color: var(--text-secondary);
     margin-top: 6px;
     display: block;
+    transition: color 0.3s ease;
 }
 .errorlist {
     list-style: none;
-    color: #ff6b6b;
+    color: var(--error-color);
     font-size: 0.8rem;
     margin-bottom: 10px;
     padding: 8px;
     background: rgba(255, 107, 107, 0.1);
-    border-left: 3px solid #ff6b6b;
+    border-left: 3px solid var(--error-color);
     border-radius: 4px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .message-list {
     margin-bottom: 18px;
@@ -132,8 +167,9 @@ body {
     line-height: 1.4;
     padding: 10px 12px;
     background: rgba(255, 107, 107, 0.1);
-    border-left: 3px solid #ff6b6b;
+    border-left: 3px solid var(--error-color);
     border-radius: 4px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .message + .message {
     margin-top: 8px;
@@ -141,7 +177,7 @@ body {
 .message-success {
     color: #b5f5c8;
     background: rgba(76, 175, 80, 0.12);
-    border-left-color: #4caf50;
+    border-left-color: var(--success-color);
 }
 
 .btn {
@@ -157,11 +193,12 @@ body {
     margin-top: 10px;
 }
 .btn-gold {
-    background: linear-gradient(135deg, #f0c040, #d4a020);
+    background: linear-gradient(135deg, var(--accent-gold), #d4a020);
     color: #1a1a2e;
+    transition: all 0.2s ease;
 }
 .btn-gold:hover {
-    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    background: linear-gradient(135deg, var(--accent-gold-hover), #e0b030);
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
@@ -195,12 +232,14 @@ body {
     margin-top: 25px;
     text-align: center;
     font-size: 0.9rem;
-    color: #8a8aaa;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
 }
 .auth-footer a {
-    color: #f0c040;
+    color: var(--accent-gold);
     text-decoration: none;
     font-weight: 600;
+    transition: color 0.3s ease;
 }
 .auth-footer a:hover { text-decoration: underline; }
 
@@ -209,13 +248,14 @@ body {
     top: 20px;
     left: 20px;
     z-index: 1000;
-    color: #f0c040;
+    color: var(--accent-gold);
     text-decoration: none;
     font-size: 1.2rem;
     font-weight: 700;
+    transition: color 0.3s ease;
 }
 .back-home:hover {
-    color: #fff;
+    color: var(--text-primary);
 }
 
 /* ── Password visibility toggle ── */
@@ -237,7 +277,7 @@ body {
     outline: none;
     -webkit-appearance: none;
     cursor: pointer;
-    color: #8a8aaa;
+    color: var(--text-secondary);
     padding: 4px;
     display: flex;
     align-items: center;
@@ -247,16 +287,48 @@ body {
     z-index: 2;
 }
 .pw-toggle:hover {
-    color: #f0c040;
+    color: var(--accent-gold);
 }
 .pw-toggle:focus-visible {
-    outline: 2px solid #f0c040;
+    outline: 2px solid var(--accent-gold);
     outline-offset: 2px;
     border-radius: 4px;
 }
 .pw-toggle svg {
     display: block;
     pointer-events: none;
+}
+
+/* ── Theme Toggle Button ── */
+.theme-toggle-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--accent-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-size: 1.5rem;
+}
+
+.theme-toggle-btn:hover {
+    background: var(--accent-gold);
+    color: #1a1a2e;
+    transform: scale(1.1);
+}
+
+.theme-icon {
+    font-size: 1.5rem !important;
+    height: 1.5rem !important;
+    width: 1.5rem !important;
+    line-height: 1.5rem !important;
 }
 
 body.login-page .helptext {
