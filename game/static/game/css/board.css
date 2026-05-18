@@ -914,7 +914,10 @@ body {
     z-index: 100;
     justify-content: center;
     align-items: center;
+    padding: 20px;             
+    overflow: hidden;
 }
+
 .promo-overlay.active { display: flex; }
 
 .promo-dialog {
@@ -926,8 +929,9 @@ body {
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
     width: 90%;
     max-width: 480px;
-    max-height: 90vh;
+    max-height: calc(100vh - 40px);
     overflow-y: auto;
+    box-sizing: border-box;  
     position: relative;
 }
 

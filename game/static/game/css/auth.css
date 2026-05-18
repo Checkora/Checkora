@@ -64,10 +64,11 @@ body {
 /* Logo text */ 
 .logo-text {
     font-family: 'Cinzel', serif;
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
     color: #f0c040;
+    text-transform: uppercase;
 }
 
 /* Responsive logo sizes */
@@ -223,6 +224,20 @@ body {
 }
 .auth-footer a:hover { text-decoration: underline; }
 
+@media (max-width: 600px) {
+    body {
+        padding: 20px;
+    }
+
+    .auth-card {
+        padding: 24px 20px;
+        max-width: 100%;
+    }
+
+    .header h1 {
+        font-size: 1.8rem;
+    }
+}
 .back-home {
     position: fixed;
     top: 20px;

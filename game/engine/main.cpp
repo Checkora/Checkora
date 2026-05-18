@@ -138,9 +138,9 @@ bool pathClear(int fr, int fc, int tr, int tc) {
  */
 bool isSquareAttacked(int tr, int tc, string attackerColor) {
     char pKnight = (attackerColor == "white") ? 'N' : 'n';
-    char pRook   = (attackerColor == "white") ? 'R' : 'r';
-    char pBishop = (attackerColor == "white") ? 'B' : 'b';
-    char pQueen  = (attackerColor == "white") ? 'Q' : 'q';
+    // char pRook   = (attackerColor == "white") ? 'R' : 'r';
+    // char pBishop = (attackerColor == "white") ? 'B' : 'b';
+    // char pQueen  = (attackerColor == "white") ? 'Q' : 'q';
     char pPawn   = (attackerColor == "white") ? 'P' : 'p';
     char pKing   = (attackerColor == "white") ? 'K' : 'k';
 
