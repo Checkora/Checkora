@@ -91,6 +91,12 @@ class LandingViewTest(TestCase):
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
+    def test_register_page_shows_name_label(self):
+        response = self.client.get('/register/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<label for="id_username">Name</label>', html=True)
+
     @override_settings(
         DEBUG=True,
         EMAIL_HOST_USER='',
