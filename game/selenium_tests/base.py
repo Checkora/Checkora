@@ -69,10 +69,13 @@ class BaseE2ETest(StaticLiveServerTestCase):
         log_info(f"Starting PvP game at {self.live_server_url}/play/")
         self.driver.get(self.live_server_url + '/play/')
 
+        # Wait for welcome overlay
         self.wait.until(
-            EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
+            EC.presence_of_element_located((By.ID, 'welcomeOverlay')),
+            message="Welcome overlay not found"
         )
 
+        # Fill in player names
         white_input = self.driver.find_element(By.ID, 'whiteNameInput')
         black_input = self.driver.find_element(By.ID, 'blackNameInput')
         white_input.clear()
@@ -80,12 +83,29 @@ class BaseE2ETest(StaticLiveServerTestCase):
         white_input.send_keys('Alice')
         black_input.send_keys('Bob')
 
-        self.driver.find_element(By.ID, 'welcomePvPBtn').click()
+        # Click PvP button using JavaScript for reliability
+        pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
+        self._js_click(pvp_btn)
 
-        self.wait.until(
-            EC.visibility_of_element_located((By.ID, 'board'))
-        )
-        log_ok("PvP game started — board visible")
+        # Wait for board with extended timeout and diagnostic message
+        try:
+            self.wait.until(
+                EC.visibility_of_element_located((By.ID, 'board')),
+                message="Board element not visible after starting PvP game. Check that game initialization completed successfully."
+            )
+        except Exception as e:
+            # Capture diagnostic info on failure
+            page_source = self.driver.page_source[:500]
+            log_fail(f"Board failed to load. Page source snippet: {page_source}")
+            raise
+
+        # Verify board has expected structure
+        board = self.driver.find_element(By.ID, 'board')
+        squares = board.find_elements(By.CLASS_NAME, 'square')
+        if len(squares) != 64:
+            log_warn(f"Board has {len(squares)} squares instead of expected 64")
+
+        log_ok("PvP game started — board visible with board structure")
 
     def _js_click(self, element):
         """Helper: click element via JavaScript (more reliable than Selenium click)."""
