@@ -911,7 +911,7 @@ body {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.7);
-    z-index: 9999;
+    z-index: 100;
     justify-content: center;
     align-items: center;
     width: 100vw;
@@ -936,10 +936,6 @@ body {
     overflow-y: auto;
     box-sizing: border-box;  
     position: relative;
-}
-
-.promo-dialog * {
-    max-width: 100%;
 }
 
 .promo-title {
