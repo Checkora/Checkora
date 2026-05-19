@@ -268,7 +268,61 @@ jobs:
         continue-on-error: false
 
 # ───────────────────────────────────────────────────────────────────
-# JOB 6 — Selenium E2E Tests
+# JOB 6 — SAST (Bandit)
+# ───────────────────────────────────────────────────────────────────
+  sast:
+    name: SAST (Bandit)
+    runs-on: ubuntu-latest
+    needs: [lint]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-sast-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-sast-${{ runner.os }}-
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit scan (fail on HIGH and MEDIUM)
+        run: |
+          bandit -r . -f txt -ll > bandit-report.txt || true
+      
+          echo "## SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -50 bandit-report.txt >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      
+          # Fail on HIGH or MEDIUM severity issues
+          if grep -qiE "severity: (high|medium)" bandit-report.txt; then
+            echo "❌ High or Medium severity issues found — failing CI"
+            exit 1
+          else
+            echo "✅ No high or medium severity issues"
+          fi
+          
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report-${{ github.run_id }}
+          path: bandit-report.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 7 — Selenium E2E Tests
 # ───────────────────────────────────────────────────────────────────
   selenium-tests:
     name: 🌐 Selenium E2E Tests

@@ -4,6 +4,15 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+             const MATERIAL_VALUES = {
+                  p: 1,
+                  n: 3,
+                  b: 3,
+                  r: 5,
+                  q: 9,
+                  k: 0
+             };
+
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
@@ -138,6 +147,7 @@
             const startAIBtn = document.getElementById('startAIBtn');
             const backToModes = document.getElementById('backToModes');
             const gameLayout = document.querySelector('.game-layout');
+            const nameInputs = document.getElementById('nameInputs'); 
 
             const confirmOverlay = document.getElementById('confirmOverlay');
             const confirmTitle = document.getElementById('confirmTitle');
@@ -193,6 +203,39 @@
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
+            function calculateMaterial(board) {
+                let white = 0;
+                let black = 0;
+            
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = board[r][c];
+                        if (!piece) continue;
+            
+                        const value = MATERIAL_VALUES[piece.toLowerCase()] || 0;
+                       if (piece === piece.toUpperCase()) {
+                     white += value;
+                    } 
+                     else {
+                      black += value;
+                     }
+                 }
+                } 
+            
+                return {
+                    white,
+                    black
+                            };
+            }
+
+            function updateMaterialUI(board) {
+                const { white, black } = calculateMaterial(board);
+
+              document.getElementById("whiteScore").innerText = white;
+
+              document.getElementById("blackScore").innerText = black;
+            }
+            
             function csrf() {
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
                 return m ? decodeURIComponent(m[1]) : '';
@@ -423,17 +466,34 @@
                 let bName = data.black_name || 'Black';
                 
                 if (gameMode === 'ai'){
-                    // Fixing the naming system
-                    let player_name = data.white_name;
+                    const diffLabel = (currentDifficulty || 'medium').toUpperCase();
+                    const player_name = playerColor === 'white' ? data.white_name : data.black_name;
                     if(playerColor === 'white'){
                         wName = player_name;
-                        bName = 'AI (Black)';
+                        bName = `AI (Black)`;
                     }else{
                         bName = player_name;
-                        wName = 'AI (White)';
-                    }
-                }
+                        wName = `AI (White)`;
 
+                    }
+                
+                    // Inject difficulty badge after names are set
+                    setTimeout(() => {
+                        const aiLabel = playerColor === 'white'
+                            ? document.getElementById('blackNameLabel')
+                            : document.getElementById('whiteNameLabel');
+                        if (aiLabel) {
+                            aiLabel.innerHTML = '';
+                            const textNode = document.createTextNode(`AI (${playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
+                            const badge = document.createElement('span');
+                            badge.textContent = diffLabel;
+                            badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:1.20em; letter-spacing:1px;';
+                            badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
+                            aiLabel.appendChild(textNode);
+                            aiLabel.appendChild(badge);
+                        }
+                    }, 0);
+                }
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
                 if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
                 if (whiteCapturedName) whiteCapturedName.textContent = wName;
@@ -536,6 +596,7 @@
                 }
                 refreshHighlights();
                 markPlayable();
+                updateMaterialUI(board);
             }
 
             function markPlayable() {
@@ -764,7 +825,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
-
+                            updateMaterialUI(board);
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -823,7 +884,7 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
-
+                            updateMaterialUI(board);
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -957,8 +1018,13 @@
             }
 
             function showStatus(msg, err) {
-                statusEl.textContent = msg;
-                statusEl.className = 'status-bar' + (err ? ' error' : '');
+                const gameStatusEl = document.getElementById("game-status");
+
+                   if (gameStatusEl) {
+                       gameStatusEl.textContent = msg;
+                   }
+               
+                   statusEl.className = 'status-bar' + (err ? ' error' : '');
             }
 
             function handleGameStatus(status, drawReason) {
@@ -1357,7 +1423,9 @@
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
-
+                if (resignBtn) resignBtn.style.display = '';
+                if (pauseBtn) pauseBtn.style.display = '';
+                if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
@@ -1428,36 +1496,56 @@
                 gameLayout.style.visibility = 'visible';
             };
 
+            
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
+                modeSelection.style.display = 'none';
+                pveOptions.style.display = 'flex';
+
                 const whiteInput = document.getElementById('whiteNameInput');
                 const blackInput = document.getElementById('blackNameInput');
                 const errorDiv = document.getElementById('nameError');
-                
-                // Show ONLY white input for AI mode
+
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
                     whiteInput.placeholder = 'Your Name';
-                    whiteInput.value = '';
                     whiteInput.classList.remove('input-error');
                 }
+
                 if (blackInput) {
                     blackInput.style.display = 'none';
                     blackInput.value = 'AI';
                     blackInput.classList.remove('input-error');
                 }
-                
-                // Hide error
-                if (errorDiv) errorDiv.style.display = 'none';
-                
-                nameInputs.style.display = 'flex';
-                modeSelection.style.display = 'none';
-                pveOptions.style.display = 'flex';
-            };
 
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+
+                nameInputs.style.display = 'flex';
+            };
+            
+            
             if (backToModes) backToModes.onclick = () => {
                 prepareWelcomeForPvP(false);
-            };
 
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+
+                if (whiteInput) {
+                    whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
+                }
+
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.classList.remove('input-error');
+                }
+
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+            };
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
             colorBtns.forEach(btn => {
                 btn.onclick = () => {
@@ -1695,25 +1783,35 @@
             };
 
             // Theme Switcher
-            const themeBtns = document.querySelectorAll('.theme-btn');
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
-            themeBtns.forEach(btn => {
-                if (btn.dataset.theme === currentTheme) {
-                    btn.classList.add('active');
-                    btn.setAttribute('aria-pressed', 'true');
-                }
-                btn.onclick = () => {
-                    const theme = btn.dataset.theme;
-                    document.documentElement.setAttribute('data-theme', theme);
-                    localStorage.setItem('chessBoardTheme', theme);
-                    themeBtns.forEach(b => {
-                        b.classList.remove('active');
-                        b.setAttribute('aria-pressed', 'false');
-                    });
-                    btn.classList.add('active');
-                    btn.setAttribute('aria-pressed', 'true');
-                };
-            });
+            function initThemeSwitcher() {
+                const themeBtns = document.querySelectorAll('.theme-btn');
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
+                document.documentElement.setAttribute('data-theme', currentTheme);
+
+                themeBtns.forEach(btn => {
+                    if (btn.dataset.theme === currentTheme) {
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    }
+                    btn.onclick = () => {
+                        const theme = btn.dataset.theme;
+                        document.documentElement.setAttribute('data-theme', theme);
+                        localStorage.setItem('chessBoardTheme', theme);
+                        themeBtns.forEach(b => {
+                            b.classList.remove('active');
+                            b.setAttribute('aria-pressed', 'false');
+                        });
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    };
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initThemeSwitcher);
+            } else {
+                initThemeSwitcher();
+            }
 
     document.addEventListener('visibilitychange', async() => {
         if (document.hidden) {
@@ -1816,7 +1914,10 @@
                 } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
                     e.preventDefault();
                     drawBtn.click();
-                }
+                } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
+                    e.preventDefault();
+                    pauseBtn.click();
+                }// added pause/resume button shortcut
             });
             // Emote Logic
             let emoteCooldown = false;
@@ -1856,7 +1957,58 @@
                     }
                 });
             }
-            
+            function showAssetWarning() {
+                const t = document.getElementById('confirmTimerContainer');
+                const d = document.getElementById('confirmDifficultyContainer');
+                if (t) t.style.display = 'none';
+                if (d) d.style.display = 'none';
+
+                // 1. Pause the timer while the alert is open
+                if (!paused && typeof pauseGame === 'function') {
+                    pauseGame().catch(() => {}); // Catch prevents crash if backend hasn't initialized
+                }
+
+                showConfirm( //the message on alert
+                    "⚠️ Assets Blocked",
+                    "<div style='line-height: 1.5; font-size: 0.95rem;'>The chess pieces failed to load.<br><br>Please check your browser permissions (allow images) or disable any ad-blockers on this site.</div>",
+                    () => { 
+                        // 2. Set a memory flag to bypass the main menu on reload
+                        sessionStorage.setItem('checkoraAutoResume', 'true');
+                        window.location.reload(); 
+                    },
+                    '#f0c040'
+                );
+                
+                const yesBtn = document.getElementById('confirmYesBtn');
+                const noBtn = document.getElementById('confirmNoBtn');
+                if (yesBtn) yesBtn.textContent = 'Reload Page';
+                
+                // 3. Resume the timer if they click Close
+                if (noBtn) {
+                    noBtn.textContent = 'Close';
+                    const defaultClose = noBtn.onclick; 
+                    noBtn.onclick = () => {
+                        if (defaultClose) defaultClose();
+                        if (paused && typeof resumeGame === 'function') {
+                            resumeGame().catch(() => {});
+                        }
+                    };
+                }
+            }            function checkAssets() {
+                const img = document.querySelector('.piece');
+                
+                // If a piece exists in the HTML but still has 0 width after 2 seconds, Chrome blocked it.
+                if (img && img.naturalWidth === 0) {
+                    if (!window.assetWarningShown) {
+                        window.assetWarningShown = true;
+                        showAssetWarning();
+                    }
+                }
+            }
+
+            // Wait exactly 2 seconds after the script loads to check the assets
+            // This gives normal connections plenty of time to load, while catching strict blockers.
+            setInterval(checkAssets, 5000);
 
           if (typeof module !== "undefined" && module.exports) {
           module.exports = { pColor, getSquareLabel, formatTime };
