@@ -57,14 +57,12 @@ if VERCEL_ENV == 'preview':
     # Support specific preview domains via environment variables.
     # Comma-separated values, for example:
     # VERCEL_PREVIEW_ALLOWED_HOSTS=checkora-git-feature-x-team.vercel.app
+    # VERCEL_PREVIEW_TRUSTED_ORIGINS=https://checkora-git-feature-x-team.vercel.app
     preview_hosts = os.environ.get('VERCEL_PREVIEW_ALLOWED_HOSTS', '').split(',')
     ALLOWED_HOSTS.extend([h.strip() for h in preview_hosts if h.strip()])
     
     preview_origins = os.environ.get('VERCEL_PREVIEW_TRUSTED_ORIGINS', '').split(',')
     CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in preview_origins if o.strip()])
-elif not DEBUG and not VERCEL_ENV:
-    # Fallback safety: ensure no wildcards in unknown non-debug environments.
-    pass
 
 
 # Application definition

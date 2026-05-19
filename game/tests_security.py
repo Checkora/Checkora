@@ -38,7 +38,8 @@ class SecurityHostHeaderTest(TestCase):
     @override_settings(
         DEBUG=False,
         ALLOWED_HOSTS=['checkora.vercel.app', 'localhost', '127.0.0.1', 'testserver'],
-        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        VERCEL_ENV=None
     )
     def test_malicious_host_header_returns_400(self):
         """
@@ -48,7 +49,6 @@ class SecurityHostHeaderTest(TestCase):
         malicious_host = 'attacker-domain.com'
         reset_url = reverse('password_reset')
 
-        # We attempt a secure request to match production paths
         response = self.client.post(
             reset_url, 
             {'email': self.user.email}, 
@@ -62,7 +62,8 @@ class SecurityHostHeaderTest(TestCase):
     @override_settings(
         DEBUG=False,
         ALLOWED_HOSTS=['checkora.vercel.app', 'testserver'],
-        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        VERCEL_ENV=None
     )
     def test_trusted_host_generates_safe_links(self):
         """
@@ -72,7 +73,6 @@ class SecurityHostHeaderTest(TestCase):
         trusted_host = 'checkora.vercel.app'
         reset_url = reverse('password_reset')
 
-        # Use secure=True to ensure links are generated with https://
         response = self.client.post(
             reset_url, 
             {'email': self.user.email}, 
@@ -84,13 +84,7 @@ class SecurityHostHeaderTest(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         email_body = mail.outbox[0].body
         
-        # Link should use the trusted host. We use a scheme-agnostic check 
-        # to ensure the host is correct, while verifying it's not the attacker's domain.
-        # We explicitly check for :// to catch both http and https if they ever swap,
-        # but primarily we want to ensure the host component is checkora.vercel.app
         self.assertIn(f'://{trusted_host}', email_body)
-        
-        # Scheme-agnostic negative check for attacker host
         self.assertNotIn('attacker-domain.com', email_body)
 
     def test_production_config_no_broad_wildcards(self):
@@ -99,8 +93,6 @@ class SecurityHostHeaderTest(TestCase):
         accidentally active in the default test/production configuration.
         """
         broad_wildcards = [h for h in settings.ALLOWED_HOSTS if h.startswith('.')]
-        # We expect only explicit subdomains if any, but not a blanket '.vercel.app'
-        # unless VERCEL_ENV is 'preview'.
         if getattr(settings, 'VERCEL_ENV', None) != 'preview':
             self.assertNotIn(
                 '.vercel.app', 
