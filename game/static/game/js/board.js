@@ -76,7 +76,7 @@
                 if (!wName || !bName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter both player names';
+                        errorDiv.textContent = 'Please enter both player names';
                     }
                     if (!wName && wNameInput) wNameInput.classList.add('input-error');
                     if (!bName && bNameInput) bNameInput.classList.add('input-error');
@@ -1681,7 +1681,7 @@
                 if (!playerName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter your name';
+                        errorDiv.textContent = ' Please enter your name';
                     }
                     if (wNameInput) {
                         wNameInput.classList.add('input-error');
