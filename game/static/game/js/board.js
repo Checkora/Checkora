@@ -2127,8 +2127,8 @@
             const statusText = document.getElementById('status-text');
             function setOfflineStatus() {
             if (!statusIndicator || !statusText) return;
-                statusIndicator.classList.remove("Offline");
-                statusText.textContent = "Offline";
+                statusIndicator.classList.remove("offline");
+                statusText.textContent = "offline";
             }
             function setOnlineStatus() {
                 if (!statusIndicator || !statusText) return;
