@@ -334,7 +334,7 @@ def ai_move(request):
 
     # Depth Mapping
     difficulty = request.session.get('difficulty', 'medium')
-    depth_map = {'easy': 2, 'medium': 3, 'hard': 3}
+    depth_map = {'easy': 2, 'medium': 3, 'hard': 4}
     depth = depth_map.get(difficulty, 3)
 
     best = game.get_ai_move(depth=depth)
