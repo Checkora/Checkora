@@ -91,7 +91,7 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -186,7 +186,7 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -223,7 +223,7 @@ def resume_game(request):
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
 
@@ -283,7 +283,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -396,7 +396,7 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
