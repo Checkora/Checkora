@@ -1,9 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from django.views.generic import TemplateView
+from game.forms import CustomSetPasswordForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
+    path('sitemap.xml', TemplateView.as_view(template_name="sitemap.xml", content_type="application/xml")),
     path('', include('game.urls')),
 
     path('password-reset/',
@@ -22,7 +26,8 @@ urlpatterns = [
 
     path('password-reset-confirm/<uidb64>/<token>/',
          auth_views.PasswordResetConfirmView.as_view(
-             template_name='game/password_reset_confirm.html'
+             template_name='game/password_reset_confirm.html',
+             form_class=CustomSetPasswordForm
          ),
          name='password_reset_confirm'),
 
