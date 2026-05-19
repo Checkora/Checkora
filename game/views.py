@@ -622,16 +622,61 @@ def verify_otp(request):
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
-    uses_console_email = (
-        settings.EMAIL_BACKEND
-        == 'django.core.mail.backends.console.EmailBackend'
-    )
-    return render(
-        request,
-        'game/verify_otp.html',
-        {'uses_console_email': uses_console_email},
-    )
+    remaining_time=0
+    last_otp_time=request.session.get('last_otp_time')
+    if last_otp_time:
+        elapsed = int(time.time() - last_otp_time)
+        remaining_time = max(0, 60 - elapsed)  
+    return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
+def resend_otp(request):
+    user_id = request.session.get('registration_user_id')
+
+    if not user_id:
+        messages.error(request, 'Session expired. Please register again.')
+        return redirect('register')
+
+    try:
+        user = User.objects.get(id=user_id, is_active=False)
+    except User.DoesNotExist:
+        messages.error(request, 'User not found. Please register again.')
+        return redirect('register')
+    last_otp_time = request.session.get('last_otp_time')
+    if last_otp_time and time.time() - last_otp_time < 60:
+        remaining = int(60 - (time.time() - last_otp_time))
+        messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
+        return redirect('verify_otp')
+
+    otp = str(secrets.randbelow(900000) + 100000)
+
+    otp_hash = hashlib.sha256(
+        f"{otp}:{settings.SECRET_KEY}".encode()
+    ).hexdigest()
+
+    request.session['registration_otp_hash'] = otp_hash
+
+    try:
+        send_mail(
+            'Your Checkora Verification Code',
+            f'Your new OTP is: {otp}',
+            None,
+            [user.email],
+            fail_silently=False,
+        )
+
+        messages.success(
+            request,
+            'A new OTP has been sent to your email.'
+        )
+        request.session['last_otp_time'] = time.time()
+
+    except (SMTPException, BadHeaderError, OSError):
+        messages.error(
+            request,
+            'Failed to resend OTP. Please try again.'
+        )
+
+    return redirect('verify_otp')
 
 def login_view(request):
     if request.user.is_authenticated:

@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/check-username/', views.check_username, name='check_username'),
     path('register/', views.register_view, name='register'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
+    path('resend-otp/', views.resend_otp, name='resend_otp'),
     path('login/', views.login_view, name='login'),
     path('rules/', views.rules, name='rules'),
     path('logout/', views.logout_view, name='logout'),
