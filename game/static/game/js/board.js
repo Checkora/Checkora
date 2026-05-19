@@ -2002,9 +2002,13 @@ document.querySelectorAll('a[href="/"]').forEach(link => {
     link.addEventListener('click', (e) => {
         if (!gameOver && !welcomeOverlay.classList.contains('active')) {
             e.preventDefault();
-            lastFocusedElement = document.activeElement; 
+
+            lastFocusedElement = document.activeElement;
+
+            leaveConfirmOverlay.hidden = false;
             leaveConfirmOverlay.classList.add('active');
-            leaveConfirmNo.focus();                      
+
+            leaveConfirmNo.focus();
         }
     });
 });
@@ -2013,16 +2017,20 @@ let lastFocusedElement = null;
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && leaveConfirmOverlay.classList.contains('active')) {
         leaveConfirmOverlay.classList.remove('active');
+        leaveConfirmOverlay.hidden = true;
+
         lastFocusedElement?.focus();
     }
 });
 
 leaveConfirmNo.addEventListener('click', () => {
     leaveConfirmOverlay.classList.remove('active');
-    lastFocusedElement?.focus(); 
+    leaveConfirmOverlay.hidden = true;
+
+    lastFocusedElement?.focus();
 });
 leaveConfirmYes.addEventListener('click', () => {
-    window.location.href = '/';
+   window.location.href = leaveConfirmYes.dataset.href || '/';
 });
             
             function showAssetWarning() {
