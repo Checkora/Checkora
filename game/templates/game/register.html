@@ -101,6 +101,8 @@
         const feedback = document.createElement('span');
 
         feedback.className = 'helptext';
+        feedback.setAttribute('role', 'status');
+        feedback.setAttribute('aria-live', 'polite');
         usernameInput.parentNode.appendChild(feedback);
 
         usernameInput.addEventListener('input', () => {
@@ -128,11 +130,11 @@
               if (val !== latestVal) return;
 
               feedback.textContent = data.available
-                ? 'âœ” Username available'
-                : 'âœ– Username already taken';
+                ? 'Username available'
+                : 'Username already taken';
               feedback.style.color = data.available ? '#e5b639' : '#e57373';
             } catch (err) {
-              feedback.textContent = 'âš  Could not check username';
+              feedback.textContent = 'Could not check username';
               feedback.style.color = '#aaa';
             }
           }, 400);

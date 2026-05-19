@@ -6,11 +6,13 @@ from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
+from django.contrib.auth.forms import UsernameField
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
+from .forms import CustomUserCreationForm
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -90,6 +92,12 @@ class LandingViewTest(TestCase):
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
+
+    def test_register_form_preserves_username_field_type(self):
+        form = CustomUserCreationForm()
+
+        self.assertIsInstance(form.fields['username'], UsernameField)
+        self.assertEqual(form.fields['username'].label, 'Name')
 
     def test_register_page_shows_name_label(self):
         response = self.client.get('/register/')
