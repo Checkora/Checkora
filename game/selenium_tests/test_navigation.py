@@ -107,10 +107,10 @@ class NavigationTest(BaseE2ETest):
         # Color choice buttons should be present
         color_btns = self.driver.find_elements(By.CLASS_NAME, 'color-choice')
         self.assertEqual(
-            len(color_btns), 2,
-            f"Expected 2 color buttons, got {len(color_btns)}"
+            len(color_btns), 3,
+            f"Expected 3 color buttons, got {len(color_btns)}"
         )
-        log_ok("White/Black color buttons present")
+        log_ok("White/Black/Random color buttons present")
 
     # ───────────────────────────────────────────────────────────────
     # Test 5: Back Button Returns to Mode Selection
