@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import secrets
+import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -22,6 +23,7 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+from game.services import cleanup_stale_games
 
 
 def landing(request):
@@ -637,7 +639,7 @@ def verify_otp(request):
     last_otp_time=request.session.get('last_otp_time')
     if last_otp_time:
         elapsed = int(time.time() - last_otp_time)
-        remaining_time = max(0, 60 - elapsed)  
+        remaining_time = max(0, 60 - elapsed)
     return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
 def resend_otp(request):
@@ -755,10 +757,6 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
     })
 
-
-import secrets as secrets_module
-from django.views.decorators.http import require_POST
-from game.services import cleanup_stale_games
 
 @require_POST
 @csrf_exempt
