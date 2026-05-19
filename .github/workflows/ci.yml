@@ -305,7 +305,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
       
           # Fail on HIGH or MEDIUM severity issues
-          if grep -qi "severity: high\|severity: medium" bandit-report.txt; then
+          if grep -qiE "severity: (high|medium)" bandit-report.txt; then
             echo "❌ High or Medium severity issues found — failing CI"
             exit 1
           else
