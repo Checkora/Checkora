@@ -989,8 +989,6 @@
             function startTimer() {
                 clearInterval(timerInterval);
 
-                syncTimerState();
-
                 timerInterval = setInterval(() => {
                     if (paused || gameOver) return;
 
