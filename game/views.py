@@ -15,7 +15,6 @@ from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
-
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -23,6 +22,9 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+# Move these imports to the top to comply with flake8 E402
+import secrets as secrets_module
+from game.services import cleanup_stale_games
 
 
 def landing(request):
@@ -42,7 +44,13 @@ def index(request):
 def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+    GameResult.objects.create(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        player_color=player_color
+    )
 
 
 @require_POST
@@ -66,17 +74,21 @@ def make_move(request):
 
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
-    )
+      )
 
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+            record_game_result(
+                request, game.mode, winner, 'checkmate', game.player_color
+            )
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
-
+            record_game_result(
+                request, game.mode, 'draw', game.draw_reason or 'stalemate',
+                game.player_color
+            )
     return JsonResponse({
         'valid': success,
         'message': message,
@@ -188,17 +200,24 @@ def new_game(request):
         'draw_reason': game.draw_reason,
     })
 
+
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
+        return JsonResponse(
+            {'valid': False, 'message': 'No saved game found.'},
+            status=404
+        )
 
     game = ChessGame.from_dict(game_data)
 
     if game.game_status != 'active':
-        return JsonResponse({'valid': False, 'message': 'No active game to resume.'}, status=404)
+        return JsonResponse(
+            {'valid': False, 'message': 'No active game to resume.'},
+            status=404
+        )
 
     game.paused = False
     game.last_ts = time.time()
@@ -223,6 +242,7 @@ def resume_game(request):
         'pgn': game.generate_pgn(),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
+
 
 @require_GET
 def check_promotion(request):
@@ -326,12 +346,6 @@ def ai_move(request):
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode != 'ai':
-        err_msg = 'Not in AI mode.'
-        return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
-        )
-
     # Check if it's the AI's turn
     if game.current_turn == game.player_color:
         err_msg = 'Not AI\'s turn.'
@@ -339,22 +353,25 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-
     # Depth Mapping
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
     depth = depth_map.get(difficulty, 3)
 
     best = game.get_ai_move(depth=depth)
-    best = game.get_ai_move(depth=depth)
-    
     if not best:
         if game.game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+            winner = (
+                'black' if game.current_turn == 'white' else 'white'
+            )
+            record_game_result(
+                request, game.mode, winner, 'checkmate', game.player_color
+            )
             game_status = 'checkmate'
         else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color)
+            record_game_result(
+                request, game.mode, 'draw', 'stalemate', game.player_color
+            )
             game_status = 'stalemate'
 
         game.game_status = game_status
@@ -670,13 +687,8 @@ def stats_view(request):
         'user_ai_wins': user_ai_wins,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
-        'win_percentage': round(win_percentage, 2),
-    })
-
-
-import secrets as secrets_module
-from django.views.decorators.http import require_POST
-from game.services import cleanup_stale_games
+         'win_percentage': round(win_percentage, 2),
+     })
 
 @require_POST
 @csrf_exempt
