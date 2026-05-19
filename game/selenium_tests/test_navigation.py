@@ -113,7 +113,6 @@ class NavigationTest(BaseE2ETest):
         colors = {btn.get_attribute('data-color') for btn in color_btns}
         self.assertSetEqual(colors, {'white', 'black', 'random'})
         log_ok("White/Black/Random color buttons present")
-        
     # ───────────────────────────────────────────────────────────────
     # Test 5: Back Button Returns to Mode Selection
     # ───────────────────────────────────────────────────────────────
