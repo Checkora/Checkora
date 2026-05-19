@@ -1347,4 +1347,23 @@ body {
 }
 #leaveConfirmOverlay.active {
     display: flex;
+
+.online-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    margin-top: 8px;
+    color: #ffffff;
+}
+
+#status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #00c853;
+}
+
+.offline {
+    background-color: #d50000 !important;
 }
