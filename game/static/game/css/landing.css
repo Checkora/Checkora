@@ -40,8 +40,14 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 5%;
-    background-color: var(--bg-dark);
+    background-color: rgba(15, 15, 26, 0.94);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 30px rgba(5, 8, 15, 0.22);
 }
 
 .nav-left {
