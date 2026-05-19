@@ -233,11 +233,6 @@
                         aiClock.style.boxShadow = 'none';
                         aiClock.classList.remove('active');
                     }
-                    if (aiTimeEl) {
-                        aiTimeEl.textContent = '🤖';
-                        aiTimeEl.style.fontSize = '1.8em';
-                        aiTimeEl.style.color = '#888';
-                    }
                 }
 
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
@@ -870,13 +865,6 @@
             TIMER SYNCHRONIZATION
             ========================================================== */
 
-            function syncTimerState() {
-                turnStartedAt = Date.now();
-
-                whiteBaseTime = whiteTime;
-                blackBaseTime = blackTime;
-            }
-
             function getAccurateWhiteTime() {
                 if (paused || turn !== 'white') {
                     return whiteBaseTime;
@@ -905,9 +893,10 @@
             function formatTime(t) { return fmt(t); }
 
             function renderClocks() {
-                whiteTime = getAccurateWhiteTime();
-                blackTime = getAccurateBlackTime();
-
+                const currentWhiteTime = getAccurateWhiteTime();
+                const currentBlackTime = getAccurateBlackTime();
+                whiteTime = currentWhiteTime;
+                blackTime = currentBlackTime;
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
 
@@ -923,15 +912,18 @@
 
                     if (playerTimeEl) {
                         playerTimeEl.textContent =
-                        formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        }
-
+                        formatTime(playerColor === 'white'
+                            ? currentWhiteTime
+                            : currentBlackTime);
+                        }
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent =
+                        formatTime(playerColor === 'white'
+                        ? currentBlackTime
+                        : currentWhiteTime);
+}
                     if (playerClock) {
                         playerClock.classList.toggle('active', turn === playerColor);
-        }
-
-                    if (aiTimeEl) {
-                        aiTimeEl.textContent = '🤖';
         }
 
                     if (aiClock) {
@@ -1009,6 +1001,7 @@
                 blackTime = d.black_time;
                 whiteBaseTime = whiteTime;
                 blackBaseTime = blackTime;
+                turnStartedAt = Date.now();
                 updatePauseUI();
                 renderClocks();
             }
@@ -1121,7 +1114,7 @@
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 await loadGame();
-                syncTimerState();
+
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
                 paused = false;
@@ -1312,11 +1305,13 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) {
+            document.addEventListener('visibilitychange', async () => {
+                if (document.hidden) {
+                    await pauseGame();
+              } else {
                     renderClocks();
-                }
-});
+            }
+           });
             window.addEventListener('focus', () => {
                 renderClocks();
 });
