@@ -1031,6 +1031,10 @@ body {
     box-shadow: 0 2px 12px rgba(0,0,0,0.55),
                 0 0 0 1px rgba(220,60,50,0.1);
   }
+  .resign-btn {
+    background: #333 !important;
+    color: #fff !important;
+}
   
   .m-fab:has(~ .promo-overlay.active),
   body:has(.promo-overlay.active) .m-fab {
