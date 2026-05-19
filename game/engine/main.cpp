@@ -647,7 +647,6 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
     vector<Move> legal;
     int checkedMoves = 0;
     legal.reserve(moves.size());
-    int checkedMoves = 0;
 
     for (auto &m : moves) {
 
