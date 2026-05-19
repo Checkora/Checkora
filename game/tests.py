@@ -13,6 +13,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
 
+
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
 
@@ -69,6 +70,7 @@ class EnginePathResolutionTest(SimpleTestCase):
                 [sys.executable, candidates[2]],
             )
 
+
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
 
@@ -76,6 +78,7 @@ class BoardViewTest(TestCase):
         response = self.client.get('/play/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
+
 
 class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
@@ -88,6 +91,7 @@ class LandingViewTest(TestCase):
     def test_landing_page_links_to_play(self):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
+
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
@@ -106,7 +110,8 @@ class RegistrationViewTest(TestCase):
         }
 
         with mock.patch('builtins.print') as mock_print:
-            response = self.client.post('/register/', data=payload, follow=True)
+            response = self.client.post(
+                '/register/', data=payload, follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
         self.assertNotContains(response, 'Development mode OTP')
@@ -136,7 +141,9 @@ class RegistrationViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Failed to send OTP email.')
-        self.assertContains(response, 'Please check your email address and try again.')
+        self.assertContains(
+            response,
+            'Please check your email address and try again.')
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
@@ -190,6 +197,7 @@ class CustomSetPasswordFormTest(TestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
+
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
@@ -301,6 +309,7 @@ class MoveValidationTest(TestCase):
         self.assertTrue(data['valid'])
         self.assertEqual(data['captured'], 'p')
 
+
 class ValidMovesTest(TestCase):
     """Test /api/valid-moves/ endpoint."""
 
@@ -337,6 +346,7 @@ class ValidMovesTest(TestCase):
         r = self.client.get('/api/valid-moves/?row=7&col=0')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
+
 class NewGameTest(TestCase):
     """Test the /api/new-game/ endpoint."""
 
@@ -357,6 +367,7 @@ class NewGameTest(TestCase):
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(len(data['move_history']), 0)
 
+
 class CheckPromotionTest(TestCase):
     """Test the /api/check-promotion/ endpoint."""
 
@@ -366,7 +377,8 @@ class CheckPromotionTest(TestCase):
 
     def setUp(self):
         self.client.get('/play/')
-        self.promo_patcher = mock.patch('game.engine.ChessGame.is_promotion_move')
+        self.promo_patcher = mock.patch(
+            'game.engine.ChessGame.is_promotion_move')
         self.mock_promo = self.promo_patcher.start()
 
     def tearDown(self):
@@ -392,6 +404,7 @@ class CheckPromotionTest(TestCase):
         r = self.client.get(url)
         self.assertFalse(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
+
 
 class GameStateTest(TestCase):
     """Test the /api/state/ endpoint."""
@@ -449,6 +462,7 @@ class GameStateTest(TestCase):
         self.assertEqual(data['white_time'], 600)
         self.assertEqual(data['black_time'], 600)
 
+
 class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
@@ -501,6 +515,7 @@ class PauseTest(TestCase):
         self.assertEqual(data['white_time'], 597)
         self.assertEqual(data['black_time'], 600)
 
+
 class DrawOfferTest(TestCase):
     """Test draw agreement persistence through the API."""
 
@@ -522,6 +537,7 @@ class DrawOfferTest(TestCase):
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'draw')
         self.assertEqual(state['draw_reason'], 'agreement')
+
 
 class DrawRuleTest(SimpleTestCase):
     """Test rule-based draw detection in the engine."""
@@ -631,6 +647,7 @@ class DrawRuleTest(SimpleTestCase):
 
         self.assertEqual(with_ep, without_ep)
 
+
 class AIMoveTest(TestCase):
     """Test the /api/ai-move/ endpoint."""
 
@@ -658,9 +675,12 @@ class AIMoveTest(TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertFalse(r.json()['valid'])
 
-    def test_ai_makes_move(self):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'black',
+            }),
             content_type='application/json'
         )
 
@@ -901,6 +921,7 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
 
+
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
 
@@ -925,8 +946,10 @@ class StatsCleanupTest(TestCase):
     """Tests for the cleaned-up stats view and user isolation."""
 
     def setUp(self):
-        self.user_a = User.objects.create_user(username='usera', password='password123')
-        self.user_b = User.objects.create_user(username='userb', password='password123')
+        self.user_a = User.objects.create_user(
+            username='usera', password='password123')
+        self.user_b = User.objects.create_user(
+            username='userb', password='password123')
         from .models import GameResult
         self.GameResult = GameResult
 
@@ -939,9 +962,17 @@ class StatsCleanupTest(TestCase):
     def test_user_isolation(self):
         """Users should only see their own game results."""
         # Create game for user A
-        self.GameResult.objects.create(user=self.user_a, mode='pvp', winner='white', end_reason='checkmate')
+        self.GameResult.objects.create(
+            user=self.user_a,
+            mode='pvp',
+            winner='white',
+            end_reason='checkmate')
         # Create game for user B
-        self.GameResult.objects.create(user=self.user_b, mode='ai', winner='black', end_reason='resign')
+        self.GameResult.objects.create(
+            user=self.user_b,
+            mode='ai',
+            winner='black',
+            end_reason='resign')
 
         # Check as User A
         self.client.login(username='usera', password='password123')
@@ -973,52 +1004,74 @@ class StatsCleanupTest(TestCase):
         """Stats counts should accurately reflect only the current user's games."""
         # User A plays as white, wins as white (1 user win, 0 AI win)
         self.GameResult.objects.create(
-            user=self.user_a, mode='ai', winner='white', player_color='white', end_reason='checkmate'
-        )
+            user=self.user_a,
+            mode='ai',
+            winner='white',
+            player_color='white',
+            end_reason='checkmate')
         # User A plays as black, AI wins as white (0 user win, 1 AI win)
         self.GameResult.objects.create(
-            user=self.user_a, mode='ai', winner='white', player_color='black', end_reason='checkmate'
-        )
+            user=self.user_a,
+            mode='ai',
+            winner='white',
+            player_color='black',
+            end_reason='checkmate')
         # User A plays as black, wins as black (1 user win, 0 AI win)
         self.GameResult.objects.create(
-            user=self.user_a, mode='ai', winner='black', player_color='black', end_reason='checkmate'
-        )
+            user=self.user_a,
+            mode='ai',
+            winner='black',
+            player_color='black',
+            end_reason='checkmate')
         # User A draws
         self.GameResult.objects.create(
-            user=self.user_a, mode='ai', winner='draw', player_color='white', end_reason='stalemate'
-        )
+            user=self.user_a,
+            mode='ai',
+            winner='draw',
+            player_color='white',
+            end_reason='stalemate')
         # User B has 5 AI wins
         for _ in range(5):
             self.GameResult.objects.create(
-                user=self.user_b, mode='ai', winner='white', player_color='white', end_reason='checkmate'
-            )
+                user=self.user_b,
+                mode='ai',
+                winner='white',
+                player_color='white',
+                end_reason='checkmate')
 
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
-        self.assertContains(response, '<div class="num">4</div>')  # Total AI Games
-        self.assertContains(response, '<div class="num">2</div>')  # User Wins vs AI
+        self.assertContains(
+            response, '<div class="num">4</div>')  # Total AI Games
+        self.assertContains(
+            response, '<div class="num">2</div>')  # User Wins vs AI
         self.assertContains(response, '<div class="num">1</div>')  # AI Wins
         self.assertContains(response, '<div class="num">1</div>')  # Draws
 
     def test_filter_invalid_records(self):
         """Records with empty mode should be filtered out."""
         # This shouldn't happen with the model but the view handles it
-        self.GameResult.objects.create(user=self.user_a, mode='', winner='white', end_reason='checkmate')
+        self.GameResult.objects.create(
+            user=self.user_a,
+            mode='',
+            winner='white',
+            end_reason='checkmate')
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
         self.assertContains(response, 'No games played yet.')
 
+
 class StaleGameCleanupTest(TestCase):
     def setUp(self):
         self.url = '/api/cron/cleanup-stale-games/'
         self.secret = 'test_secret_123'
-        
+
     @override_settings(CRON_SECRET='test_secret_123')
     def test_stale_game_deletion(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         s = SessionStore()
         s.create()
         # low engagement: < 5 moves
@@ -1028,11 +1081,13 @@ class StaleGameCleanupTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        
-        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
+
+        response = self.client.post(
+            self.url, HTTP_AUTHORIZATION=f'Bearer {
+                self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 1)
-        
+
         s = SessionStore(session_key=s.session_key)
         self.assertNotIn('game', s)
 
@@ -1041,7 +1096,7 @@ class StaleGameCleanupTest(TestCase):
         from django.contrib.sessions.backends.db import SessionStore
         import time
         from game.models import GameResult
-        
+
         s = SessionStore()
         s.create()
         # high engagement: >= 5 moves
@@ -1054,14 +1109,16 @@ class StaleGameCleanupTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        
-        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
+
+        response = self.client.post(
+            self.url, HTTP_AUTHORIZATION=f'Bearer {
+                self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['resigned_games'], 1)
-        
+
         s = SessionStore(session_key=s.session_key)
         self.assertEqual(s['game']['game_status'], 'resignation')
-        
+
         self.assertEqual(GameResult.objects.count(), 1)
         res = GameResult.objects.first()
         self.assertEqual(res.winner, 'black')
@@ -1071,29 +1128,33 @@ class StaleGameCleanupTest(TestCase):
     def test_edge_cases(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         # 1. Game less than 48 hours old
         s1 = SessionStore()
         s1.create()
-        s1['game'] = {'game_status': 'active', 'move_history': [1], 'last_ts': time.time() - (10 * 3600)}
+        s1['game'] = {'game_status': 'active', 'move_history': [
+            1], 'last_ts': time.time() - (10 * 3600)}
         s1.save()
-        
+
         # 2. Game already completed
         s2 = SessionStore()
         s2.create()
-        s2['game'] = {'game_status': 'checkmate', 'move_history': [1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
+        s2['game'] = {'game_status': 'checkmate', 'move_history': [
+            1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
         s2.save()
-        
+
         # 3. Session without game data
         s3 = SessionStore()
         s3.create()
         s3.save()
-        
-        response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
+
+        response = self.client.post(
+            self.url, HTTP_AUTHORIZATION=f'Bearer {
+                self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 0)
         self.assertEqual(response.json()['resigned_games'], 0)
-        
+
         s1 = SessionStore(session_key=s1.session_key)
         self.assertEqual(s1['game']['game_status'], 'active')
 
@@ -1101,31 +1162,41 @@ class StaleGameCleanupTest(TestCase):
     def test_protected_endpoint(self):
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 401)
-        
-        response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
+
+        response = self.client.post(
+            self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
+
 
 class CheckUsernameViewTest(TestCase):
 
     def setUp(self):
         """Create a test user to simulate a taken username."""
-        User.objects.create_user(username='existinguser', password='testpass123')
+        User.objects.create_user(
+            username='existinguser',
+            password='testpass123')
 
     def test_username_available(self):
         """Should return available=True for a username that does not exist."""
-        response = self.client.get(reverse('check_username'), {'username': 'newuser'})
+        response = self.client.get(
+            reverse('check_username'), {
+                'username': 'newuser'})
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {'available': True})
 
     def test_username_taken(self):
         """Should return available=False for a username that already exists."""
-        response = self.client.get(reverse('check_username'), {'username': 'existinguser'})
+        response = self.client.get(
+            reverse('check_username'), {
+                'username': 'existinguser'})
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {'available': False})
 
     def test_username_taken_case_insensitive(self):
         """Should be case insensitive — ExistingUser should match existinguser."""
-        response = self.client.get(reverse('check_username'), {'username': 'ExistingUser'})
+        response = self.client.get(
+            reverse('check_username'), {
+                'username': 'ExistingUser'})
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {'available': False})
 
@@ -1149,7 +1220,9 @@ class CheckUsernameViewTest(TestCase):
 
     def test_whitespace_only_username(self):
         """Should return 400 when username is only whitespace."""
-        response = self.client.get(reverse('check_username'), {'username': '   '})
+        response = self.client.get(
+            reverse('check_username'), {
+                'username': '   '})
         self.assertEqual(response.status_code, 400)
         self.assertJSONEqual(response.content, {
             'available': False,
@@ -1158,5 +1231,7 @@ class CheckUsernameViewTest(TestCase):
 
     def test_endpoint_only_accepts_get(self):
         """Should return 405 Method Not Allowed for POST requests."""
-        response = self.client.post(reverse('check_username'), {'username': 'newuser'})
+        response = self.client.post(
+            reverse('check_username'), {
+                'username': 'newuser'})
         self.assertEqual(response.status_code, 405)

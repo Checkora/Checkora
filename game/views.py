@@ -363,13 +363,25 @@ def ai_move(request):
         err_msg = "No active game."
         return JsonResponse({"valid": False, "message": err_msg}, status=400)
 
+    # Check if it's the AI's turn
+    # Determine AI color
+
     game = ChessGame.from_dict(game_data)
 
-    # Check if it's the AI's turn
-    if game.current_turn == game.player_color:
-        err_msg = "Not AI's turn."
-        return JsonResponse({"valid": False, "message": err_msg}, status=400)
+    if game.mode != "ai":
+        return JsonResponse(
+            {"valid": False, "message": "AI mode is not enabled."},
+            status=400,
+        )
 
+    player_color = getattr(game, "player_color", "white")
+    ai_color = "black" if player_color == "white" else "white"
+
+    if game.current_turn != ai_color:
+        return JsonResponse(
+            {"valid": False, "message": "Not AI's turn."},
+            status=400,
+        )
     # Depth Mapping
     difficulty = request.session.get("difficulty", "medium")
     depth_map = {"easy": 2, "medium": 3, "hard": 5}
