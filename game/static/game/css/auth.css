@@ -64,10 +64,11 @@ body {
 /* Logo text */ 
 .logo-text {
     font-family: 'Cinzel', serif;
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
     color: #f0c040;
+    text-transform: uppercase;
 }
 
 /* Responsive logo sizes */
