@@ -862,17 +862,18 @@
                         }
                     }
 
-                    // minimal frontend delay — actual wait time comes from backend AI computation
-                    let delay = 200;
-                    if (currentDifficulty === 'easy') delay = 100;
-                    else if (currentDifficulty === 'hard') delay = 300;
+                    // randomized delay per difficulty — feels realistic and unpredictable
+                    let delay;
+                    if (currentDifficulty === 'easy')       delay = 800  + Math.random() * (1500 - 800);
+                    else if (currentDifficulty === 'hard')  delay = 2500 + Math.random() * (4000 - 2500);
+                    else                                    delay = 1500 + Math.random() * (2500 - 1500); // medium
                     await new Promise(resolve => setTimeout(resolve, delay));
-                    clearInterval(thinkingInterval);
 
                     // fix: abort if game ended during delay
-                    if (gameOver) { aiThinking = false; return; }
+                    if (gameOver) { aiThinking = false; clearInterval(thinkingInterval); return; }
 
                     const data = await post('/api/ai-move/', {});
+                    clearInterval(thinkingInterval); // fix: clear after API call completes, not before
                         if (data.valid) {
                             playSound(data);
                             const mv = data.ai_move;
@@ -1254,8 +1255,14 @@
                     // PvP — both clocks update normally
                     if (wTime) wTime.textContent = formatTime(whiteTime);
                     if (bTime) bTime.textContent = formatTime(blackTime);
-                    if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-                    if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+                    if (whiteClock) {
+                        whiteClock.classList.toggle('active', turn === 'white');
+                        whiteClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                    }
+                    if (blackClock) {
+                        blackClock.classList.toggle('active', turn === 'black');
+                        blackClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                    }
                 }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
