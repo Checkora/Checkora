@@ -23,6 +23,7 @@
             let paused = false;
             let timerInterval = null;
             let turnStartedAt = null;
+            let timerInitialized = false;
             let whiteBaseTime = 0;
             let blackBaseTime = 0;
             let pendingPromo = null;
@@ -181,6 +182,7 @@
                 whiteBaseTime = whiteTime;
                 blackBaseTime = blackTime;
                 turnStartedAt = Date.now();
+                timerInitialized = true;
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
@@ -866,9 +868,13 @@
             ========================================================== */
 
             function getAccurateWhiteTime() {
-                if (paused || turn !== 'white') {
+                if (
+                    paused ||
+                    turn !== 'white' ||
+                    turnStartedAt === null
+    ) {
                     return whiteBaseTime;
-                }
+    }
 
                 const elapsed = (Date.now() - turnStartedAt) / 1000;
 
@@ -876,9 +882,13 @@
                }
 
             function getAccurateBlackTime() {
-                if (paused || turn !== 'black') {
+                if (
+                    paused ||
+                    turn !== 'black' ||
+                    turnStartedAt === null
+    ) {
                     return blackBaseTime;
-                }
+    }
 
                 const elapsed = (Date.now() - turnStartedAt) / 1000;
 
@@ -893,6 +903,7 @@
             function formatTime(t) { return fmt(t); }
 
             function renderClocks() {
+                if (!timerInitialized) return;
                 const currentWhiteTime = getAccurateWhiteTime();
                 const currentBlackTime = getAccurateBlackTime();
                 whiteTime = currentWhiteTime;
@@ -962,15 +973,19 @@
 
                 checkForTimeout();
 }
-            function checkForTimeout() {
-                    if (gameOver || paused) return;
+           function checkForTimeout() {
+            if (gameOver || paused || !timerInitialized) return;
 
-                    if (whiteTime <= 0 || blackTime <= 0) {
-                        clearInterval(timerInterval);
+            const currentWhiteTime = getAccurateWhiteTime();
+            const currentBlackTime = getAccurateBlackTime();
 
-                        const loser = whiteTime <= 0 ? 'white' : 'black';
+            if (currentWhiteTime <= 0 || currentBlackTime <= 0) {
+                clearInterval(timerInterval);
 
-                        endGame('timeout', loser);
+                const loser =
+                    currentWhiteTime <= 0 ? 'white' : 'black';
+
+                endGame('timeout', loser);
     }
 }
 
