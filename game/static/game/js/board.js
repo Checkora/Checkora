@@ -22,6 +22,9 @@
             let blackTime = 0;
             let paused = false;
             let timerInterval = null;
+            let turnStartedAt = null;
+            let whiteBaseTime = 0;
+            let blackBaseTime = 0;
             let pendingPromo = null;
 
             let gameMode = 'pvp';
@@ -175,6 +178,9 @@
                 turn = data.current_turn;
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
+                whiteBaseTime = whiteTime;
+                blackBaseTime = blackTime;
+                turnStartedAt = Date.now();
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
@@ -518,6 +524,9 @@
                         }
                         whiteTime = data.white_time;
                         blackTime = data.black_time;
+                        whiteBaseTime = whiteTime;
+                        blackBaseTime = blackTime;
+                        turnStartedAt = Date.now();
 
                         selected = null;
                         hints = [];
@@ -564,6 +573,9 @@
                         lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
                         whiteTime = data.white_time;
                         blackTime = data.black_time;
+                        whiteBaseTime = whiteTime;
+                        blackBaseTime = blackTime;
+                        turnStartedAt = Date.now();
 
                         selected = null;
                         hints = [];
@@ -735,7 +747,17 @@
                         insufficient_material: 'Draw by insufficient material.',
                     };
                     message = drawMessages[drawReason] || 'The game is a draw.';
-                } else if (reason === 'resign') {
+                } else if (reason === 'timeout') {
+                    const winner = color === 'white' ? 'Black' : 'White';
+                    const winnerName = color === 'white'
+                        ? blackNameLabel.textContent
+                        : whiteNameLabel.textContent;
+
+                    title = '⏰ TIMEOUT!';
+                    message = `${winnerName} wins on time!`;
+                    isCelebration = true;
+                }
+                  else if (reason === 'resign') {
                     const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
@@ -743,7 +765,7 @@
                     message = `${loserName} resigned. ${winnerName} WINS!`;
                     isCelebration = true;
                 }
-            
+                  
                 gameOverTitle.textContent = title;
                 gameOverMessage.textContent = message;
                 
@@ -844,42 +866,121 @@
             /* ==========================================================
             CLOCKS & PAUSE
             ========================================================== */
-            const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+            /* ==========================================================
+            TIMER SYNCHRONIZATION
+            ========================================================== */
+
+            function syncTimerState() {
+                turnStartedAt = Date.now();
+
+                whiteBaseTime = whiteTime;
+                blackBaseTime = blackTime;
+            }
+
+            function getAccurateWhiteTime() {
+                if (paused || turn !== 'white') {
+                    return whiteBaseTime;
+                }
+
+                const elapsed = (Date.now() - turnStartedAt) / 1000;
+
+                return Math.max(whiteBaseTime - elapsed, 0);
+               }
+
+            function getAccurateBlackTime() {
+                if (paused || turn !== 'black') {
+                    return blackBaseTime;
+                }
+
+                const elapsed = (Date.now() - turnStartedAt) / 1000;
+
+                return Math.max(blackBaseTime - elapsed, 0);
+}
+            
+                const fmt = t => {
+                    t = Math.max(0, Math.floor(t));
+
+                    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+         };
             function formatTime(t) { return fmt(t); }
 
             function renderClocks() {
+                whiteTime = getAccurateWhiteTime();
+                blackTime = getAccurateBlackTime();
+
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
-                
 
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
+
                 if (gameMode === 'ai') {
-        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
-        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
-        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
-        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
+                    const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+                    const playerTimeEl = playerColor === 'white' ? wTime : bTime;
 
-        // Player clock — update time and highlight on their turn
-        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+                    const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+                    const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
-        // AI clock — static, never highlights, never updates time
-        if (aiTimeEl) aiTimeEl.textContent = '🤖';
-        if (aiClock) aiClock.classList.remove('active');
+                    if (playerTimeEl) {
+                        playerTimeEl.textContent =
+                        formatTime(playerColor === 'white' ? whiteTime : blackTime);
+        }
 
-    } else {
-        // PvP — both clocks update normally
-        if (wTime) wTime.textContent = formatTime(whiteTime);
-        if (bTime) bTime.textContent = formatTime(blackTime);
-        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+                    if (playerClock) {
+                        playerClock.classList.toggle('active', turn === playerColor);
+        }
+
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = '🤖';
+        }
+
+                    if (aiClock) {
+                        aiClock.classList.remove('active');
+        }
+
+    }           else {
+                   if (wTime) wTime.textContent = formatTime(whiteTime);
+                   if (bTime) bTime.textContent = formatTime(blackTime);
+
+                   if (whiteClock) {
+                        whiteClock.classList.toggle('active', turn === 'white');
+        }
+
+                   if (blackClock) {
+                        blackClock.classList.toggle('active', turn === 'black');
+        }
     }
+
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
-                if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
-                if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
-            }
+ 
+                if (wYou) {
+                    wYou.style.display =
+                        (gameMode === 'ai' && playerColor === 'white')
+                            ? 'inline'
+                            : 'none';
+    }
+
+                if (bYou) {
+                    bYou.style.display =
+                        (gameMode === 'ai' && playerColor === 'black')
+                            ? 'inline'
+                            : 'none';
+    }
+
+                checkForTimeout();
+}
+            function checkForTimeout() {
+                    if (gameOver || paused) return;
+
+                    if (whiteTime <= 0 || blackTime <= 0) {
+                        clearInterval(timerInterval);
+
+                        const loser = whiteTime <= 0 ? 'white' : 'black';
+
+                        endGame('timeout', loser);
+    }
+}
 
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
@@ -887,13 +988,15 @@
 
             function startTimer() {
                 clearInterval(timerInterval);
+
+                syncTimerState();
+
                 timerInterval = setInterval(() => {
-                    if (paused) return;
-                    if (turn === 'white' && whiteTime > 0) whiteTime--;
-                    if (turn === 'black' && blackTime > 0) blackTime--;
+                    if (paused || gameOver) return;
+
                     renderClocks();
-                }, 1000);
-            }
+                }, 250);
+}
 
             function toggleBoardOrientation() {
                 flipped = !flipped;
@@ -906,6 +1009,8 @@
                 paused = d.paused;
                 whiteTime = d.white_time;
                 blackTime = d.black_time;
+                whiteBaseTime = whiteTime;
+                blackBaseTime = blackTime;
                 updatePauseUI();
                 renderClocks();
             }
@@ -916,6 +1021,9 @@
                 paused = d.paused;
                 whiteTime = d.white_time;
                 blackTime = d.black_time;
+                whiteBaseTime = whiteTime;
+                blackBaseTime = blackTime;
+                turnStartedAt = Date.now();
                 updatePauseUI();
                 renderClocks();
                 startTimer();
@@ -1000,6 +1108,7 @@
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
+                clearInterval(timerInterval);
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 
@@ -1014,6 +1123,7 @@
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
                 await loadGame();
+                syncTimerState();
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
                 paused = false;
@@ -1204,7 +1314,14 @@
                 };
             });
 
-            document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    renderClocks();
+                }
+});
+            window.addEventListener('focus', () => {
+                renderClocks();
+});
             document.addEventListener('keydown', e => {
                 if (e.repeat) return;
 
