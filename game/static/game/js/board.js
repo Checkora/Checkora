@@ -1987,7 +1987,8 @@
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
                if (!paused) {
-            navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+            const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
+            navigator.sendBeacon('/api/pause/', blob);
                    }
                 });
             }
@@ -2001,17 +2002,27 @@ document.querySelectorAll('a[href="/"]').forEach(link => {
     link.addEventListener('click', (e) => {
         if (!gameOver && !welcomeOverlay.classList.contains('active')) {
             e.preventDefault();
-            leaveConfirmOverlay.style.display = 'flex';
+            lastFocusedElement = document.activeElement; 
+            leaveConfirmOverlay.classList.add('active');
+            leaveConfirmNo.focus();                      
         }
     });
 });
+let lastFocusedElement = null;
 
-leaveConfirmYes.addEventListener('click', () => {
-    window.location.href = '/';
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && leaveConfirmOverlay.classList.contains('active')) {
+        leaveConfirmOverlay.classList.remove('active');
+        lastFocusedElement?.focus();
+    }
 });
 
 leaveConfirmNo.addEventListener('click', () => {
-    leaveConfirmOverlay.style.display = 'none';
+    leaveConfirmOverlay.classList.remove('active');
+    lastFocusedElement?.focus(); 
+});
+leaveConfirmYes.addEventListener('click', () => {
+    window.location.href = '/';
 });
             
             function showAssetWarning() {

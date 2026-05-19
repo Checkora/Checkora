@@ -1325,3 +1325,9 @@ body {
         padding: 6px 10px;
     }
 }
+#leaveConfirmOverlay {
+    display: none;
+}
+#leaveConfirmOverlay.active {
+    display: flex;
+}
