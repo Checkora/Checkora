@@ -35,6 +35,8 @@
 
             let gameMode = 'pvp';
             let currentDifficulty = 'medium';
+            let currentWhiteName = 'White';
+            let currentBlackName = 'Black';
             // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
@@ -455,6 +457,8 @@
             function updatePlayerNames(data) {
                 let wName = data.white_name || 'White';
                 let bName = data.black_name || 'Black';
+                currentWhiteName = data.white_name || 'White';
+                currentBlackName = data.black_name || 'Black';
                 
                 if (gameMode === 'ai'){
                     const diffLabel = (currentDifficulty || 'medium').toUpperCase();
@@ -1437,7 +1441,7 @@
                 );
             }
 
-            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
                 // Reset AI request sequence and thinking state on new game
                 aiRequestSeq = 0;
                 aiThinking = false;
@@ -1892,17 +1896,18 @@
                 const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
-                
-                // Add this: Clear confetti container
+
                 const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
+
+                const swappedColor = playerColor === 'white' ? 'black' : 'white';
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
-                    startNewGame(mode, 'white', diff, null, timeLimitMins);
+                    startNewGame(mode, swappedColor, diff, null, timeLimitMins,
+                        { white: currentBlackName, black: currentWhiteName });
                 }
             };
 
