@@ -1,0 +1,152 @@
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background-color: #0f0f1a;
+    color: #d0d0d0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    width: 100%;
+}
+
+/* ============================================================
+   CSS Variables & Themes
+   ============================================================ */
+:root {
+    --page-bg: #0f0f1a;
+
+    /* Classic (default) */
+    --sq-light: #FFF6D5;
+    --sq-dark: #E1B12C;
+
+    --sq-selected-light: #FFE27A;
+    --sq-selected-dark: #FFD84D;
+
+    --sq-last-light: #FFEAA0;
+    --sq-last-dark: #F4D35E;
+
+    --move-dot: rgba(209, 213, 219, 0.78);
+    --move-dot-hover: rgba(229, 231, 235, 0.92);
+    --move-dot-border: rgba(255, 255, 255, 0.45);
+    --move-dot-glow: rgba(255, 255, 255, 0.28);
+    --move-dot-hover-glow: rgba(255, 255, 255, 0.45);
+
+    --board-border-width: 3px;
+}
+
+/* Dark Theme */
+:root[data-theme="dark"] {
+    --sq-light: #b0b0b0;
+    --sq-dark: #3a3a3a;
+    --sq-selected-light: #5271ff;
+    --sq-selected-dark: #1a36b8;
+    --sq-last-light: #e6b800;
+    --sq-last-dark: #b38f00;
+    --move-dot: rgba(255, 255, 255, 0.35);
+    --move-dot-hover: rgba(255, 255, 255, 0.65);
+}
+
+/* Green Theme */
+:root[data-theme="green"] {
+    --sq-light: #9dbb94;
+    --sq-dark: #2e5a31;
+    --sq-selected-light: #c7e89c;
+    --sq-selected-dark: #8fbc5a;
+    --sq-last-light: #b8d98a;
+    --sq-last-dark: #6f9a45;
+}
+
+/* Blue Theme */
+:root[data-theme="blue"] {
+    --sq-light: #a4b1bd;
+    --sq-dark: #2e4a5a;
+    --sq-selected-light: #9fd8ff;
+    --sq-selected-dark: #5ca8d6;
+    --sq-last-light: #8cc9f0;
+    --sq-last-dark: #4e8fb8;
+}
+
+/* Pastel Theme */
+:root[data-theme="pastel"] {
+    --sq-light: #fff0f5;
+    --sq-dark: #ffb6c1;
+    --sq-selected-light: #e6b8ff;
+    --sq-selected-dark: #b380ff;
+    --sq-last-light: #f5d6ff;
+    --sq-last-dark: #cc99ff;
+    --move-dot: rgba(100, 100, 100, 0.3);
+    --move-dot-hover: rgba(50, 50, 50, 0.6);
+}
+
+/* ============================================================
+   Utility
+   ============================================================ */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.input-error {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+}
+
+#whiteNameInput:focus,
+#blackNameInput:focus {
+    border-color: #f0c040;
+    box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
+    outline: none;
+}
+
+/* ============================================================
+   Online Status
+   ============================================================ */
+.online-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    margin-top: 8px;
+    color: #ffffff;
+}
+
+#status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #00c853;
+}
+
+.offline {
+    background-color: #d50000 !important;
+}
+
+/* ============================================================
+   Responsive — CSS variable overrides only
+   ============================================================ */
+@media (max-width: 768px) {
+    :root {
+        --board-border-width: 3px;
+        --mobile-board-size: min(calc(100vw - 40px), 480px);
+        --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
+    }
+}
+
+@media (max-width: 400px) {
+    :root {
+        --mobile-board-size: min(calc(100vw - 24px), 360px);
+    }
+}

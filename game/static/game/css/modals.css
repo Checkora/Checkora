@@ -1,0 +1,171 @@
+/* ============================================================
+   Base Overlay
+   ============================================================ */
+.promo-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.promo-overlay.active { display: flex; }
+
+.promo-dialog {
+    background: #1a1a30;
+    border: 2px solid #f0c040;
+    border-radius: 12px;
+    padding: clamp(16px, 5vw, 32px);
+    text-align: center;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+    width: 90%;
+    max-width: 480px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.promo-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f0c040;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ============================================================
+   Promotion Pieces
+   ============================================================ */
+.promo-pieces {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.promo-btn {
+    width: 64px;
+    height: 64px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #252545;
+    cursor: pointer;
+    padding: 6px;
+    transition: all 0.2s ease;
+}
+.promo-btn:hover {
+    border-color: #f0c040;
+    background: #2a2a55;
+    transform: scale(1.08);
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.3);
+}
+.promo-btn img {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* ============================================================
+   Welcome / Logo inside modal
+   ============================================================ */
+.promo-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.promo-logo span {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f0c040;
+    letter-spacing: 2px;
+}
+
+.promo-title img {
+    height: 46px;
+    width: auto;
+    object-fit: contain;
+    transform: translateY(2px);
+    filter: brightness(1.6) contrast(1.3);
+    animation: logoGlow 2.8s ease-in-out infinite alternate;
+}
+
+/* ============================================================
+   Celebration — Game Over
+   ============================================================ */
+.game-over-celebration #gameOverTitle {
+    font-size: 2.2rem !important;
+    font-weight: 900 !important;
+    background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shine 2s ease-in-out infinite, pulse 1.5s ease-in-out infinite;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.8),
+                 0 0 60px rgba(255, 215, 0, 0.6),
+                 0 0 90px rgba(255, 215, 0, 0.4);
+    letter-spacing: 2px;
+}
+
+.game-over-celebration #gameOverMessage {
+    font-size: 1.3rem !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.game-over-celebration .promo-dialog {
+    box-shadow: 0 0 40px rgba(240, 192, 64, 0.4),
+                0 0 80px rgba(240, 192, 64, 0.2),
+                0 12px 48px rgba(0, 0, 0, 0.8) !important;
+    border-color: #ffd700 !important;
+    animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================================
+   Confetti & Sparkles
+   ============================================================ */
+.confetti-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #f0c040;
+    top: -10px;
+    opacity: 0;
+    animation: confetti-fall 3s ease-in-out forwards;
+}
+
+.sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+    animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.trophy-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    animation: trophy-bounce 1s ease-in-out infinite;
+}
