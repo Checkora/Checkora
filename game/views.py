@@ -1,5 +1,6 @@
 """Game views for the Checkora chess platform."""
-
+import logging
+logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
@@ -443,7 +444,6 @@ def ai_move(request):
         'black_name': request.session.get('black_name', 'Black'),
     })
 
-
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -501,7 +501,10 @@ def resign_game(request):
     request.session["game"] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(request, game.mode, winner, "resign", game.player_color)
+    try:
+        record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    except Exception as e:
+        logger.error('Failed to record resign result: %s', e)
 
     return JsonResponse(
         {
@@ -511,7 +514,6 @@ def resign_game(request):
             "game_status": game_status,
         }
     )
-
 
 @require_GET
 def check_username(request):
@@ -839,9 +841,8 @@ def stats_view(request):
         },
     )
 
-
-@require_POST
 @csrf_exempt
+@require_POST
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, "CRON_SECRET", None)
