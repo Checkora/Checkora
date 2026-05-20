@@ -378,11 +378,11 @@
             LOAD GAME STATE
             ========================================================== */
             async function loadGame() {
-                const data = await get('/api/state/');
-
                 // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
                 aiRequestSeq = 0;
                 aiThinking = false;
+
+                const data = await get('/api/state/');
 
                 board = parseBoard(data.board);
                 turn = data.current_turn;
@@ -848,10 +848,9 @@
             }
 
             async function requestAIMove() {
+                if (gameOver || aiThinking) return;
                 // Increment and store current sequence value to identify this specific request
                 const seq = ++aiRequestSeq;
-
-                if (gameOver || aiThinking) return;
                 aiThinking = true;
                 
                 // fix: animated thinking dots
@@ -1436,12 +1435,12 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
-                clearTimeout(pgnDownloadTimeout);
-                clearTimeout(fenCopyTimeout);
-
                 // Reset AI request sequence and thinking state on new game
                 aiRequestSeq = 0;
                 aiThinking = false;
+
+                clearTimeout(pgnDownloadTimeout);
+                clearTimeout(fenCopyTimeout);
 
                 if (copyPgnBtn) {
                     copyPgnBtn.textContent = 'Export as PGN';
