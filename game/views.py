@@ -700,8 +700,16 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            request.session.cycle_key()  # Prevent session fixation
+            
+            remember_me = request.POST.get('remember_me')
+            
+            if remember_me:
+                request.session.set_expiry(1209600)  # 2 weeks
+            else:
+                request.session.set_expiry(0)# Browser close
+                
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
-            request.session.cycle_key()
             return redirect('index')
 
     else:
