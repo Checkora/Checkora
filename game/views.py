@@ -137,7 +137,9 @@ def new_game(request):
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
     player_color = data.get('player_color', 'white')
-    if player_color not in ('white', 'black'):
+    if player_color == 'random':
+        player_color = secrets.choice(['white', 'black'])
+    elif player_color not in ('white', 'black'):
         player_color = 'white'
 
     def _clean_name(raw, fallback):
