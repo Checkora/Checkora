@@ -100,7 +100,7 @@ export async function loadGame() {
     }
 
     const welcomeOverlay = document.getElementById('welcomeOverlay');
-    if (!welcomeOverlay.classList.contains('active')) queueAIMoveIfNeeded();
+    if (!welcomeOverlay || !welcomeOverlay.classList.contains('active')) queueAIMoveIfNeeded();
 }
 
 export async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
