@@ -1,15 +1,14 @@
 import { state } from './state.js';
 import { post } from './api.js';
-import { queueAIMoveIfNeeded } from './ai.js';
 
 export const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 export const formatTime = fmt;
 
 export function renderClocks() {
-    const wTime    = document.getElementById('whiteTime');
-    const bTime    = document.getElementById('blackTime');
-    const wClock   = document.getElementById('whiteClock');
-    const bClock   = document.getElementById('blackClock');
+    const wTime  = document.getElementById('whiteTime');
+    const bTime  = document.getElementById('blackTime');
+    const wClock = document.getElementById('whiteClock');
+    const bClock = document.getElementById('blackClock');
 
     if (state.gameMode === 'ai') {
         const playerClock  = state.playerColor === 'white' ? wClock  : bClock;
@@ -17,15 +16,32 @@ export function renderClocks() {
         const aiClock      = state.playerColor === 'white' ? bClock  : wClock;
         const aiTimeEl     = state.playerColor === 'white' ? bTime   : wTime;
 
+        // Both clocks show real countdowns
         if (playerTimeEl) playerTimeEl.textContent = fmt(state.playerColor === 'white' ? state.whiteTime : state.blackTime);
-        if (playerClock)  playerClock.classList.toggle('active', state.turn === state.playerColor);
-        if (aiTimeEl)     { aiTimeEl.textContent = '🤖'; aiTimeEl.style.fontSize = '1.8em'; aiTimeEl.style.color = '#888'; }
-        if (aiClock)      aiClock.classList.remove('active');
+        if (aiTimeEl) {
+            aiTimeEl.textContent  = fmt(state.playerColor === 'white' ? state.blackTime : state.whiteTime);
+            aiTimeEl.style.fontSize = '';
+            aiTimeEl.style.color    = '';
+        }
+
+        // Toggle active/inactive — only flip once per turn change, not every tick
+        const isAiTurn = state.turn !== state.playerColor;
+        if (playerClock) {
+            playerClock.classList.toggle('active',   !isAiTurn);
+            playerClock.classList.toggle('inactive',  isAiTurn);
+        }
+        if (aiClock) {
+            aiClock.style.border    = '';
+            aiClock.style.boxShadow = '';
+            aiClock.classList.toggle('active',   isAiTurn);
+            aiClock.classList.toggle('inactive', !isAiTurn);
+        }
     } else {
+        // PvP — both clocks update normally
         if (wTime)  wTime.textContent = fmt(state.whiteTime);
         if (bTime)  bTime.textContent = fmt(state.blackTime);
-        if (wClock) wClock.classList.toggle('active', state.turn === 'white');
-        if (bClock) bClock.classList.toggle('active', state.turn === 'black');
+        if (wClock) { wClock.classList.toggle('active', state.turn === 'white'); wClock.classList.remove('inactive'); }
+        if (bClock) { bClock.classList.toggle('active', state.turn === 'black'); bClock.classList.remove('inactive'); }
     }
 
     const wYou = document.getElementById('whiteYouTag');
@@ -38,8 +54,25 @@ export function startTimer() {
     clearInterval(state.timerInterval);
     state.timerInterval = setInterval(() => {
         if (state.paused || state.gameOver) return;
-        if (state.turn === 'white' && state.whiteTime > 0) state.whiteTime--;
-        if (state.turn === 'black' && state.blackTime > 0) state.blackTime--;
+
+        if (state.gameMode === 'ai') {
+            if (state.turn === state.playerColor) {
+                // Human's turn — only tick human's clock
+                if (state.playerColor === 'white' && state.whiteTime > 0) state.whiteTime--;
+                else if (state.playerColor === 'black' && state.blackTime > 0) state.blackTime--;
+            } else if (state.aiThinking) {
+                // AI's turn — only tick AI's clock while actually thinking
+                if (state.playerColor === 'white' && state.blackTime > 0) state.blackTime--;
+                else if (state.playerColor === 'black' && state.whiteTime > 0) state.whiteTime--;
+            } else {
+                return; // AI turn but not yet thinking (transition gap) — don't tick
+            }
+        } else {
+            // PvP — tick only the active player's clock
+            if (state.turn === 'white' && state.whiteTime > 0) state.whiteTime--;
+            else if (state.turn === 'black' && state.blackTime > 0) state.blackTime--;
+        }
+
         renderClocks();
 
         if (state.turn === 'white' && state.whiteTime === 0) {
@@ -76,7 +109,7 @@ export async function resumeGame() {
     updatePauseUI();
     renderClocks();
     startTimer();
+    // Dynamic import breaks the circular dependency cycle
+    const { queueAIMoveIfNeeded } = await import('./ai.js');
     queueAIMoveIfNeeded();
 }
-
-if (typeof module !== "undefined") module.exports = { formatTime };

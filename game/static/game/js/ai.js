@@ -7,6 +7,15 @@ import { updateTurn, updateMoves, updateCaptured, showStatus, updatePlayerNames,
 import { playSound } from './sound.js';
 import { handleGameStatus } from './game.js';
 
+// Sequence token — incremented on every new request/game/reconnect
+// Any in-flight request with a stale seq value is silently aborted
+let aiRequestSeq = 0;
+
+export function resetAIState() {
+    aiRequestSeq = 0;
+    state.aiThinking = false;
+}
+
 export function isAITurn() {
     return state.gameMode === 'ai' && state.turn !== state.playerColor && !state.gameOver;
 }
@@ -20,10 +29,40 @@ export function queueAIMoveIfNeeded() {
 
 export async function requestAIMove() {
     if (state.gameOver || state.aiThinking) return;
+
+    // Grab and store sequence token for this specific request
+    const seq = ++aiRequestSeq;
     state.aiThinking = true;
-    showStatus('AI is thinking...', false);
+
+    // Animated thinking dots
+    let dots = 1;
+    const thinkingInterval = setInterval(() => {
+        if (!state.aiThinking) { clearInterval(thinkingInterval); return; }
+        showStatus('AI is thinking' + '.'.repeat(dots), false);
+        dots = (dots % 3) + 1;
+    }, 400);
+
     try {
+        // Randomized delay per difficulty — feels realistic and unpredictable
+        let delay;
+        if      (state.currentDifficulty === 'easy') delay = 800  + Math.random() * 700;
+        else if (state.currentDifficulty === 'hard') delay = 2500 + Math.random() * 1500;
+        else                                         delay = 1500 + Math.random() * 1000; // medium
+
+        await new Promise(r => setTimeout(r, delay));
+
+        // Abort if a newer request or new game started during the delay
+        if (seq !== aiRequestSeq) { clearInterval(thinkingInterval); return; }
+
+        // Abort if game ended during delay
+        if (state.gameOver) { clearInterval(thinkingInterval); return; }
+
         const data = await post('/api/ai-move/', {});
+        clearInterval(thinkingInterval);
+
+        // Abort if sequence is stale after API call completes
+        if (seq !== aiRequestSeq) return;
+
         if (data.valid) {
             playSound(data);
             const mv = data.ai_move;
@@ -49,6 +88,7 @@ export async function requestAIMove() {
             if (data.move_history?.length) {
                 a11y = `AI played ${data.move_history[data.move_history.length - 1].notation}. `;
             }
+
             const ended = handleGameStatus(data.game_status, data.draw_reason);
             if (!ended) {
                 if (data.game_status === 'check') {
@@ -65,8 +105,10 @@ export async function requestAIMove() {
             showStatus(data.message, true);
         }
     } catch (e) {
+        clearInterval(thinkingInterval);
         import('./game.js').then(m => m.handleReconnect());
     } finally {
-        state.aiThinking = false;
+        // Only clear aiThinking if this is still the current request
+        if (seq === aiRequestSeq) state.aiThinking = false;
     }
 }

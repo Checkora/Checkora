@@ -22,7 +22,7 @@ import subprocess
 import json
 import sys
 import time
-
+from datetime import date
 
 class ChessGame:
     """Manage a single chess game: state, validation,
@@ -96,10 +96,19 @@ class ChessGame:
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
-    def generate_pgn(self):
+    def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
         if not self.move_history:
             return ""
+        
+        # Compute result based on game status
+        result = '*'
+        if self.game_status == 'checkmate':
+            result = '0-1' if self.current_turn == 'white' else '1-0'
+        elif self.game_status in ('draw', 'stalemate'):
+            result = '1/2-1/2'
+        elif self.game_status == 'resignation':
+            result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
@@ -110,11 +119,14 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
+        
+        today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
-            '[White "White"]',
-            '[Black "Black"]',
-            '[Result "*"]',
+            f'[White "{white_name}"]',
+            f'[Black "{black_name}"]',
+            f'[Date "{today}"]',
+            f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves

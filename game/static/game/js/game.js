@@ -4,7 +4,7 @@ import { buildBoard } from './board.js';
 import { renderClocks, startTimer, updatePauseUI } from './clocks.js';
 import { updateTurn, updateMoves, updateCaptured, showStatus, updatePlayerNames } from './ui.js';
 import { createConfetti, createSparkles } from './animations.js';
-import { queueAIMoveIfNeeded } from './ai.js';
+import { queueAIMoveIfNeeded, resetAIState } from './ai.js';
 import { sounds } from './sound.js';
 
 export function updateModeButtonsUI(mode) {
@@ -34,6 +34,9 @@ export function validatePlayerNames() {
 }
 
 export async function loadGame() {
+    // Reset stale AI request state on every load/reconnect
+    resetAIState();
+
     const data = await get('/api/state/');
     state.board       = parseBoard(data.board);
     state.turn        = data.current_turn;
@@ -68,6 +71,12 @@ export async function loadGame() {
     const drawBtn = document.getElementById('drawBtn');
     if (drawBtn) drawBtn.style.display = state.gameMode === 'pvp' ? 'block' : 'none';
 
+    // Always show these on load unless game is already over
+    const resignBtn2 = document.getElementById('resignBtn');
+    const pauseBtn2  = document.getElementById('pauseBtn');
+    if (resignBtn2) resignBtn2.style.display = 'block';
+    if (pauseBtn2)  pauseBtn2.style.display  = 'block';
+
     updatePlayerNames(data);
     updateTurn();
     updateMoves(data.move_history);
@@ -95,7 +104,8 @@ export async function loadGame() {
 }
 
 export async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
-    clearTimeout(state.pgnDownloadTimeout);
+    // Reset stale AI state on new game
+    resetAIState();
     clearTimeout(state.fenCopyTimeout);
 
     const copyPgnBtn = document.getElementById('copyPgnBtn');

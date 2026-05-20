@@ -1,5 +1,10 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
-
+.header,
+.auth-card {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
     height: 100%;
@@ -10,21 +15,28 @@ body {
     background-color: #0f0f1a;
     color: #d0d0d0;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+
     min-height: 100vh;
+
     display: flex;
-    justify-content: center;
+    justify-content: centre;
+    gap: 10px;
     align-items: center;
+
     flex-direction: column;
-    padding: 40px 20px;
+
+    padding: 24px 20px;
+
     overflow-x: hidden;
 }
+
 /* .header { margin-bottom: 30px; text-align: center; } */
 /* ============================================================
    Header
    ============================================================ */
 
    .header { 
-    padding: 20px 0 8px; 
+    padding: 10px 0 6px; 
     display: flex;
     flex-direction: column; /* Stack logo container and subtitle <p> */
 
@@ -81,17 +93,27 @@ body {
     }
 }
 
+
 .auth-card {
     background: #16162a;
     border: 1px solid #252545;
     border-radius: 12px;
-    padding: 50px 60px;
-    width: 100%;
-    max-width: 580px;
+
+    width: min(90vw, 520px);
+
+    padding: 18px 24px;
+
+    margin: 0px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: auto;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
-.form-group { margin-bottom: 20px; }
+.form-group { margin-bottom: 14px; }
 .form-group label {
     display: block;
     font-size: 1rem;
@@ -212,7 +234,7 @@ body {
 }
 
 .auth-footer {
-    margin-top: 25px;
+    margin-top: 16px;
     text-align: center;
     font-size: 0.95rem;
     color: #8a8aaa;
@@ -313,7 +335,7 @@ body.login-page .helptext {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 0;
+    padding: 1px 0;
     transition: color 0.25s ease, opacity 0.4s ease;
 }
 .password-checklist .check-icon {
@@ -404,5 +426,28 @@ body.login-page .helptext {
 @media (max-width: 600px) {
     .auth-card {
         padding: 30px 20px;
+    }
+}
+/* Responsive Fixes */
+
+@media (max-width: 768px) {
+    body {
+        padding: 20px 16px;
+    }
+
+    .auth-card {
+        width: 100%;
+        padding: 24px 18px;
+    }
+
+    .header {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (min-width: 1400px) {
+    .auth-card {
+        max-width: 680px;
     }
 }

@@ -92,7 +92,7 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -185,7 +185,7 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -222,7 +222,7 @@ def resume_game(request):
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
 
@@ -282,7 +282,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -334,13 +334,12 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-    # Depth Mapping
+    # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
-    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
-    depth = depth_map.get(difficulty, 3)
+    depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
+    depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)
-    best = game.get_ai_move(depth=depth)
+    best = game.get_ai_move(depth=depth)  # called once only
     
     if not best:
         if game.game_status == 'checkmate':
@@ -396,7 +395,7 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -691,8 +690,16 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            request.session.cycle_key()  # Prevent session fixation
+            
+            remember_me = request.POST.get('remember_me')
+            
+            if remember_me:
+                request.session.set_expiry(1209600)  # 2 weeks
+            else:
+                request.session.set_expiry(0)# Browser close
+                
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
-            request.session.cycle_key()
             return redirect('index')
 
     else:
