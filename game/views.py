@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import secrets as secrets_module
+import logging
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -15,6 +16,8 @@ from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
+from django.core.exceptions import ValidationError
+from django.db import DatabaseError
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -23,6 +26,8 @@ from django.contrib.auth.decorators import login_required
 from .engine import ChessGame
 from .models import GameResult
 from game.services import cleanup_stale_games
+
+logger = logging.getLogger(__name__)
 
 
 def landing(request):
@@ -528,7 +533,10 @@ def resign_game(request):
     request.session["game"] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(request, game.mode, winner, "resign", game.player_color)
+    try:
+        record_game_result(request, game.mode, winner, "resign", game.player_color)
+    except (ValidationError, DatabaseError):
+        logger.exception("Failed to record resign result")
 
     return JsonResponse(
         {
@@ -673,6 +681,7 @@ def register_view(request):
                 user.delete()
                 request.session.pop("registration_user_id", None)
                 request.session.pop("registration_otp_hash", None)
+                request.session.pop("last_otp_time", None)
                 err_msg = (
                     "Failed to send OTP email. "
                     "Please check your email address and try again."
@@ -712,6 +721,7 @@ def verify_otp(request):
                 # Clear session data
                 del request.session["registration_user_id"]
                 del request.session["registration_otp_hash"]
+                del request.session["last_otp_time"]
 
                 login(request, user)
                 messages.success(
