@@ -48,7 +48,7 @@
                     {% if field.name == "password1" %}
 <div id="password-strength-container">
     <div id="password-strength-bar"></div>
-    <small id="password-strength-text"></small>
+    <small id="password-strength-text" aria-live="polite"></small>
 </div>
 {% endif %}
                 </div>
@@ -62,7 +62,7 @@
         </div>
     </div>
      <script>
-const passwordInput = document.querySelector('input[type="password"]');
+const passwordInput = document.getElementById('id_password1');
 
 if (passwordInput) {
     const strengthBar = document.getElementById('password-strength-bar');
