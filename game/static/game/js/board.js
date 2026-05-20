@@ -197,6 +197,7 @@
 
             let gameOver = false;
             let aiThinking = false;
+            let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
 
             let pgnDownloadTimeout = null;
             let fenCopyTimeout = null;
@@ -378,6 +379,10 @@
             ========================================================== */
             async function loadGame() {
                 const data = await get('/api/state/');
+
+                // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
+                aiRequestSeq = 0;
+                aiThinking = false;
 
                 board = parseBoard(data.board);
                 turn = data.current_turn;
@@ -843,6 +848,9 @@
             }
 
             async function requestAIMove() {
+                // Increment and store current sequence value to identify this specific request
+                const seq = ++aiRequestSeq;
+
                 if (gameOver || aiThinking) return;
                 aiThinking = true;
                 
@@ -869,11 +877,26 @@
                     else                                    delay = 1500 + Math.random() * (2500 - 1500); // medium
                     await new Promise(resolve => setTimeout(resolve, delay));
 
+                    // Abort if a new game started, reconnect happened, or another request took over during delay
+                    if (seq !== aiRequestSeq) {
+                        clearInterval(thinkingInterval);
+                        return;
+                    }
+
                     // fix: abort if game ended during delay
-                    if (gameOver) { aiThinking = false; clearInterval(thinkingInterval); return; }
+                    if (gameOver) {
+                        clearInterval(thinkingInterval);
+                        return;
+                    }
 
                     const data = await post('/api/ai-move/', {});
                     clearInterval(thinkingInterval); // fix: clear after API call completes, not before
+
+                    // Abort if sequence is no longer current after API call completes
+                    if (seq !== aiRequestSeq) {
+                        return;
+                    }
+
                         if (data.valid) {
                             playSound(data);
                             const mv = data.ai_move;
@@ -919,7 +942,9 @@
                     clearInterval(thinkingInterval);
                     await handleReconnect();
                 } finally {
-                    aiThinking = false;
+                    if (seq === aiRequestSeq) {
+                        aiThinking = false;
+                    }
                 }
             }
 
@@ -1413,6 +1438,10 @@
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
+
+                // Reset AI request sequence and thinking state on new game
+                aiRequestSeq = 0;
+                aiThinking = false;
 
                 if (copyPgnBtn) {
                     copyPgnBtn.textContent = 'Export as PGN';
