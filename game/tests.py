@@ -694,6 +694,28 @@ class AIMoveTest(TestCase):
         self.assertIn('to_row', data['ai_move'])
         self.assertIn('to_col', data['ai_move'])
 
+    def test_ai_move_rejected_during_human_turn(self):
+        """AI move should be rejected when it's the human player's turn."""
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'black',
+            }),
+            content_type='application/json'
+        )
+
+        # First AI move succeeds (AI is white, human is black)
+        r = self.client.post('/api/ai-move/', content_type='application/json')
+        self.assertTrue(r.json()['valid'])
+
+        # After AI moves, it's now black's turn (human)
+        # Calling ai_move again should be rejected
+        r = self.client.post('/api/ai-move/', content_type='application/json')
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(r.json()['valid'])
+        self.assertIn("Not AI's turn", r.json()['message'])
+
 
 class OpeningBookTest(SimpleTestCase):
     """Unit tests for the opening-book integration in ChessGame."""

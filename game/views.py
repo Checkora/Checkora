@@ -20,6 +20,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
+
 from .engine import ChessGame
 from .models import GameResult
 
@@ -45,13 +46,15 @@ def index(request):
 def record_game_result(request, mode, winner, reason, player_color="white"):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(
+    result = GameResult(
         user=user,
         mode=mode,
         winner=winner,
         end_reason=reason,
         player_color=player_color,
     )
+    result.full_clean()
+    result.save()
 
 
 @require_POST
@@ -374,6 +377,12 @@ def ai_move(request):
             status=400,
         )
 
+    if game.game_status != "active":
+        return JsonResponse(
+            {"valid": False, "message": "Game is already over."},
+            status=400,
+        )
+
     player_color = getattr(game, "player_color", "white")
     ai_color = "black" if player_color == "white" else "white"
 
@@ -594,7 +603,8 @@ def register_view(request):
 
         if is_valid:
             user = form.save(commit=False)
-            user.is_active = False  # Deactivate account till OTP is verified
+            user.is_active = False
+            user.full_clean()
             user.save()
 
             # Generate 6-digit OTP
@@ -614,8 +624,9 @@ def register_view(request):
 
             if settings.DEBUG and missing_email_credentials:
                 print(
-                    f"[Checkora] Development registration OTP for {
-                        user.email}: {otp}")
+                    f"[Checkora] Development registration OTP for "
+                    f"{user.email}: {otp}"
+                )
                 return redirect("verify_otp")
 
             # Send Email
@@ -698,6 +709,7 @@ def verify_otp(request):
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
+                user.full_clean()
                 user.save()
 
                 # Clear session data
@@ -813,8 +825,10 @@ def cleanup_cron(request):
 
     try:
         deleted, resigned = cleanup_stale_games()
-        return JsonResponse({"status": "success",
-                             "deleted_games": deleted,
-                             "resigned_games": resigned})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        return JsonResponse({
+            "status": "success",
+            "deleted_games": deleted,
+            "resigned_games": resigned
+        })
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({"status": "error", "message": "An error occurred."}, status=500)
