@@ -792,7 +792,7 @@ void handleStatus(const string &turn) {
  * Generates accurate Standard Algebraic Notation (SAN) for a move,
  * including full disambiguation support (e.g., Rfe1, N5f3).
  */
-void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
+void handleNotation(const string &turn, int fr, int fc, int tr, int tc, char promo = '\0') {
     char piece = board[fr][fc];
     if (isEmpty(piece)) {
         cout << "NOTATION ?" << endl;
@@ -802,6 +802,15 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
     char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
     bool isCapture = !isEmpty(board[tr][tc]);
     string files = "abcdefgh";
+
+    char promoChar = '\0';
+    if (isPromotionMove(piece, tr)) {
+        char lowerPromo = tolower(static_cast<unsigned char>(promo));
+        if (lowerPromo != 'q' && lowerPromo != 'r' && lowerPromo != 'b' && lowerPromo != 'n') {
+            lowerPromo = 'q';
+        }
+        promoChar = toupper(static_cast<unsigned char>(lowerPromo));
+    }
 
     // 1. Castling
     if (type == 'k') {
@@ -820,6 +829,11 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
         }
         res += files[static_cast<string::size_type>(tc)];
         res += to_string(8 - tr);
+
+        if (promoChar != '\0') {
+            res += '=';
+            res += promoChar;
+        }
 
     } else {
         res += static_cast<char>(toupper(static_cast<unsigned char>(type)));
@@ -866,8 +880,11 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
     // Apply move temporarily to check for Check/Checkmate
     char src = board[fr][fc];
     char dst = board[tr][tc];
-    // Use the piece type from board for status check (ignore promotion choice for now)
-    board[tr][tc] = src;
+    if (promoChar != '\0') {
+        board[tr][tc] = (turn == "white") ? promoChar : tolower(static_cast<unsigned char>(promoChar));
+    } else {
+        board[tr][tc] = src;
+    }
     board[fr][fc] = '.';
 
     string opponent = (turn == "white") ? "black" : "white";
@@ -1022,10 +1039,17 @@ int main() {
         else if (command == "NOTATION") {
             string b, rights, t; int epR, epC, fr, fc, tr, tc;
             cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc;
+            char promo = '\0';
+            while (cin.peek() == ' ' || cin.peek() == '\t') {
+                cin.get();
+            }
+            if (cin.peek() != '\n' && cin.peek() != '\r' && cin.peek() != EOF) {
+                cin >> promo;
+            }
             loadBoard(b);
             loadCastlingRights(rights);
             EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleNotation(t, fr, fc, tr, tc);
+            handleNotation(t, fr, fc, tr, tc, promo);
         }
     }
     return 0;

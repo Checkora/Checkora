@@ -1261,3 +1261,36 @@ class CheckUsernameViewTest(TestCase):
             reverse('check_username'), {
                 'username': 'newuser'})
         self.assertEqual(response.status_code, 405)
+
+class PromotionNotationTest(TestCase):
+    """Test standard algebraic notation (SAN) generation for pawn promotions."""
+
+    def test_promotion_notation_default_queen(self):
+        """A promotion move with no explicit piece choice defaults to Queen promotion (=Q)."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='q')
+        self.assertEqual(notation, 'a8=Q')
+
+    def test_promotion_notation_knight(self):
+        """A promotion move to a Knight gets `=N` suffix."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='n')
+        self.assertEqual(notation, 'a8=N')
+
+    def test_promotion_notation_rook(self):
+        """A promotion move to a Rook gets `=R` suffix."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='r')
+        self.assertEqual(notation, 'a8=R')
+
+    def test_promotion_notation_bishop(self):
+        """A promotion move to a Bishop gets `=B` suffix."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='b')
+        self.assertEqual(notation, 'a8=B')
+
+    def test_promotion_notation_invalid_piece_defaults_to_queen(self):
+        """An invalid promotion piece input (like 'x') defaults to Queen promotion (=Q)."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
+        self.assertEqual(notation, 'a8=Q')

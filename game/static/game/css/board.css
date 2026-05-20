@@ -222,10 +222,11 @@ body {
    ============================================================ */
 .turn-badge {
     text-align: center;
-    padding: 8px 16px;
+    padding: 6px 16px;  /* Reduced from 8px to 6px */
     border-radius: 6px;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;  /* Reduced from 0.9rem to 0.85rem */
+    line-height: 1.2;  /* Added for consistent height */
     letter-spacing: 0.5px;
     transition: all 0.3s ease;
     margin-bottom: 12px;
@@ -958,7 +959,7 @@ body {
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
     width: 90%;
     max-width: 480px;
-    max-height: calc(100vh - 40px);
+    max-height: min(90vh, fit-content);
     overflow-y: auto;
     box-sizing: border-box;  
     position: relative;

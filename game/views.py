@@ -1,5 +1,6 @@
 """Game views for the Checkora chess platform."""
-
+import logging
+logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
@@ -115,7 +116,7 @@ def make_move(request):
             "game_status": game_status,
             "draw_reason": game.draw_reason,
             "fen": game.generate_fen_key(),
-            "pgn": game.generate_pgn(),
+            "pgn": game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
             "white_name": request.session.get("white_name", "White"),
             "black_name": request.session.get("black_name", "Black"),
         }
@@ -158,11 +159,13 @@ def new_game(request):
     except (ValueError, TypeError):
         time_limit = 600
 
-    if mode not in ("pvp", "ai"):
-        mode = "pvp"
-    player_color = data.get("player_color", "white")
-    if player_color not in ("white", "black"):
-        player_color = "white"
+    if mode not in ('pvp', 'ai'):
+        mode = 'pvp'
+    player_color = data.get('player_color', 'white')
+    if player_color == 'random':
+        player_color = secrets.choice(['white', 'black'])
+    elif player_color not in ('white', 'black'):
+        player_color = 'white'
 
     def _clean_name(raw, fallback):
         name = (raw or "").strip()
@@ -195,25 +198,22 @@ def new_game(request):
     request.session["game"] = game.to_dict()
     request.session.modified = True
 
-    return JsonResponse(
-        {
-            "valid": True,
-            "board": game.board,
-            "current_turn": game.current_turn,
-            "move_history": [],
-            "captured_pieces": {"white": [], "black": []},
-            "mode": game.mode,
-            "player_color": game.player_color,
-            "white_name": request.session["white_name"],
-            "black_name": request.session["black_name"],
-            "difficulty": difficulty,
-            "fen": game.generate_fen_key(),
-            "pgn": game.generate_pgn(),
-            "game_status": game.game_status,
-            "draw_reason": game.draw_reason,
-        }
-    )
-
+    return JsonResponse({
+        'valid': True,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'move_history': [],
+        'captured_pieces': {'white': [], 'black': []},
+        'mode': game.mode,
+        'player_color': game.player_color,
+        'white_name': request.session['white_name'],
+        'black_name': request.session['black_name'],
+        'difficulty': difficulty,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+    })
 
 @require_POST
 def resume_game(request):
@@ -240,27 +240,24 @@ def resume_game(request):
     request.session["game"] = game.to_dict()
     request.session.modified = True
 
-    return JsonResponse(
-        {
-            "valid": True,
-            "board": game.board,
-            "current_turn": game.current_turn,
-            "white_time": game.white_time,
-            "black_time": game.black_time,
-            "move_history": game.move_history,
-            "captured_pieces": game.captured,
-            "mode": game.mode,
-            "player_color": game.player_color,
-            "white_name": request.session.get("white_name", "White"),
-            "black_name": request.session.get("black_name", "Black"),
-            "game_status": game.game_status,
-            "draw_reason": game.draw_reason,
-            "fen": game.generate_fen_key(),
-            "pgn": game.generate_pgn(),
-            "difficulty": request.session.get("difficulty", "medium"),
-        }
-    )
-
+    return JsonResponse({
+        'valid': True,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'mode': game.mode,
+        'player_color': game.player_color,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+        'difficulty': request.session.get('difficulty', 'medium'),
+    })
 
 @require_GET
 def check_promotion(request):
@@ -307,26 +304,24 @@ def get_state(request):
     request.session["game"] = game.to_dict()
     request.session.modified = True
 
-    return JsonResponse(
-        {
-            "board": game.board,
-            "current_turn": game.current_turn,
-            "white_time": game.white_time,
-            "black_time": game.black_time,
-            "paused": game.paused,
-            "move_history": game.move_history,
-            "captured_pieces": game.captured,
-            "mode": game.mode,
-            "player_color": game.player_color,
-            "difficulty": request.session.get("difficulty", "medium"),
-            "white_name": request.session.get("white_name", "White"),
-            "black_name": request.session.get("black_name", "Black"),
-            "fen": game.generate_fen_key(),
-            "pgn": game.generate_pgn(),
-            "game_status": game.game_status,
-            "draw_reason": game.draw_reason,
-        }
-    )
+    return JsonResponse({
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'paused': game.paused,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'mode': game.mode,
+        'player_color': game.player_color,
+        'difficulty': request.session.get('difficulty', 'medium'),
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+    })
 
 
 @require_POST
@@ -454,27 +449,24 @@ def ai_move(request):
                 game.player_color,
             )
 
-    return JsonResponse(
-        {
-            "valid": success,
-            "message": message,
-            "captured": captured,
-            "board": game.board,
-            "current_turn": game.current_turn,
-            "white_time": game.white_time,
-            "black_time": game.black_time,
-            "move_history": game.move_history,
-            "captured_pieces": game.captured,
-            "ai_move": best,
-            "game_status": game_status,
-            "draw_reason": game.draw_reason,
-            "fen": game.generate_fen_key(),
-            "pgn": game.generate_pgn(),
-            "white_name": request.session.get("white_name", "White"),
-            "black_name": request.session.get("black_name", "Black"),
-        }
-    )
-
+    return JsonResponse({
+        'valid': success,
+        'message': message,
+        'captured': captured,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'ai_move': best,
+        'game_status': game_status,
+        'draw_reason': game.draw_reason,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+    })
 
 @require_POST
 def offer_draw(request):
@@ -520,14 +512,9 @@ def resign_game(request):
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode == "ai":
-        resigning_player = game.player_color
-    else:
-        resigning_player = game.current_turn
-
-    winner = "black" if resigning_player == "white" else "white"
-
-    game_status = "resignation"
+    resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
+    winner = 'black' if resigning_player == 'white' else 'white'
+    game_status = 'resignation'
 
     game.game_status = game_status
     request.session["game"] = game.to_dict()
@@ -546,7 +533,6 @@ def resign_game(request):
             "game_status": game_status,
         }
     )
-
 
 @require_GET
 def check_username(request):
@@ -807,10 +793,18 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            request.session.cycle_key()  # Prevent session fixation
+            
+            remember_me = request.POST.get('remember_me')
+            
+            if remember_me:
+                request.session.set_expiry(1209600)  # 2 weeks
+            else:
+                request.session.set_expiry(0)# Browser close
+                
             messages.success(
                 request, f"Welcome back, {user.username}! Login successful."
             )
-            request.session.cycle_key()
             return redirect("index")
 
     else:
@@ -870,9 +864,8 @@ def stats_view(request):
         },
     )
 
-
-@require_POST
 @csrf_exempt
+@require_POST
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, "CRON_SECRET", None)
