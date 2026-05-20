@@ -3,7 +3,6 @@
 import json
 import time
 import hashlib
-import secrets
 import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
@@ -21,13 +20,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
-
 from .engine import ChessGame
 from .models import GameResult
-from game.services import cleanup_stale_games
-
-# Move these imports to the top to comply with flake8 E402
-import secrets as secrets_module
 from game.services import cleanup_stale_games
 
 
@@ -610,7 +604,7 @@ def register_view(request):
             user.save()
 
             # Generate 6-digit OTP
-            otp = str(secrets.randbelow(900000) + 100000)
+            otp = str(secrets_module.randbelow(900000) + 100000)
             request.session["registration_user_id"] = user.id
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed
             # cookies
@@ -741,6 +735,7 @@ def verify_otp(request):
         remaining_time = max(0, 60 - elapsed)
     return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
+
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
 
@@ -759,7 +754,7 @@ def resend_otp(request):
         messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
         return redirect('verify_otp')
 
-    otp = str(secrets.randbelow(900000) + 100000)
+    otp = str(secrets_module.randbelow(900000) + 100000)
 
     otp_hash = hashlib.sha256(
         f"{otp}:{settings.SECRET_KEY}".encode()
@@ -789,6 +784,7 @@ def resend_otp(request):
         )
 
     return redirect('verify_otp')
+
 
 def login_view(request):
     if request.user.is_authenticated:
