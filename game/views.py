@@ -1,6 +1,5 @@
 """Game views for the Checkora chess platform."""
-import logging
-logger = logging.getLogger(__name__)
+
 import json
 import time
 import hashlib
@@ -163,7 +162,7 @@ def new_game(request):
         mode = 'pvp'
     player_color = data.get('player_color', 'white')
     if player_color == 'random':
-        player_color = secrets.choice(['white', 'black'])
+        player_color = secrets_module.choice(['white', 'black'])
     elif player_color not in ('white', 'black'):
         player_color = 'white'
 
