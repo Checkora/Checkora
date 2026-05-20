@@ -155,9 +155,17 @@ if (drawBtn)   drawBtn.onclick   = offerDraw;
 if (resignBtn) resignBtn.onclick = () => {
     if (!state.gameOver && !state.paused) {
         showConfirm('Resign?', 'Are you sure you want to resign?', async () => {
-            await post('/api/resign/', {});
-            if (state.soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
-            endGame('resign', state.turn);
+            try {
+                const result = await post('/api/resign/', {});
+                if (result.valid) {
+                    if (state.soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                    endGame('resign', state.turn);
+                } else {
+                    showStatus('Resign failed. Please try again.', true);
+                }
+            } catch (_) {
+                showStatus('Resign failed. Please check your connection and try again.', true);
+            }
         });
     }
 };
