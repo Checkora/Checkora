@@ -941,12 +941,22 @@
                             }
                             if (a11yMsg) announceMove(a11yMsg);
                         }
+                    } else if (data.message === 'AI engine unavailable.') {
+                        // 503 from backend — engine is down, stop retrying completely
+                        showStatus('AI unavailable. Please start a new game.', true);
+                        gameOver = true;
+                        
                     } else {
                         showStatus(data.message, true);
                     }
                 } catch (e) {
                     clearInterval(thinkingInterval);
-                    await handleReconnect();
+                    // Only reconnect for real network errors, not engine failures
+                    if (e instanceof TypeError || e instanceof SyntaxError) {
+                        await handleReconnect();
+                    } else {
+                        showStatus('AI error. Please start a new game.', true);
+                    }
                 } finally {
                     if (seq === aiRequestSeq) {
                         aiThinking = false;

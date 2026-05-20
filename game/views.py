@@ -339,16 +339,37 @@ def ai_move(request):
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)  # called once only
-    
+
+    # Prevent unhandled AI engine exceptions from crashing the endpoint with a 500 error
+    try:
+        best = game.get_ai_move(depth=depth)
+    except Exception as exc:
+        logger.error("get_ai_move raised unexpectedly: %s", exc)
+        best = None
+
     if not best:
-        if game.game_status == 'checkmate':
+        # Re-check actual board state instead of relying on stale cached game_status
+        game_status = game.check_game_status()
+
+        if game_status == 'ok':
+            game_status = game.game_status
+
+        if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
-            game_status = 'checkmate'
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(
+                request, game.mode, 'draw',
+                game.draw_reason or 'stalemate', game.player_color
+            )
         else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color)
-            game_status = 'stalemate'
+            logger.error("ai_move: engine unavailable, game_status=%s", game_status)
+
+            # Prevent frontend reconnect/retry loop when AI engine fails unexpectedly
+            return JsonResponse(
+                {'valid': False, 'message': 'AI engine unavailable.'},
+                status=503
+            )
 
         game.game_status = game_status
         request.session['game'] = game.to_dict()
@@ -365,7 +386,7 @@ def ai_move(request):
             'captured_pieces': game.captured,
             'message': '',
         })
-
+    
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
