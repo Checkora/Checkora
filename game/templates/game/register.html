@@ -82,7 +82,12 @@ if (passwordInput) {
         strengthBar.style.borderRadius = '6px';
         strengthBar.style.marginTop = '8px';
         strengthBar.style.transition = '0.3s';
-
+          if (value.length === 0) {
+    strengthBar.style.width = '0%';
+    strengthBar.style.background = 'transparent';
+    strengthText.textContent = '';
+    return;
+}
         if (strength <= 1) {
             strengthBar.style.width = '25%';
             strengthBar.style.background = 'red';
