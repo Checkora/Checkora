@@ -51,6 +51,7 @@ export const pColor = p => p ? (p === p.toUpperCase() ? 'white' : 'black') : nul
 
 export function parseBoard(s) {
     if (!s || typeof s !== 'string') return s;
+    if (s.length !== 64) return null;
     const b = [];
     for (let i = 0; i < 8; i++) {
         const row = [];
@@ -62,5 +63,5 @@ export function parseBoard(s) {
     }
     return b;
 }
-
+import { getSquareLabel } from './board.js';
 if (typeof module !== "undefined") module.exports = { pColor, getSquareLabel }; 

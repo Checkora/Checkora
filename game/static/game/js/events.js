@@ -7,6 +7,7 @@ import { showConfirm, showSideSelectionModal, offerDraw, getConfirmCallback, cle
 import { startNewGame, loadGame, endGame, validatePlayerNames, updateModeButtonsUI } from './game.js';
 import { queueAIMoveIfNeeded } from './ai.js';
 import { updatePauseUI } from './clocks.js';
+import { showStatus } from './ui.js';
 
 // ── Name inputs ──────────────────────────────────────────────
 const whiteNameInput = document.getElementById('whiteNameInput');

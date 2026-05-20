@@ -114,10 +114,12 @@ export async function startNewGame(mode, pColor = 'white', difficulty = 'medium'
     if (copyFenBtn) copyFenBtn.textContent = 'Copy FEN';
 
     // Clear celebration
-    const overlay          = document.getElementById('gameOverOverlay');
-    const confettiContainer = overlay.querySelector('.confetti-container');
-    overlay.classList.remove('game-over-celebration');
-    if (confettiContainer) confettiContainer.remove();
+    const overlay = document.getElementById('gameOverOverlay');
+    if (overlay) {
+        const confettiContainer = overlay.querySelector('.confetti-container');
+        overlay.classList.remove('game-over-celebration');
+        if (confettiContainer) confettiContainer.remove();
+    }
 
     const wName          = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
     const bName          = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);

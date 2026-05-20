@@ -228,8 +228,8 @@
 
 .back-btn {
     font-size: small;
-    background: var(--bg);
-    color: var(--bg) !important;
+    background: transparent;
+    color: `#d4a72d`;
     font-weight: bold;
     margin-bottom: 2rem;
     text-decoration: none;

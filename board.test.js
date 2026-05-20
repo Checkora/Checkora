@@ -93,3 +93,13 @@ describe("formatTime", () => {
     expect(formatTime(0)).toBe("0:00");
   });
 });
+
+describe("board rule edge cases", () => {
+  test.todo("checkmate detection");
+  test.todo("stalemate detection");
+  test.todo("en passant legality and execution");
+  test.todo("castling legality on both sides");
+  test.todo("pawn promotion flow");
+  test.todo("fifty-move rule draw");
+  test.todo("threefold repetition draw");
+});

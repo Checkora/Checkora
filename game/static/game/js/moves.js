@@ -16,9 +16,16 @@ export async function selectPiece(r, c) {
         return;
     }
     state.selected = { r, c };
-    const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
-    state.hints = data.valid_moves || [];
-    refreshHighlights();
+    try {
+        const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+        state.hints = data.valid_moves || [];
+        refreshHighlights();
+    } catch {
+        state.selected = null;
+        state.hints = [];
+        refreshHighlights();
+        showStatus('Unable to load valid moves. Please try again.', true);
+    }
 }
 
 export function deselect() {

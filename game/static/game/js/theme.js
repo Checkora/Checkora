@@ -1,6 +1,10 @@
 export function initThemeSwitcher() {
     const themeBtns    = document.querySelectorAll('.theme-btn');
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
+    const storedTheme = localStorage.getItem('chessBoardTheme');
+    const currentTheme =
+        storedTheme ||
+        document.documentElement.getAttribute('data-theme') ||
+        'classic';
     document.documentElement.setAttribute('data-theme', currentTheme);
 
     themeBtns.forEach(btn => {

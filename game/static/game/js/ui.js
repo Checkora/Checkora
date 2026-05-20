@@ -20,6 +20,7 @@ export function updateTurn() {
     const wCapEl         = document.getElementById('whiteCaptured');
     const bCapEl         = document.getElementById('blackCaptured');
 
+    if (!badge || !whiteNameLabel || !blackNameLabel) return;
     badge.className = 'turn-badge ' + state.turn;
     const pName = state.turn === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
 
@@ -84,6 +85,7 @@ export function updatePlayerNames(data) {
 
 export function updateMoves(history) {
     const movesEl = document.getElementById('movesList');
+    if (!movesEl) return;
     if (!history?.length) {
         movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
         return;
@@ -95,11 +97,21 @@ export function updateMoves(history) {
         const moveNum  = Math.floor(whiteIdx / 2) + 1;
         const row      = document.createElement('div');
         row.className  = 'move-row';
-        row.innerHTML  = `
-            <span class="move-num">${moveNum}.</span>
-            <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
-            ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
-        `;
+
+        const num = document.createElement('span');
+        num.className = 'move-num';
+        num.textContent = `${moveNum}.`;
+        const w = document.createElement('span');
+        w.className = 'move-white';
+        w.textContent = history[whiteIdx]?.notation ?? '';
+        row.append(num, w);
+        if (history[blackIdx]) {
+            const b = document.createElement('span');
+            b.className = 'move-black';
+            b.textContent = history[blackIdx].notation;
+            row.appendChild(b);
+        }
+        
         movesEl.appendChild(row);
     }
 }
@@ -107,6 +119,7 @@ export function updateMoves(history) {
 export function updateCaptured(cap) {
     const wCapEl = document.getElementById('whiteCaptured');
     const bCapEl = document.getElementById('blackCaptured');
+    if (!wCapEl || !bCapEl) return;
     wCapEl.innerHTML = bCapEl.innerHTML = '';
 
     const point_vals = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
