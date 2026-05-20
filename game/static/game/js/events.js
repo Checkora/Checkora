@@ -293,8 +293,14 @@ if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
     const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
     gameOverOverlay.classList.remove('active');
     clearCelebration();
-    if (mode === 'ai') showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
-    else startNewGame(mode, 'white', diff, null, timeLimitMins);
+    
+    const swappedColor = state.playerColor === 'white' ? 'black' : 'white';
+    if (mode === 'ai') {
+        showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
+    } else {
+        startNewGame(mode, swappedColor, diff, null, timeLimitMins,
+            { white: state.currentBlackName, black: state.currentWhiteName });
+    }
 };
 
 // ── Manual move input ────────────────────────────────────────

@@ -103,7 +103,7 @@ export async function loadGame() {
     if (!welcomeOverlay || !welcomeOverlay.classList.contains('active')) queueAIMoveIfNeeded();
 }
 
-export async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
+export async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
     // Reset stale AI state on new game
     resetAIState();
     clearTimeout(state.fenCopyTimeout);
@@ -121,8 +121,9 @@ export async function startNewGame(mode, pColor = 'white', difficulty = 'medium'
         if (confettiContainer) confettiContainer.remove();
     }
 
-    const wName          = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
-    const bName          = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
+    const normalizeName = (name, fallback) => (name || fallback).trim().slice(0, 17);
+    const wName = normalizeName(overrideNames ? overrideNames.white : document.getElementById('whiteNameInput')?.value, 'White');
+    const bName = normalizeName(overrideNames ? overrideNames.black : document.getElementById('blackNameInput')?.value, 'Black');
     const defaultMins    = parseInt(document.getElementById('timeLimitInput')?.value || 10, 10);
     const timeLimit      = (timeLimitMins !== null ? timeLimitMins : defaultMins) * 60;
 

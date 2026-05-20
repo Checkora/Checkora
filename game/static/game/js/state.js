@@ -19,6 +19,8 @@ export const state = {
 
     gameMode: 'pvp',
     currentDifficulty: 'medium',
+    currentWhiteName: 'White',
+    currentBlackName: 'Black',
     playerColor: 'white',
     flipped: false,
     autoFlip: false,

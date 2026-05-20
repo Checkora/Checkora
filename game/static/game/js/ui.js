@@ -43,8 +43,10 @@ export function updatePlayerNames(data) {
     const whiteYouTag     = document.getElementById('whiteYouTag');
     const blackYouTag     = document.getElementById('blackYouTag');
 
-    let wName = data.white_name || 'White';
-    let bName = data.black_name || 'Black';
+    state.currentWhiteName = data.white_name || state.currentWhiteName || 'White';
+    state.currentBlackName = data.black_name || state.currentBlackName || 'Black';
+    let wName = state.currentWhiteName;
+    let bName = state.currentBlackName;
 
     if (state.gameMode === 'ai') {
         const diffLabel  = (state.currentDifficulty || 'medium').toUpperCase();
