@@ -52,8 +52,7 @@ export const pKey   = p => p ? ((p === p.toUpperCase() ? 'w' : 'b') + p.toLowerC
 export const pColor = p => p ? (p === p.toUpperCase() ? 'white' : 'black') : null;
 
 export function parseBoard(s) {
-    if (!s || typeof s !== 'string') return s;
-    if (s.length !== 64) return null;
+    if (!s || typeof s !== 'string' || s.length !== 64) return null;
     const b = [];
     for (let i = 0; i < 8; i++) {
         const row = [];

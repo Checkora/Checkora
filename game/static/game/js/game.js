@@ -121,7 +121,10 @@ export async function startNewGame(mode, pColor = 'white', difficulty = 'medium'
         if (confettiContainer) confettiContainer.remove();
     }
 
-    const normalizeName = (name, fallback) => (name || fallback).trim().slice(0, 17);
+    const normalizeName = (name, fallback) => {
+        const trimmed = String(name ?? '').trim();
+        return (trimmed || fallback).slice(0, 17);
+    };
     const wName = normalizeName(overrideNames ? overrideNames.white : document.getElementById('whiteNameInput')?.value, 'White');
     const bName = normalizeName(overrideNames ? overrideNames.black : document.getElementById('blackNameInput')?.value, 'Black');
     const defaultMins    = parseInt(document.getElementById('timeLimitInput')?.value || 10, 10);
