@@ -1201,3 +1201,9 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='b')
         self.assertEqual(notation, 'a8=B')
+
+    def test_promotion_notation_invalid_piece_defaults_to_queen(self):
+        """An invalid promotion piece input (like 'x') defaults to Queen promotion (=Q)."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
+        self.assertEqual(notation, 'a8=Q')

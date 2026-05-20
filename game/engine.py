@@ -718,6 +718,11 @@ DP cache is intentionally excluded to save cookie space."""
         """
         Generate SAN notation via C++ engine if possible,
           else simplified fallback."""
+        if promo_char:
+            promo_char = promo_char.lower()
+            if promo_char not in ('q', 'r', 'b', 'n'):
+                promo_char = 'q'
+
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
             cmd = (
