@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import secrets
+import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -23,6 +24,7 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+from game.services import cleanup_stale_games
 
 
 def landing(request):
@@ -90,7 +92,7 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -183,7 +185,7 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -220,7 +222,7 @@ def resume_game(request):
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
 
@@ -280,7 +282,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -332,13 +334,12 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-    # Depth Mapping
+    # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 2, 'medium': 3, 'hard': 4}
     depth = depth_map.get(difficulty, 3)
 
-    best = game.get_ai_move(depth=depth)
-    best = game.get_ai_move(depth=depth)
+    best = game.get_ai_move(depth=depth)  # called once only
     
     if not best:
         if game.game_status == 'checkmate':
@@ -394,7 +395,7 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -624,8 +625,61 @@ def verify_otp(request):
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
-    return render(request, 'game/verify_otp.html')
+    remaining_time = 0
+    last_otp_time = request.session.get('last_otp_time')
+    if last_otp_time:
+        elapsed = int(time.time() - last_otp_time)
+        remaining_time = max(0, 60 - elapsed)
+    return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
+def resend_otp(request):
+    user_id = request.session.get('registration_user_id')
+
+    if not user_id:
+        messages.error(request, 'Session expired. Please register again.')
+        return redirect('register')
+
+    try:
+        user = User.objects.get(id=user_id, is_active=False)
+    except User.DoesNotExist:
+        messages.error(request, 'User not found. Please register again.')
+        return redirect('register')
+    last_otp_time = request.session.get('last_otp_time')
+    if last_otp_time and time.time() - last_otp_time < 60:
+        remaining = int(60 - (time.time() - last_otp_time))
+        messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
+        return redirect('verify_otp')
+
+    otp = str(secrets.randbelow(900000) + 100000)
+
+    otp_hash = hashlib.sha256(
+        f"{otp}:{settings.SECRET_KEY}".encode()
+    ).hexdigest()
+
+    request.session['registration_otp_hash'] = otp_hash
+
+    try:
+        send_mail(
+            'Your Checkora Verification Code',
+            f'Your new OTP is: {otp}',
+            None,
+            [user.email],
+            fail_silently=False,
+        )
+
+        messages.success(
+            request,
+            'A new OTP has been sent to your email.'
+        )
+        request.session['last_otp_time'] = time.time()
+
+    except (SMTPException, BadHeaderError, OSError):
+        messages.error(
+            request,
+            'Failed to resend OTP. Please try again.'
+        )
+
+    return redirect('verify_otp')
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -636,8 +690,16 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            request.session.cycle_key()  # Prevent session fixation
+            
+            remember_me = request.POST.get('remember_me')
+            
+            if remember_me:
+                request.session.set_expiry(1209600)  # 2 weeks
+            else:
+                request.session.set_expiry(0)# Browser close
+                
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
-            request.session.cycle_key()
             return redirect('index')
 
     else:
@@ -693,10 +755,6 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
     })
 
-
-import secrets as secrets_module
-from django.views.decorators.http import require_POST
-from game.services import cleanup_stale_games
 
 @require_POST
 @csrf_exempt

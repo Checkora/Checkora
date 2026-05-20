@@ -40,8 +40,14 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 5%;
-    background-color: var(--bg-dark);
+    background-color: rgba(15, 15, 26, 0.94);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 30px rgba(5, 8, 15, 0.22);
 }
 
 .nav-left {
@@ -106,35 +112,35 @@ body {
     gap: 1.5rem;
 }
 
-.btn-signin {
-    text-decoration: none;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    font-weight: 500;
-    transition: color 0.2s;
-}
 
-.btn-signin:hover {
-    color: var(--text-primary);
-}
-
+.btn-signin,
 .btn-register {
     text-decoration: none;
-    background: linear-gradient(135deg, #f0c040, #d4a020);
-    color: #1a1a2e;
+    color: var(--accent-gold);
+    font-size: 0.95rem;
+    font-weight: 600;
     padding: 0.6rem 1.5rem;
     border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-    border: none;
+    display: inline-block;
+    background: transparent;
+    border: 1px solid rgba(240, 192, 64, 0.35);
+    transition: all 0.2s ease;
 }
 
+.btn-signin:hover,
 .btn-register:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
+    color: #1a1a2e;
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+    border-color: transparent;
 }
+
+.btn-signin:active,
+.btn-register:active {
+    transform: translateY(0);
+}
+
 .back-btn {
     font-size: small !important;
     background: var(--bg);

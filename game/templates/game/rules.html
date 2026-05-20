@@ -263,7 +263,7 @@
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     width: 360px;
-    height: 360px;
+    aspect-ratio: 1 / 1;
     border: 2px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
@@ -272,13 +272,17 @@
 
         .mini-sq {
     position: relative;
+    aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    height: 100%;
     font-size: 1.1rem;
     cursor: default;
     transition: background 0.2s;
     user-select: none;
+    overflow: hidden;
 }
 
         .mini-sq.light { background: var(--light-sq); }
@@ -405,8 +409,8 @@
 <div class="layout">
     <!-- Sidebar -->
     <nav class="sidebar">
-        <div style="margin-bottom: 20px; margin-top: 10px; text-align: center;">
-            <a href="#" class="back-btn" onclick="try { var modal = window.parent.document.getElementById('rulebookModal'); if (modal) modal.style.display='none'; } catch(e) { console.error('Cannot close modal:', e); } return false;">← Back to Home</a>
+        <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
+            <a href="#" class="back-btn" style="color:#f0c040; display: inline-block;" onclick="try { var modal = window.parent.document.getElementById('rulebookModal'); if (modal) modal.style.display='none'; } catch(e) { console.error('Cannot close modal:', e); } return false;">← Back to Game</a>
         </div>
         <div class="sidebar-title">Rulebook</div>
         <div class="rule-nav-item active" onclick="showRule('basics')" id="nav-basics">
