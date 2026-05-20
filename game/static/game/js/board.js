@@ -455,10 +455,10 @@
             }
 
             function updatePlayerNames(data) {
-                let wName = data.white_name || 'White';
-                let bName = data.black_name || 'Black';
                 currentWhiteName = data.white_name || currentWhiteName || 'White';
                 currentBlackName = data.black_name || currentBlackName || 'Black';
+                let wName = currentWhiteName;
+                let bName = currentBlackName;
                 
                 if (gameMode === 'ai'){
                     const diffLabel = (currentDifficulty || 'medium').toUpperCase();
