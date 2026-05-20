@@ -229,13 +229,14 @@
 .back-btn {
     font-size: small;
     background: transparent;
-    color: `#d4a72d`;
+    color: #d4a72d;
     font-weight: bold;
     margin-bottom: 2rem;
     text-decoration: none;
     display: flex;
     justify-content: flex-start;
 }
+
 .back-btn:hover {
     color: #d4a72d;
     text-decoration: underline !important;
