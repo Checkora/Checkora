@@ -49,7 +49,8 @@ document.body.innerHTML = `
   <div id="turnBadgeText"></div>
 `;
 
-const { pColor, getSquareLabel, formatTime } = require("./game/static/game/js/board");
+const { pColor, getSquareLabel } = require("./game/static/game/js/state");
+const { formatTime } = require("./game/static/game/js/clocks");
 
 describe("pColor", () => {
   test("returns white for uppercase piece", () => {
