@@ -433,28 +433,24 @@ def offer_draw(request):
 
 @require_POST
 def resign_game(request):
-    """Handle a player resigning the game."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse({'valid': False, 'message': err_msg}, status=400)
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode == 'ai':
-        resigning_player = game.player_color
-    else:
-        resigning_player = game.current_turn
-
+    resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
-
     game_status = 'resignation'
 
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    try:
+        record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    except Exception:
+        pass  # lets check this !
 
     return JsonResponse({
         'valid': True,
@@ -462,7 +458,6 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
-
 
 @require_GET
 def check_username(request):
