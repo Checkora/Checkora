@@ -263,7 +263,7 @@
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     width: 360px;
-    height: 360px;
+    aspect-ratio: 1 / 1;
     border: 2px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
@@ -272,13 +272,17 @@
 
         .mini-sq {
     position: relative;
+    aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    height: 100%;
     font-size: 1.1rem;
     cursor: default;
     transition: background 0.2s;
     user-select: none;
+    overflow: hidden;
 }
 
         .mini-sq.light { background: var(--light-sq); }
