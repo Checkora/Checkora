@@ -44,7 +44,7 @@ def record_game_result(request, mode, winner, reason, player_color='white'):
     user = request.user if request.user.is_authenticated else None
     GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
 
-@csrf_exempt
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -116,7 +116,7 @@ def valid_moves(request):
     moves = game.get_valid_moves(row, col)
     return JsonResponse({'valid_moves': moves})
 
-@csrf_exempt
+
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
@@ -287,7 +287,7 @@ def get_state(request):
         'draw_reason': game.draw_reason,
     })
 
-@csrf_exempt
+
 @require_POST
 def set_pause(request):
     """Toggle the game clock between paused and running."""
@@ -315,7 +315,7 @@ def set_pause(request):
         'black_time': game.black_time,
     })
 
-@csrf_exempt
+
 @require_POST
 def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
@@ -400,7 +400,6 @@ def ai_move(request):
         'black_name': request.session.get('black_name', 'Black'),
     })
 
-@csrf_exempt
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -429,7 +428,7 @@ def offer_draw(request):
 
     return JsonResponse({'success': True})
 
-@csrf_exempt
+
 @require_POST
 def resign_game(request):
     game_data = request.session.get('game')
@@ -446,10 +445,10 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    try:
-        record_game_result(request, game.mode, winner, 'resign', game.player_color)
-    except Exception:
-        pass  # lets check this !
+try:
+    record_game_result(request, game.mode, winner, 'resign', game.player_color)
+except Exception as e:
+    logger.error('Failed to record resign result: %s', e)
 
     return JsonResponse({
         'valid': True,
@@ -761,7 +760,7 @@ def stats_view(request):
 
 
 @require_POST
-@csrf_exempt
+
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, 'CRON_SECRET', None)
