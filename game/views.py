@@ -366,7 +366,7 @@ def ai_move(request):
                 game.draw_reason or 'stalemate', game.player_color
             )
         else:
-            logger.exception("ai_move: engine unavailable, game_status=%s", game_status)
+            logger.error("ai_move: engine unavailable, game_status=%s", game_status)
 
             # Prevent frontend reconnect/retry loop when AI engine fails unexpectedly
             return JsonResponse(
