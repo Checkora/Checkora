@@ -649,12 +649,6 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
     legal.reserve(moves.size());
 
     for (auto &m : moves) {
-
-        if (checkedMoves > 12) {
-            legal.push_back(m);
-            continue;
-        }
-
         if (!leavesKingInCheck(m, side)) {
             legal.push_back(m);
             checkedMoves++;
