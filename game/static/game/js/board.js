@@ -76,7 +76,7 @@
                 if (!wName || !bName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter both player names';
+                        errorDiv.textContent = 'Please enter both player names';
                     }
                     if (!wName && wNameInput) wNameInput.classList.add('input-error');
                     if (!bName && bNameInput) bNameInput.classList.add('input-error');
@@ -423,6 +423,8 @@
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                if (pauseBtn)  pauseBtn.style.display  = 'block';  
+                if (resignBtn) resignBtn.style.display = 'block'; 
 
                 updatePlayerNames(data);
                 updateTurn();
@@ -1569,7 +1571,7 @@
                 if (!playerName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter your name';
+                        errorDiv.textContent = ' Please enter your name';
                     }
                     if (wNameInput) {
                         wNameInput.classList.add('input-error');
@@ -2010,11 +2012,32 @@
             // This gives normal connections plenty of time to load, while catching strict blockers.
             setInterval(checkAssets, 5000);
 
-          if (typeof module !== "undefined" && module.exports) {
-          module.exports = { pColor, getSquareLabel, formatTime };
-        } else {
-          loadGame();
-        }
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            function setOfflineStatus() {
+            if (!statusIndicator || !statusText) return;
+                statusIndicator.classList.remove("offline");
+                statusText.textContent = "offline";
+            }
+            function setOnlineStatus() {
+                if (!statusIndicator || !statusText) return;
+                    statusIndicator.classList.remove("offline");
+                    statusText.textContent = "Online";
+                }
+            window.addEventListener('offline', setOfflineStatus);
+            window.addEventListener('online', setOnlineStatus);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    setOfflineStatus();
+                } else {
+                    setOnlineStatus();
+                }
+            });
+            if (typeof module !== "undefined" && module.exports) {
+                module.exports = { pColor, getSquareLabel, formatTime };
+            } else {
+                loadGame();
+            }
 
 })();
 

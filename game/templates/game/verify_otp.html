@@ -68,9 +68,32 @@
         </form>
         
         <div class="auth-footer">
-            Didn't receive the code? <a href="{% url 'register' %}">Try again</a>
+            Didn't receive the code? 
+            <a href="{% url 'resend_otp' %}" id = "resend-link">Try again</a>
+            <span id="timer"></span>
         </div>
     </div>
+<script>
+    let remainingTime = {{ remaining_time|default:0 }};
+    const resendLink = document.getElementById("resend-link");
+    const timer = document.getElementById("timer");
 
+    function updateTimer() {
+        if (remainingTime > 0) {
+            resendLink.style.pointerEvents = "none";
+            resendLink.style.opacity = "0.5";
+            timer.textContent = ` (${remainingTime}s)`;
+
+            remainingTime--;
+
+            setTimeout(updateTimer, 1000);
+        } else {
+            resendLink.style.pointerEvents = "auto";
+            resendLink.style.opacity = "1";
+            timer.textContent = "";
+        }
+    }
+    updateTimer();
+</script>
 </body>
 </html>
