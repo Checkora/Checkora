@@ -32,6 +32,7 @@ document.body.innerHTML = `
   <div id="gameOverTitle"></div>
   <div id="gameOverMessage"></div>
   <button id="gameOverStartBtn"></button>
+  <button id="goHomeBtn"></button>
   <button id="gameOverPvPBtn"></button>
   <button id="gameOverAIBtn"></button>
   <button id="resignBtn"></button>

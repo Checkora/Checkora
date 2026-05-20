@@ -2127,6 +2127,25 @@
                     setOnlineStatus();
                 }
             });
+            function cleanupGameResources() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+                if (typeof gameSocket !== 'undefined' && gameSocket) {
+                    gameSocket.close();
+                }
+            }
+
+            function goHome() {
+                cleanupGameResources();
+                window.location.href = '/';
+            }
+
+            const goHomeBtn = document.getElementById('goHomeBtn');
+            if (goHomeBtn) {
+                goHomeBtn.addEventListener('click', goHome);
+            }
+
             if (typeof module !== "undefined" && module.exports) {
                 module.exports = { pColor, getSquareLabel, formatTime };
             } else {

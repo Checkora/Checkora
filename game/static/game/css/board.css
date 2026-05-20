@@ -1431,3 +1431,21 @@ body {
 .offline {
     background-color: #d50000 !important;
 }
+
+.secondary-btn {
+    margin-top: 12px;
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 2px solid #f5c542;
+    background: transparent;
+    color: #f5c542;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.secondary-btn:hover {
+    background: #f5c542;
+    color: #111;
+}
