@@ -2075,6 +2075,9 @@ const leaveConfirmNo = document.getElementById('leaveConfirmNo');
 
 document.querySelectorAll('a[href="/"]').forEach(link => {
     link.addEventListener('click', (e) => {
+        // Skip leave modal for buttons that explicitly bypass it
+        if (link.dataset.skipLeaveConfirm === 'true') return;
+        
         if (!gameOver && !welcomeOverlay.classList.contains('active')) {
             e.preventDefault();
 

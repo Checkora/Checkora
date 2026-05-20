@@ -474,8 +474,11 @@
 
            <div style="display: flex; flex-direction: column; gap: 12px;">
     <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
-    <a href="{% url 'landing' %}" class="btn" id="gameOverHomeBtn" style="padding: 12px; font-size: 1rem; background: #333; color: #fff; text-align: center; text-decoration: none;">Exit to Home</a>
-</div>
+     <a href="{% url 'landing' %}" class="btn" id="gameOverHomeBtn" 
+   data-skip-leave-confirm="true"
+   style="padding: 12px; font-size: 1rem; background: #333; color: #fff; text-align: center; text-decoration: none;">
+   Exit to Home
+    </a>
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
                 <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
