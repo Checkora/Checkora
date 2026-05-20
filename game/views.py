@@ -343,8 +343,11 @@ def ai_move(request):
     # Prevent unhandled AI engine exceptions from crashing the endpoint with a 500 error
     try:
         best = game.get_ai_move(depth=depth)
+    except ValueError as exc:
+        logger.exception("get_ai_move returned malformed output")
+        best = None
     except Exception as exc:
-        logger.error("get_ai_move raised unexpectedly: %s", exc)
+        logger.exception("get_ai_move raised unexpectedly")
         best = None
 
     if not best:
@@ -363,7 +366,7 @@ def ai_move(request):
                 game.draw_reason or 'stalemate', game.player_color
             )
         else:
-            logger.error("ai_move: engine unavailable, game_status=%s", game_status)
+            logger.exception("ai_move: engine unavailable, game_status=%s", game_status)
 
             # Prevent frontend reconnect/retry loop when AI engine fails unexpectedly
             return JsonResponse(

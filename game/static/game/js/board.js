@@ -904,6 +904,11 @@
                     }
 
                         if (data.valid) {
+                            if (!data.ai_move) {
+                                gameOver = true;
+                                handleGameStatus(data.game_status, data.draw_reason);
+                                return;
+                            }
                             playSound(data);
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
@@ -945,7 +950,7 @@
                         // 503 from backend — engine is down, stop retrying completely
                         showStatus('AI unavailable. Please start a new game.', true);
                         gameOver = true;
-                        
+
                     } else {
                         showStatus(data.message, true);
                     }
