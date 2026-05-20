@@ -612,6 +612,7 @@ def register_view(request):
                 f"{otp}:{settings.SECRET_KEY}".encode()
             ).hexdigest()
             request.session["registration_otp_hash"] = otp_hash
+            request.session["last_otp_time"] = time.time()
 
             missing_email_credentials = (
                 not settings.EMAIL_HOST_USER
@@ -736,6 +737,7 @@ def verify_otp(request):
     return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
 
+@require_POST
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
 

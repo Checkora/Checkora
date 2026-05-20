@@ -707,7 +707,9 @@ class AIMoveTest(TestCase):
 
         # First AI move succeeds (AI is white, human is black)
         r = self.client.post('/api/ai-move/', content_type='application/json')
+        self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json()['valid'])
+        engine_calls_before_reject = self.mock_engine.call_count
 
         # After AI moves, it's now black's turn (human)
         # Calling ai_move again should be rejected
@@ -715,6 +717,8 @@ class AIMoveTest(TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertFalse(r.json()['valid'])
         self.assertIn("Not AI's turn", r.json()['message'])
+        # Verify the rejection short-circuits without calling the engine
+        self.assertEqual(self.mock_engine.call_count, engine_calls_before_reject)
 
 
 class OpeningBookTest(SimpleTestCase):
