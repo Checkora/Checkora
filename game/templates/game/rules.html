@@ -7,19 +7,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0d0f14;
-            --surface: #13161e;
-            --surface2: #1a1e28;
-            --border: #2a2f3d;
-            --gold: #f0c040;
-            --gold-dim: #a07c1a;
-            --text: #e8e8f0;
-            --muted: #7a7f9a;
-            --light-sq: #eedd99;
-            --dark-sq: #4a7c59;
-            --highlight: rgba(240,192,64,0.35);
-            --move-dot: rgba(0,0,0,0.35);
-            --danger: #e05555;
+            --bg: #0a0b10;
+            --surface: #141722;
+            --surface2: #1e2230;
+            --border: #2c3245;
+            --gold: #f4c430;
+            --gold-dim: #c99b1a;
+            --text: #f0f0f5;
+            --muted: #8b92a5;
+            --light-sq: #f0d9b5;
+            --dark-sq: #b58863;
+            --highlight: rgba(244, 196, 48, 0.5);
+            --move-dot: rgba(0,0,0,0.3);
+            --danger: #ff5555;
+            --glow: 0 0 20px rgba(244, 196, 48, 0.15);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -262,12 +263,14 @@
         .mini-board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
     width: 360px;
     aspect-ratio: 1 / 1;
     border: 2px solid var(--border);
-    border-radius: 4px;
+    border-radius: 6px;
     overflow: hidden;
     flex-shrink: 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
 }
 
         .mini-sq {
@@ -280,7 +283,8 @@
     height: 100%;
     font-size: 1.1rem;
     cursor: default;
-    transition: background 0.2s;
+    transition: background 0.3s ease, transform 0.2s ease;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.6);
     user-select: none;
     overflow: hidden;
 }
@@ -288,24 +292,39 @@
         .mini-sq.light { background: var(--light-sq); }
         .mini-sq.dark  { background: var(--dark-sq); }
         .mini-sq.hl    { background: var(--highlight) !important; }
-        .mini-sq.check { background: rgba(220,60,60,0.5) !important; }
-        .mini-sq.last  { background: rgba(240,192,64,0.3) !important; }
+        .mini-sq.check { background: radial-gradient(circle, rgba(255,50,50,0.85) 0%, rgba(200,0,0,0.4) 60%, transparent 100%) !important; box-shadow: inset 0 0 15px rgba(255,0,0,0.5); }
+        .mini-sq.last  { background: rgba(155, 199, 0, 0.45) !important; }
 
+        @keyframes hintPulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+        }
+        
         .move-hint {
             position: absolute;
-            width: 36%;
-            height: 36%;
+            top: 50%; left: 50%;
+            width: 28%; height: 28%;
             border-radius: 50%;
-            background: var(--move-dot);
+            background: rgba(0,0,0,0.35);
+            box-shadow: inset 0 0 6px rgba(255,255,255,0.3);
             pointer-events: none;
+            animation: hintPulse 2s infinite ease-in-out;
+        }
+
+        @keyframes capturePulse {
+            0% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 5px var(--danger); }
+            50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 15px var(--danger); }
+            100% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 5px var(--danger); }
         }
 
         .capture-hint {
             position: absolute;
             inset: 0;
-            border: 4px solid rgba(0,0,0,0.4);
-            border-radius: 2px;
+            border: 4px solid var(--danger);
+            border-radius: 50%;
             pointer-events: none;
+            animation: capturePulse 1.5s infinite;
         }
 
         .piece-label {
@@ -340,26 +359,49 @@
         .step {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.82rem;
+            gap: 12px;
+            font-size: 0.9rem;
             color: var(--muted);
-            padding: 0.4rem 0.6rem;
-            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid transparent;
+            background: rgba(255,255,255,0.02);
+            position: relative;
+            overflow: hidden;
         }
 
-        .step:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
-        .step.active { background: var(--surface); border-color: var(--gold-dim); color: var(--gold); }
-        .step-num {
-            width: 20px; height: 20px;
-            border-radius: 50%;
-            background: var(--border);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.7rem; font-weight: 600; flex-shrink: 0;
+        .step:hover { 
+            background: var(--surface); 
+            border-color: var(--border); 
+            color: var(--text); 
+            transform: translateX(4px);
         }
-        .step.active .step-num { background: var(--gold); color: #000; }
+        
+        .step.active { 
+            background: linear-gradient(90deg, rgba(244,196,48,0.1), transparent); 
+            border-left: 3px solid var(--gold);
+            color: var(--gold); 
+            font-weight: 500;
+            box-shadow: var(--glow);
+        }
+        
+        .step-num {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .step.active .step-num { 
+            background: var(--gold); 
+            color: #000; 
+            border-color: var(--gold);
+            box-shadow: 0 0 10px var(--gold);
+        }
 
         /* ── Piece Grid ── */
         .piece-grid {
@@ -370,22 +412,44 @@
         }
 
         .piece-card {
-            background: var(--surface2);
+            background: linear-gradient(145deg, var(--surface2), var(--surface));
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.8rem;
+            border-radius: 12px;
+            padding: 1rem;
             text-align: center;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
 
-        .piece-card:hover, .piece-card.active {
+        .piece-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 15px rgba(244, 196, 48, 0.15);
+            border-color: var(--gold-dim);
+        }
+
+        .piece-card.active {
             border-color: var(--gold);
-            background: var(--surface);
+            background: linear-gradient(145deg, var(--surface), #2a2515);
+            box-shadow: 0 0 20px rgba(244, 196, 48, 0.2);
+            transform: scale(1.03);
         }
 
-        .piece-card .piece-emoji { font-size: 1.8rem; }
-        .piece-card .piece-name { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+        .piece-card .piece-emoji { 
+            font-size: 2.2rem; 
+            text-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+        .piece-card.active .piece-emoji {
+            transform: scale(1.1);
+        }
+        
+        .piece-card .piece-name { 
+            font-size: 0.8rem; 
+            color: var(--muted); 
+            margin-top: 8px; 
+            font-weight: 500;
+        }
         .piece-card.active .piece-name { color: var(--gold); }
 
         /* Auto-play animation */
@@ -699,7 +763,7 @@
                             <div class="step-num">2</div> Pawn advances to rank 8
                         </div>
                         <div class="step" onclick="promoStep(2)" id="prostep-2">
-                            <div class="step-num">3</div> Promoted to Queen! ♕
+                            <div class="step-num">3</div> Player chooses between ♕, ♖, ♗, ♘ (Queen selected)
                         </div>
                     </div>
                 </div>
@@ -714,7 +778,7 @@
    PIECE UNICODE
 ══════════════════════════════════════════════ */
 const P = {
-    wK:'♔', wQ:'♕', wR:'♖', wB:'♗', wN:'♘', wP:'♙',
+    wK:'♔\u200B', wQ:'♕\u200B', wR:'♖\u200B', wB:'♗\u200B', wN:'♘\u200B', wP:'♙\u200B',
     bK:'♚', bQ:'♛', bR:'♜', bB:'♝', bN:'♞', bP:'♟'
 };
 
@@ -745,7 +809,14 @@ function clearBoard(id) {
 
 function place(id, r, c, piece) {
     const sq = document.getElementById(`${id}-${r}-${c}`);
-    if (sq) sq.textContent = piece;
+    if (sq) {
+        sq.textContent = piece[0]; // Extract the solid character
+        const isWhite = piece.includes('\u200B');
+        sq.style.color = isWhite ? '#ffffff' : '#111111';
+        sq.style.textShadow = isWhite 
+            ? '0 3px 6px rgba(0,0,0,0.8)' 
+            : '0 2px 4px rgba(255,255,255,0.3)';
+    }
 }
 
 function highlight(id, r, c, type = 'hl') {
@@ -924,9 +995,9 @@ function epStep(n) {
         // White pawn on 5th rank (row 3)
         place('board-ep', 3, 3, P.wP);
         document.getElementById('board-ep-3-3').classList.add('last');
-        // Show other pieces for context
-        place('board-ep', 6, 4, P.bP);
-        document.getElementById('board-ep-6-4').style.opacity = '0.4';
+        // Black pawn in starting position (row 1)
+        place('board-ep', 1, 4, P.bP);
+        document.getElementById('board-ep-1-4').style.opacity = '0.5';
     } else if (n === 1) {
         // Black pawn jumps 2 squares, lands beside white
         place('board-ep', 3, 3, P.wP);
@@ -962,7 +1033,7 @@ function checkStep(n) {
         document.getElementById('board-check-0-4').classList.add('last');
         // Highlight the attack line
         [1,2,3,4,5,6].forEach(r => {
-            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
+            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(255,50,50,0.35)';
         });
         // Show escape squares
         [[6,3],[6,5],[7,3],[7,5]].forEach(([r,c]) => highlight('board-check',r,c));
@@ -975,10 +1046,10 @@ function checkStep(n) {
         document.getElementById('board-check-4-4').classList.add('last');
         // Show the block working
         [1,2,3].forEach(r => {
-            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(220,60,60,0.15)';
+            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(255,50,50,0.35)';
         });
         [5,6,7].forEach(r => {
-            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(64,192,64,0.15)';
+            document.getElementById(`board-check-${r}-4`).style.background = 'rgba(50,255,50,0.35)';
         });
     } else {
         // Clear checkmate position — king trapped in corner
@@ -990,9 +1061,9 @@ function checkStep(n) {
         // All escape squares blocked
         [[0,1],[1,0],[1,1]].forEach(([r,c]) => {
             const sq = document.getElementById(`board-check-${r}-${c}`);
-            sq.style.background = 'rgba(220,60,60,0.3)';
+            sq.style.background = 'rgba(255,50,50,0.4)';
             sq.textContent = '✕';
-            sq.style.color = 'rgba(220,60,60,0.7)';
+            sq.style.color = 'rgba(255,50,50,0.9)';
             sq.style.fontSize = '0.9rem';
         });
     }
@@ -1025,10 +1096,21 @@ function promoStep(n) {
         place('board-promo', 0, 4, P.wP);
         document.getElementById('board-promo-0-4').classList.add('last');
     } else {
+        // Show all promotion choices
+        place('board-promo', 0, 3, P.wN);
         place('board-promo', 0, 4, P.wQ);
-        document.getElementById('board-promo-0-4').classList.add('last');
-        // sparkle effect
-        document.getElementById('board-promo-0-4').style.background = 'rgba(240,192,64,0.6)';
+        place('board-promo', 0, 5, P.wR);
+        place('board-promo', 0, 6, P.wB);
+        
+        [3, 4, 5, 6].forEach(c => {
+            const sq = document.getElementById(`board-promo-0-${c}`);
+            sq.style.background = 'rgba(255, 255, 255, 0.1)';
+            sq.style.boxShadow = '0 0 15px rgba(244, 196, 48, 0.6)';
+            sq.style.border = '2px solid var(--gold)';
+            sq.style.borderRadius = '8px';
+            sq.style.transform = c === 4 ? 'scale(1.15)' : 'scale(1.05)';
+            sq.style.zIndex = '10';
+        });
     }
 }
 

@@ -1,5 +1,6 @@
 """Game views for the Checkora chess platform."""
-
+import logging
+logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
@@ -16,7 +17,6 @@ from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
-
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -400,7 +400,6 @@ def ai_move(request):
         'black_name': request.session.get('black_name', 'Black'),
     })
 
-
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -435,25 +434,22 @@ def resign_game(request):
     """Handle a player resigning the game."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse({'valid': False, 'message': err_msg}, status=400)
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode == 'ai':
-        resigning_player = game.player_color
-    else:
-        resigning_player = game.current_turn
-
+    resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
-
     game_status = 'resignation'
 
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    try:
+        record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    except Exception as e:
+        logger.error('Failed to record resign result: %s', e)
 
     return JsonResponse({
         'valid': True,
@@ -461,7 +457,6 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
-
 
 @require_GET
 def check_username(request):
@@ -755,9 +750,8 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
     })
 
-
-@require_POST
 @csrf_exempt
+@require_POST
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, 'CRON_SECRET', None)

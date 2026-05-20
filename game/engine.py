@@ -531,9 +531,8 @@ DP cache is intentionally excluded to save cookie space."""
 
         notation = self._notation(
             fr, fc, tr, tc, piece, captured,
-            board_before, rights_before, ep_before)
-        if promoted and '=' not in notation:
-            notation += '=' + (self.board[tr][tc] or 'Q').upper()
+            board_before, rights_before, ep_before,
+            promo_char=(promotion_piece or 'q') if promoted else None)
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
@@ -705,10 +704,15 @@ DP cache is intentionally excluded to save cookie space."""
 
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,
-                  ep_str=None):
+                  ep_str=None, promo_char=None):
         """
         Generate SAN notation via C++ engine if possible,
           else simplified fallback."""
+        if promo_char:
+            promo_char = promo_char.lower()
+            if promo_char not in ('q', 'r', 'b', 'n'):
+                promo_char = 'q'
+
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
             cmd = (
@@ -716,6 +720,8 @@ DP cache is intentionally excluded to save cookie space."""
                 f" {self.current_turn} {ep_str}"
                 f" {fr} {fc} {tr} {tc}"
             )
+            if promo_char:
+                cmd += f" {promo_char}"
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -759,6 +765,8 @@ DP cache is intentionally excluded to save cookie space."""
                         notation = f"{p_char}x{t_coord}"
                     else:
                         notation = f"{p_char}{t_coord}"
+        if promo_char and '=' not in notation:
+            notation += '=' + promo_char.upper()
         return notation
 
     @staticmethod
