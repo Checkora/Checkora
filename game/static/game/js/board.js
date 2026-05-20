@@ -237,9 +237,10 @@
               document.getElementById("blackScore").innerText = black;
             }
             
+            // post() uses csrf()
             function csrf() {
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : '';
+                return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
             }
 
             async function get(url) {
@@ -1816,9 +1817,17 @@
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
-                        await post('/api/resign/', {});
-                        if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
-                        endGame('resign', turn);
+                        try {
+                            const result = await post('/api/resign/', {});
+                            if (result.valid) {
+                                if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                                endGame('resign', turn);
+                            } else {
+                                showStatus('Resign failed. Please try again.', true);
+                            }
+                        } catch (_) {
+                            showStatus('Resign failed. Please check your connection and try again.', true);
+                        }
                     });
                 }
             };
