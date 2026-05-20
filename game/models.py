@@ -29,9 +29,39 @@ class GameResult(models.Model):
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
     end_reason = models.CharField(max_length=25, choices=END_REASON_CHOICES)
     played_at = models.DateTimeField(auto_now_add=True)
-
+    
     class Meta:
         ordering = ["-played_at"]
 
     def __str__(self):
         return f"{self.mode} | {self.winner} | {self.end_reason}"
+
+class PrivateRoom(models.Model):
+    
+    room_code = models.CharField(max_length=8, unique=True)
+
+    host = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="hosted_rooms"
+    )
+
+    guest = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="joined_rooms"
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Room {self.room_code}"

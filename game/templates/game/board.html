@@ -80,12 +80,10 @@
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
 
             <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17" required
-                    minlength="1"
+                <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17" 
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
 
-                <input type="text" id="blackNameInput" placeholder="Black Player Name" maxlength="17" required
-                    minlength="1"
+                <input type="text" id="blackNameInput" placeholder="Black Player Name" maxlength="17"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
 
                 <!-- Error message div -->
@@ -111,7 +109,50 @@
                 <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
-                    AI</button>
+                    AI
+                </button>
+
+                <button type="button"
+                        class="btn btn-gold" id="create-room-btn"
+                        style="padding: 12px; font-size: 1.05rem;">
+                    Create Private Match
+                </button>
+
+                <div class="private-room-section"
+                    style="display:flex;
+                            flex-direction:column;
+                            gap:10px;
+                            margin-top:10px;">
+
+                    <input
+                        type="text"
+                        id="room-code-input"
+                        placeholder="Enter Room Code"
+                        maxlength="8"
+                        style="padding:10px;
+                            border-radius:5px;
+                            border:1px solid #444;
+                            background:#1a1a2e;
+                            color:#fff;"
+                    >
+
+                    <button type="button"
+                            class="btn btn-gold"
+                            id="join-room-btn"
+                            style="padding: 12px; font-size: 1.05rem;">
+                        Join Match
+                    </button>
+                </div>
+
+                <div id="room-code-display"
+                    style="display:none;
+                            margin-top:10px;
+                            text-align:center;
+                            color:#f0c040;">
+
+                    <p>Your Room Code:</p>
+                    <strong id="generated-room-code"></strong>
+                </div>
 
                 <div class="fen-input-group">
                     <label class="fen-label" for="welcomeFenInput">Optional FEN</label>
@@ -305,6 +346,7 @@
                     <button class="btn btn-gold" id="flipBtn">Flip Board</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+    
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>

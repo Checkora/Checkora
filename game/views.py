@@ -6,6 +6,8 @@ import time
 import hashlib
 import secrets
 import secrets as secrets_module
+import random
+import string
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -23,9 +25,17 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, PrivateRoom
 from game.services import cleanup_stale_games
 
+def generate_room_code(length=8):
+    characters = string.ascii_uppercase + string.digits
+    
+    while True:
+        code = ''.join(random.choices(characters, k=length))
+        
+        if not PrivateRoom.objects.filter(room_code=code).exists():
+            return code
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -704,6 +714,54 @@ def login_view(request):
 
     return render(request, 'game/login.html', {'form': form})
 
+@require_POST
+def create_private_room(request):
+    room_code = generate_room_code()
+
+    room = PrivateRoom.objects.create(
+        room_code=room_code,
+        host=request.user if request.user.is_authenticated else None
+    )
+
+    return JsonResponse({
+        'success': True,
+        'room_code': room.room_code
+    })
+
+@require_POST
+def join_private_room(request):
+    data = json.loads(request.body or '{}')
+
+    room_code = data.get('room_code', '').strip().upper()
+
+    try:
+        room = PrivateRoom.objects.get(
+            room_code=room_code,
+            is_active=True
+        )
+
+        if room.host == request.user:
+            return JsonResponse({
+                'success': False,
+                'message': 'You cannot join your own room.'
+            }, status=400)
+
+        if request.user.is_authenticated:
+            room.guest = request.user
+        room.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Joined room successfully.',
+            'room_code': room.room_code
+        })
+
+    except PrivateRoom.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Invalid room code.'
+        }, status=404)
+        
 
 @xframe_options_sameorigin
 def rules(request):

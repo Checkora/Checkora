@@ -16,6 +16,8 @@ urlpatterns = [
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
+    path('private-room/create/', views.create_private_room, name='create_private_room'),
+    path('private-room/join/', views.join_private_room, name='join_private_room'),
     path('stats/', views.stats_view, name='stats'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
 

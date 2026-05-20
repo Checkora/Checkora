@@ -9,7 +9,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.test import SimpleTestCase, TestCase, override_settings
-
+from game.models import PrivateRoom
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
 
@@ -1193,3 +1193,84 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
         self.assertEqual(notation, 'a8=Q')
+    
+class PrivateRoomTests(TestCase):
+
+    def setUp(self):
+
+        self.user1 = User.objects.create_user(
+            username='player1',
+            password='testpass123'
+        )
+
+        self.user2 = User.objects.create_user(
+            username='player2',
+            password='testpass123'
+        )
+
+    def test_create_private_room(self):
+
+        self.client.login(
+            username='player1',
+            password='testpass123'
+        )
+
+        response = self.client.post(
+            reverse('create_private_room')
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+
+        self.assertTrue(data['success'])
+
+        self.assertIn('room_code', data)
+
+    def test_join_private_room(self):
+
+        room = PrivateRoom.objects.create(
+            host=self.user1,
+            room_code='ROOM123'
+        )
+
+        self.client.login(
+            username='player2',
+            password='testpass123'
+        )
+
+        response = self.client.post(
+            reverse('join_private_room'),
+            data=json.dumps({
+                'room_code': room.room_code
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+
+        self.assertTrue(data['success'])
+
+    def test_host_cannot_join_own_room(self):
+
+        room = PrivateRoom.objects.create(
+            host=self.user1,
+            room_code='ROOM999'
+        )
+
+        self.client.login(
+            username='player1',
+            password='testpass123'
+        )
+
+        response = self.client.post(
+            reverse('join_private_room'),
+            data=json.dumps({
+                'room_code': room.room_code
+            }),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)

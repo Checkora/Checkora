@@ -34,6 +34,10 @@
             let pendingPromo = null;
 
             let gameMode = 'pvp';
+            let socket = null;
+            
+            window.isRemoteMove = false; // Flag to prevent loops when receiving our own move via WebSocket
+            window.privateMatchStarted = false; // Store private match code if we create/join one        
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
             let currentBlackName = 'Black';
@@ -799,7 +803,7 @@
                     const data = await post('/api/move/', body);
                         if (data.valid) {
                             playSound(data);
-                            if (!skipAnimation) await animateMove(fr, fc, tr, tc);
+                            if (!window.isRemoteMove && !skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
                             turn = data.current_turn;
                             lastMove = { from: [fr, fc], to: [tr, tc] };
@@ -819,6 +823,17 @@
                             updateCaptured(data.captured_pieces);
                             syncPieces();
                             renderClocks();
+                            if (!window.isRemoteMove && !skipAnimation && socket && socket.readyState === WebSocket.OPEN) {
+                                socket.send(JSON.stringify({
+                                    move: {
+                                        from_row: fr,
+                                        from_col: fc,
+                                        to_row: tr,
+                                        to_col: tc,
+                                        promotion_piece: promotionPiece
+                                    }
+                                }));
+                            }
                             startTimer();
                             updateMaterialUI(board);
                         let a11yMsg = '';
@@ -2154,11 +2169,192 @@
                     setOnlineStatus();
                 }
             });
-            if (typeof module !== "undefined" && module.exports) {
-                module.exports = { pColor, getSquareLabel, formatTime };
-            } else {
-                loadGame();
+            // ===============================
+            // Private Room Feature
+            // ===============================
+
+            function getCSRFToken() {
+                return document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('csrftoken='))
+                    ?.split('=')[1];
             }
+
+            const createRoomBtn = document.getElementById('create-room-btn');
+
+            if (createRoomBtn) {
+                createRoomBtn.addEventListener('click', async () => {
+
+                try {
+
+                    const response = await fetch('/private-room/create/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCSRFToken()
+                        }
+                    });
+
+                    const data = await response.json();
+                    
+
+                    if (data.success) {
+
+                        document.getElementById(
+                            'room-code-display'
+                        ).style.display = 'block';
+
+                        document.getElementById(
+                            'generated-room-code'
+                        ).textContent = data.room_code;
+                        
+                        localStorage.setItem('room-code', data.room_code);
+                        
+                        socket = new WebSocket(`ws://${window.location.host}/ws/game/${data.room_code}/`);
+                        socket.onopen = function () {
+                            console.log('Connected to WebSocket');
+                        };
+                        socket.onmessage = async function (event) {
+
+                            const socketData = JSON.parse(event.data);
+
+                            console.log('Received WebSocket message:', socketData);
+
+                            if (socketData.move) {
+
+                                const move = socketData.move;
+                                window.isRemoteMove = true; // Flag to indicate this move came from the opponent
+                                await executeMove(
+                                    move.from_row,
+                                    move.from_col,
+                                    move.to_row,
+                                    move.to_col,
+                                    move.promotion || null,
+                                    true
+                                );
+                                window.isRemoteMove = false; // Reset flag after processing
+                            }
+                            if (socketData.start_game) {
+                                if (!window.privateMatchStarted) {
+                                    window.privateMatchStarted = true; // Prevent multiple triggers
+                                    welcomeOverlay.classList.remove('active');
+                                    welcomeOverlay.style.display = 'none';
+                                    gameLayout.style.visibility = 'visible';
+                                    await startNewGame('pvp');
+                                }
+                            }
+                        };
+                        socket.onerror = function (error) {
+                            console.error('WebSocket error:', error);
+                        };
+                        socket.onclose = function () {
+                            console.log('WebSocket connection closed');
+                        };
+                        
+                    } else {
+                        alert('Failed to create room.');
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+            });
+        }
+
+        const joinRoomBtn = document.getElementById('join-room-btn');
+
+        if (joinRoomBtn) {
+
+            joinRoomBtn.addEventListener('click', async () => {
+
+                const roomCode = document
+                    .getElementById('room-code-input')
+                    .value
+                    .trim();
+
+                if (!roomCode) {
+                    alert('Enter a room code.');
+                    return;
+                }
+
+                try {
+
+                    const response = await fetch('/private-room/join/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCSRFToken()
+                        },
+                        body: JSON.stringify({
+                            room_code: roomCode,
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    alert(data.message);
+                    
+                    if (data.success) {
+                        localStorage.setItem('room-code', roomCode);
+                
+                        socket = new WebSocket(`ws://${window.location.host}/ws/game/${roomCode}/`);
+                    
+                        socket.onopen = function () {
+                            console.log('Connected to WebSocket');
+
+                            socket.send(JSON.stringify({
+                                start_game: true
+                            }));
+                        };
+                        socket.onmessage = async function (event) {
+
+                            const socketData = JSON.parse(event.data);
+
+                            console.log('Received WebSocket message:', socketData);
+
+                            if (socketData.move) {
+                                const move = socketData.move;
+                                window.isRemoteMove = true; // Flag to indicate this move came from the opponent
+                                await executeMove(
+                                    move.from_row,
+                                    move.from_col,
+                                    move.to_row,
+                                    move.to_col,
+                                    move.promotion || null,
+                                    true
+                                );
+                                window.isRemoteMove = false; // Reset flag after processing
+                            }
+                            if (socketData.start_game) {
+                                if (!window.privateMatchStarted) {
+                                    window.privateMatchStarted = true; // Prevent multiple triggers
+                               
+                                    welcomeOverlay.classList.remove('active');
+                                    welcomeOverlay.style.display = 'none';
+                                    gameLayout.style.visibility = 'visible';
+                                    await startNewGame('pvp');
+                                }
+                            }
+                        };
+
+                        socket.onerror = function (error) {
+                            console.error('WebSocket error:', error);
+                        };
+                        socket.onclose = function () {
+                            console.log('WebSocket connection closed');
+                        };
+                        
+                    }
+
+                } catch (error) {
+                    console.error(error);
+                }
+            });
+        }
+    
+        if (typeof module !== "undefined" && module.exports) {
+            module.exports = { pColor, getSquareLabel, formatTime };
+        } else {
+            loadGame();
+        }
 
 })();
 
