@@ -760,7 +760,7 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
     })
 
-
+@csrf_exempt
 @require_POST
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
