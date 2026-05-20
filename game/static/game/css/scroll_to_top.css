@@ -17,6 +17,7 @@
   font-weight: 700;
   box-shadow: 0 0.75rem 1.75rem rgba(0, 0, 0, 0.35);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateY(0.75rem);
   transition:
@@ -28,6 +29,7 @@
 
 .scroll-top-button.is-visible {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
   transform: translateY(0);
 }
