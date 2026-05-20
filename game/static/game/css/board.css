@@ -958,7 +958,7 @@ body {
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
     width: 90%;
     max-width: 480px;
-    max-height: calc(100vh - 40px);
+    max-height: min(90vh, fit-content);
     overflow-y: auto;
     box-sizing: border-box;  
     position: relative;

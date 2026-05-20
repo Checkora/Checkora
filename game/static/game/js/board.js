@@ -197,6 +197,7 @@
 
             let gameOver = false;
             let aiThinking = false;
+            let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
 
             let pgnDownloadTimeout = null;
             let fenCopyTimeout = null;
@@ -377,6 +378,10 @@
             LOAD GAME STATE
             ========================================================== */
             async function loadGame() {
+                // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
+                aiRequestSeq = 0;
+                aiThinking = false;
+
                 const data = await get('/api/state/');
 
                 board = parseBoard(data.board);
@@ -435,25 +440,8 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
-                if (gameMode === 'ai') {
-                    const aiClock = playerColor === 'white' ?
-                        document.getElementById('blackClock') :
-                        document.getElementById('whiteClock');
-                    const aiTimeEl = playerColor === 'white' ?
-                        document.getElementById('blackTime') :
-                        document.getElementById('whiteTime');
-
-                    if (aiClock) {
-                        aiClock.style.border = '2px dashed #444';
-                        aiClock.style.boxShadow = 'none';
-                        aiClock.classList.remove('active');
-                    }
-                    if (aiTimeEl) {
-                        aiTimeEl.textContent = '🤖';
-                        aiTimeEl.style.fontSize = '1.8em';
-                        aiTimeEl.style.color = '#888';
-                    }
-                }
+                // fix
+                // Removed static styling for AI clock so it displays the countdown timer.
 
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
@@ -863,10 +851,53 @@
 
             async function requestAIMove() {
                 if (gameOver || aiThinking) return;
+                // Increment and store current sequence value to identify this specific request
+                const seq = ++aiRequestSeq;
                 aiThinking = true;
-                showStatus('AI is thinking...', false);
+                
+                // fix: animated thinking dots
+                let dots = 1;
+                const thinkingInterval = setInterval(() => {
+                    if (!aiThinking) { clearInterval(thinkingInterval); return; }
+                    showStatus('AI is thinking' + '.'.repeat(dots), false);
+                    dots = (dots % 3) + 1;
+                }, 400);
+
                 try {
+                    let piecesOnBoard = 0;
+                    for (let r = 0; r < 8; r++) {
+                        for (let c = 0; c < 8; c++) {
+                            if (board[r][c]) piecesOnBoard++;
+                        }
+                    }
+
+                    // randomized delay per difficulty — feels realistic and unpredictable
+                    let delay;
+                    if (currentDifficulty === 'easy')       delay = 800  + Math.random() * (1500 - 800);
+                    else if (currentDifficulty === 'hard')  delay = 2500 + Math.random() * (4000 - 2500);
+                    else                                    delay = 1500 + Math.random() * (2500 - 1500); // medium
+                    await new Promise(resolve => setTimeout(resolve, delay));
+
+                    // Abort if a new game started, reconnect happened, or another request took over during delay
+                    if (seq !== aiRequestSeq) {
+                        clearInterval(thinkingInterval);
+                        return;
+                    }
+
+                    // fix: abort if game ended during delay
+                    if (gameOver) {
+                        clearInterval(thinkingInterval);
+                        return;
+                    }
+
                     const data = await post('/api/ai-move/', {});
+                    clearInterval(thinkingInterval); // fix: clear after API call completes, not before
+
+                    // Abort if sequence is no longer current after API call completes
+                    if (seq !== aiRequestSeq) {
+                        return;
+                    }
+
                         if (data.valid) {
                             playSound(data);
                             const mv = data.ai_move;
@@ -909,10 +940,12 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                   
-                        await handleReconnect();
+                    clearInterval(thinkingInterval);
+                    await handleReconnect();
                 } finally {
-                    aiThinking = false;
+                    if (seq === aiRequestSeq) {
+                        aiThinking = false;
+                    }
                 }
             }
 
@@ -1214,31 +1247,49 @@
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
-                
-
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
+
                 if (gameMode === 'ai') {
-        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
-        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
-        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
-        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
+                    const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+                    const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+                    const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+                    const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
-        // Player clock — update time and highlight on their turn
-        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+                    // fix: update time text only, never re-toggle active class here
+                    // active class is set once in updateTurn() to avoid blinking
+                    if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = formatTime(playerColor === 'white' ? blackTime : whiteTime);
+                        aiTimeEl.style.fontSize = '';
+                        aiTimeEl.style.color = '';
+                    }
 
-        // AI clock — static, never highlights, never updates time
-        if (aiTimeEl) aiTimeEl.textContent = '🤖';
-        if (aiClock) aiClock.classList.remove('active');
-
-    } else {
-        // PvP — both clocks update normally
-        if (wTime) wTime.textContent = formatTime(whiteTime);
-        if (bTime) bTime.textContent = formatTime(blackTime);
-        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
-    }
+                    // fix: only set active once (not on every tick)
+                    const isAiTurn = turn !== playerColor;
+                    if (playerClock) {
+                        playerClock.classList.toggle('active', !isAiTurn);
+                        playerClock.classList.toggle('inactive', isAiTurn);
+                    }
+                    if (aiClock) {
+                        aiClock.style.border = '';
+                        aiClock.style.boxShadow = '';
+                        aiClock.classList.toggle('active', isAiTurn);
+                        aiClock.classList.toggle('inactive', !isAiTurn);
+                    }
+                } else {
+                    // PvP — both clocks update normally
+                    if (wTime) wTime.textContent = formatTime(whiteTime);
+                    if (bTime) bTime.textContent = formatTime(blackTime);
+                    if (whiteClock) {
+                        whiteClock.classList.toggle('active', turn === 'white');
+                        whiteClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                    }
+                    if (blackClock) {
+                        blackClock.classList.toggle('active', turn === 'black');
+                        blackClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                    }
+                }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
@@ -1255,8 +1306,26 @@
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
                     if (paused || gameOver) return;
-                    if (turn === 'white' && whiteTime > 0) whiteTime--;
-                    if (turn === 'black' && blackTime > 0) blackTime--;
+
+                    // fix: in AI mode, tick only ONE clock exclusively
+                    if (gameMode === 'ai') {
+                        if (turn === playerColor) {
+                            // Human's turn — only tick human's clock
+                            if (playerColor === 'white' && whiteTime > 0) whiteTime--;
+                            else if (playerColor === 'black' && blackTime > 0) blackTime--;
+                        } else if (aiThinking) {
+                            // AI's turn — only tick AI's clock while actually thinking
+                            if (playerColor === 'white' && blackTime > 0) blackTime--;
+                            else if (playerColor === 'black' && whiteTime > 0) whiteTime--;
+                        } else {
+                            return; // AI turn but not yet thinking (transition gap), don't tick
+                        }
+                    } else {
+                        // PvP — tick only the active player's clock
+                        if (turn === 'white' && whiteTime > 0) whiteTime--;
+                        else if (turn === 'black' && blackTime > 0) blackTime--;
+                    }
+
                     renderClocks();
 
                     if (turn === 'white' && whiteTime === 0) {
@@ -1368,6 +1437,10 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
+                // Reset AI request sequence and thinking state on new game
+                aiRequestSeq = 0;
+                aiThinking = false;
+
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
 
