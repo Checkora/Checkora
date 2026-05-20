@@ -131,6 +131,10 @@
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
                     <button class="btn color-choice active" id="pveWhiteBtn" data-color="white"
                         style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
+                    <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection" 
+                        style="padding: 12px; flex: 1; border: 1px solid #444; background: linear-gradient(to right, #fff 50%, #000 50%); color: #666; transition: all 0.2s; font-weight: 500;">
+            🎲 Random
+        </button>    
                     <button class="btn color-choice" id="pveBlackBtn" data-color="black"
                         style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
                 </div>
@@ -217,7 +221,7 @@
 
         <!-- Board -->
         <div class="board-container">
-            <div class="turn-badge white" id="turnBadge" style="height: 48px; box-sizing: border-box;">
+            <div class="turn-badge white" id="turnBadge">
                 <span id="turnBadgeText">White</span>'s Turn
             </div>
             <div class="clocks">

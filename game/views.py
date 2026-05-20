@@ -145,11 +145,13 @@ def new_game(request):
     except (ValueError, TypeError):
         time_limit = 600
 
-    if mode not in ("pvp", "ai"):
-        mode = "pvp"
-    player_color = data.get("player_color", "white")
-    if player_color not in ("white", "black"):
-        player_color = "white"
+    if mode not in ('pvp', 'ai'):
+        mode = 'pvp'
+    player_color = data.get('player_color', 'white')
+    if player_color == 'random':
+        player_color = secrets.choice(['white', 'black'])
+    elif player_color not in ('white', 'black'):
+        player_color = 'white'
 
     def _clean_name(raw, fallback):
         name = (raw or "").strip()
