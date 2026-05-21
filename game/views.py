@@ -1,9 +1,11 @@
 """Game views for the Checkora chess platform."""
-
+import logging
+logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
 import secrets
+import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -15,7 +17,6 @@ from smtplib import SMTPException
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
-
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -23,6 +24,7 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+from game.services import cleanup_stale_games
 
 
 def landing(request):
@@ -90,7 +92,7 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -135,7 +137,9 @@ def new_game(request):
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
     player_color = data.get('player_color', 'white')
-    if player_color not in ('white', 'black'):
+    if player_color == 'random':
+        player_color = secrets.choice(['white', 'black'])
+    elif player_color not in ('white', 'black'):
         player_color = 'white'
 
     def _clean_name(raw, fallback):
@@ -170,6 +174,7 @@ def new_game(request):
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
+    request.session.save()
 
     return JsonResponse({
         'valid': True,
@@ -183,7 +188,7 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -220,7 +225,7 @@ def resume_game(request):
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
 
@@ -280,7 +285,7 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
@@ -332,13 +337,12 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
-    # Depth Mapping
+    # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
-    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
-    depth = depth_map.get(difficulty, 3)
+    depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
+    depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)
-    best = game.get_ai_move(depth=depth)
+    best = game.get_ai_move(depth=depth)  # called once only
     
     if not best:
         if game.game_status == 'checkmate':
@@ -394,11 +398,10 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(),
+        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
-
 
 @require_POST
 def offer_draw(request):
@@ -434,25 +437,22 @@ def resign_game(request):
     """Handle a player resigning the game."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse({'valid': False, 'message': err_msg}, status=400)
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode == 'ai':
-        resigning_player = game.player_color
-    else:
-        resigning_player = game.current_turn
-
+    resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
-
     game_status = 'resignation'
 
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    try:
+        record_game_result(request, game.mode, winner, 'resign', game.player_color)
+    except Exception as e:
+        logger.error('Failed to record resign result: %s', e)
 
     return JsonResponse({
         'valid': True,
@@ -460,7 +460,6 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
-
 
 @require_GET
 def check_username(request):
@@ -478,7 +477,35 @@ def register_view(request):
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
+        is_valid = form.is_valid()
+        
+        # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
+        if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
+            username = request.POST.get('username')
+            email = request.POST.get('email')
+            
+            if username and email:
+                deleted = False
+                # 1. Exact match (User retrying with the exact same details)
+                if User.objects.filter(username=username, email=email, is_active=False).exists():
+                    User.objects.filter(username=username, email=email, is_active=False).delete()
+                    deleted = True
+                else:
+                    # 2. Username conflict (Free up unverified, abandoned usernames)
+                    if User.objects.filter(username=username, is_active=False).exists():
+                        User.objects.filter(username=username, is_active=False).delete()
+                        deleted = True
+                    # 3. Email conflict (Free up unverified, abandoned emails)
+                    if User.objects.filter(email=email, is_active=False).exists():
+                        User.objects.filter(email=email, is_active=False).delete()
+                        deleted = True
+                
+                if deleted:
+                    # Re-validate the form now that conflicts are cleared
+                    form = CustomUserCreationForm(request.POST)
+                    is_valid = form.is_valid()
+
+        if is_valid:
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
@@ -596,8 +623,61 @@ def verify_otp(request):
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
-    return render(request, 'game/verify_otp.html')
+    remaining_time = 0
+    last_otp_time = request.session.get('last_otp_time')
+    if last_otp_time:
+        elapsed = int(time.time() - last_otp_time)
+        remaining_time = max(0, 60 - elapsed)
+    return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
+def resend_otp(request):
+    user_id = request.session.get('registration_user_id')
+
+    if not user_id:
+        messages.error(request, 'Session expired. Please register again.')
+        return redirect('register')
+
+    try:
+        user = User.objects.get(id=user_id, is_active=False)
+    except User.DoesNotExist:
+        messages.error(request, 'User not found. Please register again.')
+        return redirect('register')
+    last_otp_time = request.session.get('last_otp_time')
+    if last_otp_time and time.time() - last_otp_time < 60:
+        remaining = int(60 - (time.time() - last_otp_time))
+        messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
+        return redirect('verify_otp')
+
+    otp = str(secrets.randbelow(900000) + 100000)
+
+    otp_hash = hashlib.sha256(
+        f"{otp}:{settings.SECRET_KEY}".encode()
+    ).hexdigest()
+
+    request.session['registration_otp_hash'] = otp_hash
+
+    try:
+        send_mail(
+            'Your Checkora Verification Code',
+            f'Your new OTP is: {otp}',
+            None,
+            [user.email],
+            fail_silently=False,
+        )
+
+        messages.success(
+            request,
+            'A new OTP has been sent to your email.'
+        )
+        request.session['last_otp_time'] = time.time()
+
+    except (SMTPException, BadHeaderError, OSError):
+        messages.error(
+            request,
+            'Failed to resend OTP. Please try again.'
+        )
+
+    return redirect('verify_otp')
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -608,8 +688,16 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            request.session.cycle_key()  # Prevent session fixation
+            
+            remember_me = request.POST.get('remember_me')
+            
+            if remember_me:
+                request.session.set_expiry(1209600)  # 2 weeks
+            else:
+                request.session.set_expiry(0)# Browser close
+                
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
-            request.session.cycle_key()
             return redirect('index')
 
     else:
@@ -665,13 +753,8 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
     })
 
-
-import secrets as secrets_module
-from django.views.decorators.http import require_POST
-from game.services import cleanup_stale_games
-
-@require_POST
 @csrf_exempt
+@require_POST
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, 'CRON_SECRET', None)

@@ -33,8 +33,12 @@
             let timerInterval = null;
             let pendingPromo = null;
 
+            let gameStartTime = null;
+    
             let gameMode = 'pvp';
             let currentDifficulty = 'medium';
+            let currentWhiteName = 'White';
+            let currentBlackName = 'Black';
             // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
@@ -76,7 +80,7 @@
                 if (!wName || !bName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter both player names';
+                        errorDiv.textContent = 'Please enter both player names';
                     }
                     if (!wName && wNameInput) wNameInput.classList.add('input-error');
                     if (!bName && bNameInput) bNameInput.classList.add('input-error');
@@ -197,6 +201,7 @@
 
             let gameOver = false;
             let aiThinking = false;
+            let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
 
             let pgnDownloadTimeout = null;
             let fenCopyTimeout = null;
@@ -236,9 +241,10 @@
               document.getElementById("blackScore").innerText = black;
             }
             
+            // post() uses csrf()
             function csrf() {
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : '';
+                return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
             }
 
             async function get(url) {
@@ -377,6 +383,10 @@
             LOAD GAME STATE
             ========================================================== */
             async function loadGame() {
+                // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
+                aiRequestSeq = 0;
+                aiThinking = false;
+
                 const data = await get('/api/state/');
 
                 board = parseBoard(data.board);
@@ -423,6 +433,8 @@
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                if (pauseBtn)  pauseBtn.style.display  = 'block';  
+                if (resignBtn) resignBtn.style.display = 'block'; 
 
                 updatePlayerNames(data);
                 updateTurn();
@@ -433,25 +445,8 @@
                 renderClocks();
                 updatePauseUI();
                 startTimer();
-                if (gameMode === 'ai') {
-                    const aiClock = playerColor === 'white' ?
-                        document.getElementById('blackClock') :
-                        document.getElementById('whiteClock');
-                    const aiTimeEl = playerColor === 'white' ?
-                        document.getElementById('blackTime') :
-                        document.getElementById('whiteTime');
-
-                    if (aiClock) {
-                        aiClock.style.border = '2px dashed #444';
-                        aiClock.style.boxShadow = 'none';
-                        aiClock.classList.remove('active');
-                    }
-                    if (aiTimeEl) {
-                        aiTimeEl.textContent = '🤖';
-                        aiTimeEl.style.fontSize = '1.8em';
-                        aiTimeEl.style.color = '#888';
-                    }
-                }
+                // fix
+                // Removed static styling for AI clock so it displays the countdown timer.
 
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
@@ -462,8 +457,10 @@
             }
 
             function updatePlayerNames(data) {
-                let wName = data.white_name || 'White';
-                let bName = data.black_name || 'Black';
+                currentWhiteName = data.white_name || currentWhiteName || 'White';
+                currentBlackName = data.black_name || currentBlackName || 'Black';
+                let wName = currentWhiteName;
+                let bName = currentBlackName;
                 
                 if (gameMode === 'ai'){
                     const diffLabel = (currentDifficulty || 'medium').toUpperCase();
@@ -861,10 +858,53 @@
 
             async function requestAIMove() {
                 if (gameOver || aiThinking) return;
+                // Increment and store current sequence value to identify this specific request
+                const seq = ++aiRequestSeq;
                 aiThinking = true;
-                showStatus('AI is thinking...', false);
+                
+                // fix: animated thinking dots
+                let dots = 1;
+                const thinkingInterval = setInterval(() => {
+                    if (!aiThinking) { clearInterval(thinkingInterval); return; }
+                    showStatus('AI is thinking' + '.'.repeat(dots), false);
+                    dots = (dots % 3) + 1;
+                }, 400);
+
                 try {
+                    let piecesOnBoard = 0;
+                    for (let r = 0; r < 8; r++) {
+                        for (let c = 0; c < 8; c++) {
+                            if (board[r][c]) piecesOnBoard++;
+                        }
+                    }
+
+                    // randomized delay per difficulty — feels realistic and unpredictable
+                    let delay;
+                    if (currentDifficulty === 'easy')       delay = 800  + Math.random() * (1500 - 800);
+                    else if (currentDifficulty === 'hard')  delay = 2500 + Math.random() * (4000 - 2500);
+                    else                                    delay = 1500 + Math.random() * (2500 - 1500); // medium
+                    await new Promise(resolve => setTimeout(resolve, delay));
+
+                    // Abort if a new game started, reconnect happened, or another request took over during delay
+                    if (seq !== aiRequestSeq) {
+                        clearInterval(thinkingInterval);
+                        return;
+                    }
+
+                    // fix: abort if game ended during delay
+                    if (gameOver) {
+                        clearInterval(thinkingInterval);
+                        return;
+                    }
+
                     const data = await post('/api/ai-move/', {});
+                    clearInterval(thinkingInterval); // fix: clear after API call completes, not before
+
+                    // Abort if sequence is no longer current after API call completes
+                    if (seq !== aiRequestSeq) {
+                        return;
+                    }
+
                         if (data.valid) {
                             playSound(data);
                             const mv = data.ai_move;
@@ -907,10 +947,12 @@
                         showStatus(data.message, true);
                     }
                 } catch (e) {
-                   
-                        await handleReconnect();
+                    clearInterval(thinkingInterval);
+                    await handleReconnect();
                 } finally {
-                    aiThinking = false;
+                    if (seq === aiRequestSeq) {
+                        aiThinking = false;
+                    }
                 }
             }
 
@@ -1086,9 +1128,23 @@
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
+
+                let durationText = '';
+
+                if (gameStartTime) {
+                    const duration = Date.now() - gameStartTime;
+                    durationText = `\nGame duration: ${formatGameDuration(duration)}.`;
+                }
+
                 gameOverTitle.textContent = title;
-                gameOverMessage.textContent = message;
+                gameOverMessage.textContent = message + durationText;
+
+                const durationElement = document.getElementById('gameDurationText');
                 
+                if (durationElement) {
+                    durationElement.textContent = durationText;
+                }
+
                 // Delay the overlay and celebration effects by 1 second
                 setTimeout(() => {
                     // Add celebration effects for wins
@@ -1208,35 +1264,60 @@
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
             function formatTime(t) { return fmt(t); }
-
+            
+            function formatGameDuration(ms) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const mins = Math.floor(totalSeconds / 60);
+                const secs = totalSeconds % 60;
+                return `${mins}m ${secs}s`;
+            }
+    
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
-                
-
                 const whiteClock = document.getElementById('whiteClock');
                 const blackClock = document.getElementById('blackClock');
+
                 if (gameMode === 'ai') {
-        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
-        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
-        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
-        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
+                    const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+                    const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+                    const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+                    const aiTimeEl = playerColor === 'white' ? bTime : wTime;
 
-        // Player clock — update time and highlight on their turn
-        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
-        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+                    // fix: update time text only, never re-toggle active class here
+                    // active class is set once in updateTurn() to avoid blinking
+                    if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = formatTime(playerColor === 'white' ? blackTime : whiteTime);
+                        aiTimeEl.style.fontSize = '';
+                        aiTimeEl.style.color = '';
+                    }
 
-        // AI clock — static, never highlights, never updates time
-        if (aiTimeEl) aiTimeEl.textContent = '🤖';
-        if (aiClock) aiClock.classList.remove('active');
-
-    } else {
-        // PvP — both clocks update normally
-        if (wTime) wTime.textContent = formatTime(whiteTime);
-        if (bTime) bTime.textContent = formatTime(blackTime);
-        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
-        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
-    }
+                    // fix: only set active once (not on every tick)
+                    const isAiTurn = turn !== playerColor;
+                    if (playerClock) {
+                        playerClock.classList.toggle('active', !isAiTurn);
+                        playerClock.classList.toggle('inactive', isAiTurn);
+                    }
+                    if (aiClock) {
+                        aiClock.style.border = '';
+                        aiClock.style.boxShadow = '';
+                        aiClock.classList.toggle('active', isAiTurn);
+                        aiClock.classList.toggle('inactive', !isAiTurn);
+                    }
+                } else {
+                    // PvP — both clocks update normally
+                    if (wTime) wTime.textContent = formatTime(whiteTime);
+                    if (bTime) bTime.textContent = formatTime(blackTime);
+                    if (whiteClock) {
+                        whiteClock.classList.toggle('active', turn === 'white');
+                        whiteClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                    }
+                    if (blackClock) {
+                        blackClock.classList.toggle('active', turn === 'black');
+                        blackClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                    }
+                }
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
@@ -1253,8 +1334,26 @@
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
                     if (paused || gameOver) return;
-                    if (turn === 'white' && whiteTime > 0) whiteTime--;
-                    if (turn === 'black' && blackTime > 0) blackTime--;
+
+                    // fix: in AI mode, tick only ONE clock exclusively
+                    if (gameMode === 'ai') {
+                        if (turn === playerColor) {
+                            // Human's turn — only tick human's clock
+                            if (playerColor === 'white' && whiteTime > 0) whiteTime--;
+                            else if (playerColor === 'black' && blackTime > 0) blackTime--;
+                        } else if (aiThinking) {
+                            // AI's turn — only tick AI's clock while actually thinking
+                            if (playerColor === 'white' && blackTime > 0) blackTime--;
+                            else if (playerColor === 'black' && whiteTime > 0) whiteTime--;
+                        } else {
+                            return; // AI turn but not yet thinking (transition gap), don't tick
+                        }
+                    } else {
+                        // PvP — tick only the active player's clock
+                        if (turn === 'white' && whiteTime > 0) whiteTime--;
+                        else if (turn === 'black' && blackTime > 0) blackTime--;
+                    }
+
                     renderClocks();
 
                     if (turn === 'white' && whiteTime === 0) {
@@ -1365,7 +1464,11 @@
                 );
             }
 
-            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
+                // Reset AI request sequence and thinking state on new game
+                aiRequestSeq = 0;
+                aiThinking = false;
+
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
 
@@ -1384,8 +1487,15 @@
                     confettiContainer.remove();
                 }
 
-                const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
-                const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
+                const normalizeName = (name, fallback) => (name || fallback).trim().slice(0, 17);
+                const wName = normalizeName(
+                    overrideNames ? overrideNames.white : document.getElementById('whiteNameInput')?.value,
+                    'White'
+                );
+                const bName = normalizeName(
+                    overrideNames ? overrideNames.black : document.getElementById('blackNameInput')?.value,
+                    'Black'
+                );
                 const defaultTimeLimitMins = parseInt(document.getElementById('timeLimitInput')?.value || 10, 10);
                 const timeLimit = (timeLimitMins !== null ? timeLimitMins : defaultTimeLimitMins) * 60;
 
@@ -1398,7 +1508,7 @@
                     time_limit: timeLimit
                 };
 
-                const fenValue = fen ? fen.trim() : null;
+                const fenValue = (fen && fen.trim()) ? fen.trim() : null;
                 if (fenValue) payload.fen = fenValue;
 
                 if (fenError) fenError.textContent = '';
@@ -1420,6 +1530,9 @@
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
+                
+                gameStartTime = Date.now();
+                
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
@@ -1487,9 +1600,29 @@
                 if (errorDiv) errorDiv.style.display = 'none';
             }
 
-            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
+            if (welcomeFenInput) {
+                welcomeFenInput.addEventListener('keydown', async (e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const fenValue = welcomeFenInput.value?.trim();
+                    if (!fenValue) return;
+                    const isAIMode = pveOptions.style.display !== 'none';
+                    const mode = isAIMode ? 'ai' : 'pvp';
+                    const pColor = isAIMode ? selectedPveColor : 'white';
+                    const diff = isAIMode
+                        ? (document.getElementById('welcomeDifficultySelect')?.value || 'medium')
+                        : 'medium';
+                    if (welcomeFenError) welcomeFenError.textContent = '';
+                    const started = await startNewGame(mode, pColor, diff, fenValue);
+                    if (!started) return;
+                    welcomeOverlay.classList.remove('active');
+                    gameLayout.style.visibility = 'visible';
+                });
+            }
+            
+            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {            
                 if (!validatePlayerNames()) return;
-                const fen = welcomeFenInput?.value || null;
+                const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('pvp', 'white', 'medium', fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
@@ -1569,7 +1702,7 @@
                 if (!playerName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
-                        errorDiv.textContent = '⚠️ Please enter your name';
+                        errorDiv.textContent = ' Please enter your name';
                     }
                     if (wNameInput) {
                         wNameInput.classList.add('input-error');
@@ -1584,7 +1717,7 @@
                 }
 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
-                const fen = welcomeFenInput?.value || null;
+                const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('ai', selectedPveColor, diff, fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
@@ -1733,6 +1866,13 @@
             if (fenCancelBtn) fenCancelBtn.onclick = () => {
                 fenOverlay.classList.remove('active');
             };
+            if (fenInput) {
+                fenInput.addEventListener('keydown', async (e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    fenStartBtn?.click();
+                });
+            }
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
@@ -1741,9 +1881,17 @@
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
-                        await post('/api/resign/', {});
-                        if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
-                        endGame('resign', turn);
+                        try {
+                            const result = await post('/api/resign/', {});
+                            if (result.valid) {
+                                if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                                endGame('resign', turn);
+                            } else {
+                                showStatus('Resign failed. Please try again.', true);
+                            }
+                        } catch (_) {
+                            showStatus('Resign failed. Please check your connection and try again.', true);
+                        }
                     });
                 }
             };
@@ -1768,17 +1916,18 @@
                 const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
-                
-                // Add this: Clear confetti container
+
                 const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
+
+                const swappedColor = playerColor === 'white' ? 'black' : 'white';
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
-                    startNewGame(mode, 'white', diff, null, timeLimitMins);
+                    startNewGame(mode, swappedColor, diff, null, timeLimitMins,
+                        { white: currentBlackName, black: currentWhiteName });
                 }
             };
 
@@ -1944,19 +2093,38 @@
                 });
             });
 
-            // Show browser confirmation dialog if user tries to leave during an active game
-            // Skip beforeunload alert in Selenium tests to prevent UnexpectedAlertPresentException
+           // Custom leave confirmation modal instead of browser default dialog
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
-                    if (!paused) {
-                        navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
-                    }
-                    if (!gameOver && !welcomeOverlay.classList.contains('active')) {
-                        e.preventDefault();
-                        e.returnValue = '';
-                    }
+               if (!paused) {
+                    const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
+                    navigator.sendBeacon('/api/pause/', blob);
+                   }
                 });
             }
+
+// Leave Game confirmation modal logic
+const leaveConfirmOverlay = document.getElementById('leaveConfirmOverlay');
+const leaveConfirmYes = document.getElementById('leaveConfirmYes');
+const leaveConfirmNo = document.getElementById('leaveConfirmNo');
+
+document.querySelectorAll('a[href="/"]').forEach(link => {
+    link.addEventListener('click', (e) => {
+        if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+            e.preventDefault();
+            leaveConfirmOverlay.style.display = 'flex';
+        }
+    });
+});
+
+if (leaveConfirmYes) leaveConfirmYes.addEventListener('click', () => {
+    window.location.href = '/';
+});
+
+if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
+    leaveConfirmOverlay.style.display = 'none';
+});
+            
             function showAssetWarning() {
                 const t = document.getElementById('confirmTimerContainer');
                 const d = document.getElementById('confirmDifficultyContainer');
@@ -2010,11 +2178,32 @@
             // This gives normal connections plenty of time to load, while catching strict blockers.
             setInterval(checkAssets, 5000);
 
-          if (typeof module !== "undefined" && module.exports) {
-          module.exports = { pColor, getSquareLabel, formatTime };
-        } else {
-          loadGame();
-        }
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            function setOfflineStatus() {
+            if (!statusIndicator || !statusText) return;
+                statusIndicator.classList.remove("offline");
+                statusText.textContent = "offline";
+            }
+            function setOnlineStatus() {
+                if (!statusIndicator || !statusText) return;
+                    statusIndicator.classList.remove("offline");
+                    statusText.textContent = "Online";
+                }
+            window.addEventListener('offline', setOfflineStatus);
+            window.addEventListener('online', setOnlineStatus);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    setOfflineStatus();
+                } else {
+                    setOnlineStatus();
+                }
+            });
+            if (typeof module !== "undefined" && module.exports) {
+                module.exports = { pColor, getSquareLabel, formatTime };
+            } else {
+                loadGame();
+            }
 
 })();
 

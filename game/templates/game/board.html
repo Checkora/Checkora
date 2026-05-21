@@ -25,7 +25,6 @@
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
     </script>
     <script defer src="/_vercel/insights/script.js"></script>
-
     <script>
         (function () {
             const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
@@ -131,6 +130,10 @@
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
                     <button class="btn color-choice active" id="pveWhiteBtn" data-color="white"
                         style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
+                    <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection" 
+                        style="padding: 12px; flex: 1; border: 1px solid #444; background: linear-gradient(to right, #fff 50%, #000 50%); color: #666; transition: all 0.2s; font-weight: 500;">
+            🎲 Random
+        </button>    
                     <button class="btn color-choice" id="pveBlackBtn" data-color="black"
                         style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
                 </div>
@@ -217,7 +220,7 @@
 
         <!-- Board -->
         <div class="board-container">
-            <div class="turn-badge white" id="turnBadge" style="height: 48px; box-sizing: border-box;">
+            <div class="turn-badge white" id="turnBadge">
                 <span id="turnBadgeText">White</span>'s Turn
             </div>
             <div class="clocks">
@@ -228,6 +231,10 @@
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
                     </span>
                     <span class="time" id="whiteTime">10:00</span>
+                </div>
+                <div class="online-status">
+                    <span id="status-indicator"></span>
+                    <span id="status-text">Online</span>
                 </div>
 
                 <div id="blackClock" class="clock black">
@@ -306,8 +313,8 @@
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
                     <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
-                    <button class="btn btn-gold" id="pauseBtn">Pause</button>
-                    <button class="btn" id="resignBtn" style="background: #333; color: #fff;">Resign</button>
+                    <button type="button" class="btn btn-pause" id="pauseBtn">Pause</button>
+                    <button type="button" class="btn btn-danger" id="resignBtn">Resign</button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
@@ -399,12 +406,34 @@
         </div>
     </div>
 
+   <!-- ========== LEAVE GAME CONFIRMATION MODAL ========== -->
+<div class="promo-overlay" id="leaveConfirmOverlay" style="display:none;">
+    <div class="promo-dialog" style="max-width: 340px; text-align: center;">
+        <div class="promo-title" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
+            Leave the Game?
+        </div>
+        <p style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
+            Are you sure you want to go back to Home? Your current game progress will be lost.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button type="button" class="btn" id="leaveConfirmNo"
+                style="background: #333; color: #fff; flex: 1;">
+                Cancel
+            </button>
+            <button type="button" class="btn btn-gold" id="leaveConfirmYes"
+                style="flex: 1;">
+                Back to Home
+            </button>
+        </div>
+    </div>
+</div> 
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay">
         <div class="promo-dialog">
             <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
                 Game Over</div>
             <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
+            <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
             <div style="margin-bottom: 20px;">
                 <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -444,8 +473,8 @@
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New
-                    Game</button>
+                <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
+                <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
             </div>
         </div>
     </div>
@@ -484,6 +513,44 @@
     </div>
     <div id="toast-container" class="toast-container"></div>
 
+
+<!-- ========== SHARE MODAL ========== -->
+<div id="shareModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:99999; align-items:center; justify-content:center;">
+    <div style="background:#1a1a2e; border:1px solid #f0c040; border-radius:16px; padding:28px; max-width:380px; width:90%; text-align:center;">
+        <div style="font-size:1.1rem; color:#f0c040; font-weight:bold; margin-bottom:20px; letter-spacing:1px;">📤 Share Result</div>
+        <div id="resultCard" style="background:#0d0d1a; border:1px solid #333; border-radius:12px; padding:20px; margin-bottom:20px;">
+            <div style="font-size:1.3rem; font-weight:bold; color:#f0c040; margin-bottom:4px;">♟️ Checkora Chess</div>
+            <div style="height:1px; background:#333; margin:10px 0;"></div>
+            <div id="cardTitle" style="font-size:1.2rem; font-weight:bold; color:#fff; margin-bottom:6px;"></div>
+            <div id="cardMessage" style="font-size:0.9rem; color:#aaa; margin-bottom:14px;"></div>
+            <div style="display:flex; justify-content:center; gap:20px; margin-bottom:14px;">
+                <div style="background:#1a1a2e; border:1px solid #444; border-radius:8px; padding:10px 18px;">
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:2px;">WHITE</div>
+                    <div id="cardWhite" style="font-size:1rem; color:#fff; font-weight:bold;"></div>
+                </div>
+                <div style="font-size:1.4rem; color:#f0c040; align-self:center;">vs</div>
+                <div style="background:#1a1a2e; border:1px solid #444; border-radius:8px; padding:10px 18px;">
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:2px;">BLACK</div>
+                    <div id="cardBlack" style="font-size:1rem; color:#fff; font-weight:bold;"></div>
+                </div>
+            </div>
+            <div style="background:#1a1a2e; border:1px solid #333; border-radius:8px; padding:8px; font-size:0.85rem; color:#aaa;">
+                🔢 Moves played: <span id="cardMoves" style="color:#f0c040; font-weight:bold;"></span>
+            </div>
+            <div style="height:1px; background:#333; margin:12px 0;"></div>
+            <div style="font-size:0.78rem; color:#555;">🎮 checkora.vercel.app</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; gap:10px;">
+                <button type="button" id="copyTextBtn" class="btn btn-gold" style="padding:10px; flex:1;">📋 Copy Text</button>
+                <button type="button" id="copyLinkBtn" class="btn btn-gold" style="padding:10px; flex:1;">🔗 Copy Link</button>
+            </div>
+            <button type="button" id="whatsappBtn" style="padding:10px; border-radius:8px; background:#25D366; color:#fff; border:none; font-size:0.95rem; cursor:pointer; font-weight:bold;">💬 Share on WhatsApp</button>
+            <button type="button" id="closeShareBtn" class="btn" style="padding:10px; background:#333; color:#fff;">Close</button>
+        </div>
+    </div>
+</div>
+
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
@@ -492,6 +559,63 @@
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
     <script src="{% static 'game/js/board.js' %}"></script>
+
+    <script>
+document.getElementById('shareResultBtn').addEventListener('click', function () {
+    const title = document.getElementById('gameOverTitle').innerText.trim();
+    const message = document.getElementById('gameOverMessage').innerText.trim();
+    const whiteName = document.getElementById('whiteNameLabel').innerText.trim();
+    const blackName = document.getElementById('blackNameLabel').innerText.trim();
+    const movesList = document.getElementById('movesList');
+    const moveCount = movesList.querySelectorAll('span:not(.placeholder)').length ||
+                      movesList.innerText.split('\n').filter(x => x.trim()).length;
+
+    document.getElementById('cardTitle').innerText = title;
+    document.getElementById('cardMessage').innerText = message;
+    document.getElementById('cardWhite').innerText = whiteName;
+    document.getElementById('cardBlack').innerText = blackName;
+    document.getElementById('cardMoves').innerText = moveCount;
+
+    const shareText =
+`♟️ Checkora Chess
+─────────────────
+${title}
+${message}
+
+⚪ ${whiteName} vs ⚫ ${blackName}
+🔢 Moves played: ${moveCount}
+─────────────────
+🎮 Play at: https://checkora.vercel.app`;
+
+    const modal = document.getElementById('shareModal');
+    modal.style.display = 'flex';
+
+    document.getElementById('copyTextBtn').onclick = function () {
+        navigator.clipboard.writeText(shareText).then(() => {
+            this.innerText = '✅ Copied!';
+            setTimeout(() => this.innerText = '📋 Copy Text', 2000);
+        });
+    };
+
+    document.getElementById('copyLinkBtn').onclick = function () {
+        navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
+            this.innerText = '✅ Link Copied!';
+            setTimeout(() => this.innerText = '🔗 Copy Link', 2000);
+        });
+    };
+
+    document.getElementById('whatsappBtn').onclick = function () {
+        const encoded = encodeURIComponent(shareText);
+        window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
+    };
+
+    document.getElementById('closeShareBtn').onclick = function () {
+        modal.style.display = 'none';
+    };
+});
+</script>
+
 </body>
+
 
 </html>

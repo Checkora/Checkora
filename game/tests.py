@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
+from .forms import CustomSetPasswordForm
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -88,6 +89,18 @@ class LandingViewTest(TestCase):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
 
+
+class NotFoundPageTest(TestCase):
+    """Custom 404 page should match the product theme and navigation flow."""
+
+    @override_settings(DEBUG=False, SECURE_SSL_REDIRECT=False)
+    def test_unknown_url_renders_themed_404_page(self):
+        response = self.client.get('/this-route-does-not-exist/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'This move is illegal!', status_code=404)
+        self.assertContains(response, 'Return to Main Menu', status_code=404)
+        self.assertContains(response, reverse('landing'), status_code=404)
+
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
@@ -139,6 +152,56 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
+
+
+class CustomSetPasswordFormTest(TestCase):
+    """Password reset form should reject reusing the current password."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='resetuser',
+            password='StrongPass123!',
+        )
+
+    def test_rejects_reusing_current_password(self):
+        form = CustomSetPasswordForm(
+            self.user,
+            data={
+                'new_password1': 'StrongPass123!',
+                'new_password2': 'StrongPass123!',
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('new_password2', form.errors)
+        self.assertIn(
+            'This password has been used before. Please choose a new password.',
+            form.errors['new_password2'],
+        )
+
+    def test_accepts_different_valid_password(self):
+        form = CustomSetPasswordForm(
+            self.user,
+            data={
+                'new_password1': 'NewStrongPass456!',
+                'new_password2': 'NewStrongPass456!',
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_unusable_password_accounts_keep_default_validation_flow(self):
+        self.user.set_unusable_password()
+        self.user.save()
+        form = CustomSetPasswordForm(
+            self.user,
+            data={
+                'new_password1': 'NewStrongPass456!',
+                'new_password2': 'NewStrongPass456!',
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
@@ -1109,3 +1172,36 @@ class CheckUsernameViewTest(TestCase):
         """Should return 405 Method Not Allowed for POST requests."""
         response = self.client.post(reverse('check_username'), {'username': 'newuser'})
         self.assertEqual(response.status_code, 405)
+
+class PromotionNotationTest(TestCase):
+    """Test standard algebraic notation (SAN) generation for pawn promotions."""
+
+    def test_promotion_notation_default_queen(self):
+        """A promotion move with no explicit piece choice defaults to Queen promotion (=Q)."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='q')
+        self.assertEqual(notation, 'a8=Q')
+
+    def test_promotion_notation_knight(self):
+        """A promotion move to a Knight gets `=N` suffix."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='n')
+        self.assertEqual(notation, 'a8=N')
+
+    def test_promotion_notation_rook(self):
+        """A promotion move to a Rook gets `=R` suffix."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='r')
+        self.assertEqual(notation, 'a8=R')
+
+    def test_promotion_notation_bishop(self):
+        """A promotion move to a Bishop gets `=B` suffix."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='b')
+        self.assertEqual(notation, 'a8=B')
+
+    def test_promotion_notation_invalid_piece_defaults_to_queen(self):
+        """An invalid promotion piece input (like 'x') defaults to Queen promotion (=Q)."""
+        game = ChessGame()
+        notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
+        self.assertEqual(notation, 'a8=Q')
