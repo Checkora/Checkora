@@ -1,5 +1,6 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
+import hashlib
 import json
 import sys
 from smtplib import SMTPException
@@ -152,6 +153,66 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
+
+    @override_settings(
+        EMAIL_HOST_USER='sender@example.com',
+        EMAIL_HOST_PASSWORD='app-password'
+    )
+    def test_successful_otp_verification_sends_welcome_email(self):
+        user = User.objects.create_user(
+            username='otpplayer',
+            email='otpplayer@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        otp = '123456'
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = hashlib.sha256(
+            f'{otp}:{settings.SECRET_KEY}'.encode()
+        ).hexdigest()
+        session.save()
+
+        with mock.patch('game.views.send_mail') as mock_send_mail:
+            response = self.client.post('/verify-otp/', data={'otp': otp})
+
+        self.assertRedirects(response, '/play/')
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertEqual(str(self.client.session.get('_auth_user_id')), str(user.id))
+        mock_send_mail.assert_called_once()
+        self.assertEqual(mock_send_mail.call_args.args[0], 'Welcome to Checkora')
+        self.assertEqual(mock_send_mail.call_args.args[3], [user.email])
+
+    @override_settings(
+        EMAIL_HOST_USER='sender@example.com',
+        EMAIL_HOST_PASSWORD='app-password'
+    )
+    def test_welcome_email_failure_does_not_block_login(self):
+        user = User.objects.create_user(
+            username='mailfallback',
+            email='mailfallback@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        otp = '654321'
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = hashlib.sha256(
+            f'{otp}:{settings.SECRET_KEY}'.encode()
+        ).hexdigest()
+        session.save()
+
+        with mock.patch(
+            'game.views.send_mail',
+            side_effect=SMTPException('SMTP unavailable'),
+        ):
+            response = self.client.post('/verify-otp/', data={'otp': otp})
+
+        self.assertRedirects(response, '/play/')
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertEqual(str(self.client.session.get('_auth_user_id')), str(user.id))
 
 
 class CustomSetPasswordFormTest(TestCase):
