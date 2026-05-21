@@ -6,6 +6,7 @@
     <title>Chess Rulebook – Checkora</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
+
         :root {
             --bg: #0a0b10;
             --surface: #141722;
@@ -458,6 +459,71 @@
             50% { opacity: 0.5; }
         }
         .animating { animation: pulse 0.5s ease; }
+        #menuToggle {
+    display: none;
+    background: #f4c430;
+    color: #0a0b10;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ── Overlay ── */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+}
+.sidebar-overlay.open {
+    display: block;
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+    #menuToggle {
+        display: block;
+    }
+
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        height: 100vh;
+        z-index: 300;
+        overflow-y: auto;
+        padding-top: 1rem;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+    }
+
+    .sidebar.open {
+        display: block;
+    }
+
+    main {
+        padding: 1.5rem 1rem;
+    }
+
+    .mini-board {
+        width: 100% !important;
+        max-width: 300px;
+    }
+
+    .mini-board-container {
+        flex-direction: column;
+    }
+}
     </style>
 </head>
 <body>
@@ -468,7 +534,10 @@
                 style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
             <span style="font-family: 'Cinzel', serif; color: #f0c040; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Checkora</span>
         </a>
+        <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
     </header>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"
+         role="presentation" aria-hidden="true"></div>
 
 <div class="layout">
     <!-- Sidebar -->
@@ -851,6 +920,7 @@ function showRule(name) {
     });
     document.getElementById('rule-' + name).classList.add('active');
     document.getElementById('nav-' + name).classList.add('active');
+    closeSidebar(); // ADD THIS
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1113,6 +1183,24 @@ function promoStep(n) {
         });
     }
 }
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const isOpen = sidebar.classList.toggle('open');
+    overlay.classList.toggle('open', isOpen);
+    document.getElementById('menuToggle').setAttribute('aria-expanded', String(isOpen));
+    overlay.setAttribute('aria-hidden', String(!isOpen));
+}
+
+function closeSidebar() {
+    document.querySelector('.sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.getElementById('menuToggle').setAttribute('aria-expanded', 'false');
+    document.getElementById('sidebarOverlay').setAttribute('aria-hidden', 'true');
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSidebar();
+});
 
 /* ══════════════════════════════════════════════
    INIT ALL

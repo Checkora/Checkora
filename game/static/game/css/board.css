@@ -3,6 +3,11 @@
    ============================================================ */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+html {
+    overflow-x: hidden;
+    width: 100%;
+}
+
 body {
     background-color: #0f0f1a;
     color: #d0d0d0;
@@ -13,6 +18,7 @@ body {
     align-items: center;
     overflow-x: hidden;
     width: 100%;
+    max-width: 100vw;
 }
 
 /* ============================================================
@@ -139,20 +145,42 @@ body {
 }
 
 /* ============================================================
-   Game Layout  (left panel · board · right panel)
+   Game Layout  (left panel · board · right panels)
    ============================================================ */
 .game-layout {
-    display: flex;
-    gap: 22px;
-    padding: 20px 20px 30px;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns:
+        minmax(0, var(--panel-width))
+        minmax(0, auto)
+        minmax(0, var(--panel-width))
+        minmax(0, var(--panel-width));
+    gap: var(--layout-gap);
+    padding: var(--layout-padding-y) var(--layout-padding-x) 30px;
+    align-items: start;
+    justify-content: center;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .panel {
-    width: 260px;
+    width: 100%;
+    min-width: 0;
+    max-width: var(--panel-width);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    box-sizing: border-box;
+}
+
+.panel input,
+.panel select,
+.panel textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .card {
@@ -222,8 +250,11 @@ body {
    ============================================================ */
 .turn-badge {
     text-align: center;
-    padding: 6px 16px;  /* Reduced from 8px to 6px */
+    padding: 6px 16px;
     border-radius: 6px;
+    width: 100%;
+    max-width: calc(var(--square-size) * 8 + var(--board-border) * 2 + var(--rank-label-width) + 8px);
+    box-sizing: border-box;
     font-weight: 600;
     font-size: 0.85rem;  /* Reduced from 0.9rem to 0.85rem */
     line-height: 1.2;  /* Added for consistent height */
@@ -249,6 +280,10 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    width: max-content;
+    justify-self: center;
 }
 
 .board-outer {
@@ -256,6 +291,8 @@ body {
     flex-direction: column;
     margin-top: 15px;
     position: relative;
+    width: fit-content;
+    max-width: 100%;
 }
 
 .board-row {
@@ -269,42 +306,46 @@ body {
     padding: 3px 6px 3px 0;
 }
 .ranks span {
-    height: 60px;
+    height: var(--square-size);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: clamp(0.6rem, 1.2vw, 0.75rem);
     color: #5a5a7a;
     font-weight: 600;
 }
 
 .files {
     display: flex;
-    padding: 4px 0 0 28px;
+    padding: 4px 0 0 calc(var(--rank-label-width) + 4px);
 }
 .files span {
-    width: 60px;
+    width: var(--square-size);
     text-align: center;
-    font-size: 0.75rem;
+    font-size: clamp(0.6rem, 1.2vw, 0.75rem);
     color: #5a5a7a;
     font-weight: 600;
 }
 
 .chessboard {
     display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    border: 3px solid #3d3222;
+    grid-template-columns: repeat(8, var(--square-size));
+    grid-template-rows: repeat(8, var(--square-size));
+    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    height: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    border: var(--board-border) solid #3d3222;
     border-radius: 2px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+    max-width: 100%;
+    box-sizing: content-box;
 }
 
 /* ============================================================
    Squares
    ============================================================ */
 .square {
-    width: 60px;
-    height: 60px;
+    width: var(--square-size);
+    height: var(--square-size);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -318,6 +359,22 @@ body {
 
 :root {
     --page-bg: #0f0f1a;
+    --layout-gap: clamp(8px, 1.1vw, 18px);
+    --layout-padding-x: clamp(10px, 1.5vw, 20px);
+    --layout-padding-y: clamp(12px, 1.5vw, 20px);
+    --panel-width: clamp(128px, 11vw, 196px);
+    --rank-label-width: 1.35rem;
+    --board-border: 3px;
+    --board-chrome: calc(var(--rank-label-width) + var(--board-border) * 2 + 12px);
+    /* Fit board + 3 side panels within the viewport */
+    --square-size: clamp(
+        26px,
+        calc(
+            (100vw - 3 * var(--panel-width) - 3 * var(--layout-gap)
+                - 2 * var(--layout-padding-x) - var(--board-chrome)) / 8
+        ),
+        60px
+    );
 
     /* Classic */
     --sq-light: #FFF6D5;
@@ -410,8 +467,8 @@ body {
 
 /* Capture ring */
 .capture-ring {
-    width: 58px;
-    height: 58px;
+    width: calc(var(--square-size) * 0.9);
+    height: calc(var(--square-size) * 0.9);
     border-radius: 50%;
     border: 5px solid rgba(0, 0, 0, 0.18);
     position: absolute;
@@ -425,8 +482,8 @@ body {
    Pieces
    ============================================================ */
 .piece {
-    width: 58px;
-    height: 58px;
+    width: calc(var(--square-size) * 0.92);
+    height: calc(var(--square-size) * 0.92);
     z-index: 2;
     pointer-events: none;
     user-select: none;
@@ -459,6 +516,9 @@ body {
     font-size: 0.82rem;
     color: #f0c040;
     padding: 4px 0;
+    width: 100%;
+    max-width: calc(var(--square-size) * 8 + var(--board-border) * 2 + var(--rank-label-width) + 8px);
+    box-sizing: border-box;
 }
 .square:focus,
 .square:focus-visible {
@@ -498,7 +558,7 @@ body {
    Move History
    ============================================================ */
 .moves-list {
-    max-height: 560px;
+    max-height: min(460px, 48vh);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -558,8 +618,8 @@ body {
 /* ============================================================
    Captured Pieces
    ============================================================ */
-.captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 28px; }
-.captured-img  { width: 26px; height: 26px; opacity: 0.8; }
+.captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 24px; }
+.captured-img  { width: 22px; height: 22px; opacity: 0.9; }
 
 /* ============================================================
    Buttons
@@ -658,11 +718,62 @@ body {
 /* ============================================================
    Responsive
    ============================================================ */
+@media (max-width: 1280px) {
+    :root {
+        --panel-width: clamp(120px, 10vw, 172px);
+    }
+}
+
+@media (max-width: 1050px) {
+    :root {
+        --panel-width: clamp(112px, 9.5vw, 155px);
+        --layout-gap: clamp(6px, 1vw, 14px);
+    }
+
+    .card {
+        padding: 10px;
+    }
+
+    .btn {
+        padding: 8px 0;
+        font-size: 0.78rem;
+    }
+
+    .clock {
+        padding: 8px 10px;
+        min-width: 0;
+    }
+
+    .clock .time {
+        font-size: 1rem;
+    }
+
+    .theme-switcher {
+        gap: 6px;
+    }
+
+    .theme-btn {
+        width: 24px;
+        height: 24px;
+    }
+
+    .keyboard-hints {
+        font-size: 0.72rem !important;
+        line-height: 1.35;
+    }
+}
+
 @media (max-width: 860px) {
     .game-layout {
+        display: flex;
         flex-direction: column;
         align-items: center;
     }
+
+    .board-container {
+        width: 100%;
+    }
+
     .panel {
         width: 100%;
         max-width: 500px;
@@ -677,6 +788,7 @@ body {
         --board-border-width: 3px;
         --mobile-board-size: min(calc(100vw - 40px), 480px);
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
+        --square-size: var(--mobile-square-size);
     }
 
     .header {
@@ -846,14 +958,16 @@ body {
 
 .clocks {
     display: flex;
-    gap: 12px;
+    gap: clamp(6px, 1vw, 12px);
     margin: 10px 0 6px;
     width: 100%;
+    max-width: calc(var(--square-size) * 8 + var(--board-border) * 2 + var(--rank-label-width) + 8px);
+    flex-wrap: nowrap;
 }
 
 .clock {
-    flex: 1;
-    min-width: 120px;
+    flex: 1 1 0;
+    min-width: 0;
     padding: 12px 16px;
     border-radius: 8px;
     background: #16162a;
@@ -865,10 +979,14 @@ body {
 }
 
 .clock .label {
-    font-size: 0.65rem;
-    letter-spacing: 1px;
+    font-size: clamp(0.5rem, 0.9vw, 0.65rem);
+    letter-spacing: 0.5px;
     font-weight: 700;
     opacity: 0.7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .clock .time {
@@ -1086,6 +1204,8 @@ body {
 @media (max-width: 400px) {
     :root {
         --mobile-board-size: min(calc(100vw - 24px), 360px);
+        --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
+        --square-size: var(--mobile-square-size);
     }
 
     .game-layout {
@@ -1416,9 +1536,11 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: clamp(0.65rem, 1vw, 0.875rem);
     margin-top: 8px;
     color: #ffffff;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 #status-indicator {

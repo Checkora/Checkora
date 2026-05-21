@@ -89,6 +89,18 @@ class LandingViewTest(TestCase):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
 
+
+class NotFoundPageTest(TestCase):
+    """Custom 404 page should match the product theme and navigation flow."""
+
+    @override_settings(DEBUG=False, SECURE_SSL_REDIRECT=False)
+    def test_unknown_url_renders_themed_404_page(self):
+        response = self.client.get('/this-route-does-not-exist/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'This move is illegal!', status_code=404)
+        self.assertContains(response, 'Return to Main Menu', status_code=404)
+        self.assertContains(response, reverse('landing'), status_code=404)
+
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 

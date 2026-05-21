@@ -174,6 +174,7 @@ def new_game(request):
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
+    request.session.save()
 
     return JsonResponse({
         'valid': True,

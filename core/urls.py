@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
+from django.shortcuts import render
 from game.forms import CustomSetPasswordForm
 
 urlpatterns = [
@@ -37,3 +38,11 @@ urlpatterns = [
          ),
          name='password_reset_complete'),
 ]
+
+
+def custom_page_not_found(request, exception):
+    """Render the themed 404 page for unresolved routes."""
+    return render(request, '404.html', status=404)
+
+
+handler404 = 'core.urls.custom_page_not_found'
