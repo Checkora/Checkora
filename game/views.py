@@ -597,6 +597,22 @@ def verify_otp(request):
 
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
+
+        # FIX #931: brute-force protection — check attempt count before anything else
+        MAX_OTP_ATTEMPTS = 5
+        attempts = request.session.get('otp_attempts', 0)
+        if attempts >= MAX_OTP_ATTEMPTS:
+            User.objects.filter(id=user_id, is_active=False).delete()
+            request.session.flush()
+            messages.error(request, 'Too many failed attempts. Please register again.')
+            return redirect('register')
+
+        # FIX #930: check expiry before comparing OTP hash
+        otp_expiry = request.session.get('registration_otp_expiry')
+        if not otp_expiry or time.time() > otp_expiry:
+            messages.error(request, 'OTP has expired. Please use the resend button to get a new one.')
+            return redirect('verify_otp')
+
         # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
 
@@ -609,6 +625,8 @@ def verify_otp(request):
                 # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('registration_otp_expiry', None)
+                request.session.pop('otp_attempts', None)  # FIX #931: clear attempts on success
 
                 login(request, user)
                 messages.success(request, 'Registration successful! Welcome to Checkora.')
@@ -621,7 +639,10 @@ def verify_otp(request):
                 )
                 return redirect('register')
         else:
-            messages.error(request, 'Invalid OTP. Please try again.')
+            # FIX #931: increment attempt counter on wrong OTP
+            request.session['otp_attempts'] = attempts + 1
+            remaining = MAX_OTP_ATTEMPTS - attempts - 1
+            messages.error(request, f'Invalid OTP. {remaining} attempt{"s" if remaining != 1 else ""} remaining.')
 
     remaining_time = 0
     last_otp_time = request.session.get('last_otp_time')
