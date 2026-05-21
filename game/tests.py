@@ -1205,3 +1205,65 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
         self.assertEqual(notation, 'a8=Q')
+
+
+class ResendOTPCooldownTest(TestCase):
+    """Resend OTP view should enforce a 60-second cooldown between requests."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='otpuser',
+            email='otpuser@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        # Prime the session so Django allocates a session cookie.
+        self.client.get('/play/')
+
+    def _seed_session(self, **kwargs):
+        """Write keys into the live test-client session."""
+        from importlib import import_module
+        from django.conf import settings as django_settings
+        engine = import_module(django_settings.SESSION_ENGINE)
+        cookie_name = django_settings.SESSION_COOKIE_NAME
+        session_key = self.client.cookies[cookie_name].value
+        session = engine.SessionStore(session_key=session_key)
+        for key, value in kwargs.items():
+            session[key] = value
+        session.save()
+
+    def test_resend_otp_enforces_cooldown(self):
+        """Requesting a new OTP within 60 seconds should be rejected."""
+        import time
+
+        self._seed_session(
+            registration_user_id=self.user.id,
+            registration_otp_hash='dummy_hash',
+            last_otp_time=time.time() - 10,  # 10 seconds ago
+        )
+
+        response = self.client.get('/resend-otp/', follow=True)
+
+        self.assertRedirects(response, '/verify-otp/')
+        self.assertContains(response, 'Please wait')
+
+    @override_settings(
+        EMAIL_HOST_USER='sender@example.com',
+        EMAIL_HOST_PASSWORD='app-password',
+    )
+    def test_resend_otp_allows_after_cooldown_expires(self):
+        """Requesting a new OTP after 60 seconds should succeed."""
+        import time
+
+        self._seed_session(
+            registration_user_id=self.user.id,
+            last_otp_time=time.time() - 70,  # 70 seconds ago
+        )
+
+        with mock.patch('game.views.send_mail') as mock_send:
+            response = self.client.get('/resend-otp/', follow=True)
+
+        self.assertRedirects(response, '/verify-otp/')
+        mock_send.assert_called_once()
+        self.assertContains(response, 'A new OTP has been sent')
+        self.assertIn('last_otp_time', self.client.session)
