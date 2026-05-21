@@ -8,16 +8,27 @@ Thank you for considering contributing to **Checkora** — a chess engine powere
 
 ## 🗺️ Table of Contents
 
-- [GSSoC Contributors — Start Here](#-gssoc-contributors--start-here)
-- [Getting Started](#-getting-started)
-- [Development Setup](#-development-setup)
-- [CI/CD Pipeline](#%EF%B8%8F-cicd-pipeline)
-- [Branch Naming Convention](#-branch-naming-convention)
-- [Commit Message Format](#-commit-message-format)
-- [Pull Request Guidelines](#-pull-request-guidelines)
-- [Code Style](#-code-style)
-- [Reporting Issues](#-reporting-issues)
-- [Code of Conduct](#-code-of-conduct)
+- [Contributing to Checkora ♟️](`#contributing-to-checkora-`)
+  - [🗺️ Table of Contents](`#table-of-contents`)
+  - [🏅 GSSoC Contributors - Start Here](`#gssoc-contributors--start-here`)
+  - [🚀 Getting Started](`#getting-started`)
+  - [🛠️ Development Setup](`#development-setup`)
+    - [Prerequisites](`#prerequisites`)
+    - [Installation](`#installation`)
+    - [Running Tests](`#running-tests`)
+    - [Checking for Missing Migrations](`#checking-for-missing-migrations`)
+    - [Linting (must pass before submitting a PR)](`#linting-must-pass-before-submitting-a-pr`)
+  - [⚙️ CI/CD Pipeline](`#cicd-pipeline`)
+  - [🌿 Branch Naming Convention](`#branch-naming-convention`)
+  - [📝 Commit Message Format](`#commit-message-format`)
+    - [Rules](`#rules`)
+    - [Examples](`#examples`)
+  - [🔀 Pull Request Guidelines](`#pull-request-guidelines`)
+    - [Keeping Your Fork Up to Date](`#keeping-your-fork-up-to-date`)
+  - [🎨 Code Style](`#code-style`)
+  - [🐛 Reporting Issues](`#reporting-issues`)
+  - [📋 Code of Conduct](`#code-of-conduct`)
+  - [❓ Questions?](`#questions`)
 
 ---
 
