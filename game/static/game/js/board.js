@@ -2104,7 +2104,8 @@
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
                if (!paused) {
-            navigator.sendBeacon('/api/pause/', JSON.stringify({ pause: true }));
+                    const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
+                    navigator.sendBeacon('/api/pause/', blob);
                    }
                 });
             }
