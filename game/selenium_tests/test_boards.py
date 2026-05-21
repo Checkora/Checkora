@@ -2,7 +2,7 @@
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from .base import BaseE2ETest, log_ok, log_fail, log_info
+from .base import BaseE2ETest, log_ok, log_info
 
 
 class UITest(BaseE2ETest):

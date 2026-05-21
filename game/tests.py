@@ -1262,6 +1262,7 @@ class CheckUsernameViewTest(TestCase):
                 'username': 'newuser'})
         self.assertEqual(response.status_code, 405)
 
+
 class PromotionNotationTest(TestCase):
     """Test standard algebraic notation (SAN) generation for pawn promotions."""
 
