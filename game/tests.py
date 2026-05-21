@@ -1233,7 +1233,7 @@ class ResendOTPCooldownTest(TestCase):
         session.save()
 
     def test_resend_otp_enforces_cooldown(self):
-        """Requesting a new OTP within 60 seconds should be rejected."""
+        """Requesting a new OTP within 60 seconds should be rejected and not send email."""
         import time
 
         self._seed_session(
@@ -1242,9 +1242,11 @@ class ResendOTPCooldownTest(TestCase):
             last_otp_time=time.time() - 10,  # 10 seconds ago
         )
 
-        response = self.client.get('/resend-otp/', follow=True)
+        with mock.patch('game.views.send_mail') as mock_send:
+            response = self.client.get('/resend-otp/', follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
+        mock_send.assert_not_called()
         self.assertContains(response, 'Please wait')
 
     @override_settings(
@@ -1255,9 +1257,10 @@ class ResendOTPCooldownTest(TestCase):
         """Requesting a new OTP after 60 seconds should succeed."""
         import time
 
+        seeded_time = time.time() - 70
         self._seed_session(
             registration_user_id=self.user.id,
-            last_otp_time=time.time() - 70,  # 70 seconds ago
+            last_otp_time=seeded_time,  # 70 seconds ago
         )
 
         with mock.patch('game.views.send_mail') as mock_send:
@@ -1266,4 +1269,7 @@ class ResendOTPCooldownTest(TestCase):
         self.assertRedirects(response, '/verify-otp/')
         mock_send.assert_called_once()
         self.assertContains(response, 'A new OTP has been sent')
-        self.assertIn('last_otp_time', self.client.session)
+        
+        new_time = self.client.session.get('last_otp_time')
+        self.assertIsNotNone(new_time)
+        self.assertGreater(new_time, seeded_time)
