@@ -258,12 +258,18 @@
         }
 
         /* ── Mini Chess Board ── */
-        .mini-board-container {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-            flex-wrap: nowrap;
-        }
+       .mini-board-container {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .mini-board-container {
+        flex-wrap: wrap;
+    }
+}
 
         .mini-board {
     display: grid;
