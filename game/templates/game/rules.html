@@ -101,12 +101,6 @@
             min-height: calc(100vh - 61px);
         }
 
-        @media (max-width: 768px) {
-            .layout {
-                grid-template-columns: 1fr;
-            }
-        }
-
         /* ── Sidebar ── */
         .sidebar {
             background: var(--surface);
@@ -536,9 +530,10 @@
                 style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
             <span style="font-family: 'Cinzel', serif; color: #f0c040; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Checkora</span>
         </a>
-        <button id="menuToggle" onclick="toggleSidebar()">☰ Menu</button>
+        <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
     </header>
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"
+         role="presentation" aria-hidden="true"></div>
 
 <div class="layout">
     <!-- Sidebar -->
@@ -1185,14 +1180,23 @@ function promoStep(n) {
     }
 }
 function toggleSidebar() {
-    document.querySelector('.sidebar').classList.toggle('open');
-    document.getElementById('sidebarOverlay').classList.toggle('open');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const isOpen = sidebar.classList.toggle('open');
+    overlay.classList.toggle('open', isOpen);
+    document.getElementById('menuToggle').setAttribute('aria-expanded', String(isOpen));
+    overlay.setAttribute('aria-hidden', String(!isOpen));
 }
 
 function closeSidebar() {
     document.querySelector('.sidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('open');
+    document.getElementById('menuToggle').setAttribute('aria-expanded', 'false');
+    document.getElementById('sidebarOverlay').setAttribute('aria-hidden', 'true');
 }
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSidebar();
+});
 
 /* ══════════════════════════════════════════════
    INIT ALL
