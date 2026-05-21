@@ -47,6 +47,54 @@ def record_game_result(request, mode, winner, reason, player_color='white'):
     GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
 
 
+def send_welcome_email(user):
+    """Send a best-effort welcome email after registration completes."""
+    missing_email_credentials = (
+        not settings.EMAIL_HOST_USER or
+        not settings.EMAIL_HOST_PASSWORD
+    )
+    if missing_email_credentials:
+        return False
+
+    send_mail(
+        'Welcome to Checkora',
+        (
+            f'Hi {user.username},\n\n'
+            'Welcome to Checkora. Your account is now active and ready for play.\n'
+            'You can sign in anytime to challenge the AI, explore the rulebook, '
+            'and track your progress.\n\n'
+            'See you on the board,\n'
+            'Team Checkora'
+        ),
+        None,
+        [user.email],
+        fail_silently=False,
+        html_message=(
+            "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
+            "background-color: #0f0f1a; color: #d0d0d0; padding: 40px 20px; "
+            "text-align: center;\"><div style=\"background-color: #16162a; "
+            "border: 1px solid #252545; border-radius: 12px; padding: 40px "
+            "30px; max-width: 480px; margin: 0 auto; box-shadow: 0 10px 30px "
+            "rgba(0,0,0,0.5);\"><h1 style=\"color: #ffffff; margin-top: 0; "
+            "margin-bottom: 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
+            "<span style=\"color: #f0c040;\">ORA</span></h1><hr style=\"border: "
+            "none; border-top: 1px solid #252545; margin: 20px 0;\"><p style=\""
+            "color: #e0e0e0; font-size: 16px; line-height: 1.6; margin-bottom: "
+            "20px;\">Hi {username}, your account is now active and ready for "
+            "play.</p><p style=\"color: #b8b8c8; font-size: 15px; line-height: "
+            "1.6; margin-bottom: 30px;\">You can now sign in to challenge the AI, "
+            "explore the rulebook, and track your progress on Checkora.</p>"
+            "<a href=\"https://checkora.vercel.app/play/\" style=\"display: "
+            "inline-block; background: linear-gradient(135deg, #f0c040, #d4a020); "
+            "color: #1a1a2e; text-decoration: none; padding: 12px 24px; "
+            "border-radius: 8px; font-weight: 600;\">Start Playing</a><p style=\""
+            "color: #5a5a7a; font-size: 12px; margin-top: 40px;\">Thanks for "
+            "joining Checkora.</p></div></div>"
+        ).format(username=user.username),
+    )
+    return True
+
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -611,6 +659,14 @@ def verify_otp(request):
                 del request.session['registration_otp_hash']
 
                 login(request, user)
+                try:
+                    send_welcome_email(user)
+                except (SMTPException, BadHeaderError, OSError):
+                    logger.warning(
+                        'Failed to send welcome email to %s after registration.',
+                        user.email,
+                        exc_info=True,
+                    )
                 messages.success(request, 'Registration successful! Welcome to Checkora.')
                 request.session.cycle_key()
                 return redirect('index')
