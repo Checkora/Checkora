@@ -370,6 +370,19 @@ body {
 .card:focus-visible .card-hint {
     color: var(--text-primary);
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .card,
+    .card:hover,
+    .card:focus-visible,
+    .card:active,
+    .card:hover .card-icon svg,
+    .card:focus-visible .card-icon svg,
+    .card:hover .card-title,
+    .card:focus-visible .card-title {
+        transform: none;
+    }
+}
 .about {
     padding: 4rem 5%;
     max-width: 1200px;
