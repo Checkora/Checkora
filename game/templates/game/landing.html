@@ -147,7 +147,13 @@
     <section id="features" class="features">
       <h2 class="section-title">Why Checkora</h2>
       <div class="feature-cards">
-        <div class="card">
+        <div
+          class="card"
+          tabindex="0"
+          role="group"
+          aria-labelledby="feature-card-title-web"
+          aria-describedby="feature-card-copy-web"
+        >
           <div class="card-inner">
             <div class="card-front">
               <div class="card-icon">
@@ -166,10 +172,11 @@
                   />
                 </svg>
               </div>
-              <h3 class="card-title">Web & UX</h3>
+              <h3 class="card-title" id="feature-card-title-web">Web & UX</h3>
+              <p class="card-hint">Hover or focus to reveal details</p>
             </div>
             <div class="card-back">
-              <p>
+              <p id="feature-card-copy-web">
                 Secure authentication, game state, and responsive UI are handled
                 by Django and JavaScript for a seamless player experience.
               </p>
@@ -177,7 +184,13 @@
           </div>
         </div>
 
-        <div class="card">
+        <div
+          class="card"
+          tabindex="0"
+          role="group"
+          aria-labelledby="feature-card-title-engine"
+          aria-describedby="feature-card-copy-engine"
+        >
           <div class="card-inner">
             <div class="card-front">
               <div class="card-icon">
@@ -195,10 +208,11 @@
                   ></path>
                 </svg>
               </div>
-              <h3 class="card-title">Engine (C++)</h3>
+              <h3 class="card-title" id="feature-card-title-engine">Engine (C++)</h3>
+              <p class="card-hint">Hover or focus to reveal details</p>
             </div>
             <div class="card-back">
-              <p>
+              <p id="feature-card-copy-engine">
                 Compute-intensive minimax and evaluation run in optimized C++
                 modules to deliver fast, strong play.
               </p>
@@ -206,7 +220,13 @@
           </div>
         </div>
 
-        <div class="card">
+        <div
+          class="card"
+          tabindex="0"
+          role="group"
+          aria-labelledby="feature-card-title-hybrid"
+          aria-describedby="feature-card-copy-hybrid"
+        >
           <div class="card-inner">
             <div class="card-front">
               <div class="card-icon">
@@ -223,10 +243,11 @@
                   />
                 </svg>
               </div>
-              <h3 class="card-title">Hybrid Architecture</h3>
+              <h3 class="card-title" id="feature-card-title-hybrid">Hybrid Architecture</h3>
+              <p class="card-hint">Hover or focus to reveal details</p>
             </div>
             <div class="card-back">
-              <p>
+              <p id="feature-card-copy-hybrid">
                 Python orchestrates the app while C++ handles heavy computation
                 — connected via bindings or subprocess calls.
               </p>
