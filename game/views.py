@@ -193,6 +193,7 @@ def new_game(request):
         'draw_reason': game.draw_reason,
     })
 
+
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
@@ -229,6 +230,7 @@ def resume_game(request):
         'difficulty': request.session.get('difficulty', 'medium'),
     })
 
+
 @require_GET
 def check_promotion(request):
     """Return whether a planned move triggers pawn promotion."""
@@ -261,10 +263,9 @@ def get_state(request):
     else:
         game = ChessGame.from_dict(game_data)
 
-        # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
-            game.paused = True  # pause without deducting lost time
+            game.paused = True
         else:
             game.update_clock()
 
@@ -303,7 +304,6 @@ def set_pause(request):
 
     game = ChessGame.from_dict(game_data)
 
-    # Only deduct elapsed time when transitioning from running to paused.
     if pause and not game.paused:
         game.update_clock()
     game.paused = pause
@@ -324,26 +324,19 @@ def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
-        )
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
     if game.mode != 'ai':
-        err_msg = 'Not in AI mode.'
-        return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
-        )
+        return JsonResponse({'valid': False, 'message': 'Not in AI mode.'}, status=400)
 
-    # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)  # called once only
-    
+    best = game.get_ai_move(depth=depth)
+
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -403,18 +396,16 @@ def ai_move(request):
         'black_name': request.session.get('black_name', 'Black'),
     })
 
+
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse(
-            {'success': False, 'message': err_msg}, status=400
-        )
+        return JsonResponse({'success': False, 'message': 'No active game.'}, status=400)
 
     data = json.loads(request.body or '{}')
-    action = data.get('action')  # 'offer' or 'accept'
+    action = data.get('action')
 
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
@@ -461,6 +452,7 @@ def resign_game(request):
         'game_status': game_status
     })
 
+
 @require_GET
 def check_username(request):
     """Check if a username is already taken."""
@@ -478,44 +470,39 @@ def register_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
-        
-        # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
+
         if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
             username = request.POST.get('username')
             email = request.POST.get('email')
-            
+
             if username and email:
                 deleted = False
-                # 1. Exact match (User retrying with the exact same details)
                 if User.objects.filter(username=username, email=email, is_active=False).exists():
                     User.objects.filter(username=username, email=email, is_active=False).delete()
                     deleted = True
                 else:
-                    # 2. Username conflict (Free up unverified, abandoned usernames)
                     if User.objects.filter(username=username, is_active=False).exists():
                         User.objects.filter(username=username, is_active=False).delete()
                         deleted = True
-                    # 3. Email conflict (Free up unverified, abandoned emails)
                     if User.objects.filter(email=email, is_active=False).exists():
                         User.objects.filter(email=email, is_active=False).delete()
                         deleted = True
-                
+
                 if deleted:
-                    # Re-validate the form now that conflicts are cleared
                     form = CustomUserCreationForm(request.POST)
                     is_valid = form.is_valid()
 
         if is_valid:
             user = form.save(commit=False)
-            user.is_active = False  # Deactivate account till OTP is verified
+            user.is_active = False
             user.save()
 
-            # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            # FIX #930: store expiry timestamp — OTP valid for 10 minutes
+            request.session['registration_otp_expiry'] = time.time() + 10 * 60
 
             missing_email_credentials = (
                 not settings.EMAIL_HOST_USER or
@@ -526,7 +513,6 @@ def register_view(request):
                 print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
                 return redirect('verify_otp')
 
-            # Send Email
             try:
                 msg_plain = (
                     f'Your OTP for registration is: {otp}\n\n'
@@ -562,22 +548,18 @@ def register_view(request):
                 send_mail(
                     'Your Checkora Verification Code',
                     msg_plain,
-                    None,  # Will use EMAIL_HOST_USER
+                    None,
                     [user.email],
                     fail_silently=False,
                     html_message=html_message
                 )
                 return redirect('verify_otp')
             except (SMTPException, BadHeaderError, OSError):
-                # If email fails, delete the user so they can try again
                 user.delete()
                 request.session.pop('registration_user_id', None)
                 request.session.pop('registration_otp_hash', None)
-                err_msg = (
-                    'Failed to send OTP email. '
-                    'Please check your email address and try again.'
-                )
-                messages.error(request, err_msg)
+                request.session.pop('registration_otp_expiry', None)
+                messages.error(request, 'Failed to send OTP email. Please check your email address and try again.')
     else:
         form = CustomUserCreationForm()
 
@@ -597,6 +579,22 @@ def verify_otp(request):
 
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
+
+        # FIX #931: brute-force protection — check attempt count before anything else
+        MAX_OTP_ATTEMPTS = 5
+        attempts = request.session.get('otp_attempts', 0)
+        if attempts >= MAX_OTP_ATTEMPTS:
+            User.objects.filter(id=user_id, is_active=False).delete()
+            request.session.flush()
+            messages.error(request, 'Too many failed attempts. Please register again.')
+            return redirect('register')
+
+        # FIX #930: check expiry before comparing OTP hash
+        otp_expiry = request.session.get('registration_otp_expiry')
+        if not otp_expiry or time.time() > otp_expiry:
+            messages.error(request, 'OTP has expired. Please use the resend button to get a new one.')
+            return redirect('verify_otp')
+
         # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
 
@@ -606,9 +604,10 @@ def verify_otp(request):
                 user.is_active = True
                 user.save()
 
-                # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('registration_otp_expiry', None)
+                request.session.pop('otp_attempts', None)  # FIX #931: clear attempts on success
 
                 login(request, user)
                 messages.success(request, 'Registration successful! Welcome to Checkora.')
@@ -616,12 +615,19 @@ def verify_otp(request):
                 return redirect('index')
 
             except User.DoesNotExist:
-                messages.error(
-                    request, 'User not found. Please register again.'
-                )
+                messages.error(request, 'User not found. Please register again.')
                 return redirect('register')
         else:
-            messages.error(request, 'Invalid OTP. Please try again.')
+            # FIX #931: increment attempt counter, trigger lockout immediately on 5th wrong attempt
+            new_attempts = attempts + 1
+            if new_attempts >= MAX_OTP_ATTEMPTS:
+                User.objects.filter(id=user_id, is_active=False).delete()
+                request.session.flush()
+                messages.error(request, 'Too many failed attempts. Please register again.')
+                return redirect('register')
+            request.session['otp_attempts'] = new_attempts
+            remaining = MAX_OTP_ATTEMPTS - new_attempts
+            messages.error(request, f'Invalid OTP. {remaining} attempt{"s" if remaining != 1 else ""} remaining.')
 
     remaining_time = 0
     last_otp_time = request.session.get('last_otp_time')
@@ -629,6 +635,7 @@ def verify_otp(request):
         elapsed = int(time.time() - last_otp_time)
         remaining_time = max(0, 60 - elapsed)
     return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
+
 
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
@@ -642,6 +649,7 @@ def resend_otp(request):
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
+
     last_otp_time = request.session.get('last_otp_time')
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))
@@ -649,12 +657,7 @@ def resend_otp(request):
         return redirect('verify_otp')
 
     otp = str(secrets.randbelow(900000) + 100000)
-
-    otp_hash = hashlib.sha256(
-        f"{otp}:{settings.SECRET_KEY}".encode()
-    ).hexdigest()
-
-    request.session['registration_otp_hash'] = otp_hash
+    otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
 
     try:
         send_mail(
@@ -664,20 +667,19 @@ def resend_otp(request):
             [user.email],
             fail_silently=False,
         )
-
-        messages.success(
-            request,
-            'A new OTP has been sent to your email.'
-        )
+        # FIX #930: only update session after email succeeds to prevent state corruption
+        request.session['registration_otp_hash'] = otp_hash
+        request.session['registration_otp_expiry'] = time.time() + 10 * 60
         request.session['last_otp_time'] = time.time()
+        # FIX #931: reset attempt counter on resend so user gets fresh 5 attempts
+        request.session['otp_attempts'] = 0
+        messages.success(request, 'A new OTP has been sent to your email.')
 
     except (SMTPException, BadHeaderError, OSError):
-        messages.error(
-            request,
-            'Failed to resend OTP. Please try again.'
-        )
+        messages.error(request, 'Failed to resend OTP. Please try again.')
 
     return redirect('verify_otp')
+
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -688,18 +690,16 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            request.session.cycle_key()  # Prevent session fixation
-            
+            request.session.cycle_key()
+
             remember_me = request.POST.get('remember_me')
-            
             if remember_me:
                 request.session.set_expiry(1209600)  # 2 weeks
             else:
-                request.session.set_expiry(0)# Browser close
-                
+                request.session.set_expiry(0)  # Browser close
+
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
             return redirect('index')
-
     else:
         form = AuthenticationForm()
 
@@ -718,11 +718,9 @@ def logout_view(request):
     return redirect('landing')
 
 
-# Protect the stats page with login requirement
 @login_required
 def stats_view(request):
     """Display game statistics."""
-    # Only show real database records linked to the logged-in user
     user_results = GameResult.objects.filter(
         user=request.user
     ).exclude(mode__in=['', None])
@@ -730,9 +728,7 @@ def stats_view(request):
     recent = user_results.order_by('-played_at')[:20]
     ai_results = user_results.filter(mode='ai')
 
-    # If winner == player_color, the user won
     user_ai_wins = ai_results.filter(winner=F('player_color')).count()
-    # If winner != player_color and not a draw, the AI won
     ai_wins = ai_results.filter(
         Q(winner='white', player_color='black') |
         Q(winner='black', player_color='white')
@@ -741,7 +737,6 @@ def stats_view(request):
     ai_draws = ai_results.filter(winner='draw').count()
     ai_total = ai_results.count()
 
-    # Handle explicit edge cases (e.g. division by zero for win rate)
     win_percentage = (user_ai_wins / ai_total * 100) if ai_total > 0 else 0
 
     return render(request, 'game/stats.html', {
@@ -753,20 +748,20 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
     })
 
+
 @csrf_exempt
 @require_POST
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, 'CRON_SECRET', None)
-    
-    # Check authorization header
+
     auth_header = request.headers.get('Authorization')
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
-    
+
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
+
     try:
         deleted, resigned = cleanup_stale_games()
         return JsonResponse({
