@@ -506,3 +506,69 @@ body {
     }
 }
 
+/* Features Capabilities Section */
+.features-capabilities {
+    padding: 4rem 5%;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.capabilities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    justify-content: center;
+}
+
+.capability-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 2.25rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    cursor: default;
+}
+
+.capability-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(240, 192, 64, 0.35);
+}
+
+.capability-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    background: rgba(240, 192, 64, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(240, 192, 64, 0.1);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.capability-card:hover .capability-icon {
+    background-color: rgba(240, 192, 64, 0.1);
+    border-color: rgba(240, 192, 64, 0.3);
+}
+
+.capability-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-title);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.capability-desc {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+
