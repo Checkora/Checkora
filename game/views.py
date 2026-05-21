@@ -516,6 +516,8 @@ def register_view(request):
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            # FIX #930: store expiry timestamp — OTP valid for 10 minutes
+            request.session['registration_otp_expiry'] = time.time() + 10 * 60
 
             missing_email_credentials = (
                 not settings.EMAIL_HOST_USER or
@@ -573,6 +575,7 @@ def register_view(request):
                 user.delete()
                 request.session.pop('registration_user_id', None)
                 request.session.pop('registration_otp_hash', None)
+                request.session.pop('registration_otp_expiry', None)
                 err_msg = (
                     'Failed to send OTP email. '
                     'Please check your email address and try again.'
@@ -597,6 +600,13 @@ def verify_otp(request):
 
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
+
+        # FIX #930: check expiry before comparing OTP hash
+        otp_expiry = request.session.get('registration_otp_expiry')
+        if not otp_expiry or time.time() > otp_expiry:
+            messages.error(request, 'OTP has expired. Please use the resend button to get a new one.')
+            return redirect('verify_otp')
+
         # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
 
@@ -609,6 +619,7 @@ def verify_otp(request):
                 # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('registration_otp_expiry', None)  # FIX #930: clear expiry on success
 
                 login(request, user)
                 messages.success(request, 'Registration successful! Welcome to Checkora.')
@@ -642,6 +653,7 @@ def resend_otp(request):
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
+
     last_otp_time = request.session.get('last_otp_time')
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))
@@ -649,12 +661,9 @@ def resend_otp(request):
         return redirect('verify_otp')
 
     otp = str(secrets.randbelow(900000) + 100000)
-
     otp_hash = hashlib.sha256(
         f"{otp}:{settings.SECRET_KEY}".encode()
     ).hexdigest()
-
-    request.session['registration_otp_hash'] = otp_hash
 
     try:
         send_mail(
@@ -664,18 +673,14 @@ def resend_otp(request):
             [user.email],
             fail_silently=False,
         )
-
-        messages.success(
-            request,
-            'A new OTP has been sent to your email.'
-        )
+        # FIX #930: only update session after email succeeds to prevent state corruption
+        request.session['registration_otp_hash'] = otp_hash
+        request.session['registration_otp_expiry'] = time.time() + 10 * 60
         request.session['last_otp_time'] = time.time()
+        messages.success(request, 'A new OTP has been sent to your email.')
 
     except (SMTPException, BadHeaderError, OSError):
-        messages.error(
-            request,
-            'Failed to resend OTP. Please try again.'
-        )
+        messages.error(request, 'Failed to resend OTP. Please try again.')
 
     return redirect('verify_otp')
 
