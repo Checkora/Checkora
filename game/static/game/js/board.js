@@ -250,14 +250,17 @@
             }
 
             async function post(url, body) {
-                return (await fetch(url, {
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': csrf()
                     },
                     body: JSON.stringify(body)
-                })).json();
+                });
+                const data = await res.json();
+                data._status = res.status;
+                return data;
             }
 
             function isAITurn() {
@@ -904,6 +907,11 @@
                     }
 
                         if (data.valid) {
+                            if (!data.ai_move) {
+                                gameOver = true;
+                                handleGameStatus(data.game_status, data.draw_reason);
+                                return;
+                            }
                             playSound(data);
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
@@ -941,12 +949,22 @@
                             }
                             if (a11yMsg) announceMove(a11yMsg);
                         }
+                    } else if (data._status === 503 || data.message === 'AI engine unavailable.') {
+                        // 503 from backend — engine is down, stop retrying completely
+                        showStatus('AI unavailable. Please start a new game.', true);
+                        gameOver = true;
+
                     } else {
                         showStatus(data.message, true);
                     }
                 } catch (e) {
                     clearInterval(thinkingInterval);
-                    await handleReconnect();
+                    // Only reconnect for real network errors, not engine failures
+                    if (e instanceof TypeError || e instanceof SyntaxError) {
+                        await handleReconnect();
+                    } else {
+                        showStatus('AI error. Please start a new game.', true);
+                    }
                 } finally {
                     if (seq === aiRequestSeq) {
                         aiThinking = false;
