@@ -12,11 +12,13 @@ body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     flex-direction: column;
     padding: 40px 20px;
+    padding-top: 80px;
     overflow-x: hidden;
+    overflow-x: auto;
 }
 /* .header { margin-bottom: 30px; text-align: center; } */
 /* ============================================================
