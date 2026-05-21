@@ -74,7 +74,7 @@ body {
     animation: logo-glow 2.5s ease-in-out infinite alternate;
 }
 
-`@keyframes` logo-glow {
+@keyframes logo-glow {
     0% {
         filter: brightness(1.6) contrast(1.3)
                 drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
@@ -260,9 +260,9 @@ body {
 }
 
 .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    border-color: rgba(240, 192, 64, 0.3);
+    transform: translateY(-6px);
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 18px rgba(240, 192, 64, 0.18);
 }
 
 .card-inner {
