@@ -516,6 +516,8 @@ def register_view(request):
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            # FIX #930: store expiry timestamp — OTP valid for 10 minutes
+            request.session['registration_otp_expiry'] = time.time() + 10 * 60
 
             missing_email_credentials = (
                 not settings.EMAIL_HOST_USER or
@@ -573,6 +575,7 @@ def register_view(request):
                 user.delete()
                 request.session.pop('registration_user_id', None)
                 request.session.pop('registration_otp_hash', None)
+                request.session.pop('registration_otp_expiry', None)
                 err_msg = (
                     'Failed to send OTP email. '
                     'Please check your email address and try again.'
@@ -597,6 +600,13 @@ def verify_otp(request):
 
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
+
+        # FIX #930: check expiry before comparing OTP hash
+        otp_expiry = request.session.get('registration_otp_expiry')
+        if not otp_expiry or time.time() > otp_expiry:
+            messages.error(request, 'OTP has expired. Please request a new one.')
+            return redirect('resend_otp')
+
         # Verify hash
         entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
 
@@ -609,6 +619,7 @@ def verify_otp(request):
                 # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('registration_otp_expiry', None)  # FIX #930: clear expiry on success
 
                 login(request, user)
                 messages.success(request, 'Registration successful! Welcome to Checkora.')
@@ -655,6 +666,8 @@ def resend_otp(request):
     ).hexdigest()
 
     request.session['registration_otp_hash'] = otp_hash
+    # FIX #930: reset expiry whenever a new OTP is issued
+    request.session['registration_otp_expiry'] = time.time() + 10 * 60
 
     try:
         send_mail(
