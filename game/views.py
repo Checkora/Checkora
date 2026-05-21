@@ -663,8 +663,8 @@ def verify_otp(request):
                     send_welcome_email(user)
                 except (SMTPException, BadHeaderError, OSError):
                     logger.warning(
-                        'Failed to send welcome email to %s after registration.',
-                        user.email,
+                        'Failed to send welcome email after registration for user_id=%s.',
+                        user.id,
                         exc_info=True,
                     )
                 messages.success(request, 'Registration successful! Welcome to Checkora.')
