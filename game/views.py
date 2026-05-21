@@ -441,19 +441,11 @@ def ai_move(request):
         request.session["game"] = game.to_dict()
         request.session.modified = True
 
-        if game_status == "checkmate":
-            winner = "black" if game.current_turn == "white" else "white"
-            record_game_result(
-                request, game.mode, winner, "checkmate", game.player_color
-            )
-        elif game_status in ("stalemate", "draw"):
-            record_game_result(
-                request,
-                game.mode,
-                "draw",
-                game.draw_reason or "stalemate",
-                game.player_color,
-            )
+        if game_status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
 
     return JsonResponse(
         {
@@ -805,11 +797,17 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            messages.success(
-                request, f"Welcome back, {user.username}! Login successful."
-            )
-            request.session.cycle_key()
-            return redirect("index")
+            request.session.cycle_key()  # Prevent session fixation
+            
+            remember_me = request.POST.get('remember_me')
+            
+            if remember_me:
+                request.session.set_expiry(1209600)  # 2 weeks
+            else:
+                request.session.set_expiry(0)# Browser close
+                
+            messages.success(request, f'Welcome back, {user.username}! Login successful.')
+            return redirect('index')
 
     else:
         form = AuthenticationForm()
