@@ -97,7 +97,7 @@ body::after {
 }
 
 .code {
-    font-family: 'Cinzel', serif;
+    font-family: Cinzel, serif;
     letter-spacing: 1.8px;
     font-size: 0.85rem;
     color: var(--danger-red);
@@ -106,7 +106,7 @@ body::after {
 }
 
 h1 {
-    font-family: 'Cinzel', serif;
+    font-family: Cinzel, serif;
     font-size: clamp(1.9rem, 5vw, 3rem);
     color: var(--text-title);
     line-height: 1.15;
