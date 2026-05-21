@@ -1236,11 +1236,12 @@ class InsufficientMaterialDrawTest(TestCase):
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         
         game = ChessGame()
-        engine_path = game._resolve_engine_path()
-        self.assertTrue(engine_path.endswith('.py'), "Fallback engine should be a Python script in this environment.")
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
         
-        resp = game._call_engine(cmd)
-        self.assertEqual(resp, "STATUS DRAW")
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
 
     def test_python_engine_insufficient_material_k_n_vs_k(self):
         """Python fallback engine should return 'STATUS DRAW' for King + Knight vs. King."""
@@ -1253,8 +1254,12 @@ class InsufficientMaterialDrawTest(TestCase):
         
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
-        resp = game._call_engine(cmd)
-        self.assertEqual(resp, "STATUS DRAW")
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
 
     def test_python_engine_insufficient_material_k_b_vs_k(self):
         """Python fallback engine should return 'STATUS DRAW' for King + Bishop vs. King."""
@@ -1267,8 +1272,12 @@ class InsufficientMaterialDrawTest(TestCase):
         
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
-        resp = game._call_engine(cmd)
-        self.assertEqual(resp, "STATUS DRAW")
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
 
     def test_python_engine_sufficient_material_k_p_vs_k(self):
         """Python fallback engine should return 'STATUS OK' for King + Pawn vs. King."""
@@ -1281,8 +1290,12 @@ class InsufficientMaterialDrawTest(TestCase):
         
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
-        resp = game._call_engine(cmd)
-        self.assertEqual(resp, "STATUS OK")
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS OK")
 
     def test_chess_game_draws_on_insufficient_material(self):
         """ChessGame should end in a draw with 'insufficient_material' reason under insufficient material conditions."""
