@@ -211,7 +211,7 @@ python manage.py test game.selenium_tests --verbosity=2
 
 ### Checking for Missing Migrations
 ```bash
-python manage.py migrate --check 
+python manage.py makemigrations --check --dry-run
 ```
 <p align="right">
   <a href="#top">🔼 Back to top</a>
