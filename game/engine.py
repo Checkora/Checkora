@@ -442,8 +442,10 @@ DP cache is intentionally excluded to save cookie space."""
         # Check timeout BEFORE mutating board state
         self.update_clock()
         if self.white_time == 0:
+            self.game_status = 'timeout'
             return False, "White ran out of time", None, 'timeout'
         if self.black_time == 0:
+            self.game_status = 'timeout'
             return False, "Black ran out of time", None, 'timeout'
 
         captured = self.board[tr][tc]
