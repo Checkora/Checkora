@@ -245,6 +245,7 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
+    align-items: stretch;
 }
 
 .card {
@@ -257,12 +258,24 @@ body {
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+    outline: none;
 }
 
-.card:hover {
+.card:hover,
+.card:focus-visible {
     transform: translateY(-6px);
     border-color: var(--accent-gold);
     box-shadow: 0 0 18px rgba(240, 192, 64, 0.18);
+}
+
+.card:focus-visible {
+    box-shadow:
+        0 0 0 3px rgba(240, 192, 64, 0.22),
+        0 0 24px rgba(240, 192, 64, 0.24);
+}
+
+.card:active {
+    transform: translateY(-2px);
 }
 
 .card-inner {
@@ -320,10 +333,42 @@ body {
     margin-bottom: 1rem;
 }
 
+.card-icon svg {
+    transition: transform 0.25s ease, stroke 0.25s ease, filter 0.25s ease;
+}
+
+.card:hover .card-icon svg,
+.card:focus-visible .card-icon svg {
+    stroke: var(--accent-gold);
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 12px rgba(240, 192, 64, 0.18));
+}
+
 .card-title {
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--accent-gold);
+    transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.card:hover .card-title,
+.card:focus-visible .card-title {
+    transform: translateY(-2px);
+    color: #ffd978;
+}
+
+.card-hint {
+    margin-top: 0.85rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+    text-align: center;
+    transition: color 0.25s ease, opacity 0.25s ease;
+}
+
+.card:hover .card-hint,
+.card:focus-visible .card-hint {
+    color: var(--text-primary);
 }
 .about {
     padding: 4rem 5%;
@@ -480,7 +525,7 @@ body {
         gap: 1.5rem;
         text-align: center;
     }
-        .card {
+    .card {
         height: auto;
         min-height: 260px;
         cursor: default;
@@ -496,6 +541,10 @@ body {
     .card-back {
         background-color: transparent;
         padding-top: 0;
+    }
+
+    .card-hint {
+        display: none;
     }
 
     .card:hover .card-front,
