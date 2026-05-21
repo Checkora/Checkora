@@ -13,6 +13,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='gameresult',
             name='player_color',
-            field=models.CharField(choices=[('white', 'White'), ('black', 'Black')], default='white', max_length=5),
+            field=models.CharField(
+                choices=[
+                    ('white',
+                     'White'),
+                    ('black',
+                     'Black')],
+                default='white',
+                max_length=5),
         ),
     ]

@@ -60,7 +60,11 @@ class UITest(BaseE2ETest):
         )
 
         squares = board.find_elements(By.CLASS_NAME, 'square')
-        self.assertEqual(len(squares), 64, f"Expected 64 squares, got {len(squares)}")
+        self.assertEqual(
+            len(squares),
+            64,
+            f"Expected 64 squares, got {
+                len(squares)}")
         log_ok("64 squares found")
 
         pieces = board.find_elements(By.TAG_NAME, 'img')
@@ -83,7 +87,10 @@ class UITest(BaseE2ETest):
 
         self.assertTrue(white_time.is_displayed())
         self.assertTrue(black_time.is_displayed())
-        log_ok(f"White timer: {white_time.text} | Black timer: {black_time.text}")
+        log_ok(
+            f"White timer: {
+                white_time.text} | Black timer: {
+                black_time.text}")
 
     # ───────────────────────────────────────────────────────────────
     # Test 5: Login Page
@@ -160,5 +167,9 @@ class UITest(BaseE2ETest):
             lambda d: d.find_elements(By.CLASS_NAME, 'theme-btn'),
             message="Theme buttons not found"
         )
-        self.assertEqual(len(theme_btns), 5, f"Expected 5 theme buttons, got {len(theme_btns)}")
+        self.assertEqual(
+            len(theme_btns),
+            5,
+            f"Expected 5 theme buttons, got {
+                len(theme_btns)}")
         log_ok(f"{len(theme_btns)} theme buttons found")
