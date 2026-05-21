@@ -45,4 +45,10 @@ def custom_page_not_found(request, exception):
     return render(request, '404.html', status=404)
 
 
+def custom_server_error(request):
+    """Render the themed 500 page for unexpected server errors."""
+    return render(request, '500.html', status=500)
+
+
 handler404 = 'core.urls.custom_page_not_found'
+handler500 = 'core.urls.custom_server_error'
