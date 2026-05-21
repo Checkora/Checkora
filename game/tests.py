@@ -1205,3 +1205,107 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
         self.assertEqual(notation, 'a8=Q')
+
+
+class InsufficientMaterialDrawTest(TestCase):
+    """Test cases for insufficient material draw detection in Python engine fallback and ChessGame integration."""
+
+    def test_python_engine_insufficient_material_k_vs_k(self):
+        """Python fallback engine should return 'STATUS DRAW' for King vs. King."""
+        # board64 string: K at e1 (index 60), k at e8 (index 4), others '.'
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64_str = "".join(board64)
+        
+        # STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_insufficient_material_k_n_vs_k(self):
+        """Python fallback engine should return 'STATUS DRAW' for King + Knight vs. King."""
+        # board64: K at e1 (60), N at f3 (45), k at e8 (4)
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64[45] = 'N'
+        board64_str = "".join(board64)
+        
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_insufficient_material_k_b_vs_k(self):
+        """Python fallback engine should return 'STATUS DRAW' for King + Bishop vs. King."""
+        # board64: K at e1 (60), B at f3 (45), k at e8 (4)
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64[45] = 'B'
+        board64_str = "".join(board64)
+        
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_sufficient_material_k_p_vs_k(self):
+        """Python fallback engine should return 'STATUS OK' for King + Pawn vs. King."""
+        # board64: K at e1 (60), P at e2 (52), k at e8 (4)
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64[52] = 'P'
+        board64_str = "".join(board64)
+        
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS OK")
+
+    def test_chess_game_draws_on_insufficient_material(self):
+        """ChessGame should end in a draw with 'insufficient_material' reason under insufficient material conditions."""
+        game = ChessGame()
+        # Clear board except for the Kings
+        game.board = [[None] * 8 for _ in range(8)]
+        game.board[0][4] = 'k'
+        game.board[7][4] = 'K'
+        
+        # Verify the status is 'draw'
+        status = game.check_game_status()
+        self.assertEqual(status, 'draw')
+        
+        # Actually trigger a move to verify game state transitions to 'draw' and 'insufficient_material'
+        with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
+            success, notation, captured, final_status = game.make_move(7, 4, 7, 3)
+            self.assertTrue(success)
+            self.assertEqual(final_status, 'draw')
+            self.assertEqual(game.game_status, 'draw')
+            self.assertEqual(game.draw_reason, 'insufficient_material')
+
+    def test_chess_game_draws_on_insufficient_material_cpp_mocked(self):
+        """ChessGame should handle 'STATUS DRAW' from a C++ engine correctly."""
+        game = ChessGame()
+        with mock.patch.object(game, '_call_engine', return_value="STATUS DRAW"):
+            status = game.check_game_status()
+            self.assertEqual(status, 'draw')
