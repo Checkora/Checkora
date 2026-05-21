@@ -1496,7 +1496,7 @@
                     time_limit: timeLimit
                 };
 
-                const fenValue = fen ? fen.trim() : null;
+                const fenValue = (fen && fen.trim()) ? fen.trim() : null;
                 if (fenValue) payload.fen = fenValue;
 
                 if (fenError) fenError.textContent = '';
@@ -1585,9 +1585,29 @@
                 if (errorDiv) errorDiv.style.display = 'none';
             }
 
-            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
+            if (welcomeFenInput) {
+                welcomeFenInput.addEventListener('keydown', async (e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const fenValue = welcomeFenInput.value?.trim();
+                    if (!fenValue) return;
+                    const isAIMode = pveOptions.style.display !== 'none';
+                    const mode = isAIMode ? 'ai' : 'pvp';
+                    const pColor = isAIMode ? selectedPveColor : 'white';
+                    const diff = isAIMode
+                        ? (document.getElementById('welcomeDifficultySelect')?.value || 'medium')
+                        : 'medium';
+                    if (welcomeFenError) welcomeFenError.textContent = '';
+                    const started = await startNewGame(mode, pColor, diff, fenValue);
+                    if (!started) return;
+                    welcomeOverlay.classList.remove('active');
+                    gameLayout.style.visibility = 'visible';
+                });
+            }
+            
+            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {            
                 if (!validatePlayerNames()) return;
-                const fen = welcomeFenInput?.value || null;
+                const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('pvp', 'white', 'medium', fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
@@ -1704,7 +1724,7 @@
                 }
 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
-                const fen = welcomeFenInput?.value || null;
+                const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('ai', selectedPveColor, diff, fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
@@ -1853,6 +1873,13 @@
             if (fenCancelBtn) fenCancelBtn.onclick = () => {
                 fenOverlay.classList.remove('active');
             };
+            if (fenInput) {
+                fenInput.addEventListener('keydown', async (e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    fenStartBtn?.click();
+                });
+            }
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
