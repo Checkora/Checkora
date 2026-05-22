@@ -150,7 +150,6 @@ body {
     text-decoration: none;
     display: flex; 
     justify-content: flex-start;
-    
 }
 
 .back-btn:hover {
@@ -160,21 +159,21 @@ body {
 }
 
 /* ==========================================================================
-   Upgraded Modern Hero Section (UI/UX Revision Fix)
+   Upgraded Modern Hero Section (UI/UX Production-Checked Revision)
    ========================================================================== */
 .hero {
-    position: relative !important;
-    min-height: 80vh !important;
-    background-color: var(--bg-dark) !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    padding: 6rem 1.5rem 4rem 1.5rem !important;
-    max-width: 100% !important;
-    margin: 0 auto !important;
-    overflow: hidden !important;
+    position: relative;
+    min-height: 80vh;
+    background-color: var(--bg-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6rem 1.5rem 4rem 1.5rem;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
 }
 
 /* Ambient Visual Background Glow Depth Layout */
@@ -214,7 +213,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
-    background: rgba(30, 41, 59, 0.4);
+    background-color: rgba(30, 41, 59, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 9999px;
     padding: 0.45rem 1.2rem;
@@ -238,28 +237,30 @@ body {
 }
 
 .hero-title {
-    font-size: clamp(2.4rem, 6vw, 4.2rem) !important;
-    font-weight: 800 !important;
-    line-height: 1.15 !important;
-    letter-spacing: -0.02em !important;
-    color: var(--text-title) !important;
-    margin: 0 auto 1.5rem auto !important;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--text-title);
+    margin: 0 auto 1.5rem auto;
 }
 
 .gradient-text-gold {
     background: linear-gradient(135deg, var(--accent-gold) 0%, #ffeaa7 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
+    color: var(--accent-gold); /* Fallback style verification indicator */
     display: inline-block;
 }
 
 .hero-subtitle {
-    font-size: clamp(1.05rem, 2.5vw, 1.25rem) !important;
-    color: var(--text-secondary) !important;
-    max-w: 640px !important;
-    margin: 0 auto 2.8rem auto !important;
-    line-height: 1.6 !important;
-    font-weight: 400 !important;
+    font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+    color: var(--text-secondary);
+    max-w: 640px;
+    margin: 0 auto 2.8rem auto;
+    line-height: 1.6;
+    font-weight: 400;
 }
 
 .text-highlight {
@@ -268,10 +269,10 @@ body {
 }
 
 .hero-actions {
-    display: flex !important;
-    gap: 1.25rem !important;
-    justify-content: center !important;
-    align-items: center !important;
+    display: flex;
+    gap: 1.25rem;
+    justify-content: center;
+    align-items: center;
 }
 
 /* Primary High-Contrast Accent Buttons */
@@ -287,6 +288,7 @@ body {
     box-shadow: 0 10px 20px -5px rgba(240, 192, 64, 0.25);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
+    cursor: pointer;
 }
 
 .btn-primary-gold:hover {
@@ -309,6 +311,7 @@ body {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
 }
 
 .btn-secondary-ghost:hover {
