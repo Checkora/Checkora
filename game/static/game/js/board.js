@@ -122,6 +122,8 @@
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
+            const shareModal = document.getElementById('shareModal');
+            const rulebookModal = document.getElementById('rulebookModal');
             const boardEl = document.getElementById('board');
             const turnEl = document.getElementById('turnBadge');
             const statusEl = document.getElementById('statusBar');
@@ -1832,7 +1834,7 @@
                 confirmOverlay.classList.remove('active');
                 confirmCallback = null;
             };
-                //added new line here
+
             if (newPvPBtn) newPvPBtn.onclick = () => {
                 // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
@@ -1910,6 +1912,62 @@
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+            document.addEventListener('keydown', (e) => {
+                const tag = e.target.tagName;
+                if (
+                    tag === 'INPUT' ||
+                    tag === 'TEXTAREA' ||
+                    e.target.isContentEditable ||
+                    e.repeat
+                ) {
+                    return;
+                }
+
+                const key = e.key.toLowerCase();
+
+
+                switch (key) {
+                    case 'f':
+                        e.preventDefault();
+                        flipBtn?.click();
+                        break;
+
+                    case 'p':
+                        e.preventDefault();
+                        pauseBtn?.click();
+                        break;
+
+                    case 'r':
+                        e.preventDefault();
+                        resignBtn?.click();
+                        break;
+
+                    case 'd':
+                        e.preventDefault();
+                        if (gameMode === 'pvp') {
+                            drawBtn?.click();
+                        }
+                        break;
+
+                    case 'n':
+                        e.preventDefault();
+                        newPvPBtn?.click();
+                        break;
+
+                    case 'a':
+                        e.preventDefault();
+                        newAIBtn?.click();
+                        break;
+
+                   case 'escape':
+                        e.preventDefault();
+                        shareModal?.classList.remove('active');
+                        rulebookModal?.classList.remove('active');
+                        fenOverlay?.classList.remove('active');
+
+                        break;
+                }
+            });
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
