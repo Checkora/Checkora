@@ -4,7 +4,7 @@ from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
 from django.shortcuts import render
 from game.forms import CustomSetPasswordForm
-from django.urls import path, include
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
