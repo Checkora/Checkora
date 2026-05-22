@@ -158,74 +158,174 @@ body {
     text-decoration: underline !important;
     transform: scale(1.05);
 }
+
+/* ==========================================================================
+   Upgraded Modern Hero Section (UI/UX Revision Fix)
+   ========================================================================== */
 .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 5rem 1rem 3rem;
-    max-width: 800px;
+    position: relative !important;
+    min-height: 80vh !important;
+    background-color: var(--bg-dark) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 6rem 1.5rem 4rem 1.5rem !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
+}
+
+/* Ambient Visual Background Glow Depth Layout */
+.ambient-glow {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(130px);
+    opacity: 0.07;
+    width: 380px;
+    height: 380px;
+    z-index: 1;
+}
+
+.glow-gold {
+    top: 15%;
+    left: 15%;
+    background-color: var(--accent-gold);
+}
+
+.glow-blue {
+    bottom: 15%;
+    right: 15%;
+    background-color: #3b82f6;
+}
+
+.hero-inner-wrapper {
+    position: relative;
+    max-width: 850px;
     margin: 0 auto;
+    text-align: center;
+    z-index: 5;
+}
+
+/* Technical Hybrid Architecture Tag */
+.architecture-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 9999px;
+    padding: 0.45rem 1.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 2.2rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.live-pulse {
+    width: 6px;
+    height: 6px;
+    background-color: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #10b981;
+    animation: microEnginePulse 2s infinite ease-in-out;
 }
 
 .hero-title {
-    font-size: 2.8rem;
-    font-weight: 700;
-    line-height: 1.25;
-    margin-bottom: 1rem;
-    color: var(--text-title);
-    letter-spacing: -0.5px;
+    font-size: clamp(2.4rem, 6vw, 4.2rem) !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+    color: var(--text-title) !important;
+    margin: 0 auto 1.5rem auto !important;
+}
+
+.gradient-text-gold {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, #ffeaa7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
 }
 
 .hero-subtitle {
-    font-size: 1.05rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin-bottom: 2.5rem;
-    max-width: 650px;
+    font-size: clamp(1.05rem, 2.5vw, 1.25rem) !important;
+    color: var(--text-secondary) !important;
+    max-w: 640px !important;
+    margin: 0 auto 2.8rem auto !important;
+    line-height: 1.6 !important;
+    font-weight: 400 !important;
+}
+
+.text-highlight {
+    color: #f1f5f9;
+    font-weight: 600;
 }
 
 .hero-actions {
-    display: flex;
-    gap: 1.5rem;
+    display: flex !important;
+    gap: 1.25rem !important;
+    justify-content: center !important;
+    align-items: center !important;
 }
 
-.btn-primary {
-    text-decoration: none;
-    background: linear-gradient(135deg, #f0c040, #d4a020);
-    color: #1a1a2e;
-    padding: 0.8rem 2rem;
-    border-radius: 6px;
+/* Primary High-Contrast Accent Buttons */
+.btn-primary-gold {
+    display: inline-block;
+    padding: 0.9rem 2.4rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    font-size: 1.05rem;
-    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    border-radius: 8px;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--accent-gold), #d4a020);
+    color: #1a1a2e;
+    box-shadow: 0 10px 20px -5px rgba(240, 192, 64, 0.25);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
 }
 
-.btn-primary:hover {
+.btn-primary-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+    box-shadow: 0 12px 24px -5px rgba(240, 192, 64, 0.45);
 }
 
-.btn-secondary {
+/* Ghost Outline Muted Buttons */
+.btn-secondary-ghost {
+    display: inline-block;
+    padding: 0.9rem 2.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
     text-decoration: none;
-    background-color: transparent;
-    color: var(--text-primary);
-    padding: 0.8rem 2rem;
-    border-radius: 6px;
-    font-weight: 500;
-    font-size: 1.05rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: background-color 0.2s, border-color 0.2s;
+    background-color: rgba(15, 23, 42, 0.45);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.2);
+.btn-secondary-ghost:hover {
+    background-color: rgba(30, 41, 59, 0.65);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    transform: translateY(-1px);
 }
 
+@keyframes microEnginePulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.25); opacity: 0.4; }
+}
+
+/* ==========================================================================
+   Features, About, and Structural Layout Containers
+   ========================================================================== */
 .features {
     padding: 4rem 5%;
     max-width: 1200px;
@@ -436,6 +536,9 @@ body {
     transform: scale(1.1);
 }
 
+/* ==========================================================================
+   Media Queries & Mobile Layout Refinement Breakpoints
+   ========================================================================== */
 @media (max-width: 768px) {
     .navbar {
         flex-direction: column;
@@ -452,22 +555,17 @@ body {
         display: none;
     }
 
-    .hero-title {
-        font-size: 2.5rem;
-    }
-
-    .hero-subtitle {
-        font-size: 1rem;
-    }
-
     .hero-actions {
         flex-direction: column;
         width: 100%;
+        gap: 1rem;
     }
 
-    .btn-primary,
-    .btn-secondary {
+    .btn-primary-gold,
+    .btn-secondary-ghost {
         width: 100%;
+        text-align: center;
+        box-sizing: border-box;
     }
 
     .footer-container {
@@ -480,7 +578,8 @@ body {
         gap: 1.5rem;
         text-align: center;
     }
-        .card {
+
+    .card {
         height: auto;
         min-height: 260px;
         cursor: default;
@@ -506,3 +605,15 @@ body {
     }
 }
 
+@media (max-width: 480px) {
+    .hero-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 1rem;
+    }
+    .btn-primary-gold, .btn-secondary-ghost {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+    }
+}
