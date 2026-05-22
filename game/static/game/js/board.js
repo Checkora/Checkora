@@ -2083,7 +2083,8 @@
 
                     const emoteChar = e.currentTarget.getAttribute('data-emote');
                     const emoteEl = document.createElement('div');
-                    emoteEl.className = 'floating-emote ' + (turn === 'white' ? 'white-emote' : 'black-emote');
+                    const emoteColor = turn;
+                    emoteEl.className = 'floating-emote ' + (emoteColor === 'white' ? 'white-emote' : 'black-emote');
                     emoteEl.textContent = emoteChar;
                     const boardOuter = document.querySelector('.board-outer');
                     if (boardOuter) {

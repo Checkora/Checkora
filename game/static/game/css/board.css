@@ -1463,10 +1463,12 @@ body {
     animation: floatUp 2s ease-out forwards;
 }
 .floating-emote.white-emote {
+    top: 10%; 
     left: 10%;
     filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
 }
 .floating-emote.black-emote {
+    top: 10%; 
     right: 10%;
     filter: drop-shadow(0 0 8px rgba(0, 100, 255, 0.8));
 }
