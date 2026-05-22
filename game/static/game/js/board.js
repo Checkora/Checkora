@@ -2086,9 +2086,18 @@
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+                
 
                 const key = e.key.toLowerCase();
+                const hasBlockingOverlay = document.querySelector(
+                    '.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active'
+            );
+
+            // Allow Escape to close overlays
+            if (hasBlockingOverlay && key !== 'escape') {
+                return;
+            }
+
                 if (key === 'f' && flipBtn) {
                     e.preventDefault();
                     flipBtn.click();
