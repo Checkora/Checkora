@@ -1912,62 +1912,6 @@
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
-            document.addEventListener('keydown', (e) => {
-                const tag = e.target.tagName;
-                if (
-                    tag === 'INPUT' ||
-                    tag === 'TEXTAREA' ||
-                    e.target.isContentEditable ||
-                    e.repeat
-                ) {
-                    return;
-                }
-
-                const key = e.key.toLowerCase();
-
-
-                switch (key) {
-                    case 'f':
-                        e.preventDefault();
-                        flipBtn?.click();
-                        break;
-
-                    case 'p':
-                        e.preventDefault();
-                        pauseBtn?.click();
-                        break;
-
-                    case 'r':
-                        e.preventDefault();
-                        resignBtn?.click();
-                        break;
-
-                    case 'd':
-                        e.preventDefault();
-                        if (gameMode === 'pvp') {
-                            drawBtn?.click();
-                        }
-                        break;
-
-                    case 'n':
-                        e.preventDefault();
-                        newPvPBtn?.click();
-                        break;
-
-                    case 'a':
-                        e.preventDefault();
-                        newAIBtn?.click();
-                        break;
-
-                   case 'escape':
-                        e.preventDefault();
-                        shareModal?.classList.remove('active');
-                        rulebookModal?.classList.remove('active');
-                        fenOverlay?.classList.remove('active');
-
-                        break;
-                }
-            });
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
@@ -2157,7 +2101,29 @@
                 } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
                     e.preventDefault();
                     pauseBtn.click();
-                }// added pause/resume button shortcut
+                } else if (key === 'n' && newPvPBtn) {
+                    e.preventDefault();
+                    newPvPBtn.click();
+
+                } else if (key === 'a' && newAIBtn) {
+                    e.preventDefault();
+                    newAIBtn.click();
+
+                } else if (key === 'escape') {
+                    e.preventDefault();
+
+                    if (shareModal?.style.display === 'flex') {
+                        shareModal.style.display = 'none';
+                    }
+
+                    if (rulebookModal?.style.display === 'flex') {
+                        rulebookModal.style.display = 'none';
+                    }
+
+                    if (fenOverlay?.classList.contains('active')) {
+                        fenOverlay.classList.remove('active');
+                    }
+                }
             });
             // Emote Logic
             let emoteCooldown = false;
