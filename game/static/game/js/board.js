@@ -2051,7 +2051,7 @@
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+                const hasOpenModal = document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active');
 
                 const key = e.key.toLowerCase();
                 if (key === 'f' && flipBtn) {
@@ -2066,7 +2066,20 @@
                 } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
                     e.preventDefault();
                     pauseBtn.click();
-                }// added pause/resume button shortcut
+                } else if (key === 'n' && !hasOpenModal) {
+                    e.preventDefault();
+                    const newAiBtn = document.getElementById('newAIBtn');
+                    if (newAiBtn) newAiBtn.click();
+                } else if (key === 'a' && !hasOpenModal && typeof requestAIMove === 'function') {
+                    e.preventDefault();
+                    requestAIMove();
+                } else if (e.key === 'Escape' && hasOpenModal) {
+                    e.preventDefault();
+                    document.querySelectorAll('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active').forEach(el => {
+                        el.style.display = 'none';
+                        el.classList.remove('show', 'active');
+                    });
+                }
             });
             // Emote Logic
             let emoteCooldown = false;
