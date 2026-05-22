@@ -424,16 +424,30 @@ def offer_draw(request):
     """Handle draw offers and agreements."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
         return JsonResponse(
-            {'success': False, 'message': err_msg}, status=400
+            {'success': False, 'message': 'No active game.'}, status=400
         )
 
-    data = json.loads(request.body or '{}')
-    action = data.get('action')  # 'offer' or 'accept'
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {'valid': False, 'message': 'Invalid request data.'}, status=400
+        )
+
+    action = data.get('action')
+
+    if action not in ('offer', 'accept', 'decline'):
+        return JsonResponse(
+            {'success': False, 'message': 'Invalid action.'}, status=400
+        )
 
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
+        if game.game_status != 'active':
+            return JsonResponse(
+                {'success': False, 'message': 'Game is not active.'}, status=400
+            )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
@@ -446,7 +460,6 @@ def offer_draw(request):
         })
 
     return JsonResponse({'success': True})
-
 
 @require_POST
 def resign_game(request):
