@@ -1,6 +1,5 @@
 """Game views for the Checkora chess platform."""
 import logging
-logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
@@ -13,7 +12,13 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
-from django.core.mail import send_mail
+from smtplib import SMTPException
+from django.core.mail import (
+    BadHeaderError, 
+    send_mail,
+    EmailMultiAlternatives
+)
+from django.template.loader import render_to_string
 from django.contrib import messages
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
@@ -23,6 +28,7 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 
 
@@ -607,10 +613,25 @@ def verify_otp(request):
                 user.is_active = True
                 user.full_clean()
                 user.save()
-
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
 
+                html_content = render_to_string(
+                    'game/welcome_email.html',
+                    {
+                        'username': user.username,
+                        'app_url': request.build_absolute_uri('/'),
+                    }
+                )
+                email = EmailMultiAlternatives(
+                    subject='Welcome to Checkora 🎉',
+                    body='Welcome to Checkora! Your account has been successfully activated.',
+                    from_email=settings.EMAIL_HOST_USER,
+                    to=[user.email],
+                )
+                email.attach_alternative(html_content,"text/html")
+                email.send(fail_silently=False)
+                
                 login(request, user)
                 messages.success(
                     request,
@@ -798,7 +819,7 @@ def cleanup_cron(request):
     
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
+    
     try:
         deleted, resigned = cleanup_stale_games()
         return JsonResponse({
