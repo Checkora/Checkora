@@ -1,10 +1,12 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Rulebook – Checkora</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/scroll_to_top.css' %}">
     <style>
 
         :root {
@@ -1216,5 +1218,6 @@ window.onload = () => {
     buildBoard('board-promo'); promoStep(0);
 };
 </script>
+<script src="{% static 'game/js/scroll_to_top.js' %}" defer></script>
 </body>
 </html>
