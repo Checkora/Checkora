@@ -610,7 +610,11 @@
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
-                    el.classList.remove('selected', 'last-move', 'in-check');
+                    el.classList.remove('selected', 'last-move');
+            // Preserve checkmate highlight after game over
+                    if (!gameOver) {
+                        el.classList.remove('in-check');
+                    }
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
@@ -959,7 +963,8 @@
             /* ==========================================================
             EVENTS
             ========================================================== */
-            async function onClick(r, c) {
+            async function onClick(r, c) { 
+                if (gameover) return;
                 if (dragging) return;
                 if (selected) {
 
@@ -1090,6 +1095,20 @@
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
+
+                // Permanently highlight checkmated king
+
+                if (reason === 'checkmate') {
+                    const kingPiece = color === 'white' ? 'K' : 'k';
+                    for (let r = 0; r < 8; r++) {
+                        for (let c = 0; c < 8; c++) {
+                            if (board[r][c] === kingPiece) {
+                                sq(r, c).classList.add('in-check');
+                                    break;
+                            }
+                        }
+                    }
+                }
             
                 let title = '', message = '';
                 let isCelebration = false; // Track if this is a win (not draw/stalemate)
