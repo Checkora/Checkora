@@ -8,6 +8,8 @@
     --text-title: #ffffff;
     --text-secondary: #aaaaaa;
     --accent-gold: #f0c040;
+    --navbar-height: 85px;
+    --scroll-offset: calc(var(--navbar-height) + 1.5rem);
 }
 
 * {
@@ -231,6 +233,7 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    scroll-margin-top: var(--scroll-offset);
 }
 
 .section-title {
@@ -330,6 +333,7 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    scroll-margin-top: var(--scroll-offset);
 }
 
 .section-container {
