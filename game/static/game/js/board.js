@@ -962,7 +962,7 @@
             EVENTS
             ========================================================== */
             async function onClick(r, c) { 
-                if (gameover) return:
+                if (gameover) return;
                 if (dragging) return;
                 if (selected) {
 
