@@ -6,12 +6,16 @@ from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.models import User
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.urls import reverse
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
+from .views import resend_otp
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -152,6 +156,66 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
+
+
+class ResendOTPCooldownTest(TestCase):
+    """OTP resend should enforce and then expire the cooldown safely."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username='pendingplayer',
+            email='pendingplayer@example.com',
+            password='StrongPass123!',
+        )
+        self.user.is_active = False
+        self.user.save()
+
+    def _build_request(self, *, last_otp_time):
+        request = self.factory.get(reverse('resend_otp'))
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session['registration_user_id'] = self.user.id
+        request.session['last_otp_time'] = last_otp_time
+        request.session.save()
+        setattr(request, '_messages', FallbackStorage(request))
+        return request
+
+    def test_resend_otp_enforces_cooldown(self):
+        request = self._build_request(last_otp_time=90.0)
+
+        with (
+            mock.patch('game.views.time.time', return_value=100.0),
+            mock.patch('game.views.send_mail') as mock_send_mail,
+        ):
+            response = resend_otp(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('verify_otp'))
+        self.assertIn(
+            'Please wait 50 seconds before requesting a new OTP.',
+            [message.message for message in messages.get_messages(request)],
+        )
+        mock_send_mail.assert_not_called()
+        self.assertEqual(request.session['last_otp_time'], 90.0)
+
+    def test_resend_otp_allows_after_expiry(self):
+        request = self._build_request(last_otp_time=130.0)
+
+        with (
+            mock.patch('game.views.time.time', return_value=200.0),
+            mock.patch('game.views.send_mail') as mock_send_mail,
+        ):
+            response = resend_otp(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('verify_otp'))
+        self.assertIn(
+            'A new OTP has been sent to your email.',
+            [message.message for message in messages.get_messages(request)],
+        )
+        mock_send_mail.assert_called_once()
+        self.assertEqual(request.session['last_otp_time'], 200.0)
+        self.assertIn('registration_otp_hash', request.session)
 
 
 class CustomSetPasswordFormTest(TestCase):
