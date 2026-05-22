@@ -128,7 +128,11 @@ def valid_moves(request):
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+    
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
@@ -306,7 +310,11 @@ def set_pause(request):
     if not game_data:
         return JsonResponse({'paused': False})
 
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+
     pause = data.get('pause', True)
 
     game = ChessGame.from_dict(game_data)
