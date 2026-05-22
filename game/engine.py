@@ -109,6 +109,9 @@ class ChessGame:
             result = '1/2-1/2'
         elif self.game_status == 'resignation':
             result = '1-0' if self.current_turn == 'black' else '0-1'
+        elif self.game_status == 'timeout':
+            result = '0-1' if self.current_turn == 'white' else '1-0'
+
 
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
