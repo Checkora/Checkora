@@ -34,6 +34,8 @@
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
+            let blindfoldMode = false;
+            let illegalMoveCount = 0;
 
             let whiteAlertFired = false;
             let blackAlertFired = false;
@@ -203,6 +205,30 @@
                 if (a11yAnnouncer) {
                     a11yAnnouncer.textContent = '';
                     setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
+                }
+            }
+
+            function flashBoard() {
+                if (boardEl) {
+                    boardEl.classList.remove('flash-error');
+                    void boardEl.offsetWidth;
+                    boardEl.classList.add('flash-error');
+                    setTimeout(() => {
+                        boardEl.classList.remove('flash-error');
+                    }, 2000);
+                }
+                
+                illegalMoveCount++;
+                if (illegalMoveCount >= 3) {
+                    illegalMoveCount = 0;
+                    if (blindfoldMode) {
+                        document.body.classList.remove('blindfold-mode');
+                        setTimeout(() => {
+                            if (blindfoldMode) {
+                                document.body.classList.add('blindfold-mode');
+                            }
+                        }, 3000);
+                    }
                 }
             }
 
@@ -547,9 +573,15 @@
                         d.draggable = true;
                         d.ondragstart = e => {
                             const piece = board[r][c];
-                            if (!piece || paused || gameOver) return e.preventDefault();
-                            const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
-                            if (gameMode === 'ai' && turn !== playerColor && !isPremoveDrag) return e.preventDefault();
+                            if (!piece) {
+                                if (blindfoldMode) {
+                                    showStatus('No piece there', true);
+                                    flashBoard();
+                                }
+                                return e.preventDefault();
+                            }
+                            if (pColor(piece) !== turn || paused || gameOver) return e.preventDefault();
+                            if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
                             
                             if (e.dataTransfer) {
                                 e.dataTransfer.setData('text/plain', 'piece-move');
@@ -850,6 +882,11 @@
                     return;
                 }
 
+                if (fr === tr && fc === tc) {
+                    deselect();
+                    return;
+                }
+
                 if (isPromotionMove(fr, fc, tr)) {
                     await animateMove(fr, fc, tr, tc);
 
@@ -898,6 +935,7 @@
 
                     const data = await post('/api/move/', body);
                         if (data.valid) {
+                            illegalMoveCount = 0;
                             playSound(data);
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
@@ -947,6 +985,7 @@
                         }
                     } else {
                         showStatus(data.message, true);
+                        flashBoard();
                         deselect();
                     }
                 } catch (e) {
@@ -1137,14 +1176,15 @@
             }
 
             function onDragStart(e, r, c) {
-                if (paused || pColor(board[r][c]) !== turn) {
-                    const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(board[r][c]) === playerColor;
-                    if (!isPremoveDrag) return e.preventDefault();
+                if (!board[r][c]) {
+                    if (blindfoldMode) {
+                        showStatus('No piece there', true);
+                        flashBoard();
+                    }
+                    return e.preventDefault();
                 }
-                if (gameMode === 'ai' && turn !== playerColor) {
-                    const isPremoveDrag = pColor(board[r][c]) === playerColor;
-                    if (!isPremoveDrag) return e.preventDefault();
-                }
+                if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
+                if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
                 dragging = true;
                 dragSrc = { r, c };
                 selectPiece(r, c);
@@ -1255,6 +1295,13 @@
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
+                
+                if (blindfoldMode) {
+                    blindfoldMode = false;
+                    document.body.classList.remove('blindfold-mode');
+                    const blindfoldBtn = document.getElementById('blindfoldBtn');
+                    if (blindfoldBtn) blindfoldBtn.textContent = 'Blindfold: OFF';
+                }
             
                 let title = '', message = '';
                 let isCelebration = false; // Track if this is a win (not draw/stalemate)
@@ -2114,6 +2161,17 @@
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
+            const blindfoldBtn = document.getElementById('blindfoldBtn');
+            if (blindfoldBtn) {
+                blindfoldBtn.onclick = () => {
+                    blindfoldMode = !blindfoldMode;
+                    blindfoldBtn.textContent = 'Blindfold: ' + (blindfoldMode ? 'ON' : 'OFF');
+                    document.body.classList.toggle('blindfold-mode', blindfoldMode);
+                    showStatus(`Blindfold mode ${blindfoldMode ? 'ON' : 'OFF'}`, false);
+                    setTimeout(() => showStatus('', false), 2000);
+                };
+            }
+
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
                     const confirmDifficultyContainer = document.getElementById('confirmDifficultyContainer');
@@ -2251,6 +2309,7 @@
                                 manualMoveError.textContent = 'Invalid format (e.g. e2e4)';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         
@@ -2269,6 +2328,7 @@
                                 manualMoveError.textContent = 'Game is not active';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         if (gameMode === 'ai' && turn !== playerColor) {
@@ -2276,6 +2336,7 @@
                                 manualMoveError.textContent = 'Not your turn';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         const p = board[fr][fc];
@@ -2284,6 +2345,7 @@
                                 manualMoveError.textContent = 'Invalid piece';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         
@@ -2292,6 +2354,7 @@
                                 manualMoveError.textContent = 'Promotion piece required (e.g. e7e8q)';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         
