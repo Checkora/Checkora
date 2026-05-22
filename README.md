@@ -310,6 +310,7 @@ Checkora features a decoupled API layer. Below is the endpoint catalog accompani
 Called on board load to restore ongoing match positions and clocks.
 
 **Response (Success - `200 OK`):**
+
 ```json
 {
   "board": [
@@ -338,25 +339,29 @@ Called on board load to restore ongoing match positions and clocks.
 Triggered when a player releases a piece onto a destination square.
 
 **Request Body:**
+
+*Note: `promotion_piece` is optional ("q", "r", "b", "n") and required only if `check-promotion` is true.*
+
 ```json
 {
   "from_row": 6,
   "from_col": 4,
   "to_row": 4,
   "to_col": 4,
-  "promotion_piece": "q" // Optional: 'q', 'r', 'b', 'n' (Required if check-promotion is true)
+  "promotion_piece": "q"
 }
 ```
 
 **Response (Success - `200 OK`):**
+
+*Note: `board` is an 8x8 array reflecting the updated state. `game_status` can be "active", "check", "checkmate", "stalemate", or "draw".*
+
 ```json
 {
   "valid": true,
   "message": "Move successful",
   "captured": null,
-  "board": [
-    // Array of 8x8 squares reflecting updated state
-  ],
+  "board": [],
   "current_turn": "black",
   "white_time": 595,
   "black_time": 600,
@@ -364,11 +369,12 @@ Triggered when a player releases a piece onto a destination square.
     {"notation": "e4", "piece": "P", "from": [6, 4], "to": [4, 4], "color": "white"}
   ],
   "captured_pieces": {"white": [], "black": []},
-  "game_status": "active" // active, check, checkmate, stalemate, draw
+  "game_status": "active"
 }
 ```
 
 **Response (Error - `400 Bad Request` / `200 OK` with invalid):**
+
 ```json
 {
   "valid": false,
@@ -382,6 +388,7 @@ Instructs the frontend UI where the selected piece can legally go.
 **Request Parameters:** `?row=6&col=4`
 
 **Response (Success - `200 OK`):**
+
 ```json
 {
   "valid_moves": [
@@ -395,18 +402,19 @@ Instructs the frontend UI where the selected piece can legally go.
 Triggers background minimax engine search. Returns the move calculated by the C++/Python engine.
 
 **Response (Success - `200 OK`):**
+
+*Note: `board` is an 8x8 array reflecting the updated state. `move_history` contains the list of moves.*
+
 ```json
 {
   "valid": true,
   "message": "Move successful",
   "captured": "p",
-  "board": [
-    // Updated 8x8 grid...
-  ],
+  "board": [],
   "current_turn": "white",
   "white_time": 600,
   "black_time": 598,
-  "move_history": [...],
+  "move_history": [],
   "captured_pieces": {"white": ["p"], "black": []},
   "ai_move": {
     "from_row": 1,
@@ -422,18 +430,22 @@ Triggers background minimax engine search. Returns the move calculated by the C+
 Resets current session variables and starts a fresh match.
 
 **Request Body:**
+
+*Note: `mode` can be "pvp" or "ai".*
+
 ```json
 {
-  "mode": "ai" // "pvp" or "ai"
+  "mode": "ai"
 }
 ```
 
 **Response (Success - `200 OK`):**
+
+*Note: `board` is an 8x8 array containing the clean initial board configuration.*
+
 ```json
 {
-  "board": [
-    // Clean initial board configuration
-  ],
+  "board": [],
   "current_turn": "white",
   "move_history": [],
   "captured_pieces": {"white": [], "black": []},
@@ -454,6 +466,7 @@ python manage.py test game
 28 tests covering all API endpoints, move validation, engine path resolution, promotion logic, and AI mode enforcement.
 
 ---
+
 ## Troubleshooting Guide
 
 Below are solutions to common setup, installation, and environment issues contributors encounter when getting Checkora running locally.
@@ -483,6 +496,7 @@ Depending on your terminal shell or system policies, activating the virtual envi
     venv\Scripts\Activate.ps1
     ```
 *   **Activation commands for different shells:**
+
     | Shell | Command |
     | :--- | :--- |
     | **Windows Cmd** | `venv\Scripts\activate.bat` |
@@ -497,6 +511,7 @@ Checkora attempts to compile the C++ chess engine locally to maximize Minimax pe
 > If `g++` setup is too tricky for your system, you can skip compiling it! Checkora will automatically detect the absence of the binary and fall back to the Python engine in `game/engine/main.py`.
 
 *   **Check compiler availability:**
+
     ```bash
     g++ --version
     ```
@@ -506,10 +521,12 @@ Checkora attempts to compile the C++ chess engine locally to maximize Minimax pe
     3. Restart your terminal so the new path takes effect.
 *   **Resolution (macOS):**
     Install the Xcode Command Line Tools:
+
     ```bash
     xcode-select --install
     ```
 *   **Resolution (Ubuntu/Debian Linux):**
+
     ```bash
     sudo apt update && sudo apt install build-essential
     ```
@@ -519,6 +536,7 @@ If migrations fail to run, or database models get out of sync, you may encounter
 
 *   **Resolution:**
     Reset your local SQLite database structure by running:
+
     ```bash
     # 1. Generate any missing database schema blueprints
     python manage.py makemigrations game
@@ -533,6 +551,7 @@ If you attempt to launch the Django server without setting up a local configurat
 
 *   **Resolution:**
     Ensure you clone the template configuration into a new active `.env` file in the root directory:
+
     ```bash
     # Windows PowerShell
     copy .env.example .env
@@ -547,6 +566,7 @@ If you already have another service running on your local port 8000, Django will
 
 *   **Resolution:**
     Instruct Django to boot the local server on an alternative unoccupied port, for example, `8080` or `8001`:
+
     ```bash
     python manage.py runserver 8080
     ```
@@ -575,7 +595,7 @@ If a section of this guide, `structure.md`, or `API.md` is unclear, out of date,
 
 ### 💡 4. Share Feature Proposals & Suggestions
 Want to introduce a new gameplay timer format, customize themes, or build a matching lobby?
-- Share your proposals in [GitHub Discussions Ideas](https://github.com/Checkora/Discussions/categories/ideas).
+- Share your proposals in [GitHub Discussions Ideas](https://github.com/Checkora/Checkora/discussions/categories/ideas).
 - Align with core maintainers (@EDWARD-012 & @triemerge) before writing significant logic to ensure architectural compatibility.
 
 ## Contributing
