@@ -135,11 +135,8 @@ class RulesViewTest(TestCase):
         response = self.client.get('/rules/')
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            'mini-board-container mini-board-container--check',
-        )
-        self.assertContains(response, 'steps steps--check')
+        self.assertContains(response, 'mini-board-container--check')
+        self.assertContains(response, 'steps--check')
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""

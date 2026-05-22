@@ -447,20 +447,6 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
 
-        @media (max-width: 900px) {
-            .mini-board-container--check {
-                grid-template-columns: 1fr;
-            }
-
-            .mini-board-container--check .mini-board {
-                justify-self: center;
-            }
-
-            .steps--check {
-                align-self: stretch;
-            }
-        }
-
         .piece-card:hover,
         .piece-card.active {
             border-color: var(--gold);
@@ -517,6 +503,20 @@
 }
 
 /* ── Mobile ── */
+@media (max-width: 900px) {
+    .mini-board-container--check {
+        grid-template-columns: 1fr;
+    }
+
+    .mini-board-container--check .mini-board {
+        justify-self: center;
+    }
+
+    .steps--check {
+        align-self: stretch;
+    }
+}
+
 @media (max-width: 768px) {
     #menuToggle {
         display: block;
