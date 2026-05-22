@@ -33,6 +33,8 @@
             let timerInterval = null;
             let pendingPromo = null;
 
+            let gameStartTime = null;
+    
             let gameMode = 'pvp';
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
@@ -1126,9 +1128,23 @@
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
+
+                let durationText = '';
+
+                if (gameStartTime) {
+                    const duration = Date.now() - gameStartTime;
+                    durationText = `\nGame duration: ${formatGameDuration(duration)}.`;
+                }
+
                 gameOverTitle.textContent = title;
-                gameOverMessage.textContent = message;
+                gameOverMessage.textContent = message + durationText;
+
+                const durationElement = document.getElementById('gameDurationText');
                 
+                if (durationElement) {
+                    durationElement.textContent = durationText;
+                }
+
                 // Delay the overlay and celebration effects by 1 second
                 setTimeout(() => {
                     // Add celebration effects for wins
@@ -1248,7 +1264,14 @@
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
             function formatTime(t) { return fmt(t); }
-
+            
+            function formatGameDuration(ms) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const mins = Math.floor(totalSeconds / 60);
+                const secs = totalSeconds % 60;
+                return `${mins}m ${secs}s`;
+            }
+    
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
@@ -1507,6 +1530,9 @@
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
+                
+                gameStartTime = Date.now();
+                
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
