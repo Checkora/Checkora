@@ -70,7 +70,7 @@ def make_move(request):
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
-    if success:
+    if success or game_status == 'timeout':
         request.session['game'] = game.to_dict()
         request.session.modified = True
         if game_status == 'checkmate':
@@ -78,6 +78,12 @@ def make_move(request):
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+        elif game_status == 'timeout':
+            already_recorded = request.session.get('timeout_recorded', False)
+            if not already_recorded:
+                winner = 'black' if game.current_turn == 'white' else 'white'
+                record_game_result(request, game.mode, winner, 'timeout', game.player_color)
+                request.session['timeout_recorded'] = True
 
     return JsonResponse({
         'valid': success,
@@ -173,6 +179,7 @@ def new_game(request):
     game.paused = False
 
     request.session['game'] = game.to_dict()
+    request.session['timeout_recorded'] = False
     request.session.modified = True
     request.session.save()
 
@@ -374,7 +381,7 @@ def ai_move(request):
         best['to_row'],   best['to_col'],
     )
 
-    if success:
+    if success or game_status == 'timeout':
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
@@ -383,6 +390,12 @@ def ai_move(request):
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+        elif game_status == 'timeout':
+            already_recorded = request.session.get('timeout_recorded', False)
+            if not already_recorded:
+                winner = 'black' if game.current_turn == 'white' else 'white'
+                record_game_result(request, game.mode, winner, 'timeout', game.player_color)
+                request.session['timeout_recorded'] = True
 
     return JsonResponse({
         'valid': success,
