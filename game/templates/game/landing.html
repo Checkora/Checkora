@@ -18,7 +18,6 @@
       content="Checkora, Chess, AI Chess, Hybrid Chess Engine, Play Chess Online, Minimax Chess, Django Chess"
     />
 
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://checkora.vercel.app/" />
     <meta property="og:title" content="Checkora | Play AI Chess Online" />
@@ -31,7 +30,6 @@
       content="{% static 'game/checkora_icon_only.png' %}"
     />
 
-    <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://checkora.vercel.app/" />
     <meta property="twitter:title" content="Checkora | Play AI Chess Online" />
@@ -44,7 +42,6 @@
       content="{% static 'game/checkora_icon_only.png' %}"
     />
 
-    <!-- JSON-LD Schema Markup -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -114,35 +111,47 @@
     </nav>
 
     <main class="hero" id="hero">
-      <h1 class="hero-title">
-        Master Chess with Checkora's Hybrid Intelligence
-      </h1>
-      <p class="hero-subtitle">
-        A lightweight Django frontend orchestrating Python logic with a
-        high-performance C++ minimax engine.
-      </p>
-      <div class="hero-actions">
-        <a href="{% url 'index' %}" class="btn-primary">Start Game</a>
-        <a href="#about" class="btn-secondary">Learn More</a>
+      <div class="ambient-glow glow-gold"></div>
+      <div class="ambient-glow glow-blue"></div>
+
+      <div class="hero-inner-wrapper">
+        <div class="architecture-badge">
+          <span class="live-pulse"></span>
+          <span>C++17 Minimax Engine Core Backend</span>
+        </div>
+
+        <h1 class="hero-title">
+          Master Chess with Checkora's<br />
+          <span class="gradient-text-gold">Hybrid Intelligence</span>
+        </h1>
+
+        <p class="hero-subtitle">
+          A lightweight <span class="text-highlight">Django</span> frontend orchestrating intelligent Python logic with a high-performance, native <span class="text-highlight">C++ core</span>.
+        </p>
+
+        <div class="hero-actions">
+          <a href="{% url 'index' %}" class="btn-primary-gold">Start Game</a>
+          <a href="#about" class="btn-secondary-ghost">Learn More</a>
+        </div>
       </div>
     </main>
 
     <section id="about" class="about">
-    <div class="section-container">
-        <h2 class="section-title">About Checkora</h2>
-        <div class="about-content">
-            <p>
-                Checkora is a modern interactive chess platform built to help players practice, compete, and improve through an engaging digital chess experience.
-            </p>
-            <p>
-                The platform follows a hybrid architecture where Django and Python handle application flow, authentication, and game orchestration, while a high-performance C++ minimax engine powers intelligent AI gameplay.
-            </p>
-            <p>
-                With responsive gameplay, statistics tracking, rulebook access, and AI-driven interactions, Checkora provides both a practical learning environment and a smooth competitive chess experience for players across skill levels.
-            </p>
-        </div>
-    </div>
-</section>
+      <div class="section-container">
+          <h2 class="section-title">About Checkora</h2>
+          <div class="about-content">
+              <p>
+                  Checkora is a modern interactive chess platform built to help players practice, compete, and improve through an engaging digital chess experience.
+              </p>
+              <p>
+                  The platform follows a hybrid architecture where Django and Python handle application flow, authentication, and game orchestration, while a high-performance C++ minimax engine powers intelligent AI gameplay.
+              </p>
+              <p>
+                  With responsive gameplay, statistics tracking, rulebook access, and AI-driven interactions, Checkora provides both a practical learning environment and a smooth competitive chess experience for players across skill levels.
+              </p>
+          </div>
+      </div>
+    </section>
 
     <section id="features" class="features">
       <h2 class="section-title">Why Checkora</h2>
