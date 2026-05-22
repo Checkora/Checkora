@@ -65,6 +65,21 @@
       }
     </script>
 
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <script>
+        (function () {
+            const VALID_PAGE_THEMES = ['light', 'dark'];
+            let savedPageTheme = 'dark';
+            try { savedPageTheme = localStorage.getItem('pageTheme') || 'dark'; } catch (e) { }
+            if (!VALID_PAGE_THEMES.includes(savedPageTheme)) savedPageTheme = 'dark';
+            document.documentElement.setAttribute('data-page-theme', savedPageTheme);
+        })();
+    </script>
+</head>
     <link
       rel="icon"
       type="image/jpeg"
@@ -335,5 +350,6 @@
         </div>
       </div>
     </footer>
+
   </body>
 </html>
