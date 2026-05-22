@@ -543,7 +543,7 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
-            <a href="#" class="back-btn" style="color:#f0c040; display: inline-block;" onclick="try { var modal = window.parent.document.getElementById('rulebookModal'); if (modal) modal.style.display='none'; } catch(e) { console.error('Cannot close modal:', e); } return false;">← Back to Game</a>
+            <a href="{% url 'index' %}" class="back-btn" style="color:#f0c040; display: inline-block;" onclick="return handleBackToGame(event);">← Back to Game</a>
         </div>
         <div class="sidebar-title">Rulebook</div>
         <div class="rule-nav-item active" onclick="showRule('basics')" id="nav-basics">
@@ -912,6 +912,23 @@ function highlightCapture(id, r, c) {
    NAVIGATION
 ══════════════════════════════════════════════ */
 const rules = ['basics','pieces','pawn','castling','enpassant','check','stalemate','promotion'];
+
+function handleBackToGame(event) {
+    try {
+        if (window.parent && window.parent !== window) {
+            const modal = window.parent.document.getElementById('rulebookModal');
+            if (modal) {
+                modal.style.display = 'none';
+                event.preventDefault();
+                return false;
+            }
+        }
+    } catch (error) {
+        console.error('Cannot close modal:', error);
+    }
+
+    return true;
+}
 
 function showRule(name) {
     rules.forEach(r => {
