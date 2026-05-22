@@ -89,6 +89,14 @@ class LandingViewTest(TestCase):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
 
+    def test_landing_page_feature_cards_support_keyboard_access(self):
+        response = self.client.get('/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'tabindex="0"', count=3)
+        self.assertContains(response, 'feature-card-copy-web')
+        self.assertContains(response, 'Hover or focus to reveal details')
+
 
 class NotFoundPageTest(TestCase):
     """Custom 404 page should match the product theme and navigation flow."""
