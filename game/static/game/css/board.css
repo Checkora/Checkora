@@ -144,6 +144,7 @@ body {
     font-weight: 600;
 }
 
+
 /* ============================================================
    Game Layout  (left panel · board · right panels)
    ============================================================ */
@@ -634,6 +635,12 @@ body {
     cursor: pointer;
     letter-spacing: 0.5px;
     transition: all 0.2s ease;
+}
+.btn-shortcut{
+    margin-left: 10px;
+    opacity: 0.7;
+    font-size: 0.8rem;
+    font-weight: 600;
 }
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);
