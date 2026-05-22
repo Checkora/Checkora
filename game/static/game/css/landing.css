@@ -233,7 +233,7 @@ body {
     background-color: #10b981;
     border-radius: 50%;
     box-shadow: 0 0 8px #10b981;
-    animation: microEnginePulse 2s infinite ease-in-out;
+    animation: micro-engine-pulse 2s infinite ease-in-out;
 }
 
 .hero-title {
@@ -250,14 +250,14 @@ body {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    color: var(--accent-gold); /* Fallback style verification indicator */
+    color: var(--accent-gold);
     display: inline-block;
 }
 
 .hero-subtitle {
     font-size: clamp(1.05rem, 2.5vw, 1.25rem);
     color: var(--text-secondary);
-    max-w: 640px;
+    max-width: 640px;
     margin: 0 auto 2.8rem auto;
     line-height: 1.6;
     font-weight: 400;
@@ -321,7 +321,7 @@ body {
     transform: translateY(-1px);
 }
 
-@keyframes microEnginePulse {
+@keyframes micro-engine-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.25); opacity: 0.4; }
 }
