@@ -628,7 +628,21 @@ def verify_otp(request):
     if last_otp_time:
         elapsed = int(time.time() - last_otp_time)
         remaining_time = max(0, 60 - elapsed)
-    return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
+
+    masked_email = None
+    try:
+        user = User.objects.get(id=user_id)
+        email = user.email
+        local, domain = email.split('@')
+        masked_local = local[0] + '*' * (len(local) - 1)
+        masked_email = f"{masked_local}@{domain}"
+    except Exception:
+        pass
+
+    return render(request, 'game/verify_otp.html', {
+        'remaining_time': remaining_time,
+        'masked_email': masked_email,
+    })
 
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
