@@ -1,6 +1,8 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
+import importlib.util
 import json
+from pathlib import Path
 import sys
 from smtplib import SMTPException
 from unittest import mock
@@ -68,6 +70,40 @@ class EnginePathResolutionTest(SimpleTestCase):
                 ChessGame._build_engine_command(candidates[2]),
                 [sys.executable, candidates[2]],
             )
+
+
+class PythonFallbackStatusTest(SimpleTestCase):
+    """Python fallback engine should match C++ draw status handling."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        engine_path = Path(__file__).resolve().parent / 'engine' / 'main.py'
+        spec = importlib.util.spec_from_file_location('checkora_python_engine', engine_path)
+        cls.python_engine = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        sys.modules[spec.name] = cls.python_engine
+        spec.loader.exec_module(cls.python_engine)
+
+    def test_status_reports_draw_for_insufficient_material(self):
+        self.python_engine.load_board(
+            'k.......'
+            '........'
+            '........'
+            '........'
+            '........'
+            '........'
+            '........'
+            '.......K'
+        )
+        self.python_engine.load_castling_rights('-')
+        self.python_engine.load_en_passant(-1, -1)
+
+        with mock.patch('builtins.print') as mock_print:
+            self.python_engine.handle_status('white')
+
+        mock_print.assert_called_once_with('STATUS DRAW')
+
 
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""

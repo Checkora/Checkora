@@ -111,6 +111,22 @@ def path_clear(fr, fc, tr, tc):
     return True
 
 
+def is_insufficient_material():
+    total_minor = 0
+    for row in range(8):
+        for col in range(8):
+            piece = BOARD[row][col]
+            if piece == '.':
+                continue
+            piece_type = piece.lower()
+            if piece_type == 'k':
+                continue
+            if piece_type in {'p', 'r', 'q'}:
+                return False
+            total_minor += 1
+    return total_minor <= 1
+
+
 def is_square_attacked(target_row, target_col, attacker_color):
     knight_offsets = [
         (-2, -1), (-2, 1), (-1, -2), (-1, 2),
@@ -626,6 +642,10 @@ def handle_status(turn):
 
     if not has_legal_move:
         print('STATUS CHECKMATE' if in_check else 'STATUS STALEMATE')
+        return
+
+    if is_insufficient_material():
+        print('STATUS DRAW')
         return
 
     print('STATUS CHECK' if in_check else 'STATUS OK')
