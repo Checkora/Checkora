@@ -208,20 +208,22 @@
                 }
             }
 
+            let flashTimeout = null;
             function flashBoard() {
                 if (boardEl) {
                     boardEl.classList.remove('flash-error');
                     void boardEl.offsetWidth;
                     boardEl.classList.add('flash-error');
-                    setTimeout(() => {
+                    if (flashTimeout) clearTimeout(flashTimeout);
+                    flashTimeout = setTimeout(() => {
                         boardEl.classList.remove('flash-error');
                     }, 2000);
                 }
                 
-                illegalMoveCount++;
-                if (illegalMoveCount >= 3) {
-                    illegalMoveCount = 0;
-                    if (blindfoldMode) {
+                if (blindfoldMode) {
+                    illegalMoveCount++;
+                    if (illegalMoveCount >= 3) {
+                        illegalMoveCount = 0;
                         document.body.classList.remove('blindfold-mode');
                         setTimeout(() => {
                             if (blindfoldMode) {
@@ -2165,10 +2167,17 @@
             if (blindfoldBtn) {
                 blindfoldBtn.onclick = () => {
                     blindfoldMode = !blindfoldMode;
+                    illegalMoveCount = 0;
                     blindfoldBtn.textContent = 'Blindfold: ' + (blindfoldMode ? 'ON' : 'OFF');
                     document.body.classList.toggle('blindfold-mode', blindfoldMode);
-                    showStatus(`Blindfold mode ${blindfoldMode ? 'ON' : 'OFF'}`, false);
-                    setTimeout(() => showStatus('', false), 2000);
+                    const msg = `Blindfold mode ${blindfoldMode ? 'ON' : 'OFF'}`;
+                    showStatus(msg, false);
+                    setTimeout(() => {
+                        const gameStatusEl = document.getElementById("game-status");
+                        if (gameStatusEl && gameStatusEl.textContent === msg) {
+                            showStatus('', false);
+                        }
+                    }, 2000);
                 };
             }
 

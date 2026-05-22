@@ -1647,13 +1647,20 @@ body.blindfold-mode .capture-ring {
     display: none !important;
 }
 
-@keyframes flashError {
+@keyframes flash-error {
     0% { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255, 107, 107, 0.8); }
     50% { border-color: #3d3222; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6); }
     100% { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255, 107, 107, 0.8); }
 }
 
 .flash-error {
-    animation: flashError 0.5s ease-in-out 4; /* 4 * 0.5s = 2 seconds total */
+    animation: flash-error 0.5s ease-in-out 4; /* 4 * 0.5s = 2 seconds total */
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .flash-error {
+        animation: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+    }
+}
