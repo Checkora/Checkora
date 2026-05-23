@@ -238,7 +238,6 @@ body::before {
     text-decoration: none;
     display: flex; 
     justify-content: flex-start;
-    
 }
 
 .back-btn:hover {
@@ -246,76 +245,149 @@ body::before {
     text-decoration: underline !important;
     transform: scale(1.05);
 }
+
+/* ==========================================================================
+   Upgraded Modern Hero Section (UI/UX Production-Checked Revision)
+   ========================================================================== */
 .hero {
+    position: relative;
+    min-height: 80vh;
+    background-color: var(--bg-dark);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 5rem 1rem 3rem;
-    max-width: 800px;
+    padding: 6rem 1.5rem 4rem 1.5rem;
+    max-width: 100%;
     margin: 0 auto;
-    position: relative;
+    overflow: hidden;
+}
+
+/* Ambient Visual Background Glow Depth Layout */
+.ambient-glow {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(130px);
+    opacity: 0.07;
+    width: 380px;
+    height: 380px;
     z-index: 1;
 }
 
+.glow-gold {
+    top: 15%;
+    left: 15%;
+    background-color: var(--accent-gold);
+}
+
+.glow-blue {
+    bottom: 15%;
+    right: 15%;
+    background-color: #3b82f6;
+}
+
+.hero-inner-wrapper {
+    position: relative;
+    max-width: 850px;
+    margin: 0 auto;
+
+}
+
 .hero-title {
-    font-size: 2.8rem;
-    font-weight: 700;
-    line-height: 1.25;
-    margin-bottom: 1rem;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     color: var(--text-title);
-    letter-spacing: -0.5px;
+    margin: 0 auto 1.5rem auto;
+}
+
+.gradient-text-gold {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, #ffeaa7 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--accent-gold);
+    display: inline-block;
 }
 
 .hero-subtitle {
-    font-size: 1.05rem;
+    font-size: clamp(1.05rem, 2.5vw, 1.25rem);
     color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 auto 2.8rem auto;
     line-height: 1.6;
-    margin-bottom: 2.5rem;
-    max-width: 650px;
+    font-weight: 400;
+}
+
+.text-highlight {
+    color: #f1f5f9;
+    font-weight: 600;
 }
 
 .hero-actions {
     display: flex;
-    gap: 1.5rem;
+    gap: 1.25rem;
+    justify-content: center;
+    align-items: center;
 }
 
-.btn-primary {
+/* Primary High-Contrast Accent Buttons */
+.btn-primary-gold {
+    display: inline-block;
+    padding: 0.9rem 2.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
     text-decoration: none;
     background: linear-gradient(135deg, var(--accent-gold), #d4a020);
     color: #1a1a2e;
-    padding: 0.8rem 2rem;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 1.05rem;
-    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 10px 20px -5px rgba(240, 192, 64, 0.25);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
+    cursor: pointer;
 }
 
-.btn-primary:hover {
+.btn-primary-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+    box-shadow: 0 12px 24px -5px rgba(240, 192, 64, 0.45);
 }
 
-.btn-secondary {
+/* Ghost Outline Muted Buttons */
+.btn-secondary-ghost {
+    display: inline-block;
+    padding: 0.9rem 2.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
     text-decoration: none;
-    background-color: transparent;
-    color: var(--text-primary);
-    padding: 0.8rem 2rem;
-    border-radius: 6px;
-    font-weight: 500;
-    font-size: 1.05rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: background-color 0.2s, border-color 0.2s;
+    background-color: rgba(15, 23, 42, 0.45);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
 }
 
-.btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.2);
+.btn-secondary-ghost:hover {
+    background-color: rgba(30, 41, 59, 0.65);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    transform: translateY(-1px);
 }
 
+@keyframes micro-engine-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.25); opacity: 0.4; }
+}
+
+/* ==========================================================================
+   Features, About, and Structural Layout Containers
+   ========================================================================== */
 .features {
     padding: 4rem 5%;
     max-width: 1200px;
@@ -527,6 +599,9 @@ body::before {
     transform: scale(1.1);
 }
 
+/* ==========================================================================
+   Media Queries & Mobile Layout Refinement Breakpoints
+   ========================================================================== */
 @media (max-width: 768px) {
     .navbar {
         flex-direction: column;
@@ -543,22 +618,17 @@ body::before {
         display: none;
     }
 
-    .hero-title {
-        font-size: 2.5rem;
-    }
-
-    .hero-subtitle {
-        font-size: 1rem;
-    }
-
     .hero-actions {
         flex-direction: column;
         width: 100%;
+        gap: 1rem;
     }
 
-    .btn-primary,
-    .btn-secondary {
+    .btn-primary-gold,
+    .btn-secondary-ghost {
         width: 100%;
+        text-align: center;
+        box-sizing: border-box;
     }
 
     .footer-container {
@@ -571,7 +641,8 @@ body::before {
         gap: 1.5rem;
         text-align: center;
     }
-        .card {
+
+    .card {
         height: auto;
         min-height: 260px;
         cursor: default;
@@ -597,3 +668,15 @@ body::before {
     }
 }
 
+@media (max-width: 480px) {
+    .hero-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 1rem;
+    }
+    .btn-primary-gold, .btn-secondary-ghost {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+    }
+}

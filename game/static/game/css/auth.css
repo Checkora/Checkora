@@ -47,11 +47,11 @@ body {
     min-height: 100vh;
 
     display: flex;
-    justify-content: centre;
-    gap: 10px;
+    justify-content: center;
     align-items: center;
-
     flex-direction: column;
+
+    gap: 16px;
 
     padding: 24px 20px;
 
@@ -517,6 +517,7 @@ body.login-page .helptext {
 @media (max-width: 768px) {
     body {
         padding: 20px 16px;
+        justify-content: center;
     }
 
     .auth-card {

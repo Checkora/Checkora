@@ -1,0 +1,23 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 | Checkora</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/404.css' %}">
+</head>
+<body>
+    <main class="error-stage">
+        <section class="error-card" role="alert" aria-live="polite">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="crest" alt="Checkora crest">
+            <p class="code">Error 404</p>
+            <h1>This move is illegal!</h1>
+            <p class="message">You have wandered off the board. The rank and file you asked for cannot be found.</p>
+            <a class="home-btn" href="{% url 'landing' %}">Return to Main Menu</a>
+        </section>
+    </main>
+</body>
+</html>
