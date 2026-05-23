@@ -302,7 +302,7 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button class="btn btn-gold" id="flipBtn">Flip Board</button>
+<button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
@@ -312,12 +312,14 @@
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
-                    <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
-                    <button type="button" class="btn btn-pause" id="pauseBtn">Pause</button>
-                    <button type="button" class="btn btn-danger" id="resignBtn">Resign</button>
+                    <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
+                    <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
+                    <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
+<<<<<<< HEAD
+=======
                 <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
                     ⌨️ Shortcuts:
                     <kbd>F</kbd> Flip &nbsp;
@@ -328,6 +330,7 @@
                     <kbd>A</kbd> AI Game &nbsp;
                     <kbd>Esc</kbd> Close Modals
                 </div>
+>>>>>>> 7d2b88cd324c3da0e5b3bb746bda11f7f35b5b81
                 <a href="/" class="btn" 
    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
     EXIT TO HOME
