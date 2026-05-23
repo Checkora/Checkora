@@ -1,9 +1,19 @@
 """Checkora Game Manager.
 
 Manages chess game state and coordinates with the C++ engine for move
-validation. Includes a persistent DP table (valid_moves_cache) that 
+validation. Includes a persistent DP table (valid_moves_cache) that
 updates on-demand to avoid redundant brute-force calculations while
 ensuring 100% accuracy.
+
+Opening Book
+------------
+During the first few moves the AI consults a pre-built opening book
+(``game/engine/opening_book.json``) instead of running the expensive
+minimax search.  Keys are minimal FEN strings (board layout + side to
+move + castling rights, **no** en-passant / half-move / full-move
+counters) and values are lists of ``[from_row, from_col, to_row,
+to_col]`` move coordinates.  When multiple book moves are available one
+is chosen at random to add variety.
 """
 
 import os
@@ -12,11 +22,14 @@ import json
 import sys
 import time
 
-from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ChessGame:
-    """Manage a single chess game: state, validation, and engine communication."""
+    """Manage a single chess game: state, validation,
+      and engine communication."""
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
     ENGINE_DIR = os.path.join(CURRENT_DIR, 'engine')
@@ -33,7 +46,14 @@ class ChessGame:
             os.path.join(ENGINE_DIR, 'main.py'),
         ]
     )
+
     FILES = 'abcdefgh'
+
+    # Path to the JSON opening book
+    OPENING_BOOK_PATH = os.path.join(ENGINE_DIR, 'opening_book.json')
+
+    # Class-level cache so the file is read only once per process
+    _opening_book: dict | None = None
 
     INITIAL_BOARD = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -50,29 +70,61 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self):
+    def __init__(self, time_limit=600):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
         self.captured = {'white': [], 'black': []}
         # DP Table: {(row, col): [list of moves]}
         self.valid_moves_cache = {}
-        self.white_time = 10 * 60  # 10 minutes
-        self.black_time = 10 * 60
+        self.white_time = time_limit
+        self.black_time = time_limit
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
+        self.player_color = 'white'
         self.castling_rights = {
             'w_k': True, 'w_q': True,
             'b_k': True, 'b_q': True
         }
+        # (row, col) of the square a pawn can capture en passant
+        self.en_passant_target = None
+        self.halfmove_clock = 0
+        self.repetition_history = [self.generate_position_key()]
+        self.repetition_counts = {self.repetition_history[0]: 1}
+        self.game_status = 'active'
+        self.draw_reason = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
+    def generate_pgn(self):
+        """Generate a PGN string from move history."""
+        if not self.move_history:
+            return ""
+
+        pgn_moves = []
+        for i in range(0, len(self.move_history), 2):
+            move_number = i // 2 + 1
+            white_move = self.move_history[i]['notation']
+            if i + 1 < len(self.move_history):
+                black_move = self.move_history[i + 1]['notation']
+                pgn_moves.append(f"{move_number}. {white_move} {black_move}")
+            else:
+                pgn_moves.append(f"{move_number}. {white_move}")
+        headers = [
+            '[Event "Checkora Match"]',
+            '[White "White"]',
+            '[Black "Black"]',
+            '[Result "*"]',
+        ]
+        moves = " ".join(pgn_moves)
+        return "\n".join(headers) + "\n\n" + moves
+
     def to_dict(self):
-        """Serialise state for Django session storage. DP cache is intentionally excluded to save cookie space."""
+        """Serialise state for Django session storage.
+DP cache is intentionally excluded to save cookie space."""
         return {
             'board': self.board,
             'current_turn': self.current_turn,
@@ -83,7 +135,13 @@ class ChessGame:
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
-            'castling_rights': self.castling_rights
+            'castling_rights': self.castling_rights,
+            'en_passant_target': self.en_passant_target,
+            'player_color': self.player_color,
+            'halfmove_clock': self.halfmove_clock,
+            'repetition_history': self.repetition_history,
+            'game_status': self.game_status,
+            'draw_reason': self.draw_reason,
         }
 
     @classmethod
@@ -99,10 +157,121 @@ class ChessGame:
         game.black_time = data['black_time']
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
-        game.castling_rights = data.get('castling_rights', {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
+        game.player_color = data.get('player_color', 'white')
+        game.castling_rights = data.get(
+            'castling_rights',
+            {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
+        game.en_passant_target = data.get('en_passant_target', None)
+        game.halfmove_clock = data.get('halfmove_clock', 0)
+        game.game_status = data.get('game_status', 'active')
+        game.draw_reason = data.get('draw_reason', None)
+
+        repetition_history = data.get('repetition_history')
+        if isinstance(repetition_history, list) and repetition_history:
+            game.repetition_history = repetition_history
+        else:
+            game.repetition_history = [game.generate_position_key()]
+
+        game._rebuild_repetition_counts()
 
         game.valid_moves_cache = {}
         return game
+
+    @classmethod
+    def from_fen(cls, fen: str, time_limit=600):
+        """Create a new game state from a FEN string (board, side, castling)."""
+        if not isinstance(fen, str):
+            raise ValueError("FEN must be a string.")
+
+        fen = fen.strip()
+        if not fen:
+            raise ValueError("FEN is empty.")
+
+        parts = fen.split()
+        if len(parts) < 3:
+            raise ValueError("FEN must have at least 3 fields.")
+
+        placement, active_color, castling = parts[0], parts[1], parts[2]
+        board = cls._parse_fen_placement(placement)
+
+        if active_color not in ('w', 'b'):
+            raise ValueError("Active color must be 'w' or 'b'.")
+
+        castling_rights = cls._parse_fen_castling(castling)
+
+        white_king = sum(1 for row in board for p in row if p == 'K')
+        black_king = sum(1 for row in board for p in row if p == 'k')
+        if white_king != 1 or black_king != 1:
+            raise ValueError(
+                "FEN must include exactly one white and one black king.")
+
+        game = cls(time_limit=time_limit)
+        game.board = board
+        game.current_turn = 'white' if active_color == 'w' else 'black'
+        game.castling_rights = castling_rights
+        game.en_passant_target = None
+        game.halfmove_clock = 0
+        game.move_history = []
+        game.captured = {'white': [], 'black': []}
+        game.valid_moves_cache = {}
+        game.repetition_history = [game.generate_position_key()]
+        game._rebuild_repetition_counts()
+        game.game_status = 'active'
+        game.draw_reason = None
+        game.last_ts = time.time()
+        return game
+
+    @staticmethod
+    def _parse_fen_placement(placement: str):
+        rows = placement.split('/')
+        if len(rows) != 8:
+            raise ValueError("FEN must have 8 ranks.")
+
+        valid_pieces = set('prnbqkPRNBQK')
+        board = []
+
+        for row in rows:
+            row_cells = []
+            for ch in row:
+                if ch.isdigit():
+                    count = int(ch)
+                    if count < 1 or count > 8:
+                        raise ValueError(
+                            "Invalid empty-square count in FEN.")
+                    row_cells.extend([None] * count)
+                else:
+                    if ch not in valid_pieces:
+                        raise ValueError(
+                            "Invalid piece character in FEN.")
+                    row_cells.append(ch)
+
+            if len(row_cells) != 8:
+                raise ValueError("Each FEN rank must have 8 files.")
+            board.append(row_cells)
+
+        return board
+
+    @staticmethod
+    def _parse_fen_castling(castling: str):
+        rights = {'w_k': False, 'w_q': False, 'b_k': False, 'b_q': False}
+
+        if castling == '-':
+            return rights
+
+        valid_chars = set('KQkq')
+        for ch in castling:
+            if ch not in valid_chars:
+                raise ValueError("Invalid castling rights in FEN.")
+            if ch == 'K':
+                rights['w_k'] = True
+            elif ch == 'Q':
+                rights['w_q'] = True
+            elif ch == 'k':
+                rights['b_k'] = True
+            elif ch == 'q':
+                rights['b_q'] = True
+
+        return rights
 
     # ------------------------------------------------------------------
     #  C++ engine communication
@@ -118,7 +287,8 @@ class ChessGame:
 
     @staticmethod
     def _build_engine_command(engine_path):
-        """Build the subprocess command for either a binary or Python script."""
+        """Build the subprocess command for either a binary
+        or Python script."""
         if engine_path.endswith('.py'):
             return [sys.executable, engine_path]
         return [engine_path]
@@ -128,50 +298,153 @@ class ChessGame:
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-        try:
-            proc = subprocess.Popen(
-                self._build_engine_command(engine_path),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, _ = proc.communicate(input=command, timeout=5)
-            return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
-            return None
+        # Best-move searches can legitimately take longer; use a larger
+        # base timeout and exponential backoff with multiple attempts.
+        if command.startswith('BESTMOVE'):
+            base_timeout = 30
+            attempts = 3
+        else:
+            base_timeout = 5
+            attempts = 1
+
+        for attempt in range(1, attempts + 1):
+            # exponential backoff: timeout doubles each retry
+            timeout = base_timeout * (2 ** (attempt - 1))
+            proc = None
+            try:
+                logger.debug('Calling engine (attempt %s/%s, timeout=%ss): %s', attempt, attempts, timeout, command)
+                proc = subprocess.Popen(
+                    self._build_engine_command(engine_path),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                stdout, stderr = proc.communicate(input=command, timeout=timeout)
+                if stderr:
+                    logger.debug('Engine stderr: %s', stderr.strip())
+                resp = stdout.strip()
+                logger.debug('Engine response: %s', resp)
+                return resp
+
+            except subprocess.TimeoutExpired:
+                logger.exception('Engine call timed out (attempt %s/%s) for command: %s', attempt, attempts, command)
+                # Try to terminate the process and capture any partial output
+                try:
+                    if proc:
+                        proc.kill()
+                except Exception:
+                    logger.exception('Failed to kill timed-out engine process')
+                try:
+                    if proc:
+                        out, err = proc.communicate(timeout=1)
+                        logger.debug('Partial stdout after timeout: %s', (out or '').strip())
+                        logger.debug('Partial stderr after timeout: %s', (err or '').strip())
+                except Exception:
+                    pass
+
+                if attempt == attempts:
+                    return None
+                logger.debug('Retrying engine command: %s', command)
+
+            except OSError:
+                logger.exception('Engine call failed (OSError) for command: %s', command)
+                return None
+
+        return None
 
     def _count_active_pieces(self):
-        """Helper to count the total pieces currently alive on the board."""
-        return sum(1 for row in self.board for piece in row if piece is not None)
+        """Helper to count the total pieces currently alive
+          on the board."""
+        return sum(1 for row in self.board
+                   for piece in row if piece is not None)
 
     def _get_ai_search_depth(self):
-        """Return appropriate search depth based on which engine is available and game phase."""
+        """Return appropriate search depth based on which
+        engine is available and game phase."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return self.AI_SEARCH_DEPTH_PYTHON
         # C++ binary is much faster than Python, use deeper search
         if engine_path.endswith('.py'):
             return self.AI_SEARCH_DEPTH_PYTHON
-            
+
         piece_count = self._count_active_pieces()
-        
+
         # Adaptive Search Depth for C++ engine in endgame
         if piece_count <= 6:
             return self.AI_SEARCH_DEPTH_CPP + 2
         elif piece_count <= 12:
             return self.AI_SEARCH_DEPTH_CPP + 1
-            
+
         return self.AI_SEARCH_DEPTH_CPP
 
     def serialize_castling_rights(self):
         """Serialize castling rights to a string for the C++ engine."""
         rights = ''
-        if self.castling_rights['w_k']: rights += 'K'
-        if self.castling_rights['w_q']: rights += 'Q'
-        if self.castling_rights['b_k']: rights += 'k'
-        if self.castling_rights['b_q']: rights += 'q'
+        if self.castling_rights['w_k']:
+            rights += 'K'
+        if self.castling_rights['w_q']:
+            rights += 'Q'
+        if self.castling_rights['b_k']:
+            rights += 'k'
+        if self.castling_rights['b_q']:
+            rights += 'q'
         return rights if rights else '-'
+
+    def _serialize_ep(self):
+        """Serialize en passant target for the C++ engine."""
+        if not self.en_passant_target:
+            return "-1 -1"
+        return f"{self.en_passant_target[0]} {self.en_passant_target[1]}"
+
+    def _en_passant_key(self):
+        """Return a compact en-passant key for repetition tracking."""
+        if not self._has_legal_en_passant_capture():
+            return '-'
+        return f"{self.en_passant_target[0]},{self.en_passant_target[1]}"
+
+    def _has_legal_en_passant_capture(self):
+        """Return True when the side to move can
+        legally capture en passant."""
+        if not self.en_passant_target:
+            return False
+
+        target_row, target_col = self.en_passant_target
+        is_w = self.current_turn == 'white'
+        pawn_row = target_row + 1 if is_w else target_row - 1
+        pawn_piece = 'P' if self.current_turn == 'white' else 'p'
+
+        if not (0 <= pawn_row < 8):
+            return False
+
+        for delta_col in (-1, 1):
+            pawn_col = target_col + delta_col
+            if (0 <= pawn_col < 8
+                    and self.board[pawn_row][pawn_col] == pawn_piece):
+                return True
+
+        return False
+
+    def generate_position_key(self):
+        """Build the full repetition key for the current board state."""
+        return f"{self.generate_fen_key()} {self._en_passant_key()}"
+
+    def _update_repetition(self):
+        """Increment and return the repetition count
+        for the current position."""
+        key = self.generate_position_key()
+        self.repetition_history.append(key)
+        self._rebuild_repetition_counts()
+        return self.repetition_counts[key]
+
+    def _rebuild_repetition_counts(self):
+        """Rebuild the repetition counter
+          from the stored history list."""
+        counts = {}
+        for key in self.repetition_history:
+            counts[key] = counts.get(key, 0) + 1
+        self.repetition_counts = counts
 
     # ------------------------------------------------------------------
     #  Public API
@@ -186,7 +459,11 @@ class ChessGame:
         return False, "Illegal move."
 
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
-        """Execute move and invalidate cache to ensure fresh calculations."""
+        """Execute move and invalidate cache
+          to ensure fresh calculations."""
+        if self.game_status != 'active':
+            return False, "Game is already over.", None, self.game_status
+
         piece = self.board[fr][fc]
         if not piece or self._color(piece) != self.current_turn:
             return False, "Not your piece or empty square", None, 'active'
@@ -203,6 +480,20 @@ class ChessGame:
             return False, "Black ran out of time", None, 'timeout'
 
         captured = self.board[tr][tc]
+        is_pawn_move = piece.lower() == 'p'
+        board_before = self.serialize_board()
+        rights_before = self.serialize_castling_rights()
+        ep_before = self._serialize_ep()
+
+        # Detect En Passant capture before moving piece
+        if piece.lower() == 'p' and fc != tc and not captured:
+            if (self.en_passant_target
+                    and tr == self.en_passant_target[0]
+                    and tc == self.en_passant_target[1]):
+                # The captured piece is of opposite color
+                captured = 'p' if piece.isupper() else 'P'
+                # In EP, the captured pawn is at (fr, tc)
+                self.board[fr][tc] = None
 
         if piece == 'K':
             self.castling_rights['w_k'] = False
@@ -211,18 +502,26 @@ class ChessGame:
             self.castling_rights['b_k'] = False
             self.castling_rights['b_q'] = False
         elif piece == 'R':
-            if fr == 7 and fc == 0: self.castling_rights['w_q'] = False
-            elif fr == 7 and fc == 7: self.castling_rights['w_k'] = False
+            if fr == 7 and fc == 0:
+                self.castling_rights['w_q'] = False
+            elif fr == 7 and fc == 7:
+                self.castling_rights['w_k'] = False
         elif piece == 'r':
-            if fr == 0 and fc == 0: self.castling_rights['b_q'] = False
-            elif fr == 0 and fc == 7: self.castling_rights['b_k'] = False
+            if fr == 0 and fc == 0:
+                self.castling_rights['b_q'] = False
+            elif fr == 0 and fc == 7:
+                self.castling_rights['b_k'] = False
 
         if captured == 'R':
-            if tr == 7 and tc == 0: self.castling_rights['w_q'] = False
-            elif tr == 7 and tc == 7: self.castling_rights['w_k'] = False
+            if tr == 7 and tc == 0:
+                self.castling_rights['w_q'] = False
+            elif tr == 7 and tc == 7:
+                self.castling_rights['w_k'] = False
         elif captured == 'r':
-            if tr == 0 and tc == 0: self.castling_rights['b_q'] = False
-            elif tr == 0 and tc == 7: self.castling_rights['b_k'] = False
+            if tr == 0 and tc == 0:
+                self.castling_rights['b_q'] = False
+            elif tr == 0 and tc == 7:
+                self.castling_rights['b_k'] = False
 
         # Pawn promotion: delegate to C++ engine for validation + board update
         promoted = False
@@ -249,58 +548,122 @@ class ChessGame:
                     self.board[tr][3] = self.board[tr][0]
                     self.board[tr][0] = None
 
+        # Update En Passant target for the NEXT turn
+        if piece.lower() == 'p' and abs(tr - fr) == 2:
+            self.en_passant_target = ((fr + tr) // 2, fc)
+        else:
+            self.en_passant_target = None
+
         if captured:
             self.captured[self.current_turn].append(captured)
 
-        notation = self._notation(fr, fc, tr, tc, piece, captured)
-        if promoted:
+        if is_pawn_move or captured:
+            self.halfmove_clock = 0
+        else:
+            self.halfmove_clock += 1
+
+        notation = self._notation(
+            fr, fc, tr, tc, piece, captured,
+            board_before, rights_before, ep_before)
+        if promoted and '=' not in notation:
             notation += '=' + (self.board[tr][tc] or 'Q').upper()
+
+        # Invalidate DP cache because board state has changed
+        self.valid_moves_cache = {}
+
+        # Save who made this move before switching
+        moved_by = self.current_turn
+
+        # Switch turn
+        is_white = self.current_turn == 'white'
+        self.current_turn = 'black' if is_white else 'white'
+
+        self.last_ts = time.time()
+
+        current_rights = self.serialize_castling_rights()
+        is_irreversible = is_pawn_move or bool(
+            captured) or current_rights != rights_before
+        if is_irreversible:
+            self.repetition_history = [self.generate_position_key()]
+            self._rebuild_repetition_counts()
+        else:
+            repetition_count = self._update_repetition()
+
+        # Check for checkmate / stalemate / check
+        game_status = self.check_game_status()
+        if game_status == 'checkmate':
+            notation += '#'
+
+        elif game_status == 'check':
+            notation += '+'
         self.move_history.append({
             'notation': notation,
             'piece': piece,
             'from': [fr, fc],
             'to': [tr, tc],
             'captured': captured,
-            'color': self.current_turn,
+            'color': moved_by,
             'promoted_to': self.board[tr][tc] if promoted else None,
         })
 
-        # Invalidate DP cache because board state has changed
-        self.valid_moves_cache = {}
+        if game_status == 'checkmate':
+            self.game_status = game_status
+            return True, notation, captured, game_status
 
-        # Switch turn
-        self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+        if game_status == 'stalemate':
+            self.game_status = game_status
+            self.draw_reason = 'stalemate'
+            return True, notation, captured, game_status
 
-        self.last_ts = time.time()
+        if game_status == 'draw':
+            self.game_status = game_status
+            self.draw_reason = 'insufficient_material'
+            return True, notation, captured, game_status
 
-        # Check for checkmate / stalemate / check
-        game_status = self.check_game_status()
-        
+        repetition_count = self.repetition_counts.get(
+            self.generate_position_key(), 1)
+        if repetition_count >= 3:
+            self.game_status = 'draw'
+            self.draw_reason = 'threefold_repetition'
+            return True, notation, captured, 'draw'
+
+        if self.halfmove_clock >= 100:
+            self.game_status = 'draw'
+            self.draw_reason = 'fifty_move_rule'
+            return True, notation, captured, 'draw'
+
+        self.game_status = 'active'
+        self.draw_reason = None
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
-        """Return legal moves from DP cache (fetches from engine if missing)."""
+        """Return legal moves from DP cache."""
         piece = self.board[row][col]
         if not piece or self._color(piece) != self.current_turn:
             return []
 
         # On-Demand Caching: If not in DP, compute once and store
         if (row, col) not in self.valid_moves_cache:
-            self.valid_moves_cache[(row, col)] = self._get_engine_moves(row, col)
-            
+            self.valid_moves_cache[(
+                row, col)] = self._get_engine_moves(row, col)
+
         return self.valid_moves_cache.get((row, col), [])
 
     def _get_engine_moves(self, row, col):
         """Internal helper to fetch piece moves from the C++ binary."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {row} {col}"
+        cmd = (
+            f"MOVES {board_str} {rights_str}"
+            f" {self.current_turn} {row} {col}"
+        )
         resp = self._call_engine(cmd)
-        
+
         moves = []
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
-            # C++ now returns 4 fields per move: row col is_capture is_promotion
+            # C++ returns 4 fields per move:
+            # row col is_capture is_promotion
             for i in range(0, len(parts), 4):
                 moves.append({
                     'row': int(parts[i]),
@@ -321,7 +684,10 @@ class ChessGame:
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        cmd = f"PROMOTE {board_str} {rights_str} {self.current_turn} {fr} {fc} {tr} {tc} {choice}"
+        cmd = (
+            f"PROMOTE {board_str} {rights_str}"
+            f" {self.current_turn} {fr} {fc} {tr} {tc} {choice}"
+        )
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
             return resp.split()[1]
@@ -367,15 +733,70 @@ class ChessGame:
             return False
         return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
 
-    def _notation(self, fr, fc, tr, tc, piece, captured):
-        to_sq = f"{self.FILES[fc]}{8 - fr} -> {self.FILES[tc]}{8 - tr}"
-        return to_sq
+    def _notation(self, fr, fc, tr, tc, piece, captured,
+                  board_str=None, rights_str=None,
+                  ep_str=None):
+        """
+        Generate SAN notation via C++ engine if possible,
+          else simplified fallback."""
+        if board_str and rights_str:
+            ep_str = ep_str or self._serialize_ep()
+            cmd = (
+                f"NOTATION {board_str} {rights_str}"
+                f" {self.current_turn} {ep_str}"
+                f" {fr} {fc} {tr} {tc}"
+            )
+            resp = self._call_engine(cmd)
+            if resp and resp.startswith("NOTATION"):
+                parts = resp.split()
+                if len(parts) >= 2:
+                    return parts[1]
+        # Castling
+        if piece.lower() == 'k':
+            if fc == 4 and tc == 6:
+                notation = "O-O"
+            elif fc == 4 and tc == 2:
+                notation = "O-O-O"
+            else:
+                files = "abcdefgh"
+                t_coord = f"{files[tc]}{8 - tr}"
+                if captured:
+                    notation = f"Kx{t_coord}"
+                else:
+                    notation = f"K{t_coord}"
+        else:
+            # Fallback: simplified notation
+            files = "abcdefgh"
+            f_coord = f"{files[fc]}{8 - fr}"
+            t_coord = f"{files[tc]}{8 - tr}"
+
+            if not piece:
+                notation = f"{f_coord} -> {t_coord}"
+
+            else:
+                type = piece.lower()
+
+                if type == 'p':
+                    if fc != tc:
+                        notation = f"{files[fc]}x{t_coord}"
+                    else:
+                        notation = t_coord
+
+                else:
+                    p_char = type.upper()
+
+                    if captured:
+                        notation = f"{p_char}x{t_coord}"
+                    else:
+                        notation = f"{p_char}{t_coord}"
+        return notation
 
     @staticmethod
     def _color(piece):
-        if not piece: return None
+        if not piece:
+            return None
         return 'white' if piece.isupper() else 'black'
-    
+
     def update_clock(self):
         if self.paused:
             self.last_ts = time.time()
@@ -403,13 +824,113 @@ class ChessGame:
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+        ep_str = self._serialize_ep()
         cmd = f"STATUS {board_str} {rights_str} {self.current_turn}"
+
+        legal_moves = sum(
+            len(self.get_valid_moves(r, c))
+            for r in range(8) for c in range(8)
+        )
+
+        logger.debug(
+            'check_game_status: current_turn=%s, fen=%s, rights=%s, ep=%s, legal_moves=%s',
+            self.current_turn, self.generate_fen_key(), rights_str, ep_str, legal_moves,
+        )
+
         resp = self._call_engine(cmd)
+        logger.debug('STATUS raw response: %s', resp)
         if resp and resp.startswith("STATUS"):
-            status = resp.split()[1].lower()
-            if status in ('checkmate', 'stalemate', 'check', 'ok'):
+            parts = resp.split()
+            status = parts[1].lower() if len(parts) > 1 else 'ok'
+            logger.debug('Parsed engine status: %s', status)
+            if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 return status
         return 'ok'
+
+    # ------------------------------------------------------------------
+    #  AI -- Opening Book
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _load_opening_book(cls) -> dict:
+        """Load the opening book JSON from disk (cached after first load)."""
+        if cls._opening_book is None:
+            try:
+                with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
+                    cls._opening_book = json.load(fh)
+            except (OSError, json.JSONDecodeError):
+                cls._opening_book = {}  # Graceful fallback: no book
+        return cls._opening_book
+
+    def generate_fen_key(self) -> str:
+        """Build a minimal FEN key (board + side + castling, no counters).
+
+        This matches the key format used in ``opening_book.json``.
+        """
+        # Piece-placement section
+        fen_rows = []
+        for row in self.board:
+            empty = 0
+            row_str = ''
+            for piece in row:
+                if piece is None:
+                    empty += 1
+                else:
+                    if empty:
+                        row_str += str(empty)
+                        empty = 0
+                    row_str += piece
+            if empty:
+                row_str += str(empty)
+            fen_rows.append(row_str)
+        placement = '/'.join(fen_rows)
+
+        # Side to move
+        side = 'w' if self.current_turn == 'white' else 'b'
+
+        # Castling rights
+        # Already returns '-' if none
+        castling = self.serialize_castling_rights()
+
+        return f"{placement} {side} {castling}"
+
+    def get_opening_book_move(self) -> dict | None:
+        """Return a random book move for the current position, or ``None``.
+
+        The move is validated against the engine before being returned so
+        the AI never plays an illegal book move.
+        """
+        book = self._load_opening_book()
+        fen_key = self.generate_fen_key()
+        candidates = book.get(fen_key)
+        if not candidates:
+            return None
+
+        # Keep the book order stable so the same position always resolves
+        # to the same move across runs.
+        candidates = list(candidates)  # copy – do not mutate the book
+
+        for move in candidates:
+            # Sanity-check: must be a 4-item sequence of ints, all in 0..7.
+            # This prevents IndexError inside validate_move if the JSON ever
+            # contains malformed entries like [9, 9, 9, 9].
+            if (
+                not isinstance(move, (list, tuple))
+                or len(move) != 4
+                or not all(isinstance(c, int) and 0 <= c <= 7 for c in move)
+            ):
+                continue
+            fr, fc, tr, tc = move
+            is_valid, _ = self.validate_move(fr, fc, tr, tc)
+            if is_valid:
+                return {
+                    'from_row': fr,
+                    'from_col': fc,
+                    'to_row': tr,
+                    'to_col': tc,
+                }
+
+        return None  # No valid book move found
 
     # ------------------------------------------------------------------
     #  AI -- Minimax via C++ engine
@@ -418,29 +939,52 @@ class ChessGame:
     AI_SEARCH_DEPTH_CPP = 4  # C++ is much faster, can search deeper
     AI_SEARCH_DEPTH_PYTHON = 3  # Python engine needs conservative depth
 
-    def get_ai_move(self):
-        """Ask the C++ engine to compute the best move using minimax.
+    def get_ai_move(self, depth=None):
+        """Return the best move for the current position.
+
+        Checks the opening book first for an instant theory response.
+        Falls back to the C++ minimax engine when the position is not
+        in the book or the book move fails validation.
 
         Returns a dict with from/to coordinates, or None when no
         legal move exists (checkmate / stalemate).
         """
+        # 1. Opening-book lookup (fast path)
+        book_move = self.get_opening_book_move()
+        if book_move:
+            return book_move
+
+        # 2. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        depth = self._get_ai_search_depth()
-        cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {depth}"
+
+        if depth is None:
+            depth = self._get_ai_search_depth()
+
+        cmd = (
+            f"BESTMOVE {board_str} {rights_str}"
+            f" {self.current_turn} {depth}"
+        )
         resp = self._call_engine(cmd)
 
         if not resp or not resp.startswith("BESTMOVE"):
+            logger.debug('BESTMOVE engine returned no result: %s', resp)
             return None
 
         parts = resp.split()
+
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
-        return {
-            'from_row': int(parts[1]),
-            'from_col': int(parts[2]),
-            'to_row':   int(parts[3]),
-            'to_col':   int(parts[4]),
-        }
-
+        try:
+            best = {
+                'from_row': int(parts[1]),
+                'from_col': int(parts[2]),
+                'to_row': int(parts[3]),
+                'to_col': int(parts[4]),
+            }
+            logger.debug('get_ai_move selected: %s (engine resp: %s)', best, resp)
+            return best
+        except (ValueError, IndexError):
+            logger.exception('Failed to parse BESTMOVE response: %s', resp)
+            return None

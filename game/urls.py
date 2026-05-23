@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),
     path('api/move/', views.make_move, name='make_move'),
+    path('api/hint/', views.hint_move, name='hint_move'),
     path('api/valid-moves/', views.valid_moves, name='valid_moves'),
     path('api/new-game/', views.new_game, name='new_game'),
     path(
@@ -11,6 +12,7 @@ urlpatterns = [
     ),
     path('api/state/', views.get_state, name='get_state'),
     path('api/pause/', views.set_pause),
+    # path('api/pause-beacon/', views.pause_beacon),
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
@@ -20,4 +22,5 @@ urlpatterns = [
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('rules/', views.rules, name='rules'),
 ]
