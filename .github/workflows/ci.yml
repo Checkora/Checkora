@@ -139,6 +139,11 @@ jobs:
           restore-keys: |
             pip-test-${{ runner.os }}-
 
+      - name: 🐘 Install PostgreSQL build headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
       - name: 📥 Install project dependencies
         run: |
           pip install --upgrade pip
@@ -216,6 +221,11 @@ jobs:
           restore-keys: |
             pip-migrate-${{ runner.os }}-
 
+      - name: 🐘 Install PostgreSQL build headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
       - name: 📥 Install dependencies
         run: |
           pip install --upgrade pip
@@ -252,6 +262,11 @@ jobs:
           key: pip-audit-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             pip-audit-${{ runner.os }}-
+
+      - name: 🐘 Install PostgreSQL build headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
 
       - name: 📥 Install pip-audit
         run: pip install pip-audit
@@ -345,6 +360,11 @@ jobs:
           key: pip-selenium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             pip-selenium-${{ runner.os }}-
+
+      - name: 🐘 Install PostgreSQL build headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
 
       - name: 📥 Install dependencies
         run: |
