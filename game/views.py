@@ -605,6 +605,7 @@ def verify_otp(request):
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
+                user.full_clean()
                 user.save()
 
                 del request.session['registration_user_id']
@@ -641,7 +642,10 @@ def verify_otp(request):
 
         if email and '@' in email:
             name, domain = email.split('@', 1)
-            masked_name = name[:2] + '*' * max(len(name) - 2, 0)
+            if len(name) <= 2:
+                masked_name = name[:1]
+            else:
+                masked_name = name[:2] + '*' * (len(name) - 2)
             user_email = f"{masked_name}@{domain}"
         else:
             user_email = None

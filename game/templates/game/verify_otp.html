@@ -70,13 +70,13 @@
         <div class="auth-footer">
             Didn't receive the code? 
             <a href="{% url 'resend_otp' %}" id = "resend-link">Try again</a>
-            <span id="timer"></span>
+            <span id="timer" data-remaining-time="{{ remaining_time|default:0 }}"></span>
         </div>
     </div>
 <script>
-    let remainingTime = Number("{{ remaining_time|default:'0' }}");
     const resendLink = document.getElementById("resend-link");
     const timer = document.getElementById("timer");
+    let remainingTime = parseInt(timer.dataset.remainingTime || "0", 10);
 
     function updateTimer() {
         if (remainingTime > 0) {
