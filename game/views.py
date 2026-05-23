@@ -82,6 +82,12 @@ def make_move(request):
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+    elif game_status == 'timeout' and game_data.get('game_status') != 'timeout':
+        winner = 'black' if game.white_time == 0 else 'white'
+        game.game_status = 'timeout'
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+        record_game_result(request, game.mode, winner, 'timeout', game.player_color)
 
     return JsonResponse({
         'valid': success,
@@ -387,6 +393,12 @@ def ai_move(request):
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+    elif game_status == 'timeout' and game_data.get('game_status') != 'timeout':
+        winner = 'black' if game.white_time == 0 else 'white'
+        game.game_status = 'timeout'
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+        record_game_result(request, game.mode, winner, 'timeout', game.player_color)
 
     return JsonResponse({
         'valid': success,

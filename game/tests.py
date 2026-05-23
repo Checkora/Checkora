@@ -2,6 +2,7 @@
 
 import json
 import sys
+import time
 from smtplib import SMTPException
 from unittest import mock
 
@@ -1338,3 +1339,101 @@ class InsufficientMaterialDrawTest(TestCase):
         with mock.patch.object(game, '_call_engine', return_value="STATUS DRAW"):
             status = game.check_game_status()
             self.assertEqual(status, 'draw')
+
+
+class TimeoutResultRecordingTest(TestCase):
+    """A GameResult row must be persisted to the database when a player's clock expires."""
+
+    def _make_timed_out_session(self, timed_out_side='white', mode='pvp'):
+        """Return a serialised game dict whose active side is about to time out."""
+        game = ChessGame()
+        game.mode = mode
+        game.player_color = 'white'
+        game.paused = False
+        if timed_out_side == 'white':
+            game.white_time = 1
+            game.current_turn = 'white'
+        else:
+            game.black_time = 1
+            game.current_turn = 'black'
+        game.last_ts = time.time() - 10
+        return game.to_dict()
+
+    def _post_move(self, from_row, from_col, to_row, to_col):
+        return self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': from_row,
+                'from_col': from_col,
+                'to_row': to_row,
+                'to_col': to_col,
+            }),
+            content_type='application/json',
+        )
+
+    def test_white_timeout_creates_result_with_black_as_winner(self):
+        """When white's clock expires, a GameResult with winner='black' must be saved."""
+        from .models import GameResult
+        session = self.client.session
+        session['game'] = self._make_timed_out_session('white')
+        session.save()
+
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'Valid move.')):
+            response = self._post_move(6, 4, 4, 4)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['game_status'], 'timeout')
+
+        result = GameResult.objects.filter(end_reason='timeout').first()
+        self.assertIsNotNone(result, 'A GameResult row must be created when white times out.')
+        self.assertEqual(result.winner, 'black')
+        self.assertEqual(result.end_reason, 'timeout')
+
+    def test_black_timeout_creates_result_with_white_as_winner(self):
+        """When black's clock expires, a GameResult with winner='white' must be saved."""
+        from .models import GameResult
+        session = self.client.session
+        session['game'] = self._make_timed_out_session('black')
+        session.save()
+
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'Valid move.')):
+            response = self._post_move(1, 4, 3, 4)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['game_status'], 'timeout')
+
+        result = GameResult.objects.filter(end_reason='timeout').first()
+        self.assertIsNotNone(result, 'A GameResult row must be created when black times out.')
+        self.assertEqual(result.winner, 'white')
+        self.assertEqual(result.end_reason, 'timeout')
+
+    def test_timeout_updates_game_status_in_session(self):
+        """After a timeout, the session game_status must reflect 'timeout'."""
+        session = self.client.session
+        session['game'] = self._make_timed_out_session('white')
+        session.save()
+
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'Valid move.')):
+            self._post_move(6, 4, 4, 4)
+
+        updated_session = self.client.session
+        self.assertEqual(updated_session['game']['game_status'], 'timeout')
+
+    def test_no_duplicate_result_rows_on_repeated_timeout_call(self):
+        """A second move after timeout must not create a second GameResult row."""
+        from .models import GameResult
+        session = self.client.session
+        session['game'] = self._make_timed_out_session('white')
+        session.save()
+
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'Valid move.')):
+            self._post_move(6, 4, 4, 4)
+            self._post_move(6, 4, 4, 4)
+
+        self.assertEqual(
+            GameResult.objects.filter(end_reason='timeout').count(),
+            1,
+            'Exactly one GameResult row must exist even if the endpoint is hit twice.',
+        )
