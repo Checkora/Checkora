@@ -24,6 +24,7 @@
             let hints = [];
             let lastMove = null;
             let premove = null;
+            let highlightedSquares = [];
 
             let dragging = false;
             let dragSrc = null;
@@ -530,6 +531,10 @@
                         d.dataset.r = r;
                         d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
+                        d.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            toggleSquareHighlight(r, c);
+                        };
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
 
@@ -623,7 +628,7 @@
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
-                    el.classList.remove('selected', 'last-move', 'in-check');
+                    el.classList.remove('selected', 'last-move', 'in-check', 'custom-highlight');
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
@@ -631,7 +636,9 @@
                     sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
                     sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
                 }
-
+                highlightedSquares.forEach(h => {
+                    sq(h.r, h.c).classList.add('custom-highlight');
+                });
                 if (selected) {
                     sq(selected.r, selected.c).classList.add('selected');
                     hints.forEach(h => {
@@ -742,7 +749,26 @@
 
                 refreshHighlights();
             }
+            function toggleSquareHighlight(r, c) {
+                const cell = sq(r, c);
 
+                const alreadyHighlighted =
+                    highlightedSquares.length &&
+                    highlightedSquares[0].r === r &&
+                    highlightedSquares[0].c === c;
+
+                // remove old highlights
+                highlightedSquares.forEach(h => {
+                    sq(h.r, h.c).classList.remove('custom-highlight');
+                });
+
+                if (alreadyHighlighted) {
+                    highlightedSquares = [];
+                } else {
+                    highlightedSquares = [{ r, c }];
+                    cell.classList.add('custom-highlight');
+                }
+            }
             function deselect() {
                 selected = null;
                 hints = [];
