@@ -839,3 +839,7 @@ def cleanup_cron(request):
 def privacy_view(request):
     """Directly serve the static privacy template page."""
     return render(request, 'game/privacy.html')
+
+def terms_view(request):
+    """Directly serve the static terms and conditions template page."""
+    return render(request, 'game/terms.html')
