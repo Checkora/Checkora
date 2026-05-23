@@ -8,9 +8,11 @@
     'use strict';
 
     function ensureContainer() {
+
         let container = document.getElementById('toast-container');
 
         if (!container) {
+
             container = document.createElement('div');
             container.id = 'toast-container';
 
@@ -21,6 +23,11 @@
             container.style.display = 'flex';
             container.style.flexDirection = 'column';
             container.style.gap = '12px';
+
+            /* Accessibility improvements */
+            container.setAttribute('role', 'region');
+            container.setAttribute('aria-live', 'polite');
+            container.setAttribute('aria-label', 'Notifications');
 
             document.body.appendChild(container);
         }
@@ -70,38 +77,53 @@
 
         toast.style.background = colors[type] || colors.info;
 
-        toast.innerHTML = `
-            <span style="font-size:20px;">
-                ${icons[type] || icons.info}
-            </span>
+        /*
+         * SAFE DOM CREATION
+         * Avoid innerHTML to prevent XSS vulnerabilities.
+         */
 
-            <span style="flex:1;">
-                ${message}
-            </span>
+        const iconSpan = document.createElement('span');
 
-            <button class="toast-close"
-                style="
-                    background:none;
-                    border:none;
-                    color:white;
-                    font-size:18px;
-                    cursor:pointer;
-                ">
-                ×
-            </button>
+        iconSpan.style.fontSize = '20px';
+        iconSpan.textContent = icons[type] || icons.info;
 
-            <div class="toast-progress"
-                style="
-                    position:absolute;
-                    left:0;
-                    bottom:0;
-                    height:4px;
-                    width:100%;
-                    background:rgba(255,255,255,0.4);
-                    animation:progress ${duration}ms linear forwards;
-                ">
-            </div>
-        `;
+        const messageSpan = document.createElement('span');
+
+        messageSpan.style.flex = '1';
+        messageSpan.textContent = String(message);
+
+        const closeBtn = document.createElement('button');
+
+        closeBtn.className = 'toast-close';
+        closeBtn.setAttribute('aria-label', 'Close notification');
+
+        closeBtn.style.background = 'none';
+        closeBtn.style.border = 'none';
+        closeBtn.style.color = 'white';
+        closeBtn.style.fontSize = '18px';
+        closeBtn.style.cursor = 'pointer';
+
+        closeBtn.textContent = '×';
+
+        const progressBar = document.createElement('div');
+
+        progressBar.className = 'toast-progress';
+
+        progressBar.style.position = 'absolute';
+        progressBar.style.left = '0';
+        progressBar.style.bottom = '0';
+        progressBar.style.height = '4px';
+        progressBar.style.width = '100%';
+        progressBar.style.background =
+            'rgba(255,255,255,0.4)';
+
+        progressBar.style.animation =
+            `progress ${duration}ms linear forwards`;
+
+        toast.appendChild(iconSpan);
+        toast.appendChild(messageSpan);
+        toast.appendChild(closeBtn);
+        toast.appendChild(progressBar);
 
         container.appendChild(toast);
 
@@ -109,46 +131,63 @@
             hideToast(toast);
         }, duration);
 
-        const closeBtn = toast.querySelector('.toast-close');
-
         closeBtn.onclick = (e) => {
+
             e.stopPropagation();
+
             clearTimeout(timeout);
+
             hideToast(toast);
         };
 
-        
         toast.onclick = () => {
+
             clearTimeout(timeout);
+
             hideToast(toast);
         };
     };
 
     function hideToast(toast) {
 
-        toast.style.animation = 'slideOut 0.3s ease forwards';
+        toast.style.animation =
+            'slideOut 0.3s ease forwards';
 
-        toast.addEventListener('animationend', () => {
-            toast.remove();
-        });
+        toast.addEventListener(
+            'animationend',
+            () => {
+                toast.remove();
+            },
+            { once: true }
+        );
     }
 
-   
+    /*
+     * Intercept browser alert()
+     */
+
     const originalAlert = window.alert;
 
     window.alert = function (message) {
 
         window.showToast(message, 'warning');
 
-        console.log('Browser alert intercepted:', message);
+        console.log(
+            'Browser alert intercepted:',
+            message
+        );
     };
 
-   
+    /*
+     * Process Django messages
+     */
+
     function processDjangoMessages() {
 
-        
         const djangoMessages =
-            document.querySelectorAll('.messages .alert');
+            document.querySelectorAll(
+                '.messages .alert'
+            );
 
         djangoMessages.forEach(msg => {
 
@@ -168,7 +207,9 @@
             ) {
                 type = 'error';
             }
-            else if (msg.classList.contains('alert-warning')) {
+            else if (
+                msg.classList.contains('alert-warning')
+            ) {
                 type = 'warning';
             }
 
@@ -177,18 +218,28 @@
             msg.style.display = 'none';
         });
 
-      
+        /*
+         * Handle Django form errors
+         */
+
         const formErrors =
             document.querySelectorAll('.errorlist li');
 
         formErrors.forEach(err => {
 
-            const text = err.textContent.trim();
+            const text =
+                err.textContent.trim();
 
             if (text) {
+
                 window.showToast(text, 'error');
 
-                const parent = err.closest('.errorlist');
+                const parent =
+                    err.closest('.errorlist');
+
+                /*
+                 * Null safety check
+                 */
 
                 if (parent) {
                     parent.style.display = 'none';
@@ -197,24 +248,35 @@
         });
     }
 
-  
+    /*
+     * DOM Ready
+     */
+
     if (document.readyState === 'loading') {
+
         document.addEventListener(
             'DOMContentLoaded',
             processDjangoMessages
         );
+
     } else {
+
         processDjangoMessages();
     }
 
+    /*
+     * Inject styles
+     */
+
     const style = document.createElement('style');
 
-    style.innerHTML = `
+    style.textContent = `
         @keyframes slideIn {
             from {
                 transform: translateX(120%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -226,6 +288,7 @@
                 transform: translateX(0);
                 opacity: 1;
             }
+
             to {
                 transform: translateX(120%);
                 opacity: 0;
@@ -236,6 +299,7 @@
             from {
                 width: 100%;
             }
+
             to {
                 width: 0%;
             }
@@ -247,6 +311,7 @@
         }
 
         @media (max-width: 600px) {
+
             #toast-container {
                 left: 10px !important;
                 right: 10px !important;

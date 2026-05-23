@@ -843,6 +843,7 @@
                         showStatus('', false);
                     }, 2000);
                 } else {
+                    showStatus('', false);
                     showToast('Unable to reconnect. Please refresh.', 'error');
                 }
                 reconnecting = false;
@@ -905,7 +906,7 @@
                             requestAIMove();
                         }
                     } else {
-                        showToast(data.message, "error");
+                        showToast(String(data.message), "error");
                         deselect();
                     }
                 } catch (e) {
