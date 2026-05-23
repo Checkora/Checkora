@@ -449,6 +449,14 @@ body {
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
 
+.square.premove.light {
+    background-color: rgba(255, 80, 80, 0.45);
+}
+
+.square.premove.dark {
+    background-color: rgba(180, 40, 40, 0.6);
+}
+
 /* Valid-move dot */
 .move-dot {
     width: 17px;

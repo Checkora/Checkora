@@ -23,6 +23,7 @@
             let selected = null;
             let hints = [];
             let lastMove = null;
+            let premove = null;
 
             let dragging = false;
             let dragSrc = null;
@@ -388,6 +389,8 @@
                 // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
                 aiRequestSeq = 0;
                 aiThinking = false;
+                premove = null;
+                refreshPremoveHighlight();
 
                 const data = await get('/api/state/');
 
@@ -529,8 +532,9 @@
                         d.draggable = true;
                         d.ondragstart = e => {
                             const piece = board[r][c];
-                            if (!piece || pColor(piece) !== turn || paused || gameOver) return e.preventDefault();
-                            if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+                            if (!piece || paused || gameOver) return e.preventDefault();
+                            const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
+                            if (gameMode === 'ai' && turn !== playerColor && !isPremoveDrag) return e.preventDefault();
                             
                             if (e.dataTransfer) {
                                 e.dataTransfer.setData('text/plain', 'piece-move');
@@ -604,8 +608,10 @@
                     const r = parseInt(el.dataset.r);
                     const c = parseInt(el.dataset.c);
                     const p = board[r][c];
-                    const isPlayable = p && pColor(p) === turn
-                        && !(gameMode === 'ai' && turn !== playerColor);
+                    const isPlayable = p && (
+                        pColor(p) === turn ||
+                        (gameMode === 'ai' && pColor(p) === playerColor)
+                    );
                     img.classList.toggle('playable', isPlayable);
                 });
             }
@@ -630,6 +636,18 @@
                         el.appendChild(d);
                     });
                 }
+                refreshPremoveHighlight();
+            }
+
+            function refreshPremoveHighlight() {
+                boardEl.querySelectorAll('.square').forEach(el => {
+                    el.classList.remove('premove');
+                });
+
+                if (!premove) return;
+
+                sq(premove.from.r, premove.from.c).classList.add('premove');
+                sq(premove.to.r, premove.to.c).classList.add('premove');
             }
 
             function highlightCheck() {
@@ -695,16 +713,28 @@
             ========================================================== */
             async function selectPiece(r, c) {
                 const p = board[r][c];
-                if (!p || pColor(p) !== turn || paused || gameOver) return;
 
-                if (gameMode === 'ai' && turn !== playerColor) {
-                    showStatus("Waiting for AI to move...", false);
+                if (!p || paused || gameOver) return;
+
+                selected = { r, c };
+
+                // PREMOVE MODE DURING AI TURN
+                if (
+                    gameMode === 'ai' &&
+                    turn !== playerColor &&
+                    pColor(p) === playerColor
+                ) {
+                    hints = [];
+
+                    refreshHighlights();
                     return;
                 }
 
-                selected = { r, c };
+                // NORMAL MOVE LOGIC
                 const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+
                 hints = data.valid_moves || [];
+
                 refreshHighlights();
             }
 
@@ -755,16 +785,48 @@
 
             async function tryMove(fr, fc, tr, tc) {
                 if (paused || gameOver) return;
+
                 const p = board[fr][fc];
-                if (!p || pColor(p) !== turn) return;
+                if (!p) return;
+
+                // PREMOVE DURING AI TURN
+                if (
+                    gameMode === 'ai' &&
+                    pColor(p) === playerColor &&
+                    turn !== playerColor
+                ) {
+                    premove = {
+                        from: { r: fr, c: fc },
+                        to: { r: tr, c: tc }
+                    };
+
+                    refreshPremoveHighlight();
+                    showStatus("Premove queued", false);
+
+                    selected = null;
+                    hints = [];
+                    refreshHighlights();
+
+                    return;
+                }
+
+                // NORMAL MOVE VALIDATION
+                if (pColor(p) !== turn) {
+                    deselect();
+                    return;
+                }
 
                 if (isPromotionMove(fr, fc, tr)) {
                     await animateMove(fr, fc, tr, tc);
+
                     pendingPromo = { fr, fc, tr, tc };
+
                     const color = pColor(p);
                     showPromoModal(color);
+
                     return;
                 }
+
                 await executeMove(fr, fc, tr, tc, null);
             }            let reconnecting = false;
             async function handleReconnect() {
@@ -944,6 +1006,22 @@
                                 showStatus('Your turn.', false);
                             }
                             if (a11yMsg) announceMove(a11yMsg);
+
+                            // Trigger queued premove if it exists
+                            if (premove) {
+                                const queued = premove;
+                                premove = null;
+                                refreshPremoveHighlight();
+
+                                const piece = board[queued.from.r][queued.from.c];
+                                if (piece && pColor(piece) === turn) {
+                                    setTimeout(() => {
+                                        tryMove(queued.from.r, queued.from.c, queued.to.r, queued.to.c);
+                                    }, 150);
+                                } else {
+                                    showStatus("Premove cancelled: piece captured or invalid", true);
+                                }
+                            }
                         }
                     } else {
                         showStatus(data.message, true);
@@ -963,25 +1041,76 @@
             ========================================================== */
             async function onClick(r, c) {
                 if (dragging) return;
+
+                const piece = board[r][c];
+
+                const aiPremoveMode =
+                    gameMode === 'ai' &&
+                    turn !== playerColor;
+
                 if (selected) {
 
-                    //New toggle logic:
-                    //If the clicked square is the exact same as the selected square, deselect it.
-                    if (selected .r === r && selected.c ===c){
+                    // deselect same square
+                    if (selected.r === r && selected.c === c) {
                         return deselect();
                     }
-                    if (hints.some(h => h.row === r && h.col === c))
+
+                    // PREMOVE CLICK
+                    if (aiPremoveMode) {
+
+                        premove = {
+                            from: { r: selected.r, c: selected.c },
+                            to: { r, c }
+                        };
+
+                        refreshPremoveHighlight();
+
+                        showStatus("Premove queued", false);
+
+                        selected = null;
+                        hints = [];
+                        refreshHighlights();
+
+                        return;
+                    }
+
+                    // NORMAL MOVE
+                    if (hints.some(h => h.row === r && h.col === c)) {
                         return tryMove(selected.r, selected.c, r, c);
-                    if (board[r][c] && pColor(board[r][c]) === turn)
+                    }
+
+                    // reselect another piece
+                    if (piece && pColor(piece) === turn) {
                         return selectPiece(r, c);
+                    }
+
                     return deselect();
                 }
-                selectPiece(r, c);
+
+                // selecting initial piece
+                if (
+                    piece &&
+                    (
+                        pColor(piece) === turn ||
+                        (
+                            aiPremoveMode &&
+                            pColor(piece) === playerColor
+                        )
+                    )
+                ) {
+                    return selectPiece(r, c);
+                }
             }
 
             function onDragStart(e, r, c) {
-                if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
-                if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+                if (paused || pColor(board[r][c]) !== turn) {
+                    const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(board[r][c]) === playerColor;
+                    if (!isPremoveDrag) return e.preventDefault();
+                }
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    const isPremoveDrag = pColor(board[r][c]) === playerColor;
+                    if (!isPremoveDrag) return e.preventDefault();
+                }
                 dragging = true;
                 dragSrc = { r, c };
                 selectPiece(r, c);
@@ -1470,6 +1599,8 @@
                 // Reset AI request sequence and thinking state on new game
                 aiRequestSeq = 0;
                 aiThinking = false;
+                premove = null;
+                refreshPremoveHighlight();
 
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
@@ -2256,6 +2387,14 @@
             } else {
                 loadGame();
             }
+
+            boardEl.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+
+                premove = null;
+                refreshPremoveHighlight();
+                showStatus("Premove cancelled", false);
+            });
 
 })();
 
