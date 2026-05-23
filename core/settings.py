@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,7 +31,53 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-tes
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['.vercel.app', '*']
+# Strict host validation to prevent Host Header Poisoning.
+# See: https://docs.djangoproject.com/en/6.0/ref/settings/#allowed-hosts
+ALLOWED_HOSTS = [
+    'checkora.vercel.app',
+    'checkora.com',
+    'www.checkora.com',
+    'localhost',
+    '127.0.0.1',
+]
+
+# CSRF protection requires explicit origins for secure requests.
+# See: https://docs.djangoproject.com/en/6.0/ref/settings/#csrf-trusted-origins
+CSRF_TRUSTED_ORIGINS = [
+    'https://checkora.vercel.app',
+    'https://checkora.com',
+    'https://www.checkora.com',
+]
+
+# Vercel-specific configuration for preview and production deployments.
+# We explicitly allow the main production domains and dynamically add
+# preview domains only when in a Vercel preview environment.
+VERCEL_ENV = os.environ.get('VERCEL_ENV')
+
+
+def _extract_hostname(value):
+    parsed = urlparse(value if '://' in value else f'//{value}')
+    return parsed.hostname
+
+if VERCEL_ENV == 'preview':
+    # Support the active Vercel preview deployment and optional overrides.
+    # Comma-separated values, for example:
+    # VERCEL_PREVIEW_ALLOWED_HOSTS=checkora-git-feature-x-team.vercel.app
+    # VERCEL_PREVIEW_TRUSTED_ORIGINS=https://checkora-git-feature-x-team.vercel.app
+    preview_url = _extract_hostname(os.environ.get('VERCEL_URL', '').strip())
+    if preview_url:
+        ALLOWED_HOSTS.append(preview_url)
+        CSRF_TRUSTED_ORIGINS.append(f'https://{preview_url}')
+
+    preview_hosts = os.environ.get('VERCEL_PREVIEW_ALLOWED_HOSTS', '').split(',')
+    ALLOWED_HOSTS.extend([
+        host
+        for host in (_extract_hostname(h.strip()) for h in preview_hosts)
+        if host
+    ])
+
+    preview_origins = os.environ.get('VERCEL_PREVIEW_TRUSTED_ORIGINS', '').split(',')
+    CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in preview_origins if o.strip()])
 
 
 # Application definition
