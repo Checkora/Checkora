@@ -947,11 +947,12 @@
                         }
                     }
 
-                    // randomized delay per difficulty — feels realistic and unpredictable
+                    // Keep a short natural pause without making slow engine
+                    // positions feel frozen before the request even starts.
                     let delay;
-                    if (currentDifficulty === 'easy')       delay = 800  + Math.random() * (1500 - 800);
-                    else if (currentDifficulty === 'hard')  delay = 2500 + Math.random() * (4000 - 2500);
-                    else                                    delay = 1500 + Math.random() * (2500 - 1500); // medium
+                    if (currentDifficulty === 'easy')       delay = 150 + Math.random() * (300 - 150);
+                    else if (currentDifficulty === 'hard')  delay = 450 + Math.random() * (900 - 450);
+                    else                                    delay = 250 + Math.random() * (550 - 250); // medium
                     await new Promise(resolve => setTimeout(resolve, delay));
 
                     // Abort if a new game started, reconnect happened, or another request took over during delay
@@ -2132,6 +2133,7 @@
 
     document.addEventListener('visibilitychange', async() => {
         if (document.hidden) {
+            if (aiThinking) return;
             pauseGame().catch(() => {});
         } else {
             await handleReconnect();

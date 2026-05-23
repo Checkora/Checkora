@@ -265,9 +265,13 @@ def get_state(request):
     else:
         game = ChessGame.from_dict(game_data)
 
-        # Skip clock deduction if tab was closed for too long
+        # Skip clock deduction if tab was closed for too long, except while
+        # the AI is legitimately calculating its move.
         elapsed = time.time() - game.last_ts
-        if elapsed > 10 and not game.paused:
+        ai_turn_in_progress = (
+            game.mode == 'ai' and game.current_turn != game.player_color
+        )
+        if elapsed > 10 and not game.paused and not ai_turn_in_progress:
             game.paused = True  # pause without deducting lost time
         else:
             game.update_clock()
