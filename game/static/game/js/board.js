@@ -24,7 +24,7 @@
             let hints = [];
             let lastMove = null;
             let premove = null;
-            let highlightedSquares = null;
+            let highlightedSquare = null;
 
             let dragging = false;
             let dragSrc = null;
