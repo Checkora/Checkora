@@ -15,23 +15,30 @@ class CustomUserCreationForm(UserCreationForm):
         })
     )
 
-    username = forms.CharField(
-        widget=forms.TextInput(attrs={
+class CustomUserCreationForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+
+    class Meta(UserCreationForm.Meta):
+        fields = UserCreationForm.Meta.fields + ('email',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['username'].widget.attrs.update({
             'autocomplete': 'username'
         })
-    )
 
-    password1 = forms.CharField(
-        widget=forms.PasswordInput(attrs={
+        self.fields['email'].widget.attrs.update({
+            'autocomplete': 'email'
+        })
+
+        self.fields['password1'].widget.attrs.update({
             'autocomplete': 'new-password'
         })
-    )
 
-    password2 = forms.CharField(
-        widget=forms.PasswordInput(attrs={
+        self.fields['password2'].widget.attrs.update({
             'autocomplete': 'new-password'
         })
-    )
 
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
@@ -83,7 +90,7 @@ class CustomPasswordResetForm(PasswordResetForm):
                 html_email_template_name,
             )
 
-        except Exception:
+        except ValidationError:
             raise ValidationError(
                 "Failed to send password reset email. "
                 "Please check your email configuration and try again."
