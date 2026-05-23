@@ -143,20 +143,8 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_SSL_REDIRECT = not DEBUG
 
 
-# Email Configuration for OTP and Password Reset EMails
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-<<<<<<< HEAD
-=======
-# Email Configuration for OTP
 
-EMAIL_BACKEND = (
-    'django.core.mail.backends.smtp.EmailBackend'
-    if not DEBUG
-    else 'django.core.mail.backends.console.EmailBackend'
-)
-
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
->>>>>>> f12b4c57 (Add automated welcome email after successful registration)
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True

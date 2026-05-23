@@ -616,22 +616,26 @@ def verify_otp(request):
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
 
-                html_content = render_to_string(
-                    'game/welcome_email.html',
-                    {
-                        'username': user.username,
-                        'app_url': request.build_absolute_uri('/'),
-                    }
-                )
-                email = EmailMultiAlternatives(
-                    subject='Welcome to Checkora 🎉',
-                    body='Welcome to Checkora! Your account has been successfully activated.',
-                    from_email=settings.EMAIL_HOST_USER,
-                    to=[user.email],
-                )
-                email.attach_alternative(html_content,"text/html")
-                email.send(fail_silently=False)
+                try:
+                    html_content = render_to_string(
+                        'game/welcome_email.html',
+                        {
+                            'username': user.username,
+                            'app_url': request.build_absolute_uri('/'),
+                        }
+                    )
+                    email = EmailMultiAlternatives(
+                        subject='Welcome to Checkora 🎉',
+                        body='Welcome to Checkora! Your account has been successfully activated.',
+                        from_email=settings.EMAIL_HOST_USER,
+                        to=[user.email],
+                    )
+                    email.attach_alternative(html_content,"text/html")
+                    email.send(fail_silently=True)
                 
+                except Exception as e:
+                    logger.warning("Failed to send welcome email: %s", e)
+                    
                 login(request, user)
                 messages.success(
                     request,
