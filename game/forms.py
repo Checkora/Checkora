@@ -8,14 +8,6 @@ from django.core.exceptions import ValidationError
 
 
 class CustomUserCreationForm(UserCreationForm):
-    email = forms.EmailField(
-        required=True,
-        widget=forms.EmailInput(attrs={
-            'autocomplete': 'email'
-        })
-    )
-
-class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
     class Meta(UserCreationForm.Meta):
@@ -39,9 +31,6 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields['password2'].widget.attrs.update({
             'autocomplete': 'new-password'
         })
-
-    class Meta(UserCreationForm.Meta):
-        fields = UserCreationForm.Meta.fields + ('email',)
 
 
 class CustomSetPasswordForm(SetPasswordForm):
