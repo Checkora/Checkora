@@ -2089,9 +2089,12 @@
                 
 
                 const key = e.key.toLowerCase();
-                const hasBlockingOverlay = document.querySelector(
-                    '.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active'
-            );
+                const hasBlockingOverlay =
+                    document.querySelector(
+                        '.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active'
+                    ) ||
+                    shareModal?.style.display === 'flex' ||
+                    rulebookModal?.style.display === 'flex';
 
             // Allow Escape to close overlays
             if (hasBlockingOverlay && key !== 'escape') {
