@@ -31,7 +31,6 @@ from .models import GameResult
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 
-
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
@@ -836,3 +835,7 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+def privacy_view(request):
+    """Directly serve the static privacy template page."""
+    return render(request, 'game/privacy.html')
