@@ -836,3 +836,7 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+@xframe_options_sameorigin
+def terms(request):
+    return render(request, 'game/terms.html')
