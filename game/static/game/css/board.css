@@ -605,7 +605,7 @@ body {
     border-radius: 4px;
     padding: 2px 0;
 }
-.move-white, .move-black {
+.move-entry {
     font-family: 'Segoe UI', system-ui, sans-serif;
     font-weight: 600;
     font-size: 13.5px;
@@ -617,12 +617,30 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    border: 1px solid transparent;
+    background: transparent;
+    width: 100%;
 }
 .move-white { color: #e8e8e8; }
 .move-black { color: #a0a0a0; }
-.move-white:hover, .move-black:hover {
+.move-empty {
+    min-height: 28px;
+    cursor: default;
+}
+.move-entry:hover,
+.move-entry:focus-visible {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
+}
+.move-entry:focus-visible {
+    outline: 2px solid rgba(245, 158, 11, 0.7);
+    outline-offset: 1px;
+}
+.move-entry.active {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.55);
+    color: #fff6d6;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12) inset;
 }
 .placeholder { color: #5a5a7a; font-style: italic; font-size: 13px; text-align: center; padding: 16px 0; }
 

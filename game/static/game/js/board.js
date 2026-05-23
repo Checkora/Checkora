@@ -23,6 +23,8 @@
             let selected = null;
             let hints = [];
             let lastMove = null;
+            let currentMoveHistory = [];
+            let activeMoveIndex = null;
             let premove = null;
 
             let dragging = false;
@@ -1148,26 +1150,136 @@
             }
 
             function updateMoves(history) {
-                if (!history?.length) {
+                currentMoveHistory = Array.isArray(history) ? history : [];
+                activeMoveIndex = currentMoveHistory.length ? currentMoveHistory.length - 1 : null;
+
+                if (!currentMoveHistory.length) {
                     movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                     return;
                 }
                 movesEl.innerHTML = '';
-                const totalPairs = Math.ceil(history.length / 2);
-                for (let i = history.length - 1; i >= 0; i -= 2) {
+                for (let i = currentMoveHistory.length - 1; i >= 0; i -= 2) {
                     const whiteIdx = i % 2 === 0 ? i : i - 1;
                     const blackIdx = whiteIdx + 1;
                     const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
                     row.className = 'move-row';
-                    row.innerHTML = `
-                        <span class="move-num">${moveNum}.</span>
-                        <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
-                        ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
-                    `;
+
+                    const moveNumber = document.createElement('span');
+                    moveNumber.className = 'move-num';
+                    moveNumber.textContent = `${moveNum}.`;
+
+                    row.appendChild(moveNumber);
+                    row.appendChild(createMoveHistoryButton(currentMoveHistory[whiteIdx], whiteIdx, moveNum, 'white'));
+
+                    if (currentMoveHistory[blackIdx]) {
+                        row.appendChild(createMoveHistoryButton(currentMoveHistory[blackIdx], blackIdx, moveNum, 'black'));
+                    } else {
+                        const emptyMove = document.createElement('span');
+                        emptyMove.className = 'move-entry move-empty';
+                        row.appendChild(emptyMove);
+                    }
+
                     movesEl.appendChild(row);
                 }
             }
+
+            function createMoveHistoryButton(move, index, moveNum, color) {
+                const button = document.createElement('button');
+                const notation = move?.notation || 'Move';
+
+                button.type = 'button';
+                button.className = `move-entry move-${color}`;
+                button.dataset.moveIndex = String(index);
+                button.textContent = notation;
+                button.setAttribute(
+                    'aria-label',
+                    `Review ${color} move ${moveNum}: ${notation}`
+                );
+
+                if (index === activeMoveIndex) {
+                    button.classList.add('active');
+                    button.setAttribute('aria-current', 'step');
+                }
+
+                return button;
+            }
+
+            function setActiveHistoryMove(index) {
+                activeMoveIndex = index;
+                movesEl.querySelectorAll('.move-entry[data-move-index]').forEach((button) => {
+                    const isActive = Number(button.dataset.moveIndex) === index;
+                    button.classList.toggle('active', isActive);
+                    if (isActive) {
+                        button.setAttribute('aria-current', 'step');
+                    } else {
+                        button.removeAttribute('aria-current');
+                    }
+                });
+            }
+
+            function isBoardCoordinate(value) {
+                return Array.isArray(value) &&
+                    value.length === 2 &&
+                    value.every(coord => Number.isInteger(coord) && coord >= 0 && coord < 8);
+            }
+
+            function getMoveHighlight(move) {
+                if (!move || !isBoardCoordinate(move.from) || !isBoardCoordinate(move.to)) {
+                    return null;
+                }
+
+                return {
+                    from: [move.from[0], move.from[1]],
+                    to: [move.to[0], move.to[1]],
+                };
+            }
+
+            function activateHistoryMove(index) {
+                const move = currentMoveHistory[index];
+                const highlight = getMoveHighlight(move);
+
+                if (!highlight) return;
+
+                selected = null;
+                hints = [];
+                lastMove = highlight;
+                setActiveHistoryMove(index);
+                refreshHighlights();
+                showStatus(`Reviewing move ${Math.floor(index / 2) + 1}: ${move.notation}`, false);
+            }
+
+            movesEl.addEventListener('click', (event) => {
+                const moveButton = event.target.closest('.move-entry[data-move-index]');
+                if (!moveButton || !movesEl.contains(moveButton)) return;
+
+                activateHistoryMove(Number(moveButton.dataset.moveIndex));
+            });
+
+            movesEl.addEventListener('keydown', (event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+                    return;
+                }
+
+                if (!currentMoveHistory.length) return;
+
+                event.preventDefault();
+                const currentIndex = activeMoveIndex ?? currentMoveHistory.length - 1;
+                let nextIndex = currentIndex;
+
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                    nextIndex = Math.max(0, currentIndex - 1);
+                } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                    nextIndex = Math.min(currentMoveHistory.length - 1, currentIndex + 1);
+                } else if (event.key === 'Home') {
+                    nextIndex = 0;
+                } else if (event.key === 'End') {
+                    nextIndex = currentMoveHistory.length - 1;
+                }
+
+                activateHistoryMove(nextIndex);
+                movesEl.querySelector(`[data-move-index="${nextIndex}"]`)?.focus();
+            });
 
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
@@ -2388,5 +2500,4 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
             });
 
 })();
-
 
