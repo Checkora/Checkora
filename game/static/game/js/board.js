@@ -698,7 +698,7 @@
                 if (!p || pColor(p) !== turn || paused || gameOver) return;
 
                 if (gameMode === 'ai' && turn !== playerColor) {
-                    showStatus("Waiting for AI to move...", false);
+                    showToast("Waiting for AI to move...", "info");
                     return;
                 }
 
@@ -784,12 +784,12 @@
                 }
                 
                 if (success) {
-                    showStatus('Connection restored', false);
+                    showToast('Connection restored', 'success');
                     setTimeout(() => {
                         showStatus('', false);
                     }, 2000);
                 } else {
-                    showStatus('Unable to reconnect. Please refresh.', true);
+                    showToast('Unable to reconnect. Please refresh.', 'error');
                 }
                 reconnecting = false;
             }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
@@ -847,10 +847,11 @@
                         }
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
+                            showToast("Waiting for AI to move...", "info");
                             requestAIMove();
                         }
                     } else {
-                        showStatus(data.message, true);
+                        showToast(data.message, "error");
                         deselect();
                     }
                 } catch (e) {
