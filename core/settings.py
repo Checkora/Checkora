@@ -143,17 +143,17 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_SSL_REDIRECT = not DEBUG
 
 
-# Email Configuration for OTP
-EMAIL_BACKEND = (
+# Email Configuration for OTP and Password Reset EMails
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND', 
     'django.core.mail.backends.smtp.EmailBackend'
-    if not DEBUG
-    else 'django.core.mail.backends.console.EmailBackend'
 )
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 # Redirect after login

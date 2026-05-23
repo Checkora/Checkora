@@ -1,6 +1,5 @@
 """Game views for the Checkora chess platform."""
 import logging
-logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
@@ -14,7 +13,12 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from smtplib import SMTPException
-from django.core.mail import BadHeaderError, send_mail
+from django.core.mail import (
+    BadHeaderError, 
+    send_mail,
+    EmailMultiAlternatives
+)
+from django.template.loader import render_to_string
 from django.contrib import messages
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
@@ -24,8 +28,8 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
-
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -597,38 +601,90 @@ def verify_otp(request):
 
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
-        # Verify hash
-        entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+
+        entered_otp_hash = hashlib.sha256(
+            f"{entered_otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
 
         if entered_otp_hash == stored_otp_hash:
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
+                user.full_clean()
                 user.save()
-
-                # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
 
+                try:
+                    html_content = render_to_string(
+                        'game/welcome_email.html',
+                        {
+                            'username': user.username,
+                            'app_url': request.build_absolute_uri('/'),
+                        }
+                    )
+                    email = EmailMultiAlternatives(
+                        subject='Welcome to Checkora 🎉',
+                        body='Welcome to Checkora! Your account has been successfully activated.',
+                        from_email=settings.EMAIL_HOST_USER,
+                        to=[user.email],
+                    )
+                    email.attach_alternative(html_content,"text/html")
+                    email.send(fail_silently=True)
+                
+                except Exception as e:
+                    logger.warning("Failed to send welcome email: %s", e)
+                    
                 login(request, user)
-                messages.success(request, 'Registration successful! Welcome to Checkora.')
+                messages.success(
+                    request,
+                    'Registration successful! Welcome to Checkora.'
+                )
                 request.session.cycle_key()
                 return redirect('index')
 
             except User.DoesNotExist:
                 messages.error(
-                    request, 'User not found. Please register again.'
+                    request,
+                    'User not found. Please register again.'
                 )
                 return redirect('register')
+
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
     remaining_time = 0
     last_otp_time = request.session.get('last_otp_time')
+
     if last_otp_time:
         elapsed = int(time.time() - last_otp_time)
         remaining_time = max(0, 60 - elapsed)
-    return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
+
+    try:
+        user = User.objects.get(id=user_id)
+        email = user.email
+
+        if email and '@' in email:
+            name, domain = email.split('@', 1)
+            if len(name) <= 2:
+                masked_name = name[:1]
+            else:
+                masked_name = name[:2] + '*' * (len(name) - 2)
+            user_email = f"{masked_name}@{domain}"
+        else:
+            user_email = None
+
+    except User.DoesNotExist:
+        user_email = None
+
+    return render(
+        request,
+        'game/verify_otp.html',
+        {
+            'remaining_time': remaining_time,
+            'user_email': user_email,
+        }
+    )
 
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
@@ -766,7 +822,7 @@ def cleanup_cron(request):
     
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
+    
     try:
         deleted, resigned = cleanup_stale_games()
         return JsonResponse({
@@ -779,3 +835,7 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+def privacy_view(request):
+    """Directly serve the static privacy template page."""
+    return render(request, 'game/privacy.html')

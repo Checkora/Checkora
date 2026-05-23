@@ -340,8 +340,9 @@ body {
     text-align: center;
     padding: 6px 16px;
     border-radius: 6px;
-    width: 100%;
-    max-width: calc(var(--square-size) * 8 + var(--board-border) * 2 + var(--rank-label-width) + 8px);
+    width: fit-content;
+    min-width: fit-content;
+    margin: 0 auto 12px;
     box-sizing: border-box;
     font-weight: 600;
     font-size: 0.85rem;  /* Reduced from 0.9rem to 0.85rem */
@@ -426,6 +427,7 @@ body {
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     max-width: 100%;
     box-sizing: content-box;
+    position: relative;
 }
 
 /* ============================================================
@@ -534,6 +536,14 @@ body {
 /* Last-move highlight */
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
+
+.square.premove.light {
+    background-color: rgba(255, 80, 80, 0.45);
+}
+
+.square.premove.dark {
+    background-color: rgba(180, 40, 40, 0.6);
+}
 
 /* Valid-move dot */
 .move-dot {
@@ -722,6 +732,12 @@ body {
     cursor: pointer;
     letter-spacing: 0.5px;
     transition: all 0.2s ease;
+}
+.btn-shortcut{
+    margin-left: 10px;
+    opacity: 0.7;
+    font-size: 0.8rem;
+    font-weight: 600;
 }
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);
@@ -1036,7 +1052,8 @@ body {
     }
 
     .turn-badge {
-        width: var(--mobile-board-size);
+        width: fit-content;
+        max-width: 90%;
         padding: 6px 12px;
         font-size: 0.8rem;
     }
@@ -1090,11 +1107,31 @@ body {
     box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
 }
 
-/* Low time warning */
-.clock.low {
-    background: linear-gradient(135deg, #402020, #2a1414);
-    border-color: #ff6b6b;
-    color: #ffb3b3;
+/* Low time warning — stage 1: 30s–21s (yellow) */
+.clock.low-1 {
+    background: linear-gradient(135deg, #3d2e00, #2a1f00);
+    border-color: #facc15;
+    color: #fef08a;
+}
+
+/* Low time warning — stage 2: 20s–11s (orange) */
+.clock.low-2 {
+    background: linear-gradient(135deg, #3d1a00, #2a1000);
+    border-color: #f97316;
+    color: #fed7aa;
+}
+
+/* Low time warning — stage 3: 10s–1s (red + scale pulse animation) */
+@keyframes low-time-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+
+.clock.low-3 {
+    background: linear-gradient(135deg, #3d0000, #200000);
+    border-color: #ef4444;
+    color: #fca5a5;
+    animation: low-time-pulse 0.8s ease-in-out infinite;
 }
 
 /* Time up */
@@ -1213,7 +1250,7 @@ body {
   display: none; 
 }
 
-@media (max-width: 768px) {
+ {
   .m-fab {
     display: flex;
     flex-direction: column;
@@ -1285,7 +1322,7 @@ body {
     /* base look */
     filter: brightness(1.6) contrast(1.3);
 
-    /* animation only here */
+    /* anima@media (max-width: 768px)tion only here */
     animation: logoGlow 2.8s ease-in-out infinite alternate;
 }
 
@@ -1504,7 +1541,32 @@ body {
 
 /* ================= PAUSE STATE ================= */
 .chessboard.paused {
+    pointer-events: none;
+}
+
+/* Blur squares only — not ::after, so the pause label stays sharp */
+.chessboard.paused .square {
     filter: blur(15px);
+}
+
+.chessboard.paused::after {
+    content: "Resume to Continue";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #f0c040;
+    padding: 20px 40px;
+    border-radius: 12px;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    border: 2px solid #f0c040;
+    z-index: 9999;
+    box-shadow: 0 8px 32px rgba(240, 192, 64, 0.4);
+    filter: none;
     pointer-events: none;
 }
 

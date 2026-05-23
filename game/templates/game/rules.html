@@ -543,7 +543,22 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
-            <a href="#" class="back-btn" style="color:#f0c040; display: inline-block;" onclick="try { var modal = window.parent.document.getElementById('rulebookModal'); if (modal) modal.style.display='none'; } catch(e) { console.error('Cannot close modal:', e); } return false;">← Back to Game</a>
+            <a href="{% url 'index' %}"
+               class="back-btn"
+               style="color:#f0c040; display:inline-block;"
+               onclick="
+                try {
+                    var modal = window.parent.document.getElementById('rulebookModal');
+                    if (modal) {
+                        modal.style.display='none';
+                        return false;
+                    }
+                } catch(e) {
+                    console.error('Modal close failed:', e);
+                }
+               ">
+               ← Back to Game
+            </a>
         </div>
         <div class="sidebar-title">Rulebook</div>
         <div class="rule-nav-item active" onclick="showRule('basics')" id="nav-basics">
