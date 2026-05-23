@@ -2094,7 +2094,12 @@
                         '.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active'
                     ) ||
                     (shareModal?.style.display && shareModal.style.display !== 'none') ||
-                    (rulebookModal?.style.display && rulebookModal.style.display !== 'none');
+                    (rulebookModal?.style.display && rulebookModal.style.display !== 'none') ||
+                    fenOverlay?.classList.contains('active') ||
+                    confirmOverlay?.classList.contains('active') ||
+                    drawOverlay?.classList.contains('active') ||
+                    gameOverOverlay?.classList.contains('active') ||
+                    welcomeOverlay?.classList.contains('active');
 
             // Allow Escape to close overlays
             if (hasBlockingOverlay && key !== 'escape') {
