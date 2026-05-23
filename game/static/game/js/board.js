@@ -24,7 +24,7 @@
             let hints = [];
             let lastMove = null;
             let premove = null;
-            let highlightedSquares = [];
+            let highlightedSquares = null;
 
             let dragging = false;
             let dragSrc = null;
@@ -537,6 +537,7 @@
                         d.onclick = () => onClick(r, c);
                         d.oncontextmenu = (e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             toggleSquareHighlight(r, c);
                         };
                         d.ondragover = e => e.preventDefault();
@@ -640,9 +641,10 @@
                     sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
                     sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
                 }
-                highlightedSquares.forEach(h => {
-                    sq(h.r, h.c).classList.add('custom-highlight');
-                });
+                if (highlightedSquare) {
+                    sq(highlightedSquare.r, highlightedSquare.c)
+                        .classList.add('custom-highlight');
+                }
                 if (selected) {
                     sq(selected.r, selected.c).classList.add('selected');
                     hints.forEach(h => {
@@ -754,23 +756,20 @@
                 refreshHighlights();
             }
             function toggleSquareHighlight(r, c) {
-                const cell = sq(r, c);
+                if (highlightedSquare) {
+                    sq(highlightedSquare.r, highlightedSquare.c)
+                        .classList.remove('custom-highlight');
+                }
 
-                const alreadyHighlighted =
-                    highlightedSquares.length &&
-                    highlightedSquares[0].r === r &&
-                    highlightedSquares[0].c === c;
-
-                // remove old highlights
-                highlightedSquares.forEach(h => {
-                    sq(h.r, h.c).classList.remove('custom-highlight');
-                });
-
-                if (alreadyHighlighted) {
-                    highlightedSquares = [];
+                if (
+                    highlightedSquare &&
+                    highlightedSquare.r === r &&
+                    highlightedSquare.c === c
+                ) {
+                    highlightedSquare = null;
                 } else {
-                    highlightedSquares = [{ r, c }];
-                    cell.classList.add('custom-highlight');
+                    highlightedSquare = { r, c };
+                    sq(r, c).classList.add('custom-highlight');
                 }
             }
             function deselect() {
