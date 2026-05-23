@@ -101,6 +101,17 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
 
+
+class RulesViewTest(TestCase):
+    """The rules page should keep a working back-to-game fallback."""
+
+    def test_rules_page_back_link_falls_back_to_play_route(self):
+        response = self.client.get('/rules/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/play/"')
+        self.assertContains(response, 'onclick="return handleBackToGame(event);"')
+
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
