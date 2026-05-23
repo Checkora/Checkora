@@ -1020,11 +1020,31 @@ body {
     box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
 }
 
-/* Low time warning */
-.clock.low {
-    background: linear-gradient(135deg, #402020, #2a1414);
-    border-color: #ff6b6b;
-    color: #ffb3b3;
+/* Low time warning — stage 1: 30s–21s (yellow) */
+.clock.low-1 {
+    background: linear-gradient(135deg, #3d2e00, #2a1f00);
+    border-color: #facc15;
+    color: #fef08a;
+}
+
+/* Low time warning — stage 2: 20s–11s (orange) */
+.clock.low-2 {
+    background: linear-gradient(135deg, #3d1a00, #2a1000);
+    border-color: #f97316;
+    color: #fed7aa;
+}
+
+/* Low time warning — stage 3: 10s–1s (red + scale pulse animation) */
+@keyframes low-time-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+
+.clock.low-3 {
+    background: linear-gradient(135deg, #3d0000, #200000);
+    border-color: #ef4444;
+    color: #fca5a5;
+    animation: low-time-pulse 0.8s ease-in-out infinite;
 }
 
 /* Time up */

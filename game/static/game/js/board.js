@@ -34,6 +34,9 @@
             let timerInterval = null;
             let pendingPromo = null;
 
+            let whiteAlertFired = false;
+            let blackAlertFired = false;
+
             let gameStartTime = null;
     
             let gameMode = 'pvp';
@@ -391,6 +394,8 @@
                 aiThinking = false;
                 premove = null;
                 refreshPremoveHighlight();
+                whiteAlertFired = false;
+                blackAlertFired = false;
 
                 const data = await get('/api/state/');
 
@@ -1429,12 +1434,20 @@
                     if (playerClock) {
                         playerClock.classList.toggle('active', !isAiTurn);
                         playerClock.classList.toggle('inactive', isAiTurn);
+                        const pt = playerColor === 'white' ? whiteTime : blackTime;
+                        playerClock.classList.toggle('low-1', pt <= 30 && pt > 20);
+                        playerClock.classList.toggle('low-2', pt <= 20 && pt > 10);
+                        playerClock.classList.toggle('low-3', pt <= 10 && pt > 0);
                     }
                     if (aiClock) {
                         aiClock.style.border = '';
                         aiClock.style.boxShadow = '';
                         aiClock.classList.toggle('active', isAiTurn);
                         aiClock.classList.toggle('inactive', !isAiTurn);
+                        const at = playerColor === 'white' ? blackTime : whiteTime;
+                        aiClock.classList.toggle('low-1', at <= 30 && at > 20);
+                        aiClock.classList.toggle('low-2', at <= 20 && at > 10);
+                        aiClock.classList.toggle('low-3', at <= 10 && at > 0);
                     }
                 } else {
                     // PvP — both clocks update normally
@@ -1443,10 +1456,16 @@
                     if (whiteClock) {
                         whiteClock.classList.toggle('active', turn === 'white');
                         whiteClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                        whiteClock.classList.toggle('low-1', whiteTime <= 30 && whiteTime > 20);
+                        whiteClock.classList.toggle('low-2', whiteTime <= 20 && whiteTime > 10);
+                        whiteClock.classList.toggle('low-3', whiteTime <= 10 && whiteTime > 0);
                     }
                     if (blackClock) {
                         blackClock.classList.toggle('active', turn === 'black');
                         blackClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                        blackClock.classList.toggle('low-1', blackTime <= 30 && blackTime > 20);
+                        blackClock.classList.toggle('low-2', blackTime <= 20 && blackTime > 10);
+                        blackClock.classList.toggle('low-3', blackTime <= 10 && blackTime > 0);
                     }
                 }
                 const wYou = document.getElementById('whiteYouTag');
@@ -1486,6 +1505,20 @@
                     }
 
                     renderClocks();
+
+                    // Low-time alert: play check.wav once per player when time crosses into <=30s
+                    if (soundEnabled) {
+                        if (!whiteAlertFired && whiteTime > 0 && whiteTime <= 30) {
+                            whiteAlertFired = true;
+                            sounds.check.currentTime = 0;
+                            sounds.check.play().catch(() => {});
+                        }
+                        if (!blackAlertFired && blackTime > 0 && blackTime <= 30) {
+                            blackAlertFired = true;
+                            sounds.check.currentTime = 0;
+                            sounds.check.play().catch(() => {});
+                        }
+                    }
 
                     if (turn === 'white' && whiteTime === 0) {
                         endGame('timeout', 'white');
@@ -1674,6 +1707,8 @@
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
+                whiteAlertFired = false;
+                blackAlertFired = false;
                 
                 gameStartTime = Date.now();
                 
@@ -2396,9 +2431,7 @@
                 showStatus("Premove cancelled", false);
             });
 
-})();
-
-            if (blackNameInput) {
+if (blackNameInput) {
                 blackNameInput.addEventListener('input', () => {
                     blackNameInput.style.borderColor = '#444';
                     blackNameInput.style.boxShadow = 'none';
@@ -2412,4 +2445,4 @@
             INIT
             ========================================================== */
             loadGame();
-        })();
+        
