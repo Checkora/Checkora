@@ -1087,7 +1087,8 @@
                             board = parseBoard(data.board);
                             turn = data.current_turn;
                             lastMove = { from: [fr, fc], to: [tr, tc] };
-                            document.getElementById('arrow-overlay').innerHTML = '';
+                            arrows = [];
+                            renderArrows();
     
                             if (gameMode === 'pvp' && autoFlip) {
                                 flipped = (turn === 'black');
