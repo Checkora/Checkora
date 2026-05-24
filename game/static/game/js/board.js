@@ -176,6 +176,7 @@
             const fenCancelBtn = document.getElementById('fenCancelBtn');
 
             const gameOverOverlay = document.getElementById('gameOverOverlay');
+            const aiThinkingOverlay = document.getElementById('aiThinkingOverlay');
             const gameOverTitle = document.getElementById('gameOverTitle');
             const gameOverMessage = document.getElementById('gameOverMessage');
             const gameOverStartBtn = document.getElementById('gameOverStartBtn');
@@ -965,10 +966,12 @@
                         clearInterval(thinkingInterval);
                         return;
                     }
+                    document.body.style.pointerEvents = "none";
+                    aiThinkingOverlay.classList.remove('hidden');
 
                     const data = await post('/api/ai-move/', {});
                     clearInterval(thinkingInterval); // fix: clear after API call completes, not before
-
+                    aiThinkingOverlay.classList.add('hidden');
                     // Abort if sequence is no longer current after API call completes
                     if (seq !== aiRequestSeq) {
                         return;
@@ -1033,6 +1036,7 @@
                     }
                 } catch (e) {
                     clearInterval(thinkingInterval);
+                    document.body.style.pointerEvents = "auto";
                     await handleReconnect();
                 } finally {
                     if (seq === aiRequestSeq) {
