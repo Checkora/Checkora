@@ -518,7 +518,7 @@ body {
 
 .footer-link {
     text-decoration: none;
-    color: #94a3b8 !important; /* Calibrated high-contrast muted slate text */
+    color: #94a3b8; /* Removed !important */
     font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -526,7 +526,7 @@ body {
 }
 
 .footer-link:hover {
-    color: var(--accent-gold) !important;
+    color: var(--accent-gold); /* Removed !important */
     transform: translateX(4px);
 }
 
@@ -541,14 +541,14 @@ body {
 }
 
 .footer-meta-text a {
-    color: #94a3b8 !important;
+    color: #94a3b8; /* Removed !important */
     text-decoration: none;
     font-weight: 600;
     transition: color 0.2s ease;
 }
 
 .footer-meta-text a:hover {
-    color: var(--accent-gold) !important;
+    color: var(--accent-gold); /* Removed !important */
     text-decoration: underline;
 }
 
