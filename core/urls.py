@@ -4,10 +4,8 @@ from django.contrib.auth import views as auth_views
 from game.views import CustomPasswordResetView
 from django.views.generic import TemplateView
 from django.shortcuts import render
-from game.forms import (
-    CustomPasswordResetForm,
-    CustomSetPasswordForm
-)
+from game.views import password_reset_account_selection
+from game.forms import CustomSetPasswordForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
