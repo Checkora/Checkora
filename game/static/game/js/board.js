@@ -972,6 +972,7 @@
                     const data = await post('/api/ai-move/', {});
                     clearInterval(thinkingInterval); // fix: clear after API call completes, not before
                     aiThinkingOverlay.classList.add('hidden');
+                    document.body.style.pointerEvents = "auto";
                     // Abort if sequence is no longer current after API call completes
                     if (seq !== aiRequestSeq) {
                         return;
