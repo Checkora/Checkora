@@ -112,7 +112,6 @@ body {
     gap: 1.5rem;
 }
 
-
 .btn-signin,
 .btn-register {
     text-decoration: none;
@@ -159,7 +158,7 @@ body {
 }
 
 /* ==========================================================================
-   Upgraded Modern Hero Section (UI/UX Production-Checked Revision)
+   Hero Section
    ========================================================================== */
 .hero {
     position: relative;
@@ -176,7 +175,6 @@ body {
     overflow: hidden;
 }
 
-/* Ambient Visual Background Glow Depth Layout */
 .ambient-glow {
     position: absolute;
     border-radius: 50%;
@@ -208,7 +206,6 @@ body {
     z-index: 5;
 }
 
-/* Technical Hybrid Architecture Tag */
 .architecture-badge {
     display: inline-flex;
     align-items: center;
@@ -275,7 +272,6 @@ body {
     align-items: center;
 }
 
-/* Primary High-Contrast Accent Buttons */
 .btn-primary-gold {
     display: inline-block;
     padding: 0.9rem 2.4rem;
@@ -297,7 +293,6 @@ body {
     box-shadow: 0 12px 24px -5px rgba(240, 192, 64, 0.45);
 }
 
-/* Ghost Outline Muted Buttons */
 .btn-secondary-ghost {
     display: inline-block;
     padding: 0.9rem 2.4rem;
@@ -327,7 +322,7 @@ body {
 }
 
 /* ==========================================================================
-   Features, About, and Structural Layout Containers
+   Features and Content Sections
    ========================================================================== */
 .features {
     padding: 4rem 5%;
@@ -428,6 +423,7 @@ body {
     font-weight: 600;
     color: var(--accent-gold);
 }
+
 .about {
     padding: 4rem 5%;
     max-width: 1200px;
@@ -453,6 +449,9 @@ body {
     line-height: 1.8;
 }
 
+/* ==========================================================================
+   Upgraded Multi-Column Modern Footer
+   ========================================================================== */
 .footer {
     max-width: 1200px;
     margin: 4rem auto 2rem;
@@ -464,49 +463,84 @@ body {
 }
 
 .footer-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 3rem;
-    padding-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 4rem;
+    padding-bottom: 2.5rem;
 }
 
 .footer-col {
     display: flex;
     flex-direction: column;
-    gap: 1.2rem;
-}
-
-.footer-col:first-child {
-    max-width: 380px;
+    align-items: flex-start;
+    text-align: left;
 }
 
 .footer-col p {
     color: var(--text-secondary);
     font-size: 0.95rem;
     line-height: 1.6;
+    margin-top: 0.5rem;
 }
 
 .footer-col h4 {
     color: var(--text-title);
-    font-size: 1.05rem;
+    font-size: 0.9rem;
     font-weight: 700;
-    font-family: 'Cinzel', serif;
-    margin-bottom: 0.5rem;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    position: relative;
+}
+
+.footer-col h4::after {
+    content: '';
+    display: block;
+    width: 25px;
+    height: 2px;
+    background-color: var(--accent-gold);
+    margin-top: 6px;
+    border-radius: 2px;
+}
+
+.footer-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
 }
 
 .footer-link {
     text-decoration: none;
-    color: var(--text-secondary);
+    color: var(--text-secondary) !important;
     font-size: 0.95rem;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, transform 0.2s ease;
     display: inline-block;
 }
 
 .footer-link:hover {
-    color: var(--accent-gold);
-    transform: translateX(3px);
+    color: var(--accent-gold) !important;
+    transform: translateX(4px);
+}
+
+.footer-meta-text {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.footer-meta-text a {
+    color: var(--accent-gold) !important;
+    text-decoration: none;
+    font-weight: 500;
+    transition: text-decoration 0.2s ease;
+}
+
+.footer-meta-text a:hover {
+    text-decoration: underline;
 }
 
 .footer-bottom {
@@ -524,7 +558,8 @@ body {
 
 .footer-socials {
     display: flex;
-    gap: 1.2rem;
+    gap: 1.5rem;
+    align-items: center;
 }
 
 .footer-socials a {
@@ -536,11 +571,11 @@ body {
 
 .footer-socials a:hover {
     color: var(--accent-gold);
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
 /* ==========================================================================
-   Media Queries & Mobile Layout Refinement Breakpoints
+   Platform Capabilities Section
    ========================================================================== */
 @media (max-width: 768px) {
     .navbar {
@@ -685,4 +720,96 @@ body {
     line-height: 1.6;
 }
 
+/* ==========================================================================
+   Media Queries & Responsiveness Breakpoints
+   ========================================================================== */
+@media (max-width: 992px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2.5rem;
+    }
+    
+    .footer-col h4::after {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .nav-left {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .nav-links {
+        display: none;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 1rem;
+    }
+
+    .btn-primary-gold,
+    .btn-secondary-ghost {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+    }
+
+    .footer {
+        padding: 2.5rem 2rem 1.5rem;
+        margin: 3rem 1.5rem 1.5rem;
+    }
+
+    .footer-col {
+        align-items: center;
+        text-align: center;
+    }
+
+    .footer-col h4::after {
+        margin: 6px auto 0 auto;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+    }
+
+    .card {
+        height: auto;
+        min-height: 260px;
+        cursor: default;
+    }
+
+    .card-front,
+    .card-back {
+        position: relative;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .card-back {
+        background-color: transparent;
+        padding-top: 0;
+    }
+
+    .card:hover .card-front,
+    .card:hover .card-back,
+    .card:focus-within .card-front,
+    .card:focus-within .card-back {
+        opacity: 1;
+    }
+    
+    .footer-link:hover {
+        transform: scale(1.05);
+    }
+}
 
