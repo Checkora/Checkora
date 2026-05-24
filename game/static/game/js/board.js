@@ -29,6 +29,11 @@
             let dragging = false;
             let dragSrc = null;
 
+            // NEW STATE VARIABLES FOR ARROWS
+            let rightClickDragStart = null;
+            let isRightClickDragging = false;
+            let customArrows = [];
+
             let whiteTime = 0;
             let blackTime = 0;
             let paused = false;
@@ -531,10 +536,30 @@
                         d.dataset.r = r;
                         d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
+                        d.onmousedown = (e) => {
+                            if (e.button === 2) {
+                                e.preventDefault();
+                                rightClickDragStart = { r, c };
+                                isRightClickDragging = true;
+                            }
+                        };
+                        d.onmouseup = (e) => {
+                            if (e.button === 2 && isRightClickDragging && rightClickDragStart) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                isRightClickDragging = false;
+                                if (rightClickDragStart.r === r && rightClickDragStart.c === c) {
+                                    toggleSquareHighlight(r, c);
+                                } else {
+                                    toggleArrow(rightClickDragStart.r, rightClickDragStart.c, r, c);
+                                }
+                                rightClickDragStart = null;
+                                renderArrows();
+                            }
+                        };
                         d.oncontextmenu = (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            toggleSquareHighlight(r, c);
                         };
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
@@ -577,6 +602,7 @@
                 }
                 syncPieces();
                 updateLabels();
+                createArrowOverlay();
             }
 
             function updateLabels() {
@@ -751,6 +777,146 @@
 
                 refreshHighlights();
             }
+            function createArrowOverlay() {
+                let svg = document.getElementById("arrowOverlay");
+                if (!svg) {
+                    const ns = "http://www.w3.org/2000/svg";
+                    svg = document.createElementNS(ns, "svg");
+                    svg.setAttribute("id", "arrowOverlay");
+                    svg.style.position = "absolute";
+                    svg.style.top = "0";
+                    svg.style.left = "0";
+                    svg.style.width = "100%";
+                    svg.style.height = "100%";
+                    svg.style.pointerEvents = "none";
+                    svg.style.zIndex = "10";
+                    
+                    let defs = document.createElementNS(ns, "defs");
+                    let marker = document.createElementNS(ns, "marker");
+                    marker.setAttribute("id", "arrowhead");
+                    marker.setAttribute("markerWidth", "4");
+                    marker.setAttribute("markerHeight", "4");
+                    marker.setAttribute("refX", "2.5");
+                    marker.setAttribute("refY", "2");
+                    marker.setAttribute("orient", "auto");
+                    
+                    let path = document.createElementNS(ns, "path");
+                    path.setAttribute("d", "M0,0 L0,4 L4,2 z");
+                    path.setAttribute("fill", "rgba(255, 170, 0, 0.8)");
+                    
+                    marker.appendChild(path);
+                    defs.appendChild(marker);
+                    svg.appendChild(defs);
+                    
+                    boardEl.appendChild(svg);
+                } else {
+                    boardEl.appendChild(svg);
+                }
+                renderArrows();
+            }
+
+            function toggleArrow(fr, fc, tr, tc) {
+                const idx = customArrows.findIndex(a => a.fr === fr && a.fc === fc && a.tr === tr && a.tc === tc);
+                if (idx >= 0) {
+                    customArrows.splice(idx, 1);
+                } else {
+                    customArrows.push({fr, fc, tr, tc});
+                }
+            }
+
+            function renderArrows(tempStartX = null, tempStartY = null, tempEndX = null, tempEndY = null) {
+                const svg = document.getElementById("arrowOverlay");
+                if (!svg) return;
+                
+                const existingLines = svg.querySelectorAll("line");
+                existingLines.forEach(l => l.remove());
+
+                const rect = boardEl.getBoundingClientRect();
+                if (rect.width === 0) return;
+
+                const drawLine = (x1, y1, x2, y2, isTemp) => {
+                    const ns = "http://www.w3.org/2000/svg";
+                    const line = document.createElementNS(ns, "line");
+                    line.setAttribute("x1", x1);
+                    line.setAttribute("y1", y1);
+                    line.setAttribute("x2", x2);
+                    line.setAttribute("y2", y2);
+                    line.setAttribute("stroke", "rgba(255, 170, 0, 0.8)");
+                    line.setAttribute("stroke-width", "12");
+                    line.setAttribute("marker-end", "url(#arrowhead)");
+                    if (isTemp) line.setAttribute("opacity", "0.6");
+                    svg.appendChild(line);
+                };
+
+                customArrows.forEach(a => {
+                    const fromSq = sq(a.fr, a.fc);
+                    const toSq = sq(a.tr, a.tc);
+                    if (!fromSq || !toSq) return;
+
+                    const fRect = fromSq.getBoundingClientRect();
+                    const tRect = toSq.getBoundingClientRect();
+
+                    const x1 = fRect.left - rect.left + fRect.width / 2;
+                    const y1 = fRect.top - rect.top + fRect.height / 2;
+                    const x2 = tRect.left - rect.left + tRect.width / 2;
+                    const y2 = tRect.top - rect.top + tRect.height / 2;
+
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const len = Math.sqrt(dx*dx + dy*dy);
+                    if (len > 0) {
+                        const ratio = Math.max(0, (len - fRect.width*0.35) / len);
+                        drawLine(x1, y1, x1 + dx * ratio, y1 + dy * ratio, false);
+                    }
+                });
+
+                if (tempStartX !== null) {
+                    const dx = tempEndX - tempStartX;
+                    const dy = tempEndY - tempStartY;
+                    const len = Math.sqrt(dx*dx + dy*dy);
+                    if (len > 10) {
+                        const sqSize = rect.width / 8;
+                        const ratio = Math.max(0, (len - sqSize*0.35) / len);
+                        drawLine(tempStartX, tempStartY, tempStartX + dx * ratio, tempStartY + dy * ratio, true);
+                    }
+                }
+            }
+
+            boardEl.addEventListener('mousemove', (e) => {
+                if (isRightClickDragging && rightClickDragStart) {
+                    const rect = boardEl.getBoundingClientRect();
+                    const startSq = sq(rightClickDragStart.r, rightClickDragStart.c);
+                    if (!startSq) return;
+                    const startRect = startSq.getBoundingClientRect();
+                    const startX = startRect.left - rect.left + startRect.width / 2;
+                    const startY = startRect.top - rect.top + startRect.height / 2;
+                    
+                    const currentX = e.clientX - rect.left;
+                    const currentY = e.clientY - rect.top;
+                    
+                    renderArrows(startX, startY, currentX, currentY);
+                }
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (e.button === 2 && isRightClickDragging) {
+                    isRightClickDragging = false;
+                    rightClickDragStart = null;
+                    renderArrows();
+                }
+            });
+
+            boardEl.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+
+            function clearAnnotations() {
+                highlightedSquare = null;
+                customArrows = [];
+                boardEl.querySelectorAll('.square').forEach(el => el.classList.remove('custom-highlight'));
+                renderArrows();
+            }
+
             function toggleSquareHighlight(r, c) {
                 if (highlightedSquare) {
                     sq(highlightedSquare.r, highlightedSquare.c)
@@ -830,6 +996,7 @@
                         to: { r: tr, c: tc }
                     };
 
+                    clearAnnotations();
                     refreshPremoveHighlight();
                     showStatus("Premove queued", false);
 
@@ -894,6 +1061,7 @@
 
                     const data = await post('/api/move/', body);
                         if (data.valid) {
+                            clearAnnotations();
                             playSound(data);
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
@@ -1000,6 +1168,7 @@
                     }
 
                         if (data.valid) {
+                            clearAnnotations();
                             playSound(data);
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
@@ -1070,6 +1239,7 @@
             EVENTS
             ========================================================== */
             async function onClick(r, c) {
+                clearAnnotations();
                 if (dragging) return;
 
                 const piece = board[r][c];
