@@ -889,6 +889,7 @@
             }            
             function renderArrows() {
                 const overlay = document.getElementById('arrow-overlay');
+                if (!overlay) return;
 
                 overlay.innerHTML = `
                     <defs>
@@ -916,9 +917,7 @@
 
                     const squareSize = boardRect.width / 8;
 
-                    const isFlipped = document
-                        .getElementById('board')
-                        .classList.contains('flipped');
+                    const isFlipped = flipped;
 
                     const startCol = isFlipped ? 7 - from.c : from.c;
                     const startRow = isFlipped ? 7 - from.r : from.r;
