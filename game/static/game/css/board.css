@@ -339,7 +339,7 @@ body {
     border-radius: 2px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     max-width: 100%;
-    box-sizing: content-box;
+    box-sizing: border-box;
     position: relative;
 }
 
@@ -636,8 +636,26 @@ body {
 /* ============================================================
    Captured Pieces
    ============================================================ */
-.captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 24px; }
-.captured-img  { width: 22px; height: 22px; opacity: 0.9; }
+.captured-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-height: 28px;
+    padding: 4px 0;
+}
+
+.captured-img {
+    width: 26px;
+    height: 26px;
+    opacity: 0.92;
+    border-radius: 3px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.captured-img:hover {
+    transform: scale(1.2);
+    opacity: 1;
+}
 
 /* ============================================================
    Buttons
@@ -963,8 +981,8 @@ body {
     }
 
     .captured-img {
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
     }
 
     .logo-icon-img {

@@ -15,6 +15,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
 from django.core.mail import (
     BadHeaderError, 
@@ -23,6 +24,7 @@ from django.core.mail import (
 )
 from django.template.loader import render_to_string
 from django.contrib import messages
+from django.core.cache import cache
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
@@ -200,6 +202,7 @@ def new_game(request):
         'draw_reason': game.draw_reason,
     })
 
+
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
@@ -235,6 +238,7 @@ def resume_game(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
+
 
 @require_GET
 def check_promotion(request):
@@ -349,8 +353,8 @@ def ai_move(request):
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)  # called once only
-    
+    best = game.get_ai_move(depth=depth)
+
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -523,6 +527,7 @@ def register_view(request):
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            request.session['otp_created_at'] = time.time()
 
             missing_email_credentials = (
                 not settings.EMAIL_HOST_USER or
@@ -603,13 +608,31 @@ def verify_otp(request):
         return redirect('register')
 
     if request.method == 'POST':
+        otp_created_at = request.session.get('otp_created_at')
+
+        if otp_created_at:
+            if time.time() - otp_created_at > 300:
+
+                messages.error(
+                    request,
+                    'OTP has expired. Please register again.',
+                )
+                request.session.pop('registration_otp_hash', None)
+                request.session.pop('otp_created_at', None)
+                request.session.pop('registration_user_id', None)
+
+                return redirect('register')
+
         entered_otp = request.POST.get('otp', '').strip()
 
         entered_otp_hash = hashlib.sha256(
             f"{entered_otp}:{settings.SECRET_KEY}".encode()
         ).hexdigest()
 
-        if entered_otp_hash == stored_otp_hash:
+        if secrets.compare_digest(
+            entered_otp_hash,
+            stored_otp_hash
+        ):
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
@@ -617,6 +640,7 @@ def verify_otp(request):
                 user.save()
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('otp_created_at', None)
 
                 try:
                     html_content = render_to_string(
@@ -813,7 +837,38 @@ def password_reset_account_selection(request):
         },
     )
     
-    
+class CustomPasswordResetView(PasswordResetView):
+    def post(self, request, *args, **kwargs):
+
+        email = request.POST.get('email', '').strip().lower()
+
+        if not email:
+
+            messages.error(
+                request,
+                'Please enter a valid email address.'
+            )
+
+            return redirect('password_reset')
+
+        cache_key = (f"password_reset_cooldown_{email}")
+
+        if cache.get(cache_key):
+
+            messages.error(
+                request,
+                'Please wait 60 seconds before requesting another password reset email.',
+            )
+
+            return redirect('password_reset')
+        cache.set(cache_key, True, timeout=60)
+        return super().post(
+            request,
+            *args,
+            **kwargs
+        )
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('index')
