@@ -25,6 +25,10 @@
             let lastMove = null;
             let premove = null;
             let highlightedSquare = null;
+            let arrowStartSquare = null;
+            let arrows = [];
+            let isRightDragging = false;
+            let touchDragging = false;
 
             let dragging = false;
             let dragSrc = null;
@@ -567,10 +571,59 @@
                         d.dataset.r = r;
                         d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
-                        d.oncontextmenu = (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleSquareHighlight(r, c);
+                        d.onmousedown = (e) => {
+                            if (e.button === 2) {
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                arrowStartSquare = { r, c };
+                                isRightDragging = false;
+                            }
+                        };
+
+                        d.onmousemove = (e) => {
+                            if (e.buttons === 2 && arrowStartSquare) {
+                                isRightDragging = true;
+                            }
+                        };
+
+                        d.onmouseup = (e) => {
+                            if (e.button === 2 && arrowStartSquare) {
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                if (isRightDragging) {
+                                    drawArrow(arrowStartSquare, { r, c });
+                                } else {
+                                    toggleSquareHighlight(r, c);
+                                }
+
+                                arrowStartSquare = null;
+                                isRightDragging = false;
+                            }
+                        };
+                        d.ontouchstart = () => {
+                            arrowStartSquare = { r, c };
+                            touchDragging = false;
+                        };
+
+                        d.ontouchmove = () => {
+                            if (arrowStartSquare) {
+                                touchDragging = true;
+                            }
+                        };
+
+                        d.ontouchend = () => {
+                            if (arrowStartSquare) {
+                                if (touchDragging) {
+                                    drawArrow(arrowStartSquare, { r, c });
+                                } else {
+                                    toggleSquareHighlight(r, c);
+                                }
+
+                                arrowStartSquare = null;
+                                touchDragging = false;
+                            }
                         };
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
@@ -821,6 +874,83 @@
                     sq(r, c).classList.add('custom-highlight');
                 }
             }
+            function drawArrow(from, to) {
+                const key = `${from.r}-${from.c}-${to.r}-${to.c}`;
+
+                const existingIndex = arrows.findIndex(a => a.key === key);
+
+                if (existingIndex !== -1) {
+                    arrows.splice(existingIndex, 1);
+                } else {
+                    arrows.push({ key, from, to });
+                }
+
+                renderArrows();
+            }            
+            function renderArrows() {
+                const overlay = document.getElementById('arrow-overlay');
+
+                overlay.innerHTML = `
+                    <defs>
+                        <marker
+                            id="arrowhead"
+                            markerWidth="6"
+                            markerHeight="6"
+                            refX="5"
+                            refY="3"
+                            orient="auto"
+                            markerUnits="strokeWidth"
+                        >
+                            <polygon
+                                points="0 0, 6 3, 0 6"
+                                fill="#4da6ff"
+                            />
+                        </marker>
+                    </defs>
+                `;
+
+                arrows.forEach(({ from, to }) => {
+                    const boardRect = document
+                        .getElementById('board')
+                        .getBoundingClientRect();
+
+                    const squareSize = boardRect.width / 8;
+
+                    const isFlipped = document
+                        .getElementById('board')
+                        .classList.contains('flipped');
+
+                    const startCol = isFlipped ? 7 - from.c : from.c;
+                    const startRow = isFlipped ? 7 - from.r : from.r;
+
+                    const endCol = isFlipped ? 7 - to.c : to.c;
+                    const endRow = isFlipped ? 7 - to.r : to.r;
+
+                    const x1 = startCol * squareSize + squareSize / 2;
+                    const y1 = startRow * squareSize + squareSize / 2;
+
+                    const x2 = endCol * squareSize + squareSize / 2;
+                    const y2 = endRow * squareSize + squareSize / 2;
+
+                    const arrow = document.createElementNS(
+                        'http://www.w3.org/2000/svg',
+                        'line'
+                    );
+
+                    arrow.setAttribute('x1', x1);
+                    arrow.setAttribute('y1', y1);
+                    arrow.setAttribute('x2', x2);
+                    arrow.setAttribute('y2', y2);
+
+                    arrow.setAttribute('stroke', '#4da6ff');
+                    arrow.setAttribute('stroke-width', '7');
+                    arrow.setAttribute('stroke-linecap', 'round');
+                    arrow.setAttribute('opacity', '0.8');
+                    arrow.setAttribute('marker-end', 'url(#arrowhead)');
+
+                    overlay.appendChild(arrow);
+                });
+            }
             function deselect() {
                 selected = null;
                 hints = [];
@@ -958,6 +1088,7 @@
                             board = parseBoard(data.board);
                             turn = data.current_turn;
                             lastMove = { from: [fr, fc], to: [tr, tc] };
+                            document.getElementById('arrow-overlay').innerHTML = '';
     
                             if (gameMode === 'pvp' && autoFlip) {
                                 flipped = (turn === 'black');

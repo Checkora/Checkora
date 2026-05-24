@@ -365,6 +365,20 @@ body {
     box-sizing: border-box;
     position: relative;
 }
+.board-wrapper {
+    position: relative;
+    width: fit-content;
+    height: fit-content;
+}
+
+#arrow-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+}
 
 /* ============================================================
    Squares
