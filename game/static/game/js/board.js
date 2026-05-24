@@ -29,6 +29,13 @@
             let dragging = false;
             let dragSrc = null;
 
+            // Touch drag-and-drop state variables
+            let touchStartPos = null;
+            let activeTouchPieceClone = null;
+            let touchDragSrc = null;
+            let touchDragging = false;
+            let touchOffset = { x: 0, y: 0 };
+
             let whiteTime = 0;
             let blackTime = 0;
             let paused = false;
@@ -2589,3 +2596,131 @@ if (blackNameInput) {
             ========================================================== */
             loadGame();
         
+            // Mobile Touch Drag-and-Drop Implementation
+            boardEl.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                const squareEl = e.target.closest('.square');
+                if (!squareEl) return;
+
+                const r = parseInt(squareEl.dataset.r);
+                const c = parseInt(squareEl.dataset.c);
+                const piece = board[r][c];
+                if (!piece || paused || gameOver) return;
+
+                // Check if the piece is playable by the current player (including AI premoves)
+                const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
+                const isNormalDrag = gameMode === 'ai' ? (turn === playerColor && pColor(piece) === playerColor) : (pColor(piece) === turn);
+
+                if (!isPremoveDrag && !isNormalDrag) return;
+
+                touchStartPos = { x: touch.clientX, y: touch.clientY };
+                touchDragSrc = { r, c };
+                touchDragging = false;
+            }, { passive: true });
+
+            boardEl.addEventListener('touchmove', (e) => {
+                if (!touchDragSrc) return;
+
+                const touch = e.touches[0];
+                
+                if (!touchDragging) {
+                    const dx = touch.clientX - touchStartPos.x;
+                    const dy = touch.clientY - touchStartPos.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance > 8) {
+                        touchDragging = true;
+                        
+                        // Select the piece to show move hints
+                        selectPiece(touchDragSrc.r, touchDragSrc.c);
+
+                        // Find the original piece image
+                        const squareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                        const pieceImg = squareEl ? squareEl.querySelector('.piece') : null;
+                        if (pieceImg) {
+                            // Create premium floating clone
+                            activeTouchPieceClone = pieceImg.cloneNode(true);
+                            activeTouchPieceClone.className = 'piece touch-drag-clone';
+                            
+                            // Measure and style the clone
+                            const rect = pieceImg.getBoundingClientRect();
+                            touchOffset = { x: rect.width / 2, y: rect.height / 2 };
+                            
+                            activeTouchPieceClone.style.position = 'fixed';
+                            activeTouchPieceClone.style.pointerEvents = 'none';
+                            activeTouchPieceClone.style.zIndex = '9999';
+                            activeTouchPieceClone.style.width = rect.width + 'px';
+                            activeTouchPieceClone.style.height = rect.height + 'px';
+                            activeTouchPieceClone.style.transform = 'scale(1.15)';
+                            activeTouchPieceClone.style.filter = 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.45))';
+                            activeTouchPieceClone.style.transition = 'none';
+                            activeTouchPieceClone.style.willChange = 'left, top';
+                            
+                            document.body.appendChild(activeTouchPieceClone);
+                            
+                            // Make original piece semi-transparent
+                            pieceImg.classList.add('touch-dragging-original');
+                        }
+                    }
+                }
+
+                if (touchDragging && activeTouchPieceClone) {
+                    activeTouchPieceClone.style.left = (touch.clientX - touchOffset.x) + 'px';
+                    activeTouchPieceClone.style.top = (touch.clientY - touchOffset.y) + 'px';
+                    
+                    // Prevent page scrolling while dragging
+                    if (e.cancelable) e.preventDefault();
+                }
+            }, { passive: false });
+
+            boardEl.addEventListener('touchend', (e) => {
+                if (!touchDragSrc) return;
+
+                const touch = e.changedTouches[0];
+                let movedToSquare = false;
+
+                if (touchDragging) {
+                    // Clean up original piece transparency
+                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
+                    if (pieceImg) {
+                        pieceImg.classList.remove('touch-dragging-original');
+                    }
+
+                    // Clean up clone
+                    if (activeTouchPieceClone) {
+                        activeTouchPieceClone.remove();
+                        activeTouchPieceClone = null;
+                    }
+
+                    // Identify target square element under the touch coordinates
+                    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const destSquareEl = targetEl ? targetEl.closest('.square') : null;
+                    if (destSquareEl) {
+                        const tr = parseInt(destSquareEl.dataset.r);
+                        const tc = parseInt(destSquareEl.dataset.c);
+
+                        if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
+                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
+                            movedToSquare = true;
+                        }
+                    }
+
+                    if (!movedToSquare) {
+                        deselect();
+                    }
+
+                    // Prevent click generation
+                    e.preventDefault();
+                } else {
+                    // Quick tap -> trigger default click/tap behavior
+                    onClick(touchDragSrc.r, touchDragSrc.c);
+                }
+
+                // Reset state
+                touchStartPos = null;
+                touchDragSrc = null;
+                touchDragging = false;
+            }, { passive: false });
+
+})();

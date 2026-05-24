@@ -510,6 +510,7 @@ body {
 }
 .piece.playable { cursor: pointer; }
 .piece.dragging { opacity: 0.3; transition: none; }
+.piece.touch-dragging-original { opacity: 0.3 !important; }
 .piece.moving {
     z-index: 100;
 }
