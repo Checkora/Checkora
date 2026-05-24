@@ -333,15 +333,15 @@ DP cache is intentionally excluded to save cookie space."""
                 try:
                     if proc:
                         proc.kill()
-                except Exception:
+                except (OSError, subprocess.SubprocessError):
                     logger.exception('Failed to kill timed-out engine process')
                 try:
                     if proc:
                         out, err = proc.communicate(timeout=1)
                         logger.debug('Partial stdout after timeout: %s', (out or '').strip())
                         logger.debug('Partial stderr after timeout: %s', (err or '').strip())
-                except Exception:
-                    pass
+                except (OSError, subprocess.SubprocessError):
+                    logger.debug('Could not capture partial output after timeout')
 
                 if attempt == attempts:
                     return None
@@ -587,7 +587,7 @@ DP cache is intentionally excluded to save cookie space."""
             self.repetition_history = [self.generate_position_key()]
             self._rebuild_repetition_counts()
         else:
-            repetition_count = self._update_repetition()
+            self._update_repetition()
 
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
@@ -774,16 +774,16 @@ DP cache is intentionally excluded to save cookie space."""
                 notation = f"{f_coord} -> {t_coord}"
 
             else:
-                type = piece.lower()
+                piece_type = piece.lower()
 
-                if type == 'p':
+                if piece_type == 'p':
                     if fc != tc:
                         notation = f"{files[fc]}x{t_coord}"
                     else:
                         notation = t_coord
 
                 else:
-                    p_char = type.upper()
+                    p_char = piece_type.upper()
 
                     if captured:
                         notation = f"{p_char}x{t_coord}"

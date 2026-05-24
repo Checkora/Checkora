@@ -52,7 +52,15 @@ def index(request):
 def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+    result = GameResult(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        player_color=player_color
+    )
+    result.full_clean()
+    result.save()
 
 
 @require_POST
@@ -772,9 +780,6 @@ def login_view(request):
     return render(request, 'game/login.html', {'form': form})
 
 
-@xframe_options_sameorigin
-def rules(request):
-    return render(request, 'game/rules.html')
 
 
 @require_POST
@@ -819,33 +824,4 @@ def stats_view(request):
     })
 
 
-import secrets as secrets_module
 from django.views.decorators.http import require_POST
-from game.services import cleanup_stale_games
-
-@require_POST
-@csrf_exempt
-def cleanup_cron(request):
-    """Secure cron-triggered cleanup endpoint for abandoned games."""
-    cron_secret = getattr(settings, 'CRON_SECRET', None)
-    
-    # Check authorization header
-    auth_header = request.headers.get('Authorization')
-    expected = f"Bearer {cron_secret}" if cron_secret else ""
-    provided = auth_header or ""
-    
-    if not cron_secret or not secrets_module.compare_digest(expected, provided):
-        return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
-    try:
-        deleted, resigned = cleanup_stale_games()
-        return JsonResponse({
-            'status': 'success',
-            'deleted_games': deleted,
-            'resigned_games': resigned
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)
