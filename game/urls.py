@@ -33,4 +33,7 @@ urlpatterns = [
 
     # Terms and Conditions Fallback Router
     path('terms.html', views.terms_view, name='terms'),
+
+    # Contact Us Fallback Router
+    path('contact.html', views.contact_view, name='contact'),
 ]

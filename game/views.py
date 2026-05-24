@@ -899,3 +899,7 @@ def privacy_view(request):
 def terms_view(request):
     """Directly serve the static terms and conditions template page."""
     return render(request, 'game/terms.html')
+
+def contact_view(request):
+    """Directly serve the static contact page template instance."""
+    return render(request, 'game/contact.html')
