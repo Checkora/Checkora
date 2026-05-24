@@ -1836,7 +1836,10 @@
                 }
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-
+                lastMove = null;
+                highlightedSquare = null;
+                selected = null;
+                hints = [];
                 await loadGame();
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
