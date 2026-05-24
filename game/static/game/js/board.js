@@ -424,6 +424,13 @@
                     }
                 });
             }
+            boardEl.addEventListener('click', async (e) => {
+                if (!paused) return;
+                if (drawOverlay.classList.contains('active')) return;
+                if (confirmOverlay.classList.contains('active')) return;
+                if (gameOverOverlay.classList.contains('active')) return;
+                await resumeGame();
+            });
             /* ==========================================================
             LOAD GAME STATE
             ========================================================== */
@@ -1136,6 +1143,16 @@
             EVENTS
             ========================================================== */
             async function onClick(r, c) {
+                if (
+                    paused &&
+                    !drawOverlay.classList.contains('active') &&
+                    !confirmOverlay.classList.contains('active') &&
+                    !gameOverOverlay.classList.contains('active')
+                ) {
+                    await resumeGame();
+                    return;
+                }
+
                 if (dragging) return;
 
                 const piece = board[r][c];
@@ -1606,6 +1623,17 @@
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
+                if (paused) {
+                    boardEl.setAttribute('title', 'Click to Resume');
+                    boardEl.setAttribute('aria-label', 'Game paused. Click board or press P to resume.');
+                    boardEl.style.cursor = 'pointer';
+                    boardEl.style.pointerEvents = 'auto';
+                } else {
+                    boardEl.removeAttribute('title');
+                    boardEl.removeAttribute('aria-label');
+                    boardEl.style.cursor = '';
+                    boardEl.style.pointerEvents = '';
+                }
             }
 
             function startTimer() {
@@ -1699,7 +1727,7 @@
                     console.error("Resume failed", e);
                 }
             }
-
+            
             /* ==========================================================
             WELCOME & CONFIRMATION LOGIC
             ========================================================== */
@@ -1766,8 +1794,8 @@
                     `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`,
                     async () => {
                         drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
-                        drawOverlay.classList.add('active');
                         await pauseGame();
+                        drawOverlay.classList.add('active');
                     },
                     '#f0c040'
                 );
@@ -2297,6 +2325,9 @@
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
+                if (paused) {
+                    boardEl.classList.add('paused');
+                }
                 resumeGame();
             };
 
@@ -2307,7 +2338,6 @@
     const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
     if (confettiContainer) confettiContainer.remove();
 });
-
             // ========== Exit to Menu Logic ==========
             const exitToMenuBtn = document.getElementById('exitToMenuBtn');
             if (exitToMenuBtn) {
@@ -2647,266 +2677,5 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
             } else {
                 loadGame();
             }
-
-            boardEl.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-
-                premove = null;
-                refreshPremoveHighlight();
-                showStatus("Premove cancelled", false);
-            });
-
-            // Mobile Touch Drag-and-Drop Implementation
-            boardEl.addEventListener('touchstart', (e) => {
-                const touch = e.touches[0];
-                const squareEl = e.target.closest('.square');
-                if (!squareEl) return;
-
-                const r = parseInt(squareEl.dataset.r);
-                const c = parseInt(squareEl.dataset.c);
-                const piece = board[r][c];
-                if (!piece || paused || gameOver) return;
-
-                // Check if the piece is playable by the current player (including AI premoves)
-                const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
-                const isNormalDrag = gameMode === 'ai' ? (turn === playerColor && pColor(piece) === playerColor) : (pColor(piece) === turn);
-
-                if (!isPremoveDrag && !isNormalDrag) return;
-
-                touchStartPos = { x: touch.clientX, y: touch.clientY };
-                touchDragSrc = { r, c };
-                touchDragging = false;
-            }, { passive: true });
-
-            boardEl.addEventListener('touchmove', (e) => {
-                if (!touchDragSrc) return;
-
-                const touch = e.touches[0];
-                
-                if (!touchDragging) {
-                    const dx = touch.clientX - touchStartPos.x;
-                    const dy = touch.clientY - touchStartPos.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance > 8) {
-                        touchDragging = true;
-                        
-                        // Select the piece to show move hints
-                        selectPiece(touchDragSrc.r, touchDragSrc.c);
-
-                        // Find the original piece image
-                        const squareEl = sq(touchDragSrc.r, touchDragSrc.c);
-                        const pieceImg = squareEl ? squareEl.querySelector('.piece') : null;
-                        if (pieceImg) {
-                            // Create premium floating clone
-                            activeTouchPieceClone = pieceImg.cloneNode(true);
-                            activeTouchPieceClone.className = 'piece touch-drag-clone';
-                            
-                            // Measure and style the clone
-                            const rect = pieceImg.getBoundingClientRect();
-                            touchOffset = { x: rect.width / 2, y: rect.height / 2 };
-                            
-                            activeTouchPieceClone.style.position = 'fixed';
-                            activeTouchPieceClone.style.pointerEvents = 'none';
-                            activeTouchPieceClone.style.zIndex = '9999';
-                            activeTouchPieceClone.style.width = rect.width + 'px';
-                            activeTouchPieceClone.style.height = rect.height + 'px';
-                            activeTouchPieceClone.style.transform = 'scale(1.15)';
-                            activeTouchPieceClone.style.filter = 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.45))';
-                            activeTouchPieceClone.style.transition = 'none';
-                            activeTouchPieceClone.style.willChange = 'left, top';
-                            
-                            document.body.appendChild(activeTouchPieceClone);
-                            
-                            // Make original piece semi-transparent
-                            pieceImg.classList.add('touch-dragging-original');
-                        }
-                    }
-                }
-
-                if (touchDragging && activeTouchPieceClone) {
-                    activeTouchPieceClone.style.left = (touch.clientX - touchOffset.x) + 'px';
-                    activeTouchPieceClone.style.top = (touch.clientY - touchOffset.y) + 'px';
-                    
-                    // Prevent page scrolling while dragging
-                    if (e.cancelable) e.preventDefault();
-                }
-            }, { passive: false });
-
-            boardEl.addEventListener('touchend', (e) => {
-                if (!touchDragSrc) return;
-
-                const touch = e.changedTouches[0];
-                let movedToSquare = false;
-
-                if (touchDragging) {
-                    // Clean up original piece transparency
-                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
-                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
-                    if (pieceImg) {
-                        pieceImg.classList.remove('touch-dragging-original');
-                    }
-
-                    // Clean up clone
-                    if (activeTouchPieceClone) {
-                        activeTouchPieceClone.remove();
-                        activeTouchPieceClone = null;
-                    }
-
-                    // Identify target square element under the touch coordinates
-                    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-                    const destSquareEl = targetEl ? targetEl.closest('.square') : null;
-                    if (destSquareEl) {
-                        const tr = parseInt(destSquareEl.dataset.r);
-                        const tc = parseInt(destSquareEl.dataset.c);
-
-                        if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
-                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
-                            movedToSquare = true;
-                        }
-                    }
-
-                    if (!movedToSquare) {
-                        deselect();
-                    }
-
-                    // Prevent click generation
-                    e.preventDefault();
-                } else {
-                    // Quick tap -> trigger default click/tap behavior
-                    onClick(touchDragSrc.r, touchDragSrc.c);
-                }
-
-                // Reset state
-                touchStartPos = null;
-                touchDragSrc = null;
-                touchDragging = false;
-            }, { passive: false });
-
-            boardEl.addEventListener('touchcancel', (e) => {
-                if (!touchDragSrc) return;
-
-                if (touchDragging) {
-                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
-                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
-                    if (pieceImg) {
-                        pieceImg.classList.remove('touch-dragging-original');
-                    }
-
-                    if (activeTouchPieceClone) {
-                        activeTouchPieceClone.remove();
-                        activeTouchPieceClone = null;
-                    }
-
-                    deselect();
-                }
-
-                touchStartPos = null;
-                touchDragSrc = null;
-                touchDragging = false;
-            }, { passive: true });
-
-            // INLINE INITIALIZATION FOR CUSTOM TIME CONTROL POPUP
-            function initTimeControlPicker() {
-                const trigger = document.getElementById('timeControlTrigger');
-                const popover = document.getElementById('timeControlPopover');
-                const tabs = document.querySelectorAll('.tc-tab-btn');
-                const tabContents = document.querySelectorAll('.tc-tab-content');
-                const presetBtns = document.querySelectorAll('.tc-preset-btn');
-                const applyCustomBtn = document.getElementById('applyCustomTCBtn');
-                const display = document.getElementById('tcDisplayText');
-
-                if (!trigger || !popover) return;
-
-                // Toggle popover
-                trigger.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const isVisible = popover.style.display === 'flex';
-                    popover.style.display = isVisible ? 'none' : 'flex';
-                });
-
-                // Tab switching
-                tabs.forEach(tab => {
-                    tab.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        tabs.forEach(t => t.classList.remove('active'));
-                        tab.classList.add('active');
-
-                        const targetTab = tab.dataset.tab;
-                        tabContents.forEach(content => {
-                            if (content.id === `tab-${targetTab}`) {
-                                content.style.display = 'block';
-                            } else {
-                                content.style.display = 'none';
-                            }
-                        });
-                    });
-                });
-
-                // Preset button selection
-                presetBtns.forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        presetBtns.forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-
-                        selectedMins = parseInt(btn.dataset.mins, 10);
-                        selectedIncrement = parseInt(btn.dataset.inc, 10);
-
-                        // Update display text
-                        display.textContent = btn.textContent.trim();
-
-                        // Close popover
-                        popover.style.display = 'none';
-                    });
-                });
-
-                // Apply custom time control
-                if (applyCustomBtn) {
-                    applyCustomBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const minsInput = document.getElementById('customMinsInput');
-                        const incInput = document.getElementById('customIncInput');
-
-                        if (minsInput && incInput) {
-                            let mins = parseInt(minsInput.value, 10);
-                            let inc = parseInt(incInput.value, 10);
-
-                            if (isNaN(mins) || mins < 1) mins = 10;
-                            if (mins > 300) mins = 300;
-                            if (isNaN(inc) || inc < 0) inc = 0;
-                            if (inc > 180) inc = 180;
-
-                            minsInput.value = mins;
-                            incInput.value = inc;
-
-                            selectedMins = mins;
-                            selectedIncrement = inc;
-
-                            // Update active preset styling
-                            presetBtns.forEach(b => b.classList.remove('active'));
-
-                            if (inc > 0) {
-                                display.textContent = `${mins} | ${inc}`;
-                            } else {
-                                display.textContent = `${mins} min`;
-                            }
-
-                            // Close popover
-                            popover.style.display = 'none';
-                        }
-                    });
-                }
-
-                // Close popover when clicking anywhere else
-                document.addEventListener('click', (e) => {
-                    if (!popover.contains(e.target) && e.target !== trigger) {
-                        popover.style.display = 'none';
-                    }
-                });
-            }
-
-            // Call picker init immediately
-            initTimeControlPicker();
 
 })();

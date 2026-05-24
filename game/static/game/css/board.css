@@ -1155,7 +1155,7 @@ body {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.7);
-    z-index: 100;
+    z-index: 10050;
     justify-content: center;
     align-items: center;
     padding: 20px;             
@@ -1508,6 +1508,12 @@ body {
 }
 
 /* ================= PAUSE STATE ================= */
+.chessboard.paused {
+    pointer-events: auto;
+}
+
+/* Blur squares only — not ::after, so the pause label stays sharp */
+
 .chessboard.paused .square {
     pointer-events: none;
     filter: blur(15px);
@@ -1531,7 +1537,17 @@ body {
     z-index: 9999;
     box-shadow: 0 8px 32px rgba(240, 192, 64, 0.4);
     filter: none;
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
+}
+@media (max-width: 768px) {
+    .chessboard.paused::after {
+        font-size: 1rem;
+        padding: 12px 20px;
+        white-space: normal;
+        text-align: center;
+        width: 70%;
+    }
 }
 
 #pauseBtn.paused {
