@@ -2091,8 +2091,10 @@
 
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver && !paused) {
-                    document.getElementById('confirmDifficultyContainer').style.display = 'none';
-                    document.getElementById('confirmTimerContainer').style.display = 'none';
+                    const confirmDifficultyContainer = document.getElementById('confirmDifficultyContainer');
+                    const confirmTimerContainer = document.getElementById('confirmTimerContainer');
+                    if (confirmDifficultyContainer) confirmDifficultyContainer.style.display = 'none';
+                    if (confirmTimerContainer) confirmTimerContainer.style.display = 'none';
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         try {
                             const result = await post('/api/resign/', {});
