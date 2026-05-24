@@ -253,17 +253,21 @@
                 </div>
             </div>
             <div class="board-outer">
-                <div class="board-row">
-                    <div class="ranks" id="ranksLabels">
-                        <span>8</span><span>7</span><span>6</span><span>5</span>
-                        <span>4</span><span>3</span><span>2</span><span>1</span>
+                <div class="board-aligned">
+                    <div class="board-row">
+                        <div class="ranks" id="ranksLabels">
+                            <span>8</span><span>7</span><span>6</span><span>5</span>
+                            <span>4</span><span>3</span><span>2</span><span>1</span>
+                        </div>
+                        <div class="board-grid-wrap">
+                            <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                        </div>
+                        <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
                     </div>
-                    <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
-                    <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
-                </div>
-                <div class="files" id="filesLabels">
-                    <span>a</span><span>b</span><span>c</span><span>d</span>
-                    <span>e</span><span>f</span><span>g</span><span>h</span>
+                    <div class="files" id="filesLabels">
+                        <span>a</span><span>b</span><span>c</span><span>d</span>
+                        <span>e</span><span>f</span><span>g</span><span>h</span>
+                    </div>
                 </div>
             </div>
 

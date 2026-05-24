@@ -295,17 +295,35 @@ body {
     position: relative;
     width: fit-content;
     max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+.board-aligned {
+    display: inline-block;
+    width: fit-content;
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .board-row {
     display: flex;
-    align-items: stretch;
+    align-items: flex-start;
+}
+
+.board-grid-wrap {
+    display: flex;
+    flex-direction: column;
+    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    box-sizing: border-box;
 }
 
 .ranks {
     display: flex;
     flex-direction: column;
-    padding: 3px 6px 3px 0;
+    width: var(--rank-label-width);
+    padding: 3px 0;
 }
 .ranks span {
     height: var(--square-size);
@@ -318,11 +336,15 @@ body {
 }
 
 .files {
-    display: flex;
-    padding: 4px 0 0 calc(var(--rank-label-width) + 4px);
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: calc(var(--square-size) * 8);
+    margin-left: calc(var(--rank-label-width) + var(--board-border));
+    padding-top: 4px;
+    box-sizing: border-box;
 }
 .files span {
-    width: var(--square-size);
+    width: 100%;
     text-align: center;
     font-size: clamp(0.6rem, 1.2vw, 0.75rem);
     color: #5a5a7a;
@@ -331,11 +353,12 @@ body {
 
 .chessboard {
     display: grid;
-    grid-template-columns: repeat(8, var(--square-size));
-    grid-template-rows: repeat(8, var(--square-size));
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
     width: calc(var(--square-size) * 8 + var(--board-border) * 2);
     height: calc(var(--square-size) * 8 + var(--board-border) * 2);
     border: var(--board-border) solid #3d3222;
+    padding: 0;
     border-radius: 2px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     max-width: 100%;
@@ -347,8 +370,8 @@ body {
    Squares
    ============================================================ */
 .square {
-    width: var(--square-size);
-    height: var(--square-size);
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -896,7 +919,7 @@ body {
     }
 
     .board-outer {
-    width: 100%;
+    width: fit-content;
     max-width: 100%;
     margin: 0 auto;
     overflow-x: hidden;
@@ -906,8 +929,17 @@ body {
         width: var(--mobile-board-size);
         height: var(--mobile-board-size);
         border-width: var(--board-border-width);
-        grid-template-columns: repeat(8, var(--mobile-square-size));
-        grid-template-rows: repeat(8, var(--mobile-square-size));
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+    }
+
+    .board-grid-wrap {
+        width: var(--mobile-board-size);
+    }
+
+    .board-aligned {
+        width: fit-content;
+        margin: 0 auto;
     }
 
     .square {
@@ -925,13 +957,13 @@ body {
         font-size: 0.65rem;
     }
 
-    .files {
-        padding-left: 20px;
+    .files span {
+        font-size: 0.65rem;
     }
 
-    .files span {
-        width: var(--mobile-square-size);
-        font-size: 0.65rem;
+    .files {
+        width: calc(var(--mobile-square-size) * 8);
+        margin-left: calc(var(--rank-label-width) + var(--board-border-width));
     }
 
     .piece {
@@ -1301,13 +1333,10 @@ body {
     }
 
     .board-outer {
-        width: 100%;
+        width: fit-content;
         max-width: 100%;
+        margin: 0 auto;
         overflow-x: hidden;
-    }
-
-    .files {
-        padding-left: 18px;
     }
 
     .files span,
