@@ -1677,6 +1677,7 @@
                 aiRequestSeq = 0;
                 aiThinking = false;
                 premove = null;
+                lastMove = null;
                 refreshPremoveHighlight();
 
                 clearTimeout(pgnDownloadTimeout);
