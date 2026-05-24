@@ -1288,7 +1288,8 @@ body {
     }
 
     .files {
-        padding-left: 18px;
+        padding-left: 0px;
+        justify-content: space-evenly;
     }
 
     .files span,
