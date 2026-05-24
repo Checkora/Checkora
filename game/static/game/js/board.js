@@ -1248,15 +1248,13 @@
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
-                const point_vals = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
-
-                // Sort captured pieces by value (highest first)
+                // Use global MATERIAL_VALUES instead of redefining locally (DRY principle)
                 const sortByValue = (pieces) => [...pieces].sort((a, b) =>
-                    (point_vals[b.toLowerCase()] || 0) - (point_vals[a.toLowerCase()] || 0)
+                    (MATERIAL_VALUES[b.toLowerCase()] || 0) - (MATERIAL_VALUES[a.toLowerCase()] || 0)
                 );
 
-                let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
-                let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                let whitePoints = cap.white.reduce((sum, p) => sum + (MATERIAL_VALUES[p.toLowerCase()] || 0), 0);
+                let blackPoints = cap.black.reduce((sum, p) => sum + (MATERIAL_VALUES[p.toLowerCase()] || 0), 0);
 
                 const pieceNames = { 'p': 'Pawn', 'n': 'Knight', 'b': 'Bishop', 'r': 'Rook', 'q': 'Queen' };
 
