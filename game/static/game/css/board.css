@@ -449,6 +449,13 @@ body {
 /* Last-move highlight */
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
+.custom-highlight.light {
+    background-color: rgba(80, 180, 255, 0.45) !important;
+}
+
+.custom-highlight.dark {
+    background-color: rgba(40, 120, 220, 0.55) !important;
+}
 
 .square.premove.light {
     background-color: rgba(255, 80, 80, 0.45);
