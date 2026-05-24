@@ -339,7 +339,7 @@ body {
     border-radius: 2px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     max-width: 100%;
-    box-sizing: content-box;
+    box-sizing: border-box;
     position: relative;
 }
 
