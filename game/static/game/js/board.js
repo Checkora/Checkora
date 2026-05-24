@@ -2259,9 +2259,10 @@
                         { white: currentBlackName, black: currentWhiteName });
                 }
             };
-            if (gameOverExitBtn) gameOverExitBtn.onclick = () => {
-            window.location.href = '/';
-                 };
+           if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
+    const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+    if (confettiContainer) confettiContainer.remove();
+});
 
             // ========== Exit to Menu Logic ==========
             const exitToMenuBtn = document.getElementById('exitToMenuBtn');
