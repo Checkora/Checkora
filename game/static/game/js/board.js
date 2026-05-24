@@ -602,18 +602,22 @@
                                 isRightDragging = false;
                             }
                         };
-                        d.ontouchstart = () => {
+                        
+                        d.ontouchstart = (e) => {
+                            e.preventDefault();
                             arrowStartSquare = { r, c };
                             touchDragging = false;
                         };
 
-                        d.ontouchmove = () => {
+                        d.ontouchmove = (e) => {
+                            e.preventDefault();
                             if (arrowStartSquare) {
                                 touchDragging = true;
                             }
                         };
 
-                        d.ontouchend = () => {
+                        d.ontouchend = (e) => {
+                            e.preventDefault();
                             if (arrowStartSquare) {
                                 if (touchDragging) {
                                     drawArrow(arrowStartSquare, { r, c });
@@ -2413,6 +2417,15 @@
         } else {
             await handleReconnect();
         }
+    });
+    document.addEventListener('mouseup', () => {
+        arrowStartSquare = null;
+        isRightDragging = false;
+    });
+
+    document.addEventListener('touchend', () => {
+        arrowStartSquare = null;
+        touchDragging = false;
     });
 
     window.addEventListener('online', async () => {
