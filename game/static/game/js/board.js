@@ -446,7 +446,7 @@
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
                 if (pauseBtn)  pauseBtn.style.display  = 'block';  
                 if (resignBtn) resignBtn.style.display = 'block'; 
-                const isActive = (data.game_status === 'active' || data.game_status === 'check');
+                const isActive = ['active', 'check', 'ok'].includes(data.game_status);
                 if (newPvPBtn) newPvPBtn.style.display = isActive ? 'none' : '';
                 if (newAIBtn) newAIBtn.style.display = isActive ? 'none' : '';
                 if (newFenBtn) newFenBtn.style.display = isActive ? 'none' : '';
