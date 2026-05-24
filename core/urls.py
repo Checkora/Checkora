@@ -3,10 +3,8 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
 from django.shortcuts import render
-from game.forms import (
-    CustomPasswordResetForm,
-    CustomSetPasswordForm
-)
+from game.views import password_reset_account_selection
+from game.forms import CustomSetPasswordForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,14 +12,11 @@ urlpatterns = [
     path('sitemap.xml', TemplateView.as_view(template_name="sitemap.xml", content_type="application/xml")),
     path('', include('game.urls')),
 
-    path('password-reset/',
-         auth_views.PasswordResetView.as_view(
-             template_name='game/password_reset.html',
-             email_template_name='game/password_reset_email.html',
-             subject_template_name='game/password_reset_subject.txt',
-             form_class=CustomPasswordResetForm,
-         ),
-         name='password_reset'),
+    path(
+        'password-reset/',
+        password_reset_account_selection,
+        name='password_reset'
+    ),
 
     path('password-reset/done/',
          auth_views.PasswordResetDoneView.as_view(

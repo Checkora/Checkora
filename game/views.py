@@ -11,6 +11,9 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from django.contrib.auth.forms import AuthenticationForm
 from smtplib import SMTPException
 from django.core.mail import (
@@ -629,12 +632,10 @@ def verify_otp(request):
                         from_email=settings.EMAIL_HOST_USER,
                         to=[user.email],
                     )
-                    email.attach_alternative(html_content,"text/html")
-                    email.send(fail_silently=True)
-                
+                    email.attach_alternative(html_content, "text/html")
+                    email.send(fail_silently=True)   
                 except Exception as e:
-                    logger.warning("Failed to send welcome email: %s", e)
-                    
+                    logger.warning("Failed to send welcome email: %s", e)      
                 login(request, user)
                 messages.success(
                     request,
@@ -735,6 +736,84 @@ def resend_otp(request):
 
     return redirect('verify_otp')
 
+
+def password_reset_account_selection(request):
+    """Show usernames linked to entered email."""
+
+    usernames = []
+    email = ''
+
+    if request.method == 'POST':
+
+        email = request.POST.get(
+            'email',
+            '',
+            ).strip()
+
+        selected_username = request.POST.get('selected_username')
+        users = User.objects.filter(email=email)
+
+        if not users.exists():
+
+            messages.error(
+                request,
+                'No accounts found with this email.',
+            )
+
+        else:
+
+            if selected_username:
+
+                selected_user = users.filter(username=selected_username).first()
+
+                if selected_user:
+
+                    uid = urlsafe_base64_encode(force_bytes(selected_user.pk))
+
+                    token = default_token_generator.make_token(selected_user)
+
+                    context = {
+                        'email': selected_user.email,
+                        'domain': request.get_host(),
+                        'site_name': 'Checkora',
+                        'uid': uid,
+                        'user': selected_user,
+                        'token': token,
+                        'protocol': (
+                            'https'
+                            if request.is_secure()
+                            else 'http'
+                        ),
+                    }
+
+                    message = render_to_string(
+                        'game/password_reset_email.html',
+                        context,
+                    )
+
+                    subject = 'Reset your Checkora password'
+
+                    send_mail(
+                        subject,
+                        message,
+                        None,
+                        [selected_user.email],
+                    )
+
+                messages.success(request, 'Password reset email sent successfully.')
+
+            usernames = users.values_list('username', flat=True)
+
+    return render(
+        request,
+        'game/password_reset.html',
+        {
+            'usernames': usernames,
+            'email': email,
+        },
+    )
+    
+    
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('index')
