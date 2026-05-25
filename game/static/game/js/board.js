@@ -2733,4 +2733,27 @@ if (blackNameInput) {
                 touchDragging = false;
             }, { passive: false });
 
+            boardEl.addEventListener('touchcancel', (e) => {
+                if (!touchDragSrc) return;
+
+                if (touchDragging) {
+                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
+                    if (pieceImg) {
+                        pieceImg.classList.remove('touch-dragging-original');
+                    }
+
+                    if (activeTouchPieceClone) {
+                        activeTouchPieceClone.remove();
+                        activeTouchPieceClone = null;
+                    }
+
+                    deselect();
+                }
+
+                touchStartPos = null;
+                touchDragSrc = null;
+                touchDragging = false;
+            }, { passive: true });
+
 })();
