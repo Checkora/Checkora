@@ -17,14 +17,19 @@ is chosen at random to add variety.
 """
 
 import os
+import random
 import subprocess
 import json
 import sys
 import time
 
+
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+from datetime import date
 
 
 class ChessGame:
@@ -104,6 +109,21 @@ class ChessGame:
         if not self.move_history:
             return ""
 
+    def generate_pgn(self, white_name='White', black_name='Black'):
+        """Generate a PGN string from move history."""
+        if not self.move_history:
+            return ""
+        
+        # Compute result based on game status
+        result = '*'
+        if self.game_status == 'checkmate':
+            result = '0-1' if self.current_turn == 'white' else '1-0'
+        elif self.game_status in ('draw', 'stalemate'):
+            result = '1/2-1/2'
+        elif self.game_status == 'resignation':
+            result = '1-0' if self.current_turn == 'black' else '0-1'
+
+
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
             move_number = i // 2 + 1
@@ -113,11 +133,22 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
+
         headers = [
             '[Event "Checkora Match"]',
             '[White "White"]',
             '[Black "Black"]',
             '[Result "*"]',
+
+        
+        today = date.today().strftime('%Y.%m.%d')
+        headers = [
+            '[Event "Checkora Match"]',
+            f'[White "{white_name}"]',
+            f'[Black "{black_name}"]',
+            f'[Date "{today}"]',
+            f'[Result "{result}"]',
+
         ]
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves
@@ -564,9 +595,14 @@ DP cache is intentionally excluded to save cookie space."""
 
         notation = self._notation(
             fr, fc, tr, tc, piece, captured,
+
             board_before, rights_before, ep_before)
         if promoted and '=' not in notation:
             notation += '=' + (self.board[tr][tc] or 'Q').upper()
+
+            board_before, rights_before, ep_before,
+            promo_char=(promotion_piece or 'q') if promoted else None)
+
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
@@ -653,9 +689,16 @@ DP cache is intentionally excluded to save cookie space."""
         """Internal helper to fetch piece moves from the C++ binary."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
         cmd = (
             f"MOVES {board_str} {rights_str}"
             f" {self.current_turn} {row} {col}"
+
+        ep_str = self._serialize_ep()
+        cmd = (
+            f"MOVES {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str} {row} {col}"
+
         )
         resp = self._call_engine(cmd)
 
@@ -684,9 +727,17 @@ DP cache is intentionally excluded to save cookie space."""
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
         cmd = (
             f"PROMOTE {board_str} {rights_str}"
             f" {self.current_turn} {fr} {fc} {tr} {tc} {choice}"
+
+        ep_str = self._serialize_ep()
+        cmd = (
+            f"PROMOTE {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str}"
+            f" {fr} {fc} {tr} {tc} {choice}"
+
         )
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
@@ -735,10 +786,22 @@ DP cache is intentionally excluded to save cookie space."""
 
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,
+
                   ep_str=None):
         """
         Generate SAN notation via C++ engine if possible,
           else simplified fallback."""
+
+                  ep_str=None, promo_char=None):
+        """
+        Generate SAN notation via C++ engine if possible,
+          else simplified fallback."""
+        if promo_char:
+            promo_char = promo_char.lower()
+            if promo_char not in ('q', 'r', 'b', 'n'):
+                promo_char = 'q'
+
+
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
             cmd = (
@@ -746,6 +809,10 @@ DP cache is intentionally excluded to save cookie space."""
                 f" {self.current_turn} {ep_str}"
                 f" {fr} {fc} {tr} {tc}"
             )
+
+            if promo_char:
+                cmd += f" {promo_char}"
+
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -789,6 +856,10 @@ DP cache is intentionally excluded to save cookie space."""
                         notation = f"{p_char}x{t_coord}"
                     else:
                         notation = f"{p_char}{t_coord}"
+
+        if promo_char and '=' not in notation:
+            notation += '=' + promo_char.upper()
+
         return notation
 
     @staticmethod
@@ -825,6 +896,7 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
+
         cmd = f"STATUS {board_str} {rights_str} {self.current_turn}"
 
         legal_moves = sum(
@@ -837,12 +909,19 @@ DP cache is intentionally excluded to save cookie space."""
             self.current_turn, self.generate_fen_key(), rights_str, ep_str, legal_moves,
         )
 
+
+        cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
+
         resp = self._call_engine(cmd)
         logger.debug('STATUS raw response: %s', resp)
         if resp and resp.startswith("STATUS"):
+
             parts = resp.split()
             status = parts[1].lower() if len(parts) > 1 else 'ok'
             logger.debug('Parsed engine status: %s', status)
+
+            status = resp.split()[1].lower()
+
             if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 return status
         return 'ok'
@@ -906,9 +985,15 @@ DP cache is intentionally excluded to save cookie space."""
         if not candidates:
             return None
 
+
         # Keep the book order stable so the same position always resolves
         # to the same move across runs.
         candidates = list(candidates)  # copy – do not mutate the book
+
+        # Shuffle so variety is uniform across the candidate list
+        candidates = list(candidates)  # copy – do not mutate the book
+        random.shuffle(candidates)
+
 
         for move in candidates:
             # Sanity-check: must be a 4-item sequence of ints, all in 0..7.
@@ -958,12 +1043,21 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
 
+
         if depth is None:
             depth = self._get_ai_search_depth()
 
         cmd = (
             f"BESTMOVE {board_str} {rights_str}"
             f" {self.current_turn} {depth}"
+
+        if depth is None:
+            depth = self._get_ai_search_depth()
+        ep_str = self._serialize_ep()
+        cmd = (
+            f"BESTMOVE {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str} {depth}"
+
         )
         resp = self._call_engine(cmd)
 
@@ -975,6 +1069,7 @@ DP cache is intentionally excluded to save cookie space."""
 
         if len(parts) < 5 or parts[1] == "NONE":
             return None
+
 
         try:
             best = {
@@ -988,3 +1083,11 @@ DP cache is intentionally excluded to save cookie space."""
         except (ValueError, IndexError):
             logger.exception('Failed to parse BESTMOVE response: %s', resp)
             return None
+
+        return {
+            'from_row': int(parts[1]),
+            'from_col': int(parts[2]),
+            'to_row':   int(parts[3]),
+            'to_col':   int(parts[4]),
+        }
+
