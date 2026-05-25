@@ -365,11 +365,7 @@ body {
     box-sizing: border-box;
     position: relative;
 }
-.board-wrapper {
-    position: relative;
-    width: fit-content;
-    height: fit-content;
-}
+
 
 #arrow-overlay {
     position: absolute;
