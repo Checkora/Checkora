@@ -142,9 +142,9 @@ body {
   position: absolute;
   top: 2rem;
   left: 2rem;
-  font-size: 0.85rem !important;
-  background: rgba(22, 22, 42, 0.6) !important;
-  color: var(--text-primary) !important;
+  font-size: 0.85rem;
+  background: rgba(22, 22, 42, 0.6);
+  color: var(--text-primary);
   font-weight: 600;
   padding: 0.6rem 1.2rem;
   border-radius: 30px;
@@ -161,7 +161,7 @@ body {
 }
 
 .back-btn:hover {
-  color: var(--accent-gold) !important;
+  color: var(--accent-gold);
   border-color: rgba(240, 192, 64, 0.3);
   transform: translateX(-3px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
