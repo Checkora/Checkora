@@ -411,6 +411,7 @@ def ai_move(request):
         'black_name': request.session.get('black_name', 'Black'),
     })
 
+
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -421,7 +422,14 @@ def offer_draw(request):
             {'success': False, 'message': err_msg}, status=400
         )
 
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {'success': False, 'message': 'Invalid request data.'},
+            status=400,
+        )
+
     action = data.get('action')  # 'offer' or 'accept'
 
     if action == 'accept':
@@ -430,7 +438,14 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color)
+        record_game_result(
+            request,
+            game.mode,
+            'draw',
+            'agreement',
+            game.player_color
+        )
+
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
