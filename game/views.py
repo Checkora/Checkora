@@ -1,10 +1,18 @@
 """Game views for the Checkora chess platform."""
+
+
+import copy
+
 import logging
+
 import json
+import logging
 import time
 import hashlib
 import secrets
+
 import secrets as secrets_module
+
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -12,6 +20,13 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
+
+from smtplib import SMTPException
+from django.core.mail import BadHeaderError, send_mail
+from django.contrib import messages
+from django.db.models import F, Q
+
+
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
 from django.core.mail import (
@@ -23,6 +38,7 @@ from django.template.loader import render_to_string
 from django.contrib import messages
 from django.core.cache import cache
 from django.db.models import F, Q
+
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -30,8 +46,20 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+
+
+logger = logging.getLogger(__name__)
+
+def _count_legal_moves(game):
+    return sum(
+        len(game.get_valid_moves(row, col))
+        for row in range(8)
+        for col in range(8)
+    )
+
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
+
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -50,7 +78,19 @@ def index(request):
 def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
+
+    result = GameResult(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        player_color=player_color
+    )
+    result.full_clean()
+    result.save()
+
     GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+
 
 
 @require_POST
@@ -98,7 +138,11 @@ def make_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
+
+        'pgn': game.generate_pgn(),
+
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
@@ -147,9 +191,13 @@ def new_game(request):
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
     player_color = data.get('player_color', 'white')
+
+    if player_color not in ('white', 'black'):
+
     if player_color == 'random':
         player_color = secrets.choice(['white', 'black'])
     elif player_color not in ('white', 'black'):
+
         player_color = 'white'
 
     def _clean_name(raw, fallback):
@@ -182,9 +230,24 @@ def new_game(request):
     game.player_color = player_color
     game.paused = False
 
+    game.game_status = 'active'
+    game.draw_reason = None
+
+
     request.session['game'] = game.to_dict()
+    request.session['hint_count'] = 0
     request.session.modified = True
     request.session.save()
+
+    logger.debug(
+        'New game started: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s',
+        game.current_turn,
+        game.mode,
+        game.game_status,
+        game.draw_reason,
+        game.generate_fen_key(),
+        request.session['hint_count'],
+    )
 
     return JsonResponse({
         'valid': True,
@@ -198,6 +261,13 @@ def new_game(request):
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
         'fen': game.generate_fen_key(),
+
+        'pgn': game.generate_pgn(),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+        'hint_count': 0,
+        'remaining_hints': 3,
+
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
@@ -238,8 +308,44 @@ def resume_game(request):
         'fen': game.generate_fen_key(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
+
     })
 
+@require_POST
+def resume_game(request):
+    """Resume the existing session game without resetting it."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
+
+    game = ChessGame.from_dict(game_data)
+
+    if game.game_status != 'active':
+        return JsonResponse({'valid': False, 'message': 'No active game to resume.'}, status=404)
+
+    game.paused = False
+    game.last_ts = time.time()
+    request.session['game'] = game.to_dict()
+    request.session.modified = True
+
+    return JsonResponse({
+        'valid': True,
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'mode': game.mode,
+        'player_color': game.player_color,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(),
+        'difficulty': request.session.get('difficulty', 'medium'),
+    })
 
 @require_GET
 def check_promotion(request):
@@ -283,6 +389,7 @@ def get_state(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+    hint_count = request.session.get('hint_count', 0)
     return JsonResponse({
         'board': game.board,
         'current_turn': game.current_turn,
@@ -297,9 +404,17 @@ def get_state(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'fen': game.generate_fen_key(),
+
+        'pgn': game.generate_pgn(),
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+        'hint_count': hint_count,
+        'remaining_hints': max(0, 3 - hint_count),
+
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+
     })
 
 
@@ -334,6 +449,40 @@ def set_pause(request):
         'black_time': game.black_time,
     })
 
+# Temporary disable during PR scope review.
+# pause_beacon may be moved to separate lifecycle PR.
+
+# @csrf_exempt
+# def pause_beacon(request):
+#     """Pause the current game during unload without requiring CSRF headers."""
+#     if request.method != 'POST':
+#         return JsonResponse({'paused': False}, status=405)
+
+#     try:
+#         data = json.loads(request.body or '{}')
+#     except json.JSONDecodeError:
+#         return JsonResponse({'paused': False}, status=400)
+
+#     pause = data.get('pause', True)
+#     game_data = request.session.get('game')
+#     if not game_data:
+#         return JsonResponse({'paused': False})
+
+#     game = ChessGame.from_dict(game_data)
+#     if pause and not game.paused:
+#         game.update_clock()
+#     game.paused = pause
+#     game.last_ts = time.time()
+
+#     request.session['game'] = game.to_dict()
+#     request.session.modified = True
+
+#     return JsonResponse({
+#         'paused': game.paused,
+#         'white_time': game.white_time,
+#         'black_time': game.black_time,
+#     })
+
 
 @require_POST
 def ai_move(request):
@@ -353,12 +502,51 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
+
+
+    # Depth Mapping
+    difficulty = request.session.get('difficulty', 'medium')
+    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
+    depth = depth_map.get(difficulty, 3)
+    
+    before_fen = game.generate_fen_key()
+    before_turn = game.current_turn
+    before_status = game.game_status
+
+    temp_game = copy.deepcopy(game)
+    legal_move_count = "debug-disabled"
+    logger.debug(
+        'AI move request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, depth=%s, legal_moves=%s',
+        game.current_turn,
+        game.mode,
+        game.game_status,
+        game.draw_reason,
+        before_fen,
+        depth,
+        legal_move_count,
+    )
+
+    best = temp_game.get_ai_move(depth=depth)
+
+    if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
+        logger.error(
+            'AI evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
+            before_fen,
+            game.generate_fen_key(),
+            before_turn,
+            game.current_turn,
+            before_status,
+            game.game_status,
+        )
+    
+
     # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
     best = game.get_ai_move(depth=depth)
+
 
     if not best:
         if game.game_status == 'checkmate':
@@ -384,12 +572,13 @@ def ai_move(request):
             'captured_pieces': game.captured,
             'message': '',
         })
-
+        
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
     )
-
+    
+    
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
@@ -414,10 +603,98 @@ def ai_move(request):
         'game_status': game_status,
         'draw_reason': game.draw_reason,
         'fen': game.generate_fen_key(),
+
+        'pgn': game.generate_pgn(),
+
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
     })
+    
+@require_POST
+def hint_move(request):
+    game_data = request.session.get('game')
+
+    if not game_data:
+        return JsonResponse({
+            'valid': False,
+            'message': 'No active game.'
+        }, status=400)
+
+    game = ChessGame.from_dict(game_data)
+
+    hint_count = request.session.get('hint_count', 0)
+
+    if hint_count >= 3:
+        return JsonResponse({
+            'valid': False,
+            'message': 'Hint limit reached'
+        })
+
+    # Prevent hints during AI turn
+    player_color = request.session.get('player_color', 'white')
+
+    if game.mode == 'ai' and game.current_turn != player_color:
+        return JsonResponse({
+            'valid': False,
+            'message': 'Wait for your turn.'
+        })
+
+    difficulty = request.session.get('difficulty', 'medium')
+    depth_map = {'easy': 2, 'medium': 3, 'hard': 5}
+    depth = depth_map.get(difficulty, 3)
+
+    before_fen = game.generate_fen_key()
+    before_turn = game.current_turn
+    before_status = game.game_status
+
+    temp_game = copy.deepcopy(game)
+    legal_move_count = "debug-disabled"
+    logger.debug(
+        'Hint request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s, depth=%s, legal_moves=%s',
+        game.current_turn,
+        game.mode,
+        game.game_status,
+        game.draw_reason,
+        before_fen,
+        hint_count,
+        depth,
+        legal_move_count,
+    )
+
+    best = temp_game.get_ai_move(depth=depth)
+
+    if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
+        logger.error(
+            'Hint evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
+            before_fen,
+            game.generate_fen_key(),
+            before_turn,
+            game.current_turn,
+            before_status,
+            game.game_status,
+        )
+
+    if not best:
+        logger.debug('Hint calculation returned no move for current position. game_status=%s draw_reason=%s', game.game_status, game.draw_reason)
+        return JsonResponse({
+            'valid': False,
+            'message': 'No legal moves available.'
+        })
+
+    request.session['hint_count'] = hint_count + 1
+    request.session.modified = True
+
+    logger.debug('Hint returned: best=%s, new_hint_count=%s', best, request.session['hint_count'])
+
+    return JsonResponse({
+        'valid': True,
+        'hint': best,
+        'hint_count': request.session['hint_count'],
+        'remaining_hints': max(0, 3 - request.session['hint_count']),
+    })    
+    
 
 @require_POST
 def offer_draw(request):
@@ -444,10 +721,12 @@ def offer_draw(request):
 
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
+
         if game.game_status != 'active':
             return JsonResponse(
                 {'success': False, 'message': 'Game is not active.'}, status=400
             )
+
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
@@ -458,6 +737,10 @@ def offer_draw(request):
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
+
+
+    return JsonResponse({'success': True})
+
 
     return JsonResponse({'success': True})
 
@@ -470,18 +753,34 @@ def resign_game(request):
 
     game = ChessGame.from_dict(game_data)
 
+
+    if game.mode == 'ai':
+        resigning_player = game.player_color
+    else:
+        resigning_player = game.current_turn
+
+
     resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
+
     winner = 'black' if resigning_player == 'white' else 'white'
     game_status = 'resignation'
+
+
+    game_status = 'resignation'
+
 
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+
+    record_game_result(request, game.mode, winner, 'resign', game.player_color)
+
     try:
         record_game_result(request, game.mode, winner, 'resign', game.player_color)
     except Exception as e:
         logger.error('Failed to record resign result: %s', e)
+
 
     return JsonResponse({
         'valid': True,
@@ -489,6 +788,7 @@ def resign_game(request):
         'winner': winner,
         'game_status': game_status
     })
+
 
 @require_GET
 def check_username(request):
@@ -498,6 +798,7 @@ def check_username(request):
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
     exists = User.objects.filter(username__iexact=username).exists()
     return JsonResponse({'available': not exists})
+
 
 
 def register_view(request):
@@ -643,6 +944,12 @@ def verify_otp(request):
 
         entered_otp = request.POST.get('otp', '').strip()
 
+        # Verify hash
+        entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+
+        if entered_otp_hash == stored_otp_hash:
+
+
         entered_otp_hash = hashlib.sha256(
             f"{entered_otp}:{settings.SECRET_KEY}".encode()
         ).hexdigest()
@@ -651,6 +958,7 @@ def verify_otp(request):
             entered_otp_hash,
             stored_otp_hash
         ):
+
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
@@ -681,10 +989,12 @@ def verify_otp(request):
                     logger.warning("Failed to send welcome email: %s", e)
                     
                 login(request, user)
+
                 messages.success(
                     request,
                     'Registration successful! Welcome to Checkora.'
                 )
+
                 request.session.cycle_key()
                 return redirect('index')
 
@@ -862,6 +1172,9 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+
+            request.session.cycle_key()
+
             request.session.cycle_key()  # Prevent session fixation
             
             remember_me = request.POST.get('remember_me')
@@ -872,6 +1185,7 @@ def login_view(request):
                 request.session.set_expiry(0)# Browser close
                 
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
+
             return redirect('index')
 
     else:
@@ -880,15 +1194,19 @@ def login_view(request):
     return render(request, 'game/login.html', {'form': form})
 
 
+
 @xframe_options_sameorigin
 def rules(request):
     return render(request, 'game/rules.html')
 
 
+
 @require_POST
 def logout_view(request):
     logout(request)
+
     messages.info(request, 'You have been logged out.')
+
     return redirect('landing')
 
 
@@ -926,6 +1244,10 @@ def stats_view(request):
         'ai_draws': ai_draws,
         'win_percentage': round(win_percentage, 2),
     })
+
+
+
+from django.views.decorators.http import require_POST
 
 @csrf_exempt
 @require_POST
@@ -982,3 +1304,4 @@ def password_reset_account_selection(request):
     )
 
     
+

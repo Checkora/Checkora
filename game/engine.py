@@ -22,7 +22,15 @@ import subprocess
 import json
 import sys
 import time
+
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 from datetime import date
+
 
 class ChessGame:
     """Manage a single chess game: state, validation,
@@ -96,6 +104,12 @@ class ChessGame:
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
+
+    def generate_pgn(self):
+        """Generate a PGN string from move history."""
+        if not self.move_history:
+            return ""
+
     def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
         if not self.move_history:
@@ -110,6 +124,7 @@ class ChessGame:
         elif self.game_status == 'resignation':
             result = '1-0' if self.current_turn == 'black' else '0-1'
 
+
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
             move_number = i // 2 + 1
@@ -119,6 +134,13 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
+
+        headers = [
+            '[Event "Checkora Match"]',
+            '[White "White"]',
+            '[Black "Black"]',
+            '[Result "*"]',
+
         
         today = date.today().strftime('%Y.%m.%d')
         headers = [
@@ -127,6 +149,7 @@ class ChessGame:
             f'[Black "{black_name}"]',
             f'[Date "{today}"]',
             f'[Result "{result}"]',
+
         ]
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves
@@ -307,18 +330,60 @@ DP cache is intentionally excluded to save cookie space."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-        try:
-            proc = subprocess.Popen(
-                self._build_engine_command(engine_path),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, _ = proc.communicate(input=command, timeout=5)
-            return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
-            return None
+        # Best-move searches can legitimately take longer; use a larger
+        # base timeout and exponential backoff with multiple attempts.
+        if command.startswith('BESTMOVE'):
+            base_timeout = 30
+            attempts = 3
+        else:
+            base_timeout = 5
+            attempts = 1
+
+        for attempt in range(1, attempts + 1):
+            # exponential backoff: timeout doubles each retry
+            timeout = base_timeout * (2 ** (attempt - 1))
+            proc = None
+            try:
+                logger.debug('Calling engine (attempt %s/%s, timeout=%ss): %s', attempt, attempts, timeout, command)
+                proc = subprocess.Popen(
+                    self._build_engine_command(engine_path),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                stdout, stderr = proc.communicate(input=command, timeout=timeout)
+                if stderr:
+                    logger.debug('Engine stderr: %s', stderr.strip())
+                resp = stdout.strip()
+                logger.debug('Engine response: %s', resp)
+                return resp
+
+            except subprocess.TimeoutExpired:
+                logger.exception('Engine call timed out (attempt %s/%s) for command: %s', attempt, attempts, command)
+                # Try to terminate the process and capture any partial output
+                try:
+                    if proc:
+                        proc.kill()
+                except (OSError, subprocess.SubprocessError):
+                    logger.exception('Failed to kill timed-out engine process')
+                try:
+                    if proc:
+                        out, err = proc.communicate(timeout=1)
+                        logger.debug('Partial stdout after timeout: %s', (out or '').strip())
+                        logger.debug('Partial stderr after timeout: %s', (err or '').strip())
+                except (OSError, subprocess.SubprocessError):
+                    logger.debug('Could not capture partial output after timeout')
+
+                if attempt == attempts:
+                    return None
+                logger.debug('Retrying engine command: %s', command)
+
+            except OSError:
+                logger.exception('Engine call failed (OSError) for command: %s', command)
+                return None
+
+        return None
 
     def _count_active_pieces(self):
         """Helper to count the total pieces currently alive
@@ -531,8 +596,14 @@ DP cache is intentionally excluded to save cookie space."""
 
         notation = self._notation(
             fr, fc, tr, tc, piece, captured,
+
+            board_before, rights_before, ep_before)
+        if promoted and '=' not in notation:
+            notation += '=' + (self.board[tr][tc] or 'Q').upper()
+
             board_before, rights_before, ep_before,
             promo_char=(promotion_piece or 'q') if promoted else None)
+
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
@@ -553,7 +624,11 @@ DP cache is intentionally excluded to save cookie space."""
             self.repetition_history = [self.generate_position_key()]
             self._rebuild_repetition_counts()
         else:
+
+            self._update_repetition()
+
             repetition_count = self._update_repetition()
+
 
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
@@ -619,10 +694,16 @@ DP cache is intentionally excluded to save cookie space."""
         """Internal helper to fetch piece moves from the C++ binary."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
+        cmd = (
+            f"MOVES {board_str} {rights_str}"
+            f" {self.current_turn} {row} {col}"
+
         ep_str = self._serialize_ep()
         cmd = (
             f"MOVES {board_str} {rights_str}"
             f" {self.current_turn} {ep_str} {row} {col}"
+
         )
         resp = self._call_engine(cmd)
 
@@ -651,11 +732,17 @@ DP cache is intentionally excluded to save cookie space."""
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
+        cmd = (
+            f"PROMOTE {board_str} {rights_str}"
+            f" {self.current_turn} {fr} {fc} {tr} {tc} {choice}"
+
         ep_str = self._serialize_ep()
         cmd = (
             f"PROMOTE {board_str} {rights_str}"
             f" {self.current_turn} {ep_str}"
             f" {fr} {fc} {tr} {tc} {choice}"
+
         )
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
@@ -704,6 +791,12 @@ DP cache is intentionally excluded to save cookie space."""
 
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,
+
+                  ep_str=None):
+        """
+        Generate SAN notation via C++ engine if possible,
+          else simplified fallback."""
+
                   ep_str=None, promo_char=None):
         """
         Generate SAN notation via C++ engine if possible,
@@ -713,6 +806,7 @@ DP cache is intentionally excluded to save cookie space."""
             if promo_char not in ('q', 'r', 'b', 'n'):
                 promo_char = 'q'
 
+
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
             cmd = (
@@ -720,8 +814,11 @@ DP cache is intentionally excluded to save cookie space."""
                 f" {self.current_turn} {ep_str}"
                 f" {fr} {fc} {tr} {tc}"
             )
+
+
             if promo_char:
                 cmd += f" {promo_char}"
+
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -750,23 +847,35 @@ DP cache is intentionally excluded to save cookie space."""
                 notation = f"{f_coord} -> {t_coord}"
 
             else:
+
+                piece_type = piece.lower()
+
+                if piece_type == 'p':
+
                 type = piece.lower()
 
                 if type == 'p':
+
                     if fc != tc:
                         notation = f"{files[fc]}x{t_coord}"
                     else:
                         notation = t_coord
 
                 else:
+
+                    p_char = piece_type.upper()
+
                     p_char = type.upper()
+
 
                     if captured:
                         notation = f"{p_char}x{t_coord}"
                     else:
                         notation = f"{p_char}{t_coord}"
+          
         if promo_char and '=' not in notation:
             notation += '=' + promo_char.upper()
+
         return notation
 
     @staticmethod
@@ -803,10 +912,32 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
+
+        cmd = f"STATUS {board_str} {rights_str} {self.current_turn}"
+
+        legal_moves = sum(
+            len(self.get_valid_moves(r, c))
+            for r in range(8) for c in range(8)
+        )
+
+        logger.debug(
+            'check_game_status: current_turn=%s, fen=%s, rights=%s, ep=%s, legal_moves=%s',
+            self.current_turn, self.generate_fen_key(), rights_str, ep_str, legal_moves,
+        )
+
+
         cmd = f"STATUS {board_str} {rights_str} {self.current_turn} {ep_str}"
+
         resp = self._call_engine(cmd)
+        logger.debug('STATUS raw response: %s', resp)
         if resp and resp.startswith("STATUS"):
+
+            parts = resp.split()
+            status = parts[1].lower() if len(parts) > 1 else 'ok'
+            logger.debug('Parsed engine status: %s', status)
+
             status = resp.split()[1].lower()
+
             if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 return status
         return 'ok'
@@ -870,9 +1001,15 @@ DP cache is intentionally excluded to save cookie space."""
         if not candidates:
             return None
 
+
+        # Keep the book order stable so the same position always resolves
+        # to the same move across runs.
+        candidates = list(candidates)  # copy – do not mutate the book
+
         # Shuffle so variety is uniform across the candidate list
         candidates = list(candidates)  # copy – do not mutate the book
         random.shuffle(candidates)
+
 
         for move in candidates:
             # Sanity-check: must be a 4-item sequence of ints, all in 0..7.
@@ -921,20 +1058,46 @@ DP cache is intentionally excluded to save cookie space."""
         # 2. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
+
+
+        if depth is None:
+            depth = self._get_ai_search_depth()
+
+        cmd = (
+            f"BESTMOVE {board_str} {rights_str}"
+            f" {self.current_turn} {depth}"
+
         if depth is None:
             depth = self._get_ai_search_depth()
         ep_str = self._serialize_ep()
         cmd = (
             f"BESTMOVE {board_str} {rights_str}"
             f" {self.current_turn} {ep_str} {depth}"
+
         )
         resp = self._call_engine(cmd)
 
         if not resp or not resp.startswith("BESTMOVE"):
+            logger.debug('BESTMOVE engine returned no result: %s', resp)
             return None
 
         parts = resp.split()
+
         if len(parts) < 5 or parts[1] == "NONE":
+            return None
+
+
+        try:
+            best = {
+                'from_row': int(parts[1]),
+                'from_col': int(parts[2]),
+                'to_row': int(parts[3]),
+                'to_col': int(parts[4]),
+            }
+            logger.debug('get_ai_move selected: %s (engine resp: %s)', best, resp)
+            return best
+        except (ValueError, IndexError):
+            logger.exception('Failed to parse BESTMOVE response: %s', resp)
             return None
 
         return {
@@ -943,3 +1106,4 @@ DP cache is intentionally excluded to save cookie space."""
             'to_row':   int(parts[3]),
             'to_col':   int(parts[4]),
         }
+

@@ -4,6 +4,7 @@
             /* ==========================================================
             CONSTANTS & STATE
             ========================================================== */
+
              const MATERIAL_VALUES = {
                   p: 1,
                   n: 3,
@@ -12,6 +13,7 @@
                   q: 9,
                   k: 0
              };
+
 
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
@@ -22,12 +24,19 @@
             let turn = 'white';
             let selected = null;
             let hints = [];
+
+            let hintTimeout = null;
+            let lastMove = null;
+
+
             let lastMove = null;
             let premove = null;
             let highlightedSquare = null;
 
+
             let dragging = false;
             let dragSrc = null;
+
 
             // Touch drag-and-drop state variables
             let touchStartPos = null;
@@ -36,11 +45,17 @@
             let touchDragging = false;
             let touchOffset = { x: 0, y: 0 };
 
+
             let whiteTime = 0;
             let blackTime = 0;
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
+
+
+            let gameMode = 'pvp';
+            let currentDifficulty = 'medium';
+
             let blindfoldMode = false;
             let illegalMoveCount = 0;
 
@@ -53,6 +68,7 @@
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
             let currentBlackName = 'Black';
+
             // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
@@ -73,6 +89,7 @@
             let flipped = false;
             let autoFlip = false;
 
+
             const SOUND_BASE_URL = window.SOUND_BASE_URL || '/static/game/sounds/';
             const sounds = {
               move:    new Audio(`${SOUND_BASE_URL}move.wav`),
@@ -82,6 +99,7 @@
             };
 
             let soundEnabled = true;
+
 
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
@@ -94,7 +112,11 @@
                 if (!wName || !bName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
+
+                        errorDiv.textContent = '⚠️ Please enter both player names';
+
                         errorDiv.textContent = 'Please enter both player names';
+
                     }
                     if (!wName && wNameInput) wNameInput.classList.add('input-error');
                     if (!bName && bNameInput) bNameInput.classList.add('input-error');
@@ -106,6 +128,11 @@
                 if (bNameInput) bNameInput.classList.remove('input-error');
                 return true;
             }
+
+
+            /* ==========================================================
+            DOM REFERENCES
+            ========================================================== */
 
             
             function playSound(data) {
@@ -138,6 +165,7 @@
             ========================================================== */
             const shareModal = document.getElementById('shareModal');
             const rulebookModal = document.getElementById('rulebookModal');
+
             const boardEl = document.getElementById('board');
             const turnEl = document.getElementById('turnBadge');
             const statusEl = document.getElementById('statusBar');
@@ -145,6 +173,9 @@
             const wCapEl = document.getElementById('whiteCaptured');
             const bCapEl = document.getElementById('blackCaptured');
             const pauseBtn = document.getElementById('pauseBtn');
+
+            const pauseBtnPanel = document.getElementById('pauseBtnPanel');
+
             const flipBtn = document.getElementById('flipBtn');
             const promoOverlay = document.getElementById('promoOverlay');
             const promoChoices = document.getElementById('promoChoices');
@@ -153,7 +184,9 @@
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
             const copyPgnBtn = document.getElementById('copyPgnBtn');
+
             const muteBtn = document.getElementById('muteBtn');
+
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -167,7 +200,9 @@
             const startAIBtn = document.getElementById('startAIBtn');
             const backToModes = document.getElementById('backToModes');
             const gameLayout = document.querySelector('.game-layout');
+
             const nameInputs = document.getElementById('nameInputs'); 
+
 
             const confirmOverlay = document.getElementById('confirmOverlay');
             const confirmTitle = document.getElementById('confirmTitle');
@@ -189,7 +224,9 @@
             const gameOverTitle = document.getElementById('gameOverTitle');
             const gameOverMessage = document.getElementById('gameOverMessage');
             const gameOverStartBtn = document.getElementById('gameOverStartBtn');
+
             const gameOverExitBtn = document.getElementById('gameOverExitBtn');
+
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
@@ -199,6 +236,10 @@
             const drawMessage = document.getElementById('drawMessage');
             const drawAcceptBtn = document.getElementById('drawAcceptBtn');
             const drawDeclineBtn = document.getElementById('drawDeclineBtn');
+
+
+            const hintBtn = document.getElementById('hintBtn');
+
 
             const whiteNameLabel = document.getElementById('whiteNameLabel');
             const blackNameLabel = document.getElementById('blackNameLabel');
@@ -215,6 +256,14 @@
                     setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
                 }
             }
+
+
+            let gameOver = false;
+            let aiThinking = false;
+
+            let remainingHints = 3;
+
+            let pgnCopyTimeout = null;
 
             let flashTimeout = null;
             function flashBoard() {
@@ -247,10 +296,16 @@
             let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
 
             let pgnDownloadTimeout = null;
+
             let fenCopyTimeout = null;
             /* ==========================================================
             CSRF & API HELPERS
             ========================================================== */
+
+            function csrf() {
+                const m = document.cookie.match(/csrftoken=([^;]+)/);
+                return m ? decodeURIComponent(m[1]) : '';
+
             function calculateMaterial(board) {
                 let white = 0;
                 let black = 0;
@@ -288,6 +343,7 @@
             function csrf() {
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
                 return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
+
             }
 
             async function get(url) {
@@ -426,6 +482,7 @@
             LOAD GAME STATE
             ========================================================== */
             async function loadGame() {
+
                 // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
                 aiRequestSeq = 0;
                 aiThinking = false;
@@ -433,6 +490,7 @@
                 refreshPremoveHighlight();
                 whiteAlertFired = false;
                 blackAlertFired = false;
+
 
                 const data = await get('/api/state/');
 
@@ -460,10 +518,12 @@
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
 
+
                 const emotePanel = document.getElementById('emotePanel');
                 if (emotePanel) {
                     emotePanel.style.display = gameMode === 'pvp' ? 'block' : 'none';
                 }
+
 
                 // Show Resume button if we have an ongoing game
                 const hasMoves = data.move_history && data.move_history.length > 0;
@@ -480,6 +540,7 @@
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
+
                 if (pauseBtn)  pauseBtn.style.display  = 'block';  
                 if (resignBtn) resignBtn.style.display = 'block'; 
                 const isActive = ['active', 'check', 'ok'].includes(data.game_status);
@@ -487,17 +548,49 @@
                 if (newAIBtn) newAIBtn.style.display = isActive ? 'none' : '';
                 if (newFenBtn) newFenBtn.style.display = isActive ? 'none' : '';
 
+
                 updatePlayerNames(data);
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
 
+
+                const serverHintCount = data.hint_count ?? 0;
+                remainingHints = Math.max(0, 3 - serverHintCount);
+                if (hintBtn) {
+                    hintBtn.textContent = `Hint (${remainingHints})`;
+                    hintBtn.disabled = remainingHints <= 0;
+                }
+
+
                 buildBoard();
                 renderClocks();
                 updatePauseUI();
                 startTimer();
+
+                if (gameMode === 'ai') {
+                    const aiClock = playerColor === 'white' ?
+                        document.getElementById('blackClock') :
+                        document.getElementById('whiteClock');
+                    const aiTimeEl = playerColor === 'white' ?
+                        document.getElementById('blackTime') :
+                        document.getElementById('whiteTime');
+
+                    if (aiClock) {
+                        aiClock.style.border = '2px dashed #444';
+                        aiClock.style.boxShadow = 'none';
+                        aiClock.classList.remove('active');
+                    }
+                    if (aiTimeEl) {
+                        aiTimeEl.textContent = '🤖';
+                        aiTimeEl.style.fontSize = '1.8em';
+                        aiTimeEl.style.color = '#888';
+                    }
+                }
+
                 // fix
                 // Removed static styling for AI clock so it displays the countdown timer.
+
 
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
@@ -508,6 +601,23 @@
             }
 
             function updatePlayerNames(data) {
+
+                let wName = data.white_name || 'White';
+                let bName = data.black_name || 'Black';
+                
+                if (gameMode === 'ai'){
+                    // Fixing the naming system
+                    let player_name = data.white_name;
+                    if(playerColor === 'white'){
+                        wName = player_name;
+                        bName = 'AI (Black)';
+                    }else{
+                        bName = player_name;
+                        wName = 'AI (White)';
+                    }
+                }
+
+
                 currentWhiteName = data.white_name || currentWhiteName || 'White';
                 currentBlackName = data.black_name || currentBlackName || 'Black';
                 let wName = currentWhiteName;
@@ -542,6 +652,7 @@
                         }
                     }, 0);
                 }
+
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
                 if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
                 if (whiteCapturedName) whiteCapturedName.textContent = wName;
@@ -571,6 +682,11 @@
                         d.dataset.r = r;
                         d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
+
+                        d.ondragover = e => e.preventDefault();
+                        d.ondrop = e => onDrop(e, r, c);
+
+
                         d.oncontextmenu = (e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -622,6 +738,7 @@
                             dragSrc = null;
                         };
 
+
                         d.setAttribute('tabindex', '0');
                         d.setAttribute('role', 'gridcell');
                         d.setAttribute('data-row', r);
@@ -659,15 +776,23 @@
                     const img = document.createElement('img');
                     img.src = PIECE_IMG[pKey(p)];
                     img.className = 'piece';
+
+                    img.draggable = true;
+                    img.ondragstart = e => onDragStart(e, r, c);
+                    img.ondragend = () => dragging = false;
+
                     //Set to false, as the parent div now handles dragging
                     img.draggable = false;
                     // Keep this so drops work smoothly on occupied squares
                     img.ondragover = e => e.preventDefault();
+
                     el.appendChild(img);
                 }
                 refreshHighlights();
                 markPlayable();
+
                 updateMaterialUI(board);
+
             }
 
             function markPlayable() {
@@ -676,17 +801,26 @@
                     const r = parseInt(el.dataset.r);
                     const c = parseInt(el.dataset.c);
                     const p = board[r][c];
+
+                    const isPlayable = p && pColor(p) === turn
+                        && !(gameMode === 'ai' && turn !== playerColor);
+
                     const isPlayable = p && (
                         pColor(p) === turn ||
                         (gameMode === 'ai' && pColor(p) === playerColor)
                     );
+
                     img.classList.toggle('playable', isPlayable);
                 });
             }
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
+
+                    el.classList.remove('selected', 'last-move', 'in-check');
+
                     el.classList.remove('selected', 'last-move', 'in-check', 'custom-highlight');
+
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
@@ -694,10 +828,12 @@
                     sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
                     sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
                 }
+
                 if (highlightedSquare) {
                     sq(highlightedSquare.r, highlightedSquare.c)
                         .classList.add('custom-highlight');
                 }
+
                 if (selected) {
                     sq(selected.r, selected.c).classList.add('selected');
                     hints.forEach(h => {
@@ -707,6 +843,7 @@
                         el.appendChild(d);
                     });
                 }
+
                 refreshPremoveHighlight();
             }
 
@@ -719,6 +856,7 @@
 
                 sq(premove.from.r, premove.from.c).classList.add('premove');
                 sq(premove.to.r, premove.to.c).classList.add('premove');
+
             }
 
             function highlightCheck() {
@@ -785,6 +923,21 @@
             async function selectPiece(r, c) {
                 const p = board[r][c];
 
+                if (!p || pColor(p) !== turn || paused || gameOver) return;
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    showStatus("Waiting for AI to move...", false);
+                    return;
+                }
+
+                selected = { r, c };
+                const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+                hints = data.valid_moves || [];
+                refreshHighlights();
+            }
+
+
+
                 if (!p || paused || gameOver) return;
 
                 selected = { r, c };
@@ -825,6 +978,7 @@
                     sq(r, c).classList.add('custom-highlight');
                 }
             }
+
             function deselect() {
                 selected = null;
                 hints = [];
@@ -874,6 +1028,18 @@
                 if (paused || gameOver) return;
 
                 const p = board[fr][fc];
+                if (!p || pColor(p) !== turn) return;
+
+                if (isPromotionMove(fr, fc, tr)) {
+                    await animateMove(fr, fc, tr, tc);
+                    pendingPromo = { fr, fc, tr, tc };
+                    const color = pColor(p);
+                    showPromoModal(color);
+                    return;
+                }
+
+
+                const p = board[fr][fc];
                 if (!p) return;
 
                 // PREMOVE DURING AI TURN
@@ -919,6 +1085,7 @@
                     return;
                 }
 
+
                 await executeMove(fr, fc, tr, tc, null);
             }            let reconnecting = false;
             async function handleReconnect() {
@@ -956,8 +1123,10 @@
 
                     const data = await post('/api/move/', body);
                         if (data.valid) {
+
                             illegalMoveCount = 0;
                             playSound(data);
+
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
                             turn = data.current_turn;
@@ -979,7 +1148,9 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
+
                             updateMaterialUI(board);
+
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
@@ -1006,7 +1177,9 @@
                         }
                     } else {
                         showStatus(data.message, true);
+
                         flashBoard();
+
                         deselect();
                     }
                 } catch (e) {
@@ -1016,6 +1189,13 @@
 
             async function requestAIMove() {
                 if (gameOver || aiThinking) return;
+
+                aiThinking = true;
+                showStatus('AI is thinking...', false);
+                try {
+                    const data = await post('/api/ai-move/', {});
+                        if (data.valid) {
+
                 // Increment and store current sequence value to identify this specific request
                 const seq = ++aiRequestSeq;
                 aiThinking = true;
@@ -1065,6 +1245,7 @@
 
                         if (data.valid) {
                             playSound(data);
+
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                             board = parseBoard(data.board);
@@ -1082,12 +1263,18 @@
                             syncPieces();
                             renderClocks();
                             startTimer();
+
                             updateMaterialUI(board);
+
                         let a11yMsg = '';
                         if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
                             a11yMsg = `AI played ${lastMove}. `;
                         }
+
+                    
+
+
 
                         const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
                         if (!gameEnded) {
@@ -1100,6 +1287,7 @@
                                 showStatus('Your turn.', false);
                             }
                             if (a11yMsg) announceMove(a11yMsg);
+
 
                             // Trigger queued premove if it exists
                             if (premove) {
@@ -1116,17 +1304,25 @@
                                     showStatus("Premove cancelled: piece captured or invalid", true);
                                 }
                             }
+
                         }
                     } else {
                         showStatus(data.message, true);
                     }
                 } catch (e) {
+
+                   
+                        await handleReconnect();
+                } finally {
+                    aiThinking = false;
+
                     clearInterval(thinkingInterval);
                     await handleReconnect();
                 } finally {
                     if (seq === aiRequestSeq) {
                         aiThinking = false;
                     }
+
                 }
             }
 
@@ -1135,6 +1331,27 @@
             ========================================================== */
             async function onClick(r, c) {
                 if (dragging) return;
+
+                if (selected) {
+
+                    //New toggle logic:
+                    //If the clicked square is the exact same as the selected square, deselect it.
+                    if (selected .r === r && selected.c ===c){
+                        return deselect();
+                    }
+                    if (hints.some(h => h.row === r && h.col === c))
+                        return tryMove(selected.r, selected.c, r, c);
+                    if (board[r][c] && pColor(board[r][c]) === turn)
+                        return selectPiece(r, c);
+                    return deselect();
+                }
+                selectPiece(r, c);
+            }
+
+            function onDragStart(e, r, c) {
+                if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
+                if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+
 
                 const piece = board[r][c];
 
@@ -1220,6 +1437,7 @@
                     return e.preventDefault();
                 }
 
+
                 dragging = true;
                 dragSrc = { r, c };
                 selectPiece(r, c);
@@ -1281,6 +1499,99 @@
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
 
+                
+                const point_vals = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
+                
+                let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
+                
+                cap.white.forEach((p) => {
+                    wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                });
+                cap.black.forEach((p) => {
+                    bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
+                });
+                
+                const wPointsEl = document.getElementById('whitePoints');
+                const bPointsEl = document.getElementById('blackPoints');
+                if (wPointsEl) wPointsEl.textContent = `+${whitePoints}`;
+                if (bPointsEl) bPointsEl.textContent = `+${blackPoints}`;
+            }
+
+            function showStatus(msg, err) {
+                statusEl.textContent = msg;
+                statusEl.className = 'status-bar' + (err ? ' error' : '');
+            }
+
+            async function showHint() {
+                if (paused || gameOver) {
+                    showStatus('Hints unavailable right now.', true);
+                    return;
+                }
+                if (remainingHints <= 0) {
+                    showStatus('Hint limit reached for this round.', true);
+                    return;
+                }
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    showStatus('Wait for your turn.', true);
+                    return;
+                }
+
+                try {
+                    showStatus('Analyzing best move...', false);
+                    
+                    const data = await post('/api/hint/', {});
+
+                    if (!data.valid) {
+                        if (typeof data.remaining_hints === 'number') {
+                            remainingHints = data.remaining_hints;
+                            if (hintBtn) {
+                                hintBtn.textContent = `Hint (${remainingHints})`;
+                                hintBtn.disabled = remainingHints <= 0;
+                            }
+                        } else if (hintBtn && data.message === 'Hint limit reached') {
+                            hintBtn.disabled = true;
+                        }
+                        showStatus(data.message, true);
+                        return;
+                    }
+
+                    const hint = data.hint;
+
+                    if (typeof data.remaining_hints === 'number') {
+                        remainingHints = data.remaining_hints;
+                    } else {
+                        remainingHints = Math.max(0, remainingHints - 1);
+                    }
+
+                    if (hintBtn) {
+                        hintBtn.textContent = `Hint (${remainingHints})`;
+                        hintBtn.disabled = remainingHints <= 0;
+                    }
+
+                    const sourceSquare = sq(hint.from_row, hint.from_col);
+                    const destinationSquare = sq(hint.to_row, hint.to_col);
+
+                    sourceSquare.classList.add("hint-source");
+                    destinationSquare.classList.add("hint-destination");
+                    
+                    if (hintTimeout) {
+                        clearTimeout(hintTimeout);
+                    }
+                    
+                    hintTimeout = setTimeout(() => {
+                        sourceSquare.classList.remove("hint-source");
+                        destinationSquare.classList.remove("hint-destination");
+                    }, 2500);
+
+                    showStatus('Suggested move highlighted.', false);
+
+                } catch (e) {
+                    showStatus('Hint connection error.', true);
+                }
+
+
                 // Use global MATERIAL_VALUES instead of redefining locally (DRY principle)
                 const sortByValue = (pieces) => [...pieces].sort((a, b) =>
                     (MATERIAL_VALUES[b.toLowerCase()] || 0) - (MATERIAL_VALUES[a.toLowerCase()] || 0)
@@ -1319,6 +1630,7 @@
                    }
                
                    statusEl.className = 'status-bar' + (err ? ' error' : '');
+
             }
 
             function handleGameStatus(status, drawReason) {
@@ -1342,6 +1654,7 @@
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
+
                 
                 if (blindfoldMode) {
                     blindfoldMode = false;
@@ -1349,6 +1662,7 @@
                     const blindfoldBtn = document.getElementById('blindfoldBtn');
                     if (blindfoldBtn) blindfoldBtn.textContent = 'Blindfold: OFF';
                 }
+
             
                 let title = '', message = '';
                 let isCelebration = false; // Track if this is a win (not draw/stalemate)
@@ -1387,6 +1701,12 @@
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
+
+                syncControlButtons();
+                gameOverTitle.textContent = title;
+                gameOverMessage.textContent = message;
+                
+
                 if (newPvPBtn) newPvPBtn.style.display = '';
                 if (newAIBtn) newAIBtn.style.display = '';
                 if (newFenBtn) newFenBtn.style.display = '';
@@ -1406,6 +1726,7 @@
                 if (durationElement) {
                     durationElement.textContent = durationText;
                 }
+
 
                 // Delay the overlay and celebration effects by 1 second
                 setTimeout(() => {
@@ -1526,6 +1847,37 @@
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
             function formatTime(t) { return fmt(t); }
+
+
+            function renderClocks() {
+                const wTime = document.getElementById('whiteTime');
+                const bTime = document.getElementById('blackTime');
+                
+
+                const whiteClock = document.getElementById('whiteClock');
+                const blackClock = document.getElementById('blackClock');
+                if (gameMode === 'ai') {
+        const playerClock = playerColor === 'white' ? whiteClock : blackClock;
+        const playerTimeEl = playerColor === 'white' ? wTime : bTime;
+        const aiClock = playerColor === 'white' ? blackClock : whiteClock;
+        const aiTimeEl = playerColor === 'white' ? bTime : wTime;
+
+        // Player clock — update time and highlight on their turn
+        if (playerTimeEl) playerTimeEl.textContent = formatTime(playerColor === 'white' ? whiteTime : blackTime);
+        if (playerClock) playerClock.classList.toggle('active', turn === playerColor);
+
+        // AI clock — static, never highlights, never updates time
+        if (aiTimeEl) aiTimeEl.textContent = '🤖';
+        if (aiClock) aiClock.classList.remove('active');
+
+    } else {
+        // PvP — both clocks update normally
+        if (wTime) wTime.textContent = formatTime(whiteTime);
+        if (bTime) bTime.textContent = formatTime(blackTime);
+        if (whiteClock) whiteClock.classList.toggle('active', turn === 'white');
+        if (blackClock) blackClock.classList.toggle('active', turn === 'black');
+    }
+
             
             function formatGameDuration(ms) {
                 const totalSeconds = Math.floor(ms / 1000);
@@ -1594,22 +1946,44 @@
                         blackClock.classList.toggle('low-3', blackTime <= 10 && blackTime > 0);
                     }
                 }
+
                 const wYou = document.getElementById('whiteYouTag');
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
                 if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
             }
 
+
+            function syncControlButtons() {
+                if (pauseBtnPanel) {
+                    pauseBtnPanel.textContent = paused ? 'Resume' : 'Pause';
+                    pauseBtnPanel.classList.toggle('paused', paused);
+                    pauseBtnPanel.style.display = gameOver ? 'none' : 'block';
+                }
+                if (resignBtnPanel) {
+                    resignBtnPanel.style.display = gameOver ? 'none' : 'block';
+                }
+            }
+
+
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
+
+                syncControlButtons();
+
             }
 
             function startTimer() {
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
                     if (paused || gameOver) return;
+
+                    if (turn === 'white' && whiteTime > 0) whiteTime--;
+                    if (turn === 'black' && blackTime > 0) blackTime--;
+                    renderClocks();
+
 
                     // fix: in AI mode, tick only ONE clock exclusively
                     if (gameMode === 'ai') {
@@ -1645,6 +2019,7 @@
                             sounds.check.play().catch(() => {});
                         }
                     }
+
 
                     if (turn === 'white' && whiteTime === 0) {
                         endGame('timeout', 'white');
@@ -1754,6 +2129,24 @@
                 );
             }
 
+
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null) {
+                
+                remainingHints = 3;
+                selected = null;
+                hints = [];
+                lastMove = null;
+                aiThinking = false;
+                clearInterval(timerInterval);
+
+                if (hintBtn) {
+                    hintBtn.disabled = false;
+                    hintBtn.textContent = 'Hint (3)';
+                }
+
+                // rest of code
+                clearTimeout(pgnCopyTimeout);
+
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
                 // Reset AI request sequence and thinking state on new game
                 aiRequestSeq = 0;
@@ -1762,6 +2155,7 @@
                 refreshPremoveHighlight();
 
                 clearTimeout(pgnDownloadTimeout);
+
                 clearTimeout(fenCopyTimeout);
 
                 if (copyPgnBtn) {
@@ -1779,6 +2173,10 @@
                     confettiContainer.remove();
                 }
 
+
+                const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
+                const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
+
                 const normalizeName = (name, fallback) => (name || fallback).trim().slice(0, 17);
                 const wName = normalizeName(
                     overrideNames ? overrideNames.white : document.getElementById('whiteNameInput')?.value,
@@ -1788,6 +2186,7 @@
                     overrideNames ? overrideNames.black : document.getElementById('blackNameInput')?.value,
                     'Black'
                 );
+
                 const defaultTimeLimitMins = parseInt(document.getElementById('timeLimitInput')?.value || 10, 10);
                 const timeLimit = (timeLimitMins !== null ? timeLimitMins : defaultTimeLimitMins) * 60;
 
@@ -1800,7 +2199,11 @@
                     time_limit: timeLimit
                 };
 
+
+                const fenValue = fen ? fen.trim() : null;
+
                 const fenValue = (fen && fen.trim()) ? fen.trim() : null;
+
                 if (fenValue) payload.fen = fenValue;
 
                 if (fenError) fenError.textContent = '';
@@ -1822,6 +2225,12 @@
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
+
+                gameMode = d.mode;
+                playerColor = d.player_color || 'white';
+                currentDifficulty = d.difficulty || difficulty;
+
+
                 whiteAlertFired = false;
                 blackAlertFired = false;
                 
@@ -1836,6 +2245,7 @@
                 if (newPvPBtn) newPvPBtn.style.display = 'none';
                 if (newAIBtn) newAIBtn.style.display = 'none';
                 if (newFenBtn) newFenBtn.style.display = 'none';
+
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
@@ -1843,6 +2253,11 @@
                 }
 
                 if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+
+                movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
+                wCapEl.innerHTML = bCapEl.innerHTML = '';
+
+
 
                 const emotePanel = document.getElementById('emotePanel');
                 if (emotePanel) {
@@ -1854,6 +2269,7 @@
                 highlightedSquare = null;
                 selected = null;
                 hints = [];
+
                 await loadGame();
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
@@ -1874,6 +2290,11 @@
             EVENT LISTENERS
             ========================================================== */
             let selectedPveColor = 'white';
+
+
+            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
+                if (!validatePlayerNames()) return;
+                const fen = welcomeFenInput?.value || null;
 
             function prepareWelcomeForPvP(clearAIValue = false) {
                 const whiteInput = document.getElementById('whiteNameInput');
@@ -1923,11 +2344,26 @@
             if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {            
                 if (!validatePlayerNames()) return;
                 const fen = welcomeFenInput?.value?.trim() || null;
+
                 const started = await startNewGame('pvp', 'white', 'medium', fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
             };
+
+
+            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                // Show ONLY white input for AI mode
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+                    whiteInput.value = '';
+                    whiteInput.classList.remove('input-error');
+                }
 
             
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
@@ -1944,11 +2380,49 @@
                     whiteInput.classList.remove('input-error');
                 }
 
+
                 if (blackInput) {
                     blackInput.style.display = 'none';
                     blackInput.value = 'AI';
                     blackInput.classList.remove('input-error');
                 }
+
+                
+                // Hide error
+                if (errorDiv) errorDiv.style.display = 'none';
+                
+                nameInputs.style.display = 'flex';
+                modeSelection.style.display = 'none';
+                pveOptions.style.display = 'flex';
+            };
+
+            if (backToModes) backToModes.onclick = () => {
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                const errorDiv = document.getElementById('nameError');
+                
+                pveOptions.style.display = 'none';
+                modeSelection.style.display = 'flex';
+                
+                // Reset both inputs to visible for PvP
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'White Player Name';
+                    whiteInput.classList.remove('input-error');
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.placeholder = 'Black Player Name';
+                    blackInput.classList.remove('input-error');
+                }
+                
+                // Hide error
+                if (errorDiv) errorDiv.style.display = 'none';
+                
+                nameInputs.style.display = 'flex';
+            };
+
+
 
                 if (errorDiv) {
                     errorDiv.style.display = 'none';
@@ -1979,6 +2453,7 @@
                     errorDiv.style.display = 'none';
                 }
             };
+
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
             colorBtns.forEach(btn => {
                 btn.onclick = () => {
@@ -2002,7 +2477,11 @@
                 if (!playerName) {
                     if (errorDiv) {
                         errorDiv.style.display = 'block';
+
+                        errorDiv.textContent = '⚠️ Please enter your name';
+
                         errorDiv.textContent = ' Please enter your name';
+
                     }
                     if (wNameInput) {
                         wNameInput.classList.add('input-error');
@@ -2017,7 +2496,11 @@
                 }
 
                 const diff = document.getElementById('welcomeDifficultySelect').value;
+
+                const fen = welcomeFenInput?.value || null;
+
                 const fen = welcomeFenInput?.value?.trim() || null;
+
                 const started = await startNewGame('ai', selectedPveColor, diff, fen);
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
@@ -2037,6 +2520,17 @@
     const data = await get('/api/state/');
 
     if (data.pgn) {
+
+        navigator.clipboard.writeText(data.pgn);
+
+        
+
+        copyPgnBtn.textContent = 'Copied!';
+
+        clearTimeout(pgnCopyTimeout);
+
+        pgnCopyTimeout = setTimeout(() => {
+
         const blob = new Blob([data.pgn], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2057,6 +2551,7 @@
         clearTimeout(pgnDownloadTimeout);
 
         pgnDownloadTimeout = setTimeout(() => {
+
             copyPgnBtn.textContent = 'Export as PGN';
         }, 2000);
     }
@@ -2075,6 +2570,9 @@
                     }, 2000);
                 }
             };
+
+            if (hintBtn) hintBtn.addEventListener('click', showHint);
+
 
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
                 const data = await post('/api/resume/', {});
@@ -2100,6 +2598,10 @@
                 confirmCallback = null;
             };
 
+                //added new line here
+
+
+
             if (newPvPBtn) newPvPBtn.onclick = () => {
                 // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
@@ -2109,6 +2611,9 @@
                     confettiContainer.remove();
                 }
                 
+
+                requestNewGame('pvp');
+
                 showConfirm(
                     "Abandon Game?",
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
@@ -2118,6 +2623,7 @@
                     },
                     '#ff6b6b'
                 );
+
             };
             
             if (newAIBtn) newAIBtn.onclick = () => {
@@ -2166,6 +2672,24 @@
             if (fenCancelBtn) fenCancelBtn.onclick = () => {
                 fenOverlay.classList.remove('active');
             };
+
+
+            if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (pauseBtnPanel) pauseBtnPanel.onclick = () => paused ? resumeGame() : pauseGame();
+            if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+
+            function handleResign() {
+                if (!gameOver && !paused) {
+                    showConfirm("Resign?", "Are you sure you want to resign?", async () => {
+                        await post('/api/resign/', {});
+                        endGame('resign', turn);
+                    });
+                }
+            }
+
+            if (resignBtn) resignBtn.onclick = handleResign;
+            if (resignBtnPanel) resignBtnPanel.onclick = handleResign;
+
             if (fenInput) {
                 fenInput.addEventListener('keydown', async (e) => {
                     if (e.key !== 'Enter') return;
@@ -2218,14 +2742,19 @@
                 }
             };
 
+
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
+
+                if (data.success) endGame('draw', turn, data.draw_reason);
+
                 if (data.success) {
                     if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
                     endGame('draw', turn, data.draw_reason);
                 }
+
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
@@ -2238,6 +2767,42 @@
                 const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
+
+                
+                // Add this: Clear confetti container
+                const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+                
+                if (mode === 'ai') {
+                    showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
+                } else {
+                    startNewGame(mode, 'white', diff, null, timeLimitMins);
+                }
+            };
+
+            // Theme Switcher
+            const themeBtns = document.querySelectorAll('.theme-btn');
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
+            themeBtns.forEach(btn => {
+                if (btn.dataset.theme === currentTheme) {
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
+                }
+                btn.onclick = () => {
+                    const theme = btn.dataset.theme;
+                    document.documentElement.setAttribute('data-theme', theme);
+                    localStorage.setItem('chessBoardTheme', theme);
+                    themeBtns.forEach(b => {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-pressed', 'false');
+                    });
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
+                };
+            });
+
 
                 const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
                 if (confettiContainer) {
@@ -2310,6 +2875,7 @@
                 initThemeSwitcher();
             }
 
+
     document.addEventListener('visibilitychange', async() => {
         if (document.hidden) {
             pauseGame().catch(() => {});
@@ -2339,7 +2905,9 @@
                                 manualMoveError.textContent = 'Invalid format (e.g. e2e4)';
                                 manualMoveError.style.display = 'block';
                             }
+
                             flashBoard();
+
                             return;
                         }
                         
@@ -2358,7 +2926,9 @@
                                 manualMoveError.textContent = 'Game is not active';
                                 manualMoveError.style.display = 'block';
                             }
+
                             flashBoard();
+
                             return;
                         }
                         if (gameMode === 'ai' && turn !== playerColor) {
@@ -2366,7 +2936,9 @@
                                 manualMoveError.textContent = 'Not your turn';
                                 manualMoveError.style.display = 'block';
                             }
+
                             flashBoard();
+
                             return;
                         }
                         const p = board[fr][fc];
@@ -2375,8 +2947,9 @@
                                 manualMoveError.textContent = 'Invalid piece';
                                 manualMoveError.style.display = 'block';
                             }
+
                             flashBoard();
-                            return;
+                return;
                         }
                         
                         if (isPromotionMove(fr, fc, tr) && !promo) {
@@ -2384,7 +2957,10 @@
                                 manualMoveError.textContent = 'Promotion piece required (e.g. e7e8q)';
                                 manualMoveError.style.display = 'block';
                             }
+
+
                             flashBoard();
+
                             return;
                         }
                         
@@ -2403,6 +2979,11 @@
 
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+
+                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+
+                const key = e.key.toLowerCase();
 
                 
 
@@ -2424,6 +3005,7 @@
                 return;
             }
 
+
                 if (key === 'f' && flipBtn) {
                     e.preventDefault();
                     flipBtn.click();
@@ -2433,6 +3015,33 @@
                 } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
                     e.preventDefault();
                     drawBtn.click();
+
+                }
+            });
+            // Show browser confirmation dialog if user tries to leave during an active game
+            window.addEventListener('beforeunload', (e) => {
+                // Temporarily disabled during PR scope reduction review.
+                // Re-enable only if unload auto-pause is intentionally kept.
+                // if (!paused) {
+                //     navigator.sendBeacon('/api/pause-beacon/', JSON.stringify({ pause: true }));
+                // }
+                if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+            
+
+          if (typeof module !== "undefined" && module.exports) {
+          module.exports = { pColor, getSquareLabel, formatTime };
+        } else {
+          loadGame();
+        }
+
+})();
+
+
+
                 } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
                     e.preventDefault();
                     pauseBtn.click();
@@ -2758,3 +3367,4 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
             }, { passive: true });
 
 })();
+
