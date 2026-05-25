@@ -137,19 +137,25 @@
     </main>
 
     <section id="about" class="about">
-      <div class="section-container">
-          <h2 class="section-title">About Checkora</h2>
+      <div class="about-grid-container">
+        <div class="about-left-col">
+          <span class="about-mini-tag">Platform Context</span>
+          <h2 class="about-display-title">About Checkora</h2>
+          <div class="about-accent-line"></div>
+        </div>
+        <div class="about-right-col">
           <div class="about-content">
-              <p>
-                  Checkora is a modern interactive chess platform built to help players practice, compete, and improve through an engaging digital chess experience.
-              </p>
-              <p>
-                  The platform follows a hybrid architecture where Django and Python handle application flow, authentication, and game orchestration, while a high-performance C++ minimax engine powers intelligent AI gameplay.
-              </p>
-              <p>
-                  With responsive gameplay, statistics tracking, rulebook access, and AI-driven interactions, Checkora provides both a practical learning environment and a smooth competitive chess experience for players across skill levels.
-              </p>
+            <p>
+              Checkora is a modern interactive chess platform built to help players practice, compete, and improve through an engaging digital chess experience.
+            </p>
+            <p>
+              The platform follows a hybrid architecture where Django and Python handle application flow, authentication, and game orchestration, while a high-performance C++ minimax engine powers intelligent AI gameplay.
+            </p>
+            <p>
+              With responsive gameplay, statistics tracking, rulebook access, and AI-driven interactions, Checkora provides both a practical learning environment and a smooth competitive chess experience for players across skill levels.
+            </p>
           </div>
+        </div>
       </div>
     </section>
 
@@ -160,19 +166,16 @@
           <div class="card-inner">
             <div class="card-front">
               <div class="card-icon">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ccc"
-                  stroke-width="1.5"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path
-                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                  />
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#gold-gradient)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <defs>
+                    <linearGradient id="gold-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#f0c040" />
+                      <stop offset="100%" stop-color="#ffeaa7" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
               </div>
               <h3 class="card-title">Web & UX</h3>
@@ -190,18 +193,10 @@
           <div class="card-inner">
             <div class="card-front">
               <div class="card-icon">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ccc"
-                  stroke-width="1.5"
-                >
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                  ></path>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#gold-gradient)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+                  <path d="M12 16L16 12L12 8"></path>
+                  <path d="M8 12H16"></path>
                 </svg>
               </div>
               <h3 class="card-title">Engine (C++)</h3>
@@ -219,17 +214,10 @@
           <div class="card-inner">
             <div class="card-front">
               <div class="card-icon">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ccc"
-                  stroke-width="1.5"
-                >
-                  <path
-                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                  />
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#gold-gradient)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z"></path>
+                  <path d="M2 17L12 22L22 17"></path>
+                  <path d="M2 12L12 17L22 12"></path>
                 </svg>
               </div>
               <h3 class="card-title">Hybrid Architecture</h3>
@@ -246,7 +234,7 @@
     </section>
 
     <section id="features" class="features-capabilities">
-      <div class="section-container">
+      <div class="capabilities-container">
         <h2 class="section-title">Platform Capabilities</h2>
         <div class="capabilities-grid">
           <div class="capability-card">
@@ -274,9 +262,8 @@
           <div class="capability-card">
             <div class="capability-icon">
               <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="9"/>
-                <polyline points="12 5 12 12 16 14"/>
-                <line x1="12" y1="1" x2="12" y2="3"/>
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 15 14"></polyline>
               </svg>
             </div>
             <h3 class="capability-title">Game Timer</h3>
