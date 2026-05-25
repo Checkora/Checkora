@@ -337,7 +337,7 @@ body {
    Features and Content Sections
    ========================================================================== */
 .features {
-    padding: 4rem 5%;
+    padding: 2.5rem 5%;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
@@ -347,14 +347,14 @@ body {
     text-align: center;
     font-size: 1.8rem;
     font-weight: 600;
-    margin-bottom: 3rem;
+    margin-bottom: 1.5rem;
     color: var(--text-primary);
 }
 
 .feature-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+    gap: 1.25rem;
 }
 
 .card {
@@ -437,7 +437,7 @@ body {
 }
 
 .about {
-    padding: 4rem 5%;
+    padding: 2.5rem 5%;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
@@ -464,10 +464,10 @@ body {
 .about-grid-container {
   display: grid;
   grid-template-columns: 1fr 1.8fr;
-  gap: 4rem;
+  gap: 2.5rem;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 3.5rem 3rem;
+  padding: 2.5rem 2rem;
   background: rgba(255, 255, 255, 0.01);
   border: 1px solid rgba(255, 255, 255, 0.03);
   border-radius: 20px;
@@ -682,7 +682,7 @@ body {
    Platform Capabilities Section
    ========================================================================== */
 .features-capabilities {
-    padding: 4rem 5%;
+    padding: 2.5rem 5%;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
@@ -691,7 +691,7 @@ body {
 .capabilities-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
+    gap: 1.25rem;
     justify-content: center;
 }
 
