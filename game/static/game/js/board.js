@@ -2160,6 +2160,11 @@
             };
             if (confirmNoBtn) confirmNoBtn.onclick = () => {
                 confirmOverlay.classList.remove('active');
+
+                if (paused) {
+                    boardEl.classList.add('paused');
+                }
+
                 confirmCallback = null;
             };
 
@@ -2278,7 +2283,17 @@
                         }
                     });
                 }
-            };
+                endGame('resign', turn);
+            } else {
+                if (wasPaused) boardEl.classList.add('paused');
+                showStatus('Resign failed. Please try again.', true);
+            }
+        } catch (_) {
+            if (wasPaused) boardEl.classList.add('paused');
+            showStatus('Resign failed. Please check your connection and try again.', true);
+        }
+    });
+};
 
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
