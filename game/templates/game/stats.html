@@ -2,68 +2,363 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora - Game Stats</title>
     <style>
-        body { background: #0f0f1a; color: #d0d0d0; font-family: Arial, sans-serif; padding: 40px; }
-        h1 { color: #f0c040; text-align: center; letter-spacing: 2px; }
-        h2 { color: #f0c040; margin-top: 40px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #1a1a2e; color: #f0c040; padding: 12px; text-align: left; }
-        td { padding: 10px 12px; border-bottom: 1px solid #252545; }
-        tr:hover { background: #16162a; }
-        .summary { display: flex; gap: 20px; margin-top: 20px; }
-        .card { background: #16162a; border: 1px solid #252545; border-radius: 8px; padding: 20px; flex: 1; text-align: center; }
-        .card .num { font-size: 36px; color: #f0c040; font-weight: bold; }
-        .card .label { color: #8a8aaa; margin-top: 8px; }
-        .empty { text-align: center; color: #5a5a7a; padding: 40px; }
-        a { color: #f0c040; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .back { text-align: center; margin-top: 30px; }
+        :root {
+            color-scheme: dark;
+            --bg: #0f0f1a;
+            --surface: #16162a;
+            --surface-strong: #1e1e3d;
+            --border: #252545;
+            --accent: #f0c040;
+            --muted: #8a8aaa;
+            --text: #d0d0d0;
+            --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: radial-gradient(circle at top, rgba(240, 192, 64, 0.08), transparent 30%),
+                        linear-gradient(180deg, #0f0f1a 0%, #07070f 100%);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.5;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .page-shell {
+            width: min(1200px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0;
+        }
+
+        .header-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+
+        .page-title {
+            margin: 0;
+            font-size: clamp(2rem, 2.5vw, 2.8rem);
+            letter-spacing: 0.2em;
+        }
+
+        .page-title span {
+            color: var(--accent);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-signin,
+        .btn-secondary {
+            padding: 12px 20px;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            font-weight: 600;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .btn-signin:hover,
+        .btn-secondary:hover {
+            background: rgba(240, 192, 64, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .stats-grid,
+        .ai-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .stat-card,
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .stat-card strong,
+        .summary-card strong {
+            display: block;
+            font-size: 2.2rem;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .stat-card span,
+        .summary-card span {
+            color: var(--muted);
+            margin-top: 8px;
+            font-size: 0.95rem;
+        }
+
+        .panel {
+            margin-top: 36px;
+        }
+
+        .panel h2 {
+            margin: 0 0 16px;
+            color: var(--accent);
+            font-size: 1.15rem;
+        }
+
+        .card-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+        }
+
+        .table-frame {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.02);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 720px;
+        }
+
+        th,
+        td {
+            padding: 16px 18px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.96rem;
+        }
+
+        th {
+            background: #101020;
+            color: var(--accent);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        tbody tr:nth-child(even) {
+            background: rgba(255,255,255,0.02);
+        }
+
+        tbody tr:hover {
+            background: rgba(240, 192, 64, 0.08);
+        }
+
+        .small-label {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .empty-state,
+        .loading-screen {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 40px;
+            text-align: center;
+            color: var(--muted);
+            margin-top: 20px;
+        }
+
+        #statsLoading {
+            display: none;
+        }
+
+        .js-enabled #statsLoading {
+            display: block;
+        }
+
+        @media (max-width: 640px) {
+            .page-shell { padding: 24px 0; }
+            .header-row { flex-direction: column; align-items: flex-start; }
+            .btn-signin,
+            .btn-secondary { width: 100%; justify-content: center; }
+        }
     </style>
 </head>
 <body>
-    <div style="margin-bottom: 20px;">
-        <a href="/" class="back-btn">← Back to Home</a>
-    </div>
-    <h1>CHECK<span>ORA</span> &mdash; Game Statistics</h1>
+    <div class="page-shell">
+        <div class="header-row">
+            <h1 class="page-title">CHECK<span>ORA</span> Stats</h1>
+            <div class="button-group">
+                <a href="{% url 'index' %}" class="btn-signin">Back to Board</a>
+                <a href="{% url 'landing' %}" class="btn-secondary">Home</a>
+            </div>
+        </div>
 
-    <h2>AI Game Summary</h2>
-    <div class="summary">
-        <div class="card"><div class="num">{{ ai_total }}</div><div class="label">Total AI Games</div></div>
-        <div class="card"><div class="num">{{ user_ai_wins }}</div><div class="label">User Wins vs AI</div></div>
-        <div class="card"><div class="num">{{ ai_wins }}</div><div class="label">AI Wins</div></div>
-        <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>
+        <div id="statsLoading" class="loading-screen">
+            <p>Loading your chess statistics...</p>
+        </div>
+
+        <div id="statsContent">
+            <div class="panel">
+                <h2>Player Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <strong>{{ total_games }}</strong>
+                        <span>Total games played</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{{ wins }}</strong>
+                        <span>Wins</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{{ losses }}</strong>
+                        <span>Losses</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{{ draws }}</strong>
+                        <span>Draws</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{{ win_percentage }}%</strong>
+                        <span>Win percentage</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{{ current_streak }}</strong>
+                        <span>Current streak</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{{ best_streak }}</strong>
+                        <span>Best streak</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>{% if avg_duration_seconds %}{{ avg_duration_seconds|floatformat:1 }}s{% else %}N/A{% endif %}</strong>
+                        <span>Average game duration</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>AI Performance</h2>
+                <div class="ai-grid">
+                    <div class="summary-card">
+                        <div class="num">{{ ai_total }}</div>
+                        <strong>{{ ai_total }}</strong>
+                        <span>Total AI games</span>
+                    </div>
+                    <div class="summary-card">
+                        <div class="num">{{ ai_user_wins }}</div>
+                        <strong>{{ ai_user_wins }}</strong>
+                        <span>User wins vs AI</span>
+                    </div>
+                    <div class="summary-card">
+                        <div class="num">{{ ai_wins }}</div>
+                        <strong>{{ ai_wins }}</strong>
+                        <span>AI wins</span>
+                    </div>
+                    <div class="summary-card">
+                        <div class="num">{{ ai_draws }}</div>
+                        <strong>{{ ai_draws }}</strong>
+                        <span>Draws</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>{{ ai_win_percentage }}%</strong>
+                        <span>AI win percent</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>{% if ai_difficulty_stats %}{{ ai_difficulty_stats|length }}{% else %}N/A{% endif %}</strong>
+                        <span>Difficulty tiers tracked</span>
+                    </div>
+                </div>
+                {% if ai_difficulty_stats %}
+                <div class="card-list" style="margin-top: 20px;">
+                    {% for key, value in ai_difficulty_stats.items %}
+                    <div class="stat-card">
+                        <strong>{{ value }}</strong>
+                        <span>{{ key|capfirst }} AI games</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>AI difficulty history is not currently recorded. Continue playing to build more data.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="panel">
+                <h2>Recent Match History</h2>
+                {% if recent %}
+                <div class="table-frame">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mode</th>
+                                <th>Result</th>
+                                <th>End Reason</th>
+                                <th>Played At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in recent %}
+                            <tr>
+                                <td>{{ result.get_mode_display }}</td>
+                                <td>
+                                    {% if result.winner == 'draw' %}
+                                        Draw
+                                    {% elif result.winner == result.player_color %}
+                                        Win
+                                    {% else %}
+                                        Loss
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.get_end_reason_display }}</td>
+                                <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>No games played yet. Play a match to begin tracking your stats.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
-    <h2>Recent Games</h2>
-    {% if recent %}
-    <div style="overflow-x: auto;">
-        <table>
-            <thead>
-                <tr>
-                    <th>Mode</th>
-                    <th>Winner</th>
-                    <th>End Reason</th>
-                    <th>Played At</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for result in recent %}
-                <tr>
-                    <td>{{ result.get_mode_display }}</td>
-                    <td>{{ result.get_winner_display }}</td>
-                    <td>{{ result.get_end_reason_display }}</td>
-                    <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="empty">
-        <p>No games played yet. Play a game to see your stats here!</p>
-    </div>
-    {% endif %}
-
+    <script>
+        document.documentElement.classList.add('js-enabled');
+        window.addEventListener('DOMContentLoaded', function() {
+            var loading = document.getElementById('statsLoading');
+            if (loading) {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>

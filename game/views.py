@@ -834,35 +834,97 @@ def logout_view(request):
 @login_required
 def stats_view(request):
     """Display game statistics."""
-    # Only show real database records linked to the logged-in user
-    user_results = GameResult.objects.filter(
-        user=request.user
-    ).exclude(mode__in=['', None])
+    try:
+        user_results = GameResult.objects.filter(
+            user=request.user
+        ).exclude(mode__in=['', None]).order_by('-played_at')
 
-    recent = user_results.order_by('-played_at')[:20]
-    ai_results = user_results.filter(mode='ai')
+        recent = list(user_results[:20])
+        total_games = user_results.count()
+        wins = user_results.filter(winner=F('player_color')).count()
+        draws = user_results.filter(winner='draw').count()
+        losses = total_games - wins - draws
+        win_percentage = round((wins / total_games * 100), 2) if total_games > 0 else 0
 
-    # If winner == player_color, the user won
-    user_ai_wins = ai_results.filter(winner=F('player_color')).count()
-    # If winner != player_color and not a draw, the AI won
-    ai_wins = ai_results.filter(
-        Q(winner='white', player_color='black') |
-        Q(winner='black', player_color='white')
-    ).count()
+        def result_outcome(result):
+            if result.winner == 'draw':
+                return 'Draw'
+            return 'Win' if result.winner == result.player_color else 'Loss'
 
-    ai_draws = ai_results.filter(winner='draw').count()
-    ai_total = ai_results.count()
+        outcomes = [result_outcome(result) for result in user_results]
 
-    # Handle explicit edge cases (e.g. division by zero for win rate)
-    win_percentage = (user_ai_wins / ai_total * 100) if ai_total > 0 else 0
+        current_streak = 0
+        if outcomes:
+            latest_outcome = outcomes[0]
+            for outcome in outcomes:
+                if outcome == latest_outcome:
+                    current_streak += 1
+                else:
+                    break
+
+        best_streak = 0
+        streak_count = 0
+        previous = None
+        for outcome in reversed(outcomes):
+            if outcome == previous or previous is None:
+                streak_count += 1
+            else:
+                best_streak = max(best_streak, streak_count)
+                streak_count = 1
+            previous = outcome
+        best_streak = max(best_streak, streak_count)
+
+        duration_field = 'duration_seconds' if hasattr(GameResult, 'duration_seconds') else None
+        avg_duration_seconds = None
+        if duration_field:
+            durations = list(user_results.values_list('duration_seconds', flat=True))
+            durations = [d for d in durations if isinstance(d, (int, float))]
+            if durations:
+                avg_duration_seconds = sum(durations) / len(durations)
+
+        ai_results = user_results.filter(mode='ai')
+        ai_total = ai_results.count()
+        ai_user_wins = ai_results.filter(winner=F('player_color')).count()
+        ai_wins = ai_results.filter(
+            Q(winner='white', player_color='black') |
+            Q(winner='black', player_color='white')
+        ).count()
+        ai_draws = ai_results.filter(winner='draw').count()
+        ai_win_percentage = round((ai_user_wins / ai_total * 100), 2) if ai_total > 0 else 0
+
+        ai_difficulty_stats = None
+        if hasattr(GameResult, 'difficulty'):
+            difficulty_counts = {}
+            for difficulty in ai_results.values_list('difficulty', flat=True):
+                difficulty_counts[difficulty or 'Unknown'] = difficulty_counts.get(difficulty or 'Unknown', 0) + 1
+            ai_difficulty_stats = difficulty_counts
+    except Exception:
+        logger.exception('Failed to render stats page for user %s', request.user)
+        recent = []
+        total_games = wins = losses = draws = 0
+        win_percentage = 0
+        current_streak = best_streak = 0
+        avg_duration_seconds = None
+        ai_total = ai_user_wins = ai_wins = ai_draws = 0
+        ai_win_percentage = 0
+        ai_difficulty_stats = None
 
     return render(request, 'game/stats.html', {
         'recent': recent,
+        'total_games': total_games,
+        'wins': wins,
+        'losses': losses,
+        'draws': draws,
+        'win_percentage': win_percentage,
+        'current_streak': current_streak,
+        'best_streak': best_streak,
+        'avg_duration_seconds': avg_duration_seconds,
         'ai_total': ai_total,
-        'user_ai_wins': user_ai_wins,
+        'ai_user_wins': ai_user_wins,
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
-        'win_percentage': round(win_percentage, 2),
+        'ai_win_percentage': ai_win_percentage,
+        'ai_difficulty_stats': ai_difficulty_stats,
     })
 
 @csrf_exempt
