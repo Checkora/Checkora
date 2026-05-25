@@ -45,6 +45,8 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            will-change: transform;
+            backface-visibility: hidden;
         }
 
         .logo {
@@ -152,6 +154,9 @@
         main {
             padding: 3rem 4rem;
             max-width: 900px;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            min-width: 0;
         }
 
         .page-title {
@@ -523,6 +528,10 @@
     .mini-board-container {
         flex-direction: column;
     }
+    #menuToggle {
+        position: relative;
+        z-index: 400;
+    }
 }
     </style>
 </head>
@@ -532,7 +541,7 @@
         <a href="/" class="logo" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
             <img src="/static/game/checkora_icon_only.png" 
                 style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
-            <span style="font-family: 'Cinzel', serif; color: #f0c040; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Checkora</span>
+            <span style="font-family: 'Cinzel', serif; color: #f0c040; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Checkora Rulebook</span>
         </a>
         <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
     </header>
@@ -731,6 +740,9 @@
                         </div>
                         <div class="step" onclick="castleStep(3)" id="cstep-3">
                             <div class="step-num">4</div> ❌ Cannot castle if King is in check
+                        </div>
+                        <div class="step" onclick="castleStep(4)" id="cstep-4">
+                            <div class="step-num">5</div> Cannot castle if path is blocked
                         </div>
                     </div>
                 </div>
@@ -1030,7 +1042,7 @@ function pawnStep(n) {
    CASTLING STEPS
 ══════════════════════════════════════════════ */
 function castleStep(n) {
-    [0,1,2,3].forEach(i => document.getElementById('cstep-'+i).classList.remove('active'));
+    [0,1,2,3,4].forEach(i => document.getElementById('cstep-'+i).classList.remove('active'));
     document.getElementById('cstep-'+n).classList.add('active');
 
     buildBoard('board-castling');
@@ -1057,14 +1069,29 @@ function castleStep(n) {
         document.getElementById('board-castling-7-3').classList.add('last');
         highlight('board-castling', 7, 0);
         highlight('board-castling', 7, 4);
-    } else {
-        // Cannot castle in check
+    } else if (n === 3) {
+        // Cannot castle if King is in check
         place('board-castling', 7, 4, P.wK);
         place('board-castling', 7, 0, P.wR);
         place('board-castling', 7, 7, P.wR);
         place('board-castling', 0, 4, P.bR);
         document.getElementById('board-castling-7-4').classList.add('check');
         document.getElementById('board-castling-0-4').classList.add('last');
+    } else if (n === 4) {
+        // Cannot castle if path is blocked
+        place('board-castling', 7, 4, P.wK);
+        place('board-castling', 7, 0, P.wR);
+        place('board-castling', 7, 7, P.wR);
+        place('board-castling', 7, 5, P.wB);
+        place('board-castling', 7, 6, P.wN);
+        document.getElementById('board-castling-7-5').style.background = 'rgba(255,50,50,0.4)';
+        document.getElementById('board-castling-7-6').style.background = 'rgba(255,50,50,0.4)';
+    } else {
+        // Fallback: no special position
+        place('board-castling', 7, 4, P.wK);
+        place('board-castling', 7, 0, P.wR);
+        place('board-castling', 7, 7, P.wR);
+        document.getElementById('board-castling-7-4').classList.add('last');
     }
 }
 
