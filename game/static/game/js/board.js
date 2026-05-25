@@ -1679,6 +1679,10 @@
                 aiThinking = false;
                 premove = null;
                 refreshPremoveHighlight();
+                
+                    if (welcomeResumeBtn) {
+                        welcomeResumeBtn.style.display = 'none';
+                    }
 
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
