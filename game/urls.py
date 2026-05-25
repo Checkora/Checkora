@@ -36,4 +36,9 @@ urlpatterns = [
 
     # Contact Us Fallback Router
     path('contact.html', views.contact_view, name='contact'),
+    path(
+        'password-reset-account-selection/',
+        views.password_reset_account_selection,
+        name='password_reset_account_selection'
+    ),
 ]

@@ -1,10 +1,12 @@
 """Game views for the Checkora chess platform."""
+import email
 import logging
 import json
 import time
 import hashlib
 import secrets
 import secrets as secrets_module
+from urllib import request
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -784,16 +786,33 @@ class CustomPasswordResetView(PasswordResetView):
     def post(self, request, *args, **kwargs):
 
         email = request.POST.get('email', '').strip().lower()
+        users = User.objects.filter(email=email)
 
+        if users.count() > 1 and not request.POST.get(
+            'selected_username'
+        ):
+
+            usernames = users.values_list(
+                'username',
+                flat=True
+            )
+
+            return render(
+                request,
+                'game/password_reset.html',
+                {
+                    'form': self.form_class,
+                    'usernames': usernames,
+                    'email': email
+                }
+            )
         if not email:
-
             messages.error(
                 request,
                 'Please enter a valid email address.'
             )
 
             return redirect('password_reset')
-
         cache_key = (f"password_reset_cooldown_{email}")
 
         if cache.get(cache_key):
@@ -805,6 +824,30 @@ class CustomPasswordResetView(PasswordResetView):
 
             return redirect('password_reset')
         cache.set(cache_key, True, timeout=60)
+        selected_username = request.POST.get(
+            'selected_username'
+        )
+
+        if selected_username:
+
+            selected_user = User.objects.filter(
+                username=selected_username,
+                email=email
+            ).first()
+
+            from django.contrib.auth.forms import (
+                PasswordResetForm
+            )
+
+            class SingleUserPasswordResetForm(
+                PasswordResetForm
+            ):
+
+                def get_users(self, email):
+
+                    return [selected_user]
+
+            self.form_class = (SingleUserPasswordResetForm)
         return super().post(
             request,
             *args,
@@ -924,3 +967,19 @@ def terms_view(request):
 def contact_view(request):
     """Directly serve the static contact page template instance."""
     return render(request, 'game/contact.html')
+
+def password_reset_account_selection(request):
+
+    email = request.GET.get('email')
+
+    users = User.objects.filter(email=email)
+
+    return render(
+        request,
+        'game/password_reset_account_selection.html',
+        {
+            'users': users,
+            'email': email
+        }
+    )
+    
