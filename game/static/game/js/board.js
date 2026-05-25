@@ -2465,6 +2465,12 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 loadGame();
             }
 
+            boardEl.addEventListener('click', (e) => {
+                if (paused && !gameOver) {
+                    resumeGame();
+                }
+            });
+
             boardEl.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
 
