@@ -1,5 +1,6 @@
 import time
 from django.contrib.sessions.models import Session
+from django.contrib.sessions.backends.db import SessionStore
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from game.models import GameResult
@@ -18,6 +19,7 @@ def cleanup_stale_games():
     
     deleted_count = 0
     resigned_count = 0
+    store = SessionStore()
     
     # Iterate over all sessions
     for session in Session.objects.all():
@@ -40,7 +42,7 @@ def cleanup_stale_games():
             if moves_count < 5:
                 # Rule A: Hard deletion
                 del session_data['game']
-                session.session_data = Session.objects.encode(session_data)
+                session.session_data = store.encode(session_data)
                 session.save()
                 deleted_count += 1
             else:
@@ -58,7 +60,7 @@ def cleanup_stale_games():
                 
                 game_data['game_status'] = 'resignation'
                 session_data['game'] = game_data
-                session.session_data = Session.objects.encode(session_data)
+                session.session_data = store.encode(session_data)
                 session.save()
                 
                 # Create a GameResult historically linking to the user if auth is known
