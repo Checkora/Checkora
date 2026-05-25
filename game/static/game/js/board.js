@@ -1667,6 +1667,7 @@
                     async () => {
                         drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
                         drawOverlay.classList.add('active');
+                        pauseOverlay.classList.remove('active');
                         await pauseGame();
                     },
                     '#f0c040'
