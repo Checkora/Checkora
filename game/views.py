@@ -1,12 +1,10 @@
 """Game views for the Checkora chess platform."""
-import email
 import logging
 import json
 import time
 import hashlib
 import secrets
 import secrets as secrets_module
-from urllib import request
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -982,4 +980,5 @@ def password_reset_account_selection(request):
             'email': email
         }
     )
+
     
