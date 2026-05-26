@@ -96,6 +96,25 @@ class LandingViewTest(TestCase):
         self.assertContains(response, '/play/')
 
 
+class StaticPageLayoutTest(TestCase):
+    """Footer-linked static pages should use the shared site navigation layout."""
+
+    def test_footer_linked_pages_render_site_header_and_footer(self):
+        pages = (
+            reverse('privacy'),
+            reverse('terms'),
+            reverse('contact'),
+        )
+
+        for page in pages:
+            with self.subTest(page=page):
+                response = self.client.get(page)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'class="navbar"')
+                self.assertContains(response, 'class="footer"')
+                self.assertNotContains(response, 'Back to Home')
+
+
 class NotFoundPageTest(TestCase):
     """Custom 404 page should match the product theme and navigation flow."""
 
