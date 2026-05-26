@@ -2710,11 +2710,15 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     if (destSquareEl) {
                         const tr = parseInt(destSquareEl.dataset.r);
                         const tc = parseInt(destSquareEl.dataset.c);
+                        await tryMove(
+                            touchDragSrc.r,
+                            touchDragSrc.c,
+                            tr,
+                            tc
+                    );
 
-                        if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
-                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
-                            movedToSquare = true;
-                        }
+                    movedToSquare = true;
+
                     }
 
                     if (!movedToSquare) {
