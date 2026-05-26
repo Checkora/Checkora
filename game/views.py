@@ -23,7 +23,7 @@ from django.template.loader import render_to_string
 from django.contrib import messages
 from django.core.cache import cache
 from django.db.models import F, Q
-from .forms import CustomUserCreationForm
+from .forms import CustomUserCreationForm, USERNAME_MIN_LENGTH
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
@@ -530,6 +530,11 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
+    if len(username) < USERNAME_MIN_LENGTH:
+        return JsonResponse({
+            'available': False,
+            'error': f'Username must be at least {USERNAME_MIN_LENGTH} characters long'
+        }, status=400)
     exists = User.objects.filter(username__iexact=username).exists()
     return JsonResponse({'available': not exists})
 
@@ -1014,5 +1019,3 @@ def password_reset_account_selection(request):
             'email': email
         }
     )
-
-    

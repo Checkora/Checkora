@@ -16,7 +16,8 @@ from django.test import (
 )
 
 from .engine import ChessGame
-from .forms import CustomSetPasswordForm
+from .forms import CustomSetPasswordForm, CustomUserCreationForm
+
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -132,6 +133,25 @@ class ServerErrorPageTest(SimpleTestCase):
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
+
+    def test_registration_rejects_short_username(self):
+        payload = {
+            'username': 'ab',
+            'email': 'short@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        response = self.client.post('/register/', data=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Username must be at least 3 characters long.')
+        self.assertFalse(User.objects.filter(username='ab').exists())
+
+    def test_username_field_has_minlength_attribute(self):
+        form = CustomUserCreationForm()
+
+        self.assertEqual(form.fields['username'].widget.attrs.get('minlength'), '3')
 
     @override_settings(
         DEBUG=True,
@@ -1295,6 +1315,15 @@ class CheckUsernameViewTest(TestCase):
         self.assertJSONEqual(response.content, {
             'available': False,
             'error': 'No username provided'
+        })
+
+    def test_short_username_param(self):
+        """Should return 400 when username is shorter than the minimum length."""
+        response = self.client.get(reverse('check_username'), {'username': 'ab'})
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {
+            'available': False,
+            'error': 'Username must be at least 3 characters long'
         })
 
     def test_whitespace_only_username(self):

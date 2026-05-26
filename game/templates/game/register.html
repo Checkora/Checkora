@@ -86,6 +86,12 @@
                     return;
                 }
 
+                if (val.length < 3) {
+                    feedback.textContent = 'Username must be at least 3 characters long';
+                    feedback.style.color = '#e57373';
+                    return;
+                }
+
                 debounceTimer = setTimeout(async () => {
                     if (val !== latestVal) return;  
 

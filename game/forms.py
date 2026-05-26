@@ -3,11 +3,30 @@ from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
 
+
+USERNAME_MIN_LENGTH = 3
+
+
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        username = self.fields['username']
+        username.min_length = USERNAME_MIN_LENGTH
+        username.widget.attrs['minlength'] = str(USERNAME_MIN_LENGTH)
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if len(username) < USERNAME_MIN_LENGTH:
+            raise ValidationError(
+                f'Username must be at least {USERNAME_MIN_LENGTH} characters long.',
+                code='username_too_short',
+            )
+        return username
 
 
 class CustomSetPasswordForm(SetPasswordForm):
@@ -30,26 +49,30 @@ class CustomSetPasswordForm(SetPasswordForm):
                 ),
             )
         return cleaned_data
-    
+
+
 class CustomPasswordResetForm(PasswordResetForm):
     """Prevent password resets from reusing the account's current password."""
 
     def send_mail(
         self,
-        subject_template_name, 
-        email_template_name, 
-        context, 
-        from_email, 
-        to_email, 
+        subject_template_name,
+        email_template_name,
+        context,
+        from_email,
+        to_email,
         html_email_template_name=None
     ):
         try:
             super().send_mail(
-                subject_template_name, 
-                email_template_name, 
-                context, 
-                from_email, 
+                subject_template_name,
+                email_template_name,
+                context,
+                from_email,
                 to_email,
                 html_email_template_name)
         except Exception:
-            raise ValidationError("Failed to send password reset email. Please check your email configuration and try again.")
+            raise ValidationError(
+                'Failed to send password reset email. '
+                'Please check your email configuration and try again.'
+            )
