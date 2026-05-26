@@ -23,15 +23,31 @@
             let selected = null;
             let hints = [];
             let lastMove = null;
+            let premove = null;
+            let highlightedSquare = null;
 
             let dragging = false;
             let dragSrc = null;
 
+            // Touch drag-and-drop state variables
+            let touchStartPos = null;
+            let activeTouchPieceClone = null;
+            let touchDragSrc = null;
+            let touchDragging = false;
+            let touchOffset = { x: 0, y: 0 };
+
             let whiteTime = 0;
             let blackTime = 0;
+            let selectedMins = 10;
+            let selectedIncrement = 0;
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
+            let blindfoldMode = false;
+            let illegalMoveCount = 0;
+
+            let whiteAlertFired = false;
+            let blackAlertFired = false;
 
             let gameStartTime = null;
     
@@ -122,6 +138,8 @@
             /* ==========================================================
             DOM REFERENCES
             ========================================================== */
+            const shareModal = document.getElementById('shareModal');
+            const rulebookModal = document.getElementById('rulebookModal');
             const boardEl = document.getElementById('board');
             const turnEl = document.getElementById('turnBadge');
             const statusEl = document.getElementById('statusBar');
@@ -173,11 +191,13 @@
             const gameOverTitle = document.getElementById('gameOverTitle');
             const gameOverMessage = document.getElementById('gameOverMessage');
             const gameOverStartBtn = document.getElementById('gameOverStartBtn');
+            const gameOverExitBtn = document.getElementById('gameOverExitBtn');
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
+            let wasPaused = false;
             const drawOverlay = document.getElementById('drawOverlay');
             const drawMessage = document.getElementById('drawMessage');
             const drawAcceptBtn = document.getElementById('drawAcceptBtn');
@@ -196,6 +216,32 @@
                 if (a11yAnnouncer) {
                     a11yAnnouncer.textContent = '';
                     setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
+                }
+            }
+
+            let flashTimeout = null;
+            function flashBoard() {
+                if (boardEl) {
+                    boardEl.classList.remove('flash-error');
+                    void boardEl.offsetWidth;
+                    boardEl.classList.add('flash-error');
+                    if (flashTimeout) clearTimeout(flashTimeout);
+                    flashTimeout = setTimeout(() => {
+                        boardEl.classList.remove('flash-error');
+                    }, 2000);
+                }
+                
+                if (blindfoldMode) {
+                    illegalMoveCount++;
+                    if (illegalMoveCount >= 3) {
+                        illegalMoveCount = 0;
+                        document.body.classList.remove('blindfold-mode');
+                        setTimeout(() => {
+                            if (blindfoldMode) {
+                                document.body.classList.add('blindfold-mode');
+                            }
+                        }, 3000);
+                    }
                 }
             }
 
@@ -386,6 +432,10 @@
                 // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
                 aiRequestSeq = 0;
                 aiThinking = false;
+                premove = null;
+                refreshPremoveHighlight();
+                whiteAlertFired = false;
+                blackAlertFired = false;
 
                 const data = await get('/api/state/');
 
@@ -435,6 +485,10 @@
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
                 if (pauseBtn)  pauseBtn.style.display  = 'block';  
                 if (resignBtn) resignBtn.style.display = 'block'; 
+                const isActive = ['active', 'check', 'ok'].includes(data.game_status);
+                if (newPvPBtn) newPvPBtn.style.display = isActive ? 'none' : '';
+                if (newAIBtn) newAIBtn.style.display = isActive ? 'none' : '';
+                if (newFenBtn) newFenBtn.style.display = isActive ? 'none' : '';
 
                 updatePlayerNames(data);
                 updateTurn();
@@ -520,6 +574,11 @@
                         d.dataset.r = r;
                         d.dataset.c = c;
                         d.onclick = () => onClick(r, c);
+                        d.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSquareHighlight(r, c);
+                        };
                         d.ondragover = e => e.preventDefault();
                         d.ondrop = e => onDrop(e, r, c);
 
@@ -527,8 +586,26 @@
                         d.draggable = true;
                         d.ondragstart = e => {
                             const piece = board[r][c];
-                            if (!piece || pColor(piece) !== turn || paused || gameOver) return e.preventDefault();
-                            if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+                            if (!piece) {
+                                if (blindfoldMode) {
+                                    showStatus('No piece there', true);
+                                    flashBoard();
+                                }
+                                return e.preventDefault();
+                            }
+                            if (paused || gameOver) return e.preventDefault();
+                            
+                            const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
+                            
+                            // If it's the AI's turn, only allow dragging if it's a valid premove
+                            if (gameMode === 'ai' && turn !== playerColor && !isPremovedDrag) {
+                                return e.preventDefault();
+                            }
+                            
+                            // For all other normal moves, you can only drag your own pieces on your turn
+                            if (!isPremovedDrag && pColor(piece) !== turn) {
+                                return e.preventDefault();
+                            }
                             
                             if (e.dataTransfer) {
                                 e.dataTransfer.setData('text/plain', 'piece-move');
@@ -602,15 +679,17 @@
                     const r = parseInt(el.dataset.r);
                     const c = parseInt(el.dataset.c);
                     const p = board[r][c];
-                    const isPlayable = p && pColor(p) === turn
-                        && !(gameMode === 'ai' && turn !== playerColor);
+                    const isPlayable = p && (
+                        pColor(p) === turn ||
+                        (gameMode === 'ai' && pColor(p) === playerColor)
+                    );
                     img.classList.toggle('playable', isPlayable);
                 });
             }
 
             function refreshHighlights() {
                 boardEl.querySelectorAll('.square').forEach(el => {
-                    el.classList.remove('selected', 'last-move', 'in-check');
+                    el.classList.remove('selected', 'last-move', 'in-check', 'custom-highlight');
                     el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
                 });
 
@@ -618,7 +697,10 @@
                     sq(lastMove.from[0], lastMove.from[1]).classList.add('last-move');
                     sq(lastMove.to[0], lastMove.to[1]).classList.add('last-move');
                 }
-
+                if (highlightedSquare) {
+                    sq(highlightedSquare.r, highlightedSquare.c)
+                        .classList.add('custom-highlight');
+                }
                 if (selected) {
                     sq(selected.r, selected.c).classList.add('selected');
                     hints.forEach(h => {
@@ -628,6 +710,18 @@
                         el.appendChild(d);
                     });
                 }
+                refreshPremoveHighlight();
+            }
+
+            function refreshPremoveHighlight() {
+                boardEl.querySelectorAll('.square').forEach(el => {
+                    el.classList.remove('premove');
+                });
+
+                if (!premove) return;
+
+                sq(premove.from.r, premove.from.c).classList.add('premove');
+                sq(premove.to.r, premove.to.c).classList.add('premove');
             }
 
             function highlightCheck() {
@@ -693,19 +787,47 @@
             ========================================================== */
             async function selectPiece(r, c) {
                 const p = board[r][c];
-                if (!p || pColor(p) !== turn || paused || gameOver) return;
 
-                if (gameMode === 'ai' && turn !== playerColor) {
-                    showStatus("Waiting for AI to move...", false);
+                if (!p || paused || gameOver) return;
+
+                selected = { r, c };
+
+                // PREMOVE MODE DURING AI TURN
+                if (
+                    gameMode === 'ai' &&
+                    turn !== playerColor &&
+                    pColor(p) === playerColor
+                ) {
+                    hints = [];
+
+                    refreshHighlights();
                     return;
                 }
 
-                selected = { r, c };
+                // NORMAL MOVE LOGIC
                 const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+
                 hints = data.valid_moves || [];
+
                 refreshHighlights();
             }
+            function toggleSquareHighlight(r, c) {
+                if (highlightedSquare) {
+                    sq(highlightedSquare.r, highlightedSquare.c)
+                        .classList.remove('custom-highlight');
+                }
 
+                if (
+                    highlightedSquare &&
+                    highlightedSquare.r === r &&
+                    highlightedSquare.c === c
+                ) {
+                    highlightedSquare = null;
+                } else {
+                    highlightedSquare = { r, c };
+                    sq(r, c).classList.add('custom-highlight');
+                }
+            }
             function deselect() {
                 selected = null;
                 hints = [];
@@ -753,16 +875,53 @@
 
             async function tryMove(fr, fc, tr, tc) {
                 if (paused || gameOver) return;
+
                 const p = board[fr][fc];
-                if (!p || pColor(p) !== turn) return;
+                if (!p) return;
+
+                // PREMOVE DURING AI TURN
+                if (
+                    gameMode === 'ai' &&
+                    pColor(p) === playerColor &&
+                    turn !== playerColor
+                ) {
+                    premove = {
+                        from: { r: fr, c: fc },
+                        to: { r: tr, c: tc }
+                    };
+
+                    refreshPremoveHighlight();
+                    showStatus("Premove queued", false);
+
+                    selected = null;
+                    hints = [];
+                    refreshHighlights();
+
+                    return;
+                }
+
+                // NORMAL MOVE VALIDATION
+                if (pColor(p) !== turn) {
+                    deselect();
+                    return;
+                }
+
+                if (fr === tr && fc === tc) {
+                    deselect();
+                    return;
+                }
 
                 if (isPromotionMove(fr, fc, tr)) {
                     await animateMove(fr, fc, tr, tc);
+
                     pendingPromo = { fr, fc, tr, tc };
+
                     const color = pColor(p);
                     showPromoModal(color);
+
                     return;
                 }
+
                 await executeMove(fr, fc, tr, tc, null);
             }            let reconnecting = false;
             async function handleReconnect() {
@@ -800,6 +959,7 @@
 
                     const data = await post('/api/move/', body);
                         if (data.valid) {
+                            illegalMoveCount = 0;
                             playSound(data);
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
@@ -849,6 +1009,7 @@
                         }
                     } else {
                         showStatus(data.message, true);
+                        flashBoard();
                         deselect();
                     }
                 } catch (e) {
@@ -942,6 +1103,22 @@
                                 showStatus('Your turn.', false);
                             }
                             if (a11yMsg) announceMove(a11yMsg);
+
+                            // Trigger queued premove if it exists
+                            if (premove) {
+                                const queued = premove;
+                                premove = null;
+                                refreshPremoveHighlight();
+
+                                const piece = board[queued.from.r][queued.from.c];
+                                if (piece && pColor(piece) === turn) {
+                                    setTimeout(() => {
+                                        tryMove(queued.from.r, queued.from.c, queued.to.r, queued.to.c);
+                                    }, 150);
+                                } else {
+                                    showStatus("Premove cancelled: piece captured or invalid", true);
+                                }
+                            }
                         }
                     } else {
                         showStatus(data.message, true);
@@ -961,25 +1138,91 @@
             ========================================================== */
             async function onClick(r, c) {
                 if (dragging) return;
+
+                const piece = board[r][c];
+
+                const aiPremoveMode =
+                    gameMode === 'ai' &&
+                    turn !== playerColor;
+
                 if (selected) {
 
-                    //New toggle logic:
-                    //If the clicked square is the exact same as the selected square, deselect it.
-                    if (selected .r === r && selected.c ===c){
+                    // deselect same square
+                    if (selected.r === r && selected.c === c) {
                         return deselect();
                     }
-                    if (hints.some(h => h.row === r && h.col === c))
+
+                    // PREMOVE CLICK
+                    if (aiPremoveMode) {
+
+                        premove = {
+                            from: { r: selected.r, c: selected.c },
+                            to: { r, c }
+                        };
+
+                        refreshPremoveHighlight();
+
+                        showStatus("Premove queued", false);
+
+                        selected = null;
+                        hints = [];
+                        refreshHighlights();
+
+                        return;
+                    }
+
+                    // NORMAL MOVE
+                    if (hints.some(h => h.row === r && h.col === c)) {
                         return tryMove(selected.r, selected.c, r, c);
-                    if (board[r][c] && pColor(board[r][c]) === turn)
+                    }
+
+                    // reselect another piece
+                    if (piece && pColor(piece) === turn) {
                         return selectPiece(r, c);
+                    }
+
                     return deselect();
                 }
-                selectPiece(r, c);
+
+                // selecting initial piece
+                if (
+                    piece &&
+                    (
+                        pColor(piece) === turn ||
+                        (
+                            aiPremoveMode &&
+                            pColor(piece) === playerColor
+                        )
+                    )
+                ) {
+                    return selectPiece(r, c);
+                }
             }
 
             function onDragStart(e, r, c) {
-                if (paused || pColor(board[r][c]) !== turn) return e.preventDefault();
-                if (gameMode === 'ai' && turn !== playerColor) return e.preventDefault();
+
+                const piece = board[r][c];
+                if (!piece) {
+                    if (blindfoldMode) {
+                        showStatus('No piece there', true);
+                        flashBoard();
+                    }
+                    return e.preventDefault();
+                }
+                if (paused || gameOver) return e.preventDefault();
+                
+                const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
+                
+                // If it's the AI's turn, only allow dragging if it's a valid premove
+                if (gameMode === 'ai' && turn !== playerColor && !isPremovedDrag) {
+                    return e.preventDefault();
+                }
+                
+                // For all normal moves, you can only drag your own pieces on your turn
+                if (!isPremovedDrag && pColor(piece) !== turn) {
+                    return e.preventDefault();
+                }
+
                 dragging = true;
                 dragSrc = { r, c };
                 selectPiece(r, c);
@@ -1040,19 +1283,31 @@
 
             function updateCaptured(cap) {
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-                
-                const point_vals = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
-                
-                let whitePoints = cap.white.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
-                let blackPoints = cap.black.reduce((sum, p) => sum + (point_vals[p.toLowerCase()] || 0), 0);
-                
-                cap.white.forEach((p) => {
-                    wCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
-                });
-                cap.black.forEach((p) => {
-                    bCapEl.innerHTML += `<img src="${PIECE_IMG[pKey(p)]}" class="captured-img">`;
-                });
-                
+
+                // Use global MATERIAL_VALUES instead of redefining locally (DRY principle)
+                const sortByValue = (pieces) => [...pieces].sort((a, b) =>
+                    (MATERIAL_VALUES[b.toLowerCase()] || 0) - (MATERIAL_VALUES[a.toLowerCase()] || 0)
+                );
+
+                let whitePoints = cap.white.reduce((sum, p) => sum + (MATERIAL_VALUES[p.toLowerCase()] || 0), 0);
+                let blackPoints = cap.black.reduce((sum, p) => sum + (MATERIAL_VALUES[p.toLowerCase()] || 0), 0);
+
+                const pieceNames = { 'p': 'Pawn', 'n': 'Knight', 'b': 'Bishop', 'r': 'Rook', 'q': 'Queen' };
+
+                // Use createElement instead of innerHTML to prevent XSS and avoid DOM reflows
+                const makeImg = (p) => {
+                    const img = document.createElement('img');
+                    img.src = PIECE_IMG[pKey(p)];
+                    img.className = 'captured-img';
+                    const name = pieceNames[p.toLowerCase()] || p;
+                    img.title = name;
+                    img.alt = name;
+                    return img;
+                };
+
+                sortByValue(cap.white).forEach((p) => wCapEl.appendChild(makeImg(p)));
+                sortByValue(cap.black).forEach((p) => bCapEl.appendChild(makeImg(p)));
+
                 const wPointsEl = document.getElementById('whitePoints');
                 const bPointsEl = document.getElementById('blackPoints');
                 if (wPointsEl) wPointsEl.textContent = `+${whitePoints}`;
@@ -1090,6 +1345,13 @@
                 gameOver = true;
                 paused = true;
                 clearInterval(timerInterval);
+                
+                if (blindfoldMode) {
+                    blindfoldMode = false;
+                    document.body.classList.remove('blindfold-mode');
+                    const blindfoldBtn = document.getElementById('blindfoldBtn');
+                    if (blindfoldBtn) blindfoldBtn.textContent = 'Blindfold: OFF';
+                }
             
                 let title = '', message = '';
                 let isCelebration = false; // Track if this is a win (not draw/stalemate)
@@ -1128,6 +1390,9 @@
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
+                if (newPvPBtn) newPvPBtn.style.display = '';
+                if (newAIBtn) newAIBtn.style.display = '';
+                if (newFenBtn) newFenBtn.style.display = '';
 
                 let durationText = '';
 
@@ -1298,12 +1563,20 @@
                     if (playerClock) {
                         playerClock.classList.toggle('active', !isAiTurn);
                         playerClock.classList.toggle('inactive', isAiTurn);
+                        const pt = playerColor === 'white' ? whiteTime : blackTime;
+                        playerClock.classList.toggle('low-1', pt <= 30 && pt > 20);
+                        playerClock.classList.toggle('low-2', pt <= 20 && pt > 10);
+                        playerClock.classList.toggle('low-3', pt <= 10 && pt > 0);
                     }
                     if (aiClock) {
                         aiClock.style.border = '';
                         aiClock.style.boxShadow = '';
                         aiClock.classList.toggle('active', isAiTurn);
                         aiClock.classList.toggle('inactive', !isAiTurn);
+                        const at = playerColor === 'white' ? blackTime : whiteTime;
+                        aiClock.classList.toggle('low-1', at <= 30 && at > 20);
+                        aiClock.classList.toggle('low-2', at <= 20 && at > 10);
+                        aiClock.classList.toggle('low-3', at <= 10 && at > 0);
                     }
                 } else {
                     // PvP — both clocks update normally
@@ -1312,10 +1585,16 @@
                     if (whiteClock) {
                         whiteClock.classList.toggle('active', turn === 'white');
                         whiteClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                        whiteClock.classList.toggle('low-1', whiteTime <= 30 && whiteTime > 20);
+                        whiteClock.classList.toggle('low-2', whiteTime <= 20 && whiteTime > 10);
+                        whiteClock.classList.toggle('low-3', whiteTime <= 10 && whiteTime > 0);
                     }
                     if (blackClock) {
                         blackClock.classList.toggle('active', turn === 'black');
                         blackClock.classList.remove('inactive'); // fix: clear AI-mode styling bleed
+                        blackClock.classList.toggle('low-1', blackTime <= 30 && blackTime > 20);
+                        blackClock.classList.toggle('low-2', blackTime <= 20 && blackTime > 10);
+                        blackClock.classList.toggle('low-3', blackTime <= 10 && blackTime > 0);
                     }
                 }
                 const wYou = document.getElementById('whiteYouTag');
@@ -1356,6 +1635,20 @@
 
                     renderClocks();
 
+                    // Low-time alert: play check.wav once per player when time crosses into <=30s
+                    if (soundEnabled) {
+                        if (!whiteAlertFired && whiteTime > 0 && whiteTime <= 30) {
+                            whiteAlertFired = true;
+                            sounds.check.currentTime = 0;
+                            sounds.check.play().catch(() => {});
+                        }
+                        if (!blackAlertFired && blackTime > 0 && blackTime <= 30) {
+                            blackAlertFired = true;
+                            sounds.check.currentTime = 0;
+                            sounds.check.play().catch(() => {});
+                        }
+                    }
+
                     if (turn === 'white' && whiteTime === 0) {
                         endGame('timeout', 'white');
                     } else if (turn === 'black' && blackTime === 0) {
@@ -1380,15 +1673,32 @@
             }
 
             async function resumeGame() {
-                if (!paused) return;
-                const d = await post('/api/pause/', { pause: false });
-                paused = d.paused;
-                whiteTime = d.white_time;
-                blackTime = d.black_time;
-                updatePauseUI();
-                renderClocks();
-                startTimer();
-                queueAIMoveIfNeeded();
+                try {
+                    const d = await post('/api/pause/', { pause: false });
+
+                    paused = false;
+
+                    if (d.white_time !== undefined) {
+                        whiteTime = d.white_time;
+                    }
+
+                    if (d.black_time !== undefined) {
+                        blackTime = d.black_time;
+                    }
+
+                    updatePauseUI();
+                    renderClocks();
+
+                    clearInterval(timerInterval);
+                    startTimer();
+
+                    boardEl.classList.remove('paused');
+
+                    queueAIMoveIfNeeded();
+
+                } catch (e) {
+                    console.error("Resume failed", e);
+                }
             }
 
             /* ==========================================================
@@ -1468,6 +1778,8 @@
                 // Reset AI request sequence and thinking state on new game
                 aiRequestSeq = 0;
                 aiThinking = false;
+                premove = null;
+                refreshPremoveHighlight();
 
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
@@ -1496,8 +1808,23 @@
                     overrideNames ? overrideNames.black : document.getElementById('blackNameInput')?.value,
                     'Black'
                 );
-                const defaultTimeLimitMins = parseInt(document.getElementById('timeLimitInput')?.value || 10, 10);
-                const timeLimit = (timeLimitMins !== null ? timeLimitMins : defaultTimeLimitMins) * 60;
+                let currentMins = selectedMins;
+                let currentInc = selectedIncrement;
+
+                if (timeLimitMins !== null) {
+                    const strVal = String(timeLimitMins);
+                    if (strVal.includes('|')) {
+                        const parts = strVal.split('|');
+                        currentMins = parseInt(parts[0], 10) || 10;
+                        currentInc = parseInt(parts[1], 10) || 0;
+                    } else {
+                        currentMins = parseInt(strVal, 10) || 10;
+                        currentInc = 0;
+                    }
+                }
+
+                const timeLimit = currentMins * 60;
+                const increment = currentInc;
 
                 const payload = {
                     mode: mode,
@@ -1505,7 +1832,8 @@
                     white_name: wName,
                     black_name: bName,
                     difficulty: difficulty,
-                    time_limit: timeLimit
+                    time_limit: timeLimit,
+                    increment: increment
                 };
 
                 const fenValue = (fen && fen.trim()) ? fen.trim() : null;
@@ -1530,6 +1858,8 @@
                 turn = d.current_turn;
                 paused = false;
                 gameOver = false;
+                whiteAlertFired = false;
+                blackAlertFired = false;
                 
                 gameStartTime = Date.now();
                 
@@ -1539,6 +1869,9 @@
                 if (resignBtn) resignBtn.style.display = '';
                 if (pauseBtn) pauseBtn.style.display = '';
                 if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
+                if (newPvPBtn) newPvPBtn.style.display = 'none';
+                if (newAIBtn) newAIBtn.style.display = 'none';
+                if (newFenBtn) newFenBtn.style.display = 'none';
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
@@ -1553,7 +1886,10 @@
                 }
                 movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
                 wCapEl.innerHTML = bCapEl.innerHTML = '';
-
+                lastMove = null;
+                highlightedSquare = null;
+                selected = null;
+                hints = [];
                 await loadGame();
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
@@ -1598,6 +1934,44 @@
                     }
                 }
                 if (errorDiv) errorDiv.style.display = 'none';
+            }
+
+            function dismissGameOverOverlay() {
+                gameOverOverlay.classList.remove('active');
+                gameOverOverlay.classList.remove('game-over-celebration');
+                const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+            }
+
+            function openWelcomeForNewGame() {
+                dismissGameOverOverlay();
+                prepareWelcomeForPvP(true);
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                if (whiteInput) {
+                    whiteInput.value = currentWhiteName || '';
+                }
+                if (blackInput) {
+                    const aiNames = ['AI', 'ai'];
+                    blackInput.value = aiNames.includes(currentBlackName) ? '' : (currentBlackName || '');
+                }
+                if (welcomeFenInput) welcomeFenInput.value = '';
+                if (welcomeFenError) welcomeFenError.textContent = '';
+
+                selectedPveColor = 'white';
+                pveOptions?.querySelectorAll('.color-choice').forEach(btn => {
+                    const isWhite = btn.dataset.color === 'white';
+                    btn.classList.toggle('active', isWhite);
+                    btn.style.borderColor = isWhite ? '#f0c040' : '#444';
+                });
+
+                if (welcomeResumeBtn && gameOver) {
+                    welcomeResumeBtn.style.display = 'none';
+                }
+                welcomeOverlay.classList.add('active');
             }
 
             if (welcomeFenInput) {
@@ -1797,9 +2171,14 @@
             };
             if (confirmNoBtn) confirmNoBtn.onclick = () => {
                 confirmOverlay.classList.remove('active');
+
+                if (wasPaused) {
+                    boardEl.classList.add('paused');
+                }
+
                 confirmCallback = null;
             };
-                //added new line here
+
             if (newPvPBtn) newPvPBtn.onclick = () => {
                 // Clear any lingering celebration effects
                 const overlay = document.getElementById('gameOverOverlay');
@@ -1813,8 +2192,7 @@
                     "Abandon Game?",
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
-                        prepareWelcomeForPvP(true);
-                        welcomeOverlay.classList.add('active');
+                        openWelcomeForNewGame();
                     },
                     '#ff6b6b'
                 );
@@ -1877,9 +2255,43 @@
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+if (resignBtn) resignBtn.onclick = () => {
+    if (gameOver) return;
+
+    wasPaused = paused;
+
+    if (wasPaused) {
+        boardEl.classList.remove('paused');
+    }
+
+    showConfirm("Resign?", "Are you sure you want to resign?", async () => {
+        try {
+            const result = await post('/api/resign/', {});
+
+            if (result.valid) {
+                if (soundEnabled) {
+                    sounds.draw.currentTime = 0;
+                    sounds.draw.play().catch(() => {});
+            const blindfoldBtn = document.getElementById('blindfoldBtn');
+            if (blindfoldBtn) {
+                blindfoldBtn.onclick = () => {
+                    blindfoldMode = !blindfoldMode;
+                    illegalMoveCount = 0;
+                    blindfoldBtn.textContent = 'Blindfold: ' + (blindfoldMode ? 'ON' : 'OFF');
+                    document.body.classList.toggle('blindfold-mode', blindfoldMode);
+                    const msg = `Blindfold mode ${blindfoldMode ? 'ON' : 'OFF'}`;
+                    showStatus(msg, false);
+                    setTimeout(() => {
+                        const gameStatusEl = document.getElementById("game-status");
+                        if (gameStatusEl && gameStatusEl.textContent === msg) {
+                            showStatus('', false);
+                        }
+                    }, 2000);
+                };
+            }
 
             if (resignBtn) resignBtn.onclick = () => {
-                if (!gameOver && !paused) {
+                if (!gameOver) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         try {
                             const result = await post('/api/resign/', {});
@@ -1894,7 +2306,17 @@
                         }
                     });
                 }
-            };
+                endGame('resign', turn);
+            } else {
+                if (wasPaused) boardEl.classList.add('paused');
+                showStatus('Resign failed. Please try again.', true);
+            }
+        } catch (_) {
+            if (wasPaused) boardEl.classList.add('paused');
+            showStatus('Resign failed. Please check your connection and try again.', true);
+        }
+    });
+};
 
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
@@ -1911,25 +2333,32 @@
             };
 
             if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
-                const mode = document.querySelector('input[name="go_mode"]:checked').value;
-                const diff = document.getElementById('goDifficultySelect').value;
-                const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
-                gameOverOverlay.classList.remove('active');
-                gameOverOverlay.classList.remove('game-over-celebration');
-
-                const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
-                if (confettiContainer) {
-                    confettiContainer.remove();
-                }
-
-                const swappedColor = playerColor === 'white' ? 'black' : 'white';
-                if (mode === 'ai') {
-                    showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
-                } else {
-                    startNewGame(mode, swappedColor, diff, null, timeLimitMins,
-                        { white: currentBlackName, black: currentWhiteName });
-                }
+                openWelcomeForNewGame();
             };
+           if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
+    const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+    if (confettiContainer) confettiContainer.remove();
+});
+
+            // ========== Exit to Menu Logic ==========
+            const exitToMenuBtn = document.getElementById('exitToMenuBtn');
+            if (exitToMenuBtn) {
+                exitToMenuBtn.onclick = () => {
+                    // 1. Hide the Game Over modal and clear celebrations
+                    gameOverOverlay.classList.remove('active', 'game-over-celebration');
+                    const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+                    if (confettiContainer) {
+                        confettiContainer.remove();
+                    }
+
+                    // 2. Hide the chess board layout
+                    gameLayout.style.visibility = 'hidden';
+
+                    // 3. Reset and show the Welcome/Setup Menu
+                    prepareWelcomeForPvP(true);
+                    welcomeOverlay.classList.add('active');
+                };
+            }
 
             // Theme Switcher
             function initThemeSwitcher() {
@@ -1991,6 +2420,7 @@
                                 manualMoveError.textContent = 'Invalid format (e.g. e2e4)';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         
@@ -2009,6 +2439,7 @@
                                 manualMoveError.textContent = 'Game is not active';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         if (gameMode === 'ai' && turn !== playerColor) {
@@ -2016,6 +2447,7 @@
                                 manualMoveError.textContent = 'Not your turn';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         const p = board[fr][fc];
@@ -2024,6 +2456,7 @@
                                 manualMoveError.textContent = 'Invalid piece';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         
@@ -2032,6 +2465,7 @@
                                 manualMoveError.textContent = 'Promotion piece required (e.g. e7e8q)';
                                 manualMoveError.style.display = 'block';
                             }
+                            flashBoard();
                             return;
                         }
                         
@@ -2051,9 +2485,26 @@
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-                if (document.querySelector('.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active')) return;
+                
 
                 const key = e.key.toLowerCase();
+                const hasBlockingOverlay =
+                    document.querySelector(
+                        '.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active'
+                    ) ||
+                    (shareModal?.style.display && shareModal.style.display !== 'none') ||
+                    (rulebookModal?.style.display && rulebookModal.style.display !== 'none') ||
+                    fenOverlay?.classList.contains('active') ||
+                    confirmOverlay?.classList.contains('active') ||
+                    drawOverlay?.classList.contains('active') ||
+                    gameOverOverlay?.classList.contains('active') ||
+                    welcomeOverlay?.classList.contains('active');
+
+            // Allow Escape to close overlays
+            if (hasBlockingOverlay && key !== 'escape') {
+                return;
+            }
+
                 if (key === 'f' && flipBtn) {
                     e.preventDefault();
                     flipBtn.click();
@@ -2066,7 +2517,29 @@
                 } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
                     e.preventDefault();
                     pauseBtn.click();
-                }// added pause/resume button shortcut
+                } else if (key === 'n' && newPvPBtn) {
+                    e.preventDefault();
+                    newPvPBtn.click();
+
+                } else if (key === 'a' && newAIBtn) {
+                    e.preventDefault();
+                    newAIBtn.click();
+
+                } else if (key === 'escape') {
+                    e.preventDefault();
+
+                    if (shareModal?.style.display === 'flex') {
+                        shareModal.style.display = 'none';
+                    }
+
+                    if (rulebookModal?.style.display === 'flex') {
+                        rulebookModal.style.display = 'none';
+                    }
+
+                    if (fenOverlay?.classList.contains('active')) {
+                        fenOverlay.classList.remove('active');
+                    }
+                }
             });
             // Emote Logic
             let emoteCooldown = false;
@@ -2125,6 +2598,7 @@ if (leaveConfirmYes) leaveConfirmYes.addEventListener('click', () => {
 if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
     leaveConfirmOverlay.style.display = 'none';
 });
+
             
             function showAssetWarning() {
                 const t = document.getElementById('confirmTimerContainer');
@@ -2206,6 +2680,265 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 loadGame();
             }
 
+            boardEl.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+
+                premove = null;
+                refreshPremoveHighlight();
+                showStatus("Premove cancelled", false);
+            });
+
+            // Mobile Touch Drag-and-Drop Implementation
+            boardEl.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                const squareEl = e.target.closest('.square');
+                if (!squareEl) return;
+
+                const r = parseInt(squareEl.dataset.r);
+                const c = parseInt(squareEl.dataset.c);
+                const piece = board[r][c];
+                if (!piece || paused || gameOver) return;
+
+                // Check if the piece is playable by the current player (including AI premoves)
+                const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
+                const isNormalDrag = gameMode === 'ai' ? (turn === playerColor && pColor(piece) === playerColor) : (pColor(piece) === turn);
+
+                if (!isPremoveDrag && !isNormalDrag) return;
+
+                touchStartPos = { x: touch.clientX, y: touch.clientY };
+                touchDragSrc = { r, c };
+                touchDragging = false;
+            }, { passive: true });
+
+            boardEl.addEventListener('touchmove', (e) => {
+                if (!touchDragSrc) return;
+
+                const touch = e.touches[0];
+                
+                if (!touchDragging) {
+                    const dx = touch.clientX - touchStartPos.x;
+                    const dy = touch.clientY - touchStartPos.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance > 8) {
+                        touchDragging = true;
+                        
+                        // Select the piece to show move hints
+                        selectPiece(touchDragSrc.r, touchDragSrc.c);
+
+                        // Find the original piece image
+                        const squareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                        const pieceImg = squareEl ? squareEl.querySelector('.piece') : null;
+                        if (pieceImg) {
+                            // Create premium floating clone
+                            activeTouchPieceClone = pieceImg.cloneNode(true);
+                            activeTouchPieceClone.className = 'piece touch-drag-clone';
+                            
+                            // Measure and style the clone
+                            const rect = pieceImg.getBoundingClientRect();
+                            touchOffset = { x: rect.width / 2, y: rect.height / 2 };
+                            
+                            activeTouchPieceClone.style.position = 'fixed';
+                            activeTouchPieceClone.style.pointerEvents = 'none';
+                            activeTouchPieceClone.style.zIndex = '9999';
+                            activeTouchPieceClone.style.width = rect.width + 'px';
+                            activeTouchPieceClone.style.height = rect.height + 'px';
+                            activeTouchPieceClone.style.transform = 'scale(1.15)';
+                            activeTouchPieceClone.style.filter = 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.45))';
+                            activeTouchPieceClone.style.transition = 'none';
+                            activeTouchPieceClone.style.willChange = 'left, top';
+                            
+                            document.body.appendChild(activeTouchPieceClone);
+                            
+                            // Make original piece semi-transparent
+                            pieceImg.classList.add('touch-dragging-original');
+                        }
+                    }
+                }
+
+                if (touchDragging && activeTouchPieceClone) {
+                    activeTouchPieceClone.style.left = (touch.clientX - touchOffset.x) + 'px';
+                    activeTouchPieceClone.style.top = (touch.clientY - touchOffset.y) + 'px';
+                    
+                    // Prevent page scrolling while dragging
+                    if (e.cancelable) e.preventDefault();
+                }
+            }, { passive: false });
+
+            boardEl.addEventListener('touchend', (e) => {
+                if (!touchDragSrc) return;
+
+                const touch = e.changedTouches[0];
+                let movedToSquare = false;
+
+                if (touchDragging) {
+                    // Clean up original piece transparency
+                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
+                    if (pieceImg) {
+                        pieceImg.classList.remove('touch-dragging-original');
+                    }
+
+                    // Clean up clone
+                    if (activeTouchPieceClone) {
+                        activeTouchPieceClone.remove();
+                        activeTouchPieceClone = null;
+                    }
+
+                    // Identify target square element under the touch coordinates
+                    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const destSquareEl = targetEl ? targetEl.closest('.square') : null;
+                    if (destSquareEl) {
+                        const tr = parseInt(destSquareEl.dataset.r);
+                        const tc = parseInt(destSquareEl.dataset.c);
+
+                        if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
+                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
+                            movedToSquare = true;
+                        }
+                    }
+
+                    if (!movedToSquare) {
+                        deselect();
+                    }
+
+                    // Prevent click generation
+                    e.preventDefault();
+                } else {
+                    // Quick tap -> trigger default click/tap behavior
+                    onClick(touchDragSrc.r, touchDragSrc.c);
+                }
+
+                // Reset state
+                touchStartPos = null;
+                touchDragSrc = null;
+                touchDragging = false;
+            }, { passive: false });
+
+            boardEl.addEventListener('touchcancel', (e) => {
+                if (!touchDragSrc) return;
+
+                if (touchDragging) {
+                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
+                    if (pieceImg) {
+                        pieceImg.classList.remove('touch-dragging-original');
+                    }
+
+                    if (activeTouchPieceClone) {
+                        activeTouchPieceClone.remove();
+                        activeTouchPieceClone = null;
+                    }
+
+                    deselect();
+                }
+
+                touchStartPos = null;
+                touchDragSrc = null;
+                touchDragging = false;
+            }, { passive: true });
+
+            // INLINE INITIALIZATION FOR CUSTOM TIME CONTROL POPUP
+            function initTimeControlPicker() {
+                const trigger = document.getElementById('timeControlTrigger');
+                const popover = document.getElementById('timeControlPopover');
+                const tabs = document.querySelectorAll('.tc-tab-btn');
+                const tabContents = document.querySelectorAll('.tc-tab-content');
+                const presetBtns = document.querySelectorAll('.tc-preset-btn');
+                const applyCustomBtn = document.getElementById('applyCustomTCBtn');
+                const display = document.getElementById('tcDisplayText');
+
+                if (!trigger || !popover) return;
+
+                // Toggle popover
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isVisible = popover.style.display === 'flex';
+                    popover.style.display = isVisible ? 'none' : 'flex';
+                });
+
+                // Tab switching
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+
+                        const targetTab = tab.dataset.tab;
+                        tabContents.forEach(content => {
+                            if (content.id === `tab-${targetTab}`) {
+                                content.style.display = 'block';
+                            } else {
+                                content.style.display = 'none';
+                            }
+                        });
+                    });
+                });
+
+                // Preset button selection
+                presetBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        presetBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+
+                        selectedMins = parseInt(btn.dataset.mins, 10);
+                        selectedIncrement = parseInt(btn.dataset.inc, 10);
+
+                        // Update display text
+                        display.textContent = btn.textContent.trim();
+
+                        // Close popover
+                        popover.style.display = 'none';
+                    });
+                });
+
+                // Apply custom time control
+                if (applyCustomBtn) {
+                    applyCustomBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const minsInput = document.getElementById('customMinsInput');
+                        const incInput = document.getElementById('customIncInput');
+
+                        if (minsInput && incInput) {
+                            let mins = parseInt(minsInput.value, 10);
+                            let inc = parseInt(incInput.value, 10);
+
+                            if (isNaN(mins) || mins < 1) mins = 10;
+                            if (mins > 300) mins = 300;
+                            if (isNaN(inc) || inc < 0) inc = 0;
+                            if (inc > 180) inc = 180;
+
+                            minsInput.value = mins;
+                            incInput.value = inc;
+
+                            selectedMins = mins;
+                            selectedIncrement = inc;
+
+                            // Update active preset styling
+                            presetBtns.forEach(b => b.classList.remove('active'));
+
+                            if (inc > 0) {
+                                display.textContent = `${mins} | ${inc}`;
+                            } else {
+                                display.textContent = `${mins} min`;
+                            }
+
+                            // Close popover
+                            popover.style.display = 'none';
+                        }
+                    });
+                }
+
+                // Close popover when clicking anywhere else
+                document.addEventListener('click', (e) => {
+                    if (!popover.contains(e.target) && e.target !== trigger) {
+                        popover.style.display = 'none';
+                    }
+                });
+            }
+
+            // Call picker init immediately
+            initTimeControlPicker();
+
 })();
-
-

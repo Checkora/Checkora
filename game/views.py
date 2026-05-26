@@ -1,6 +1,5 @@
 """Game views for the Checkora chess platform."""
 import logging
-logger = logging.getLogger(__name__)
 import json
 import time
 import hashlib
@@ -13,9 +12,16 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
-from django.core.mail import BadHeaderError, send_mail
+from django.core.mail import (
+    BadHeaderError, 
+    send_mail,
+    EmailMultiAlternatives
+)
+from django.template.loader import render_to_string
 from django.contrib import messages
+from django.core.cache import cache
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
@@ -24,8 +30,8 @@ from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult
+logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
-
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -52,14 +58,32 @@ def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
     try:
         data = json.loads(request.body)
-        from_row = int(data['from_row'])
-        from_col = int(data['from_col'])
-        to_row = int(data['to_row'])
-        to_col = int(data['to_col'])
+        coords = ['from_row', 'from_col', 'to_row', 'to_col']
+        for coord in coords:
+            if coord not in data:
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+            val = data[coord]
+            if not isinstance(val, int) or isinstance(val, bool):
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+            if not (0 <= val <= 7):
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+        from_row = data['from_row']
+        from_col = data['from_col']
+        to_row = data['to_row']
+        to_col = data['to_col']
         promotion_piece = data.get('promotion_piece', None)
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return JsonResponse(
-            {'valid': False, 'message': 'Invalid request data.'},
+            {"error": "Invalid board coordinates"},
             status=400,
         )
 
@@ -122,17 +146,37 @@ def valid_moves(request):
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+    
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
     time_limit_raw = data.get('time_limit', 600)
+    increment_raw = data.get('increment', 0)
 
-    try:
-        time_limit = int(time_limit_raw)
-        time_limit = max(60, min(18000, time_limit))
-    except (ValueError, TypeError):
-        time_limit = 600
+    if isinstance(time_limit_raw, str) and '|' in time_limit_raw:
+        try:
+            parts = time_limit_raw.split('|')
+            time_limit = int(parts[0]) * 60
+            increment = int(parts[1])
+        except (ValueError, IndexError, TypeError):
+            time_limit = 600
+            increment = 0
+    else:
+        try:
+            time_limit = int(time_limit_raw)
+            time_limit = max(60, min(18000, time_limit))
+        except (ValueError, TypeError):
+            time_limit = 600
+
+        try:
+            increment = int(increment_raw)
+            increment = max(0, min(180, increment))
+        except (ValueError, TypeError):
+            increment = 0
 
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
@@ -160,14 +204,14 @@ def new_game(request):
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
-            game = ChessGame.from_fen(fen, time_limit=time_limit)
+            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment)
         except ValueError as exc:
             return JsonResponse(
                 {'valid': False, 'message': f'Invalid FEN: {exc}'},
                 status=400,
             )
     else:
-        game = ChessGame(time_limit=time_limit)
+        game = ChessGame(time_limit=time_limit, increment=increment)
     game.mode = mode
     game.player_color = player_color
     game.paused = False
@@ -192,6 +236,7 @@ def new_game(request):
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
     })
+
 
 @require_POST
 def resume_game(request):
@@ -228,6 +273,7 @@ def resume_game(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
     })
+
 
 @require_GET
 def check_promotion(request):
@@ -298,7 +344,11 @@ def set_pause(request):
     if not game_data:
         return JsonResponse({'paused': False})
 
-    data = json.loads(request.body or '{}')
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+
     pause = data.get('pause', True)
 
     game = ChessGame.from_dict(game_data)
@@ -342,8 +392,8 @@ def ai_move(request):
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)  # called once only
-    
+    best = game.get_ai_move(depth=depth)
+
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -408,16 +458,30 @@ def offer_draw(request):
     """Handle draw offers and agreements."""
     game_data = request.session.get('game')
     if not game_data:
-        err_msg = 'No active game.'
         return JsonResponse(
-            {'success': False, 'message': err_msg}, status=400
+            {'success': False, 'message': 'No active game.'}, status=400
         )
 
-    data = json.loads(request.body or '{}')
-    action = data.get('action')  # 'offer' or 'accept'
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {'valid': False, 'message': 'Invalid request data.'}, status=400
+        )
+
+    action = data.get('action')
+
+    if action not in ('offer', 'accept', 'decline'):
+        return JsonResponse(
+            {'success': False, 'message': 'Invalid action.'}, status=400
+        )
 
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
+        if game.game_status != 'active':
+            return JsonResponse(
+                {'success': False, 'message': 'Game is not active.'}, status=400
+            )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
@@ -430,7 +494,6 @@ def offer_draw(request):
         })
 
     return JsonResponse({'success': True})
-
 
 @require_POST
 def resign_game(request):
@@ -516,6 +579,7 @@ def register_view(request):
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
+            request.session['otp_created_at'] = time.time()
 
             missing_email_credentials = (
                 not settings.EMAIL_HOST_USER or
@@ -596,39 +660,110 @@ def verify_otp(request):
         return redirect('register')
 
     if request.method == 'POST':
-        entered_otp = request.POST.get('otp', '').strip()
-        # Verify hash
-        entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+        otp_created_at = request.session.get('otp_created_at')
 
-        if entered_otp_hash == stored_otp_hash:
+        if otp_created_at:
+            if time.time() - otp_created_at > 300:
+
+                messages.error(
+                    request,
+                    'OTP has expired. Please register again.',
+                )
+                request.session.pop('registration_otp_hash', None)
+                request.session.pop('otp_created_at', None)
+                request.session.pop('registration_user_id', None)
+
+                return redirect('register')
+
+        entered_otp = request.POST.get('otp', '').strip()
+
+        entered_otp_hash = hashlib.sha256(
+            f"{entered_otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+
+        if secrets.compare_digest(
+            entered_otp_hash,
+            stored_otp_hash
+        ):
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
+                user.full_clean()
                 user.save()
-
-                # Clear session data
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('otp_created_at', None)
 
+                try:
+                    html_content = render_to_string(
+                        'game/welcome_email.html',
+                        {
+                            'username': user.username,
+                            'app_url': request.build_absolute_uri('/'),
+                        }
+                    )
+                    email = EmailMultiAlternatives(
+                        subject='Welcome to Checkora 🎉',
+                        body='Welcome to Checkora! Your account has been successfully activated.',
+                        from_email=settings.EMAIL_HOST_USER,
+                        to=[user.email],
+                    )
+                    email.attach_alternative(html_content,"text/html")
+                    email.send(fail_silently=True)
+                
+                except Exception as e:
+                    logger.warning("Failed to send welcome email: %s", e)
+                    
                 login(request, user)
-                messages.success(request, 'Registration successful! Welcome to Checkora.')
+                messages.success(
+                    request,
+                    'Registration successful! Welcome to Checkora.'
+                )
                 request.session.cycle_key()
                 return redirect('index')
 
             except User.DoesNotExist:
                 messages.error(
-                    request, 'User not found. Please register again.'
+                    request,
+                    'User not found. Please register again.'
                 )
                 return redirect('register')
+
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
 
     remaining_time = 0
     last_otp_time = request.session.get('last_otp_time')
+
     if last_otp_time:
         elapsed = int(time.time() - last_otp_time)
         remaining_time = max(0, 60 - elapsed)
-    return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
+
+    try:
+        user = User.objects.get(id=user_id)
+        email = user.email
+
+        if email and '@' in email:
+            name, domain = email.split('@', 1)
+            if len(name) <= 2:
+                masked_name = name[:1]
+            else:
+                masked_name = name[:2] + '*' * (len(name) - 2)
+            user_email = f"{masked_name}@{domain}"
+        else:
+            user_email = None
+
+    except User.DoesNotExist:
+        user_email = None
+
+    return render(
+        request,
+        'game/verify_otp.html',
+        {
+            'remaining_time': remaining_time,
+            'user_email': user_email,
+        }
+    )
 
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
@@ -678,6 +813,79 @@ def resend_otp(request):
         )
 
     return redirect('verify_otp')
+
+class CustomPasswordResetView(PasswordResetView):
+    def post(self, request, *args, **kwargs):
+
+        email = request.POST.get('email', '').strip().lower()
+        users = User.objects.filter(email=email)
+
+        if users.count() > 1 and not request.POST.get(
+            'selected_username'
+        ):
+
+            usernames = users.values_list(
+                'username',
+                flat=True
+            )
+
+            return render(
+                request,
+                'game/password_reset.html',
+                {
+                    'form': self.form_class,
+                    'usernames': usernames,
+                    'email': email
+                }
+            )
+        if not email:
+            messages.error(
+                request,
+                'Please enter a valid email address.'
+            )
+
+            return redirect('password_reset')
+        cache_key = (f"password_reset_cooldown_{email}")
+
+        if cache.get(cache_key):
+
+            messages.error(
+                request,
+                'Please wait 60 seconds before requesting another password reset email.',
+            )
+
+            return redirect('password_reset')
+        cache.set(cache_key, True, timeout=60)
+        selected_username = request.POST.get(
+            'selected_username'
+        )
+
+        if selected_username:
+
+            selected_user = User.objects.filter(
+                username=selected_username,
+                email=email
+            ).first()
+
+            from django.contrib.auth.forms import (
+                PasswordResetForm
+            )
+
+            class SingleUserPasswordResetForm(
+                PasswordResetForm
+            ):
+
+                def get_users(self, email):
+
+                    return [selected_user]
+
+            self.form_class = (SingleUserPasswordResetForm)
+        return super().post(
+            request,
+            *args,
+            **kwargs
+        )
+
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -766,7 +974,7 @@ def cleanup_cron(request):
     
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
-        
+    
     try:
         deleted, resigned = cleanup_stale_games()
         return JsonResponse({
@@ -779,3 +987,32 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+def privacy_view(request):
+    """Directly serve the static privacy template page."""
+    return render(request, 'game/privacy.html')
+
+def terms_view(request):
+    """Directly serve the static terms and conditions template page."""
+    return render(request, 'game/terms.html')
+
+def contact_view(request):
+    """Directly serve the static contact page template instance."""
+    return render(request, 'game/contact.html')
+
+def password_reset_account_selection(request):
+
+    email = request.GET.get('email')
+
+    users = User.objects.filter(email=email)
+
+    return render(
+        request,
+        'game/password_reset_account_selection.html',
+        {
+            'users': users,
+            'email': email
+        }
+    )
+
+    
