@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -81,7 +82,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-import dj_database_url
+
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -122,6 +123,13 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'checkora-cache',
+    }
+}
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -159,6 +167,9 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Redirect after login
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
+
+# Password reset link expiration (5 minutes)
+PASSWORD_RESET_TIMEOUT = 300
 
 # SECURITY SETTINGS (Implemented via GSSoC Audit)
 SECURE_BROWSER_XSS_FILTER = True

@@ -258,17 +258,21 @@
                 </div>
             </div>
             <div class="board-outer">
-                <div class="board-row">
-                    <div class="ranks" id="ranksLabels">
-                        <span>8</span><span>7</span><span>6</span><span>5</span>
-                        <span>4</span><span>3</span><span>2</span><span>1</span>
+                <div class="board-aligned">
+                    <div class="board-row">
+                        <div class="ranks" id="ranksLabels">
+                            <span>8</span><span>7</span><span>6</span><span>5</span>
+                            <span>4</span><span>3</span><span>2</span><span>1</span>
+                        </div>
+                        <div class="board-grid-wrap">
+                            <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                        </div>
+                        <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
                     </div>
-                    <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
-                    <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
-                </div>
-                <div class="files" id="filesLabels">
-                    <span>a</span><span>b</span><span>c</span><span>d</span>
-                    <span>e</span><span>f</span><span>g</span><span>h</span>
+                    <div class="files" id="filesLabels">
+                        <span>a</span><span>b</span><span>c</span><span>d</span>
+                        <span>e</span><span>f</span><span>g</span><span>h</span>
+                    </div>
                 </div>
             </div>
 
@@ -313,7 +317,9 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-<button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
+
+                    <button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
+                   <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
@@ -329,19 +335,6 @@
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
-<<<<<<< HEAD
-=======
-                <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
-                    ⌨️ Shortcuts:
-                    <kbd>F</kbd> Flip &nbsp;
-                    <kbd>R</kbd> Resign &nbsp;
-                    <kbd>D</kbd> Draw &nbsp;
-                    <kbd>P</kbd> Pause &nbsp;
-                    <kbd>N</kbd> New PvP &nbsp;
-                    <kbd>A</kbd> AI Game &nbsp;
-                    <kbd>Esc</kbd> Close Modals
-                </div>
->>>>>>> 7d2b88cd324c3da0e5b3bb746bda11f7f35b5b81
                 <a href="/" class="btn" 
    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
     EXIT TO HOME
@@ -455,47 +448,14 @@
                 Game Over</div>
             <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
             <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
-            <div style="margin-bottom: 20px;">
-                <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
-                        <input type="radio" name="go_mode" value="pvp" checked
-                            onchange="document.getElementById('goDifficultyContainer').style.display='none'"> PvP
-                    </label>
-                    <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
-                        <input type="radio" name="go_mode" value="ai"
-                            onchange="document.getElementById('goDifficultyContainer').style.display='block'"> vs AI
-                    </label>
-                </div>
-
-                <div id="goTimerContainer" style="margin-bottom: 15px; text-align: left;">
-                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
-                    <select id="goTimerSelect"
-                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
-                        <option value="1">Bullet (1 min)</option>
-                        <option value="3">Blitz (3 min)</option>
-                        <option value="5">Blitz (5 min)</option>
-                        <option value="10" selected>Rapid (10 min)</option>
-                    </select>
-                </div>
-
-                <div id="goDifficultyContainer" style="display: none; margin-bottom: 15px;">
-                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">AI
-                        Difficulty</label>
-                    <select id="goDifficultySelect"
-                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
-                        <option value="easy">Easy</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="hard">Hard</option>
-                    </select>
-                </div>
-            </div>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
                 <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
+               <a href="{% url 'landing' %}" class="btn" id="gameOverExitBtn"
+   style="padding: 12px; font-size: 1rem; margin-top: 10px; background: #333; color: #fff; cursor: pointer; text-align: center; text-decoration: none; display: block;">
+    Exit to Home
+</a>
             </div>
         </div>
     </div>

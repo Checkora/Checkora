@@ -8,7 +8,12 @@ from unittest import mock
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import (
+    RequestFactory,
+    SimpleTestCase,
+    TestCase,
+    override_settings,
+)
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
@@ -100,6 +105,30 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'This move is illegal!', status_code=404)
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
+
+
+class ServerErrorPageTest(SimpleTestCase):
+    """Custom 500 page should match the product theme and recovery flow."""
+
+    def test_custom_500_handler_renders_themed_page(self):
+        from core.urls import custom_server_error
+
+        request = RequestFactory().get('/server-error/')
+        response = custom_server_error(request)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertContains(
+            response,
+            'The King has fallen!',
+            status_code=500,
+        )
+        self.assertContains(
+            response,
+            'Return to Main Menu',
+            status_code=500,
+        )
+        self.assertContains(response, reverse('landing'), status_code=500)
+
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
