@@ -38,6 +38,8 @@
 
             let whiteTime = 0;
             let blackTime = 0;
+            let selectedMins = 10;
+            let selectedIncrement = 0;
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
@@ -1801,7 +1803,8 @@
                     white_name: wName,
                     black_name: bName,
                     difficulty: difficulty,
-                    time_limit: timeLimit
+                    time_limit: timeLimit,
+                    increment: increment
                 };
 
                 const fenValue = (fen && fen.trim()) ? fen.trim() : null;
@@ -2825,5 +2828,108 @@ if (blackNameInput) {
                 touchDragSrc = null;
                 touchDragging = false;
             }, { passive: true });
+
+            // INLINE INITIALIZATION FOR CUSTOM TIME CONTROL POPUP
+            function initTimeControlPicker() {
+                const trigger = document.getElementById('timeControlTrigger');
+                const popover = document.getElementById('timeControlPopover');
+                const tabs = document.querySelectorAll('.tc-tab-btn');
+                const tabContents = document.querySelectorAll('.tc-tab-content');
+                const presetBtns = document.querySelectorAll('.tc-preset-btn');
+                const applyCustomBtn = document.getElementById('applyCustomTCBtn');
+                const display = document.getElementById('tcDisplayText');
+
+                if (!trigger || !popover) return;
+
+                // Toggle popover
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isVisible = popover.style.display === 'flex';
+                    popover.style.display = isVisible ? 'none' : 'flex';
+                });
+
+                // Tab switching
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+
+                        const targetTab = tab.dataset.tab;
+                        tabContents.forEach(content => {
+                            if (content.id === `tab-${targetTab}`) {
+                                content.style.display = 'block';
+                            } else {
+                                content.style.display = 'none';
+                            }
+                        });
+                    });
+                });
+
+                // Preset button selection
+                presetBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        presetBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+
+                        selectedMins = parseInt(btn.dataset.mins, 10);
+                        selectedIncrement = parseInt(btn.dataset.inc, 10);
+
+                        // Update display text
+                        display.textContent = btn.textContent.trim();
+
+                        // Close popover
+                        popover.style.display = 'none';
+                    });
+                });
+
+                // Apply custom time control
+                if (applyCustomBtn) {
+                    applyCustomBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const minsInput = document.getElementById('customMinsInput');
+                        const incInput = document.getElementById('customIncInput');
+
+                        if (minsInput && incInput) {
+                            let mins = parseInt(minsInput.value, 10);
+                            let inc = parseInt(incInput.value, 10);
+
+                            if (isNaN(mins) || mins < 1) mins = 10;
+                            if (mins > 300) mins = 300;
+                            if (isNaN(inc) || inc < 0) inc = 0;
+                            if (inc > 180) inc = 180;
+
+                            minsInput.value = mins;
+                            incInput.value = inc;
+
+                            selectedMins = mins;
+                            selectedIncrement = inc;
+
+                            // Update active preset styling
+                            presetBtns.forEach(b => b.classList.remove('active'));
+
+                            if (inc > 0) {
+                                display.textContent = `${mins} | ${inc}`;
+                            } else {
+                                display.textContent = `${mins} min`;
+                            }
+
+                            // Close popover
+                            popover.style.display = 'none';
+                        }
+                    });
+                }
+
+                // Close popover when clicking anywhere else
+                document.addEventListener('click', (e) => {
+                    if (!popover.contains(e.target) && e.target !== trigger) {
+                        popover.style.display = 'none';
+                    }
+                });
+            }
+
+            // Call picker init immediately
+            initTimeControlPicker();
 
 })();

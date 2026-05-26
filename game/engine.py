@@ -67,7 +67,7 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600):
+    def __init__(self, time_limit=600, increment=0):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -76,6 +76,7 @@ class ChessGame:
         self.valid_moves_cache = {}
         self.white_time = time_limit
         self.black_time = time_limit
+        self.increment = increment
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -141,6 +142,7 @@ DP cache is intentionally excluded to save cookie space."""
             'captured': self.captured,
             'white_time': self.white_time,
             'black_time': self.black_time,
+            'increment': self.increment,
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
@@ -164,6 +166,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.paused = data.get('paused', False)
         game.white_time = data['white_time']
         game.black_time = data['black_time']
+        game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
         game.player_color = data.get('player_color', 'white')
@@ -187,7 +190,7 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str, time_limit=600):
+    def from_fen(cls, fen: str, time_limit=600, increment=0):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -214,7 +217,7 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls(time_limit=time_limit)
+        game = cls(time_limit=time_limit, increment=increment)
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
@@ -540,8 +543,15 @@ DP cache is intentionally excluded to save cookie space."""
         # Save who made this move before switching
         moved_by = self.current_turn
 
-        # Switch turn
+        # Apply increment to the player who just made the move
         is_white = self.current_turn == 'white'
+        if self.increment > 0:
+            if is_white:
+                self.white_time += self.increment
+            else:
+                self.black_time += self.increment
+
+        # Switch turn
         self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()

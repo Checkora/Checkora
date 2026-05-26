@@ -1708,3 +1708,66 @@ body.blindfold-mode .capture-ring {
         box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
     }
 }
+
+/* ============================================================
+   Time Control Custom Picker & Tabs
+   ============================================================ */
+.time-control-selector-container {
+    margin-top: 5px;
+    width: 100%;
+}
+
+.time-control-trigger:hover {
+    border-color: #f0c040 !important;
+    box-shadow: 0 0 10px rgba(240, 192, 64, 0.15);
+}
+
+.time-control-trigger:focus {
+    outline: none;
+    border-color: #f0c040 !important;
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.3);
+}
+
+.tc-tab-btn:hover {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.tc-tab-btn.active {
+    color: #f0c040 !important;
+    background-color: rgba(240, 192, 64, 0.1) !important;
+    border-bottom: 2px solid #f0c040 !important;
+}
+
+.tc-preset-btn:hover {
+    border-color: rgba(240, 192, 64, 0.5) !important;
+    background-color: rgba(240, 192, 64, 0.05) !important;
+    transform: translateY(-1px);
+}
+
+.tc-preset-btn.active {
+    border-color: #f0c040 !important;
+    background: linear-gradient(135deg, rgba(240, 192, 64, 0.2), rgba(212, 160, 32, 0.1)) !important;
+    color: #f0c040 !important;
+    font-weight: 600;
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.2);
+}
+
+.tc-preset-btn:active {
+    transform: translateY(0);
+}
+
+.tc-custom-inputs input:focus {
+    border-color: #f0c040 !important;
+    outline: none;
+    box-shadow: 0 0 8px rgba(240, 192, 64, 0.2);
+}
+
+/* Custom scrollbar for tabs */
+.tc-tabs::-webkit-scrollbar {
+    height: 3px;
+}
+.tc-tabs::-webkit-scrollbar-thumb {
+    background: #252545;
+    border-radius: 1px;
+}

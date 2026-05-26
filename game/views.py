@@ -137,12 +137,28 @@ def new_game(request):
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
     time_limit_raw = data.get('time_limit', 600)
+    increment_raw = data.get('increment', 0)
 
-    try:
-        time_limit = int(time_limit_raw)
-        time_limit = max(60, min(18000, time_limit))
-    except (ValueError, TypeError):
-        time_limit = 600
+    if isinstance(time_limit_raw, str) and '|' in time_limit_raw:
+        try:
+            parts = time_limit_raw.split('|')
+            time_limit = int(parts[0]) * 60
+            increment = int(parts[1])
+        except (ValueError, IndexError, TypeError):
+            time_limit = 600
+            increment = 0
+    else:
+        try:
+            time_limit = int(time_limit_raw)
+            time_limit = max(60, min(18000, time_limit))
+        except (ValueError, TypeError):
+            time_limit = 600
+
+        try:
+            increment = int(increment_raw)
+            increment = max(0, min(180, increment))
+        except (ValueError, TypeError):
+            increment = 0
 
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
@@ -170,14 +186,14 @@ def new_game(request):
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
-            game = ChessGame.from_fen(fen, time_limit=time_limit)
+            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment)
         except ValueError as exc:
             return JsonResponse(
                 {'valid': False, 'message': f'Invalid FEN: {exc}'},
                 status=400,
             )
     else:
-        game = ChessGame(time_limit=time_limit)
+        game = ChessGame(time_limit=time_limit, increment=increment)
     game.mode = mode
     game.player_color = player_color
     game.paused = False
