@@ -156,7 +156,7 @@ body {
         minmax(0, var(--panel-width))
         minmax(0, var(--panel-width));
     gap: var(--layout-gap);
-    padding: var(--layout-padding-y) var(--layout-padding-x) 30px;
+    padding: var(--layout-padding-y) var(--layout-padding-x) 60px;
     align-items: start;
     justify-content: center;
     width: 100%;
@@ -896,7 +896,7 @@ body {
         width: 100%;
         max-width: 100%;
         gap: 16px;
-        padding: 10px 6px 20px;
+        padding: 10px 6px 60px;
         display: flex;
         flex-direction: column;
         overflow-x: hidden;
