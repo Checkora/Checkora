@@ -311,10 +311,10 @@
                    <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
-                    <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <button class="btn btn-gold" id="copyFenBtn">📋 Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
-                    <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
+                    <button class="btn btn-gold" id="copyPgnBtn">📥 Download PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
@@ -440,6 +440,8 @@
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
+                <button type="button" class="btn btn-gold" id="modalCopyFenBtn" style="padding: 12px; font-size: 1rem;">📋 Copy FEN</button>
+                <button type="button" class="btn btn-gold" id="modalDownloadPgnBtn" style="padding: 12px; font-size: 1rem;">📥 Download PGN</button>
                 <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
                <a href="{% url 'landing' %}" class="btn" id="gameOverExitBtn"
    style="padding: 12px; font-size: 1rem; margin-top: 10px; background: #333; color: #fff; cursor: pointer; text-align: center; text-decoration: none; display: block;">

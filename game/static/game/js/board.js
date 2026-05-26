@@ -153,6 +153,8 @@
             const flipControls = document.getElementById('flipControls');
             const copyFenBtn = document.getElementById('copyFenBtn');
             const copyPgnBtn = document.getElementById('copyPgnBtn');
+            const modalCopyFenBtn = document.getElementById('modalCopyFenBtn');
+            const modalDownloadPgnBtn = document.getElementById('modalDownloadPgnBtn');
             const muteBtn = document.getElementById('muteBtn');
 
             const welcomeOverlay = document.getElementById('welcomeOverlay');
@@ -2088,48 +2090,50 @@
                     buildBoard();
                 }
             };
-            if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-    const data = await get('/api/state/');
+            const handleCopyPgn = async (btn) => {
+                const data = await get('/api/state/');
+                if (data.pgn) {
+                    const blob = new Blob([data.pgn], { type: 'application/x-chess-pgn' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    
+                    const wName = whiteNameLabel ? whiteNameLabel.textContent : 'White';
+                    const bName = blackNameLabel ? blackNameLabel.textContent : 'Black';
+                    const date = new Date().toISOString().split('T')[0];
+                    
+                    a.download = `checkora_${wName}_vs_${bName}_${date}.pgn`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
 
-    if (data.pgn) {
-        const blob = new Blob([data.pgn], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        
-        const wName = whiteNameLabel ? whiteNameLabel.textContent : 'White';
-        const bName = blackNameLabel ? blackNameLabel.textContent : 'Black';
-        const date = new Date().toISOString().split('T')[0];
-        
-        a.download = `checkora_${wName}_vs_${bName}_${date}.pgn`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Downloaded!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                }
+            };
 
-        copyPgnBtn.textContent = 'Downloaded!';
+            if (copyPgnBtn) copyPgnBtn.onclick = () => handleCopyPgn(copyPgnBtn);
+            if (modalDownloadPgnBtn) modalDownloadPgnBtn.onclick = () => handleCopyPgn(modalDownloadPgnBtn);
 
-        clearTimeout(pgnDownloadTimeout);
-
-        pgnDownloadTimeout = setTimeout(() => {
-            copyPgnBtn.textContent = 'Export as PGN';
-        }, 2000);
-    }
-};
-
-            if (copyFenBtn) copyFenBtn.onclick = async () => {
+            const handleCopyFen = async (btn) => {
                 const data = await get('/api/state/');
                 if (data.fen) {
                     navigator.clipboard.writeText(data.fen);
                     
-                    copyFenBtn.textContent = 'Copied!';
-                    clearTimeout(fenCopyTimeout);
-
-                    fenCopyTimeout = setTimeout(() => {
-                        copyFenBtn.textContent = 'Copy FEN';
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
                     }, 2000);
                 }
             };
+
+            if (copyFenBtn) copyFenBtn.onclick = () => handleCopyFen(copyFenBtn);
+            if (modalCopyFenBtn) modalCopyFenBtn.onclick = () => handleCopyFen(modalCopyFenBtn);
 
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
                 const data = await post('/api/resume/', {});
