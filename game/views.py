@@ -58,14 +58,32 @@ def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
     try:
         data = json.loads(request.body)
-        from_row = int(data['from_row'])
-        from_col = int(data['from_col'])
-        to_row = int(data['to_row'])
-        to_col = int(data['to_col'])
+        coords = ['from_row', 'from_col', 'to_row', 'to_col']
+        for coord in coords:
+            if coord not in data:
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+            val = data[coord]
+            if not isinstance(val, int) or isinstance(val, bool):
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+            if not (0 <= val <= 7):
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+        from_row = data['from_row']
+        from_col = data['from_col']
+        to_row = data['to_row']
+        to_col = data['to_col']
         promotion_piece = data.get('promotion_piece', None)
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return JsonResponse(
-            {'valid': False, 'message': 'Invalid request data.'},
+            {"error": "Invalid board coordinates"},
             status=400,
         )
 

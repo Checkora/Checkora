@@ -355,6 +355,115 @@ class MoveValidationTest(TestCase):
         self.assertTrue(data['valid'])
         self.assertEqual(data['captured'], 'p')
 
+
+class MoveCoordinatesValidationTest(TestCase):
+    """Test coordinate validation for chess move API endpoint."""
+
+    def setUp(self):
+        self.client.get('/play/')
+        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
+        self.mock_validate = self.validate_patcher.start()
+        self.mock_validate.return_value = (True, "Mock validation.")
+
+        self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
+        self.mock_engine = self.engine_patcher.start()
+        self.mock_engine.return_value = "STATUS ok"
+
+    def tearDown(self):
+        self.validate_patcher.stop()
+        self.engine_patcher.stop()
+
+    def test_valid_coordinates(self):
+        """Move with valid coordinates (0-7) should succeed validation."""
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6, 'from_col': 4,
+                'to_row': 4, 'to_col': 4,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['valid'])
+
+    def test_negative_coordinates(self):
+        """Move with negative coordinates should return 400 Bad Request."""
+        invalid_payloads = [
+            {'from_row': -1, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': -4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': -1, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': -8},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+    def test_coordinates_greater_than_7(self):
+        """Move with coordinates greater than 7 should return 400 Bad Request."""
+        invalid_payloads = [
+            {'from_row': 8, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 9, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 10, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 8},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+    def test_non_integer_coordinates(self):
+        """Move with non-integer coordinates should return 400 Bad Request."""
+        invalid_payloads = [
+            {'from_row': '6', 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6.5, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': True, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': [4], 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': None, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': {'val': 4}},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+    def test_malformed_input_values(self):
+        """Move with malformed/missing coordinate inputs should return 400 Bad Request."""
+        invalid_payloads = [
+            {},
+            {'from_row': 6, 'from_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+        response = self.client.post(
+            '/api/move/',
+            data="not-a-json-string",
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+
 class ValidMovesTest(TestCase):
     """Test /api/valid-moves/ endpoint."""
 
