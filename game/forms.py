@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 
 class CustomUserCreationForm(UserCreationForm):
@@ -9,6 +10,15 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError(
+                "An account with this email already exists. Please log in instead."
+            )
+
+        return email 
 
 class CustomSetPasswordForm(SetPasswordForm):
     """Prevent password resets from reusing the account's current password."""
