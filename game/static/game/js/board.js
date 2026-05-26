@@ -1352,13 +1352,31 @@
             
                 let title = '', message = '';
                 let isCelebration = false; // Track if this is a win (not draw/stalemate)
+                
+                let winnerColor = null;
+                if (reason === 'checkmate' || reason === 'resign' || reason === 'timeout') {
+                    winnerColor = color === 'white' ? 'black' : 'white';
+                }
+                
+                const isUserWinner = gameMode === 'ai' ? (winnerColor === playerColor) : true;
             
                 if (reason === 'checkmate') {
-                    const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
-                    title = '🏆 CHECKMATE! 🏆';
-                    message = `${winnerName} WINS!`;
-                    isCelebration = true;
+                    if (gameMode === 'ai') {
+                        if (isUserWinner) {
+                            title = '🏆 VICTORY! 🏆';
+                            message = `You checkmated the AI! ${winnerName} WINS!`;
+                            isCelebration = true;
+                        } else {
+                            title = 'Defeat!';
+                            message = `The AI checkmated you. ${winnerName} WINS!`;
+                            isCelebration = false;
+                        }
+                    } else {
+                        title = '🏆 CHECKMATE! 🏆';
+                        message = `${winnerName} WINS!`;
+                        isCelebration = true;
+                    }
                 } else if (reason === 'stalemate') {
                     title = 'Stalemate!';
                     message = 'The game is a draw.';
@@ -1372,17 +1390,40 @@
                     };
                     message = drawMessages[drawReason] || 'The game is a draw.';
                 } else if (reason === 'resign') {
-                    const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = '🏆 VICTORY! 🏆';
-                    message = `${loserName} resigned. ${winnerName} WINS!`;
-                    isCelebration = true;
+                    if (gameMode === 'ai') {
+                        if (isUserWinner) {
+                            title = '🏆 VICTORY! 🏆';
+                            message = `AI resigned. You win!`;
+                            isCelebration = true;
+                        } else {
+                            title = 'Defeat!';
+                            message = `You resigned. AI wins!`;
+                            isCelebration = false;
+                        }
+                    } else {
+                        title = '🏆 VICTORY! 🏆';
+                        message = `${loserName} resigned. ${winnerName} WINS!`;
+                        isCelebration = true;
+                    }
                 } else if (reason === 'timeout') {
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = 'Timeout!';
-                    message = `${loserName} ran out of time. ${winnerName} wins!`;
+                    if (gameMode === 'ai') {
+                        if (isUserWinner) {
+                            title = '🏆 VICTORY! 🏆';
+                            message = `AI ran out of time. You win!`;
+                            isCelebration = true;
+                        } else {
+                            title = 'Defeat!';
+                            message = `You ran out of time. AI wins!`;
+                            isCelebration = false;
+                        }
+                    } else {
+                        title = 'Timeout!';
+                        message = `${loserName} ran out of time. ${winnerName} wins!`;
+                    }
                 }
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
