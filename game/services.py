@@ -40,7 +40,7 @@ def cleanup_stale_games():
             if moves_count < 5:
                 # Rule A: Hard deletion
                 del session_data['game']
-                session.session_data = session.encode(session_data)
+                session.session_data = Session.objects.encode(session_data)
                 session.save()
                 deleted_count += 1
             else:
@@ -58,7 +58,7 @@ def cleanup_stale_games():
                 
                 game_data['game_status'] = 'resignation'
                 session_data['game'] = game_data
-                session.session_data = session.encode(session_data)
+                session.session_data = Session.objects.encode(session_data)
                 session.save()
                 
                 # Create a GameResult historically linking to the user if auth is known
