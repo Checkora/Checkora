@@ -78,7 +78,7 @@ class ChessGame:
         self.black_time = time_limit
         self.increment = increment
         self.last_ts = time.time()
-        self.paused = False
+
         self.mode = 'pvp'
         self.player_color = 'white'
         self.castling_rights = {
@@ -144,7 +144,7 @@ DP cache is intentionally excluded to save cookie space."""
             'black_time': self.black_time,
             'increment': self.increment,
             'last_ts': self.last_ts,
-            'paused': self.paused,
+
             'mode': self.mode,
             'castling_rights': self.castling_rights,
             'en_passant_target': self.en_passant_target,
@@ -163,7 +163,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.current_turn = data['current_turn']
         game.move_history = data.get('move_history', [])
         game.captured = data.get('captured', {'white': [], 'black': []})
-        game.paused = data.get('paused', False)
+
         game.white_time = data['white_time']
         game.black_time = data['black_time']
         game.increment = data.get('increment', 0)
@@ -786,9 +786,7 @@ DP cache is intentionally excluded to save cookie space."""
         return 'white' if piece.isupper() else 'black'
 
     def update_clock(self):
-        if self.paused:
-            self.last_ts = time.time()
-            return
+
 
         now = time.time()
         elapsed = int(now - self.last_ts)
