@@ -17,13 +17,11 @@
 }
 
 html {
-    scroll-behavior: auto;
+  scroll-behavior: smooth;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    html {
-        scroll-behavior: smooth;
-    }
+section {
+  scroll-margin-top: 100px;
 }
 
 body {
@@ -112,7 +110,6 @@ body {
     gap: 1.5rem;
 }
 
-
 .btn-signin,
 .btn-register {
     text-decoration: none;
@@ -142,24 +139,36 @@ body {
 }
 
 .back-btn {
-    font-size: small !important;
-    background: var(--bg);
-    color: var(--bg) !important;
-    font-weight: bold;
-    margin-bottom: 2rem;
-    text-decoration: none;
-    display: flex; 
-    justify-content: flex-start;
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  font-size: 0.85rem;
+  background: rgba(22, 22, 42, 0.6);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 100;
 }
 
 .back-btn:hover {
-    color: #d4a72d;
-    text-decoration: underline !important;
-    transform: scale(1.05);
+  color: var(--accent-gold);
+  border-color: rgba(240, 192, 64, 0.3);
+  transform: translateX(-3px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* ==========================================================================
-   Upgraded Modern Hero Section (UI/UX Production-Checked Revision)
+   Hero Section
    ========================================================================== */
 .hero {
     position: relative;
@@ -176,7 +185,6 @@ body {
     overflow: hidden;
 }
 
-/* Ambient Visual Background Glow Depth Layout */
 .ambient-glow {
     position: absolute;
     border-radius: 50%;
@@ -208,7 +216,6 @@ body {
     z-index: 5;
 }
 
-/* Technical Hybrid Architecture Tag */
 .architecture-badge {
     display: inline-flex;
     align-items: center;
@@ -275,7 +282,6 @@ body {
     align-items: center;
 }
 
-/* Primary High-Contrast Accent Buttons */
 .btn-primary-gold {
     display: inline-block;
     padding: 0.9rem 2.4rem;
@@ -289,15 +295,16 @@ body {
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
     cursor: pointer;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-primary-gold:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px -5px rgba(240, 192, 64, 0.45);
+    box-shadow: 0 0 25px rgba(240, 192, 64, 0.6);
 }
 
-/* Ghost Outline Muted Buttons */
 .btn-secondary-ghost {
     display: inline-block;
     padding: 0.9rem 2.4rem;
@@ -305,20 +312,20 @@ body {
     font-weight: 600;
     border-radius: 8px;
     text-decoration: none;
-    background-color: rgba(15, 23, 42, 0.45);
-    color: #cbd5e1;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
 }
 
 .btn-secondary-ghost:hover {
-    background-color: rgba(30, 41, 59, 0.65);
-    border-color: rgba(255, 255, 255, 0.3);
-    color: #ffffff;
-    transform: translateY(-1px);
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: var(--accent-gold);
+    color: var(--text-title);
+    transform: translateY(-2px);
 }
 
 @keyframes micro-engine-pulse {
@@ -327,7 +334,7 @@ body {
 }
 
 /* ==========================================================================
-   Features, About, and Structural Layout Containers
+   Features and Content Sections
    ========================================================================== */
 .features {
     padding: 4rem 5%;
@@ -428,6 +435,7 @@ body {
     font-weight: 600;
     color: var(--accent-gold);
 }
+
 .about {
     padding: 4rem 5%;
     max-width: 1200px;
@@ -453,60 +461,183 @@ body {
     line-height: 1.8;
 }
 
+.about-grid-container {
+  display: grid;
+  grid-template-columns: 1fr 1.8fr;
+  gap: 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3.5rem 3rem;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.about-left-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Aligns header perfectly with center axis of text block */
+  text-align: left;
+}
+
+.about-mini-tag {
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.about-display-title {
+  font-size: 2.8rem;
+  color: var(--text-title);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.about-accent-line {
+  width: 50px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-gold), transparent);
+  margin-top: 1.5rem;
+  border-radius: 2px;
+}
+
+.about-right-col .about-content {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  border-left: 2px solid rgba(240, 192, 64, 0.15); /* Frames text body and anchors line geometry */
+  padding-left: 2.5rem;
+}
+
+.about-right-col .about-content p {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Fluid spacing drop for smaller devices */
+@media (max-width: 900px) {
+  .about-grid-container {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    padding: 2.5rem 1.5rem;
+  }
+  .about-right-col .about-content {
+    border-left: none;
+    border-top: 2px solid rgba(240, 192, 64, 0.15);
+    padding-left: 0;
+    padding-top: 2rem;
+  }
+}
+
+/* ==========================================================================
+   Upgraded Multi-Column Modern Footer
+   ========================================================================== */
 .footer {
     max-width: 1200px;
-    margin: 4rem auto 2rem;
-    padding: 3rem 4rem 1.5rem;
-    background-color: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    margin: 6rem auto 3rem;
+    padding: 4rem 4rem 2rem;
+    background-color: #121224; /* Clean premium inner contrast backdrop */
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 .footer-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 3rem;
-    padding-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 2.2fr 1fr 1.2fr 1fr;
+    gap: 3.5rem;
+    padding-bottom: 3.5rem;
 }
 
 .footer-col {
     display: flex;
     flex-direction: column;
-    gap: 1.2rem;
+    align-items: flex-start;
+    text-align: left;
 }
 
-.footer-col:first-child {
-    max-width: 380px;
+.brand-column .logo-link {
+    margin-bottom: 1.2rem;
 }
 
-.footer-col p {
+.brand-desc {
     color: var(--text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.6;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    max-width: 340px;
 }
 
 .footer-col h4 {
     color: var(--text-title);
-    font-size: 1.05rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    font-family: 'Cinzel', serif;
-    margin-bottom: 0.5rem;
-    letter-spacing: 1px;
+    letter-spacing: 1.8px;
+    margin-bottom: 1.8rem;
+    text-transform: uppercase;
+    position: relative;
+}
+
+.footer-col h4::after {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-gold), transparent);
+    margin-top: 8px;
+    border-radius: 2px;
+}
+
+.footer-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .footer-link {
     text-decoration: none;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
+    color: #94a3b8; /* Removed !important */
+    font-size: 0.9rem;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     display: inline-block;
 }
 
 .footer-link:hover {
-    color: var(--accent-gold);
-    transform: translateX(3px);
+    color: var(--accent-gold); /* Removed !important */
+    transform: translateX(4px);
+}
+
+.maintainer-item {
+    margin-top: 0.4rem;
+}
+
+.footer-meta-text {
+    color: #64748b;
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+
+.footer-meta-text a {
+    color: #94a3b8; /* Removed !important */
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.footer-meta-text a:hover {
+    color: var(--accent-gold); /* Removed !important */
+    text-decoration: underline;
 }
 
 .footer-bottom {
@@ -514,101 +645,42 @@ body {
     justify-content: space-between;
     align-items: center;
     padding-top: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .footer-copy {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+    color: #64748b;
+    font-size: 0.85rem;
 }
 
 .footer-socials {
     display: flex;
     gap: 1.2rem;
+    align-items: center;
 }
 
 .footer-socials a {
-    color: var(--text-secondary);
-    transition: color 0.2s, transform 0.2s;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.55rem;
+    border-radius: 8px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 .footer-socials a:hover {
     color: var(--accent-gold);
-    transform: scale(1.1);
+    background: rgba(240, 192, 64, 0.08);
+    border-color: rgba(240, 192, 64, 0.3);
+    transform: translateY(-3px);
 }
 
 /* ==========================================================================
-   Media Queries & Mobile Layout Refinement Breakpoints
+   Platform Capabilities Section
    ========================================================================== */
-@media (max-width: 768px) {
-    .navbar {
-        flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
-    }
-
-    .nav-left {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .nav-links {
-        display: none;
-    }
-
-    .hero-actions {
-        flex-direction: column;
-        width: 100%;
-        gap: 1rem;
-    }
-
-    .btn-primary-gold,
-    .btn-secondary-ghost {
-        width: 100%;
-        text-align: center;
-        box-sizing: border-box;
-    }
-
-    .footer-container {
-        flex-direction: column;
-        gap: 2rem;
-    }
-
-    .footer-bottom {
-        flex-direction: column;
-        gap: 1.5rem;
-        text-align: center;
-    }
-
-    .card {
-        height: auto;
-        min-height: 260px;
-        cursor: default;
-    }
-
-    .card-front,
-    .card-back {
-        position: relative;
-        opacity: 1;
-        pointer-events: auto;
-    }
-
-    .card-back {
-        background-color: transparent;
-        padding-top: 0;
-    }
-
-    .card:hover .card-front,
-    .card:hover .card-back,
-    .card:focus-within .card-front,
-    .card:focus-within .card-back {
-        opacity: 1;
-    }
-}
-
-/* Features Capabilities Section */
 .features-capabilities {
     padding: 4rem 5%;
     max-width: 1200px;
@@ -673,6 +745,104 @@ body {
     line-height: 1.6;
 }
 
+/* ==========================================================================
+   Media Queries & Responsiveness Breakpoints
+   ========================================================================== */
+@media (max-width: 1024px) {
+    .footer-container {
+        grid-template-columns: 1.5fr 1fr;
+        gap: 3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .nav-left {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .nav-links {
+        display: none;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 1rem;
+    }
+
+    .btn-primary-gold,
+    .btn-secondary-ghost {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+    }
+
+    .footer {
+        padding: 3rem 2rem 2rem;
+        margin: 4rem 1rem 1.5rem;
+    }
+
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2.5rem;
+    }
+
+    .footer-col {
+        align-items: center;
+        text-align: center;
+    }
+
+    .brand-desc {
+        max-width: 100%;
+    }
+
+    .footer-col h4::after {
+        margin: 8px auto 0 auto;
+        background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+    }
+
+    .card {
+        height: auto;
+        min-height: 260px;
+        cursor: default;
+    }
+
+    .card-front,
+    .card-back {
+        position: relative;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .card-back {
+        background-color: transparent;
+        padding-top: 0;
+    }
+
+    .card:hover .card-front,
+    .card:hover .card-back,
+    .card:focus-within .card-front,
+    .card:focus-within .card-back {
+        opacity: 1;
+    }
+    
+    .footer-link:hover {
+        transform: scale(1.03);
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+    }
+}
 
 @media (max-width: 480px) {
     .hero-actions {

@@ -295,17 +295,35 @@ body {
     position: relative;
     width: fit-content;
     max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+.board-aligned {
+    display: inline-block;
+    width: fit-content;
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .board-row {
     display: flex;
-    align-items: stretch;
+    align-items: flex-start;
+}
+
+.board-grid-wrap {
+    display: flex;
+    flex-direction: column;
+    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    box-sizing: border-box;
 }
 
 .ranks {
     display: flex;
     flex-direction: column;
-    padding: 3px 6px 3px 0;
+    width: var(--rank-label-width);
+    padding: 3px 0;
 }
 .ranks span {
     height: var(--square-size);
@@ -318,11 +336,15 @@ body {
 }
 
 .files {
-    display: flex;
-    padding: 4px 0 0 calc(var(--rank-label-width) + 4px);
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: calc(var(--square-size) * 8);
+    margin-left: calc(var(--rank-label-width) + var(--board-border));
+    padding-top: 4px;
+    box-sizing: border-box;
 }
 .files span {
-    width: var(--square-size);
+    width: 100%;
     text-align: center;
     font-size: clamp(0.6rem, 1.2vw, 0.75rem);
     color: #5a5a7a;
@@ -331,15 +353,16 @@ body {
 
 .chessboard {
     display: grid;
-    grid-template-columns: repeat(8, var(--square-size));
-    grid-template-rows: repeat(8, var(--square-size));
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
     width: calc(var(--square-size) * 8 + var(--board-border) * 2);
     height: calc(var(--square-size) * 8 + var(--board-border) * 2);
     border: var(--board-border) solid #3d3222;
+    padding: 0;
     border-radius: 2px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     max-width: 100%;
-    box-sizing: content-box;
+    box-sizing: border-box;
     position: relative;
 }
 
@@ -347,8 +370,8 @@ body {
    Squares
    ============================================================ */
 .square {
-    width: var(--square-size);
-    height: var(--square-size);
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -449,6 +472,13 @@ body {
 /* Last-move highlight */
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
+.custom-highlight.light {
+    background-color: rgba(80, 180, 255, 0.45) !important;
+}
+
+.custom-highlight.dark {
+    background-color: rgba(40, 120, 220, 0.55) !important;
+}
 
 .square.premove.light {
     background-color: rgba(255, 80, 80, 0.45);
@@ -503,6 +533,7 @@ body {
 }
 .piece.playable { cursor: pointer; }
 .piece.dragging { opacity: 0.3; transition: none; }
+.piece.touch-dragging-original { opacity: 0.3 !important; }
 .piece.moving {
     z-index: 100;
 }
@@ -629,8 +660,26 @@ body {
 /* ============================================================
    Captured Pieces
    ============================================================ */
-.captured-list { display: flex; flex-wrap: wrap; gap: 1px; min-height: 24px; }
-.captured-img  { width: 22px; height: 22px; opacity: 0.9; }
+.captured-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-height: 28px;
+    padding: 4px 0;
+}
+
+.captured-img {
+    width: 26px;
+    height: 26px;
+    opacity: 0.92;
+    border-radius: 3px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.captured-img:hover {
+    transform: scale(1.2);
+    opacity: 1;
+}
 
 /* ============================================================
    Buttons
@@ -870,7 +919,7 @@ body {
     }
 
     .board-outer {
-    width: 100%;
+    width: fit-content;
     max-width: 100%;
     margin: 0 auto;
     overflow-x: hidden;
@@ -880,8 +929,17 @@ body {
         width: var(--mobile-board-size);
         height: var(--mobile-board-size);
         border-width: var(--board-border-width);
-        grid-template-columns: repeat(8, var(--mobile-square-size));
-        grid-template-rows: repeat(8, var(--mobile-square-size));
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+    }
+
+    .board-grid-wrap {
+        width: var(--mobile-board-size);
+    }
+
+    .board-aligned {
+        width: fit-content;
+        margin: 0 auto;
     }
 
     .square {
@@ -899,13 +957,13 @@ body {
         font-size: 0.65rem;
     }
 
-    .files {
-        padding-left: 20px;
+    .files span {
+        font-size: 0.65rem;
     }
 
-    .files span {
-        width: var(--mobile-square-size);
-        font-size: 0.65rem;
+    .files {
+        width: calc(var(--mobile-square-size) * 8);
+        margin-left: calc(var(--rank-label-width) + var(--board-border-width));
     }
 
     .piece {
@@ -956,8 +1014,8 @@ body {
     }
 
     .captured-img {
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
     }
 
     .logo-icon-img {
@@ -1020,11 +1078,31 @@ body {
     box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
 }
 
-/* Low time warning */
-.clock.low {
-    background: linear-gradient(135deg, #402020, #2a1414);
-    border-color: #ff6b6b;
-    color: #ffb3b3;
+/* Low time warning — stage 1: 30s–21s (yellow) */
+.clock.low-1 {
+    background: linear-gradient(135deg, #3d2e00, #2a1f00);
+    border-color: #facc15;
+    color: #fef08a;
+}
+
+/* Low time warning — stage 2: 20s–11s (orange) */
+.clock.low-2 {
+    background: linear-gradient(135deg, #3d1a00, #2a1000);
+    border-color: #f97316;
+    color: #fed7aa;
+}
+
+/* Low time warning — stage 3: 10s–1s (red + scale pulse animation) */
+@keyframes low-time-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+
+.clock.low-3 {
+    background: linear-gradient(135deg, #3d0000, #200000);
+    border-color: #ef4444;
+    color: #fca5a5;
+    animation: low-time-pulse 0.8s ease-in-out infinite;
 }
 
 /* Time up */
@@ -1255,13 +1333,10 @@ body {
     }
 
     .board-outer {
-        width: 100%;
+        width: fit-content;
         max-width: 100%;
+        margin: 0 auto;
         overflow-x: hidden;
-    }
-
-    .files {
-        padding-left: 18px;
     }
 
     .files span,
@@ -1433,12 +1508,8 @@ body {
 }
 
 /* ================= PAUSE STATE ================= */
-.chessboard.paused {
-    pointer-events: none;
-}
-
-/* Blur squares only — not ::after, so the pause label stays sharp */
 .chessboard.paused .square {
+    pointer-events: none;
     filter: blur(15px);
 }
 
@@ -1597,4 +1668,96 @@ body {
 
 .offline {
     background-color: #d50000 !important;
+}
+
+/* ============================================================
+   Blindfold Mode & Flash Animation
+   ============================================================ */
+body.blindfold-mode .chessboard .piece {
+    opacity: 0 !important;
+}
+body.blindfold-mode .move-dot,
+body.blindfold-mode .capture-ring {
+    display: none !important;
+}
+
+@keyframes flash-error {
+    0% { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255, 107, 107, 0.8); }
+    50% { border-color: #3d3222; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6); }
+    100% { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255, 107, 107, 0.8); }
+}
+
+.flash-error {
+    animation: flash-error 0.5s ease-in-out 4; /* 4 * 0.5s = 2 seconds total */
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .flash-error {
+        animation: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+    }
+}
+
+/* ============================================================
+   Time Control Custom Picker & Tabs
+   ============================================================ */
+.time-control-selector-container {
+    margin-top: 5px;
+    width: 100%;
+}
+
+.time-control-trigger:hover {
+    border-color: #f0c040 !important;
+    box-shadow: 0 0 10px rgba(240, 192, 64, 0.15);
+}
+
+.time-control-trigger:focus {
+    outline: none;
+    border-color: #f0c040 !important;
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.3);
+}
+
+.tc-tab-btn:hover {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.tc-tab-btn.active {
+    color: #f0c040 !important;
+    background-color: rgba(240, 192, 64, 0.1) !important;
+    border-bottom: 2px solid #f0c040 !important;
+}
+
+.tc-preset-btn:hover {
+    border-color: rgba(240, 192, 64, 0.5) !important;
+    background-color: rgba(240, 192, 64, 0.05) !important;
+    transform: translateY(-1px);
+}
+
+.tc-preset-btn.active {
+    border-color: #f0c040 !important;
+    background: linear-gradient(135deg, rgba(240, 192, 64, 0.2), rgba(212, 160, 32, 0.1)) !important;
+    color: #f0c040 !important;
+    font-weight: 600;
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.2);
+}
+
+.tc-preset-btn:active {
+    transform: translateY(0);
+}
+
+.tc-custom-inputs input:focus {
+    border-color: #f0c040 !important;
+    outline: none;
+    box-shadow: 0 0 8px rgba(240, 192, 64, 0.2);
+}
+
+/* Custom scrollbar for tabs */
+.tc-tabs::-webkit-scrollbar {
+    height: 3px;
+}
+.tc-tabs::-webkit-scrollbar-thumb {
+    background: #252545;
+    border-radius: 1px;
 }

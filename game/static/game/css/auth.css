@@ -452,3 +452,33 @@ body.login-page .helptext {
         max-width: 680px;
     }
 }
+
+/* Premium Floating Back Button Overrides for Auth Templates */
+.back-btn {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  font-size: 0.85rem;
+  background: rgba(22, 22, 42, 0.6);
+  color: #d0d0d0;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.back-btn:hover {
+  color: #f0c040;
+  border-color: rgba(240, 192, 64, 0.3);
+  transform: translateX(-3px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}

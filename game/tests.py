@@ -8,7 +8,12 @@ from unittest import mock
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import (
+    RequestFactory,
+    SimpleTestCase,
+    TestCase,
+    override_settings,
+)
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
@@ -100,6 +105,30 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'This move is illegal!', status_code=404)
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
+
+
+class ServerErrorPageTest(SimpleTestCase):
+    """Custom 500 page should match the product theme and recovery flow."""
+
+    def test_custom_500_handler_renders_themed_page(self):
+        from core.urls import custom_server_error
+
+        request = RequestFactory().get('/server-error/')
+        response = custom_server_error(request)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertContains(
+            response,
+            'The King has fallen!',
+            status_code=500,
+        )
+        self.assertContains(
+            response,
+            'Return to Main Menu',
+            status_code=500,
+        )
+        self.assertContains(response, reverse('landing'), status_code=500)
+
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
@@ -1309,3 +1338,50 @@ class InsufficientMaterialDrawTest(TestCase):
         with mock.patch.object(game, '_call_engine', return_value="STATUS DRAW"):
             status = game.check_game_status()
             self.assertEqual(status, 'draw')
+
+class TimeControlIncrementTest(TestCase):
+    """Test flexible time control and increment logic."""
+
+    def test_increment_applied_after_move(self):
+        game = ChessGame(time_limit=600, increment=5)
+        self.assertEqual(game.increment, 5)
+        self.assertEqual(game.white_time, 600)
+        self.assertEqual(game.black_time, 600)
+
+        with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
+            # White makes a move
+            success, _, _, _ = game.make_move(6, 4, 4, 4)
+            self.assertTrue(success)
+            self.assertEqual(game.white_time, 605)
+
+            # Black makes a move
+            success, _, _, _ = game.make_move(1, 4, 3, 4)
+            self.assertTrue(success)
+            self.assertEqual(game.black_time, 605)
+
+    def test_session_serialization_preserves_increment(self):
+        game = ChessGame(time_limit=300, increment=2)
+        restored = ChessGame.from_dict(game.to_dict())
+        self.assertEqual(restored.increment, 2)
+        self.assertEqual(restored.white_time, 300)
+        self.assertEqual(restored.black_time, 300)
+
+    def test_new_game_api_handles_increment(self):
+        self.client.get('/play/')
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'pvp',
+                'time_limit': 300,
+                'increment': 3
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['valid'])
+        
+        session = self.client.session
+        game_dict = session.get('game')
+        self.assertIsNotNone(game_dict)
+        self.assertEqual(game_dict['increment'], 3)
+        self.assertEqual(game_dict['white_time'], 300)
