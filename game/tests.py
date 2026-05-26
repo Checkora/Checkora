@@ -182,6 +182,45 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
+    )
+    def test_pending_unverified_username_can_register_again(self):
+        payload = {
+            'username': 'pendingplayer',
+            'email': 'pendingplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        with mock.patch('builtins.print'):
+            first_response = self.client.post('/register/', data=payload)
+        first_user_id = self.client.session['registration_user_id']
+
+        with mock.patch('builtins.print'):
+            second_response = self.client.post('/register/', data=payload)
+
+        self.assertRedirects(
+            first_response,
+            '/verify-otp/',
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            second_response,
+            '/verify-otp/',
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(
+            User.objects.filter(username='pendingplayer').count(),
+            1,
+        )
+        self.assertNotEqual(
+            first_user_id,
+            self.client.session['registration_user_id'],
+        )
+
 
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
@@ -1169,6 +1208,22 @@ class CheckUsernameViewTest(TestCase):
         response = self.client.get(reverse('check_username'), {'username': 'ExistingUser'})
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {'available': False})
+
+    def test_inactive_unverified_username_available(self):
+        """Unverified pending signups should not reserve usernames."""
+        User.objects.create_user(
+            username='pendinguser',
+            password='testpass123',
+            is_active=False,
+        )
+
+        response = self.client.get(
+            reverse('check_username'),
+            {'username': 'pendinguser'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'available': True})
 
     def test_missing_username_param(self):
         """Should return 400 when no username param is provided."""

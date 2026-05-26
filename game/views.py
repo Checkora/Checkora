@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
+from django.db import models
 from django.core.mail import (
     BadHeaderError, 
     send_mail,
@@ -496,7 +497,10 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(username__iexact=username).exists()
+    exists = User.objects.filter(
+        username__iexact=username,
+        is_active=True,
+    ).exists()
     return JsonResponse({'available': not exists})
 
 
@@ -508,33 +512,22 @@ def register_view(request):
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
         
-        # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
-        if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
-            username = request.POST.get('username')
-            email = request.POST.get('email')
-            
-            if username and email:
-                deleted = False
-                # 1. Exact match (User retrying with the exact same details)
-                if User.objects.filter(username=username, email=email, is_active=False).exists():
-                    User.objects.filter(username=username, email=email, is_active=False).delete()
-                    deleted = True
-                else:
-                    # 2. Username conflict (Free up unverified, abandoned usernames)
-                    if User.objects.filter(username=username, is_active=False).exists():
-                        User.objects.filter(username=username, is_active=False).delete()
-                        deleted = True
-                    # 3. Email conflict (Free up unverified, abandoned emails)
-                    if User.objects.filter(email=email, is_active=False).exists():
-                        User.objects.filter(email=email, is_active=False).delete()
-                        deleted = True
-                
-                if deleted:
-                    # Re-validate the form now that conflicts are cleared
-                    form = CustomUserCreationForm(request.POST)
-                    is_valid = form.is_valid()
+    # Cleanup old unverified accounts BEFORE validation
+    username = request.POST.get('username')
+    email = request.POST.get('email')
 
-        if is_valid:
+    if username or email:
+        User.objects.filter(
+            is_active=False
+        ).filter(
+            models.Q(username=username) | models.Q(email=email)
+        ).delete()
+
+    # Now validate form again
+    form = CustomUserCreationForm(request.POST)
+    is_valid = form.is_valid()
+
+    if is_valid:
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
