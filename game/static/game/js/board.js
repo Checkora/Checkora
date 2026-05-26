@@ -2734,11 +2734,11 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     // Prevent click generation
                     e.preventDefault();
                 } else {
-                    // Quick tap -> trigger default click/tap behavior
-                    await onClick(srcSquare.r, srcSquare.c);
-                    e.preventDefault();
-                    
-                }
+                       // Quick tap -> trigger default click/tap behavior
+                        e.preventDefault();
+                        await onClick(srcSquare.r, srcSquare.c);
+
+                    }
 
                 // Reset state
                 touchStartPos = null;
