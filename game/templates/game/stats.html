@@ -1,30 +1,98 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Checkora - Game Stats</title>
-    <style>
-        body { background: #0f0f1a; color: #d0d0d0; font-family: Arial, sans-serif; padding: 40px; }
-        h1 { color: #f0c040; text-align: center; letter-spacing: 2px; }
-        h2 { color: #f0c040; margin-top: 40px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #1a1a2e; color: #f0c040; padding: 12px; text-align: left; }
-        td { padding: 10px 12px; border-bottom: 1px solid #252545; }
-        tr:hover { background: #16162a; }
-        .summary { display: flex; gap: 20px; margin-top: 20px; }
-        .card { background: #16162a; border: 1px solid #252545; border-radius: 8px; padding: 20px; flex: 1; text-align: center; }
-        .card .num { font-size: 36px; color: #f0c040; font-weight: bold; }
-        .card .label { color: #8a8aaa; margin-top: 8px; }
-        .empty { text-align: center; color: #5a5a7a; padding: 40px; }
-        a { color: #f0c040; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .back { text-align: center; margin-top: 30px; }
-    </style>
-</head>
-<body>
-    <div style="margin-bottom: 20px;">
-        <a href="/" class="back-btn">← Back to Home</a>
-    </div>
+{% extends "game/base.html" %}
+{% load static %}
+
+{% block title %}Game Statistics - Checkora{% endblock %}
+
+{% block meta_description %}View your Checkora game statistics — AI match results, win rates, and recent game history.{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-wrapper {
+        max-width: 960px;
+        width: 100%;
+        margin: 40px auto 60px auto;
+        padding: 0 20px;
+    }
+
+    .stats-wrapper h1 {
+        color: var(--accent-color);
+        text-align: center;
+        letter-spacing: 2px;
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+
+    .stats-wrapper h2 {
+        color: var(--accent-color);
+        margin-top: 40px;
+        margin-bottom: 10px;
+        font-size: 1.3rem;
+    }
+
+    .summary {
+        display: flex;
+        gap: 20px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    .card {
+        background: #16162a;
+        border: 1px solid #252545;
+        border-radius: 8px;
+        padding: 20px;
+        flex: 1;
+        text-align: center;
+        min-width: 140px;
+    }
+
+    .card .num {
+        font-size: 36px;
+        color: var(--accent-color);
+        font-weight: bold;
+    }
+
+    .card .label {
+        color: #8a8aaa;
+        margin-top: 8px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    th {
+        background: #1a1a2e;
+        color: var(--accent-color);
+        padding: 12px;
+        text-align: left;
+    }
+
+    td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #252545;
+        color: #d0d0d0;
+    }
+
+    tr:hover { background: #16162a; }
+
+    .empty {
+        text-align: center;
+        color: #5a5a7a;
+        padding: 40px;
+    }
+
+    @media (max-width: 600px) {
+        .summary { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-wrapper">
+
     <h1>CHECK<span>ORA</span> &mdash; Game Statistics</h1>
 
     <h2>AI Game Summary</h2>
@@ -65,5 +133,5 @@
     </div>
     {% endif %}
 
-</body>
-</html>
+</div>
+{% endblock %}
