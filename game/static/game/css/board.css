@@ -554,13 +554,24 @@ body {
    ============================================================ */
 .status-bar {
     min-height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
     text-align: center;
     font-size: 0.82rem;
     color: #f0c040;
-    padding: 4px 0;
+    padding: 8px 0 0;
     width: 100%;
     max-width: calc(var(--square-size) * 8 + var(--board-border) * 2 + var(--rank-label-width) + 8px);
     box-sizing: border-box;
+}
+
+.game-status-text {
+    flex: 1 1 180px;
+    min-width: 0;
+    text-align: left;
 }
 .square:focus,
 .square:focus-visible {
@@ -826,6 +837,20 @@ body {
     .keyboard-hints {
         font-size: 0.72rem !important;
         line-height: 1.35;
+    }
+
+    .status-bar {
+        justify-content: center;
+    }
+
+    .game-status-text {
+        flex-basis: 100%;
+        text-align: center;
+    }
+
+    .score-panel {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -1603,10 +1628,11 @@ body {
 
 .score-panel {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 12px;
-
-    margin-top: 10px;
+    flex: 0 1 auto;
+    max-width: 100%;
+    margin-top: 0;
     flex-wrap: wrap;
 }
 
@@ -1638,8 +1664,14 @@ body {
 }
 
 @media (max-width: 600px) {
+    .status-bar {
+        gap: 8px;
+    }
+
     .score-panel {
         gap: 8px;
+        width: 100%;
+        justify-content: center;
     }
 
     .score-box {

@@ -82,6 +82,13 @@ class BoardViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
+    def test_board_page_exposes_responsive_score_footer_hooks(self):
+        response = self.client.get('/play/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'status-bar--with-score')
+        self.assertContains(response, 'game-status-text')
+
 class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
 
