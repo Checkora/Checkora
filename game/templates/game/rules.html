@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -539,7 +540,7 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
-            <a href="/" id="dynamicBackBtn" class="back-btn" style="color:#f0c040; display:inline-block;">
+            <a href="{% url 'landing' %}" id="dynamicBackBtn" class="back-btn" style="color:#f0c040; display:inline-block;">
                ← Back to Home
             </a>
         </div>
