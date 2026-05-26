@@ -294,7 +294,7 @@ def set_pause(request):
         return JsonResponse({'paused': False})
 
     data = json.loads(request.body or '{}')
-    pause = data.get('pause', True)
+    pause = not game.paused  # toggle server-side state, ignore client value
 
     game = ChessGame.from_dict(game_data)
 
