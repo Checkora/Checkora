@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -87,7 +88,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-import dj_database_url
+
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -128,6 +129,13 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'checkora-cache',
+    }
+}
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -149,13 +157,17 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_SSL_REDIRECT = not DEBUG
 
 
-# Email Configuration for OTP
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# Email Configuration for OTP and Password Reset EMails
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND', 
+    'django.core.mail.backends.smtp.EmailBackend'
+)
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 # Redirect after login
@@ -188,6 +200,9 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 ACCOUNT_EMAIL_REQUIRED = False
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_AUTHENTICATION_METHOD = 'username'
+
+# Password reset link expiration (5 minutes)
+PASSWORD_RESET_TIMEOUT = 300
 
 # SECURITY SETTINGS (Implemented via GSSoC Audit)
 SECURE_BROWSER_XSS_FILTER = True
