@@ -1842,6 +1842,7 @@ body {
 }
 
 /* ================= PAUSE STATE ================= */
+
 .chessboard.paused {
 
     filter: blur(15px);
@@ -1850,7 +1851,10 @@ body {
 }
 
 /* Blur squares only — not ::after, so the pause label stays sharp */
+
+
 .chessboard.paused .square {
+    pointer-events: none;
     filter: blur(15px);
 }
 

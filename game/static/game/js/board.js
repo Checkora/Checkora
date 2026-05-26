@@ -2037,15 +2037,32 @@
             }
 
             async function resumeGame() {
-                if (!paused) return;
-                const d = await post('/api/pause/', { pause: false });
-                paused = d.paused;
-                whiteTime = d.white_time;
-                blackTime = d.black_time;
-                updatePauseUI();
-                renderClocks();
-                startTimer();
-                queueAIMoveIfNeeded();
+                try {
+                    const d = await post('/api/pause/', { pause: false });
+
+                    paused = false;
+
+                    if (d.white_time !== undefined) {
+                        whiteTime = d.white_time;
+                    }
+
+                    if (d.black_time !== undefined) {
+                        blackTime = d.black_time;
+                    }
+
+                    updatePauseUI();
+                    renderClocks();
+
+                    clearInterval(timerInterval);
+                    startTimer();
+
+                    boardEl.classList.remove('paused');
+
+                    queueAIMoveIfNeeded();
+
+                } catch (e) {
+                    console.error("Resume failed", e);
+                }
             }
 
             /* ==========================================================
@@ -2310,6 +2327,44 @@
                     }
                 }
                 if (errorDiv) errorDiv.style.display = 'none';
+            }
+
+            function dismissGameOverOverlay() {
+                gameOverOverlay.classList.remove('active');
+                gameOverOverlay.classList.remove('game-over-celebration');
+                const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+                if (confettiContainer) {
+                    confettiContainer.remove();
+                }
+            }
+
+            function openWelcomeForNewGame() {
+                dismissGameOverOverlay();
+                prepareWelcomeForPvP(true);
+
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                if (whiteInput) {
+                    whiteInput.value = currentWhiteName || '';
+                }
+                if (blackInput) {
+                    const aiNames = ['AI', 'ai'];
+                    blackInput.value = aiNames.includes(currentBlackName) ? '' : (currentBlackName || '');
+                }
+                if (welcomeFenInput) welcomeFenInput.value = '';
+                if (welcomeFenError) welcomeFenError.textContent = '';
+
+                selectedPveColor = 'white';
+                pveOptions?.querySelectorAll('.color-choice').forEach(btn => {
+                    const isWhite = btn.dataset.color === 'white';
+                    btn.classList.toggle('active', isWhite);
+                    btn.style.borderColor = isWhite ? '#f0c040' : '#444';
+                });
+
+                if (welcomeResumeBtn && gameOver) {
+                    welcomeResumeBtn.style.display = 'none';
+                }
+                welcomeOverlay.classList.add('active');
             }
 
             if (welcomeFenInput) {
@@ -2608,8 +2663,7 @@
                     "Abandon Game?",
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
-                        prepareWelcomeForPvP(true);
-                        welcomeOverlay.classList.add('active');
+                        openWelcomeForNewGame();
                     },
                     '#ff6b6b'
                 );
@@ -2711,11 +2765,7 @@
             }
 
             if (resignBtn) resignBtn.onclick = () => {
-                if (!gameOver && !paused) {
-                    const confirmDifficultyContainer = document.getElementById('confirmDifficultyContainer');
-                    const confirmTimerContainer = document.getElementById('confirmTimerContainer');
-                    if (confirmDifficultyContainer) confirmDifficultyContainer.style.display = 'none';
-                    if (confirmTimerContainer) confirmTimerContainer.style.display = 'none';
+                if (!gameOver) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         try {
                             const result = await post('/api/resign/', {});
@@ -2752,6 +2802,7 @@
             };
 
             if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
+
                 const mode = document.querySelector('input[name="go_mode"]:checked').value;
                 const diff = document.getElementById('goDifficultySelect').value;
                 const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
@@ -2808,6 +2859,9 @@
                     startNewGame(mode, swappedColor, diff, null, timeLimitMins,
                         { white: currentBlackName, black: currentWhiteName });
                 }
+
+                openWelcomeForNewGame();
+
             };
            if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
     const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
