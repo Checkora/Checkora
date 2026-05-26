@@ -123,9 +123,11 @@ class ChessGame:
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
+            '[Site "Checkora"]',
+            f'[Date "{today}"]',
+            '[Round "1"]',
             f'[White "{white_name}"]',
             f'[Black "{black_name}"]',
-            f'[Date "{today}"]',
             f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
@@ -219,7 +221,22 @@ DP cache is intentionally excluded to save cookie space."""
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
         game.en_passant_target = None
+        if len(parts) >= 4 and parts[3] != '-':
+            try:
+                files = 'abcdefgh'
+                col = files.index(parts[3][0])
+                row = 8 - int(parts[3][1])
+                game.en_passant_target = (row, col)
+            except (ValueError, IndexError):
+                pass
+        
         game.halfmove_clock = 0
+        if len(parts) >= 5:
+            try:
+                game.halfmove_clock = int(parts[4])
+            except ValueError:
+                pass
+
         game.move_history = []
         game.captured = {'white': [], 'black': []}
         game.valid_moves_cache = {}
@@ -857,6 +874,26 @@ DP cache is intentionally excluded to save cookie space."""
         castling = self.serialize_castling_rights()
 
         return f"{placement} {side} {castling}"
+
+    def generate_full_fen(self) -> str:
+        """Build the complete 6-field FEN string."""
+        placement_side_castling = self.generate_fen_key()
+        
+        # En passant
+        if not self.en_passant_target:
+            ep_str = "-"
+        else:
+            files = "abcdefgh"
+            row, col = self.en_passant_target
+            ep_str = f"{files[col]}{8 - row}"
+
+        # Halfmove clock
+        halfmove = str(self.halfmove_clock)
+        
+        # Fullmove number
+        fullmove = str(1 + len(self.move_history) // 2)
+
+        return f"{placement_side_castling} {ep_str} {halfmove} {fullmove}"
 
     def get_opening_book_move(self) -> dict | None:
         """Return a random book move for the current position, or ``None``.
