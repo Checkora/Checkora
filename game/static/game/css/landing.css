@@ -437,89 +437,76 @@ body {
 }
 
 .about {
-    padding: 4rem 5%;
+    padding: 6rem 5% 4rem 5%;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
 }
 
-.section-container {
-    max-width: 800px;
+.about-grid-layout {
+    max-width: 1100px;
     margin: 0 auto;
+}
+
+.about-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1.7;
+    max-width: 720px;
+    margin: -1.5rem auto 3.5rem auto;
     text-align: center;
 }
 
-.about-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
+/* Bento-Grid Core Structural Setup */
+.about-bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.75rem;
+    text-align: left;
 }
 
-.about-content p {
+/* Reusing your theme palette variables seamlessly */
+.about-bento-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 2.2rem 1.8rem;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, box-shadow 0.3s;
+}
+
+.about-bento-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(240, 192, 64, 0.3);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* Subtle accent focus on the primary technical engine feature */
+.about-bento-card.highlight-accent {
+    background: linear-gradient(145deg, var(--card-bg), #1a1a32);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.about-bento-card.highlight-accent:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 20px rgba(240, 192, 64, 0.15);
+}
+
+.about-card-icon {
+    font-size: 1.8rem;
+    margin-bottom: 1.25rem;
+}
+
+.about-bento-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-title);
+    margin-bottom: 0.75rem;
+}
+
+.about-bento-card p {
     color: var(--text-secondary);
-    font-size: 1rem;
-    line-height: 1.8;
-}
-
-.about-grid-container {
-  display: grid;
-  grid-template-columns: 1fr 1.8fr;
-  gap: 4rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 3.5rem 3rem;
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.about-left-col {
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* Aligns header perfectly with center axis of text block */
-  text-align: left;
-}
-
-.about-mini-tag {
-  color: var(--accent-gold);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-}
-
-.about-display-title {
-  font-size: 2.8rem;
-  color: var(--text-title);
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.about-accent-line {
-  width: 50px;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent-gold), transparent);
-  margin-top: 1.5rem;
-  border-radius: 2px;
-}
-
-.about-right-col .about-content {
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  border-left: 2px solid rgba(240, 192, 64, 0.15); /* Frames text body and anchors line geometry */
-  padding-left: 2.5rem;
-}
-
-.about-right-col .about-content p {
-  font-size: 1.05rem;
-  line-height: 1.75;
-  color: var(--text-secondary);
-  margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
 }
 
 /* Fluid spacing drop for smaller devices */
