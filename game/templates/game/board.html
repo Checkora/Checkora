@@ -15,6 +15,341 @@
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
+
+
+    {% comment %} <script defer src="/_vercel/speed-insights/script.js"></script> {% endcomment %}
+
+    <style>
+
+        /* ============================================================
+           Reset & Base
+           ============================================================ */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #0f0f1a;
+            color: #d0d0d0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ============================================================
+           Header
+           ============================================================ */
+        .header { padding: 20px 0 8px; text-align: center; }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 2px;
+        }
+        .header .badge {
+            font-size: 0.45em;
+            color: #f0c040;
+            vertical-align: super;
+            font-weight: 400;
+            letter-spacing: 1px;
+        }
+
+        .auth-buttons {
+            position: absolute;
+            right: 20px;
+            top: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .welcome-msg {
+            color: #8a8aaa;
+            font-size: 0.9rem;
+        }
+        .username {
+            color: #f0c040;
+            font-weight: 600;
+        }
+        .btn-logout {
+            color: #ff6b6b;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(255, 107, 107, 0.1);
+        }
+        .btn-signin {
+            color: #f0c040;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .btn-register {
+            background: #f0c040;
+            color: #1a1a2a;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        /* ============================================================
+           Game Layout  (left panel · board · right panel)
+           ============================================================ */
+        .game-layout {
+            display: flex;
+            gap: 22px;
+            padding: 10px 20px 30px;
+            align-items: flex-start;
+        }
+
+        .panel {
+            width: 192px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .card-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #6a6a8a;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        /* ============================================================
+           Turn Indicator
+           ============================================================ */
+        .turn-badge {
+            text-align: center;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+        .turn-badge.white {
+            background: linear-gradient(135deg, #f5f5dc, #e0e0c0);
+            color: #333;
+        }
+        .turn-badge.black {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            color: #ccc;
+            border: 1px solid #444;
+        }
+
+        /* ============================================================
+           Board Area  (ranks · board grid · files)
+           ============================================================ */
+        .board-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .board-outer {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .board-row {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .ranks {
+            display: flex;
+            flex-direction: column;
+            padding: 3px 6px 3px 0;
+        }
+        .ranks span {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #5a5a7a;
+            font-weight: 600;
+        }
+
+        .files {
+            display: flex;
+            padding: 4px 0 0 28px;
+        }
+        .files span {
+            width: 60px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #5a5a7a;
+            font-weight: 600;
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            border: 3px solid #3d3222;
+            border-radius: 2px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        /* ============================================================
+           Squares
+           ============================================================ */
+       .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: default;
+        }
+
+        .square:has(.piece.playable) {
+            cursor: pointer;   
+        }
+
+        .square.light { background-color: #eeeed2; }
+        .square.dark  { background-color: #769656; }
+        
+        /* Hint Highlight */
+        .hint-source {
+            border: 3px solid white;
+            box-shadow:
+            0 0 10px rgba(255,255,255,0.9),
+            0 0 20px rgba(173,216,230,0.8),
+            0 0 30px rgba(173,216,230,0.6);
+            animation: pulseSource 1.2s infinite;
+        }
+        
+        .hint-destination {
+            border: 3px solid gold;
+            box-shadow:
+                0 0 10px rgba(255,215,0,0.9),
+                0 0 20px rgba(255,215,0,0.7);
+            animation: pulseDestination 1.2s infinite;
+        }
+
+        @keyframes pulseSource {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.04);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes pulseDestination {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.03);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Selected piece */
+        .square.selected.light { background-color: #f6f669; }
+        .square.selected.dark  { background-color: #baca2b; }
+
+        /* Last-move highlight */
+        .square.last-move.light { background-color: #f5f682; }
+        .square.last-move.dark  { background-color: #b8cc36; }
+
+        /* Valid-move dot (empty square) */
+        .move-dot {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.18);
+            position: absolute;
+            pointer-events: none;
+        }
+        .square:hover .move-dot { background: rgba(0, 0, 0, 0.3); }
+
+        /* Capture ring (enemy piece) */
+        .capture-ring {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: 5px solid rgba(0, 0, 0, 0.18);
+            position: absolute;
+            pointer-events: none;
+        }
+        .square:hover .capture-ring { border-color: rgba(0, 0, 0, 0.3); }
+
+        #hintBtn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: grayscale(40%);
+        }
+
+        /* ============================================================
+           Pieces
+           ============================================================ */
+        .piece {
+            width: 54px;
+            height: 54px;
+            z-index: 2;
+            pointer-events: none;
+            user-select: none;
+        }
+        .piece.playable { cursor: pointer; }
+        .piece.dragging { opacity: 0.35; }
+
+        /* ============================================================
+           Status Bar
+           ============================================================ */
+        .status-bar {
+            min-height: 22px;
+            text-align: center;
+            font-size: 0.82rem;
+            color: #f0c040;
+            padding: 4px 0;
+        }
+        .status-bar.error { color: #ff6b6b; }
+    </style>
+
+    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+
+    <!-- Vercel Web Analytics -->
+    <script>
+        window.va = window.va || function () { 
+            (window.vaq = window.vaq || []).push(arguments); 
+        };
+    </script>
+
+    <script>
+        (function () {
+            const VALID_THEMES = ['classic', 'dark', 'green', 'blue'];
+            let saved = 'classic';
+            try {
+                 saved = localStorage.getItem('chessBoardTheme') || 'classic'; 
+                }catch (e) { }
+
     <script defer src="/_vercel/speed-insights/script.js"></script>
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
@@ -30,10 +365,42 @@
             const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
             let saved = 'classic';
             try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
+
             if (!VALID_THEMES.includes(saved)) saved = 'classic';
             document.documentElement.setAttribute('data-theme', saved);
         })();
     </script>
+
+    {% comment %} <script defer src="/_vercel/insights/script.js"></script> {% endcomment %}
+
+</head>
+
+
+<body>
+
+    <!-- MOBILE FAB -->
+<div class="m-fab" id="mFab">
+  <button class="m-fab-btn" title="Pause"
+    onclick="document.getElementById('pauseBtn').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="5" y="3" width="4" height="18" rx="1.5"/>
+      <rect x="15" y="3" width="4" height="18" rx="1.5"/>
+    </svg>
+  </button>
+  <button class="m-fab-btn m-fab-resign" title="Resign"
+    onclick="document.getElementById('resignBtn').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4 3h14l-4 4.5 4 4.5H4V3z"/>
+      <line x1="4" y1="21" x2="4" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+
+    <!-- ========== WELCOME MESSAGE ========== -->
+
+    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
+        <div class="promo-dialog" style="min-width: 320px; padding: 35px;">
+
 
 </head>
 
@@ -62,6 +429,7 @@
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
         <div class="promo-dialog">
+
             <div style="margin-bottom: 20px; color:#f0c040;">
                 <a href="/" class="back-btn">← Back to Home</a>
             </div>
@@ -130,10 +498,12 @@
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
                     <button class="btn color-choice active" id="pveWhiteBtn" data-color="white"
                         style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
+
                     <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection" 
                         style="padding: 12px; flex: 1; border: 1px solid #444; background: linear-gradient(to right, #fff 50%, #000 50%); color: #666; transition: all 0.2s; font-weight: 500;">
             🎲 Random
         </button>    
+
                     <button class="btn color-choice" id="pveBlackBtn" data-color="black"
                         style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
                 </div>
@@ -162,10 +532,15 @@
     <div class="header">
         
         <div class="logo-container">
+
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+            <span class="logo-text">Checkora</span>
+
             <a href="{% url 'landing' %}" class="logo-link">
                 <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
                 <span class="logo-text">Checkora</span>
             </a>
+
             <span class="badge" id="modeBadge">PVP</span>
         </div>
         
@@ -198,6 +573,7 @@
                 <div class="card-title">Captured by <span id="blackCapturedName">Black</span></div>
                 <div class="captured-list" id="blackCaptured"></div>
                 <div class="captured-score">Points: <span id="blackPoints">+0</span></div>
+
             </div>
             <div style="margin-top: 10px;">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -215,6 +591,7 @@
                     <button class="emote-btn" data-emote="😮" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
                     <button class="emote-btn" data-emote="🏳️" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
                 </div>
+
             </div>
         </div>
 
@@ -231,10 +608,12 @@
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
                     </span>
                     <span class="time" id="whiteTime">10:00</span>
+
                 </div>
                 <div class="online-status">
                     <span id="status-indicator"></span>
                     <span id="status-text">Online</span>
+
                 </div>
 
                 <div id="blackClock" class="clock black">
@@ -246,6 +625,24 @@
                     <span class="time" id="blackTime">10:00</span>
                 </div>
             </div>
+
+
+
+            <button id="pauseBtn" class="btn btn-gold">Pause</button>
+            <button id="resignBtn" class="btn btn-danger">Resign</button>
+            <button id="hintBtn" class="btn btn-gold">Hint</button>
+            <div class="board-outer">
+                <div class="board-row"><div class="ranks" id="ranksLabels">
+                        <span>8</span><span>7</span><span>6</span><span>5</span>
+                        <span>4</span><span>3</span><span>2</span><span>1</span>
+                    </div>
+                    <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                    <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+                </div>
+                <div class="files" id="filesLabels">
+                    <span>a</span><span>b</span><span>c</span><span>d</span>
+                    <span>e</span><span>f</span><span>g</span><span>h</span>
+
             <div class="board-outer">
                 <div class="board-aligned">
                     <div class="board-row">
@@ -262,6 +659,7 @@
                         <span>a</span><span>b</span><span>c</span><span>d</span>
                         <span>e</span><span>f</span><span>g</span><span>h</span>
                     </div>
+
                 </div>
             </div>
 
@@ -296,16 +694,28 @@
                         aria-pressed="false" type="button"></button>
                     <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
                         aria-pressed="false" type="button"></button>
+
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
+                    Classic · Dark · Green · Blue
+
                     <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme"
                         aria-pressed="false" type="button"></button>
                 </div>
                 <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
                     Classic · Dark · Green · Blue · Pastel
+
                 </div>
             </div>
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
+
+                    <button class="btn btn-gold" id="flipBtn">Flip Board</button>
+                    <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
+                    <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+
 
                     <button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
                    <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
@@ -313,16 +723,28 @@
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
+
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
+
+                    <button class="btn btn-gold" id="drawBtn" style="display: none;">Offer Draw</button>
+                    <button class="btn btn-gold" id="pauseBtnPanel">Pause</button>
+                    <button class="btn" id="resignBtnPanel" style="background: #333; color: #fff;">Resign</button>
+                    <button class="btn btn-gold" style="width: 100%;"
+                        onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+                </div>
+                <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
+                    ⌨️ Shortcuts: <kbd>F</kbd> Flip &nbsp; <kbd>R</kbd> Resign &nbsp; <kbd>D</kbd> Draw
+
                     <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
                     <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+
                 </div>
                 <a href="/" class="btn" 
    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
@@ -349,7 +771,11 @@
             <p id="confirmMessage" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem; letter-spacing: 0.5px;">
                 Your current progress will be lost.<br>Are you sure you want to start a new game?
             </p>
+
+            <div id="confirmTimerContainer" style="margin-bottom: 20px; text-align: left;">
+
             <div id="confirmTimerContainer" style="display: none; margin-bottom: 20px; text-align: left;">
+
                 <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
                 <select id="confirmTimerSelect"
                     style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
@@ -432,26 +858,81 @@
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay">
+
+        <div class="promo-dialog" style="min-width: 320px; padding: 35px; text-align: center;">
+            <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
+                Game Over</div>
+            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
+
         <div class="promo-dialog">
             <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
                 Game Over</div>
             <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
             <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
 
+
+            <div style="margin-bottom: 20px;">
+                <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <label
+                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
+                        <input type="radio" name="go_mode" value="pvp" checked
+                            onchange="document.getElementById('goDifficultyContainer').style.display='none'"> PvP
+                    </label>
+                    <label
+                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
+                        <input type="radio" name="go_mode" value="ai"
+                            onchange="document.getElementById('goDifficultyContainer').style.display='block'"> vs AI
+                    </label>
+                </div>
+
+                <div id="goTimerContainer" style="margin-bottom: 15px; text-align: left;">
+                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
+                    <select id="goTimerSelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
+                        <option value="1">Bullet (1 min)</option>
+                        <option value="3">Blitz (3 min)</option>
+                        <option value="5">Blitz (5 min)</option>
+                        <option value="10" selected>Rapid (10 min)</option>
+                    </select>
+                </div>
+
+                <div id="goDifficultyContainer" style="display: none; margin-bottom: 15px;">
+                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">AI
+                        Difficulty</label>
+                    <select id="goDifficultySelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+
+
             <div style="display: flex; flex-direction: column; gap: 12px;">
+
+                <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New
+                    Game</button>
+
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
                 <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
                <a href="{% url 'landing' %}" class="btn" id="gameOverExitBtn"
    style="padding: 12px; font-size: 1rem; margin-top: 10px; background: #333; color: #fff; cursor: pointer; text-align: center; text-decoration: none; display: block;">
     Exit to Home
 </a>
+
             </div>
         </div>
     </div>
 
     <!-- ========== SIDE SELECTION MODAL ========== -->
     <div class="promo-overlay" id="sideModal" style="display: none;">
+
+        <div class="promo-dialog" style="min-width: 300px; padding: 35px; text-align: center;">
+
         <div class="promo-dialog">
+
             <div class="promo-title" style="font-size: 1.4rem; color: #f0c040; margin-bottom: 10px;">Choose Your Side
             </div>
             <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">Which color do you want to play?</p>
@@ -467,6 +948,7 @@
                 <button class="btn btn-gold" id="chooseRandom" style="padding: 12px; font-size: 1rem;">
                     Random
                 </button>
+
             </div>
         </div>
     </div>
@@ -514,6 +996,7 @@
             <div style="display:flex; gap:10px;">
                 <button type="button" id="copyTextBtn" class="btn btn-gold" style="padding:10px; flex:1;">📋 Copy Text</button>
                 <button type="button" id="copyLinkBtn" class="btn btn-gold" style="padding:10px; flex:1;">🔗 Copy Link</button>
+
             </div>
             <button type="button" id="whatsappBtn" style="padding:10px; border-radius:8px; background:#25D366; color:#fff; border:none; font-size:0.95rem; cursor:pointer; font-weight:bold;">💬 Share on WhatsApp</button>
             <button type="button" id="closeShareBtn" class="btn" style="padding:10px; background:#333; color:#fff;">Close</button>
@@ -521,9 +1004,29 @@
     </div>
 </div>
 
+    <!-- RULEBOOK MODAL -->
+    <div id="rulebookModal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        <div
+            style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
+            <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
+                style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
+            <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
+        </div>
+    </div>
     <!-- ========================================================
          JAVASCRIPT
          ======================================================== -->
+
+
+    <!-- Game logic is loaded from external board.js file -->
+    
+    <script src="{% static 'game/js/board.js' %}"></script>
+
+</body>
+
+</html>
+
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
@@ -589,3 +1092,4 @@ ${message}
 
 
 </html>
+

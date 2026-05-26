@@ -1,13 +1,18 @@
 from django import forms
+
+from django.contrib.auth.forms import UserCreationForm
+
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
+
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
+
 
 
 class CustomSetPasswordForm(SetPasswordForm):
@@ -53,3 +58,4 @@ class CustomPasswordResetForm(PasswordResetForm):
                 html_email_template_name)
         except Exception:
             raise ValidationError("Failed to send password reset email. Please check your email configuration and try again.")
+
