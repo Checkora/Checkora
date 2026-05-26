@@ -2684,7 +2684,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 }
             }, { passive: false });
 
-            boardEl.addEventListener('touchend', (e) => {
+            boardEl.addEventListener('touchend', async (e) => {
                 if (!touchDragSrc) return;
 
                 const touch = e.changedTouches[0];
