@@ -14,10 +14,16 @@
       <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 </head>
   <body>
-       <!-- Back-to-home arrow -->
-       <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
+    <!-- Upgraded Back-to-home Button -->
+    <a href="{% url 'landing' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+             <line x1="19" y1="12" x2="5" y2="12"></line>
+             <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Back to Home</span>
+    </a>
 
-       <div class="header">
+    <div class="header">
            <div class="logo-container">
                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
                <span class="logo-text">Checkora</span>
@@ -58,5 +64,57 @@
 
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>
+    <script>
+        const usernameInput = document.querySelector('#id_username');
+        const checkUsernameUrl = "{% url 'check_username' %}";
+
+        if (usernameInput) {
+            let debounceTimer;
+            let latestVal = '';
+            const feedback = document.createElement('span');
+
+            feedback.className = 'helptext';
+            usernameInput.parentNode.appendChild(feedback);
+
+            usernameInput.addEventListener('input', () => { 
+                clearTimeout(debounceTimer);
+                const val = usernameInput.value.trim();
+                latestVal = val;  
+
+                if (!val) {
+                    feedback.textContent = '';
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    if (val !== latestVal) return;  
+
+                    try {  
+                        const res = await fetch(
+                        `${checkUsernameUrl}?username=${encodeURIComponent(val)}`
+                        );
+
+                        if (!res.ok) throw new Error('Request failed');
+
+                        const data = await res.json();
+
+                        if (val !== latestVal) return;  
+
+                        feedback.textContent = data.available
+                        ? '✔ Username available'
+                        : '✖ Username already taken';
+
+                         feedback.style.color = data.available
+                        ? '#e5b639'
+                        : '#e57373';
+
+                    } catch (err) {
+                        feedback.textContent = '⚠ Could not check username';
+                        feedback.style.color = '#aaa';
+                    }
+                }, 400);
+            });
+        }
+    </script>
 </body>
 </html>
