@@ -2684,15 +2684,21 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 }
             }, { passive: false });
 
+    
             boardEl.addEventListener('touchend', async (e) => {
-                if (!touchDragSrc) return;
+                const srcSquare = touchDragSrc;
+                const wasDragging = touchDragging;
+                const startPos = touchStartPos;
+                const pieceClone = activeTouchPieceClone;
+
+                if (!srcSquare) return;
 
                 const touch = e.changedTouches[0];
                 let movedToSquare = false;
 
-                if (touchDragging) {
+                if (wasDragging)  {
                     // Clean up original piece transparency
-                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const srcSquareEl = sq(srcSquare.r, srcSquare.c);
                     const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
                     if (pieceImg) {
                         pieceImg.classList.remove('touch-dragging-original');
@@ -2711,8 +2717,8 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                         const tr = parseInt(destSquareEl.dataset.r);
                         const tc = parseInt(destSquareEl.dataset.c);
                         await tryMove(
-                            touchDragSrc.r,
-                            touchDragSrc.c,
+                            srcSquare.r,
+                            srcSquare.c,
                             tr,
                             tc
                     );
@@ -2729,7 +2735,8 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     e.preventDefault();
                 } else {
                     // Quick tap -> trigger default click/tap behavior
-                    onClick(touchDragSrc.r, touchDragSrc.c);
+                    onClick(srcSquare.r, srcSquare.c);
+                    
                 }
 
                 // Reset state
