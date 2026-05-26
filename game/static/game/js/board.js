@@ -2735,7 +2735,8 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     e.preventDefault();
                 } else {
                     // Quick tap -> trigger default click/tap behavior
-                    onClick(srcSquare.r, srcSquare.c);
+                    await onClick(srcSquare.r, srcSquare.c);
+                    e.preventDefault();
                     
                 }
 
