@@ -195,6 +195,7 @@
 
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
+            let wasPaused = false;
             const drawOverlay = document.getElementById('drawOverlay');
             const drawMessage = document.getElementById('drawMessage');
             const drawAcceptBtn = document.getElementById('drawAcceptBtn');
@@ -2161,7 +2162,7 @@
             if (confirmNoBtn) confirmNoBtn.onclick = () => {
                 confirmOverlay.classList.remove('active');
 
-                if (paused) {
+                if (wasPaused) {
                     boardEl.classList.add('paused');
                 }
 
