@@ -221,6 +221,37 @@ class RegistrationViewTest(TestCase):
             self.client.session['registration_user_id'],
         )
 
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
+    )
+    def test_invalid_pending_retry_keeps_existing_user_and_form_errors(self):
+        payload = {
+            'username': 'pendingplayer',
+            'email': 'pendingplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        with mock.patch('builtins.print'):
+            self.client.post('/register/', data=payload)
+        first_user_id = self.client.session['registration_user_id']
+
+        invalid_payload = {
+            **payload,
+            'password2': 'DifferentPass123!',
+        }
+        response = self.client.post('/register/', data=invalid_payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The two password fields didn")
+        self.assertTrue(User.objects.filter(id=first_user_id).exists())
+        self.assertEqual(
+            self.client.session['registration_user_id'],
+            first_user_id,
+        )
+
 
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
@@ -1210,12 +1241,15 @@ class CheckUsernameViewTest(TestCase):
         self.assertJSONEqual(response.content, {'available': False})
 
     def test_inactive_unverified_username_available(self):
-        """Unverified pending signups should not reserve usernames."""
-        User.objects.create_user(
+        """This session's pending signup should not reserve its username."""
+        pending_user = User.objects.create_user(
             username='pendinguser',
             password='testpass123',
             is_active=False,
         )
+        session = self.client.session
+        session['registration_user_id'] = pending_user.id
+        session.save()
 
         response = self.client.get(
             reverse('check_username'),
@@ -1224,6 +1258,22 @@ class CheckUsernameViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {'available': True})
+
+    def test_inactive_non_pending_username_taken(self):
+        """Inactive users should still reserve usernames without session ownership."""
+        User.objects.create_user(
+            username='inactiveuser',
+            password='testpass123',
+            is_active=False,
+        )
+
+        response = self.client.get(
+            reverse('check_username'),
+            {'username': 'inactiveuser'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'available': False})
 
     def test_missing_username_param(self):
         """Should return 400 when no username param is provided."""

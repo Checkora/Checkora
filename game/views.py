@@ -14,7 +14,6 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
-from django.db import models
 from django.core.mail import (
     BadHeaderError, 
     send_mail,
@@ -497,10 +496,11 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(
-        username__iexact=username,
-        is_active=True,
-    ).exists()
+    users = User.objects.filter(username__iexact=username)
+    pending_user_id = request.session.get('registration_user_id')
+    if pending_user_id:
+        users = users.exclude(id=pending_user_id, is_active=False)
+    exists = users.exists()
     return JsonResponse({'available': not exists})
 
 
@@ -511,23 +511,25 @@ def register_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
-        
-    # Cleanup old unverified accounts BEFORE validation
-    username = request.POST.get('username')
-    email = request.POST.get('email')
 
-    if username or email:
-        User.objects.filter(
-            is_active=False
-        ).filter(
-            models.Q(username=username) | models.Q(email=email)
-        ).delete()
+        if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
+            username = request.POST.get('username', '').strip()
+            email = request.POST.get('email', '').strip()
+            pending_user_id = request.session.get('registration_user_id')
+            pending_user = User.objects.filter(
+                id=pending_user_id,
+                is_active=False,
+            ).first()
 
-    # Now validate form again
-    form = CustomUserCreationForm(request.POST)
-    is_valid = form.is_valid()
+            if pending_user and (
+                pending_user.username.lower() == username.lower() or
+                pending_user.email.lower() == email.lower()
+            ):
+                pending_user.delete()
+                form = CustomUserCreationForm(request.POST)
+                is_valid = form.is_valid()
 
-    if is_valid:
+        if is_valid:
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
