@@ -89,6 +89,7 @@ class LandingViewTest(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
+        self.assertContains(response, 'capability-card--orphan')
 
     def test_landing_page_links_to_play(self):
         response = self.client.get('/')
