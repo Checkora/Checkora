@@ -630,6 +630,11 @@ def verify_otp(request):
 
         if otp_created_at:
             if time.time() - otp_created_at > 300:
+                try:
+                    pending_user = User.objects.get(id=user_id, is_active=False)
+                    pending_user.delete()
+                except User.DoesNotExist:
+                    pass
 
                 messages.error(
                     request,
@@ -756,6 +761,7 @@ def resend_otp(request):
     ).hexdigest()
 
     request.session['registration_otp_hash'] = otp_hash
+    request.session['otp_created_at'] = time.time()
 
     try:
         send_mail(
@@ -980,5 +986,3 @@ def password_reset_account_selection(request):
             'email': email
         }
     )
-
-    

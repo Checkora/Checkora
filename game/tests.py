@@ -182,6 +182,56 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
+    def test_expired_otp_removes_pending_inactive_user(self):
+        user = User.objects.create_user(
+            username='pendingplayer',
+            email='pendingplayer@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = 'stored-hash'
+        session['otp_created_at'] = 100.0
+        session.save()
+
+        with mock.patch('game.views.time.time', return_value=401.0):
+            response = self.client.post('/verify-otp/', data={'otp': '123456'})
+
+        self.assertRedirects(response, '/register/')
+        self.assertFalse(User.objects.filter(id=user.id).exists())
+        self.assertNotIn('registration_user_id', self.client.session)
+        self.assertNotIn('registration_otp_hash', self.client.session)
+        self.assertNotIn('otp_created_at', self.client.session)
+
+    @override_settings(
+        EMAIL_HOST_USER='sender@example.com',
+        EMAIL_HOST_PASSWORD='app-password'
+    )
+    def test_resend_otp_refreshes_expiry_window(self):
+        user = User.objects.create_user(
+            username='resendplayer',
+            email='resendplayer@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = 'old-hash'
+        session['otp_created_at'] = 100.0
+        session.save()
+
+        with (
+            mock.patch('game.views.send_mail'),
+            mock.patch('game.views.time.time', return_value=200.0),
+        ):
+            response = self.client.get('/resend-otp/')
+
+        self.assertRedirects(response, '/verify-otp/')
+        self.assertEqual(self.client.session['otp_created_at'], 200.0)
+        self.assertEqual(self.client.session['last_otp_time'], 200.0)
+        self.assertNotEqual(self.client.session['registration_otp_hash'], 'old-hash')
+
 
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
