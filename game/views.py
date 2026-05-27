@@ -9,8 +9,20 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
+from django.urls import reverse
+from django.utils.http import (
+    urlsafe_base64_encode,
+    urlsafe_base64_decode
+)
+
+from django.utils.encoding import (
+    force_bytes,
+    force_str
+)
+
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
@@ -1038,4 +1050,108 @@ def password_reset_account_selection(request):
         }
     )
 
+
+@login_required
+def delete_account(request):
+
+    if request.method == 'POST':
+
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user = authenticate(
+            username=username,
+            password=password
+        )
+
+        if user and user == request.user:
+
+            uid = urlsafe_base64_encode(
+                force_bytes(user.pk)
+            )
+
+            token = default_token_generator.make_token(user)
+            delete_link = request.build_absolute_uri(
+                reverse(
+                    'confirm_delete_account',
+                    kwargs={
+                        'uidb64': uid,
+                        'token': token
+                    }
+                )
+            )
+
+            try:
+
+                send_mail(
+                    subject='Confirm Account Deletion',
+                    message=f"""
+Click the link below to permanently delete your account:
+
+{delete_link}
+
+If this wasn't you, ignore this email.
+""",
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+
+                messages.success(
+                    request,
+                    'Confirmation email sent to your registered email.'
+                )
+
+            except Exception:
+                messages.error(
+                    request,
+                    'Failed to send confirmation email.'
+                )
+
+            return redirect('index')
+
+        messages.error(
+            request,
+            'Invalid username or password.'
+        )
+
+    return render(
+        request,
+        'game/delete_account.html'
+    )
     
+
+def confirm_delete_account(request, uidb64, token):
+
+    try:
+
+        uid = force_str(
+            urlsafe_base64_decode(uidb64)
+        )
+
+        user = User.objects.get(pk=uid)
+
+    except Exception:
+
+        user = None
+
+    if user and default_token_generator.check_token(
+        user,
+        token
+    ):
+
+        logout(request)
+
+        user.delete()
+
+        return render(
+            request,
+            'game/delete_success.html'
+        )
+
+    messages.error(
+        request,
+        'Invalid or expired deletion link.'
+    )
+
+    return redirect('landing')
