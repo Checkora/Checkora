@@ -4,6 +4,7 @@ import json
 import time
 import hashlib
 import secrets
+import re
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -492,6 +493,76 @@ def register_view(request):
         form = CustomUserCreationForm()
 
     return render(request, 'game/register.html', {'form': form})
+
+
+def check_username(request):
+    """Check username availability and provide suggestions."""
+    username = request.GET.get("username", "").strip()
+    
+    if not username:
+        return JsonResponse({
+            "available": False,
+            "message": "Username is required."
+        })
+    
+    # Check length
+    if len(username) < 3:
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Username must be at least 3 characters."
+        })
+    
+    if len(username) > 150:
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Username must be 150 characters or fewer."
+        })
+    
+    # Check valid characters (letters, digits, @/./+/-/_)
+    pattern = r'^[\w.@+-]+$'
+    if not re.match(pattern, username):
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Only letters, digits, and @/./+/-/_ are allowed."
+        })
+    
+    # Check if username exists (case insensitive)
+    exists = User.objects.filter(username__iexact=username).exists()
+    
+    if exists:
+        # Generate suggestions
+        suggestions = []
+        # Clean the base username (remove special chars for suggestions)
+        base_username = re.sub(r'[^a-zA-Z0-9]', '', username)[:20]
+        
+        if base_username:
+            for i in range(1, 5):
+                suggestion = f"{base_username}{i}"
+                if not User.objects.filter(username__iexact=suggestion).exists():
+                    suggestions.append(suggestion)
+                    if len(suggestions) >= 3:
+                        break
+        
+        # Add underscore suggestions if needed
+        if len(suggestions) < 3:
+            import random
+            while len(suggestions) < 3:
+                suffix = random.randint(10, 999)
+                suggestion = f"{base_username}_{suffix}" if base_username else f"user_{suffix}"
+                if not User.objects.filter(username__iexact=suggestion).exists():
+                    suggestions.append(suggestion)
+        
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Username already taken.",
+            "suggestions": suggestions
+        })
+    
+    return JsonResponse({
+        "available": True,
+        "message": "✅ Username is available!",
+        "suggestions": []
+    })
 
 
 def verify_otp(request):
