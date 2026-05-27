@@ -1,9 +1,11 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
 import json
+import os
 import sys
 from smtplib import SMTPException
 from unittest import mock
+from django.core.exceptions import ImproperlyConfigured
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -112,6 +114,33 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'This move is illegal!', status_code=404)
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
+
+
+class SettingsSecurityTest(SimpleTestCase):
+    """Security-sensitive settings helpers should guard production defaults."""
+
+    def test_get_secret_key_allows_dev_fallback_when_debug_enabled(self):
+        from core.settings import DEFAULT_SECRET_KEY, get_secret_key
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(get_secret_key(True), DEFAULT_SECRET_KEY)
+
+    def test_get_secret_key_requires_non_default_value_when_debug_disabled(self):
+        from core.settings import get_secret_key
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ImproperlyConfigured):
+                get_secret_key(False)
+
+    def test_get_secret_key_uses_explicit_env_value_when_debug_disabled(self):
+        from core.settings import get_secret_key
+
+        with mock.patch.dict(
+            os.environ,
+            {'SECRET_KEY': 'prod-secret-key'},
+            clear=True,
+        ):
+            self.assertEqual(get_secret_key(False), 'prod-secret-key')
 
 
 class ServerErrorPageTest(SimpleTestCase):

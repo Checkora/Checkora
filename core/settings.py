@@ -14,6 +14,7 @@ import os
 import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,16 +22,37 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from .env file
 load_dotenv(BASE_DIR / '.env')
 
+DEFAULT_SECRET_KEY = 'django-insecure-dev-key-for-local-testing'
+
+
+def env_bool(name, default=False):
+    """Parse boolean environment variables with explicit fallbacks."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def get_secret_key(debug_enabled):
+    """Allow the local dev fallback only while debug mode is enabled."""
+    secret_key = os.environ.get('SECRET_KEY', DEFAULT_SECRET_KEY)
+    if not debug_enabled and secret_key == DEFAULT_SECRET_KEY:
+        raise ImproperlyConfigured(
+            'SECRET_KEY must be set to a non-default value when DEBUG is false.'
+        )
+    return secret_key
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-testing')
+DEBUG = env_bool('DEBUG', True)
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = get_secret_key(DEBUG)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
-
 ALLOWED_HOSTS = ['.vercel.app', '*']
 
 
