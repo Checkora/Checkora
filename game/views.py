@@ -293,10 +293,14 @@ def set_pause(request):
     if not game_data:
         return JsonResponse({'paused': False})
 
-    data = json.loads(request.body or '{}')
-    pause = not game.paused  # toggle server-side state, ignore client value
+    # Validate JSON body, but ignore any client-supplied values
+    try:
+        json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
 
-    game = ChessGame.from_dict(game_data)
+    game = ChessGame.from_dict(game_data)  # ✅ assigned FIRST
+    pause = not game.paused                # ✅ now safe to use game
 
     # Only deduct elapsed time when transitioning from running to paused.
     if pause and not game.paused:
