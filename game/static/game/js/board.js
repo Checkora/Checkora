@@ -2924,5 +2924,13 @@ if (blackNameInput) {
 
             // Call picker init immediately
             initTimeControlPicker();
+            // Resume game by clicking the paused board overlay
+            boardEl.addEventListener('click', async () => {
+                if (!paused) return;
+                if (drawOverlay.classList.contains('active')) return;
+                if (confirmOverlay.classList.contains('active')) return;
+                if (gameOverOverlay.classList.contains('active')) return;
+                await resumeGame();
+            });
 
 })();
