@@ -69,8 +69,9 @@ class CustomPasswordResetForm(PasswordResetForm):
                 from_email,
                 to_email,
                 html_email_template_name)
-        except Exception:
+        except SMTPException as err:
             raise ValidationError(
-                'Failed to send password reset email. '
-                'Please check your email configuration and try again.'
-            )
+                "Failed to send password reset email. "
+                "Please check your email configuration and try again."
+            ) from err
+
