@@ -527,11 +527,16 @@
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
-        <div class="promo-dialog">
-            <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
-                Game Over</div>
-            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
-            <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
+        <div class="promo-dialog premium-result-dialog">
+            <div class="result-modal-columns">
+                <!-- Left Column: Banner, Illustration & Buttons -->
+                <div class="result-column-left">
+                    <!-- Dynamic Result Banner -->
+                    <div id="gameOverBanner" class="result-banner">
+                        <span class="banner-icon" id="bannerIcon">🏆</span>
+                        <div class="promo-title" id="gameOverTitle" style="font-size: 1.6rem; margin-bottom: 2px;">Game Over</div>
+                        <div class="banner-subtitle" id="gameOverMessage">Victory!</div>
+                    </div>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>

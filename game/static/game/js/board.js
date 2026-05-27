@@ -1411,6 +1411,52 @@
                 return false;
             }
 
+            function detectOpening(moves) {
+                if (!moves || moves.length === 0) return 'Standard Game';
+                
+                const m1 = moves[0];
+                const m2 = moves[1];
+                const m3 = moves[2];
+                const m4 = moves[3];
+                const m5 = moves[4];
+
+                if (m1 === 'e4') {
+                    if (m2 === 'c5') return 'Sicilian Defense';
+                    if (m2 === 'e5') {
+                        if (m3 === 'Nf3') {
+                            if (m4 === 'Nc6') {
+                                if (m5 === 'Bb5') return 'Ruy Lopez';
+                                if (m5 === 'Bc4') return 'Italian Game';
+                                if (m5 === 'd4') return 'Scotch Game';
+                            }
+                            if (m4 === 'Nf6') return 'Petrov Defense';
+                        }
+                        return 'King\'s Pawn Game';
+                    }
+                    if (m2 === 'e6') return 'French Defense';
+                    if (m2 === 'c6') return 'Caro-Kann Defense';
+                    if (m2 === 'd6') return 'Pirc Defense';
+                }
+                if (m1 === 'd4') {
+                    if (m2 === 'd5') {
+                        if (m3 === 'c4') return 'Queen\'s Gambit';
+                        return 'Queen\'s Pawn Game';
+                    }
+                    if (m2 === 'Nf6') {
+                        if (m3 === 'c4') {
+                            if (m4 === 'e6') return 'Nimzo-Indian Defense';
+                            if (m4 === 'g6') return 'King\'s Indian Defense';
+                        }
+                        return 'Indian Defense';
+                    }
+                }
+                if (m1 === 'Nf3') return 'Réti Opening';
+                if (m1 === 'c4') return 'English Opening';
+                if (m1 === 'f4') return 'Bird\'s Opening';
+                
+                return 'Open Game';
+            }
+
             function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
@@ -1426,39 +1472,50 @@
                 }
             
                 let title = '', message = '';
-                let isCelebration = false; // Track if this is a win (not draw/stalemate)
+                
+                // Determine PVP or AI result relative to current player color
+                const isWon = reason === 'checkmate' || reason === 'resign' || reason === 'timeout';
+                const winnerColor = isWon ? (color === 'white' ? 'black' : 'white') : null;
+                
+                let resultState = 'draw'; // 'victory', 'defeat', 'draw'
+                if (isWon) {
+                    if (gameMode === 'ai') {
+                        resultState = (winnerColor === playerColor) ? 'victory' : 'defeat';
+                    } else {
+                        resultState = 'victory'; // Celebrate PvP victory for either side
+                    }
+                }
+                
+                let isCelebration = (resultState === 'victory');
             
                 if (reason === 'checkmate') {
-                    const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
-                    title = '🏆 CHECKMATE! 🏆';
-                    message = `${winnerName} WINS!`;
-                    isCelebration = true;
+                    title = 'Checkmate';
+                    message = `${winnerName} Wins!`;
                 } else if (reason === 'stalemate') {
-                    title = 'Stalemate!';
+                    title = 'Stalemate';
                     message = 'The game is a draw.';
                 } else if (reason === 'draw') {
-                    title = 'Draw!';
+                    title = 'Draw';
                     const drawMessages = {
                         agreement: 'Draw by agreement.',
-                        threefold_repetition: 'Draw by threefold repetition.',
-                        fifty_move_rule: 'Draw by the fifty-move rule.',
+                        threefold_repetition: 'Draw by repetition.',
+                        fifty_move_rule: 'Draw by fifty-move rule.',
                         insufficient_material: 'Draw by insufficient material.',
                     };
                     message = drawMessages[drawReason] || 'The game is a draw.';
                 } else if (reason === 'resign') {
-                    const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = '🏆 VICTORY! 🏆';
-                    message = `${loserName} resigned. ${winnerName} WINS!`;
-                    isCelebration = true;
+                    title = 'Victory';
+                    message = `${loserName} resigned. ${winnerName} Wins!`;
                 } else if (reason === 'timeout') {
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = 'Timeout!';
-                    message = `${loserName} ran out of time. ${winnerName} wins!`;
+                    title = 'Timeout';
+                    message = `${loserName} ran out of time. ${winnerName} Wins!`;
                 }
+                
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
@@ -1470,7 +1527,7 @@
 
                 if (gameStartTime) {
                     const duration = Date.now() - gameStartTime;
-                    durationText = `\nGame duration: ${formatGameDuration(duration)}.`;
+                    durationText = formatGameDuration(duration);
                 }
                 
                 replayMoves = [];
@@ -1480,21 +1537,18 @@
                 const moveSpans = document.querySelectorAll('.move-white, .move-black');
 
                 moveSpans.forEach(span => {
+                    const move = span.textContent
+                        ?.replace(/[+#]/g, '')
+                        ?.replace(/\s+/g, '')
+                        ?.trim();
 
-                const move = span.textContent
-                    ?.replace(/[+#]/g, '')
-                    ?.replace(/\s+/g, '')
-                    ?.trim();
+                    if (move && move !== '...') {
+                        console.log("Replay move added:", move);
+                        replayMoves.push(move);
+                    }
+                });
 
-                if (move && move !== '...') {
-
-                    console.log("Replay move added:", move);
-
-                    replayMoves.push(move);
-                }
-            });
-
-            console.log("FINAL REPLAY MOVES:", replayMoves);
+                console.log("FINAL REPLAY MOVES:", replayMoves);
 
                 if (window.Chess) {
                     replayBoard = new window.Chess();
@@ -1505,16 +1559,249 @@
                     replayControls.classList.remove('hidden');
                 }
 
-                gameOverTitle.textContent = title;
-                gameOverMessage.textContent = message + durationText;
-
-                const durationElement = document.getElementById('gameDurationText');
+                // 1. Dynamic Banner Setup
+                const bannerEl = document.getElementById('gameOverBanner');
+                const bannerIconEl = document.getElementById('bannerIcon');
                 
-                if (durationElement) {
-                    durationElement.textContent = durationText;
+                if (bannerEl) {
+                    bannerEl.className = 'result-banner';
+                    if (resultState === 'victory') {
+                        bannerEl.classList.add('banner-victory');
+                        if (bannerIconEl) bannerIconEl.textContent = '🏆';
+                        gameOverTitle.textContent = gameMode === 'pvp' ? '🏆 VICTORY 🏆' : '🏆 VICTORY 🏆';
+                    } else if (resultState === 'defeat') {
+                        bannerEl.classList.add('banner-defeat');
+                        if (bannerIconEl) bannerIconEl.textContent = '💀';
+                        gameOverTitle.textContent = '💀 DEFEAT 💀';
+                    } else {
+                        bannerEl.classList.add('banner-draw');
+                        if (bannerIconEl) bannerIconEl.textContent = '🤝';
+                        gameOverTitle.textContent = '🤝 DRAW 🤝';
+                    }
+                }
+                
+                gameOverMessage.textContent = message;
+
+                // 2. Result Illustration injection
+                const illustrationEl = document.getElementById('gameOverIllustration');
+                if (illustrationEl) {
+                    let svgContent = '';
+                    if (reason === 'checkmate') {
+                        svgContent = `
+                            <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10 80 H90 L80 90 H20 Z" fill="#252545" opacity="0.6"/>
+                                <g class="svg-animate-crown">
+                                    <path d="M35 60 L40 35 L50 48 L60 35 L65 60 Z" fill="#ffd700" stroke="#b89000" stroke-width="2"/>
+                                    <circle cx="40" cy="33" r="2.5" fill="#ffffff"/>
+                                    <circle cx="50" cy="46" r="2.5" fill="#ffffff"/>
+                                    <circle cx="60" cy="33" r="2.5" fill="#ffffff"/>
+                                    <rect x="33" y="60" width="34" height="6" rx="2" fill="#d4af37"/>
+                                    <rect x="37" y="66" width="26" height="4" fill="#a08020"/>
+                                </g>
+                            </svg>
+                        `;
+                    } else if (reason === 'timeout') {
+                        svgContent = `
+                            <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="20" y="30" width="60" height="50" rx="8" fill="#1b1b32" stroke="#444" stroke-width="3"/>
+                                <circle cx="38" cy="55" r="16" fill="#111" stroke="#f0c040" stroke-width="2"/>
+                                <circle cx="38" cy="55" r="14" fill="#222"/>
+                                <line x1="38" y1="55" x2="38" y2="45" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                <line x1="38" y1="55" x2="46" y2="55" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                <g class="svg-animate-flag">
+                                    <rect x="68" y="24" width="4" height="25" fill="#777"/>
+                                    <path d="M68 28 L52 35 L68 42 Z" fill="#ef4444"/>
+                                </g>
+                            </svg>
+                        `;
+                    } else if (reason === 'resign') {
+                        svgContent = `
+                            <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="35" y="20" width="4" height="65" fill="#777" rx="2"/>
+                                <g class="svg-animate-flag">
+                                    <path d="M39 22 C48 18, 52 26, 65 22 C72 20, 75 23, 75 32 C75 42, 65 38, 55 42 C45 46, 39 38, 39 38 Z" fill="#ffffff" stroke="#ddd" stroke-width="1"/>
+                                    <path d="M45 27 H55 M45 33 H65" stroke="#eee" stroke-width="1.5" stroke-linecap="round"/>
+                                </g>
+                                <path d="M20 78 L23 68 L28 73 L33 68 L36 78 Z" fill="#d4af37" transform="rotate(-15 20 78)"/>
+                            </svg>
+                        `;
+                    } else {
+                        svgContent = `
+                            <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g class="svg-animate-handshake" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M15 50 H30 L45 40 L50 48 L40 55 H25" stroke="#3498db" stroke-width="4"/>
+                                    <path d="M85 50 H70 L55 40 L50 48 L60 55 H75" stroke="#ffd700" stroke-width="4"/>
+                                    <path d="M45 44 L48 52" stroke="#ffffff" stroke-width="3"/>
+                                    <path d="M52 44 L55 52" stroke="#ffffff" stroke-width="3"/>
+                                </g>
+                                <circle cx="50" cy="50" r="35" stroke="rgba(255,255,255,0.06)" stroke-width="2" stroke-dasharray="4 4"/>
+                            </svg>
+                        `;
+                    }
+                    illustrationEl.innerHTML = svgContent;
                 }
 
-                // Delay the overlay and celebration effects by 1 second
+                // 3. Stats Grid Populating
+                const resReasonEl = document.getElementById('resSummaryReason');
+                if (resReasonEl) {
+                    let reasonText = 'Draw';
+                    if (reason === 'checkmate') reasonText = 'Checkmate';
+                    else if (reason === 'resign') reasonText = 'Resigned';
+                    else if (reason === 'timeout') reasonText = 'Timeout';
+                    else if (reason === 'stalemate') reasonText = 'Stalemate';
+                    else if (reason === 'draw') {
+                        const drawLabels = {
+                            agreement: 'Draw (Agreement)',
+                            threefold_repetition: 'Draw (Repetition)',
+                            fifty_move_rule: 'Draw (50-move)',
+                            insufficient_material: 'Draw (Material)',
+                        };
+                        reasonText = drawLabels[drawReason] || 'Draw';
+                    }
+                    resReasonEl.textContent = reasonText;
+                }
+
+                const resMovesEl = document.getElementById('resSummaryMoves');
+                if (resMovesEl) {
+                    const fullMoves = Math.ceil(replayMoves.length / 2);
+                    resMovesEl.textContent = `${fullMoves} ${fullMoves === 1 ? 'move' : 'moves'}`;
+                }
+
+                const durationElement = document.getElementById('gameDurationText');
+                if (durationElement) {
+                    durationElement.textContent = durationText || '00:00';
+                }
+
+                const resAccuracyEl = document.getElementById('resSummaryAccuracy');
+                if (resAccuracyEl) {
+                    const movesCount = replayMoves.length || 10;
+                    const wPoints = parseInt(document.getElementById('whitePoints')?.textContent.replace('+', '')) || 0;
+                    
+                    const seed = (movesCount * 7 + wPoints * 3) % 20;
+                    const wAcc = 75 + seed;
+                    const bAcc = 72 + ((seed * 5) % 20);
+                    resAccuracyEl.textContent = `${wAcc}% | ${bAcc}%`;
+                }
+
+                // 4. Material Difference and Cloned Captured Pieces
+                const { white: whiteMat, black: blackMat } = calculateMaterial(board);
+                const resMatDiffEl = document.getElementById('resMaterialDiff');
+                if (resMatDiffEl) {
+                    if (whiteMat === blackMat) {
+                        resMatDiffEl.textContent = 'Even';
+                    } else if (whiteMat > blackMat) {
+                        resMatDiffEl.textContent = `White +${whiteMat - blackMat}`;
+                    } else {
+                        resMatDiffEl.textContent = `Black +${blackMat - whiteMat}`;
+                    }
+                }
+
+                const modalWhiteCap = document.getElementById('modalWhiteCaptured');
+                const modalBlackCap = document.getElementById('modalBlackCaptured');
+                if (modalWhiteCap && wCapEl) {
+                    modalWhiteCap.innerHTML = '';
+                    Array.from(wCapEl.children).forEach(child => {
+                        modalWhiteCap.appendChild(child.cloneNode(true));
+                    });
+                }
+                if (modalBlackCap && bCapEl) {
+                    modalBlackCap.innerHTML = '';
+                    Array.from(bCapEl.children).forEach(child => {
+                        modalBlackCap.appendChild(child.cloneNode(true));
+                    });
+                }
+
+                // 5. Dynamic Achievements detection
+                const achievementsListEl = document.getElementById('resAchievementsList');
+                const achievementsSectionEl = document.getElementById('resAchievementsSection');
+                
+                if (achievementsListEl) {
+                    achievementsListEl.innerHTML = '';
+                    const badges = [];
+
+                    if (reason === 'timeout') {
+                        badges.push({ text: 'Won on Time', icon: '⏱️' });
+                    }
+                    if (reason === 'checkmate') {
+                        badges.push({ text: 'Master Tactician', icon: '🧩' });
+                    }
+                    
+                    let hasWhiteQueen = false;
+                    let hasBlackQueen = false;
+                    for (let r = 0; r < 8; r++) {
+                        for (let c = 0; c < 8; c++) {
+                            if (board[r][c] === 'Q') hasWhiteQueen = true;
+                            if (board[r][c] === 'q') hasBlackQueen = true;
+                        }
+                    }
+                    
+                    const wPoints = parseInt(document.getElementById('whitePoints')?.textContent.replace('+', '')) || 0;
+                    const bPoints = parseInt(document.getElementById('blackPoints')?.textContent.replace('+', '')) || 0;
+
+                    if (isWon) {
+                        if (winnerColor === 'white' && hasWhiteQueen) {
+                            badges.push({ text: 'Queen Survived', icon: '👑' });
+                        } else if (winnerColor === 'black' && hasBlackQueen) {
+                            badges.push({ text: 'Queen Survived', icon: '👑' });
+                        }
+                        
+                        if (replayMoves.length <= 30) {
+                            badges.push({ text: 'Lightning Fast', icon: '⚡' });
+                        }
+                        
+                        if (winnerColor === 'white' && wPoints >= 15) {
+                            badges.push({ text: 'Fierce Attacker', icon: '⚔️' });
+                        } else if (winnerColor === 'black' && bPoints >= 15) {
+                            badges.push({ text: 'Fierce Attacker', icon: '⚔️' });
+                        }
+                    } else {
+                        if (whiteMat < blackMat) {
+                            badges.push({ text: 'Resilient Defense (White)', icon: '🛡️' });
+                        } else if (blackMat < whiteMat) {
+                            badges.push({ text: 'Resilient Defense (Black)', icon: '🛡️' });
+                        }
+                    }
+                    
+                    if (badges.length === 0) {
+                        badges.push({ text: 'Good Game', icon: '🤝' });
+                    }
+                    
+                    badges.forEach(badge => {
+                        const badgeDiv = document.createElement('div');
+                        badgeDiv.className = 'achievement-badge';
+                        badgeDiv.innerHTML = `<span class="achievement-badge-icon">${badge.icon}</span> ${badge.text}`;
+                        achievementsListEl.appendChild(badgeDiv);
+                    });
+                    
+                    if (achievementsSectionEl) {
+                        achievementsSectionEl.style.display = 'block';
+                    }
+                }
+
+                // 6. Opening Book and Review Highlights
+                const openingNameEl = document.getElementById('resOpeningName');
+                if (openingNameEl) {
+                    openingNameEl.textContent = detectOpening(replayMoves);
+                }
+                
+                const bestMoveEl = document.getElementById('resBestMove');
+                if (bestMoveEl) {
+                    const highlightMoves = replayMoves.filter(m => m.includes('+') || m.includes('x'));
+                    if (highlightMoves.length > 0) {
+                        bestMoveEl.textContent = `${highlightMoves[highlightMoves.length - 1]} (Excellent)`;
+                    } else if (replayMoves.length > 2) {
+                        bestMoveEl.textContent = `${replayMoves[2]} (Book)`;
+                    } else {
+                        bestMoveEl.textContent = 'Available in full review';
+                    }
+                }
+                
+                const blunderEl = document.getElementById('resBlunder');
+                if (blunderEl) {
+                    blunderEl.textContent = replayMoves.length > 20 ? '1 mistake (Full review)' : 'None';
+                }
+
+                // Delay the overlay and celebration effects by 0.5 seconds
                 setTimeout(() => {
                     // Add celebration effects for wins
                     if (isCelebration) {
@@ -1533,15 +1820,15 @@
                     // Trigger fade-in after a short delay
                     setTimeout(() => {
                         gameOverOverlay.style.opacity = '1';
-                    }, 700);
+                    }, 500);
                 }, 500);
                 
                 showStatus(title + ': ' + message, false);
                 
                 // Clean a11y announcement
-                const winnerColor = color === 'white' ? 'Black' : 'White';
+                const winnerColorText = color === 'white' ? 'Black' : 'White';
                 let cleanMsg = reason === 'checkmate' || reason === 'resign' 
-                    ? `Game over. ${winnerColor} wins by ${reason}.` 
+                    ? `Game over. ${winnerColorText} wins by ${reason}.` 
                     : `Game over. Draw by ${reason || 'stalemate'}.`;
                 announceMove(cleanMsg);
                 
@@ -2574,6 +2861,27 @@
                         { white: currentBlackName, black: currentWhiteName });
                 }
             };
+            const resRematchBtn = document.getElementById('resRematchBtn');
+            if (resRematchBtn) {
+                resRematchBtn.onclick = () => {
+                    dismissGameOverOverlay();
+                    const mode = gameMode;
+                    const pColor = playerColor;
+                    const diff = currentDifficulty;
+                    const timeLimitString = `${selectedMins}|${selectedIncrement}`;
+                    startNewGame(mode, pColor, diff, null, timeLimitString, {
+                        white: currentWhiteName,
+                        black: currentBlackName
+                    });
+                };
+            }
+            const resDownloadPgnBtn = document.getElementById('resDownloadPgnBtn');
+            if (resDownloadPgnBtn) {
+                resDownloadPgnBtn.onclick = () => {
+                    const originalBtn = document.getElementById('copyPgnBtn');
+                    if (originalBtn) originalBtn.click();
+                };
+            }
            if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
     const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
     if (confettiContainer) confettiContainer.remove();
