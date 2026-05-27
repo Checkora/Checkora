@@ -60,7 +60,7 @@
 
     <!-- ========== WELCOME MESSAGE ========== -->
 
-    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
+    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 10000;">
         <div class="promo-dialog">
             <div style="margin-bottom: 20px; color:#f0c040;">
                 <a href="/" class="back-btn">← Back to Home</a>
@@ -94,14 +94,75 @@
                     ⚠️ Please enter both player names
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
-                    <label for="timeLimitInput" style="color: #ccc; font-size: 0.9rem;">Game Timer</label>
-                    <select id="timeLimitInput" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease; cursor: pointer;">
-                        <option value="1">Bullet (1 min)</option>
-                        <option value="3">Blitz (3 min)</option>
-                        <option value="5">Blitz (5 min)</option>
-                        <option value="10" selected>Rapid (10 min)</option>
-                    </select>
+                <div class="time-control-selector-container" style="position: relative;">
+                    <label class="time-control-label" style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 5px; text-align: left;">Game Timer</label>
+                    <button type="button" class="time-control-trigger" id="timeControlTrigger" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-radius: 6px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer; transition: all 0.3s ease; font-size: 0.95rem; font-weight: 500;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="tc-icon">⏱️</span>
+                            <span class="tc-display-text" id="tcDisplayText">Rapid (10 min)</span>
+                        </span>
+                        <span class="tc-chevron" style="font-size: 0.75rem; opacity: 0.7;">▼</span>
+                    </button>
+                    
+                    <!-- Popover / dropdown panel -->
+                    <div class="time-control-popover" id="timeControlPopover" style="display: none; flex-direction: column; background: #16162a; border: 1px solid #f0c040; border-radius: 8px; margin-top: 6px; padding: 12px; z-index: 1000; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); position: absolute; left: 0; right: 0;">
+                        <div class="tc-tabs" style="display: flex; gap: 4px; border-bottom: 1px solid #252545; padding-bottom: 8px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap;">
+                            <button type="button" class="tc-tab-btn" data-tab="bullet" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Bullet</button>
+                            <button type="button" class="tc-tab-btn" data-tab="blitz" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Blitz</button>
+                            <button type="button" class="tc-tab-btn active" data-tab="rapid" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Rapid</button>
+                            <button type="button" class="tc-tab-btn" data-tab="classical" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Classical</button>
+                            <button type="button" class="tc-tab-btn" data-tab="custom" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Custom...</button>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-bullet" style="display: none;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn" data-mins="1" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">1 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="1" data-inc="1" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">1 | 1</button>
+                                <button type="button" class="tc-preset-btn" data-mins="2" data-inc="1" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">2 | 1</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-blitz" style="display: none;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn" data-mins="3" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">3 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="3" data-inc="2" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">3 | 2</button>
+                                <button type="button" class="tc-preset-btn" data-mins="5" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">5 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="5" data-inc="3" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">5 | 3</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-rapid" style="display: block;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn active" data-mins="10" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">10 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="10" data-inc="5" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">10 | 5</button>
+                                <button type="button" class="tc-preset-btn" data-mins="15" data-inc="10" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">15 | 10</button>
+                                <button type="button" class="tc-preset-btn" data-mins="20" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">20 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="30" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">30 min</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-classical" style="display: none;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn" data-mins="30" data-inc="20" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">30 | 20</button>
+                                <button type="button" class="tc-preset-btn" data-mins="45" data-inc="15" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">45 | 15</button>
+                                <button type="button" class="tc-preset-btn" data-mins="60" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">60 min</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-custom" style="display: none;">
+                            <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customMinsInput" style="color: #8a8aaa; font-size: 0.75rem;">Minutes</label>
+                                    <input type="number" id="customMinsInput" min="1" max="300" value="10" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customIncInput" style="color: #8a8aaa; font-size: 0.75rem;">Increment (s)</label>
+                                    <input type="number" id="customIncInput" min="0" max="180" value="0" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-gold" id="applyCustomTCBtn" style="padding: 8px 0; font-size: 0.85rem; border-radius: 4px;">Apply Custom</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -353,10 +414,21 @@
                 <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
                 <select id="confirmTimerSelect"
                     style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
-                    <option value="1">Bullet (1 min)</option>
-                    <option value="3">Blitz (3 min)</option>
-                    <option value="5">Blitz (5 min)</option>
-                    <option value="10" selected>Rapid (10 min)</option>
+                    <option value="1|0">Bullet (1 min)</option>
+                    <option value="1|1">Bullet (1 | 1)</option>
+                    <option value="2|1">Bullet (2 | 1)</option>
+                    <option value="3|0">Blitz (3 min)</option>
+                    <option value="3|2">Blitz (3 | 2)</option>
+                    <option value="5|0">Blitz (5 min)</option>
+                    <option value="5|3">Blitz (5 | 3)</option>
+                    <option value="10|0" selected>Rapid (10 min)</option>
+                    <option value="10|5">Rapid (10 | 5)</option>
+                    <option value="15|10">Rapid (15 | 10)</option>
+                    <option value="20|0">Rapid (20 min)</option>
+                    <option value="30|0">Rapid (30 min)</option>
+                    <option value="30|20">Classical (30 | 20)</option>
+                    <option value="45|15">Classical (45 | 15)</option>
+                    <option value="60|0">Classical (60 min)</option>
                 </select>
             </div>
             <div id="confirmDifficultyContainer" style="display: none; margin-bottom: 20px; text-align: left;">
@@ -431,7 +503,7 @@
     </div>
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
-    <div class="promo-overlay" id="gameOverOverlay">
+    <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
         <div class="promo-dialog">
             <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
                 Game Over</div>

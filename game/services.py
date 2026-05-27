@@ -20,7 +20,7 @@ def cleanup_stale_games():
     resigned_count = 0
     
     # Iterate over all sessions
-    for session in Session.objects.all():
+    for session in Session.objects.iterator():
         try:
             session_data = session.get_decoded()
         except Exception:

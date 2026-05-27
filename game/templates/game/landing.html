@@ -142,25 +142,31 @@
     </main>
 
     <section id="about" class="about">
-      <div class="about-grid-container">
-        <div class="about-left-col">
-          <span class="about-mini-tag">Platform Context</span>
-          <h2 class="about-display-title">About Checkora</h2>
-          <div class="about-accent-line"></div>
-        </div>
-        <div class="about-right-col">
-          <div class="about-content">
-            <p>
+      <div class="section-container about-grid-layout">
+          <h2 class="section-title">About Checkora</h2>
+          <p class="about-subtitle">
               Checkora is a modern interactive chess platform built to help players practice, compete, and improve through an engaging digital chess experience.
-            </p>
-            <p>
-              The platform follows a hybrid architecture where Django and Python handle application flow, authentication, and game orchestration, while a high-performance C++ minimax engine powers intelligent AI gameplay.
-            </p>
-            <p>
-              With responsive gameplay, statistics tracking, rulebook access, and AI-driven interactions, Checkora provides both a practical learning environment and a smooth competitive chess experience for players across skill levels.
-            </p>
+          </p>
+
+          <div class="about-bento-grid">
+              <div class="about-bento-card highlight-accent">
+                  <div class="about-card-icon">🤖</div>
+                  <h3>C++ Minimax Engine</h3>
+                  <p>Powers intelligent AI gameplay. A custom high-performance engine calculates tactical configurations rapidly, challenging players at all skill levels.</p>
+              </div>
+
+              <div class="about-bento-card">
+                  <div class="about-card-icon">⚙️</div>
+                  <h3>Hybrid Architecture</h3>
+                  <p>Django and Python smoothly orchestrate core application routing, data states, and user sessions while handling real-time engine communication.</p>
+              </div>
+
+              <div class="about-bento-card">
+                  <div class="about-card-icon">📊</div>
+                  <h3>Smooth Interactions</h3>
+                  <p>Gain unhindered access to active statistics tracking, a responsive user layout, and synchronized match configurations natively built for seamless flow.</p>
+              </div>
           </div>
-        </div>
       </div>
     </section>
 
