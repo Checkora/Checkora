@@ -238,16 +238,39 @@
         
         <div class="auth-buttons">
             {% if user.is_authenticated %}
-            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-            <form method="post" action="{% url 'logout' %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn-logout">Logout</button>
-            </form>
+
+            <div class="profile-dropdown">
+                <button class="profile-btn">
+                    {{ user.username }} ⌄
+                </button>
+
+                <div class="dropdown-content">
+                    <a href="/stats/">
+                        Stats
+                    </a>
+
+                    <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
+                    <form
+                        method="post"
+                        action="{% url 'logout' %}"
+                        style="margin:0;"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="logout-option"
+                        >
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
             {% else %}
+
             <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
             <a href="{% url 'register' %}" class="btn-register">Register</a>
             {% endif %}
-            <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
     

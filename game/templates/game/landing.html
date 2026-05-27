@@ -4,6 +4,115 @@
 {% block title %}Checkora | Play AI Chess Online with Hybrid Engine{% endblock %}
 
 {% block meta_description %}Play Checkora, a powerful hybrid chess engine orchestrating Python logic with a high-performance C++ minimax engine. Challenge the AI, track your stats, and master the board.{% endblock %}
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://checkora.vercel.app/" />
+    <meta property="twitter:title" content="Checkora | Play AI Chess Online" />
+    <meta
+      property="twitter:description"
+      content="Experience high-performance chess with Checkora's hybrid C++ engine. Play for free online."
+    />
+    <meta
+      property="twitter:image"
+      content="{% static 'game/checkora_icon_only.png' %}"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Checkora",
+        "operatingSystem": "Web",
+        "applicationCategory": "GameApplication",
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.8",
+          "ratingCount": "150"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+
+    <link
+      rel="icon"
+      type="image/jpeg"
+      href="{% static 'game/favicon.jpeg' %}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
+  </head>
+
+  <body>
+    <nav class="navbar">
+      <div class="nav-left">
+        <a href="{% url 'landing' %}" class="logo-link">
+          <img
+            src="{% static 'game/checkora_icon_only.png' %}"
+            alt="Checkora Logo"
+            class="logo-img"
+          />
+          <span class="logo-text"
+            >CHECK<span class="logo-accent">ORA</span></span
+          >
+        </a>
+        <div class="nav-links">
+          <a href="#about">About</a>
+          <a href="#features">Features</a>
+        </div>
+      </div>
+      <div class="nav-right">
+        {% if user.is_authenticated %}
+        <div class="profile-dropdown">
+          <button class="profile-btn">
+              {{ user.username }} ⌄
+          </button>
+          <div class="dropdown-content">
+            <a href="/play/"> Dashboard </a>
+
+            <a href="/stats/"> Stats </a>
+            <a
+              href="{% url 'delete_account' %}"
+              class="delete-option"
+            >
+              Delete Account
+            </a>
+
+            <form
+              method="post"
+              action="{% url 'logout' %}"
+              style="margin:0;"
+            >
+              {% csrf_token %}
+
+              <button
+                type="submit"
+                class="logout-option"
+              >
+                Logout
+              </button>
+
+            </form>
+
+          </div>
+
+        </div>
+
+        {% else %}
+        <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+        <a href="{% url 'register' %}" class="btn-register">Register</a>
+        {% endif %}
+      </div>
+    </nav>
 
 {% block content %}
     <main class="hero" id="hero">

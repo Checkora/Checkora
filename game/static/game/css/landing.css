@@ -138,6 +138,72 @@ body {
     transform: translateY(0);
 }
 
+.profile-dropdown{
+    position: relative;
+    display: inline-block;
+}
+
+.profile-btn{
+    background: #111827;
+    color: #f0c040;
+    border: 1px solid #333;
+    padding: 12px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s ease;
+}
+
+.profile-btn:hover{
+    border-color: #f0c040;
+}
+
+.dropdown-content{
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 55px;
+    min-width: 220px;
+    background: #111827;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    z-index: 9999;
+}
+
+.profile-dropdown:hover .dropdown-content{
+    display: block;
+}
+
+.dropdown-content a,
+.logout-option{
+    display: block;
+    width: 100%;
+    padding: 14px 18px;
+    color: white;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.3s ease;
+    font-size: 14px;
+}
+
+.dropdown-content a:hover,
+.logout-option:hover{
+    background: rgba(255,255,255,0.06);
+}
+
+.delete-option{
+    color: #ef4444 !important;
+}
+
+.delete-option:hover{
+    background: rgba(239,68,68,0.12) !important;
+}
+
 .back-btn {
   position: absolute;
   top: 2rem;
