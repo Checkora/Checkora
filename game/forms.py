@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
@@ -10,9 +11,14 @@ class CustomUserCreationForm(UserCreationForm):
         fields = UserCreationForm.Meta.fields + ('email',)
 
     def clean_email(self):
-        email = self.cleaned_data['email']
-        if self.Meta.model.objects.filter(email__iexact=email).exists():
-            raise ValidationError('A user with this email address already exists.')
+        email = self.cleaned_data.get('email')
+        if email:
+            User = get_user_model()
+            if User.objects.filter(email__iexact=email).exists():
+                raise ValidationError(
+                    'A user with this email address already exists.',
+                    code='duplicate_email',
+                )
         return email
 
 
@@ -58,4 +64,7 @@ class CustomPasswordResetForm(PasswordResetForm):
                 to_email,
                 html_email_template_name)
         except Exception:
-            raise ValidationError("Failed to send password reset email. Please check your email configuration and try again.")
+            raise ValidationError(
+                'Failed to send password reset email. '
+                'Please check your email configuration and try again.'
+            )

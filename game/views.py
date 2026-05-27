@@ -505,10 +505,14 @@ def check_username(request):
 
 
 def _pending_user_matches_signup(pending_user, username, email):
+    normalized_email = (email or '').lower()
     return (
         pending_user.username.lower() == username.lower() or
-        (pending_user.email or '').lower() == email.lower()
-    )
+        (
+            normalized_email and
+            (pending_user.email or '').lower() == normalized_email
+        )
+     )
 
 
 def register_view(request):
