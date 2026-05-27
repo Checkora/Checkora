@@ -54,7 +54,7 @@
 
     <!-- ========== WELCOME MESSAGE ========== -->
 
-    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
+    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 10000;">
         <div class="promo-dialog">
             <div style="margin-bottom: 20px; color:#f0c040;">
                 <a href="/" class="back-btn">← Back to Home</a>
@@ -175,7 +175,9 @@
                     <div class="fen-error" id="welcomeFenError"></div>
                 </div>
 
-
+                <button class="btn" id="welcomeResumeBtn"
+                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Continue
+                    Game</button>
             </div>
 
             <div id="pveOptions" style="display: none; flex-direction: column; gap: 14px;">
@@ -495,7 +497,7 @@
     </div>
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
-    <div class="promo-overlay" id="gameOverOverlay">
+    <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
         <div class="promo-dialog">
             <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
                 Game Over</div>

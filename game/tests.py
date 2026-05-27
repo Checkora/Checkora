@@ -182,6 +182,26 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
+    def test_duplicate_email_registration_fails(self):
+        User.objects.create_user(
+            username='existinguser',
+            email='duplicate@example.com',
+            password='StrongPass123!',
+            is_active=True
+        )
+
+        payload = {
+            'username': 'newplayer',
+            'email': 'duplicate@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        response = self.client.post('/register/', data=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A user with this email address already exists.')
+        self.assertFalse(User.objects.filter(username='newplayer').exists())
+
 
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
@@ -562,6 +582,7 @@ class GameStateTest(TestCase):
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(data['mode'], 'pvp')
         self.assertIn('board', data)
+        self.assertNotIn('paused', data)
 
 
 

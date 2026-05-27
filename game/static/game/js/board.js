@@ -197,7 +197,6 @@
 
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
-            
             const drawOverlay = document.getElementById('drawOverlay');
             const drawMessage = document.getElementById('drawMessage');
             const drawAcceptBtn = document.getElementById('drawAcceptBtn');
@@ -2167,9 +2166,6 @@
             };
             if (confirmNoBtn) confirmNoBtn.onclick = () => {
                 confirmOverlay.classList.remove('active');
-
-
-
                 confirmCallback = null;
             };
 
@@ -2249,6 +2245,7 @@
             
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+
             const blindfoldBtn = document.getElementById('blindfoldBtn');
             if (blindfoldBtn) {
                 blindfoldBtn.onclick = () => {
@@ -2892,5 +2889,6 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
 
             // Call picker init immediately
             initTimeControlPicker();
+
 
 })();
