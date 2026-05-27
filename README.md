@@ -467,6 +467,28 @@ python manage.py test game
 
 ---
 
+## FAQ
+
+### What Python version is required?
+Checkora targets **Python 3.12+**. Django 6.x requires 3.12 or higher, and the project assumes that baseline in `requirements.txt`.
+
+### Is the C++ engine required?
+No. The C++ engine is **optional but recommended** for performance. If the binary is missing, the app automatically falls back to the Python engine in `game/engine/main.py`.
+
+### I can’t compile the C++ engine. What should I do?
+You can skip compilation and rely on the Python fallback. If you want to compile, install a C++17-capable toolchain:
+- **Windows:** w64-devkit or MinGW-w64
+- **macOS:** Xcode Command Line Tools (`xcode-select --install`)
+- **Linux:** `build-essential` (Debian/Ubuntu)
+
+### Does Checkora support Windows?
+Yes. Use the Python Launcher (`py -3.12`) for the virtual environment and compile the C++ engine with MinGW-w64 if desired. The Python fallback works on Windows as well.
+
+### Where are game stats stored?
+Game stats are stored in the Django database (default: local `db.sqlite3`). If you configure a different database in `settings.py`/`.env`, they will be stored there.
+
+---
+
 ## Troubleshooting Guide
 
 Below are solutions to common setup, installation, and environment issues contributors encounter when getting Checkora running locally.
