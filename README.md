@@ -571,7 +571,6 @@ If you already have another service running on your local port 8000, Django will
     python manage.py runserver 8080
     ```
 
-# FAQ Section for README.md
 
 ## FAQ
 
