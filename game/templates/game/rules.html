@@ -133,6 +133,14 @@
             font-weight: 400;
             transition: all 0.15s;
             border-left: 3px solid transparent;
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border-top: 0;
+            border-right: 0;
+            border-bottom: 0;
+            border-left-width: 3px;
+            font: inherit;
         }
 
         .rule-nav-item:hover {
@@ -145,6 +153,11 @@
             color: var(--gold);
             border-left-color: var(--gold);
             font-weight: 500;
+        }
+
+        .rule-nav-item:focus-visible {
+            outline: 2px solid var(--gold);
+            outline-offset: -2px;
         }
 
         .rule-nav-item .icon { font-size: 1.1rem; width: 22px; text-align: center; }
@@ -632,9 +645,9 @@
         <div class="rule-nav-item" onclick="showRule('pieces')" id="nav-pieces">
             <span class="icon">♟</span> Piece Moves
         </div>
-        <div class="rule-nav-item" onclick="showRule('values')" id="nav-values">
+        <button class="rule-nav-item" type="button" onclick="showRule('values')" id="nav-values">
             <span class="icon">🧮</span> Piece Values & Scoring
-        </div>
+        </button>
         <div class="rule-nav-item" onclick="showRule('pawn')" id="nav-pawn">
             <span class="icon">🔼</span> Pawn Special Rules
         </div>
