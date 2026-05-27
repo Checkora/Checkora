@@ -1,6 +1,7 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
 import json
+import os
 import sys
 from smtplib import SMTPException
 from unittest import mock
@@ -112,6 +113,33 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'This move is illegal!', status_code=404)
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
+
+
+class SettingsHelpersTest(SimpleTestCase):
+    """Boolean env parsing should stay predictable for security settings."""
+
+    def test_env_bool_uses_default_when_missing(self):
+        from core.settings import env_bool
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertTrue(env_bool('MISSING_FLAG', True))
+            self.assertFalse(env_bool('MISSING_FLAG', False))
+
+    def test_env_bool_parses_common_true_and_false_values(self):
+        from core.settings import env_bool
+
+        truthy_values = ('1', 'true', 'TRUE', ' yes ', 'On')
+        falsy_values = ('0', 'false', 'FALSE', ' no ', 'off', 'random')
+
+        for value in truthy_values:
+            with self.subTest(value=value):
+                with mock.patch.dict(os.environ, {'FLAG': value}, clear=True):
+                    self.assertTrue(env_bool('FLAG', False))
+
+        for value in falsy_values:
+            with self.subTest(value=value):
+                with mock.patch.dict(os.environ, {'FLAG': value}, clear=True):
+                    self.assertFalse(env_bool('FLAG', True))
 
 
 class ServerErrorPageTest(SimpleTestCase):
