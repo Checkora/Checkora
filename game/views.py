@@ -504,6 +504,13 @@ def check_username(request):
     return JsonResponse({'available': not exists})
 
 
+def _pending_user_matches_signup(pending_user, username, email):
+    return (
+        pending_user.username.lower() == username.lower() or
+        (pending_user.email or '').lower() == email.lower()
+    )
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
@@ -521,9 +528,10 @@ def register_view(request):
                 is_active=False,
             ).first()
 
-            if pending_user and (
-                pending_user.username.lower() == username.lower() or
-                pending_user.email.lower() == email.lower()
+            if pending_user and _pending_user_matches_signup(
+                pending_user,
+                username,
+                email,
             ):
                 pending_user.delete()
                 form = CustomUserCreationForm(request.POST)

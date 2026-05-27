@@ -17,6 +17,7 @@ from django.test import (
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
+from .views import _pending_user_matches_signup
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -219,6 +220,17 @@ class RegistrationViewTest(TestCase):
         self.assertNotEqual(
             first_user_id,
             self.client.session['registration_user_id'],
+        )
+
+    def test_pending_signup_match_allows_missing_email(self):
+        pending_user = mock.Mock(username='pendingplayer', email=None)
+
+        self.assertTrue(
+            _pending_user_matches_signup(
+                pending_user,
+                'pendingplayer',
+                'pendingplayer@example.com',
+            )
         )
 
     @override_settings(
