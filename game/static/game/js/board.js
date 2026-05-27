@@ -1479,8 +1479,8 @@
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
-                if (newPvPBtn) newPvPBtn.style.display = '';
-                if (newAIBtn) newAIBtn.style.display = '';
+                if (newPvPBtn) newPvPBtn.style.display = gameMode === 'pvp' ? '' : 'none';
+                if (newAIBtn) newAIBtn.style.display = gameMode === 'ai' ? '' : 'none';
                 if (newFenBtn) newFenBtn.style.display = '';
 
                 let durationText = '';
@@ -1530,7 +1530,16 @@
                 if (durationElement) {
                     durationElement.textContent = durationText;
                 }
+                const gameOverPvPMode = document.getElementById('gameOverPvPMode');
+const gameOverAiMode = document.getElementById('gameOverAiMode');
 
+if (gameMode === 'ai') {
+    if (gameOverAiMode) gameOverAiMode.checked = true;
+    if (gameOverPvPMode) gameOverPvPMode.checked = false;
+} else {
+    if (gameOverPvPMode) gameOverPvPMode.checked = true;
+    if (gameOverAiMode) gameOverAiMode.checked = false;
+}
                 // Delay the overlay and celebration effects by 1 second
                 setTimeout(() => {
                     // Add celebration effects for wins
@@ -2180,6 +2189,52 @@
                 }
                 if (errorDiv) errorDiv.style.display = 'none';
             }
+            function prepareWelcomeForPvE() {
+    const whiteInput = document.getElementById('whiteNameInput');
+    const blackInput = document.getElementById('blackNameInput');
+    const errorDiv = document.getElementById('nameError');
+
+    // SHOW mode selector (important)
+    modeSelection.style.display = 'flex';
+    pveOptions.style.display = 'flex';
+    nameInputs.style.display = 'flex';
+
+    // Set correct mode
+    gameMode = 'ai';
+
+    // highlight mode buttons
+    updateModeButtonsUI('ai');
+
+    if (whiteInput) {
+        whiteInput.style.display = 'block';
+        whiteInput.placeholder = 'Your Name';
+        whiteInput.classList.remove('input-error');
+
+        whiteInput.value =
+            playerColor === 'white'
+                ? (currentWhiteName || '')
+                : (currentBlackName || '');
+    }
+
+    if (blackInput) {
+        blackInput.style.display = 'none';
+        blackInput.value = 'AI';
+        blackInput.classList.remove('input-error');
+    }
+
+    selectedPveColor = playerColor;
+
+    pveOptions.querySelectorAll('.color-choice').forEach(btn => {
+        const active = btn.dataset.color === playerColor;
+        btn.classList.toggle('active', active);
+        btn.style.borderColor = active ? '#f0c040' : '#444';
+    });
+
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+    }
+}
 
             function dismissGameOverOverlay() {
                 gameOverOverlay.classList.remove('active');
@@ -2190,34 +2245,20 @@
                 }
             }
 
-            function openWelcomeForNewGame() {
-                dismissGameOverOverlay();
-                prepareWelcomeForPvP(true);
+function openWelcomeForNewGame() {
+    dismissGameOverOverlay();
 
-                const whiteInput = document.getElementById('whiteNameInput');
-                const blackInput = document.getElementById('blackNameInput');
-                if (whiteInput) {
-                    whiteInput.value = currentWhiteName || '';
-                }
-                if (blackInput) {
-                    const aiNames = ['AI', 'ai'];
-                    blackInput.value = aiNames.includes(currentBlackName) ? '' : (currentBlackName || '');
-                }
-                if (welcomeFenInput) welcomeFenInput.value = '';
-                if (welcomeFenError) welcomeFenError.textContent = '';
+    if (gameMode === 'ai') {
+        prepareWelcomeForPvE();
+    } else {
+        prepareWelcomeForPvP(true);
+    }
 
-                selectedPveColor = 'white';
-                pveOptions?.querySelectorAll('.color-choice').forEach(btn => {
-                    const isWhite = btn.dataset.color === 'white';
-                    btn.classList.toggle('active', isWhite);
-                    btn.style.borderColor = isWhite ? '#f0c040' : '#444';
-                });
+    if (welcomeFenInput) welcomeFenInput.value = '';
+    if (welcomeFenError) welcomeFenError.textContent = '';
 
-                if (welcomeResumeBtn && gameOver) {
-                    welcomeResumeBtn.style.display = 'none';
-                }
-                welcomeOverlay.classList.add('active');
-            }
+    welcomeOverlay.classList.add('active');
+}
 
             if (welcomeFenInput) {
                 welcomeFenInput.addEventListener('keydown', async (e) => {
@@ -2548,8 +2589,28 @@
             };
 
             if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
-                openWelcomeForNewGame();
-            };
+    dismissGameOverOverlay();
+
+    if (gameMode === 'ai') {
+        prepareWelcomeForPvE();
+
+        const whiteInput = document.getElementById('whiteNameInput');
+        const blackInput = document.getElementById('blackNameInput');
+
+        if (whiteInput) {
+            whiteInput.value = currentWhiteName || '';
+        }
+
+        if (blackInput) {
+            blackInput.value = '';
+        }
+
+    } else {
+        prepareWelcomeForPvP(true);
+    }
+
+    welcomeOverlay.classList.add('active');
+};
            if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
     const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
     if (confettiContainer) confettiContainer.remove();

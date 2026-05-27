@@ -516,6 +516,21 @@
                 Game Over</div>
             <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
             <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
+            <div style="margin-bottom: 20px;">
+    <div style="color: #ccc; margin-bottom: 10px; font-size: 0.95rem;">Game Mode</div>
+
+    <div style="display: flex; gap: 10px;">
+        <label style="flex: 1; padding: 12px; border: 1px solid #444; border-radius: 8px; background: #1a1a2e; color: #fff; cursor: pointer; text-align: center;">
+            <input type="radio" name="gameOverMode" id="gameOverPvPMode" value="pvp">
+            PvP
+        </label>
+
+        <label style="flex: 1; padding: 12px; border: 1px solid #444; border-radius: 8px; background: #1a1a2e; color: #fff; cursor: pointer; text-align: center;">
+            <input type="radio" name="gameOverMode" id="gameOverAiMode" value="ai">
+            vs AI
+        </label>
+    </div>
+</div>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
