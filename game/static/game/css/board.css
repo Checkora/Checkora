@@ -1221,7 +1221,7 @@ body {
   display: none; 
 }
 
- {
+ 
   .m-fab {
     display: flex;
     flex-direction: column;
@@ -1231,6 +1231,7 @@ body {
     right: 12px;
     z-index: 10000;
   }
+
   .m-fab-btn {
     width: 44px;
     height: 44px;
@@ -1267,7 +1268,7 @@ body {
   body:has(.promo-overlay.active) .m-fab {
     display: none;
   }
-}
+
 .promo-logo {
     display: flex;
     align-items: center;
@@ -1696,5 +1697,24 @@ body.blindfold-mode .capture-ring {
         animation: none;
         border-color: #ff6b6b;
         box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+    }
+}
+/* Mobile and Tablet UI Overflow Fix */
+@media (max-width: 768px) {
+    #board {
+        width: 100% !important;
+        max-width: 92vw !important;
+        max-height: 92vw !important;
+        aspect-ratio: 1 / 1 !important;
+        margin: 0 auto !important;
+    }
+    
+    .game-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+        padding: 10px !important;
     }
 }
