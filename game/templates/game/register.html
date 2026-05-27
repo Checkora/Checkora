@@ -5,51 +5,116 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=5" />
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7" />
     <link
       rel="icon"
       type="image/jpeg"
       href="{% static 'game/favicon.jpeg' %}"
     />
-  </head>
+      <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+</head>
   <body>
-    <!-- Back-to-home arrow -->
-    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
+    <!-- Upgraded Back-to-home Button -->
+    <a href="{% url 'landing' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+             <line x1="19" y1="12" x2="5" y2="12"></line>
+             <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Back to Home</span>
+    </a>
 
     <div class="header">
-      <h1>Checkora</h1>
+           <div class="logo-container">
+               <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+               <span class="logo-text">Checkora</span>
+           </div>
       <p>Create an account to track your stats</p>
     </div>
 
     <div class="auth-card">
-      <form method="POST">
-        {% csrf_token %}
+        <form method="POST">
+            {% csrf_token %}
 
-        {% if form.non_field_errors %}
-          {{ form.non_field_errors }}
-        {% endif %}
+            {% include 'game/includes/messages.html' %}
 
-        {% for field in form %}
-        <div class="form-group">
-          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-          {{ field }}
-          {% if field.help_text %}
-          <span class="helptext">{{ field.help_text|safe }}</span>
-          {% endif %}
-          {% if field.errors %}
-            {{ field.errors }}
-          {% endif %}
+            {% if form.non_field_errors %}
+                {{ form.non_field_errors }}
+            {% endif %}
+            
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <span class="helptext">{{ field.help_text|safe }}</span>
+                    {% endif %}
+                    {% if field.errors %}
+                        {{ field.errors }}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-gold">Create Account</button>
+        </form>
+        
+        <div class="auth-footer">
+            Already have an account? <a href="{% url 'login' %}">Sign In</a>
         </div>
-        {% endfor %}
-
-        <button type="submit" class="btn btn-gold">Create Account</button>
-      </form>
-
-      <div class="auth-footer">
-        Already have an account? <a href="{% url 'login' %}">Sign In</a>
-      </div>
     </div>
 
-    <script src="{% static 'game/js/auth.js' %}?v=5"></script>
-  </body>
+    <script src="{% static 'game/js/auth.js' %}?v=7"></script>
+      <script src="{% static 'game/js/toast.js' %}"></script>
+    <script>
+        const usernameInput = document.querySelector('#id_username');
+        const checkUsernameUrl = "{% url 'check_username' %}";
+
+        if (usernameInput) {
+            let debounceTimer;
+            let latestVal = '';
+            const feedback = document.createElement('span');
+
+            feedback.className = 'helptext';
+            usernameInput.parentNode.appendChild(feedback);
+
+            usernameInput.addEventListener('input', () => { 
+                clearTimeout(debounceTimer);
+                const val = usernameInput.value.trim();
+                latestVal = val;  
+
+                if (!val) {
+                    feedback.textContent = '';
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    if (val !== latestVal) return;  
+
+                    try {  
+                        const res = await fetch(
+                        `${checkUsernameUrl}?username=${encodeURIComponent(val)}`
+                        );
+
+                        if (!res.ok) throw new Error('Request failed');
+
+                        const data = await res.json();
+
+                        if (val !== latestVal) return;  
+
+                        feedback.textContent = data.available
+                        ? '✔ Username available'
+                        : '✖ Username already taken';
+
+                         feedback.style.color = data.available
+                        ? '#e5b639'
+                        : '#e57373';
+
+                    } catch (err) {
+                        feedback.textContent = '⚠ Could not check username';
+                        feedback.style.color = '#aaa';
+                    }
+                }, 400);
+            });
+        }
+    </script>
+</body>
 </html>

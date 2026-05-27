@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Email | Checkora</title>
+    <title>Verify your Email | Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <style>
@@ -47,19 +47,15 @@
 <body>
 
     <div class="header">
-        <h1>Verify Email</h1>
-        <p>We've sent a 6-digit code to your email address.</p>
+        <h1>Verify your Email</h1>
+        <p>We've sent a 6-digit code to {{ user_email|default:"your email address" }}.</p>
     </div>
 
     <div class="auth-card">
         <form method="POST">
             {% csrf_token %}
             
-            {% if messages %}
-                {% for message in messages %}
-                    <li class="errorlist">{{ message }}</li>
-                {% endfor %}
-            {% endif %}
+            {% include 'game/includes/messages.html' %}
             
             <div class="form-group">
                 <label for="otp">Enter 6-Digit OTP</label>
@@ -72,9 +68,32 @@
         </form>
         
         <div class="auth-footer">
-            Didn't receive the code? <a href="{% url 'register' %}">Try again</a>
+            Didn't receive the code? 
+            <a href="{% url 'resend_otp' %}" id = "resend-link">Try again</a>
+            <span id="timer" data-remaining-time="{{ remaining_time|default:0 }}"></span>
         </div>
     </div>
+<script>
+    const resendLink = document.getElementById("resend-link");
+    const timer = document.getElementById("timer");
+    let remainingTime = parseInt(timer.dataset.remainingTime || "0", 10);
 
+    function updateTimer() {
+        if (remainingTime > 0) {
+            resendLink.style.pointerEvents = "none";
+            resendLink.style.opacity = "0.5";
+            timer.textContent = ` (${remainingTime}s)`;
+
+            remainingTime--;
+
+            setTimeout(updateTimer, 1000);
+        } else {
+            resendLink.style.pointerEvents = "auto";
+            resendLink.style.opacity = "1";
+            timer.textContent = "";
+        }
+    }
+    updateTimer();
+</script>
 </body>
 </html>

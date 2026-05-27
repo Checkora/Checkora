@@ -22,7 +22,7 @@ import subprocess
 import json
 import sys
 import time
-
+from datetime import date
 
 class ChessGame:
     """Manage a single chess game: state, validation,
@@ -67,7 +67,7 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self):
+    def __init__(self, time_limit=600, increment=0):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -77,6 +77,9 @@ class ChessGame:
         self.white_time = 10 * 60  # 10 minutes
         self.black_time = 10 * 60
         self.increment = 0  # Fischer Time increment in seconds
+        self.white_time = time_limit
+        self.black_time = time_limit
+        self.increment = increment
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -97,10 +100,19 @@ class ChessGame:
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
-    def generate_pgn(self):
+    def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
         if not self.move_history:
             return ""
+        
+        # Compute result based on game status
+        result = '*'
+        if self.game_status == 'checkmate':
+            result = '0-1' if self.current_turn == 'white' else '1-0'
+        elif self.game_status in ('draw', 'stalemate'):
+            result = '1/2-1/2'
+        elif self.game_status == 'resignation':
+            result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
@@ -111,11 +123,14 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
+        
+        today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
-            '[White "White"]',
-            '[Black "Black"]',
-            '[Result "*"]',
+            f'[White "{white_name}"]',
+            f'[Black "{black_name}"]',
+            f'[Date "{today}"]',
+            f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves
@@ -176,6 +191,102 @@ DP cache is intentionally excluded to save cookie space."""
 
         game.valid_moves_cache = {}
         return game
+
+    @classmethod
+    def from_fen(cls, fen: str, time_limit=600, increment=0):
+        """Create a new game state from a FEN string (board, side, castling)."""
+        if not isinstance(fen, str):
+            raise ValueError("FEN must be a string.")
+
+        fen = fen.strip()
+        if not fen:
+            raise ValueError("FEN is empty.")
+
+        parts = fen.split()
+        if len(parts) < 3:
+            raise ValueError("FEN must have at least 3 fields.")
+
+        placement, active_color, castling = parts[0], parts[1], parts[2]
+        board = cls._parse_fen_placement(placement)
+
+        if active_color not in ('w', 'b'):
+            raise ValueError("Active color must be 'w' or 'b'.")
+
+        castling_rights = cls._parse_fen_castling(castling)
+
+        white_king = sum(1 for row in board for p in row if p == 'K')
+        black_king = sum(1 for row in board for p in row if p == 'k')
+        if white_king != 1 or black_king != 1:
+            raise ValueError(
+                "FEN must include exactly one white and one black king.")
+
+        game = cls(time_limit=time_limit, increment=increment)
+        game.board = board
+        game.current_turn = 'white' if active_color == 'w' else 'black'
+        game.castling_rights = castling_rights
+        game.en_passant_target = None
+        game.halfmove_clock = 0
+        game.move_history = []
+        game.captured = {'white': [], 'black': []}
+        game.valid_moves_cache = {}
+        game.repetition_history = [game.generate_position_key()]
+        game._rebuild_repetition_counts()
+        game.game_status = 'active'
+        game.draw_reason = None
+        game.last_ts = time.time()
+        return game
+
+    @staticmethod
+    def _parse_fen_placement(placement: str):
+        rows = placement.split('/')
+        if len(rows) != 8:
+            raise ValueError("FEN must have 8 ranks.")
+
+        valid_pieces = set('prnbqkPRNBQK')
+        board = []
+
+        for row in rows:
+            row_cells = []
+            for ch in row:
+                if ch.isdigit():
+                    count = int(ch)
+                    if count < 1 or count > 8:
+                        raise ValueError(
+                            "Invalid empty-square count in FEN.")
+                    row_cells.extend([None] * count)
+                else:
+                    if ch not in valid_pieces:
+                        raise ValueError(
+                            "Invalid piece character in FEN.")
+                    row_cells.append(ch)
+
+            if len(row_cells) != 8:
+                raise ValueError("Each FEN rank must have 8 files.")
+            board.append(row_cells)
+
+        return board
+
+    @staticmethod
+    def _parse_fen_castling(castling: str):
+        rights = {'w_k': False, 'w_q': False, 'b_k': False, 'b_q': False}
+
+        if castling == '-':
+            return rights
+
+        valid_chars = set('KQkq')
+        for ch in castling:
+            if ch not in valid_chars:
+                raise ValueError("Invalid castling rights in FEN.")
+            if ch == 'K':
+                rights['w_k'] = True
+            elif ch == 'Q':
+                rights['w_q'] = True
+            elif ch == 'k':
+                rights['b_k'] = True
+            elif ch == 'q':
+                rights['b_q'] = True
+
+        return rights
 
     # ------------------------------------------------------------------
     #  C++ engine communication
@@ -273,7 +384,8 @@ DP cache is intentionally excluded to save cookie space."""
             return False
 
         target_row, target_col = self.en_passant_target
-        pawn_row = target_row + 1 if self.current_turn == 'white' else target_row - 1
+        is_w = self.current_turn == 'white'
+        pawn_row = target_row + 1 if is_w else target_row - 1
         pawn_piece = 'P' if self.current_turn == 'white' else 'p'
 
         if not (0 <= pawn_row < 8):
@@ -281,7 +393,8 @@ DP cache is intentionally excluded to save cookie space."""
 
         for delta_col in (-1, 1):
             pawn_col = target_col + delta_col
-            if 0 <= pawn_col < 8 and self.board[pawn_row][pawn_col] == pawn_piece:
+            if (0 <= pawn_col < 8
+                    and self.board[pawn_row][pawn_col] == pawn_piece):
                 return True
 
         return False
@@ -347,7 +460,9 @@ DP cache is intentionally excluded to save cookie space."""
 
         # Detect En Passant capture before moving piece
         if piece.lower() == 'p' and fc != tc and not captured:
-            if self.en_passant_target and tr == self.en_passant_target[0] and tc == self.en_passant_target[1]:
+            if (self.en_passant_target
+                    and tr == self.en_passant_target[0]
+                    and tc == self.en_passant_target[1]):
                 # The captured piece is of opposite color
                 captured = 'p' if piece.isupper() else 'P'
                 # In EP, the captured pawn is at (fr, tc)
@@ -421,9 +536,9 @@ DP cache is intentionally excluded to save cookie space."""
             self.halfmove_clock += 1
 
         notation = self._notation(
-            fr, fc, tr, tc, piece, captured, board_before, rights_before, ep_before)
-        if promoted and '=' not in notation:
-            notation += '=' + (self.board[tr][tc] or 'Q').upper()
+            fr, fc, tr, tc, piece, captured,
+            board_before, rights_before, ep_before,
+            promo_char=(promotion_piece or 'q') if promoted else None)
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
@@ -431,12 +546,19 @@ DP cache is intentionally excluded to save cookie space."""
         # Add Fischer Time increment to the player who just moved
         if self.increment > 0:
             if self.current_turn == 'white':
+        # Save who made this move before switching
+        moved_by = self.current_turn
+
+        # Apply increment to the player who just made the move
+        is_white = self.current_turn == 'white'
+        if self.increment > 0:
+            if is_white:
                 self.white_time += self.increment
             else:
                 self.black_time += self.increment
 
         # Switch turn
-        self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+        self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()
 
@@ -462,7 +584,7 @@ DP cache is intentionally excluded to save cookie space."""
             'from': [fr, fc],
             'to': [tr, tc],
             'captured': captured,
-            'color': self.current_turn,
+            'color': moved_by,
             'promoted_to': self.board[tr][tc] if promoted else None,
         })
 
@@ -497,7 +619,7 @@ DP cache is intentionally excluded to save cookie space."""
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
-        """Return legal moves from DP cache (fetches from engine if missing)."""
+        """Return legal moves from DP cache."""
         piece = self.board[row][col]
         if not piece or self._color(piece) != self.current_turn:
             return []
@@ -514,13 +636,17 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
-        cmd = f"MOVES {board_str} {rights_str} {self.current_turn} {ep_str} {row} {col}"
+        cmd = (
+            f"MOVES {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str} {row} {col}"
+        )
         resp = self._call_engine(cmd)
 
         moves = []
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
-            # C++ now returns 4 fields per move: row col is_capture is_promotion
+            # C++ returns 4 fields per move:
+            # row col is_capture is_promotion
             for i in range(0, len(parts), 4):
                 moves.append({
                     'row': int(parts[i]),
@@ -542,7 +668,11 @@ DP cache is intentionally excluded to save cookie space."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
-        cmd = f"PROMOTE {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc} {choice}"
+        cmd = (
+            f"PROMOTE {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str}"
+            f" {fr} {fc} {tr} {tc} {choice}"
+        )
         resp = self._call_engine(cmd)
         if resp and resp.startswith("PROMOTE"):
             return resp.split()[1]
@@ -588,13 +718,26 @@ DP cache is intentionally excluded to save cookie space."""
             return False
         return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
 
-    def _notation(self, fr, fc, tr, tc, piece, captured, board_str=None, rights_str=None, ep_str=None):
+    def _notation(self, fr, fc, tr, tc, piece, captured,
+                  board_str=None, rights_str=None,
+                  ep_str=None, promo_char=None):
         """
         Generate SAN notation via C++ engine if possible,
           else simplified fallback."""
+        if promo_char:
+            promo_char = promo_char.lower()
+            if promo_char not in ('q', 'r', 'b', 'n'):
+                promo_char = 'q'
+
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
-            cmd = f"NOTATION {board_str} {rights_str} {self.current_turn} {ep_str} {fr} {fc} {tr} {tc}"
+            cmd = (
+                f"NOTATION {board_str} {rights_str}"
+                f" {self.current_turn} {ep_str}"
+                f" {fr} {fc} {tr} {tc}"
+            )
+            if promo_char:
+                cmd += f" {promo_char}"
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -638,6 +781,8 @@ DP cache is intentionally excluded to save cookie space."""
                         notation = f"{p_char}x{t_coord}"
                     else:
                         notation = f"{p_char}{t_coord}"
+        if promo_char and '=' not in notation:
+            notation += '=' + promo_char.upper()
         return notation
 
     @staticmethod
@@ -724,7 +869,8 @@ DP cache is intentionally excluded to save cookie space."""
         side = 'w' if self.current_turn == 'white' else 'b'
 
         # Castling rights
-        castling = self.serialize_castling_rights()  # already returns '-' if none
+        # Already returns '-' if none
+        castling = self.serialize_castling_rights()
 
         return f"{placement} {side} {castling}"
 
@@ -794,7 +940,10 @@ DP cache is intentionally excluded to save cookie space."""
         if depth is None:
             depth = self._get_ai_search_depth()
         ep_str = self._serialize_ep()
-        cmd = f"BESTMOVE {board_str} {rights_str} {self.current_turn} {ep_str} {depth}"
+        cmd = (
+            f"BESTMOVE {board_str} {rights_str}"
+            f" {self.current_turn} {ep_str} {depth}"
+        )
         resp = self._call_engine(cmd)
 
         if not resp or not resp.startswith("BESTMOVE"):

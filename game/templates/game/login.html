@@ -4,22 +4,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=5">
+    <title>Sign In | CHECKORA</title>
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 </head>
 <body class="login-page">
-    <!-- Back-to-home arrow -->
-    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
+    <!-- Upgraded Back-to-home Button -->
+    <a href="{% url 'landing' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Back to Home</span>
+    </a>
 
     <div class="header">
-        <h1>Checkora</h1>
+        <div class="logo-container">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+            <span class="logo-text">CHECKORA</span>
+        </div>
         <p>Welcome back! Sign in to continue</p>
     </div>
 
     <div class="auth-card">
         <form method="POST">
             {% csrf_token %}
+            
+            {% include 'game/includes/messages.html' %}
             
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
@@ -34,7 +46,12 @@
                     {% endif %}
                 </div>
             {% endfor %}
-            
+            <div class="remember-me">
+                <label>
+                    <input type="checkbox" name="remember_me">
+                    Remember Me
+                </label>
+            </div>
             <button type="submit" class="btn btn-gold">Sign In</button>
         </form>
         
@@ -45,6 +62,7 @@
         </div>
     </div>
 
-    <script src="{% static 'game/js/auth.js' %}?v=5"></script>
+    <script src="{% static 'game/js/auth.js' %}?v=7"></script>
+    <script src="{% static 'game/js/toast.js' %}"></script>
 </body>
 </html>
