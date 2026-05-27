@@ -2555,6 +2555,14 @@
     if (confettiContainer) confettiContainer.remove();
 });
 
+            // Dismiss game over overlay on backdrop click to review the board
+            gameOverOverlay.addEventListener('click', (e) => {
+                if (e.target === gameOverOverlay) {
+                    gameOverOverlay.classList.remove('active');
+                    gameOverOverlay.classList.remove('game-over-celebration');
+                }
+            });
+
             // ========== Exit to Menu Logic ==========
             const exitToMenuBtn = document.getElementById('exitToMenuBtn');
             if (exitToMenuBtn) {

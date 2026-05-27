@@ -7,7 +7,7 @@ import secrets
 import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -33,6 +33,17 @@ from .models import GameResult
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 
+
+def _rate_limit(request, key_prefix, limit=5, window=60):
+    """Simple in-memory rate limiter. Returns True if allowed."""
+    ip = request.META.get('REMOTE_ADDR', 'unknown')
+    cache_key = f"ratelimit:{key_prefix}:{ip}"
+    count = cache.get(cache_key, 0)
+    if count >= limit:
+        return False
+    cache.set(cache_key, count + 1, timeout=window)
+    return True
+
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
@@ -49,8 +60,11 @@ def index(request):
 
 def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
-    user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+    try:
+        user = request.user if request.user.is_authenticated else None
+        GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+    except Exception as e:
+        logger.error('Failed to record game result: mode=%s winner=%s reason=%s error=%s', mode, winner, reason, e)
 
 
 @require_POST
@@ -509,6 +523,7 @@ def resign_game(request):
     game_status = 'resignation'
 
     game.game_status = game_status
+    game.current_turn = resigning_player
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
@@ -539,6 +554,9 @@ def register_view(request):
         return redirect('index')
 
     if request.method == 'POST':
+        if not _rate_limit(request, 'register', limit=3, window=300):
+            messages.error(request, 'Too many registration attempts. Please try again later.')
+            return redirect('register')
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
         
@@ -660,6 +678,10 @@ def verify_otp(request):
         return redirect('register')
 
     if request.method == 'POST':
+        if not _rate_limit(request, 'verify_otp', limit=5, window=60):
+            messages.error(request, 'Too many OTP attempts. Please try again later.')
+            return redirect('verify_otp')
+
         otp_created_at = request.session.get('otp_created_at')
 
         if otp_created_at:
@@ -772,6 +794,10 @@ def resend_otp(request):
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
 
+    if not _rate_limit(request, 'resend_otp', limit=3, window=120):
+        messages.error(request, 'Too many OTP resend requests. Please try again later.')
+        return redirect('verify_otp')
+
     try:
         user = User.objects.get(id=user_id, is_active=False)
     except User.DoesNotExist:
@@ -790,6 +816,7 @@ def resend_otp(request):
     ).hexdigest()
 
     request.session['registration_otp_hash'] = otp_hash
+    request.session['otp_created_at'] = time.time()
 
     try:
         send_mail(
@@ -816,6 +843,9 @@ def resend_otp(request):
 
 class CustomPasswordResetView(PasswordResetView):
     def post(self, request, *args, **kwargs):
+        if not _rate_limit(request, 'password_reset', limit=3, window=300):
+            messages.error(request, 'Too many password reset attempts. Please try again later.')
+            return redirect('password_reset')
 
         email = request.POST.get('email', '').strip().lower()
         users = User.objects.filter(email=email)
@@ -892,6 +922,9 @@ def login_view(request):
         return redirect('index')
 
     if request.method == 'POST':
+        if not _rate_limit(request, 'login', limit=5, window=60):
+            messages.error(request, 'Too many login attempts. Please try again later.')
+            return redirect('login')
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
@@ -927,7 +960,7 @@ def logout_view(request):
 
 
 # Protect the stats page with login requirement
-@login_required
+@login_required(login_url='/login/')
 def stats_view(request):
     """Display game statistics."""
     # Only show real database records linked to the logged-in user
