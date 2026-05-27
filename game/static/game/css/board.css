@@ -1508,10 +1508,17 @@ body {
 }
 
 /* ================= PAUSE STATE ================= */
+/* ================= PAUSE STATE ================= */
+.chessboard.paused {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
 .chessboard.paused .square {
     pointer-events: none;
     filter: blur(15px);
 }
+
 
 .chessboard.paused::after {
     content: "Resume to Continue";
@@ -1531,7 +1538,17 @@ body {
     z-index: 9999;
     box-shadow: 0 8px 32px rgba(240, 192, 64, 0.4);
     filter: none;
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
+}
+@media (max-width: 768px) {
+    .chessboard.paused::after {
+        font-size: 1rem;
+        padding: 12px 20px;
+        white-space: normal;
+        text-align: center;
+        width: 70%;
+    }
 }
 
 #pauseBtn.paused {
