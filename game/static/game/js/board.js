@@ -38,6 +38,7 @@
 
             let whiteTime = 0;
             let blackTime = 0;
+            let timeIncrement = 0;
             let selectedMins = 10;
             let selectedIncrement = 0;
             let paused = false;
@@ -442,6 +443,7 @@
                 turn = data.current_turn;
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
+                timeIncrement = data.increment || 0;
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
@@ -1807,6 +1809,11 @@
                     confettiContainer.remove();
                 }
 
+            const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
+            const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
+            const incrementSelect = document.getElementById('welcomeIncrementSelect');
+            const increment = incrementSelect ? parseInt(incrementSelect.value) : 0;
+
                 const normalizeName = (name, fallback) => (name || fallback).trim().slice(0, 17);
                 const wName = normalizeName(
                     overrideNames ? overrideNames.white : document.getElementById('whiteNameInput')?.value,
@@ -1840,6 +1847,8 @@
                     white_name: wName,
                     black_name: bName,
                     difficulty: difficulty,
+                    increment: increment
+                });
                     time_limit: timeLimit,
                     increment: increment
                 };
@@ -1873,6 +1882,8 @@
                 
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
+                timeIncrement = d.increment || 0;
+
                 currentDifficulty = d.difficulty || difficulty;
                 if (resignBtn) resignBtn.style.display = '';
                 if (pauseBtn) pauseBtn.style.display = '';

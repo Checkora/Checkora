@@ -74,6 +74,9 @@ class ChessGame:
         self.captured = {'white': [], 'black': []}
         # DP Table: {(row, col): [list of moves]}
         self.valid_moves_cache = {}
+        self.white_time = 10 * 60  # 10 minutes
+        self.black_time = 10 * 60
+        self.increment = 0  # Fischer Time increment in seconds
         self.white_time = time_limit
         self.black_time = time_limit
         self.increment = increment
@@ -540,6 +543,9 @@ DP cache is intentionally excluded to save cookie space."""
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
 
+        # Add Fischer Time increment to the player who just moved
+        if self.increment > 0:
+            if self.current_turn == 'white':
         # Save who made this move before switching
         moved_by = self.current_turn
 
