@@ -10,11 +10,10 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import AuthenticationForm
 from django.core.mail import send_mail
 from django.contrib import messages
 from django import forms
-from .forms import CustomUserCreationForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
@@ -484,7 +483,7 @@ def login_view(request):
         return redirect('index')
 
     if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
+        form = CustomAuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
@@ -492,7 +491,7 @@ def login_view(request):
             return redirect('index')
         
     else:
-        form = AuthenticationForm()
+        form = CustomAuthenticationForm()
 
     return render(request, 'game/login.html', {'form': form})
 
