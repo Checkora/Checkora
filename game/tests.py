@@ -9,6 +9,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.test import (
+    Client,
     RequestFactory,
     SimpleTestCase,
     TestCase,
@@ -17,6 +18,7 @@ from django.test import (
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
+from .models import PendingRegistration
 from .views import _pending_user_matches_signup
 
 class EnginePathResolutionTest(SimpleTestCase):
@@ -131,6 +133,7 @@ class ServerErrorPageTest(SimpleTestCase):
         self.assertContains(response, reverse('landing'), status_code=500)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
@@ -182,88 +185,132 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
-@override_settings(
-    DEBUG=True,
-    EMAIL_HOST_USER='',
-    EMAIL_HOST_PASSWORD=''
-)
-def test_pending_unverified_username_can_register_again(self):
-    payload = {
-        'username': 'pendingplayer',
-        'email': 'pendingplayer@example.com',
-        'password1': 'StrongPass123!',
-        'password2': 'StrongPass123!',
-    }
 
-    with mock.patch('builtins.print'):
-        first_response = self.client.post('/register/', data=payload)
-    first_user_id = self.client.session['registration_user_id']
-
-    with mock.patch('builtins.print'):
-        second_response = self.client.post('/register/', data=payload)
-
-    self.assertRedirects(
-        first_response,
-        '/verify-otp/',
-        fetch_redirect_response=False,
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
     )
-    self.assertRedirects(
-        second_response,
-        '/verify-otp/',
-        fetch_redirect_response=False,
-    )
-    self.assertEqual(
-        User.objects.filter(username='pendingplayer').count(),
-        1,
-    )
-    self.assertNotEqual(
-        first_user_id,
-        self.client.session['registration_user_id'],
-    )
+    def test_pending_unverified_username_can_register_again(self):
+        payload = {
+            'username': 'pendingplayer',
+            'email': 'pendingplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
 
-def test_pending_signup_match_allows_missing_email(self):
-    pending_user = mock.Mock(username='pendingplayer', email=None)
+        with mock.patch('builtins.print'):
+            first_response = self.client.post('/register/', data=payload)
+        first_user_id = self.client.session['registration_user_id']
 
-    self.assertTrue(
-        _pending_user_matches_signup(
-            pending_user,
-            'pendingplayer',
-            'pendingplayer@example.com',
+        with mock.patch('builtins.print'):
+            second_response = self.client.post('/register/', data=payload)
+
+        self.assertRedirects(
+            first_response,
+            '/verify-otp/',
+            fetch_redirect_response=False,
         )
+        self.assertRedirects(
+            second_response,
+            '/verify-otp/',
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(
+            User.objects.filter(username='pendingplayer').count(),
+            1,
+        )
+        self.assertEqual(PendingRegistration.objects.count(), 1)
+        self.assertNotEqual(
+            first_user_id,
+            self.client.session['registration_user_id'],
+        )
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
     )
+    def test_pending_unverified_username_can_register_again_in_new_session(self):
+        payload = {
+            'username': 'freshpending',
+            'email': 'freshpending@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
 
-@override_settings(
-    DEBUG=True,
-    EMAIL_HOST_USER='',
-    EMAIL_HOST_PASSWORD=''
-)
-def test_invalid_pending_retry_keeps_existing_user_and_form_errors(self):
-    payload = {
-        'username': 'pendingplayer',
-        'email': 'pendingplayer@example.com',
-        'password1': 'StrongPass123!',
-        'password2': 'StrongPass123!',
-    }
+        with mock.patch('builtins.print'):
+            first_response = self.client.post('/register/', data=payload)
+        first_user_id = self.client.session['registration_user_id']
 
-    with mock.patch('builtins.print'):
-        self.client.post('/register/', data=payload)
-    first_user_id = self.client.session['registration_user_id']
+        new_client = Client()
+        with mock.patch('builtins.print'):
+            second_response = new_client.post('/register/', data=payload)
 
-    invalid_payload = {
-        **payload,
-        'password2': 'DifferentPass123!',
-    }
-    response = self.client.post('/register/', data=invalid_payload)
+        self.assertRedirects(
+            first_response,
+            '/verify-otp/',
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            second_response,
+            '/verify-otp/',
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(User.objects.filter(id=first_user_id).exists())
+        self.assertEqual(
+            User.objects.filter(username='freshpending').count(),
+            1,
+        )
+        self.assertEqual(PendingRegistration.objects.count(), 1)
+        self.assertNotEqual(
+            first_user_id,
+            new_client.session['registration_user_id'],
+        )
 
-    self.assertEqual(response.status_code, 200)
-    self.assertContains(response, "The two password fields didn")
-    self.assertTrue(User.objects.filter(id=first_user_id).exists())
-    self.assertEqual(
-        self.client.session['registration_user_id'],
-        first_user_id,
+    def test_pending_signup_match_allows_missing_email(self):
+        pending_user = mock.Mock(username='pendingplayer', email=None)
+
+        self.assertTrue(
+            _pending_user_matches_signup(
+                pending_user,
+                'pendingplayer',
+                'pendingplayer@example.com',
+            )
+        )
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD=''
     )
+    def test_invalid_pending_retry_keeps_existing_user_and_form_errors(self):
+        payload = {
+            'username': 'pendingplayer',
+            'email': 'pendingplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
 
-@override_settings(SECURE_SSL_REDIRECT=False)
+        with mock.patch('builtins.print'):
+            self.client.post('/register/', data=payload)
+        first_user_id = self.client.session['registration_user_id']
+
+        invalid_payload = {
+            **payload,
+            'password2': 'DifferentPass123!',
+        }
+        response = self.client.post('/register/', data=invalid_payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The two password fields didn")
+        self.assertTrue(User.objects.filter(id=first_user_id).exists())
+        self.assertEqual(
+            self.client.session['registration_user_id'],
+            first_user_id,
+        )
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
     def test_duplicate_email_registration_fails(self):
         User.objects.create_user(
             username='existinguser',
@@ -280,11 +327,11 @@ def test_invalid_pending_retry_keeps_existing_user_and_form_errors(self):
         }
 
         response = self.client.post('/register/', data=payload)
-self.assertEqual(response.status_code, 200)
-self.assertContains(
-    response,
-    'A user with this email address already exists.',
-)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'A user with this email address already exists.',
+        )
         self.assertFalse(User.objects.filter(username='newplayer').exists())
 
 
@@ -1360,6 +1407,7 @@ class StaleGameCleanupTest(TestCase):
         response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class CheckUsernameViewTest(TestCase):
 
     def setUp(self):
@@ -1385,15 +1433,13 @@ class CheckUsernameViewTest(TestCase):
         self.assertJSONEqual(response.content, {'available': False})
 
     def test_inactive_unverified_username_available(self):
-        """This session's pending signup should not reserve its username."""
+        """Pending signups should not reserve usernames."""
         pending_user = User.objects.create_user(
             username='pendinguser',
             password='testpass123',
             is_active=False,
         )
-        session = self.client.session
-        session['registration_user_id'] = pending_user.id
-        session.save()
+        PendingRegistration.objects.create(user=pending_user)
 
         response = self.client.get(
             reverse('check_username'),
@@ -1404,7 +1450,7 @@ class CheckUsernameViewTest(TestCase):
         self.assertJSONEqual(response.content, {'available': True})
 
     def test_inactive_non_pending_username_taken(self):
-        """Inactive users should still reserve usernames without session ownership."""
+        """Inactive users still reserve usernames unless they are OTP-pending."""
         User.objects.create_user(
             username='inactiveuser',
             password='testpass123',

@@ -29,7 +29,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, PendingRegistration
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 
@@ -530,10 +530,10 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    users = User.objects.filter(username__iexact=username)
-    pending_user_id = request.session.get('registration_user_id')
-    if pending_user_id:
-        users = users.exclude(id=pending_user_id, is_active=False)
+    users = User.objects.filter(username__iexact=username).exclude(
+        is_active=False,
+        pending_registration__isnull=False,
+    )
     exists = users.exists()
     return JsonResponse({'available': not exists})
 
@@ -549,6 +549,18 @@ def _pending_user_matches_signup(pending_user, username, email):
      )
 
 
+def _find_pending_signup_user(username, email):
+    normalized_email = (email or '').strip().lower()
+    pending_users = User.objects.filter(
+        is_active=False,
+        pending_registration__isnull=False,
+    )
+    query = Q(username__iexact=username)
+    if normalized_email:
+        query |= Q(email__iexact=normalized_email)
+    return pending_users.filter(query).first()
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
@@ -560,11 +572,7 @@ def register_view(request):
         if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
             username = request.POST.get('username', '').strip()
             email = request.POST.get('email', '').strip()
-            pending_user_id = request.session.get('registration_user_id')
-            pending_user = User.objects.filter(
-                id=pending_user_id,
-                is_active=False,
-            ).first()
+            pending_user = _find_pending_signup_user(username, email)
 
             if pending_user and _pending_user_matches_signup(
                 pending_user,
@@ -579,6 +587,7 @@ def register_view(request):
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
+            PendingRegistration.objects.create(user=user)
 
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
@@ -697,6 +706,7 @@ def verify_otp(request):
                 user.is_active = True
                 user.full_clean()
                 user.save()
+                PendingRegistration.objects.filter(user=user).delete()
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
                 request.session.pop('otp_created_at', None)

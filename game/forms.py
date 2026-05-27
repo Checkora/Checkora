@@ -3,6 +3,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
+from smtplib import SMTPException
+
+
+User = get_user_model()
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -13,17 +17,11 @@ class CustomUserCreationForm(UserCreationForm):
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
-        if email:
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
-
-if User.objects.filter(email__iexact=email).exists():
-    raise ValidationError(
-        "A user with this email address already exists.",
-        code='duplicate_email'
-    )
-    )
+        if email and User.objects.filter(email__iexact=email).exists():
+            raise ValidationError(
+                "A user with this email address already exists.",
+                code='duplicate_email',
+            )
         return email
 
 
