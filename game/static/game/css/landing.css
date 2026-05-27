@@ -694,8 +694,10 @@ body {
     gap: 2rem;
     justify-content: center;
 }
-.capabilities-grid > .capability-card:last-child:nth-child(3n - 2) {
-    grid-column: 2;
+@media (min-width: 900px) {
+    .capabilities-grid > .capability-card:last-child:nth-child(3n - 2) {
+        grid-column: 2;
+    }
 }
 
 .capability-card {
