@@ -1000,6 +1000,10 @@ def contact_view(request):
     """Directly serve the static contact page template instance."""
     return render(request, 'game/contact.html')
 
+def contributors(request):
+    """Render contributors showcase page."""
+    return render(request, 'game/contributors.html')
+
 def password_reset_account_selection(request):
 
     email = request.GET.get('email')
@@ -1014,5 +1018,6 @@ def password_reset_account_selection(request):
             'email': email
         }
     )
+
 
     

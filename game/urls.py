@@ -41,4 +41,7 @@ urlpatterns = [
         views.password_reset_account_selection,
         name='password_reset_account_selection'
     ),
+
+    #contributors page
+    path("contributors/", views.contributors, name="contributors"),
 ]
