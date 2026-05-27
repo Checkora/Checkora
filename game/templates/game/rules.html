@@ -450,6 +450,87 @@
         }
         .piece-card.active .piece-name { color: var(--gold); }
 
+        /* ── Piece Values ── */
+        .value-panel {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .value-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .value-summary strong {
+            color: var(--gold);
+            font-weight: 500;
+        }
+
+        .value-grid {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .value-row {
+            display: grid;
+            grid-template-columns: minmax(140px, 1.2fr) minmax(110px, 0.8fr) 1.4fr;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 1rem 1.1rem;
+            border-radius: 12px;
+            background: linear-gradient(145deg, var(--surface2), rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--border);
+        }
+
+        .value-piece {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .value-piece .piece-symbol {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 196, 48, 0.12);
+            border: 1px solid rgba(244, 196, 48, 0.2);
+            color: var(--gold);
+            flex-shrink: 0;
+        }
+
+        .value-score {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem;
+            color: var(--gold);
+            white-space: nowrap;
+        }
+
+        .value-note {
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .value-footnote {
+            color: var(--muted);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .value-footnote strong {
+            color: var(--gold);
+            font-weight: 500;
+        }
+
         /* Auto-play animation */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -550,6 +631,9 @@
         </div>
         <div class="rule-nav-item" onclick="showRule('pieces')" id="nav-pieces">
             <span class="icon">♟</span> Piece Moves
+        </div>
+        <div class="rule-nav-item" onclick="showRule('values')" id="nav-values">
+            <span class="icon">🧮</span> Piece Values & Scoring
         </div>
         <div class="rule-nav-item" onclick="showRule('pawn')" id="nav-pawn">
             <span class="icon">🔼</span> Pawn Special Rules
@@ -655,6 +739,62 @@
                             <li>Cannot move into check</li>
                             <li>Most important piece — protect it!</li>
                         </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ VALUES ══ -->
+        <div class="rule-card" id="rule-values">
+            <div class="rule-header">
+                <span class="rule-icon">🧮</span>
+                <h2 class="rule-title">Piece Values & Scoring</h2>
+            </div>
+            <p class="rule-desc">
+                Material values help explain trades and exchanges. A move that wins more value than it gives up is often favorable,
+                though <strong>checkmate and king safety always outweigh raw points</strong>.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Reference score table</div>
+                <div class="value-panel">
+                    <div class="value-summary">
+                        <div><strong>Rule of thumb:</strong> trade up when you can.</div>
+                        <div>Higher score means the piece is usually more valuable.</div>
+                    </div>
+                    <div class="value-grid" role="table" aria-label="Chess piece values and scoring">
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♙</span> Pawn</div>
+                            <div class="value-score" role="cell">1 Point</div>
+                            <div class="value-note" role="cell">The basic unit of material. Often used to build space, structure, and promotion chances.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♘</span> Knight</div>
+                            <div class="value-score" role="cell">3 Points</div>
+                            <div class="value-note" role="cell">Strong in closed positions and can jump over pieces.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♗</span> Bishop</div>
+                            <div class="value-score" role="cell">3 Points</div>
+                            <div class="value-note" role="cell">Usually equal to a knight, but can become stronger on open diagonals.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♖</span> Rook</div>
+                            <div class="value-score" role="cell">5 Points</div>
+                            <div class="value-note" role="cell">More powerful in open files and often dominates the late game.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♕</span> Queen</div>
+                            <div class="value-score" role="cell">9 Points</div>
+                            <div class="value-note" role="cell">The most mobile attacking piece. Avoid trading it lightly.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♔</span> King</div>
+                            <div class="value-score" role="cell">Infinite</div>
+                            <div class="value-note" role="cell">Ultimate value. If the King is checkmated, the game is over immediately.</div>
+                        </div>
+                    </div>
+                    <div class="value-footnote">
+                        <strong>Example:</strong> winning a rook for a bishop usually gains about 2 points of material, which is why that trade is often favorable.
                     </div>
                 </div>
             </div>
@@ -910,7 +1050,7 @@ function highlightCapture(id, r, c) {
 /* ══════════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════════ */
-const rules = ['basics','pieces','pawn','castling','enpassant','check','stalemate','promotion'];
+const rules = ['basics','pieces','values','pawn','castling','enpassant','check','stalemate','promotion'];
 
 function showRule(name) {
     rules.forEach(r => {
