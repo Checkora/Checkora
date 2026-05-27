@@ -58,14 +58,32 @@ def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
     try:
         data = json.loads(request.body)
-        from_row = int(data['from_row'])
-        from_col = int(data['from_col'])
-        to_row = int(data['to_row'])
-        to_col = int(data['to_col'])
+        coords = ['from_row', 'from_col', 'to_row', 'to_col']
+        for coord in coords:
+            if coord not in data:
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+            val = data[coord]
+            if not isinstance(val, int) or isinstance(val, bool):
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+            if not (0 <= val <= 7):
+                return JsonResponse(
+                    {"error": "Invalid board coordinates"},
+                    status=400,
+                )
+        from_row = data['from_row']
+        from_col = data['from_col']
+        to_row = data['to_row']
+        to_col = data['to_col']
         promotion_piece = data.get('promotion_piece', None)
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return JsonResponse(
-            {'valid': False, 'message': 'Invalid request data.'},
+            {"error": "Invalid board coordinates"},
             status=400,
         )
 
@@ -93,6 +111,8 @@ def make_move(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'time_limit': getattr(game, 'time_limit', 600),
+        'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'game_status': game_status,
@@ -137,12 +157,28 @@ def new_game(request):
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
     time_limit_raw = data.get('time_limit', 600)
+    increment_raw = data.get('increment', 0)
 
-    try:
-        time_limit = int(time_limit_raw)
-        time_limit = max(60, min(18000, time_limit))
-    except (ValueError, TypeError):
-        time_limit = 600
+    if isinstance(time_limit_raw, str) and '|' in time_limit_raw:
+        try:
+            parts = time_limit_raw.split('|')
+            time_limit = int(parts[0]) * 60
+            increment = int(parts[1])
+        except (ValueError, IndexError, TypeError):
+            time_limit = 600
+            increment = 0
+    else:
+        try:
+            time_limit = int(time_limit_raw)
+            time_limit = max(60, min(18000, time_limit))
+        except (ValueError, TypeError):
+            time_limit = 600
+
+        try:
+            increment = int(increment_raw)
+            increment = max(0, min(180, increment))
+        except (ValueError, TypeError):
+            increment = 0
 
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
@@ -170,14 +206,14 @@ def new_game(request):
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
-            game = ChessGame.from_fen(fen, time_limit=time_limit)
+            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment)
         except ValueError as exc:
             return JsonResponse(
                 {'valid': False, 'message': f'Invalid FEN: {exc}'},
                 status=400,
             )
     else:
-        game = ChessGame(time_limit=time_limit)
+        game = ChessGame(time_limit=time_limit, increment=increment)
     game.mode = mode
     game.player_color = player_color
     game.paused = False
@@ -197,6 +233,8 @@ def new_game(request):
         'white_name': request.session['white_name'],
         'black_name': request.session['black_name'],
         'difficulty': difficulty,
+        'time_limit': getattr(game, 'time_limit', 600),
+        'increment': getattr(game, 'increment', 0),
         'fen': game.generate_fen_key(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
@@ -227,6 +265,8 @@ def resume_game(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'time_limit': getattr(game, 'time_limit', 600),
+        'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'mode': game.mode,
@@ -288,6 +328,8 @@ def get_state(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'time_limit': getattr(game, 'time_limit', 600),
+        'increment': getattr(game, 'increment', 0),
         'paused': game.paused,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
@@ -408,6 +450,8 @@ def ai_move(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'time_limit': getattr(game, 'time_limit', 600),
+        'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'ai_move': best,
