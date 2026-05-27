@@ -84,12 +84,13 @@
         }
 
         .header-subtitle {
+            margin: 0;
             font-size: 0.82rem;
-            color: #4fc3f7;           /* bright blue — distinct from gold logo */
+            color: #4fc3f7;        
             font-weight: 700;
             letter-spacing: 0.14em;
             text-transform: uppercase;
-            border-left: 2px solid #2c3245;   /* thin divider between the two */
+            border-left: 2px solid #2c3245;   
             padding-left: 14px;
         }
 
@@ -618,12 +619,12 @@
 
     <header>
         <div class="header-left">
-            <a href="/" class="logo">
-                <img src="/static/game/checkora_icon_only.png" 
+            <a href="{% url 'landing' %}" class="logo">
+                <img src="{% static 'game/checkora_icon_only.png' %}" 
                     style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
                 <span>Checkora</span>
             </a>
-            <span class="header-subtitle">Interactive Chess Rulebook</span>
+            <h1 class="header-subtitle">Interactive Chess Rulebook</h1>
         </div>
         <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
     </header>
@@ -633,7 +634,7 @@
 
 <div class="layout">
     <!-- Sidebar -->
-    <nav class="sidebar">
+    <nav id="sidebar" class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
             <a href="{% url 'landing' %}" id="dynamicBackBtn" class="back-btn" style="color:#f0c040; display:inline-block;">
                ← Back to Home
