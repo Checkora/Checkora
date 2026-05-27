@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -543,21 +544,8 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
-            <a href="{% url 'index' %}"
-               class="back-btn"
-               style="color:#f0c040; display:inline-block;"
-               onclick="
-                try {
-                    var modal = window.parent.document.getElementById('rulebookModal');
-                    if (modal) {
-                        modal.style.display='none';
-                        return false;
-                    }
-                } catch(e) {
-                    console.error('Modal close failed:', e);
-                }
-               ">
-               ← Back to Game
+            <a href="{% url 'landing' %}" id="dynamicBackBtn" class="back-btn" style="color:#f0c040; display:inline-block;">
+               ← Back to Home
             </a>
         </div>
         <div class="sidebar-title">Rulebook</div>
@@ -1230,6 +1218,32 @@ window.onload = () => {
     initStalemate();
     buildBoard('board-promo'); promoStep(0);
 };
+document.addEventListener('DOMContentLoaded', () => {
+    const backBtn = document.getElementById('dynamicBackBtn');
+    if (!backBtn) return;
+
+    // Check if the rulebook is loaded inside an iframe (Game Modal)
+    if (window !== window.parent) {
+        backBtn.innerHTML = '← Back to Game';
+        backBtn.href = '#';
+        backBtn.onclick = (e) => {
+            e.preventDefault();
+            try {
+                // Securely tell the parent window (board.html) to hide the modal
+                const parentModal = window.parent.document.getElementById('rulebookModal');
+                if (parentModal) {
+                    parentModal.style.display = 'none';
+                }
+            } catch (err) {
+                console.error("Could not close modal", err);
+            }
+        };
+    } else {
+        // Loaded as a standalone page (from the Landing Page Footer)
+        backBtn.innerHTML = '← Back to Home';
+        backBtn.href = backBtn.getAttribute('href');// Forces the link to go to the home page
+    }
+});
 </script>
 </body>
 </html>
