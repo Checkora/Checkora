@@ -543,14 +543,17 @@ def check_username(request):
                     if len(suggestions) >= 3:
                         break
         
-        # Add underscore suggestions if needed
+        # Add underscore suggestions if needed - with loop protection
         if len(suggestions) < 3:
             import random
-            while len(suggestions) < 3:
+            max_attempts = 30  # Prevent infinite loop
+            attempts = 0
+            while len(suggestions) < 3 and attempts < max_attempts:
                 suffix = random.randint(10, 999)
                 suggestion = f"{base_username}_{suffix}" if base_username else f"user_{suffix}"
-                if not User.objects.filter(username__iexact=suggestion).exists():
+                if suggestion not in suggestions and not User.objects.filter(username__iexact=suggestion).exists():
                     suggestions.append(suggestion)
+                attempts += 1
         
         return JsonResponse({
             "available": False,
@@ -563,7 +566,6 @@ def check_username(request):
         "message": "✅ Username is available!",
         "suggestions": []
     })
-
 
 def verify_otp(request):
     if request.user.is_authenticated:

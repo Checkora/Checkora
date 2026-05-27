@@ -1,536 +1,186 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register | Checkora</title>
-
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6" />
-
-    <link
-      rel="icon"
-      type="image/jpeg"
-      href="{% static 'game/favicon.jpeg' %}"
-    />
-    
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6">
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <style>
-      .suggestions-container {
-        margin-top: 8px;
-        font-size: 12px;
-      }
-      
-      .suggestion {
-        display: inline-block;
-        background: #2a2a2a;
-        padding: 4px 10px;
-        margin: 0 6px 6px 0;
-        border-radius: 15px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      
-      .suggestion:hover {
-        background-color: #3a3a3a;
-        transform: scale(1.02);
-      }
-      
-      .validation-error {
-        color: #ff4d4d;
-        font-size: 13px;
-        margin-top: 5px;
-      }
-      
-      .validation-success {
-        color: #4CAF50;
-        font-size: 13px;
-        margin-top: 5px;
-      }
-      
-      .validation-info {
-        color: #cccccc;
-        font-size: 13px;
-        margin-top: 5px;
-      }
-      
-      .password-requirements {
-        background: #1a1a2e;
-        border-left: 3px solid #f0c040;
-        padding: 10px;
-        margin-top: 8px;
-        border-radius: 5px;
-        font-size: 12px;
-      }
-      
-      .password-requirements p {
-        margin: 5px 0;
-        color: #aaa;
-      }
-      
-      .requirement-met {
-        color: #4CAF50 !important;
-        text-decoration: line-through;
-      }
-      
-      .char-counter {
-        font-size: 12px;
-        margin-top: 4px;
-        transition: color 0.2s ease;
-      }
-      
-      .char-counter.normal {
-        color: #888;
-      }
-      
-      .char-counter.warning {
-        color: #ffaa00;
-      }
-      
-      .char-counter.danger {
-        color: #ff4d4d;
-      }
+        .suggestions-container { margin-top: 8px; font-size: 12px; }
+        .suggestion { display: inline-block; background: #2a2a2a; padding: 4px 10px; margin: 0 6px 6px 0; border-radius: 15px; cursor: pointer; border: none; color: #d0d0d0; }
+        .suggestion:hover { background: #3a3a3a; }
+        .suggestion:focus { outline: 2px solid #f0c040; }
+        .validation-error { color: #ff4d4d; font-size: 13px; margin-top: 5px; }
+        .validation-success { color: #4CAF50; font-size: 13px; margin-top: 5px; }
+        .validation-info { color: #cccccc; font-size: 13px; margin-top: 5px; }
+        .char-counter { font-size: 12px; margin-top: 4px; color: #888; }
+        .char-counter.warning { color: #ffaa00; }
+        .char-counter.danger { color: #ff4d4d; }
     </style>
-  </head>
-
-  <body>
-    <!-- Back-to-home arrow -->
-    <a
-      href="{% url 'landing' %}"
-      class="back-home"
-      aria-label="Back to home"
-    >
-      &larr; Home
-    </a>
-
+</head>
+<body>
+    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
     <div class="header">
-      <div class="logo-container">
-        <img
-          src="{% static 'game/checkora_icon_only.png' %}"
-          class="logo-icon-img"
-          alt="Checkora"
-        />
-        <span class="logo-text">Checkora</span>
-      </div>
-
-      <p>Create an account to track your stats</p>
+        <div class="logo-container">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+            <span class="logo-text">Checkora</span>
+        </div>
+        <p>Create an account to track your stats</p>
     </div>
-
     <div class="auth-card">
-      <form method="POST" id="register-form">
-        {% csrf_token %}
-
-        {% if messages %}
-          <div class="message-list" role="alert">
-            {% for message in messages %}
-              <div class="message message-{{ message.tags }}">
-                {{ message }}
-              </div>
+        <form method="POST" id="register-form">
+            {% csrf_token %}
+            {% if messages %}
+                <div class="message-list" role="alert">
+                    {% for message in messages %}
+                        <div class="message message-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.name == "username" %}
+                        <div id="username-feedback" style="margin-top: 6px; font-size: 14px;"></div>
+                        <div id="char-counter" class="char-counter">0/150 characters</div>
+                        {% if field.help_text %}<span class="helptext" style="display: none;">{{ field.help_text|safe }}</span>{% endif %}
+                    {% endif %}
+                    {% if field.errors %}{{ field.errors }}{% endif %}
+                </div>
             {% endfor %}
-          </div>
-        {% endif %}
-
-        {% if form.non_field_errors %}
-          {{ form.non_field_errors }}
-        {% endif %}
-
-        {% for field in form %}
-          <div class="form-group">
-
-            <label for="{{ field.id_for_label }}">
-              {{ field.label }}
-            </label>
-
-            {{ field }}
-
-            {% if field.name == "username" %}
-              <div id="username-feedback" style="margin-top: 6px; font-size: 14px;"></div>
-              <div id="char-counter" class="char-counter normal">0/150 characters</div>
-              {% if field.help_text %}
-                <span class="helptext" style="display: none;">
-                  {{ field.help_text|safe }}
-                </span>
-              {% endif %}
-            {% endif %}
-
-            {% if field.name == "password1" %}
-              <div id="password-feedback" style="margin-top: 6px; font-size: 14px;"></div>
-              <div class="password-requirements" id="password-requirements">
-                <p id="req-length">❌ At least 8 characters</p>
-                <p id="req-numeric">❌ Cannot be entirely numeric</p>
-                <p id="req-common">❌ Cannot be a commonly used password</p>
-                <p id="req-similar">❌ Cannot be too similar to your personal information</p>
-              </div>
-              {% if field.help_text %}
-                <span class="helptext" style="display: none;">
-                  {{ field.help_text|safe }}
-                </span>
-              {% endif %}
-            {% endif %}
-
-            {% if field.name == "password2" %}
-              <div id="confirm-feedback" style="margin-top: 6px; font-size: 14px;"></div>
-              {% if field.help_text %}
-                <span class="helptext" style="display: none;">
-                  {{ field.help_text|safe }}
-                </span>
-              {% endif %}
-            {% endif %}
-
-            {% if field.errors %}
-              {{ field.errors }}
-            {% endif %}
-
-          </div>
-        {% endfor %}
-
-        <button
-          type="submit"
-          class="btn btn-gold"
-          id="submit-btn"
-        >
-          Create Account
-        </button>
-
-      </form>
-
-      <div class="auth-footer">
-        Already have an account?
-        <a href="{% url 'login' %}">
-          Sign In
-        </a>
-      </div>
+            <button type="submit" class="btn btn-gold" id="submit-btn">Create Account</button>
+        </form>
+        <div class="auth-footer">Already have an account? <a href="{% url 'login' %}">Sign In</a></div>
     </div>
-
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
-          // Get form elements
-          const usernameInput = document.querySelector('input[name="username"]');
-          const emailInput = document.querySelector('input[name="email"]');
-          const passwordInput = document.querySelector('input[name="password1"]');
-          const confirmPasswordInput = document.querySelector('input[name="password2"]');
-          const feedback = document.getElementById("username-feedback");
-          const submitBtn = document.getElementById("submit-btn");
-          const charCounter = document.getElementById("char-counter");
-          const passwordFeedback = document.getElementById("password-feedback");
-          const confirmFeedback = document.getElementById("confirm-feedback");
-          
-          // Password requirement elements
-          const reqLength = document.getElementById("req-length");
-          const reqNumeric = document.getElementById("req-numeric");
-          const reqCommon = document.getElementById("req-common");
-          const reqSimilar = document.getElementById("req-similar");
-          
-          if (!usernameInput || !feedback || !submitBtn) {
-              return;
-          }
-          
-          let timeout = null;
-          let isUsernameValid = false;
-          let isPasswordValid = false;
-          let doPasswordsMatch = false;
-          
-          // Common passwords list
-          const commonPasswords = [
-              'password', '12345678', 'qwerty123', 'admin123', 'letmein', 
-              'welcome123', 'password123', 'abc123456', '123456789', '11111111'
-          ];
-          
-          // Update submit button state
-          function updateSubmitButton() {
-              submitBtn.disabled = !(isUsernameValid && isPasswordValid && doPasswordsMatch);
-          }
-          
-          // Update character counter
-          function updateCharCounter() {
-              if (charCounter) {
-                  const length = usernameInput.value.length;
-                  charCounter.innerHTML = `${length}/150 characters`;
-                  
-                  if (length > 150) {
-                      charCounter.classList.remove('normal', 'warning');
-                      charCounter.classList.add('danger');
-                  } else if (length > 140) {
-                      charCounter.classList.remove('normal', 'danger');
-                      charCounter.classList.add('warning');
-                  } else {
-                      charCounter.classList.remove('warning', 'danger');
-                      charCounter.classList.add('normal');
-                  }
-              }
-          }
-          
-          // Validate password against all rules
-          function validatePassword() {
-              const password = passwordInput.value;
-              const username = usernameInput.value;
-              const email = emailInput.value;
-              
-              let isValid = true;
-              
-              // Check length (at least 8)
-              const lengthValid = password.length >= 8;
-              if (lengthValid) {
-                  reqLength.innerHTML = '✅ At least 8 characters';
-                  reqLength.classList.add('requirement-met');
-              } else {
-                  reqLength.innerHTML = '❌ At least 8 characters';
-                  reqLength.classList.remove('requirement-met');
-                  isValid = false;
-              }
-              
-              // Check if entirely numeric
-              const notNumericValid = !/^\d+$/.test(password);
-              if (notNumericValid) {
-                  reqNumeric.innerHTML = '✅ Cannot be entirely numeric';
-                  reqNumeric.classList.add('requirement-met');
-              } else {
-                  reqNumeric.innerHTML = '❌ Cannot be entirely numeric';
-                  reqNumeric.classList.remove('requirement-met');
-                  isValid = false;
-              }
-              
-              // Check common passwords
-              const notCommonValid = !commonPasswords.includes(password.toLowerCase());
-              if (notCommonValid) {
-                  reqCommon.innerHTML = '✅ Cannot be a commonly used password';
-                  reqCommon.classList.add('requirement-met');
-              } else {
-                  reqCommon.innerHTML = '❌ Cannot be a commonly used password';
-                  reqCommon.classList.remove('requirement-met');
-                  isValid = false;
-              }
-              
-              // Check similarity with personal info
-              let similarValid = true;
-              if (username && password.toLowerCase().includes(username.toLowerCase())) {
-                  similarValid = false;
-              }
-              if (email && email.split('@')[0] && password.toLowerCase().includes(email.split('@')[0].toLowerCase())) {
-                  similarValid = false;
-              }
-              if (password.toLowerCase().includes('checkora')) {
-                  similarValid = false;
-              }
-              
-              if (similarValid) {
-                  reqSimilar.innerHTML = '✅ Cannot be too similar to your personal information';
-                  reqSimilar.classList.add('requirement-met');
-              } else {
-                  reqSimilar.innerHTML = '❌ Cannot be too similar to your personal information';
-                  reqSimilar.classList.remove('requirement-met');
-                  isValid = false;
-              }
-              
-              if (password.length === 0) {
-                  passwordFeedback.innerHTML = '';
-                  return false;
-              } else if (isValid) {
-                  passwordFeedback.innerHTML = '✅ Password is valid';
-                  passwordFeedback.className = 'validation-success';
-                  return true;
-              } else {
-                  passwordFeedback.innerHTML = '❌ Please fix the password issues above';
-                  passwordFeedback.className = 'validation-error';
-                  return false;
-              }
-          }
-          
-          // Validate password confirmation match
-          function validatePasswordMatch() {
-              const password = passwordInput.value;
-              const confirm = confirmPasswordInput.value;
-              
-              if (confirm.length === 0) {
-                  confirmFeedback.innerHTML = '';
-                  return false;
-              }
-              
-              if (password === confirm) {
-                  confirmFeedback.innerHTML = '✅ Passwords match';
-                  confirmFeedback.className = 'validation-success';
-                  return true;
-              } else {
-                  confirmFeedback.innerHTML = '❌ Passwords do not match';
-                  confirmFeedback.className = 'validation-error';
-                  return false;
-              }
-          }
-          
-          // Update all validations
-          function updateAllValidations() {
-              isPasswordValid = validatePassword();
-              doPasswordsMatch = validatePasswordMatch();
-              updateSubmitButton();
-          }
-          
-          // Username real-time validation
-          updateCharCounter();
-          
-          usernameInput.addEventListener("input", function () {
-              clearTimeout(timeout);
-              
-              const username = usernameInput.value;
-              const trimmedUsername = username.trim();
-              
-              updateCharCounter();
-              
-              if (trimmedUsername.length === 0) {
-                  feedback.innerHTML = "";
-                  isUsernameValid = false;
-                  updateSubmitButton();
-                  return;
-              }
-              
-              // Check minimum length
-              if (trimmedUsername.length < 3) {
-                  feedback.innerHTML = "❌ Username must be at least 3 characters.";
-                  feedback.className = 'validation-error';
-                  isUsernameValid = false;
-                  updateSubmitButton();
-                  return;
-              }
-              
-              // Check maximum length
-              if (username.length > 150) {
-                  feedback.innerHTML = "❌ Username must be 150 characters or fewer.";
-                  feedback.className = 'validation-error';
-                  isUsernameValid = false;
-                  updateSubmitButton();
-                  return;
-              }
-              
-              // Check for valid characters
-              const validPattern = /^[\w.@+-]+$/;
-              if (!validPattern.test(trimmedUsername)) {
-                  feedback.innerHTML = "❌ Only letters, digits, and @/./+/-/_ are allowed.";
-                  feedback.className = 'validation-error';
-                  isUsernameValid = false;
-                  updateSubmitButton();
-                  return;
-              }
-              
-              feedback.innerHTML = "⏳ Checking username...";
-              feedback.className = 'validation-info';
-              
-              timeout = setTimeout(() => {
-                  fetch("/register/check-username/?username=" + encodeURIComponent(trimmedUsername))
-                  .then(response => {
-                      if (!response.ok) {
-                          throw new Error('Network response was not ok');
-                      }
-                      return response.json();
-                  })
-                  .then(data => {
-                      feedback.innerHTML = data.message;
-                      
-                      if (data.available) {
-                          feedback.className = 'validation-success';
-                          isUsernameValid = true;
-                          
-                          // Remove suggestions if any
-                          const existingSuggestions = document.querySelector('.suggestions-container');
-                          if (existingSuggestions) {
-                              existingSuggestions.remove();
-                          }
-                      } else {
-                          feedback.className = 'validation-error';
-                          isUsernameValid = false;
-                          
-                          // Show suggestions if available
-                          if (data.suggestions && data.suggestions.length > 0) {
-                              // Remove old suggestions container if exists
-                              const oldContainer = document.querySelector('.suggestions-container');
-                              if (oldContainer) {
-                                  oldContainer.remove();
-                              }
-                              
-                              let suggestionsHtml = '<div class="suggestions-container">';
-                              suggestionsHtml += '<span style="color: #cccccc;">💡 Suggestions: </span>';
-                              suggestionsHtml += data.suggestions.map(s => 
-                                  `<span class="suggestion">${s}</span>`
-                              ).join('');
-                              suggestionsHtml += '</div>';
-                              
-                              feedback.insertAdjacentHTML('afterend', suggestionsHtml);
-                              
-                              // Add click handlers for suggestions
-                              document.querySelectorAll('.suggestion').forEach(el => {
-                                  el.addEventListener('click', function() {
-                                      usernameInput.value = this.textContent;
-                                      updateCharCounter();
-                                      // Trigger input event to re-validate
-                                      usernameInput.dispatchEvent(new Event('input'));
-                                  });
-                              });
-                          }
-                      }
-                      
-                      updateAllValidations();
-                  })
-                  .catch((error) => {
-                      console.error('Error:', error);
-                      feedback.innerHTML = "❌ Unable to check username. Please try again.";
-                      feedback.className = 'validation-error';
-                      isUsernameValid = false;
-                      updateAllValidations();
-                  });
-              }, 500);
-          });
-          
-          // Password validation events
-          if (passwordInput) {
-              passwordInput.addEventListener('input', function() {
-                  updateAllValidations();
-              });
-          }
-          
-          if (confirmPasswordInput) {
-              confirmPasswordInput.addEventListener('input', function() {
-                  doPasswordsMatch = validatePasswordMatch();
-                  updateSubmitButton();
-              });
-          }
-          
-          if (emailInput) {
-              emailInput.addEventListener('input', function() {
-                  if (passwordInput.value.length > 0) {
-                      updateAllValidations();
-                  }
-              });
-          }
-          
-          // Initial validations
-          updateAllValidations();
-          
-          // Form submit validation
-          const form = document.getElementById('register-form');
-          form.addEventListener('submit', function(e) {
-              if (!isUsernameValid || !isPasswordValid || !doPasswordsMatch) {
-                  e.preventDefault();
-                  
-                  if (!isUsernameValid) {
-                      feedback.innerHTML = "❌ Please enter a valid username";
-                      feedback.className = 'validation-error';
-                  }
-                  if (!isPasswordValid) {
-                      passwordFeedback.innerHTML = "❌ Please fix password requirements";
-                      passwordFeedback.className = 'validation-error';
-                  }
-                  if (!doPasswordsMatch) {
-                      confirmFeedback.innerHTML = "❌ Passwords do not match";
-                      confirmFeedback.className = 'validation-error';
-                  }
-                  
-                  // Scroll to the first error
-                  const firstError = document.querySelector('.validation-error');
-                  if (firstError) {
-                      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-              }
-          });
-      });
+        (function() {
+            const usernameInput = document.querySelector('input[name="username"]');
+            const feedback = document.getElementById('username-feedback');
+            const submitBtn = document.getElementById('submit-btn');
+            const charCounter = document.getElementById('char-counter');
+            if (!usernameInput || !feedback || !submitBtn) return;
+            
+            let timeout = null, isUsernameValid = false, latestRequestId = 0;
+            
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;');
+                });
+            }
+            
+            function updateCharCounter() {
+                if (charCounter) {
+                    const len = usernameInput.value.length;
+                    charCounter.textContent = len + '/150 characters';
+                    charCounter.className = 'char-counter' + (len > 150 ? ' danger' : (len > 140 ? ' warning' : ''));
+                }
+            }
+            
+            function updateSubmit() { submitBtn.disabled = !isUsernameValid; }
+            
+            usernameInput.addEventListener('input', function() {
+                clearTimeout(timeout);
+                const username = usernameInput.value.trim();
+                updateCharCounter();
+                
+                if (username.length === 0) {
+                    feedback.textContent = '';
+                    feedback.className = '';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                if (username.length < 3) {
+                    feedback.textContent = '❌ Username must be at least 3 characters.';
+                    feedback.className = 'validation-error';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                if (usernameInput.value.length > 150) {
+                    feedback.textContent = '❌ Username must be 150 characters or fewer.';
+                    feedback.className = 'validation-error';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                if (!/^[\w.@+-]+$/.test(username)) {
+                    feedback.textContent = '❌ Only letters, digits, and @/./+/-/_ are allowed.';
+                    feedback.className = 'validation-error';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                
+                feedback.textContent = '⏳ Checking username...';
+                feedback.className = 'validation-info';
+                
+                const requestId = ++latestRequestId;
+                timeout = setTimeout(function() {
+                    fetch('/register/check-username/?username=' + encodeURIComponent(username))
+                        .then(function(response) { return response.ok ? response.json() : Promise.reject(); })
+                        .then(function(data) {
+                            if (requestId !== latestRequestId) return;
+                            feedback.textContent = data.message;
+                            if (data.available) {
+                                feedback.className = 'validation-success';
+                                isUsernameValid = true;
+                                var old = document.querySelector('.suggestions-container');
+                                if (old) old.remove();
+                            } else {
+                                feedback.className = 'validation-error';
+                                isUsernameValid = false;
+                                if (data.suggestions && data.suggestions.length) {
+                                    var old = document.querySelector('.suggestions-container');
+                                    if (old) old.remove();
+                                    var html = '<div class="suggestions-container"><span style="color:#ccc;">💡 Suggestions: </span>';
+                                    for (var i = 0; i < data.suggestions.length; i++) {
+                                        html += '<button type="button" class="suggestion" data-username="' + escapeHtml(data.suggestions[i]) + '">' + escapeHtml(data.suggestions[i]) + '</button>';
+                                    }
+                                    html += '</div>';
+                                    feedback.insertAdjacentHTML('afterend', html);
+                                    document.querySelectorAll('.suggestion').forEach(function(el) {
+                                        el.addEventListener('click', function() {
+                                            usernameInput.value = this.getAttribute('data-username');
+                                            updateCharCounter();
+                                            usernameInput.dispatchEvent(new Event('input'));
+                                        });
+                                        el.addEventListener('keydown', function(e) {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                this.click();
+                                            }
+                                        });
+                                    });
+                                }
+                            }
+                            updateSubmit();
+                        })
+                        .catch(function() {
+                            if (requestId !== latestRequestId) return;
+                            feedback.textContent = '❌ Unable to check username. Please try again.';
+                            feedback.className = 'validation-error';
+                            isUsernameValid = false;
+                            updateSubmit();
+                        });
+                }, 500);
+            });
+            
+            updateCharCounter();
+            document.getElementById('register-form').addEventListener('submit', function(e) {
+                if (!isUsernameValid) {
+                    e.preventDefault();
+                    feedback.textContent = '❌ Please enter a valid username';
+                    feedback.className = 'validation-error';
+                    feedback.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        })();
     </script>
-
     <script src="{% static 'game/js/auth.js' %}?v=6"></script>
-  </body>
+</body>
 </html>
