@@ -114,6 +114,18 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, reverse('landing'), status_code=404)
 
 
+class SecurityHeadersTest(TestCase):
+    """Security headers should be present on normal page responses."""
+
+    def test_referrer_policy_header_is_emitted(self):
+        response = self.client.get(reverse('landing'))
+
+        self.assertEqual(
+            response.headers.get('Referrer-Policy'),
+            'strict-origin-when-cross-origin',
+        )
+
+
 class ServerErrorPageTest(SimpleTestCase):
     """Custom 500 page should match the product theme and recovery flow."""
 
