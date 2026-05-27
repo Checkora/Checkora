@@ -194,7 +194,15 @@
             const gameOverExitBtn = document.getElementById('gameOverExitBtn');
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
-
+    
+            const replayControls = document.getElementById('replayControls');
+            const firstReplayBtn = document.getElementById('firstReplayBtn');
+            const prevReplayBtn = document.getElementById('prevReplayBtn');
+            const playReplayBtn = document.getElementById('playReplayBtn');
+            const nextReplayBtn = document.getElementById('nextReplayBtn');
+            const lastReplayBtn = document.getElementById('lastReplayBtn');
+            const replayGameBtn = document.getElementById('replayGameBtn');
+    
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
             const drawOverlay = document.getElementById('drawOverlay');
@@ -247,6 +255,12 @@
             let gameOver = false;
             let aiThinking = false;
             let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
+            
+            let replayMode = false;
+            let replayMoves = [];
+            let replayIndex = 0;
+            let replayBoard = null;
+            let autoReplayInterval = null;
 
             let pgnDownloadTimeout = null;
             let fenCopyTimeout = null;
@@ -483,11 +497,10 @@
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
                 if (pauseBtn)  pauseBtn.style.display  = 'block';  
-                if (resignBtn) resignBtn.style.display = 'block'; 
-                const isActive = ['active', 'check', 'ok'].includes(data.game_status);
-                if (newPvPBtn) newPvPBtn.style.display = isActive ? 'none' : '';
-                if (newAIBtn) newAIBtn.style.display = isActive ? 'none' : '';
-                if (newFenBtn) newFenBtn.style.display = isActive ? 'none' : '';
+                if (resignBtn) {
+                    resignBtn.style.display = 'block';
+                    resignBtn.hidden = false;
+                }
 
                 updatePlayerNames(data);
                 updateTurn();
@@ -1136,6 +1149,7 @@
             EVENTS
             ========================================================== */
             async function onClick(r, c) {
+                if (replayMode) return;
                 if (dragging) return;
 
                 const piece = board[r][c];
@@ -1228,11 +1242,86 @@
             }
 
             async function onDrop(e, tr, tc) {
+                if (replayMode) return;
                 if (!dragSrc) return;
                 await tryMove(dragSrc.r, dragSrc.c, tr, tc);
                 dragSrc = null;
             }
 
+            function resetReplayBoard() {
+                if (window.Chess) {
+                    replayBoard = new window.Chess();
+                }
+            }
+
+            function renderReplayPosition() {
+
+                if (!replayBoard) return;
+
+                const fen = replayBoard.fen();
+                const position = fen.split(' ')[0];
+                const rows = fen.split(' ')[0].split('/');
+
+                board = rows.map(row => {
+
+                    const expanded = [];
+
+                    for (const ch of row) {
+
+                        if (!isNaN(ch)) {
+
+                            for (let i = 0; i < Number(ch); i++) {
+                                expanded.push(null);
+                            }
+
+                        } else {
+                            expanded.push(ch);
+                        }
+                    }
+
+                    return expanded;
+                });
+
+                buildBoard();
+                if (typeof syncPieces === 'function') {
+                    syncPieces();
+                }
+
+                if (typeof updateMaterialUI === 'function') {
+                    updateMaterialUI(board);
+                }
+            }
+            function goToReplayMove(index) {
+
+                if (!window.Chess) {
+                    console.error("Chess.js not loaded");
+                    return;
+                }
+
+                replayBoard = new window.Chess();
+
+                try {
+
+                    for (let i = 0; i < index; i++) {
+
+                        const move = replayMoves[i];
+
+                        if (move) {
+                            const result = replayBoard.move(move);
+                            console.log("Replaying:", move, result)
+                        }
+                    }
+
+                    replayIndex = index;
+
+                    renderReplayPosition();
+
+                } catch (e) {
+
+                    console.error("Replay move error:", e);
+                }
+            }
+            
             /* ==========================================================
             UI UPDATES
             ========================================================== */
@@ -1342,6 +1431,7 @@
             function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
+                replayMode = true;
                 paused = true;
                 clearInterval(timerInterval);
                 
@@ -1398,6 +1488,38 @@
                 if (gameStartTime) {
                     const duration = Date.now() - gameStartTime;
                     durationText = `\nGame duration: ${formatGameDuration(duration)}.`;
+                }
+                
+                replayMoves = [];
+                replayIndex = 0;
+
+                // USE ORIGINAL HISTORY INSTEAD OF REVERSED DOM
+                const moveSpans = document.querySelectorAll('.move-white, .move-black');
+
+                moveSpans.forEach(span => {
+
+                const move = span.textContent
+                    ?.replace(/[+#]/g, '')
+                    ?.replace(/\s+/g, '')
+                    ?.trim();
+
+                if (move && move !== '...') {
+
+                    console.log("Replay move added:", move);
+
+                    replayMoves.push(move);
+                }
+            });
+
+            console.log("FINAL REPLAY MOVES:", replayMoves);
+
+                if (window.Chess) {
+                    replayBoard = new window.Chess();
+                }
+                resetReplayBoard();
+
+                if (replayControls) {
+                    replayControls.classList.remove('hidden');
                 }
 
                 gameOverTitle.textContent = title;
@@ -1606,6 +1728,15 @@
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
+                if (paused) {
+                    boardEl.setAttribute('aria-label', 'Game paused. Click board or press P to resume.');
+                    boardEl.style.cursor = 'pointer';
+                    boardEl.style.pointerEvents = 'auto';
+                } else {
+                    boardEl.removeAttribute('aria-label');
+                    boardEl.style.cursor = '';
+                    boardEl.style.pointerEvents = '';
+                }
             }
 
             function startTimer() {
@@ -1788,6 +1919,20 @@
             }
 
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
+                replayMode = false;
+
+                if (autoReplayInterval) {
+                    clearInterval(autoReplayInterval);
+                    autoReplayInterval = null;
+                }
+
+                if (playReplayBtn) {
+                    playReplayBtn.textContent = '▶';
+                }
+
+                if (replayControls) {
+                    replayControls.classList.add('hidden');
+                }
                 // Reset AI request sequence and thinking state on new game
                 aiRequestSeq = 0;
                 aiThinking = false;
@@ -1879,7 +2024,10 @@
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
-                if (resignBtn) resignBtn.style.display = '';
+                if (resignBtn) {
+                    resignBtn.style.display = 'block';
+                    resignBtn.hidden = false;
+                }
                 if (pauseBtn) pauseBtn.style.display = '';
                 if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
                 if (newPvPBtn) newPvPBtn.style.display = 'none';
@@ -1918,6 +2066,104 @@
             }
 
             
+            if (nextReplayBtn) {
+                nextReplayBtn.onclick = () => {
+                    if (replayIndex < replayMoves.length) {
+                        replayIndex++;
+                        goToReplayMove(replayIndex );
+                    }
+                };
+            }
+
+            if (prevReplayBtn) {
+                prevReplayBtn.onclick = () => {
+                    if (replayIndex > 0) {
+                        replayIndex--;
+                        goToReplayMove(replayIndex);
+                    }
+                };
+            }
+
+            if (firstReplayBtn) {
+                firstReplayBtn.onclick = () => {
+                    replayIndex = 0;
+
+                    goToReplayMove(0);
+                };
+            }
+
+            if (lastReplayBtn) {
+                lastReplayBtn.onclick = () => {
+                    replayIndex = replayMoves.length;
+                    goToReplayMove(replayIndex);
+                };
+            }
+            if (replayGameBtn) {
+
+                replayGameBtn.onclick = () => {
+
+                    // hide popup
+                    gameOverOverlay.classList.remove('active');
+
+                    // show replay controls
+                    replayControls.classList.remove('hidden');
+
+                    // stop old replay
+                    if (autoReplayInterval) {
+                        clearInterval(autoReplayInterval);
+                        autoReplayInterval = null;
+                    }
+                    replayIndex = 0;
+                    // reset replay
+                    goToReplayMove(0);
+
+                    // start autoplay
+                    playReplayBtn.textContent = '⏸';
+
+                    autoReplayInterval = setInterval(() => {
+
+                        if (replayIndex >= replayMoves.length) {
+
+                            clearInterval(autoReplayInterval);
+                            autoReplayInterval = null;
+
+                            playReplayBtn.textContent = '▶';
+
+                            return;
+                        }
+                        replayIndex++;
+                        goToReplayMove(replayIndex);
+
+                    }, 1000);
+                };
+            }
+    
+            if (playReplayBtn) {
+                playReplayBtn.onclick = () => {
+
+                    if (autoReplayInterval) {
+                        clearInterval(autoReplayInterval);
+                        autoReplayInterval = null;
+                        playReplayBtn.textContent = '▶';
+                        return;
+                    }
+                    playReplayBtn.textContent = '⏸';
+
+                    autoReplayInterval = setInterval(() => {
+
+                        if (replayIndex >= replayMoves.length) {
+                            clearInterval(autoReplayInterval);
+                            autoReplayInterval = null;
+                            playReplayBtn.textContent = '▶';
+                            return;
+                        }
+                        replayIndex++;
+                        goToReplayMove(replayIndex);
+
+                    }, 1000);
+                };
+            }
+    
 
             /* ==========================================================
             EVENT LISTENERS
@@ -2289,7 +2535,8 @@
                             const result = await post('/api/resign/', {});
                             if (result.valid) {
                                 if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
-                                endGame('resign', turn);
+                                const loserColor = result.winner === 'white' ? 'black' : 'white';
+                                endGame('resign', loserColor);
                             } else {
                                 showStatus('Resign failed. Please try again.', true);
                             }
@@ -2922,5 +3169,13 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
 
             // Call picker init immediately
             initTimeControlPicker();
+            // Resume game by clicking the paused board overlay
+            boardEl.addEventListener('click', async () => {
+                if (!paused) return;
+                if (drawOverlay.classList.contains('active')) return;
+                if (confirmOverlay.classList.contains('active')) return;
+                if (gameOverOverlay.classList.contains('active')) return;
+                await resumeGame();
+            });
 
 })();

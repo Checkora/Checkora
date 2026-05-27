@@ -327,6 +327,13 @@
             </div>
 
             <div class="status-bar" id="statusBar" style="height: 22px; box-sizing: border-box;">
+                <div id="replayControls" class="replay-controls hidden">
+                    <button id="firstReplayBtn">⏮</button>
+                    <button id="prevReplayBtn">◀</button>
+                    <button id="playReplayBtn">▶</button>
+                    <button id="nextReplayBtn">▶▶</button>
+                    <button id="lastReplayBtn">⏭</button>
+                </div>
                 <!--Score bar-->
                   <div id="game-status">Game started</div>
                    <div class="score-panel">
@@ -513,6 +520,10 @@
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
                 <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
+                <button class="btn" id="replayGameBtn"
+                style="padding:12px;font-size:1rem;background:#222;color:white;border:1px solid #555;">
+                    ▶ Replay Game
+                </button>
                <a href="{% url 'landing' %}" class="btn" id="gameOverExitBtn"
    style="padding: 12px; font-size: 1rem; margin-top: 10px; background: #333; color: #fff; cursor: pointer; text-align: center; text-decoration: none; display: block;">
     Exit to Home
@@ -600,6 +611,7 @@
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
     <script>
