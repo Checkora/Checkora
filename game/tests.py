@@ -106,7 +106,6 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
 
-
 class ServerErrorPageTest(SimpleTestCase):
     """Custom 500 page should match the product theme and recovery flow."""
 
@@ -129,6 +128,15 @@ class ServerErrorPageTest(SimpleTestCase):
         )
         self.assertContains(response, reverse('landing'), status_code=500)
 
+class RulesViewTest(TestCase):
+    """The rules page should expose the check-layout helper classes."""
+
+    def test_rules_page_uses_split_layout_for_check_demo(self):
+        response = self.client.get('/rules/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'mini-board-container--check')
+        self.assertContains(response, 'steps--check')
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""

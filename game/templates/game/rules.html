@@ -262,6 +262,20 @@
             flex-wrap: wrap;
         }
 
+        .mini-board-container--check {
+            display: grid;
+            grid-template-columns: minmax(320px, 360px) minmax(220px, 1fr);
+            gap: 1.5rem;
+            align-items: stretch;
+            width: 100%;
+        }
+
+        .mini-board-container--check .mini-board {
+            width: min(100%, 360px);
+            height: auto;
+            aspect-ratio: 1 / 1;
+        }
+
         .mini-board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
@@ -405,6 +419,16 @@
             box-shadow: 0 0 10px var(--gold);
         }
 
+        .steps--check {
+            margin-top: 0;
+            align-self: center;
+        }
+
+        .steps--check .step {
+            min-height: 56px;
+            padding: 0.7rem 0.8rem;
+        }
+
         /* ── Piece Grid ── */
         .piece-grid {
             display: grid;
@@ -424,12 +448,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
 
-        .piece-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 15px rgba(244, 196, 48, 0.15);
-            border-color: var(--gold-dim);
-        }
-
+        .piece-card:hover,
         .piece-card.active {
             border-color: var(--gold);
             background: linear-gradient(145deg, var(--surface), #2a2515);
@@ -485,6 +504,20 @@
 }
 
 /* ── Mobile ── */
+@media (max-width: 900px) {
+    .mini-board-container--check {
+        grid-template-columns: 1fr;
+    }
+
+    .mini-board-container--check .mini-board {
+        justify-self: center;
+    }
+
+    .steps--check {
+        align-self: stretch;
+    }
+}
+
 @media (max-width: 768px) {
     #menuToggle {
         display: block;
@@ -766,9 +799,9 @@
             </p>
             <div class="demo-wrapper">
                 <div class="demo-label">Visualize check situations</div>
-                <div class="mini-board-container">
+                <div class="mini-board-container mini-board-container--check">
                     <div id="board-check" class="mini-board"></div>
-                    <div class="steps">
+                    <div class="steps steps--check">
                         <div class="step active" onclick="checkStep(0)" id="chstep-0">
                             <div class="step-num">1</div> King in Check — must escape
                         </div>
