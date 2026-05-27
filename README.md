@@ -571,6 +571,118 @@ If you already have another service running on your local port 8000, Django will
     python manage.py runserver 8080
     ```
 
+# FAQ Section for README.md
+
+## FAQ
+
+### What Python version is required?
+
+The project is recommended to run on **Python 3.10+** for best compatibility with dependencies and development tools.
+
+You can verify your installed Python version using:
+
+```bash
+python --version
+```
+
+or
+
+```bash
+python3 --version
+```
+
+---
+
+### Does the project support Windows?
+
+Yes, the project supports Windows.
+
+For Windows users:
+
+* Use `python` instead of `python3` in terminal commands.
+* If using virtual environments, activate them with:
+
+```bash
+venv\Scripts\activate
+```
+
+* Make sure Git, Python, and Node.js (if required) are properly added to your system PATH.
+
+---
+
+### Is the C++ engine mandatory?
+
+No, the C++ engine is not strictly required for basic usage.
+
+The project includes a Python fallback implementation that allows contributors and users to run the application even if the C++ engine is not compiled successfully.
+
+The C++ engine is mainly used for:
+
+* performance optimization
+* faster execution
+* advanced processing tasks
+
+---
+
+### What should I do if the C++ engine compilation fails?
+
+If the C++ engine fails to compile:
+
+1. Ensure you have a compatible C++ compiler installed.
+2. Verify all required dependencies are installed.
+3. Use the Python fallback engine to continue development.
+4. Check compiler compatibility with your operating system.
+
+Common fixes include:
+
+* Updating build tools
+* Reinstalling dependencies
+* Using the latest stable compiler version
+
+---
+
+### Where are game stats or application data stored?
+
+Game statistics and related application data are typically stored locally within the project directory or configured storage/database location.
+
+Depending on the setup, this may include:
+
+* local JSON files
+* SQLite/database files
+* browser local storage
+* backend database services
+
+Contributors can check the configuration files or storage-related modules for the exact implementation details.
+
+---
+
+### How can I contribute to the project?
+
+1. Fork the repository
+2. Clone your fork locally
+3. Create a new feature branch
+4. Make your changes
+5. Commit and push the changes
+6. Open a Pull Request
+
+Make sure to follow the project's contribution guidelines before submitting a PR.
+
+---
+
+### I am facing setup issues. What should I do?
+
+If you encounter setup problems:
+
+* Ensure all dependencies are installed correctly
+* Check whether environment variables are configured properly
+* Verify Python and Node.js versions
+* Review terminal error logs carefully
+* Open an issue if the problem persists
+
+Including screenshots and error logs while opening an issue helps maintainers debug faster.
+
+---
+
 ## Contributor Support & Feedback
 
 We want your contribution journey with Checkora to be smooth, welcoming, and productive! If you hit roadblocks or have ideas, please utilize the following channels:
