@@ -81,6 +81,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
+    <link rel="stylesheet" href="{% static 'game/css/logout_modal.css' %}" />
   </head>
 
   <body>
@@ -104,7 +105,12 @@
       <div class="nav-right">
         {% if user.is_authenticated %}
         <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
-        <form method="post" action="{% url 'logout' %}" style="display: inline">
+        <form
+          method="post"
+          action="{% url 'logout' %}"
+          style="display: inline"
+          data-logout-confirm="true"
+        >
           {% csrf_token %}
           <button type="submit" class="btn-register">Log Out</button>
         </form>
@@ -411,5 +417,9 @@
         </div>
       </div>
     </footer>
+    {% if user.is_authenticated %}
+    {% include 'game/includes/logout_modal.html' %}
+    <script src="{% static 'game/js/logout_modal.js' %}"></script>
+    {% endif %}
   </body>
 </html>

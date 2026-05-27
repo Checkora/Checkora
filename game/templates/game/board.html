@@ -19,6 +19,7 @@
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/logout_modal.css' %}">
 
     <!-- Vercel Web Analytics -->
     <script>
@@ -172,7 +173,12 @@
         <div class="auth-buttons">
             {% if user.is_authenticated %}
             <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+            <form
+                method="post"
+                action="{% url 'logout' %}"
+                style="display:inline;"
+                data-logout-confirm="true"
+            >
                 {% csrf_token %}
                 <button type="submit" class="btn-logout">Logout</button>
             </form>
@@ -584,6 +590,10 @@ ${message}
     };
 });
 </script>
+{% if user.is_authenticated %}
+{% include 'game/includes/logout_modal.html' %}
+<script src="{% static 'game/js/logout_modal.js' %}"></script>
+{% endif %}
 
 </body>
 

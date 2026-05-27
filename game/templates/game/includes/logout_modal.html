@@ -1,0 +1,29 @@
+<div class="logout-confirm-modal" id="logoutConfirmModal" hidden>
+  <div
+    class="logout-confirm-modal__backdrop"
+    data-logout-cancel
+    aria-hidden="true"
+  ></div>
+  <div
+    class="logout-confirm-modal__dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="logoutConfirmTitle"
+    aria-describedby="logoutConfirmMessage"
+  >
+    <h2 id="logoutConfirmTitle" class="logout-confirm-modal__title">
+      Confirm logout
+    </h2>
+    <p id="logoutConfirmMessage" class="logout-confirm-modal__message">
+      Are you sure you want to log out of Checkora?
+    </p>
+    <div class="logout-confirm-modal__actions">
+      <button type="button" class="btn-signin" data-logout-cancel>
+        Stay signed in
+      </button>
+      <button type="button" class="btn-register" data-logout-confirm>
+        Log Out
+      </button>
+    </div>
+  </div>
+</div>

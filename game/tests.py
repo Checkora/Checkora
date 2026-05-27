@@ -82,6 +82,16 @@ class BoardViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
+    def test_authenticated_board_renders_logout_confirmation_modal(self):
+        user = User.objects.create_user(username='boarduser', password='password123')
+        self.client.force_login(user)
+
+        response = self.client.get('/play/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="logoutConfirmModal"')
+        self.assertContains(response, 'data-logout-confirm="true"')
+
 class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
 
@@ -94,6 +104,16 @@ class LandingViewTest(TestCase):
     def test_landing_page_links_to_play(self):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
+
+    def test_authenticated_landing_renders_logout_confirmation_modal(self):
+        user = User.objects.create_user(username='landinguser', password='password123')
+        self.client.force_login(user)
+
+        response = self.client.get('/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="logoutConfirmModal"')
+        self.assertContains(response, 'data-logout-confirm="true"')
 
 
 class StaticPageLayoutTest(TestCase):
@@ -113,6 +133,16 @@ class StaticPageLayoutTest(TestCase):
                 self.assertContains(response, 'class="navbar"')
                 self.assertContains(response, 'class="footer"')
                 self.assertNotContains(response, 'Back to Home')
+
+    def test_authenticated_static_page_renders_logout_confirmation_modal(self):
+        user = User.objects.create_user(username='staticuser', password='password123')
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('privacy'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="logoutConfirmModal"')
+        self.assertContains(response, 'data-logout-confirm="true"')
 
 
 class NotFoundPageTest(TestCase):

@@ -1,0 +1,74 @@
+.logout-confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.logout-confirm-modal[hidden] {
+  display: none;
+}
+
+.logout-confirm-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 10, 20, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.logout-confirm-modal__dialog {
+  position: relative;
+  width: min(420px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, #12182b 0%, #0c1120 100%);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.4);
+  padding: 28px;
+  color: #f5f7ff;
+}
+
+.logout-confirm-modal__title {
+  margin: 0 0 10px;
+  font-size: 1.45rem;
+}
+
+.logout-confirm-modal__message {
+  margin: 0;
+  color: rgba(245, 247, 255, 0.78);
+  line-height: 1.6;
+}
+
+.logout-confirm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.logout-confirm-modal__actions .btn-signin,
+.logout-confirm-modal__actions .btn-register {
+  min-width: 140px;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .logout-confirm-modal {
+    padding: 18px;
+  }
+
+  .logout-confirm-modal__dialog {
+    padding: 22px;
+  }
+
+  .logout-confirm-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .logout-confirm-modal__actions .btn-signin,
+  .logout-confirm-modal__actions .btn-register {
+    width: 100%;
+  }
+}
