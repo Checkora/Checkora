@@ -9,6 +9,12 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
 
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if self.Meta.model.objects.filter(email__iexact=email).exists():
+            raise ValidationError('A user with this email address already exists.')
+        return email
+
 
 class CustomSetPasswordForm(SetPasswordForm):
     """Prevent password resets from reusing the account's current password."""
