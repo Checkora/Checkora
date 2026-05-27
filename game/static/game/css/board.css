@@ -599,6 +599,45 @@ body {
 /* ============================================================
    Move History
    ============================================================ */
+/* ============================================================
+   Replay Controls
+   ============================================================ */
+
+.replay-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.replay-controls button {
+    background: linear-gradient(135deg, #222, #2e2e2e);
+    color: #f0c040;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    min-width: 48px;
+}
+
+.replay-controls button:hover {
+    background: linear-gradient(135deg, #333, #444);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(240, 192, 64, 0.18);
+}
+
+.replay-controls button:active {
+    transform: scale(0.96);
+}
+
+.hidden {
+    display: none !important;
+}
+
 .moves-list {
     max-height: min(460px, 48vh);
     overflow-y: auto;
