@@ -76,6 +76,7 @@ class ChessGame:
         self.valid_moves_cache = {}
         self.white_time = 10 * 60  # 10 minutes
         self.black_time = 10 * 60
+        self.increment = 0  # Fischer Time increment in seconds
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -129,6 +130,7 @@ DP cache is intentionally excluded to save cookie space."""
             'captured': self.captured,
             'white_time': self.white_time,
             'black_time': self.black_time,
+            'increment': self.increment,
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
@@ -152,6 +154,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.paused = data.get('paused', False)
         game.white_time = data['white_time']
         game.black_time = data['black_time']
+        game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
         game.player_color = data.get('player_color', 'white')
@@ -424,6 +427,13 @@ DP cache is intentionally excluded to save cookie space."""
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
+
+        # Add Fischer Time increment to the player who just moved
+        if self.increment > 0:
+            if self.current_turn == 'white':
+                self.white_time += self.increment
+            else:
+                self.black_time += self.increment
 
         # Switch turn
         self.current_turn = 'black' if self.current_turn == 'white' else 'white'

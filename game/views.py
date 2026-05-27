@@ -81,6 +81,7 @@ def make_move(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'increment': game.increment,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'game_status': game_status,
@@ -119,11 +120,14 @@ def new_game(request):
     data = json.loads(request.body or '{}')
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
-    
+
     if mode not in ('pvp', 'ai'):
         mode = 'pvp'
-    
+
     player_color = data.get('player_color', 'white')
+    increment = int(data.get('increment', 0))
+    # Ensure increment is non-negative
+    increment = max(0, increment)
 
     request.session['white_name'] = data.get('white_name', 'White')
     request.session['black_name'] = data.get('black_name', 'Black')
@@ -134,6 +138,7 @@ def new_game(request):
     game = ChessGame()
     game.mode = mode
     game.player_color = player_color
+    game.increment = increment
     game.paused = False
 
     request.session['game'] = game.to_dict()
@@ -146,6 +151,7 @@ def new_game(request):
         'captured_pieces': {'white': [], 'black': []},
         'mode': game.mode,
         'player_color': game.player_color,
+        'increment': game.increment,
         # We send names back just to confirm they were saved
         'white_name': request.session['white_name'],
         'black_name': request.session['black_name'],
@@ -204,6 +210,7 @@ def get_state(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'increment': game.increment,
         'paused': game.paused,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
@@ -295,6 +302,7 @@ def ai_move(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'increment': game.increment,
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'ai_move': best,

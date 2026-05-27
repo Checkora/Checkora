@@ -20,6 +20,7 @@
 
             let whiteTime = 0;
             let blackTime = 0;
+            let timeIncrement = 0;
             let paused = false;
             let timerInterval = null;
             let pendingPromo = null;
@@ -217,6 +218,7 @@
                 turn = data.current_turn;
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
+                timeIncrement = data.increment || 0;
                 paused = data.paused;
 
                 gameMode = data.mode || 'pvp';
@@ -1028,16 +1030,19 @@
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
+
             const wName = (document.getElementById('whiteNameInput')?.value || 'White').trim().slice(0, 17);
             const bName = (document.getElementById('blackNameInput')?.value || 'Black').trim().slice(0, 17);
+            const incrementSelect = document.getElementById('welcomeIncrementSelect');
+            const increment = incrementSelect ? parseInt(incrementSelect.value) : 0;
 
                 const d = await post('/api/new-game/', {
                     mode: mode,
                     player_color: pColor,
                     white_name: wName,
                     black_name: bName,
-                    difficulty: difficulty
+                    difficulty: difficulty,
+                    increment: increment
                 });
 
                 board = d.board;
@@ -1046,7 +1051,8 @@
                 gameOver = false;
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
-                
+                timeIncrement = d.increment || 0;
+
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
                 } else {
