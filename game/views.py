@@ -587,7 +587,9 @@ def register_view(request):
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
-            PendingRegistration.objects.create(user=user)
+            pending_registration = PendingRegistration(user=user)
+            pending_registration.full_clean()
+            pending_registration.save()
 
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
