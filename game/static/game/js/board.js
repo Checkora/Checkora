@@ -2933,7 +2933,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     // Prevent click generation
                     e.preventDefault();
                 } else {
-                    // Mobile tap-to-move support
+
                     e.preventDefault();
 
                     const targetEl = document.elementFromPoint(
@@ -2945,22 +2945,47 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                         ? targetEl.closest('.square')
                         : null;
 
-                    if (squareEl) {
-                        const tr = parseInt(squareEl.dataset.r);
-                        const tc = parseInt(squareEl.dataset.c);
+                    if (!squareEl) return;
 
-                        // Second tap -> move piece
-                        if (
-                            selected &&
+                    const tr = parseInt(squareEl.dataset.r);
+                    const tc = parseInt(squareEl.dataset.c);
+
+                    // If piece already selected
+                    if (selected) {
+
+                        // Tap same square = deselect
+                        if (selected.r === tr && selected.c === tc) {
+                            deselect();
+                        }
+
+                        // Valid move
+                        else if (
                             hints.some(h => h.row === tr && h.col === tc)
                         ) {
                             await tryMove(selected.r, selected.c, tr, tc);
-                        } else {
-                            // First tap -> select piece
-                            await onClick(tr, tc);
+                        }
+
+                        // Select another own piece
+                        else {
+                            const piece = board[tr][tc];
+
+                            if (piece && pColor(piece) === turn) {
+                                await selectPiece(tr, tc);
+                            } else {
+                                deselect();
+                            }
+                        }
+
+                    } else {
+
+                        // First tap select
+                        const piece = board[tr][tc];
+
+                        if (piece && pColor(piece) === turn) {
+                            await selectPiece(tr, tc);
                         }
                     }
-                }            
+                }          
 
                 // Reset touch state
                 touchStartPos = null;
