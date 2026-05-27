@@ -1763,19 +1763,27 @@
                 resumeGame();
             };
 
-            if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
-                const mode = document.querySelector('input[name="go_mode"]:checked').value;
-                const diff = document.getElementById('goDifficultySelect').value;
-                const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
+           if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
+                const modeEl = document.querySelector('input[name="go_mode"]:checked');
+                const diffEl = document.getElementById('goDifficultySelect');
+                const timerEl = document.getElementById('goTimerSelect');
+
+                if (!modeEl || !diffEl || !timerEl) {
+                    console.error('Game-over restart: missing UI elements');
+                    return;
+                }
+
+                const mode = modeEl.value;
+                const diff = diffEl.value;
+                const timeLimitMins = parseInt(timerEl.value, 10);
                 gameOverOverlay.classList.remove('active');
                 gameOverOverlay.classList.remove('game-over-celebration');
-                
-                // Add this: Clear confetti container
+
                 const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
                 if (confettiContainer) {
                     confettiContainer.remove();
                 }
-                
+
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
                 } else {
