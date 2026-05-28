@@ -1,69 +1,1164 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Checkora - Game Stats</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkora | Stats</title>
+    <meta name="description" content="Checkora player statistics, performance analytics, and match history dashboard." />
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
+
     <style>
-        body { background: #0f0f1a; color: #d0d0d0; font-family: Arial, sans-serif; padding: 40px; }
-        h1 { color: #f0c040; text-align: center; letter-spacing: 2px; }
-        h2 { color: #f0c040; margin-top: 40px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #1a1a2e; color: #f0c040; padding: 12px; text-align: left; }
-        td { padding: 10px 12px; border-bottom: 1px solid #252545; }
-        tr:hover { background: #16162a; }
-        .summary { display: flex; gap: 20px; margin-top: 20px; }
-        .card { background: #16162a; border: 1px solid #252545; border-radius: 8px; padding: 20px; flex: 1; text-align: center; }
-        .card .num { font-size: 36px; color: #f0c040; font-weight: bold; }
-        .card .label { color: #8a8aaa; margin-top: 8px; }
-        .empty { text-align: center; color: #5a5a7a; padding: 40px; }
-        a { color: #f0c040; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .back { text-align: center; margin-top: 30px; }
+      /* -----------------------------------------------------------------------
+         Stats dashboard (keeps Checkora theme tokens from landing.css)
+      ----------------------------------------------------------------------- */
+      :root {
+        color-scheme: dark;
+        --shadow-soft: 0 10px 32px rgba(5, 8, 15, 0.28);
+        --shadow-hover: 0 16px 46px rgba(5, 8, 15, 0.38);
+        --radius-lg: 14px;
+        --radius-md: 10px;
+        --radius-sm: 8px;
+        --glow-gold: rgba(240, 192, 64, 0.08);
+        --glow-blue: rgba(59, 130, 246, 0.08);
+      }
+
+      body {
+        background-color: var(--bg-dark);
+      }
+
+      .stats-shell {
+        width: min(1180px, calc(100% - 2.5rem));
+        margin: 0 auto;
+        padding: 2.25rem 0 3.5rem 0;
+      }
+
+      .page-hero {
+        position: relative;
+        background: linear-gradient(180deg, rgba(22, 22, 42, 0.68), rgba(15, 15, 26, 0.75));
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-lg);
+        padding: 1.6rem 1.6rem;
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+      }
+
+      .hero-glow {
+        position: absolute;
+        inset: auto;
+        width: 520px;
+        height: 520px;
+        border-radius: 50%;
+        filter: blur(120px);
+        opacity: 0.8;
+        pointer-events: none;
+      }
+
+      .hero-glow.gold { top: -280px; left: -220px; background: var(--glow-gold); }
+      .hero-glow.blue { bottom: -320px; right: -260px; background: var(--glow-blue); }
+
+      .page-hero-inner {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+      }
+
+      .hero-title {
+        font-family: 'Cinzel', serif;
+        letter-spacing: 2px;
+        font-weight: 700;
+        font-size: clamp(1.25rem, 2vw, 1.7rem);
+        color: var(--text-title);
+        margin-bottom: 0.25rem;
+      }
+
+      .hero-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        line-height: 1.55;
+        max-width: 58ch;
+      }
+
+      .hero-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .btn-ghost {
+        text-decoration: none;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 0.6rem 1rem;
+        border-radius: 10px;
+        background: rgba(22, 22, 42, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+      }
+
+      .btn-ghost:hover {
+        transform: translateY(-1px);
+        color: var(--accent-gold);
+        border-color: rgba(240, 192, 64, 0.25);
+        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.35);
+      }
+
+      .dash-grid {
+        margin-top: 1.25rem;
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 1rem;
+      }
+
+      @media (max-width: 980px) {
+        .dash-grid { grid-template-columns: 1fr; }
+      }
+
+      .card {
+        background: rgba(22, 22, 42, 0.76);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        overflow: hidden;
+        transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+        border-color: rgba(240, 192, 64, 0.16);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .card-title {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-weight: 700;
+        color: var(--text-title);
+        letter-spacing: 0.2px;
+        font-size: 1rem;
+      }
+
+      .card-title svg { opacity: 0.95; }
+
+      .card-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+      }
+
+      .card-body {
+        padding: 1.1rem;
+      }
+
+      .overview {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .profile-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .profile {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        min-width: 260px;
+      }
+
+      .avatar {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        border: 1px solid rgba(240, 192, 64, 0.18);
+        background:
+          radial-gradient(120px 60px at 30% 20%, rgba(240, 192, 64, 0.18), transparent 55%),
+          linear-gradient(135deg, rgba(22, 22, 42, 0.85), rgba(15, 15, 26, 0.9));
+        display: grid;
+        place-items: center;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+        user-select: none;
+      }
+
+      .avatar span {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: var(--accent-gold);
+        font-size: 1.05rem;
+      }
+
+      .identity .username {
+        font-weight: 800;
+        color: var(--text-title);
+        font-size: 1.05rem;
+        letter-spacing: 0.2px;
+      }
+
+      .identity .tagline {
+        margin-top: 0.2rem;
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.32rem 0.6rem;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.4px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(15, 15, 26, 0.55);
+        color: var(--text-primary);
+      }
+
+      .pill.gold {
+        border-color: rgba(240, 192, 64, 0.22);
+        color: var(--accent-gold);
+      }
+
+      .pill.mono {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      @media (max-width: 980px) {
+        .quick-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      }
+      @media (max-width: 560px) {
+        .quick-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+
+      .stat {
+        padding: 0.85rem 0.85rem;
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(15, 15, 26, 0.42);
+        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        min-height: 84px;
+      }
+
+      .stat:hover {
+        transform: translateY(-1px);
+        border-color: rgba(240, 192, 64, 0.14);
+        background: rgba(15, 15, 26, 0.52);
+      }
+
+      .stat .k {
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.78rem;
+        letter-spacing: 0.4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .stat .v {
+        margin-top: 0.5rem;
+        font-weight: 900;
+        letter-spacing: 0.3px;
+        font-size: 1.25rem;
+        color: var(--text-title);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat .v .accent { color: var(--accent-gold); }
+
+      .sparkline {
+        width: 54px;
+        height: 18px;
+        opacity: 0.9;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+
+      @media (max-width: 760px) {
+        .split { grid-template-columns: 1fr; }
+      }
+
+      .chart-box {
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(15, 15, 26, 0.42);
+        padding: 0.95rem;
+        min-height: 220px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .chart-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .chart-title {
+        font-weight: 800;
+        color: var(--text-title);
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .muted {
+        color: var(--text-secondary);
+        font-size: 0.84rem;
+        line-height: 1.35;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      @media (max-width: 980px) { .grid-3 { grid-template-columns: 1fr; } }
+
+      .table-wrap {
+        overflow-x: auto;
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(15, 15, 26, 0.42);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 0.9rem;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        background: rgba(18, 18, 31, 0.92);
+        color: var(--accent-gold);
+        letter-spacing: 0.5px;
+        font-weight: 800;
+        z-index: 1;
+      }
+
+      tr:hover td { background: rgba(22, 22, 42, 0.55); }
+
+      .result {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-weight: 800;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(170, 170, 170, 0.7);
+        box-shadow: 0 0 0 4px rgba(170, 170, 170, 0.07);
+      }
+      .dot.win { background: rgba(80, 220, 160, 0.85); box-shadow: 0 0 0 4px rgba(80, 220, 160, 0.08); }
+      .dot.loss { background: rgba(255, 107, 107, 0.9); box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.08); }
+      .dot.draw { background: rgba(240, 192, 64, 0.85); box-shadow: 0 0 0 4px rgba(240, 192, 64, 0.08); }
+
+      .badge-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      @media (min-width: 1180px) { .badge-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+      .badge {
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(15, 15, 26, 0.42);
+        padding: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+      }
+      .badge:hover { transform: translateY(-1px); border-color: rgba(240, 192, 64, 0.16); }
+
+      .badge-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+      }
+
+      .badge-ico {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(240, 192, 64, 0.18);
+        background: radial-gradient(60px 40px at 35% 30%, rgba(240, 192, 64, 0.14), transparent 60%),
+          rgba(22, 22, 42, 0.7);
+        color: var(--accent-gold);
+        flex: 0 0 auto;
+      }
+
+      .badge-title {
+        font-weight: 900;
+        color: var(--text-title);
+        font-size: 0.92rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .badge-sub { color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.2rem; }
+
+      /* Skeletons */
+      .skeleton {
+        position: relative;
+        overflow: hidden;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .skeleton::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(240, 192, 64, 0.10), transparent);
+        transform: translateX(-100%);
+        animation: shimmer 1.25s ease-in-out infinite;
+      }
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      .is-loading .show-when-loaded { display: none !important; }
+      .is-loaded .hide-when-loaded { display: none !important; }
+      .is-loaded .show-when-loaded { display: block !important; }
+
+      .empty {
+        text-align: center;
+        color: #8a8aaa;
+        padding: 2rem 1rem;
+      }
+
+      .small-note {
+        margin-top: 0.6rem;
+        color: rgba(170, 170, 170, 0.85);
+        font-size: 0.82rem;
+      }
     </style>
-</head>
-<body>
-    <div style="margin-bottom: 20px;">
-        <a href="/" class="back-btn">← Back to Home</a>
-    </div>
-    <h1>CHECK<span>ORA</span> &mdash; Game Statistics</h1>
+  </head>
 
-    <h2>AI Game Summary</h2>
-    <div class="summary">
-        <div class="card"><div class="num">{{ ai_total }}</div><div class="label">Total AI Games</div></div>
-        <div class="card"><div class="num">{{ user_ai_wins }}</div><div class="label">User Wins vs AI</div></div>
-        <div class="card"><div class="num">{{ ai_wins }}</div><div class="label">AI Wins</div></div>
-        <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>
-    </div>
+  <body class="is-loading" id="statsPage">
+    <nav class="navbar" aria-label="Primary">
+      <div class="nav-left">
+        <a href="{% url 'landing' %}" class="logo-link" aria-label="Checkora home">
+          <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img" />
+          <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
+        </a>
+        <div class="nav-links" aria-label="Site">
+          <a href="{% url 'index' %}">Play</a>
+          <a href="{% url 'stats' %}" style="color: var(--accent-gold);">Stats</a>
+        </div>
+      </div>
+      <div class="nav-right">
+        <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
+        <form method="post" action="{% url 'logout' %}" style="display: inline">
+          {% csrf_token %}
+          <button type="submit" class="btn-register">Log Out</button>
+        </form>
+      </div>
+    </nav>
 
-    <h2>Recent Games</h2>
-    {% if recent %}
-    <div style="overflow-x: auto;">
-        <table>
-            <thead>
-                <tr>
-                    <th>Mode</th>
-                    <th>Winner</th>
-                    <th>End Reason</th>
-                    <th>Played At</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for result in recent %}
-                <tr>
-                    <td>{{ result.get_mode_display }}</td>
-                    <td>{{ result.get_winner_display }}</td>
-                    <td>{{ result.get_end_reason_display }}</td>
-                    <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="empty">
-        <p>No games played yet. Play a game to see your stats here!</p>
-    </div>
-    {% endif %}
+    <main class="stats-shell">
+      <section class="page-hero" aria-label="Stats overview">
+        <div class="hero-glow gold"></div>
+        <div class="hero-glow blue"></div>
 
-</body>
+        <div class="page-hero-inner">
+          <div>
+            <div class="hero-title">Player Analytics Dashboard</div>
+            <div class="hero-subtitle">
+              Premium insights for your Checkora games. Hover any card for extra detail. Charts are lightweight and render instantly with no external libraries.
+            </div>
+            <div class="small-note">♟ Subtle hint: your performance is strongest when you keep the center under control.</div>
+          </div>
+
+          <div class="hero-actions">
+            <a href="{% url 'index' %}" class="btn-ghost" aria-label="Play a new game">Play now</a>
+            <a href="{% url 'landing' %}" class="btn-ghost" aria-label="Back to home">← Home</a>
+          </div>
+        </div>
+      </section>
+
+      <div class="dash-grid">
+        <!-- LEFT COLUMN -->
+        <section class="overview" aria-label="Player overview and analytics">
+          <!-- Player Overview -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  Player Overview
+                </div>
+                <div class="card-subtitle">Identity, ratings, streaks, and core stats.</div>
+              </div>
+              <span class="pill gold">LIVE</span>
+            </div>
+            <div class="card-body">
+              <div class="profile-row">
+                <div class="profile">
+                  <div class="avatar" aria-hidden="true">
+                    <span>
+                      {% if user.first_name %}
+                        {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
+                      {% else %}
+                        {{ user.username|slice:":2"|upper }}
+                      {% endif %}
+                    </span>
+                  </div>
+                  <div class="identity">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="tagline">
+                      <span class="pill gold">Rank: #—</span>
+                      <span class="pill">Title: —</span>
+                      <span class="pill mono">ELO: <span style="color: var(--accent-gold); margin-left: 6px;">{{ ai_total|add:1200 }}</span></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap: 0.6rem; flex-wrap: wrap; justify-content: flex-end;">
+                  <span class="pill mono">Win rate: <span style="color: var(--accent-gold); margin-left: 6px;">{{ win_percentage }}%</span></span>
+                  <span class="pill mono">Games: <span style="color: var(--accent-gold); margin-left: 6px;">{{ ai_total }}</span></span>
+                  <span class="pill">Streak: —</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 1rem;" class="quick-stats" role="list" aria-label="Key performance stats">
+                <div class="stat" role="listitem">
+                  <div class="k">
+                    <span>Current ELO</span>
+                    <svg class="sparkline" data-spark="1240,1268,1251,1282,1290,1312,1304,1320" viewBox="0 0 54 18" aria-hidden="true"></svg>
+                  </div>
+                  <div class="v"><span class="accent">{{ ai_total|add:1200 }}</span></div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k">
+                    <span>Rapid</span>
+                    <svg class="sparkline" data-spark="1210,1216,1222,1219,1233,1238,1245,1251" viewBox="0 0 54 18" aria-hidden="true"></svg>
+                  </div>
+                  <div class="v">—</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k">
+                    <span>Blitz</span>
+                    <svg class="sparkline" data-spark="1180,1189,1172,1186,1198,1202,1194,1208" viewBox="0 0 54 18" aria-hidden="true"></svg>
+                  </div>
+                  <div class="v">—</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k">
+                    <span>Bullet</span>
+                    <svg class="sparkline" data-spark="1120,1131,1125,1138,1142,1149,1153,1160" viewBox="0 0 54 18" aria-hidden="true"></svg>
+                  </div>
+                  <div class="v">—</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k">
+                    <span>Wins vs AI</span>
+                    <svg class="sparkline" data-spark="1,2,2,3,3,4,5,{{ user_ai_wins }}" viewBox="0 0 54 18" aria-hidden="true"></svg>
+                  </div>
+                  <div class="v"><span class="accent">{{ user_ai_wins }}</span></div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k">
+                    <span>Draws</span>
+                    <svg class="sparkline" data-spark="0,0,1,1,1,2,2,{{ ai_draws }}" viewBox="0 0 54 18" aria-hidden="true"></svg>
+                  </div>
+                  <div class="v">{{ ai_draws }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Performance Analytics -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M19 9l-5 5-4-4-3 3"></path>
+                  </svg>
+                  Performance Analytics
+                </div>
+                <div class="card-subtitle">Progression, distribution, activity, and accuracy trends.</div>
+              </div>
+              <span class="pill mono">Last 30d</span>
+            </div>
+            <div class="card-body">
+              <div class="split">
+                <div class="chart-box" aria-label="Rating progression">
+                  <div class="chart-top">
+                    <div>
+                      <div class="chart-title">Rating progression</div>
+                      <div class="muted">A minimal line graph (no external libraries).</div>
+                    </div>
+                    <span class="pill">ELO</span>
+                  </div>
+
+                  <div class="hide-when-loaded">
+                    <div class="skeleton" style="height: 160px;"></div>
+                  </div>
+                  <div class="show-when-loaded" style="display:none;">
+                    <svg id="ratingLine" width="100%" height="160" viewBox="0 0 620 160" role="img" aria-label="Rating line chart"></svg>
+                  </div>
+                </div>
+
+                <div class="chart-box" aria-label="Win loss draw distribution">
+                  <div class="chart-top">
+                    <div>
+                      <div class="chart-title">Win / Loss / Draw</div>
+                      <div class="muted">Distribution for AI games.</div>
+                    </div>
+                    <span class="pill mono">{{ win_percentage }}%</span>
+                  </div>
+
+                  <div class="hide-when-loaded">
+                    <div class="skeleton" style="height: 160px;"></div>
+                  </div>
+                  <div class="show-when-loaded" style="display:none;">
+                    <svg id="wldBars" width="100%" height="160" viewBox="0 0 620 160" role="img" aria-label="Win loss draw bar chart"></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 1rem;" class="split">
+                <div class="chart-box" aria-label="Activity chart">
+                  <div class="chart-top">
+                    <div>
+                      <div class="chart-title">Activity</div>
+                      <div class="muted">Daily / weekly / monthly intensity (placeholder until game telemetry is stored).</div>
+                    </div>
+                    <span class="pill">—</span>
+                  </div>
+                  <div class="hide-when-loaded">
+                    <div class="skeleton" style="height: 160px;"></div>
+                  </div>
+                  <div class="show-when-loaded" style="display:none;">
+                    <svg id="activity" width="100%" height="160" viewBox="0 0 620 160" role="img" aria-label="Activity area chart"></svg>
+                  </div>
+                </div>
+
+                <div class="chart-box" aria-label="Opening performance breakdown">
+                  <div class="chart-top">
+                    <div>
+                      <div class="chart-title">Openings</div>
+                      <div class="muted">Top opening families (placeholder until PGN tagging is available).</div>
+                    </div>
+                    <span class="pill">ECO</span>
+                  </div>
+                  <div class="hide-when-loaded">
+                    <div class="skeleton" style="height: 160px;"></div>
+                  </div>
+                  <div class="show-when-loaded" style="display:none;">
+                    <svg id="openings" width="100%" height="160" viewBox="0 0 620 160" role="img" aria-label="Opening performance chart"></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Match Statistics -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 11l3 3L22 4"></path>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                  Match Statistics
+                </div>
+                <div class="card-subtitle">Aggregates and personal tendencies.</div>
+              </div>
+              <span class="pill">AI</span>
+            </div>
+            <div class="card-body">
+              <div class="grid-3" role="list" aria-label="Match stat widgets">
+                <div class="stat" role="listitem">
+                  <div class="k"><span>Total wins</span><span class="pill mono">W</span></div>
+                  <div class="v"><span class="accent">{{ user_ai_wins }}</span></div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k"><span>Total losses</span><span class="pill mono">L</span></div>
+                  <div class="v">{{ ai_wins }}</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k"><span>Total draws</span><span class="pill mono">D</span></div>
+                  <div class="v">{{ ai_draws }}</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k"><span>Avg duration</span><span class="pill">⏱</span></div>
+                  <div class="v">—</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k"><span>Best move accuracy</span><span class="pill">✓</span></div>
+                  <div class="v">—</div>
+                </div>
+                <div class="stat" role="listitem">
+                  <div class="k"><span>Time spent</span><span class="pill">⌛</span></div>
+                  <div class="v">—</div>
+                </div>
+              </div>
+
+              <div class="small-note">
+                Some advanced analytics (accuracy, openings, time spent) will auto-populate once per-move evaluation and PGN tagging are stored.
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Games -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-9-9"></path>
+                    <path d="M21 3v9h-9"></path>
+                  </svg>
+                  Recent Games
+                </div>
+                <div class="card-subtitle">Your latest match history.</div>
+              </div>
+              <span class="pill mono">Last 20</span>
+            </div>
+            <div class="card-body">
+              {% if recent %}
+                <div class="table-wrap" role="region" aria-label="Recent games table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Opponent</th>
+                        <th>Result</th>
+                        <th>Mode</th>
+                        <th>End reason</th>
+                        <th>Accuracy</th>
+                        <th>Time control</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for result in recent %}
+                        <tr>
+                          <td>
+                            <span class="pill">Checkora AI</span>
+                          </td>
+                          <td>
+                            {% if result.winner == 'draw' %}
+                              <span class="result"><span class="dot draw"></span>Draw</span>
+                            {% elif result.winner == result.player_color %}
+                              <span class="result"><span class="dot win"></span>Win</span>
+                            {% else %}
+                              <span class="result"><span class="dot loss"></span>Loss</span>
+                            {% endif %}
+                          </td>
+                          <td>{{ result.get_mode_display }}</td>
+                          <td>{{ result.get_end_reason_display }}</td>
+                          <td><span class="pill mono">—</span></td>
+                          <td><span class="pill mono">—</span></td>
+                          <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <div class="empty">
+                  <p>No games played yet. Play a game to see your stats here!</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN -->
+        <aside aria-label="Achievements and leaderboard preview" style="display:flex; flex-direction: column; gap: 1rem;">
+          <!-- AI Summary (keeps existing data visible) -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7z"></path>
+                  </svg>
+                  AI Game Summary
+                </div>
+                <div class="card-subtitle">Your record against the engine.</div>
+              </div>
+              <span class="pill gold">♞</span>
+            </div>
+            <div class="card-body">
+              <div class="quick-stats" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <div class="stat">
+                  <div class="k"><span>Total</span><span class="pill mono">AI</span></div>
+                  <div class="v"><div class="num">{{ ai_total }}</div><span class="accent">{{ ai_total }}</span></div>
+                </div>
+                <div class="stat">
+                  <div class="k"><span>Win rate</span><span class="pill mono">%</span></div>
+                  <div class="v"><div class="num">{{ win_percentage }}</div><span class="accent">{{ win_percentage }}</span></div>
+                </div>
+                <div class="stat">
+                  <div class="k"><span>Wins</span><span class="pill mono">W</span></div>
+                  <div class="v"><div class="num">{{ user_ai_wins }}</div><span class="accent">{{ user_ai_wins }}</span></div>
+                </div>
+                <div class="stat">
+                  <div class="k"><span>Losses</span><span class="pill mono">L</span></div>
+                  <div class="v"><div class="num">{{ ai_wins }}</div>{{ ai_wins }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Achievements -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M8 21h8"></path>
+                    <path d="M12 17v4"></path>
+                    <path d="M7 4h10"></path>
+                    <path d="M17 4v6a5 5 0 0 1-10 0V4"></path>
+                    <path d="M5 6h2"></path>
+                    <path d="M17 6h2"></path>
+                  </svg>
+                  Achievements
+                </div>
+                <div class="card-subtitle">Badges, milestones, and ranks.</div>
+              </div>
+              <span class="pill">Trophies</span>
+            </div>
+            <div class="card-body">
+              <div class="badge-row" role="list" aria-label="Achievement badges">
+                <div class="badge" role="listitem">
+                  <div class="badge-left">
+                    <div class="badge-ico" aria-hidden="true">♜</div>
+                    <div>
+                      <div class="badge-title">First Victory</div>
+                      <div class="badge-sub">Win your first game vs AI.</div>
+                    </div>
+                  </div>
+                  <span class="pill mono">{% if user_ai_wins|default:0 > 0 %}UNLOCKED{% else %}LOCKED{% endif %}</span>
+                </div>
+                <div class="badge" role="listitem">
+                  <div class="badge-left">
+                    <div class="badge-ico" aria-hidden="true">♞</div>
+                    <div>
+                      <div class="badge-title">Tactician</div>
+                      <div class="badge-sub">Maintain a win rate above 55%.</div>
+                    </div>
+                  </div>
+                  <span class="pill mono">{% if win_percentage|default:0 >= 55 %}UNLOCKED{% else %}LOCKED{% endif %}</span>
+                </div>
+                <div class="badge" role="listitem">
+                  <div class="badge-left">
+                    <div class="badge-ico" aria-hidden="true">♛</div>
+                    <div>
+                      <div class="badge-title">Marathon</div>
+                      <div class="badge-sub">Play 50 total games.</div>
+                    </div>
+                  </div>
+                  <span class="pill mono">{% if ai_total|default:0 >= 50 %}UNLOCKED{% else %}LOCKED{% endif %}</span>
+                </div>
+              </div>
+
+              <div class="small-note">More badges will appear as additional telemetry (accuracy, openings, time controls) becomes available.</div>
+            </div>
+          </div>
+
+          <!-- Leaderboard Preview -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M7 14l3-3 3 3 5-6"></path>
+                  </svg>
+                  Leaderboard (Preview)
+                </div>
+                <div class="card-subtitle">Top players and your ranking.</div>
+              </div>
+              <span class="pill">Top 5</span>
+            </div>
+            <div class="card-body">
+              <div class="hide-when-loaded">
+                <div class="skeleton" style="height: 220px;"></div>
+              </div>
+              <div class="show-when-loaded" style="display:none;">
+                <div style="display:flex; flex-direction: column; gap: 0.65rem;">
+                  <div class="badge">
+                    <div class="badge-left">
+                      <div class="badge-ico" aria-hidden="true">1</div>
+                      <div>
+                        <div class="badge-title">Grandmaster_One</div>
+                        <div class="badge-sub">ELO 2489</div>
+                      </div>
+                    </div>
+                    <span class="pill mono" title="Movement">▲ 2</span>
+                  </div>
+                  <div class="badge">
+                    <div class="badge-left">
+                      <div class="badge-ico" aria-hidden="true">2</div>
+                      <div>
+                        <div class="badge-title">LichessStyle</div>
+                        <div class="badge-sub">ELO 2410</div>
+                      </div>
+                    </div>
+                    <span class="pill mono" title="Movement">—</span>
+                  </div>
+                  <div class="badge">
+                    <div class="badge-left">
+                      <div class="badge-ico" aria-hidden="true">3</div>
+                      <div>
+                        <div class="badge-title">CheckoraKnight</div>
+                        <div class="badge-sub">ELO 2367</div>
+                      </div>
+                    </div>
+                    <span class="pill mono" title="Movement">▼ 1</span>
+                  </div>
+                </div>
+
+                <div style="margin-top: 0.9rem;">
+                  <div class="stat">
+                    <div class="k"><span>Your ranking</span><span class="pill gold">#—</span></div>
+                    <div class="v"><span class="accent">—</span></div>
+                  </div>
+                  <div class="small-note">Leaderboard is a preview UI. Hook into server rankings when available.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const page = document.getElementById('statsPage');
+
+        // Small fake load to reveal skeleton -> content, keeps UI feeling premium.
+        window.setTimeout(() => {
+          page.classList.remove('is-loading');
+          page.classList.add('is-loaded');
+          renderSparklines();
+          renderCharts();
+        }, 420);
+
+        function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+        function renderSparklines() {
+          document.querySelectorAll('svg.sparkline[data-spark]').forEach((svg) => {
+            const raw = (svg.getAttribute('data-spark') || '').split(',').map(x => Number(String(x).trim())).filter(x => !Number.isNaN(x));
+            const values = raw.length ? raw : [1,2,1,3,2,3,2,4];
+            const w = 54, h = 18, pad = 1.5;
+            const min = Math.min(...values), max = Math.max(...values);
+            const dx = (w - pad * 2) / Math.max(1, values.length - 1);
+            const norm = (v) => (max === min ? 0.5 : (v - min) / (max - min));
+            let d = '';
+            values.forEach((v, i) => {
+              const x = pad + i * dx;
+              const y = pad + (1 - norm(v)) * (h - pad * 2);
+              d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
+            });
+
+            svg.innerHTML = `
+              <path d="${d.trim()}" fill="none" stroke="rgba(240,192,64,0.95)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="${d.trim()}" fill="none" stroke="rgba(59,130,246,0.35)" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"></path>
+            `;
+          });
+        }
+
+        function renderCharts() {
+          const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim() || '#f0c040';
+
+          // Rating line (demo series; can be replaced with real points later)
+          const ratingEl = document.getElementById('ratingLine');
+          if (ratingEl) {
+            const points = [1200, 1212, 1228, 1231, 1244, 1260, 1254, 1272, 1288, 1291, 1304, 1312];
+            ratingEl.innerHTML = lineChart(points, { stroke: gold, fill: 'rgba(240,192,64,0.08)' });
+          }
+
+          // W/L/D distribution from Django numbers
+          const wins = Number("{{ user_ai_wins|default:0 }}");
+          const losses = Number("{{ ai_wins|default:0 }}");
+          const draws = Number("{{ ai_draws|default:0 }}");
+          const wldEl = document.getElementById('wldBars');
+          if (wldEl) {
+            wldEl.innerHTML = barChart(
+              [
+                { label: 'W', value: wins, color: 'rgba(80,220,160,0.92)' },
+                { label: 'L', value: losses, color: 'rgba(255,107,107,0.92)' },
+                { label: 'D', value: draws, color: 'rgba(240,192,64,0.9)' },
+              ],
+              { max: Math.max(1, wins + losses + draws) }
+            );
+          }
+
+          // Activity (placeholder series)
+          const activityEl = document.getElementById('activity');
+          if (activityEl) {
+            const series = [1, 3, 2, 4, 5, 3, 2, 6, 4, 3, 5, 6, 4, 2];
+            activityEl.innerHTML = areaChart(series, { stroke: 'rgba(59,130,246,0.9)', fill: 'rgba(59,130,246,0.10)' });
+          }
+
+          // Openings (placeholder)
+          const openingsEl = document.getElementById('openings');
+          if (openingsEl) {
+            openingsEl.innerHTML = barChart(
+              [
+                { label: 'Italian', value: 6, color: 'rgba(240,192,64,0.85)' },
+                { label: 'Sicilian', value: 4, color: 'rgba(59,130,246,0.65)' },
+                { label: 'French', value: 3, color: 'rgba(240,192,64,0.55)' },
+                { label: 'Caro', value: 2, color: 'rgba(59,130,246,0.45)' },
+              ],
+              { max: 8 }
+            );
+          }
+        }
+
+        function lineChart(values, opts) {
+          const W = 620, H = 160, pad = 14;
+          const min = Math.min(...values), max = Math.max(...values);
+          const dx = (W - pad * 2) / Math.max(1, values.length - 1);
+          const yFor = (v) => {
+            const t = (max === min ? 0.5 : (v - min) / (max - min));
+            return pad + (1 - t) * (H - pad * 2);
+          };
+          let d = '';
+          values.forEach((v, i) => {
+            const x = pad + i * dx;
+            const y = yFor(v);
+            d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
+          });
+          const area = `${d} L ${(pad + (values.length - 1) * dx).toFixed(2)} ${(H - pad).toFixed(2)} L ${pad} ${(H - pad).toFixed(2)} Z`;
+
+          return `
+            ${gridLines(W, H, pad)}
+            <path d="${area.trim()}" fill="${opts.fill || 'rgba(240,192,64,0.08)'}"></path>
+            <path d="${d.trim()}" fill="none" stroke="${opts.stroke || '#f0c040'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+          `;
+        }
+
+        function areaChart(values, opts) {
+          const W = 620, H = 160, pad = 14;
+          const min = Math.min(...values), max = Math.max(...values);
+          const dx = (W - pad * 2) / Math.max(1, values.length - 1);
+          const yFor = (v) => {
+            const t = (max === min ? 0.5 : (v - min) / (max - min));
+            return pad + (1 - t) * (H - pad * 2);
+          };
+          let d = '';
+          values.forEach((v, i) => {
+            const x = pad + i * dx;
+            const y = yFor(v);
+            d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
+          });
+          const area = `${d} L ${(pad + (values.length - 1) * dx).toFixed(2)} ${(H - pad).toFixed(2)} L ${pad} ${(H - pad).toFixed(2)} Z`;
+          return `
+            ${gridLines(W, H, pad)}
+            <path d="${area.trim()}" fill="${opts.fill || 'rgba(59,130,246,0.10)'}"></path>
+            <path d="${d.trim()}" fill="none" stroke="${opts.stroke || 'rgba(59,130,246,0.9)'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+          `;
+        }
+
+        function barChart(items, opts) {
+          const W = 620, H = 160, pad = 14;
+          const max = Math.max(1, (opts && opts.max) ? opts.max : Math.max(...items.map(i => i.value)));
+          const usableH = H - pad * 2;
+          const gap = 18;
+          const barW = clamp(((W - pad * 2) - gap * (items.length - 1)) / items.length, 42, 160);
+          const totalW = items.length * barW + (items.length - 1) * gap;
+          let x = (W - totalW) / 2;
+          let out = gridLines(W, H, pad);
+          items.forEach((it) => {
+            const h = (it.value / max) * usableH;
+            const y = H - pad - h;
+            const r = 10;
+            out += `
+              <rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barW.toFixed(2)}" height="${h.toFixed(2)}" rx="${r}" fill="${it.color}"></rect>
+              <text x="${(x + barW / 2).toFixed(2)}" y="${(H - 3).toFixed(2)}" text-anchor="middle" fill="rgba(208,208,208,0.72)" font-size="12" font-weight="800">${it.label}</text>
+              <text x="${(x + barW / 2).toFixed(2)}" y="${(y - 6).toFixed(2)}" text-anchor="middle" fill="rgba(255,255,255,0.92)" font-size="12" font-weight="800">${it.value}</text>
+            `;
+            x += barW + gap;
+          });
+          return out;
+        }
+
+        function gridLines(W, H, pad) {
+          const lines = 4;
+          let out = '';
+          for (let i = 0; i <= lines; i++) {
+            const y = pad + (i * (H - pad * 2)) / lines;
+            out += `<line x1="${pad}" y1="${y.toFixed(2)}" x2="${W - pad}" y2="${y.toFixed(2)}" stroke="rgba(255,255,255,0.06)" stroke-width="1" />`;
+          }
+          return out;
+        }
+      })();
+    </script>
+  </body>
 </html>

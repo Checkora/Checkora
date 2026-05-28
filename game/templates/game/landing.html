@@ -103,7 +103,7 @@
       </div>
       <div class="nav-right">
         {% if user.is_authenticated %}
-        <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
+        <a href="{% url 'stats' %}" class="btn-signin">Profile</a>
         <form method="post" action="{% url 'logout' %}" style="display: inline">
           {% csrf_token %}
           <button type="submit" class="btn-register">Log Out</button>
