@@ -449,7 +449,13 @@ aria-pressed="false"
     const root = document.documentElement;
 
     // Load saved theme
-    const savedTheme = localStorage.getItem("theme");
+    let savedTheme = null;
+
+  try {
+  savedTheme = localStorage.getItem("theme");
+  } catch (e) {
+  savedTheme = null;
+  }
 
     if (savedTheme) {
         root.setAttribute("data-theme", savedTheme);
@@ -481,18 +487,15 @@ function updateIcon() {
 
     // Toggle theme
     themeToggle.addEventListener("click", () => {
-        const currentTheme = root.getAttribute("data-theme");
+    const currentTheme = root.getAttribute("data-theme");
 
-        if (currentTheme === "light") {
-        root.setAttribute("data-theme", "dark");
-      localStorage.setItem("theme", "dark");
-      } else {
-      root.setAttribute("data-theme", "light");
-      localStorage.setItem("theme", "light");
-      }
+    const newTheme = currentTheme === "light" ? "dark" : "light";
 
-        updateIcon();
-    });
+    root.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+
+    updateIcon();
+});
 });
 </script>
   </body>

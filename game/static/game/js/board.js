@@ -2933,7 +2933,7 @@
                     btn.onclick = () => {
                         const theme = btn.dataset.theme;
                         document.documentElement.setAttribute('data-theme', theme);
-                        localStorage.setItem('chessBoardTheme', theme);
+                        localStorage.setItem("theme", theme);
                         themeBtns.forEach(b => {
                             b.classList.remove('active');
                             b.setAttribute('aria-pressed', 'false');
