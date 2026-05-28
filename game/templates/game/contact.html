@@ -166,6 +166,28 @@
             width: 100%;
         }
 
+        .input-with-icon {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-with-icon .form-control {
+            padding-left: 48px;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            color: var(--text-muted);
+            pointer-events: none;
+            transition: color 0.25s ease;
+        }
+
+        .form-control:focus + .input-icon {
+            color: var(--accent-color);
+        }
+
         .form-control:hover {
             border-color: rgba(255, 255, 255, 0.15);
         }
@@ -281,17 +303,26 @@
                     
                     <div class="form-group">
                         <label for="name">Name</label>
-                        <input type="text" id="name" name="name" class="form-control" placeholder="Your name" required />
+                        <div class="input-with-icon">
+                            <input type="text" id="name" name="name" class="form-control" placeholder="Your name" required />
+                            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="email">Email Address</label>
-                        <input type="email" id="email" name="email" class="form-control" placeholder="username@example.com" required />
+                        <div class="input-with-icon">
+                            <input type="email" id="email" name="email" class="form-control" placeholder="username@example.com" required />
+                            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="message">Message</label>
-                        <textarea id="message" name="message" class="form-control" placeholder="Type your query regarding engine or interface states..." required></textarea>
+                        <div class="input-with-icon">
+                            <textarea id="message" name="message" class="form-control" placeholder="Type your query regarding engine or interface states..." required></textarea>
+                            <svg class="input-icon" style="top: 18px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn-submit">Send Message</button>
