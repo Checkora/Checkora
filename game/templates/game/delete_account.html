@@ -1,0 +1,236 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Account | Checkora</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'game/css/landing.css' %}"
+    >
+
+    <style>
+
+        body{
+            min-height:100vh;
+            background:
+                radial-gradient(circle at top,#1e293b 0%,#0f172a 45%,#020617 100%);
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:30px;
+            overflow-x:hidden;
+        }
+
+        .delete-wrapper{
+            width:100%;
+            max-width:460px;
+        }
+
+        .delete-card{
+            background:rgba(15,23,42,0.92);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:24px;
+            padding:42px 36px;
+            backdrop-filter:blur(18px);
+            box-shadow:
+                0 10px 40px rgba(0,0,0,0.45),
+                0 0 30px rgba(250,204,21,0.08);
+        }
+
+        .logo{
+            text-align:center;
+            margin-bottom:10px;
+        }
+
+        .logo h1{
+            font-size:42px;
+            letter-spacing:2px;
+            color:#ffffff;
+            font-weight:800;
+        }
+
+        .logo span{
+            color:#facc15;
+        }
+
+        .subtitle{
+            text-align:center;
+            color:#94a3b8;
+            margin-bottom:35px;
+            font-size:15px;
+        }
+
+        .title{
+            text-align:center;
+            font-size:30px;
+            margin-bottom:14px;
+            color:#ffffff;
+            font-weight:700;
+        }
+
+        .warning-box{
+            background:rgba(220,38,38,0.12);
+            border:1px solid rgba(239,68,68,0.35);
+            color:#fecaca;
+            padding:16px;
+            border-radius:16px;
+            margin-bottom:28px;
+            line-height:1.6;
+            font-size:14px;
+        }
+
+        .form-group{
+            margin-bottom:22px;
+        }
+
+        .form-group label{
+            display:block;
+            margin-bottom:10px;
+            color:#e2e8f0;
+            font-size:14px;
+            font-weight:600;
+        }
+
+        .form-group input{
+            width:100%;
+            padding:15px 16px;
+            border-radius:14px;
+            border:1px solid rgba(255,255,255,0.08);
+            background:#111827;
+            color:#ffffff;
+            outline:none;
+            font-size:15px;
+            transition:0.3s ease;
+        }
+
+        .form-group input:focus{
+            border-color:#facc15;
+            box-shadow:0 0 0 4px rgba(250,204,21,0.12);
+        }
+
+        .delete-btn{
+            width:100%;
+            border:none;
+            padding:15px;
+            border-radius:14px;
+            background:linear-gradient(135deg,#dc2626,#991b1b);
+            color:#ffffff;
+            font-size:16px;
+            font-weight:700;
+            cursor:pointer;
+            transition:0.3s ease;
+            margin-top:10px;
+        }
+
+        .delete-btn:hover{
+            transform:translateY(-2px);
+            box-shadow:0 10px 25px rgba(220,38,38,0.35);
+        }
+
+        .footer-text{
+            margin-top:22px;
+            text-align:center;
+            color:#94a3b8;
+            font-size:13px;
+            line-height:1.5;
+        }
+
+        @media(max-width:520px){
+
+            .delete-card{
+                padding:32px 24px;
+            }
+
+            .logo h1{
+                font-size:34px;
+            }
+
+            .title{
+                font-size:26px;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="delete-wrapper">
+
+        <div class="delete-card">
+
+            <div class="logo">
+                <h1>CHECK<span>ORA</span></h1>
+            </div>
+
+            <p class="subtitle">
+                Secure Account Management
+            </p>
+
+            <h2 class="title">
+                Delete Account
+            </h2>
+
+            <div class="warning-box">
+                ⚠ This action is permanent and cannot be undone.
+                <br><br>
+                After confirmation, all your account data will be permanently removed from Checkora.
+            </div>
+
+            <form method="POST">
+
+                {% csrf_token %}
+
+                <div class="form-group">
+
+                    <label>
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        name="username"
+                        placeholder="Enter your username"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        required
+                    >
+
+                </div>
+
+                <button
+                    type="submit"
+                    class="delete-btn"
+                >
+                    Delete My Account
+                </button>
+
+            </form>
+
+            <div class="footer-text">
+                A confirmation email will be sent before your account is deleted.
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

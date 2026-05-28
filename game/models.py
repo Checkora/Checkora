@@ -29,6 +29,11 @@ class GameResult(models.Model):
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
     end_reason = models.CharField(max_length=25, choices=END_REASON_CHOICES)
     played_at = models.DateTimeField(auto_now_add=True)
+    moves = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of moves played during the game in chronological order"
+    )
 
     class Meta:
         ordering = ["-played_at"]
