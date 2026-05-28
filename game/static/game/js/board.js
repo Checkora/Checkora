@@ -504,18 +504,11 @@
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
                 if (pauseBtn)  pauseBtn.style.display  = 'block';  
-<<<<<<< HEAD
                 if (resignBtn) resignBtn.style.display = 'block'; 
                 const isActive = ['active', 'check', 'ok'].includes(data.game_status);
                 if (newPvPBtn) newPvPBtn.style.display = isActive ? 'none' : '';
                 if (newAIBtn) newAIBtn.style.display = isActive ? 'none' : '';
                 if (newFenBtn) newFenBtn.style.display = isActive ? 'none' : '';
-=======
-                if (resignBtn) {
-                    resignBtn.style.display = 'block';
-                    resignBtn.hidden = false;
-                }
->>>>>>> 5de1d9bb (Add post-game move replay system for completed chess matches)
 
                 updatePlayerNames(data);
                 updateTurn();

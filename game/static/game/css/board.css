@@ -1736,6 +1736,48 @@ body {
 }
 }
 
+/* ================= DAILY STREAK ================= */
+
+.daily-streak-box {
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    color: #f0c040;
+    padding: 8px 14px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 14px rgba(240, 192, 64, 0.08);
+    transition: all 0.25s ease;
+}
+
+.daily-streak-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(240, 192, 64, 0.16);
+}
+
+#streak-count {
+    color: #ffd54f;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+    .daily-streak-box {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+        border-radius: 10px;
+    }
+
+    #streak-count {
+        font-size: 0.9rem;
+    }
+}
+
 /* ============================================================
    Blindfold Mode & Flash Animation
    ============================================================ */
