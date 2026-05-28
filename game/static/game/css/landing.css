@@ -10,6 +10,19 @@
     --accent-gold: #f0c040;
 }
 
+[data-theme="light"] {
+    --bg-dark: #f9f9f9;
+    --nav-bg: #ffffff;
+    --card-bg: #ffffff;
+    --card-border: #dddddd;
+    --card-hover: #f1f1f1;
+
+    --text-primary: #1f2937;
+    --text-title: #111827;
+    --text-secondary: #4b5563;
+
+    --accent-gold: #f0c040;
+}
 * {
     margin: 0;
     padding: 0;
@@ -38,7 +51,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 5%;
-    background-color: rgba(15, 15, 26, 0.94);
+    background-color: var(--nav-bg);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     position: sticky;
     top: 0;
@@ -111,6 +124,22 @@ body {
 }
 
 .btn-signin,
+.theme-toggle {
+    background: transparent;
+    border: 1px solid rgba(240, 192, 64, 0.35);
+    color: var(--text-primary);
+    font-size: 1rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.theme-toggle:hover {
+    background: rgba(240, 192, 64, 0.1);
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
 .btn-register {
     text-decoration: none;
     color: var(--accent-gold);
@@ -531,7 +560,7 @@ body {
     max-width: 1200px;
     margin: 6rem auto 3rem;
     padding: 4rem 4rem 2rem;
-    background-color: #121224; /* Clean premium inner contrast backdrop */
+    background-color: var(--card-bg); /* Clean premium inner contrast backdrop */
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 20px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);

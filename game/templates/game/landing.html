@@ -102,6 +102,8 @@
         </div>
       </div>
       <div class="nav-right">
+        <button id="theme-toggle" class="theme-toggle">🌙</button>
+
         {% if user.is_authenticated %}
         <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
         <form method="post" action="{% url 'logout' %}" style="display: inline">
@@ -380,15 +382,29 @@
               </a>
             </li>
             <li class="maintainer-item">
-              <span class="footer-meta-text">
-                Maintainers: 
-                <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">@triemerge</a> &amp; 
-                <a href="https://github.com/EDWARD-012" target="_blank" rel="noopener noreferrer">@EDWARD-012</a>
-              </span>
-            </li>
-          </ul>
-        </div>
+  <span class="footer-meta-text">
+    Owner:
+    <a href="https://github.com/YOUR_USERNAME" target="_blank" rel="noopener noreferrer">
+      @YOUR_USERNAME
+    </a>
+  </span>
+</li>
 
+<li class="maintainer-item">
+  <span class="footer-meta-text">
+    Contributors:
+    <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">
+      @triemerge
+    </a>
+    &amp;
+    <a href="https://github.com/EDWARD-012" target="_blank" rel="noopener noreferrer">
+      @EDWARD-012
+    </a>
+  </span>
+</li>
+</ul>
+</div>
+      
         <div class="footer-col">
           <h4>Legal</h4>
           <ul class="footer-nav-list">
@@ -417,5 +433,51 @@
         </div>
       </div>
     </footer>
+      <script>
+    document.addEventListener("DOMContentLoaded", () => {
+    const themeToggle = document.getElementById("theme-toggle");
+    const root = document.documentElement;
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem("theme");
+
+    if (savedTheme) {
+        root.setAttribute("data-theme", savedTheme);
+    } else {
+        // Use system preference
+        const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+
+        if (prefersLight) {
+            root.setAttribute("data-theme", "light");
+        }
+    }
+
+    // Update icon
+    function updateIcon() {
+        if (root.getAttribute("data-theme") === "light") {
+            themeToggle.textContent = "☀️";
+        } else {
+            themeToggle.textContent = "🌙";
+        }
+    }
+
+    updateIcon();
+
+    // Toggle theme
+    themeToggle.addEventListener("click", () => {
+        const currentTheme = root.getAttribute("data-theme");
+
+        if (currentTheme === "light") {
+        root.setAttribute("data-theme", "dark");
+      localStorage.setItem("theme", "dark");
+      } else {
+      root.setAttribute("data-theme", "light");
+      localStorage.setItem("theme", "light");
+      }
+
+        updateIcon();
+    });
+});
+</script>
   </body>
 </html>
