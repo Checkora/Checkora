@@ -29,7 +29,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, PendingRegistration
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 
@@ -540,8 +540,35 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(username__iexact=username).exists()
+    users = User.objects.filter(username__iexact=username).exclude(
+        is_active=False,
+        pending_registration__isnull=False,
+    )
+    exists = users.exists()
     return JsonResponse({'available': not exists})
+
+
+def _pending_user_matches_signup(pending_user, username, email):
+    normalized_email = (email or '').lower()
+    return (
+        pending_user.username.lower() == username.lower() or
+        (
+            normalized_email and
+            (pending_user.email or '').lower() == normalized_email
+        )
+     )
+
+
+def _find_pending_signup_user(username, email):
+    normalized_email = (email or '').strip().lower()
+    pending_users = User.objects.filter(
+        is_active=False,
+        pending_registration__isnull=False,
+    )
+    query = Q(username__iexact=username)
+    if normalized_email:
+        query |= Q(email__iexact=normalized_email)
+    return pending_users.filter(query).first()
 
 
 def register_view(request):
@@ -551,37 +578,28 @@ def register_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
-        
-        # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
+
         if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
-            username = request.POST.get('username')
-            email = request.POST.get('email')
-            
-            if username and email:
-                deleted = False
-                # 1. Exact match (User retrying with the exact same details)
-                if User.objects.filter(username=username, email=email, is_active=False).exists():
-                    User.objects.filter(username=username, email=email, is_active=False).delete()
-                    deleted = True
-                else:
-                    # 2. Username conflict (Free up unverified, abandoned usernames)
-                    if User.objects.filter(username=username, is_active=False).exists():
-                        User.objects.filter(username=username, is_active=False).delete()
-                        deleted = True
-                    # 3. Email conflict (Free up unverified, abandoned emails)
-                    if User.objects.filter(email=email, is_active=False).exists():
-                        User.objects.filter(email=email, is_active=False).delete()
-                        deleted = True
-                
-                if deleted:
-                    # Re-validate the form now that conflicts are cleared
-                    form = CustomUserCreationForm(request.POST)
-                    is_valid = form.is_valid()
+            username = request.POST.get('username', '').strip()
+            email = request.POST.get('email', '').strip()
+            pending_user = _find_pending_signup_user(username, email)
+
+            if pending_user and _pending_user_matches_signup(
+                pending_user,
+                username,
+                email,
+            ):
+                pending_user.delete()
+                form = CustomUserCreationForm(request.POST)
+                is_valid = form.is_valid()
 
         if is_valid:
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account till OTP is verified
             user.save()
+            pending_registration = PendingRegistration(user=user)
+            pending_registration.full_clean()
+            pending_registration.save()
 
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
@@ -700,6 +718,7 @@ def verify_otp(request):
                 user.is_active = True
                 user.full_clean()
                 user.save()
+                PendingRegistration.objects.filter(user=user).delete()
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
                 request.session.pop('otp_created_at', None)

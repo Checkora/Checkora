@@ -35,3 +35,20 @@ class GameResult(models.Model):
 
     def __str__(self):
         return f"{self.mode} | {self.winner} | {self.end_reason}"
+
+
+class PendingRegistration(models.Model):
+    """Marker for inactive users waiting for OTP verification."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="pending_registration",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Pending registration for {self.user_id}"
