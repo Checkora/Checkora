@@ -23,6 +23,7 @@
             let selected = null;
             let hints = [];
             let lastMove = null;
+            let moveHistoryStack = [];
             let premove = null;
             let highlightedSquare = null;
 
@@ -147,6 +148,7 @@
             const wCapEl = document.getElementById('whiteCaptured');
             const bCapEl = document.getElementById('blackCaptured');
             const pauseBtn = document.getElementById('pauseBtn');
+            const undoBtn = document.getElementById('undoBtn');
             const flipBtn = document.getElementById('flipBtn');
             const promoOverlay = document.getElementById('promoOverlay');
             const promoChoices = document.getElementById('promoChoices');
@@ -975,8 +977,16 @@
                         to_row: tr, to_col: tc,
                     };
                     if (promotionPiece) body.promotion_piece = promotionPiece;
+            moveHistoryStack.push({
+    board: JSON.parse(JSON.stringify(board)),
+    turn,
+    whiteTime,
+    blackTime,
+    lastMove
+});
 
                     const data = await post('/api/move/', body);
+
                         if (data.valid) {
                             illegalMoveCount = 0;
                             playSound(data);
@@ -1151,6 +1161,31 @@
                     }
                 }
             }
+
+
+function undoMove() {
+    console.log("UNDO CLICKED");
+
+    if (moveHistoryStack.length === 0 || gameOver) return;
+
+    const previous = moveHistoryStack.pop();
+
+    board = previous.board;
+    turn = previous.turn;
+    whiteTime = previous.whiteTime;
+    blackTime = previous.blackTime;
+    lastMove = previous.lastMove;
+
+    selected = null;
+    hints = [];
+
+    syncPieces();
+    updateTurn();
+    renderClocks();
+    refreshHighlights();
+
+    showStatus('Move undone', false);
+}
 
             /* ==========================================================
             EVENTS
@@ -2816,6 +2851,8 @@
             }
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (undoBtn) undoBtn.onclick = undoMove;
+            
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 

@@ -6,6 +6,7 @@ document.body.innerHTML = `
   <div id="whiteCaptured"></div>
   <div id="blackCaptured"></div>
   <button id="pauseBtn"></button>
+  <button id="undoBtn" ></button>
   <div id="promoOverlay"></div>
   <div id="promoChoices"></div>
   <div id="modeBadge"></div>
