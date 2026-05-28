@@ -1644,18 +1644,19 @@ class AccountDeletionTest(TestCase):
         )
 
     def test_delete_account_get_requires_login(self):
-        response = self.client.get('/delete-account/')
-        self.assertEqual(response.status_code, 302)
+        url = reverse('delete_account')
+        response = self.client.get(url)
+        self.assertRedirects(response, f"{reverse('login')}?next={url}")
 
     def test_delete_account_get_logged_in(self):
         self.client.login(username='deleteme', password='Password123!')
-        response = self.client.get('/delete-account/')
+        response = self.client.get(reverse('delete_account'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'game/delete_account.html')
 
     def test_delete_account_post_invalid_credentials(self):
         self.client.login(username='deleteme', password='Password123!')
-        response = self.client.post('/delete-account/', {
+        response = self.client.post(reverse('delete_account'), {
             'username': 'deleteme',
             'password': 'WrongPassword'
         }, follow=True)
@@ -1664,14 +1665,15 @@ class AccountDeletionTest(TestCase):
     @override_settings(DEBUG=True, EMAIL_HOST_USER='', EMAIL_HOST_PASSWORD='')
     def test_delete_account_post_success_debug(self):
         self.client.login(username='deleteme', password='Password123!')
-        response = self.client.post('/delete-account/', {
+        response = self.client.post(reverse('delete_account'), {
             'username': 'deleteme',
             'password': 'Password123!'
         }, follow=True)
         self.assertContains(response, 'Development Mode: Confirmation link printed to console.')
 
     def test_confirm_delete_account_invalid_token(self):
-        response = self.client.get('/confirm-delete/invalid_uid/invalid_token/', follow=True)
+        url = reverse('confirm_delete_account', kwargs={'uidb64': 'invalid_uid', 'token': 'invalid_token'})
+        response = self.client.get(url, follow=True)
         self.assertContains(response, 'Invalid or expired deletion link.')
 
     @override_settings(DEBUG=True, EMAIL_HOST_USER='', EMAIL_HOST_PASSWORD='')
@@ -1683,7 +1685,8 @@ class AccountDeletionTest(TestCase):
         uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
         token = default_token_generator.make_token(self.user)
 
-        response = self.client.get(f'/confirm-delete/{uidb64}/{token}/')
+        url = reverse('confirm_delete_account', kwargs={'uidb64': uidb64, 'token': token})
+        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'game/delete_success.html')
         self.assertFalse(User.objects.filter(username='deleteme').exists())

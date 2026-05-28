@@ -224,8 +224,9 @@ body {
     color: #ef4444 !important;
 }
 
-.delete-option:hover{
-    background: rgba(239, 68, 68, 0.12) !important;
+.dropdown-content a.delete-option:hover,
+.dropdown-content .delete-option:hover{
+    background: rgba(239, 68, 68, 0.12);
 }
 
 .back-btn {
