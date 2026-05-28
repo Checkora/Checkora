@@ -1631,3 +1631,59 @@ class GameResultMoveHistoryTest(TestCase):
         self.assertEqual(res.winner, 'white')
         self.assertEqual(len(res.moves), 1)
         self.assertEqual(res.moves[0]['notation'], 'e4#')
+
+
+class AccountDeletionTest(TestCase):
+    """Test suite for verifying secure account deletion flow."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='deleteme',
+            email='deleteme@example.com',
+            password='Password123!'
+        )
+
+    def test_delete_account_get_requires_login(self):
+        response = self.client.get('/delete-account/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_delete_account_get_logged_in(self):
+        self.client.login(username='deleteme', password='Password123!')
+        response = self.client.get('/delete-account/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/delete_account.html')
+
+    def test_delete_account_post_invalid_credentials(self):
+        self.client.login(username='deleteme', password='Password123!')
+        response = self.client.post('/delete-account/', {
+            'username': 'deleteme',
+            'password': 'WrongPassword'
+        }, follow=True)
+        self.assertContains(response, 'Invalid username or password.')
+
+    @override_settings(DEBUG=True, EMAIL_HOST_USER='', EMAIL_HOST_PASSWORD='')
+    def test_delete_account_post_success_debug(self):
+        self.client.login(username='deleteme', password='Password123!')
+        response = self.client.post('/delete-account/', {
+            'username': 'deleteme',
+            'password': 'Password123!'
+        }, follow=True)
+        self.assertContains(response, 'Development Mode: Confirmation link printed to console.')
+
+    def test_confirm_delete_account_invalid_token(self):
+        response = self.client.get('/confirm-delete/invalid_uid/invalid_token/', follow=True)
+        self.assertContains(response, 'Invalid or expired deletion link.')
+
+    @override_settings(DEBUG=True, EMAIL_HOST_USER='', EMAIL_HOST_PASSWORD='')
+    def test_confirm_delete_account_success(self):
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.contrib.auth.tokens import default_token_generator
+
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+
+        response = self.client.get(f'/confirm-delete/{uidb64}/{token}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/delete_success.html')
+        self.assertFalse(User.objects.filter(username='deleteme').exists())

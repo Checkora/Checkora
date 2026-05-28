@@ -482,3 +482,63 @@ body.login-page .helptext {
   transform: translateX(-3px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
+
+/* ── Account Deletion Warning & Success styling ── */
+.warning-box {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    text-align: center;
+}
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: #ffffff;
+    border: none;
+    width: 100%;
+    padding: 14px 0;
+    border-radius: 6px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    margin-top: 10px;
+}
+.btn-danger:hover {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
+}
+.success-icon {
+    width: 80px;
+    height: 80px;
+    margin: 10px auto 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #10b981, #059669);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 36px;
+    color: white;
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+}
+.success-text {
+    text-align: center;
+    margin-bottom: 24px;
+}
+.success-text h2 {
+    color: #ffffff;
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+.success-text p {
+    color: #8a8aaa;
+    font-size: 1rem;
+    line-height: 1.6;
+}

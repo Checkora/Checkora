@@ -565,8 +565,9 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(username__iexact=username).exists()
+    exists = User.objects.filter(username__iexact=username, is_active=True).exists()
     return JsonResponse({'available': not exists})
+
 
 
 def register_view(request):
@@ -1081,6 +1082,19 @@ def delete_account(request):
                 )
             )
 
+            missing_email_credentials = (
+                not settings.EMAIL_HOST_USER or
+                not settings.EMAIL_HOST_PASSWORD
+            )
+
+            if settings.DEBUG and missing_email_credentials:
+                print(f"[Checkora] Development account deletion link for {user.username}: {delete_link}")
+                messages.success(
+                    request,
+                    'Development Mode: Confirmation link printed to console.'
+                )
+                return redirect('delete_account')
+
             try:
 
                 send_mail(
@@ -1092,7 +1106,7 @@ Click the link below to permanently delete your account:
 
 If this wasn't you, ignore this email.
 """,
-                    from_email=settings.EMAIL_HOST_USER,
+                    from_email=None,
                     recipient_list=[user.email],
                     fail_silently=False,
                 )
@@ -1108,18 +1122,19 @@ If this wasn't you, ignore this email.
                     'Failed to send confirmation email.'
                 )
 
-            return redirect('index')
+            return redirect('delete_account')
 
         messages.error(
             request,
             'Invalid username or password.'
         )
+        return redirect('delete_account')
 
     return render(
         request,
         'game/delete_account.html'
     )
-    
+
 
 def confirm_delete_account(request, uidb64, token):
 
@@ -1154,4 +1169,4 @@ def confirm_delete_account(request, uidb64, token):
         'Invalid or expired deletion link.'
     )
 
-    return redirect('landing')
+    return redirect('login')

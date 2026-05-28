@@ -240,10 +240,10 @@
 
                 <div class="dropdown-content">
                     <a href="/stats/">
-                        Stats
+                        📊 Stats
                     </a>
 
-                    <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
+                    <a href="{% url 'delete_account' %}" class="delete-option"> 🗑️ Delete Account </a>
                     <form
                         method="post"
                         action="{% url 'logout' %}"
@@ -255,7 +255,7 @@
                             type="submit"
                             class="logout-option"
                         >
-                            Logout
+                            🚪 Logout
                         </button>
                     </form>
                 </div>
@@ -784,7 +784,28 @@ ${message}
     };
 });
 </script>
-
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const dropdown = document.querySelector('.profile-dropdown');
+    if (dropdown) {
+        const btn = dropdown.querySelector('.profile-btn');
+        const content = dropdown.querySelector('.dropdown-content');
+        
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            content.classList.toggle('show');
+            btn.classList.toggle('active');
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target)) {
+                content.classList.remove('show');
+                btn.classList.remove('active');
+            }
+        });
+    }
+});
+</script>
 </body>
 
 

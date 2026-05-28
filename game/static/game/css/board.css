@@ -150,58 +150,83 @@ body {
 }
 
 .profile-btn{
-    background: #1a1a2e;
+    background: rgba(26, 26, 46, 0.6);
     color: #fff;
-    border: 1px solid #444;
-    padding: 8px 14px;
-    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px 16px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
-.profile-btn:hover{
+.profile-btn:hover {
+    border-color: rgba(240, 192, 64, 0.4);
+    color: #f0c040;
+    background: rgba(240, 192, 64, 0.05);
+}
+
+.profile-btn.active {
     border-color: #f0c040;
     color: #f0c040;
+    background: rgba(240, 192, 64, 0.08);
 }
 
 .dropdown-content{
-    display: none;
+    display: block;
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+    pointer-events: none;
     position: absolute;
     right: 0;
-    top: 48px;
+    top: calc(100% + 8px);
     min-width: 220px;
-    background: #111827;
+    background: rgba(17, 24, 39, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-    z-index: 9999;
 }
 
-.profile-dropdown:hover .dropdown-content{
-    display: block;
+.dropdown-content.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
 .dropdown-content a,
 .logout-option{
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
-    padding: 14px 18px;
-    color: white;
+    padding: 12px 18px;
+    color: rgba(255, 255, 255, 0.8);
     text-decoration: none;
     background: transparent;
     border: none;
     text-align: left;
     cursor: pointer;
-    transition: 0.3s ease;
+    transition: all 0.2s ease;
     font-size: 14px;
+    box-sizing: border-box;
 }
 
 .dropdown-content a:hover,
 .logout-option:hover{
-    background: rgba(255,255,255,0.06);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    padding-left: 22px;
 }
 
 .delete-option{
@@ -209,7 +234,7 @@ body {
 }
 
 .delete-option:hover{
-    background: rgba(239,68,68,0.12) !important;
+    background: rgba(239, 68, 68, 0.12) !important;
 }
 
 /* ============================================================
