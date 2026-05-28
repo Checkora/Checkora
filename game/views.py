@@ -44,6 +44,11 @@ def _sanitize_notation(notation):
         return ''
     return notation if _SAFE_NOTATION.match(notation) else ''
 
+def _sanitize_move_history(move_history):
+    for move in move_history:
+        move['notation'] = _sanitize_notation(move.get('notation', ''))
+    return move_history
+
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
@@ -271,6 +276,7 @@ def resume_game(request):
     game.last_ts = time.time()
     request.session['game'] = game.to_dict()
     request.session.modified = True
+    _sanitize_move_history(game.move_history)
 
     return JsonResponse({
         'valid': True,
@@ -335,6 +341,7 @@ def get_state(request):
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
+    _sanitize_move_history(game.move_history)
 
     return JsonResponse({
         'board': game.board,
