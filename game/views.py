@@ -559,6 +559,7 @@ def resign_game(request):
         'game_status': game_status
     })
 
+
 @require_GET
 def check_username(request):
     """Check if a username is already taken."""
@@ -567,7 +568,6 @@ def check_username(request):
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
     exists = User.objects.filter(username__iexact=username, is_active=True).exists()
     return JsonResponse({'available': not exists})
-
 
 
 def register_view(request):
@@ -1116,7 +1116,7 @@ If this wasn't you, ignore this email.
                     'Confirmation email sent to your registered email.'
                 )
 
-            except Exception:
+            except (SMTPException, BadHeaderError, OSError):
                 messages.error(
                     request,
                     'Failed to send confirmation email.'
@@ -1146,7 +1146,7 @@ def confirm_delete_account(request, uidb64, token):
 
         user = User.objects.get(pk=uid)
 
-    except Exception:
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
 
         user = None
 
