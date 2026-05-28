@@ -89,10 +89,30 @@ class LandingViewTest(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
+        self.assertContains(response, 'capability-card--orphan')
 
     def test_landing_page_links_to_play(self):
         response = self.client.get('/')
         self.assertContains(response, '/play/')
+
+
+class StaticPageLayoutTest(TestCase):
+    """Footer-linked static pages should use the shared site navigation layout."""
+
+    def test_footer_linked_pages_render_site_header_and_footer(self):
+        pages = (
+            reverse('privacy'),
+            reverse('terms'),
+            reverse('contact'),
+        )
+
+        for page in pages:
+            with self.subTest(page=page):
+                response = self.client.get(page)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'class="navbar"')
+                self.assertContains(response, 'class="footer"')
+                self.assertNotContains(response, 'Back to Home')
 
 
 class NotFoundPageTest(TestCase):
