@@ -1,5 +1,6 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
+import hashlib
 import json
 import sys
 from smtplib import SMTPException
@@ -187,6 +188,34 @@ class RegistrationViewTest(TestCase):
         self.assertTrue(User.objects.filter(username='emailplayer', is_active=False).exists())
         self.assertTrue(mock_send_mail.called)
         self.assertEqual(self.client.session['last_otp_time'], 7654321.0)
+
+    def test_successful_otp_verification_clears_resend_cooldown(self):
+        user = User.objects.create_user(
+            username='verifiedplayer',
+            email='verifiedplayer@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        otp = '123456'
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = hashlib.sha256(
+            f"{otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+        session['otp_created_at'] = 1234500.0
+        session['last_otp_time'] = 1234567.0
+        session.save()
+
+        with mock.patch('game.views.time.time', return_value=1234568.0):
+            response = self.client.post('/verify-otp/', {'otp': otp})
+
+        self.assertRedirects(response, reverse('index'), fetch_redirect_response=False)
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertNotIn('registration_user_id', self.client.session)
+        self.assertNotIn('registration_otp_hash', self.client.session)
+        self.assertNotIn('otp_created_at', self.client.session)
+        self.assertNotIn('last_otp_time', self.client.session)
 
     @override_settings(
         EMAIL_HOST_USER='sender@example.com',
