@@ -517,7 +517,7 @@
                 
                 if (gameMode === 'ai'){
                     const diffLabel = (currentDifficulty || 'medium').toUpperCase();
-                    const humanName = currentWhiteName || document.getElementById('whiteNameInput')?.value?.trim() || 'Player';
+                    const humanName = currentWhiteName || document.getElementById('whiteNameInput')?.value?.trim()?.slice(0, 17) || 'Player';
                     if(playerColor === 'white'){
                         wName = humanName;
                         bName = `AI (Black)`;
