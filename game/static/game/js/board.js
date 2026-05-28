@@ -3324,15 +3324,21 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 }
             }, { passive: false });
 
-            boardEl.addEventListener('touchend', (e) => {
-                if (!touchDragSrc) return;
+    
+            boardEl.addEventListener('touchend', async (e) => {
+                const srcSquare = touchDragSrc;
+                const wasDragging = touchDragging;
+                const startPos = touchStartPos;
+                const pieceClone = activeTouchPieceClone;
+
+                if (!srcSquare) return;
 
                 const touch = e.changedTouches[0];
                 let movedToSquare = false;
 
-                if (touchDragging) {
+                if (wasDragging)  {
                     // Clean up original piece transparency
-                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const srcSquareEl = sq(srcSquare.r, srcSquare.c);
                     const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
                     if (pieceImg) {
                         pieceImg.classList.remove('touch-dragging-original');
@@ -3350,11 +3356,15 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     if (destSquareEl) {
                         const tr = parseInt(destSquareEl.dataset.r);
                         const tc = parseInt(destSquareEl.dataset.c);
+                        await tryMove(
+                            srcSquare.r,
+                            srcSquare.c,
+                            tr,
+                            tc
+                    );
 
-                        if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
-                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
-                            movedToSquare = true;
-                        }
+                    movedToSquare = true;
+
                     }
 
                     if (!movedToSquare) {
@@ -3364,9 +3374,11 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     // Prevent click generation
                     e.preventDefault();
                 } else {
-                    // Quick tap -> trigger default click/tap behavior
-                    onClick(touchDragSrc.r, touchDragSrc.c);
-                }
+                       // Quick tap -> trigger default click/tap behavior
+                        e.preventDefault();
+                        await onClick(srcSquare.r, srcSquare.c);
+
+                    }
 
                 // Reset state
                 touchStartPos = null;
