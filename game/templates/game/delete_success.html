@@ -1,0 +1,157 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Deleted | Checkora</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'game/css/landing.css' %}"
+    >
+
+    <style>
+
+        body{
+            min-height:100vh;
+            background:
+                radial-gradient(circle at top,#1e293b 0%,#0f172a 45%,#020617 100%);
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:30px;
+            overflow-x:hidden;
+        }
+
+        .success-wrapper{
+            width:100%;
+            max-width:500px;
+        }
+
+        .success-card{
+            background:rgba(15,23,42,0.92);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:26px;
+            padding:50px 40px;
+            text-align:center;
+            backdrop-filter:blur(18px);
+            box-shadow:
+                0 10px 40px rgba(0,0,0,0.45),
+                0 0 30px rgba(250,204,21,0.08);
+        }
+
+        .logo{
+            margin-bottom:20px;
+        }
+
+        .logo h1{
+            font-size:44px;
+            letter-spacing:2px;
+            color:#ffffff;
+            font-weight:800;
+        }
+
+        .logo span{
+            color:#facc15;
+        }
+
+        .success-icon{
+            width:100px;
+            height:100px;
+            margin:0 auto 28px;
+            border-radius:50%;
+            background:linear-gradient(135deg,#22c55e,#15803d);
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            font-size:44px;
+            font-weight:bold;
+            color:white;
+            box-shadow:
+                0 10px 30px rgba(34,197,94,0.35);
+        }
+
+        .title{
+            font-size:34px;
+            color:#ffffff;
+            margin-bottom:18px;
+            font-weight:700;
+        }
+
+        .description{
+            color:#cbd5e1;
+            line-height:1.8;
+            font-size:15px;
+            margin-bottom:35px;
+        }
+
+        .home-btn{
+            display:inline-block;
+            text-decoration:none;
+            padding:15px 34px;
+            border-radius:14px;
+            background:linear-gradient(135deg,#facc15,#eab308);
+            color:#111827;
+            font-weight:800;
+            transition:0.3s ease;
+        }
+
+        .home-btn:hover{
+            transform:translateY(-2px);
+            box-shadow:0 10px 25px rgba(250,204,21,0.35);
+        }
+
+        @media(max-width:520px){
+
+            .success-card{
+                padding:40px 24px;
+            }
+
+            .logo h1{
+                font-size:36px;
+            }
+
+            .title{
+                font-size:28px;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="success-wrapper">
+
+        <div class="success-card">
+
+            <div class="logo">
+                <h1>CHECK<span>ORA</span></h1>
+            </div>
+
+            <div class="success-icon">
+                ✓
+            </div>
+
+            <h2 class="title">
+                Account Deleted
+            </h2>
+
+            <p class="description">
+                Your Checkora account has been permanently deleted successfully.
+                <br><br>
+                We're sorry to see you go ♟
+            </p>
+
+            <a href="/" class="home-btn">
+                Return to Home
+            </a>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

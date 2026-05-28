@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +23,7 @@
             --move-dot: rgba(0,0,0,0.3);
             --danger: #ff5555;
             --glow: 0 0 20px rgba(244, 196, 48, 0.15);
+            --header-height: 61px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,6 +34,8 @@
             font-family: 'DM Sans', sans-serif;
             min-height: 100vh;
             overflow-x: hidden;
+            margin: 0;
+            padding: var(--header-height) 0 0;
         }
 
         /* ── Header ── */
@@ -39,12 +43,22 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 1.2rem 2.5rem;
+            padding: 0.4rem 2.5rem;
             border-bottom: 1px solid var(--border);
             background: var(--surface);
-            position: sticky;
+            position: fixed;
             top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
             z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 14px;
         }
 
         .logo {
@@ -72,6 +86,18 @@
                 0 0 10px rgba(212, 165, 116, 0.5),
                 0 0 20px rgba(212, 165, 116, 0.3);
         }
+
+        .header-subtitle {
+            margin: 0;
+            font-size: 0.82rem;
+            color: #4fc3f7;        
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            border-left: 2px solid #2c3245;   
+            padding-left: 14px;
+        }
+
         @keyframes logoGlow {
             0% {
                 filter: brightness(1.6) contrast(1.3)
@@ -98,7 +124,7 @@
         .layout {
             display: grid;
             grid-template-columns: 260px 1fr;
-            min-height: calc(100vh - 61px);
+            min-height: calc(100vh - var(--header-height));
         }
 
         /* ── Sidebar ── */
@@ -107,8 +133,8 @@
             border-right: 1px solid var(--border);
             padding: 1.5rem 0;
             position: sticky;
-            top: 61px;
-            height: calc(100vh - 61px);
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             overflow-y: auto;
         }
 
@@ -132,6 +158,14 @@
             font-weight: 400;
             transition: all 0.15s;
             border-left: 3px solid transparent;
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border-top: 0;
+            border-right: 0;
+            border-bottom: 0;
+            border-left-width: 3px;
+            font: inherit;
         }
 
         .rule-nav-item:hover {
@@ -146,26 +180,17 @@
             font-weight: 500;
         }
 
+        .rule-nav-item:focus-visible {
+            outline: 2px solid var(--gold);
+            outline-offset: -2px;
+        }
+
         .rule-nav-item .icon { font-size: 1.1rem; width: 22px; text-align: center; }
 
         /* ── Main Content ── */
         main {
             padding: 3rem 4rem;
             max-width: 900px;
-        }
-
-        .page-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 2.5rem;
-            color: var(--gold);
-            margin-bottom: 0.4rem;
-        }
-
-        .page-subtitle {
-            color: var(--muted);
-            font-size: 1rem;
-            margin-bottom: 3rem;
-            font-weight: 300;
         }
 
         /* ── Rule Card ── */
@@ -453,111 +478,174 @@
         }
         .piece-card.active .piece-name { color: var(--gold); }
 
+        /* ── Piece Values ── */
+        .value-panel {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .value-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .value-summary strong {
+            color: var(--gold);
+            font-weight: 500;
+        }
+
+        .value-grid {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .value-row {
+            display: grid;
+            grid-template-columns: minmax(140px, 1.2fr) minmax(110px, 0.8fr) 1.4fr;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 1rem 1.1rem;
+            border-radius: 12px;
+            background: linear-gradient(145deg, var(--surface2), rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--border);
+        }
+
+        .value-piece {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .value-piece .piece-symbol {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 196, 48, 0.12);
+            border: 1px solid rgba(244, 196, 48, 0.2);
+            color: var(--gold);
+            flex-shrink: 0;
+        }
+
+        .value-score {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem;
+            color: var(--gold);
+            white-space: nowrap;
+        }
+
+        .value-note {
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .value-footnote {
+            color: var(--muted);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .value-footnote strong {
+            color: var(--gold);
+            font-weight: 500;
+        }
+
         /* Auto-play animation */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
         .animating { animation: pulse 0.5s ease; }
+
         #menuToggle {
-    display: none;
-    background: #f4c430;
-    color: #0a0b10;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 14px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-}
+            display: none;
+            background: #f4c430;
+            color: #0a0b10;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
 
-/* ── Overlay ── */
-.sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 200;
-}
-.sidebar-overlay.open {
-    display: block;
-}
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 200;
+        }
+        .sidebar-overlay.open {
+            display: block;
+        }
 
-/* ── Mobile ── */
-@media (max-width: 768px) {
-    #menuToggle {
-        display: block;
-    }
+        @media (max-width: 768px) {
+            #menuToggle { display: block; }
 
-    .layout {
-        grid-template-columns: 1fr;
-    }
+            .layout { grid-template-columns: 1fr; }
 
-    .sidebar {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 260px;
-        height: 100vh;
-        z-index: 300;
-        overflow-y: auto;
-        padding-top: 1rem;
-        background: var(--surface);
-        border-right: 1px solid var(--border);
-    }
+            .sidebar {
+                display: none;
+                position: fixed;
+                top: var(--header-height);
+                left: 0;
+                width: 260px;
+                height: calc(100vh - var(--header-height));
+                z-index: 300;
+                overflow-y: auto;
+                padding-top: 1rem;
+                background: var(--surface);
+                border-right: 1px solid var(--border);
+            }
 
-    .sidebar.open {
-        display: block;
-    }
+            .sidebar.open { display: block; }
 
-    main {
-        padding: 1.5rem 1rem;
-    }
+            main { padding: 1.5rem 1rem; }
 
-    .mini-board {
-        width: 100% !important;
-        max-width: 300px;
-    }
+            .mini-board {
+                width: 100% !important;
+                max-width: 300px;
+            }
 
-    .mini-board-container {
-        flex-direction: column;
-    }
-}
+            .mini-board-container { flex-direction: column; }
+
+            .header-subtitle { display: none; }
+        }
     </style>
 </head>
 <body>
 
     <header>
-        <a href="/" class="logo" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
-            <img src="/static/game/checkora_icon_only.png" 
-                style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
-            <span style="font-family: 'Cinzel', serif; color: #f0c040; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Checkora</span>
-        </a>
+        <div class="header-left">
+            <a href="{% url 'landing' %}" class="logo">
+                <img src="{% static 'game/checkora_icon_only.png' %}" 
+                    style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
+                <span>Checkora</span>
+            </a>
+            <h1 class="header-subtitle">Interactive Chess Rulebook</h1>
+        </div>
         <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
     </header>
+
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"
          role="presentation" aria-hidden="true"></div>
 
 <div class="layout">
     <!-- Sidebar -->
-    <nav class="sidebar">
+    <nav id="sidebar" class="sidebar">
         <div style="margin-bottom: 20px; margin-top: 10px; text-align: center; width: 50%;">
-            <a href="{% url 'index' %}"
-               class="back-btn"
-               style="color:#f0c040; display:inline-block;"
-               onclick="
-                try {
-                    var modal = window.parent.document.getElementById('rulebookModal');
-                    if (modal) {
-                        modal.style.display='none';
-                        return false;
-                    }
-                } catch(e) {
-                    console.error('Modal close failed:', e);
-                }
-               ">
-               ← Back to Game
+            <a href="{% url 'landing' %}" id="dynamicBackBtn" class="back-btn" style="color:#f0c040; display:inline-block;">
+               ← Back to Home
             </a>
         </div>
         <div class="sidebar-title">Rulebook</div>
@@ -567,6 +655,9 @@
         <div class="rule-nav-item" onclick="showRule('pieces')" id="nav-pieces">
             <span class="icon">♟</span> Piece Moves
         </div>
+        <button class="rule-nav-item" type="button" onclick="showRule('values')" id="nav-values">
+            <span class="icon">🧮</span> Piece Values & Scoring
+        </button>
         <div class="rule-nav-item" onclick="showRule('pawn')" id="nav-pawn">
             <span class="icon">🔼</span> Pawn Special Rules
         </div>
@@ -589,8 +680,6 @@
 
     <!-- Main -->
     <main>
-        <h1 class="page-title">Chess Rulebook</h1>
-        <p class="page-subtitle">Interactive visual guide — click any rule to see it in action.</p>
 
         <!-- ══ BASICS ══ -->
         <div class="rule-card active" id="rule-basics">
@@ -671,6 +760,62 @@
                             <li>Cannot move into check</li>
                             <li>Most important piece — protect it!</li>
                         </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ VALUES ══ -->
+        <div class="rule-card" id="rule-values">
+            <div class="rule-header">
+                <span class="rule-icon">🧮</span>
+                <h2 class="rule-title">Piece Values & Scoring</h2>
+            </div>
+            <p class="rule-desc">
+                Material values help explain trades and exchanges. A move that wins more value than it gives up is often favorable,
+                though <strong>checkmate and king safety always outweigh raw points</strong>.
+            </p>
+            <div class="demo-wrapper">
+                <div class="demo-label">Reference score table</div>
+                <div class="value-panel">
+                    <div class="value-summary">
+                        <div><strong>Rule of thumb:</strong> trade up when you can.</div>
+                        <div>Higher score means the piece is usually more valuable.</div>
+                    </div>
+                    <div class="value-grid" role="table" aria-label="Chess piece values and scoring">
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♙</span> Pawn</div>
+                            <div class="value-score" role="cell">1 Point</div>
+                            <div class="value-note" role="cell">The basic unit of material. Often used to build space, structure, and promotion chances.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♘</span> Knight</div>
+                            <div class="value-score" role="cell">3 Points</div>
+                            <div class="value-note" role="cell">Strong in closed positions and can jump over pieces.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♗</span> Bishop</div>
+                            <div class="value-score" role="cell">3 Points</div>
+                            <div class="value-note" role="cell">Usually equal to a knight, but can become stronger on open diagonals.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♖</span> Rook</div>
+                            <div class="value-score" role="cell">5 Points</div>
+                            <div class="value-note" role="cell">More powerful in open files and often dominates the late game.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♕</span> Queen</div>
+                            <div class="value-score" role="cell">9 Points</div>
+                            <div class="value-note" role="cell">The most mobile attacking piece. Avoid trading it lightly.</div>
+                        </div>
+                        <div class="value-row" role="row">
+                            <div class="value-piece" role="cell"><span class="piece-symbol">♔</span> King</div>
+                            <div class="value-score" role="cell">Infinite</div>
+                            <div class="value-note" role="cell">Ultimate value. If the King is checkmated, the game is over immediately.</div>
+                        </div>
+                    </div>
+                    <div class="value-footnote">
+                        <strong>Example:</strong> winning a rook for a bishop usually gains about 2 points of material, which is why that trade is often favorable.
                     </div>
                 </div>
             </div>
@@ -858,17 +1003,11 @@
 </div>
 
 <script>
-/* ══════════════════════════════════════════════
-   PIECE UNICODE
-══════════════════════════════════════════════ */
 const P = {
     wK:'♔\u200B', wQ:'♕\u200B', wR:'♖\u200B', wB:'♗\u200B', wN:'♘\u200B', wP:'♙\u200B',
     bK:'♚', bQ:'♛', bR:'♜', bB:'♝', bN:'♞', bP:'♟'
 };
 
-/* ══════════════════════════════════════════════
-   BOARD BUILDER
-══════════════════════════════════════════════ */
 function buildBoard(id) {
     const el = document.getElementById(id);
     el.innerHTML = '';
@@ -894,7 +1033,7 @@ function clearBoard(id) {
 function place(id, r, c, piece) {
     const sq = document.getElementById(`${id}-${r}-${c}`);
     if (sq) {
-        sq.textContent = piece[0]; // Extract the solid character
+        sq.textContent = piece[0];
         const isWhite = piece.includes('\u200B');
         sq.style.color = isWhite ? '#ffffff' : '#111111';
         sq.style.textShadow = isWhite 
@@ -926,7 +1065,7 @@ function highlightCapture(id, r, c) {
 /* ══════════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════════ */
-const rules = ['basics','pieces','pawn','castling','enpassant','check','stalemate','promotion'];
+const rules = ['basics','pieces','values','pawn','castling','enpassant','check','stalemate','promotion'];
 
 function showRule(name) {
     rules.forEach(r => {
@@ -935,13 +1074,10 @@ function showRule(name) {
     });
     document.getElementById('rule-' + name).classList.add('active');
     document.getElementById('nav-' + name).classList.add('active');
-    closeSidebar(); // ADD THIS
+    closeSidebar();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* ══════════════════════════════════════════════
-   BASICS — Starting Position
-══════════════════════════════════════════════ */
 function initBasics() {
     buildBoard('board-basics');
     const back = [P.bR, P.bN, P.bB, P.bQ, P.bK, P.bB, P.bN, P.bR];
@@ -952,9 +1088,6 @@ function initBasics() {
     front.forEach((p, c) => place('board-basics', 7, c, p));
 }
 
-/* ══════════════════════════════════════════════
-   PIECES — Movement patterns
-══════════════════════════════════════════════ */
 const pieceDescs = {
     king:   { title: 'King ♔', points: ['Moves 1 square in any direction', 'Cannot move into check', 'Most important piece — protect it!'] },
     queen:  { title: 'Queen ♕', points: ['Moves any number of squares', 'In any direction (rank, file, diagonal)', 'Most powerful piece on the board'] },
@@ -969,7 +1102,7 @@ function showPieceMove(piece) {
     document.getElementById('pc-' + piece).classList.add('active');
 
     buildBoard('board-pieces');
-    const r = 4, c = 3; // center-ish
+    const r = 4, c = 3;
 
     const moves = {
         king:   [[r-1,c-1],[r-1,c],[r-1,c+1],[r,c-1],[r,c+1],[r+1,c-1],[r+1,c],[r+1,c+1]],
@@ -997,15 +1130,9 @@ function showPieceMove(piece) {
         `<h4>${desc.title}</h4><ul>${desc.points.map(p=>`<li>${p}</li>`).join('')}</ul>`;
 }
 
-/* ══════════════════════════════════════════════
-   PAWN STEPS
-══════════════════════════════════════════════ */
 function pawnStep(n) {
-    [0,1,2].forEach(i => {
-        document.getElementById('pstep-'+i).classList.remove('active');
-    });
+    [0,1,2].forEach(i => document.getElementById('pstep-'+i).classList.remove('active'));
     document.getElementById('pstep-'+n).classList.add('active');
-
     buildBoard('board-pawn');
     if (n === 0) {
         place('board-pawn', 6, 3, P.wP);
@@ -1026,13 +1153,9 @@ function pawnStep(n) {
     }
 }
 
-/* ══════════════════════════════════════════════
-   CASTLING STEPS
-══════════════════════════════════════════════ */
 function castleStep(n) {
     [0,1,2,3].forEach(i => document.getElementById('cstep-'+i).classList.remove('active'));
     document.getElementById('cstep-'+n).classList.add('active');
-
     buildBoard('board-castling');
     if (n === 0) {
         place('board-castling', 7, 4, P.wK);
@@ -1040,7 +1163,6 @@ function castleStep(n) {
         place('board-castling', 7, 7, P.wR);
         document.getElementById('board-castling-7-4').classList.add('last');
     } else if (n === 1) {
-        // Kingside
         place('board-castling', 7, 6, P.wK);
         place('board-castling', 7, 5, P.wR);
         place('board-castling', 7, 0, P.wR);
@@ -1049,7 +1171,6 @@ function castleStep(n) {
         highlight('board-castling', 7, 7);
         highlight('board-castling', 7, 4);
     } else if (n === 2) {
-        // Queenside
         place('board-castling', 7, 2, P.wK);
         place('board-castling', 7, 3, P.wR);
         place('board-castling', 7, 7, P.wR);
@@ -1058,7 +1179,6 @@ function castleStep(n) {
         highlight('board-castling', 7, 0);
         highlight('board-castling', 7, 4);
     } else {
-        // Cannot castle in check
         place('board-castling', 7, 4, P.wK);
         place('board-castling', 7, 0, P.wR);
         place('board-castling', 7, 7, P.wR);
@@ -1068,68 +1188,50 @@ function castleStep(n) {
     }
 }
 
-/* ══════════════════════════════════════════════
-   EN PASSANT STEPS
-══════════════════════════════════════════════ */
 function epStep(n) {
     [0,1,2].forEach(i => document.getElementById('epstep-'+i).classList.remove('active'));
     document.getElementById('epstep-'+n).classList.add('active');
     buildBoard('board-ep');
-
     if (n === 0) {
-        // White pawn on 5th rank (row 3)
         place('board-ep', 3, 3, P.wP);
         document.getElementById('board-ep-3-3').classList.add('last');
-        // Black pawn in starting position (row 1)
         place('board-ep', 1, 4, P.bP);
         document.getElementById('board-ep-1-4').style.opacity = '0.5';
     } else if (n === 1) {
-        // Black pawn jumps 2 squares, lands beside white
         place('board-ep', 3, 3, P.wP);
         place('board-ep', 3, 4, P.bP);
         document.getElementById('board-ep-3-3').classList.add('last');
         document.getElementById('board-ep-3-4').classList.add('hl');
-        // Arrow showing capture square
         highlight('board-ep', 2, 4);
     } else {
-        // White captures, black pawn gone
         place('board-ep', 2, 4, P.wP);
         document.getElementById('board-ep-2-4').classList.add('last');
         document.getElementById('board-ep-3-4').style.background = 'rgba(220,60,60,0.3)';
-        // Show ghost of where black pawn was
         document.getElementById('board-ep-3-4').textContent = '✕';
         document.getElementById('board-ep-3-4').style.color = 'rgba(220,60,60,0.6)';
         document.getElementById('board-ep-3-4').style.fontSize = '1rem';
     }
 }
-/* ══════════════════════════════════════════════
-   CHECK STEPS
-══════════════════════════════════════════════ */
+
 function checkStep(n) {
     [0,1,2].forEach(i => document.getElementById('chstep-'+i).classList.remove('active'));
     document.getElementById('chstep-'+n).classList.add('active');
     buildBoard('board-check');
-
     if (n === 0) {
-        // King in check from rook
         place('board-check', 7, 4, P.wK);
         place('board-check', 0, 4, P.bR);
         document.getElementById('board-check-7-4').classList.add('check');
         document.getElementById('board-check-0-4').classList.add('last');
-        // Highlight the attack line
         [1,2,3,4,5,6].forEach(r => {
             document.getElementById(`board-check-${r}-4`).style.background = 'rgba(255,50,50,0.35)';
         });
-        // Show escape squares
         [[6,3],[6,5],[7,3],[7,5]].forEach(([r,c]) => highlight('board-check',r,c));
     } else if (n === 1) {
-        // Block with a piece
         place('board-check', 7, 4, P.wK);
         place('board-check', 0, 4, P.bR);
         place('board-check', 4, 4, P.wR);
         document.getElementById('board-check-0-4').classList.add('last');
         document.getElementById('board-check-4-4').classList.add('last');
-        // Show the block working
         [1,2,3].forEach(r => {
             document.getElementById(`board-check-${r}-4`).style.background = 'rgba(255,50,50,0.35)';
         });
@@ -1137,13 +1239,11 @@ function checkStep(n) {
             document.getElementById(`board-check-${r}-4`).style.background = 'rgba(50,255,50,0.35)';
         });
     } else {
-        // Clear checkmate position — king trapped in corner
         place('board-check', 0, 0, P.bK);
         place('board-check', 1, 2, P.wQ);
         place('board-check', 0, 2, P.wR);
         document.getElementById('board-check-0-0').classList.add('check');
         document.getElementById('board-check-1-2').classList.add('last');
-        // All escape squares blocked
         [[0,1],[1,0],[1,1]].forEach(([r,c]) => {
             const sq = document.getElementById(`board-check-${r}-${c}`);
             sq.style.background = 'rgba(255,50,50,0.4)';
@@ -1153,26 +1253,19 @@ function checkStep(n) {
         });
     }
 }
-/* ══════════════════════════════════════════════
-   STALEMATE
-══════════════════════════════════════════════ */
+
 function initStalemate() {
     buildBoard('board-stale');
     place('board-stale', 0, 7, P.bK);
     place('board-stale', 1, 5, P.wQ);
     place('board-stale', 2, 7, P.wK);
-    // Black king has no legal moves but is NOT in check
     document.getElementById('board-stale-0-7').classList.add('hl');
 }
 
-/* ══════════════════════════════════════════════
-   PROMOTION STEPS
-══════════════════════════════════════════════ */
 function promoStep(n) {
     [0,1,2].forEach(i => document.getElementById('prostep-'+i).classList.remove('active'));
     document.getElementById('prostep-'+n).classList.add('active');
     buildBoard('board-promo');
-
     if (n === 0) {
         place('board-promo', 1, 4, P.wP);
         document.getElementById('board-promo-1-4').classList.add('last');
@@ -1181,12 +1274,10 @@ function promoStep(n) {
         place('board-promo', 0, 4, P.wP);
         document.getElementById('board-promo-0-4').classList.add('last');
     } else {
-        // Show all promotion choices
         place('board-promo', 0, 3, P.wN);
         place('board-promo', 0, 4, P.wQ);
         place('board-promo', 0, 5, P.wR);
         place('board-promo', 0, 6, P.wB);
-        
         [3, 4, 5, 6].forEach(c => {
             const sq = document.getElementById(`board-promo-0-${c}`);
             sq.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -1198,6 +1289,7 @@ function promoStep(n) {
         });
     }
 }
+
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebarOverlay');
@@ -1213,13 +1305,11 @@ function closeSidebar() {
     document.getElementById('menuToggle').setAttribute('aria-expanded', 'false');
     document.getElementById('sidebarOverlay').setAttribute('aria-hidden', 'true');
 }
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSidebar();
 });
 
-/* ══════════════════════════════════════════════
-   INIT ALL
-══════════════════════════════════════════════ */
 window.onload = () => {
     initBasics();
     buildBoard('board-pieces'); showPieceMove('king');
@@ -1230,6 +1320,28 @@ window.onload = () => {
     initStalemate();
     buildBoard('board-promo'); promoStep(0);
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    const backBtn = document.getElementById('dynamicBackBtn');
+    if (!backBtn) return;
+
+    if (window !== window.parent) {
+        backBtn.innerHTML = '← Back to Game';
+        backBtn.href = '#';
+        backBtn.onclick = (e) => {
+            e.preventDefault();
+            try {
+                const parentModal = window.parent.document.getElementById('rulebookModal');
+                if (parentModal) parentModal.style.display = 'none';
+            } catch (err) {
+                console.error("Could not close modal", err);
+            }
+        };
+    } else {
+        backBtn.innerHTML = '← Back to Home';
+        backBtn.href = backBtn.getAttribute('href');
+    }
+});
 </script>
 </body>
 </html>

@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 | Checkora</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/500.css' %}">
+</head>
+<body>
+    <main class="error-stage">
+        <section class="error-card server-error" role="alert" aria-live="assertive">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="crest" alt="Checkora crest">
+            <p class="code">Error 500</p>
+            <h1>The King has fallen!</h1>
+            <p class="message">
+                An unexpected move disrupted the board. Our team has been notified,
+                and you can safely return to the main menu.
+            </p>
+            <a class="home-btn" href="{% url 'landing' %}">Return to Main Menu</a>
+        </section>
+    </main>
+</body>
+</html>

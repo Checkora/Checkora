@@ -60,7 +60,7 @@
 
     <!-- ========== WELCOME MESSAGE ========== -->
 
-    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 9999;">
+    <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 10000;">
         <div class="promo-dialog">
             <div style="margin-bottom: 20px; color:#f0c040;">
                 <a href="/" class="back-btn">← Back to Home</a>
@@ -94,14 +94,75 @@
                     ⚠️ Please enter both player names
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
-                    <label for="timeLimitInput" style="color: #ccc; font-size: 0.9rem;">Game Timer</label>
-                    <select id="timeLimitInput" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease; cursor: pointer;">
-                        <option value="1">Bullet (1 min)</option>
-                        <option value="3">Blitz (3 min)</option>
-                        <option value="5">Blitz (5 min)</option>
-                        <option value="10" selected>Rapid (10 min)</option>
-                    </select>
+                <div class="time-control-selector-container" style="position: relative;">
+                    <label class="time-control-label" style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 5px; text-align: left;">Game Timer</label>
+                    <button type="button" class="time-control-trigger" id="timeControlTrigger" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-radius: 6px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer; transition: all 0.3s ease; font-size: 0.95rem; font-weight: 500;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="tc-icon">⏱️</span>
+                            <span class="tc-display-text" id="tcDisplayText">Rapid (10 min)</span>
+                        </span>
+                        <span class="tc-chevron" style="font-size: 0.75rem; opacity: 0.7;">▼</span>
+                    </button>
+                    
+                    <!-- Popover / dropdown panel -->
+                    <div class="time-control-popover" id="timeControlPopover" style="display: none; flex-direction: column; background: #16162a; border: 1px solid #f0c040; border-radius: 8px; margin-top: 6px; padding: 12px; z-index: 1000; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); position: absolute; left: 0; right: 0;">
+                        <div class="tc-tabs" style="display: flex; gap: 4px; border-bottom: 1px solid #252545; padding-bottom: 8px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap;">
+                            <button type="button" class="tc-tab-btn" data-tab="bullet" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Bullet</button>
+                            <button type="button" class="tc-tab-btn" data-tab="blitz" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Blitz</button>
+                            <button type="button" class="tc-tab-btn active" data-tab="rapid" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Rapid</button>
+                            <button type="button" class="tc-tab-btn" data-tab="classical" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Classical</button>
+                            <button type="button" class="tc-tab-btn" data-tab="custom" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Custom...</button>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-bullet" style="display: none;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn" data-mins="1" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">1 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="1" data-inc="1" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">1 | 1</button>
+                                <button type="button" class="tc-preset-btn" data-mins="2" data-inc="1" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">2 | 1</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-blitz" style="display: none;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn" data-mins="3" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">3 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="3" data-inc="2" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">3 | 2</button>
+                                <button type="button" class="tc-preset-btn" data-mins="5" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">5 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="5" data-inc="3" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">5 | 3</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-rapid" style="display: block;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn active" data-mins="10" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">10 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="10" data-inc="5" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">10 | 5</button>
+                                <button type="button" class="tc-preset-btn" data-mins="15" data-inc="10" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">15 | 10</button>
+                                <button type="button" class="tc-preset-btn" data-mins="20" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">20 min</button>
+                                <button type="button" class="tc-preset-btn" data-mins="30" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">30 min</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-classical" style="display: none;">
+                            <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                <button type="button" class="tc-preset-btn" data-mins="30" data-inc="20" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">30 | 20</button>
+                                <button type="button" class="tc-preset-btn" data-mins="45" data-inc="15" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">45 | 15</button>
+                                <button type="button" class="tc-preset-btn" data-mins="60" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">60 min</button>
+                            </div>
+                        </div>
+                        
+                        <div class="tc-tab-content" id="tab-custom" style="display: none;">
+                            <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customMinsInput" style="color: #8a8aaa; font-size: 0.75rem;">Minutes</label>
+                                    <input type="number" id="customMinsInput" min="1" max="300" value="10" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customIncInput" style="color: #8a8aaa; font-size: 0.75rem;">Increment (s)</label>
+                                    <input type="number" id="customIncInput" min="0" max="180" value="0" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-gold" id="applyCustomTCBtn" style="padding: 8px 0; font-size: 0.85rem; border-radius: 4px;">Apply Custom</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -171,16 +232,39 @@
         
         <div class="auth-buttons">
             {% if user.is_authenticated %}
-            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-            <form method="post" action="{% url 'logout' %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn-logout">Logout</button>
-            </form>
+
+            <div class="profile-dropdown">
+                <button class="profile-btn">
+                    {{ user.username }} ⌄
+                </button>
+
+                <div class="dropdown-content">
+                    <a href="/stats/">
+                        Stats
+                    </a>
+
+                    <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
+                    <form
+                        method="post"
+                        action="{% url 'logout' %}"
+                        style="margin:0;"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="logout-option"
+                        >
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
             {% else %}
+
             <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
             <a href="{% url 'register' %}" class="btn-register">Register</a>
             {% endif %}
-            <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
     
@@ -237,6 +321,10 @@
                     <span id="status-text">Online</span>
                 </div>
 
+                <div class="streak-counter">
+                    🔥 <span id="streak-count">0</span> Day Streak
+                </div>
+
                 <div id="blackClock" class="clock black">
                     <span class="label">
                         <span id="blackNameLabel">BLACK</span>
@@ -247,21 +335,32 @@
                 </div>
             </div>
             <div class="board-outer">
-                <div class="board-row">
-                    <div class="ranks" id="ranksLabels">
-                        <span>8</span><span>7</span><span>6</span><span>5</span>
-                        <span>4</span><span>3</span><span>2</span><span>1</span>
+                <div class="board-aligned">
+                    <div class="board-row">
+                        <div class="ranks" id="ranksLabels">
+                            <span>8</span><span>7</span><span>6</span><span>5</span>
+                            <span>4</span><span>3</span><span>2</span><span>1</span>
+                        </div>
+                        <div class="board-grid-wrap">
+                            <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                        </div>
+                        <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
                     </div>
-                    <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
-                    <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
-                </div>
-                <div class="files" id="filesLabels">
-                    <span>a</span><span>b</span><span>c</span><span>d</span>
-                    <span>e</span><span>f</span><span>g</span><span>h</span>
+                    <div class="files" id="filesLabels">
+                        <span>a</span><span>b</span><span>c</span><span>d</span>
+                        <span>e</span><span>f</span><span>g</span><span>h</span>
+                    </div>
                 </div>
             </div>
 
             <div class="status-bar" id="statusBar" style="height: 22px; box-sizing: border-box;">
+                <div id="replayControls" class="replay-controls hidden">
+                    <button id="firstReplayBtn">⏮</button>
+                    <button id="prevReplayBtn">◀</button>
+                    <button id="playReplayBtn">▶</button>
+                    <button id="nextReplayBtn">▶▶</button>
+                    <button id="lastReplayBtn">⏭</button>
+                </div>
                 <!--Score bar-->
                   <div id="game-status">Game started</div>
                    <div class="score-panel">
@@ -302,7 +401,9 @@
             <div class="card">
                 <div class="card-title">Game Controls</div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-<button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
+
+                    <button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
+                   <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
@@ -318,19 +419,6 @@
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
-<<<<<<< HEAD
-=======
-                <div class="keyboard-hints" style="font-size: 0.8rem; color: #888; margin-top: 8px;">
-                    ⌨️ Shortcuts:
-                    <kbd>F</kbd> Flip &nbsp;
-                    <kbd>R</kbd> Resign &nbsp;
-                    <kbd>D</kbd> Draw &nbsp;
-                    <kbd>P</kbd> Pause &nbsp;
-                    <kbd>N</kbd> New PvP &nbsp;
-                    <kbd>A</kbd> AI Game &nbsp;
-                    <kbd>Esc</kbd> Close Modals
-                </div>
->>>>>>> 7d2b88cd324c3da0e5b3bb746bda11f7f35b5b81
                 <a href="/" class="btn" 
    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
     EXIT TO HOME
@@ -360,10 +448,21 @@
                 <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
                 <select id="confirmTimerSelect"
                     style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
-                    <option value="1">Bullet (1 min)</option>
-                    <option value="3">Blitz (3 min)</option>
-                    <option value="5">Blitz (5 min)</option>
-                    <option value="10" selected>Rapid (10 min)</option>
+                    <option value="1|0">Bullet (1 min)</option>
+                    <option value="1|1">Bullet (1 | 1)</option>
+                    <option value="2|1">Bullet (2 | 1)</option>
+                    <option value="3|0">Blitz (3 min)</option>
+                    <option value="3|2">Blitz (3 | 2)</option>
+                    <option value="5|0">Blitz (5 min)</option>
+                    <option value="5|3">Blitz (5 | 3)</option>
+                    <option value="10|0" selected>Rapid (10 min)</option>
+                    <option value="10|5">Rapid (10 | 5)</option>
+                    <option value="15|10">Rapid (15 | 10)</option>
+                    <option value="20|0">Rapid (20 min)</option>
+                    <option value="30|0">Rapid (30 min)</option>
+                    <option value="30|20">Classical (30 | 20)</option>
+                    <option value="45|15">Classical (45 | 15)</option>
+                    <option value="60|0">Classical (60 min)</option>
                 </select>
             </div>
             <div id="confirmDifficultyContainer" style="display: none; margin-bottom: 20px; text-align: left;">
@@ -438,53 +537,113 @@
     </div>
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
-    <div class="promo-overlay" id="gameOverOverlay">
-        <div class="promo-dialog">
-            <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
-                Game Over</div>
-            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
-            <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
-            <div style="margin-bottom: 20px;">
-                <label style="color: #ccc; display: block; margin-bottom: 8px; font-size: 0.9rem;">Game Mode</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
-                        <input type="radio" name="go_mode" value="pvp" checked
-                            onchange="document.getElementById('goDifficultyContainer').style.display='none'"> PvP
-                    </label>
-                    <label
-                        style="flex: 1; cursor: pointer; background: #1a1a2e; padding: 10px; border-radius: 5px; border: 1px solid #444; text-align: center; color: #fff; font-size: 0.9rem;">
-                        <input type="radio" name="go_mode" value="ai"
-                            onchange="document.getElementById('goDifficultyContainer').style.display='block'"> vs AI
-                    </label>
+    <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
+        <div class="promo-dialog premium-result-dialog" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle" aria-describedby="gameOverMessage">
+            <div class="result-modal-columns">
+                <!-- Left Column: Banner, Illustration & Buttons -->
+                <div class="result-column-left">
+                    <!-- Dynamic Result Banner -->
+                    <div id="gameOverBanner" class="result-banner">
+                        <span class="banner-icon" id="bannerIcon">🏆</span>
+                        <div class="promo-title" id="gameOverTitle" style="font-size: 1.6rem; margin-bottom: 2px;">Game Over</div>
+                        <div class="banner-subtitle" id="gameOverMessage">Victory!</div>
+                    </div>
+
+                    <!-- Result Illustration -->
+                    <div id="gameOverIllustration" class="result-illustration"></div>
+
+                    <!-- Improved Action Buttons -->
+                    <div class="modal-actions-container">
+                        <button type="button" class="btn btn-gold action-btn-glow" id="resRematchBtn">
+                            <span class="btn-icon">▶</span> Rematch
+                        </button>
+                        <div class="primary-actions-row">
+                            <button type="button" class="btn btn-gold" id="gameOverStartBtn">
+                                <span class="btn-icon">♟</span> New Game
+                            </button>
+                            <button type="button" class="btn btn-secondary-outline" id="replayGameBtn">
+                                <span class="btn-icon">📋</span> Analyze Game
+                            </button>
+                        </div>
+                        <div class="secondary-actions-row">
+                            <button type="button" class="btn-flat" id="shareResultBtn" title="Share Result">
+                                <span class="flat-icon">📤</span> Share
+                            </button>
+                            <button type="button" class="btn-flat" id="resDownloadPgnBtn" title="Download PGN">
+                                <span class="flat-icon">📄</span> PGN
+                            </button>
+                            <a href="{% url 'landing' %}" class="btn-flat" id="gameOverExitBtn" title="Return Home">
+                                <span class="flat-icon">🏠</span> Home
+                            </a>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="goTimerContainer" style="margin-bottom: 15px; text-align: left;">
-                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">Game Timer</label>
-                    <select id="goTimerSelect"
-                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; cursor: pointer;">
-                        <option value="1">Bullet (1 min)</option>
-                        <option value="3">Blitz (3 min)</option>
-                        <option value="5">Blitz (5 min)</option>
-                        <option value="10" selected>Rapid (10 min)</option>
-                    </select>
-                </div>
+                <!-- Right Column: Stats, Achievements & Review -->
+                <div class="result-column-right">
+                    <!-- Enhanced Match Summary Card -->
+                    <div class="result-summary-card">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Result</span>
+                                <span class="stat-value" id="resSummaryReason">Checkmate</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Moves</span>
+                                <span class="stat-value" id="resSummaryMoves">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Duration</span>
+                                <span class="stat-value" id="gameDurationText">00:00</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Material</span>
+                                <span class="stat-value" id="resMaterialDiff">Even</span>
+                            </div>
+                        </div>
 
-                <div id="goDifficultyContainer" style="display: none; margin-bottom: 15px;">
-                    <label style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem;">AI
-                        Difficulty</label>
-                    <select id="goDifficultySelect"
-                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
-                        <option value="easy">Easy</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="hard">Hard</option>
-                    </select>
-                </div>
-            </div>
+                        <!-- Material difference and captured pieces summary -->
+                        <div class="summary-material-section">
+                            <div class="captured-preview-container">
+                                <div class="captured-row-mini">
+                                    <span class="side-indicator-dot white"></span>
+                                    <div class="captured-list-mini" id="modalWhiteCaptured"></div>
+                                </div>
+                                <div class="captured-row-mini">
+                                    <span class="side-indicator-dot black"></span>
+                                    <div class="captured-list-mini" id="modalBlackCaptured"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
-                <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
+                    <!-- Achievements & Highlights Section -->
+                    <div class="achievements-section" id="resAchievementsSection">
+                        <div class="section-subtitle">Notable Achievements</div>
+                        <div class="achievements-list" id="resAchievementsList">
+                            <!-- Badges injected dynamically by board.js -->
+                        </div>
+                    </div>
+
+                    <!-- Game Review Preview -->
+                    <div class="game-review-preview">
+                        <div class="opening-row">
+                            <span class="opening-icon">📖</span>
+                            <span class="opening-title">Opening Played:</span>
+                            <span class="opening-val" id="resOpeningName">Standard Opening</span>
+                        </div>
+                        <div class="review-details">
+                            <div class="detail-cell best-move-cell">
+                                <span class="detail-label">Best Move Found</span>
+                                <span class="detail-value" id="resBestMove">Nf3 (Excellent)</span>
+                            </div>
+                            <div class="detail-cell mistake-cell">
+                                <span class="detail-label">Blunder</span>
+                                <span class="detail-value" id="resBlunder">None</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -568,6 +727,7 @@
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
     <script>
