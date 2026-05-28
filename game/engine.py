@@ -111,6 +111,9 @@ class ChessGame:
             result = '1/2-1/2'
         elif self.game_status == 'resignation':
             result = '1-0' if self.current_turn == 'black' else '0-1'
+        elif self.game_status == 'timeout':
+            result = '0-1' if self.current_turn == 'white' else '1-0'
+
 
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
@@ -448,8 +451,10 @@ DP cache is intentionally excluded to save cookie space."""
         # Check timeout BEFORE mutating board state
         self.update_clock()
         if self.white_time == 0:
+            self.game_status = 'timeout'
             return False, "White ran out of time", None, 'timeout'
         if self.black_time == 0:
+            self.game_status = 'timeout'
             return False, "Black ran out of time", None, 'timeout'
 
         captured = self.board[tr][tc]
