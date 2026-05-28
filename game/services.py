@@ -70,7 +70,8 @@ def cleanup_stale_games():
                     mode=mode,
                     winner=winner,
                     end_reason='resign',
-                    player_color=player_color
+                    player_color=player_color,
+                    moves=game_data.get('move_history', [])
                 )
                 result.full_clean()
                 result.save()

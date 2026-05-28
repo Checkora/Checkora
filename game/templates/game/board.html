@@ -505,23 +505,112 @@
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
-        <div class="promo-dialog">
-            <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
-                Game Over</div>
-            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
-            <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
+        <div class="promo-dialog premium-result-dialog" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle" aria-describedby="gameOverMessage">
+            <div class="result-modal-columns">
+                <!-- Left Column: Banner, Illustration & Buttons -->
+                <div class="result-column-left">
+                    <!-- Dynamic Result Banner -->
+                    <div id="gameOverBanner" class="result-banner">
+                        <span class="banner-icon" id="bannerIcon">🏆</span>
+                        <div class="promo-title" id="gameOverTitle" style="font-size: 1.6rem; margin-bottom: 2px;">Game Over</div>
+                        <div class="banner-subtitle" id="gameOverMessage">Victory!</div>
+                    </div>
 
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
-                <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
-                <button class="btn" id="replayGameBtn"
-                style="padding:12px;font-size:1rem;background:#222;color:white;border:1px solid #555;">
-                    ▶ Replay Game
-                </button>
-               <a href="{% url 'landing' %}" class="btn" id="gameOverExitBtn"
-   style="padding: 12px; font-size: 1rem; margin-top: 10px; background: #333; color: #fff; cursor: pointer; text-align: center; text-decoration: none; display: block;">
-    Exit to Home
-</a>
+                    <!-- Result Illustration -->
+                    <div id="gameOverIllustration" class="result-illustration"></div>
+
+                    <!-- Improved Action Buttons -->
+                    <div class="modal-actions-container">
+                        <button type="button" class="btn btn-gold action-btn-glow" id="resRematchBtn">
+                            <span class="btn-icon">▶</span> Rematch
+                        </button>
+                        <div class="primary-actions-row">
+                            <button type="button" class="btn btn-gold" id="gameOverStartBtn">
+                                <span class="btn-icon">♟</span> New Game
+                            </button>
+                            <button type="button" class="btn btn-secondary-outline" id="replayGameBtn">
+                                <span class="btn-icon">📋</span> Analyze Game
+                            </button>
+                        </div>
+                        <div class="secondary-actions-row">
+                            <button type="button" class="btn-flat" id="shareResultBtn" title="Share Result">
+                                <span class="flat-icon">📤</span> Share
+                            </button>
+                            <button type="button" class="btn-flat" id="resDownloadPgnBtn" title="Download PGN">
+                                <span class="flat-icon">📄</span> PGN
+                            </button>
+                            <a href="{% url 'landing' %}" class="btn-flat" id="gameOverExitBtn" title="Return Home">
+                                <span class="flat-icon">🏠</span> Home
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Stats, Achievements & Review -->
+                <div class="result-column-right">
+                    <!-- Enhanced Match Summary Card -->
+                    <div class="result-summary-card">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Result</span>
+                                <span class="stat-value" id="resSummaryReason">Checkmate</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Moves</span>
+                                <span class="stat-value" id="resSummaryMoves">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Duration</span>
+                                <span class="stat-value" id="gameDurationText">00:00</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Material</span>
+                                <span class="stat-value" id="resMaterialDiff">Even</span>
+                            </div>
+                        </div>
+
+                        <!-- Material difference and captured pieces summary -->
+                        <div class="summary-material-section">
+                            <div class="captured-preview-container">
+                                <div class="captured-row-mini">
+                                    <span class="side-indicator-dot white"></span>
+                                    <div class="captured-list-mini" id="modalWhiteCaptured"></div>
+                                </div>
+                                <div class="captured-row-mini">
+                                    <span class="side-indicator-dot black"></span>
+                                    <div class="captured-list-mini" id="modalBlackCaptured"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Achievements & Highlights Section -->
+                    <div class="achievements-section" id="resAchievementsSection">
+                        <div class="section-subtitle">Notable Achievements</div>
+                        <div class="achievements-list" id="resAchievementsList">
+                            <!-- Badges injected dynamically by board.js -->
+                        </div>
+                    </div>
+
+                    <!-- Game Review Preview -->
+                    <div class="game-review-preview">
+                        <div class="opening-row">
+                            <span class="opening-icon">📖</span>
+                            <span class="opening-title">Opening Played:</span>
+                            <span class="opening-val" id="resOpeningName">Standard Opening</span>
+                        </div>
+                        <div class="review-details">
+                            <div class="detail-cell best-move-cell">
+                                <span class="detail-label">Best Move Found</span>
+                                <span class="detail-value" id="resBestMove">Nf3 (Excellent)</span>
+                            </div>
+                            <div class="detail-cell mistake-cell">
+                                <span class="detail-label">Blunder</span>
+                                <span class="detail-value" id="resBlunder">None</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
