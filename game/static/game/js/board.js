@@ -1157,7 +1157,7 @@
             ========================================================== */
             async function onClick(r, c) {
                 if (replayMode) return;
-                if (dragging) return;
+                if (dragging && !touchDragging) return;
 
                 const piece = board[r][c];
 
@@ -3324,15 +3324,16 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 }
             }, { passive: false });
 
-            boardEl.addEventListener('touchend', (e) => {
-                if (!touchDragSrc) return;
-
+            boardEl.addEventListener('touchend', async (e) => {
+                const srcSquare = touchDragSrc;
+                const wasDragging = touchDragging;
+                if (!srcSquare) return;
                 const touch = e.changedTouches[0];
                 let movedToSquare = false;
 
                 if (touchDragging) {
                     // Clean up original piece transparency
-                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const srcSquareEl = sq(srcSquare.r, srcSquare.c);
                     const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
                     if (pieceImg) {
                         pieceImg.classList.remove('touch-dragging-original');
@@ -3352,7 +3353,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                         const tc = parseInt(destSquareEl.dataset.c);
 
                         if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
-                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
+                            await tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
                             movedToSquare = true;
                         }
                     }
@@ -3364,9 +3365,59 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     // Prevent click generation
                     e.preventDefault();
                 } else {
-                    // Quick tap -> trigger default click/tap behavior
-                    onClick(touchDragSrc.r, touchDragSrc.c);
-                }
+                    e.preventDefault();
+
+                    const targetEl = document.elementFromPoint(
+                        touch.clientX,
+                        touch.clientY
+                    );
+
+                    const squareEl = targetEl
+                        ? targetEl.closest('.square')
+                        : null;
+
+                    if (!squareEl) return;
+
+                    const tr = parseInt(squareEl.dataset.r);
+                    const tc = parseInt(squareEl.dataset.c);
+
+                    // If piece already selected
+                    if (selected) {
+
+                        // Tap same square = deselect
+                        if (selected.r === tr && selected.c === tc) {
+                            deselect();
+                        }
+
+                        // Valid move
+                        else if (
+                            hints.some(h => h.row === tr && h.col === tc)
+                        ) {
+                            await tryMove(selected.r, selected.c, tr, tc);
+                        }
+
+                        // Select another own piece
+                        else {
+                            const piece = board[tr][tc];
+
+                            if (piece && pColor(piece) === turn) {
+                                await selectPiece(tr, tc);
+                            } else {
+                                deselect();
+                            }
+                        }
+
+                    } else {
+
+                        // First tap select
+                        const piece = board[tr][tc];
+
+                        if (piece && pColor(piece) === turn) {
+                            await selectPiece(tr, tc);
+                        }
+                    }
+                }          
+
 
                 // Reset state
                 touchStartPos = null;
