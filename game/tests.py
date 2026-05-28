@@ -15,6 +15,7 @@ from django.test import (
     override_settings,
 )
 
+from core import settings as project_settings
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
 
@@ -105,6 +106,40 @@ class NotFoundPageTest(TestCase):
         self.assertContains(response, 'This move is illegal!', status_code=404)
         self.assertContains(response, 'Return to Main Menu', status_code=404)
         self.assertContains(response, reverse('landing'), status_code=404)
+
+
+class SecuritySettingsConfigTest(SimpleTestCase):
+    """Security transport defaults should be explicit and testable."""
+
+    def test_env_bool_uses_default_when_variable_missing(self):
+        with mock.patch.dict(project_settings.os.environ, {}, clear=True):
+            self.assertTrue(project_settings.env_bool('MISSING', True))
+            self.assertFalse(project_settings.env_bool('MISSING', False))
+
+    def test_env_bool_parses_common_truthy_and_falsey_values(self):
+        with mock.patch.dict(project_settings.os.environ, {'FLAG': 'yes'}, clear=True):
+            self.assertTrue(project_settings.env_bool('FLAG'))
+
+        with mock.patch.dict(project_settings.os.environ, {'FLAG': 'off'}, clear=True):
+            self.assertFalse(project_settings.env_bool('FLAG', True))
+
+    def test_secure_transport_defaults_only_enable_for_explicit_production_envs(self):
+        with mock.patch.dict(project_settings.os.environ, {}, clear=True):
+            self.assertFalse(project_settings.default_secure_transport_enabled())
+
+        with mock.patch.dict(
+            project_settings.os.environ,
+            {'DJANGO_ENV': 'production'},
+            clear=True,
+        ):
+            self.assertTrue(project_settings.default_secure_transport_enabled())
+
+        with mock.patch.dict(
+            project_settings.os.environ,
+            {'VERCEL_ENV': 'production'},
+            clear=True,
+        ):
+            self.assertTrue(project_settings.default_secure_transport_enabled())
 
 
 class ServerErrorPageTest(SimpleTestCase):

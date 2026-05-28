@@ -15,6 +15,21 @@ import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
+
+def env_bool(name, default=False):
+    """Parse common truthy environment values with an explicit default."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def default_secure_transport_enabled():
+    """Enable strict transport defaults only in explicitly production envs."""
+    django_env = os.environ.get('DJANGO_ENV', '').strip().lower()
+    vercel_env = os.environ.get('VERCEL_ENV', '').strip().lower()
+    return django_env == 'production' or vercel_env == 'production'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,7 +44,7 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-testing')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = env_bool('DEBUG', True)
 
 ALLOWED_HOSTS = ['.vercel.app', '*']
 
@@ -144,11 +159,17 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Session Cookie Security
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = env_bool(
+    'SESSION_COOKIE_SECURE',
+    default_secure_transport_enabled(),
+)
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 # SSL Redirect
-SECURE_SSL_REDIRECT = not DEBUG
+SECURE_SSL_REDIRECT = env_bool(
+    'SECURE_SSL_REDIRECT',
+    default_secure_transport_enabled(),
+)
 
 
 # Email Configuration for OTP and Password Reset EMails
