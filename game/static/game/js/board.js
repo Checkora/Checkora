@@ -302,8 +302,7 @@
             
             // post() uses csrf()
             function csrf() {
-                const m = document.cookie.match(/csrftoken=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
+                return document.querySelector('meta[name="csrf-token"]')?.content || '';
             }
 
             async function get(url) {
@@ -1360,11 +1359,25 @@
                     const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
                     row.className = 'move-row';
-                    row.innerHTML = `
-                        <span class="move-num">${moveNum}.</span>
-                        <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
-                        ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
-                    `;
+
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'move-num';
+                    numSpan.textContent = `${moveNum}.`;
+
+                    const whiteSpan = document.createElement('span');
+                    whiteSpan.className = 'move-white';
+                    whiteSpan.textContent = history[whiteIdx]?.notation ?? '';
+
+                    row.appendChild(numSpan);
+                    row.appendChild(whiteSpan);
+
+                    if (history[blackIdx]) {
+                        const blackSpan = document.createElement('span');
+                        blackSpan.className = 'move-black';
+                        blackSpan.textContent = history[blackIdx].notation;
+                        row.appendChild(blackSpan);
+                    }
+
                     movesEl.appendChild(row);
                 }
             }
@@ -1522,8 +1535,153 @@
                     replayControls.classList.remove('hidden');
                 }
 
-                gameOverTitle.textContent = title;
-                gameOverMessage.textContent = message + durationText;
+                // 1. Dynamic Banner Setup
+                const bannerEl = document.getElementById('gameOverBanner');
+                const bannerIconEl = document.getElementById('bannerIcon');
+                
+                if (bannerEl) {
+                    bannerEl.className = 'result-banner';
+                    if (resultState === 'victory') {
+                        bannerEl.classList.add('banner-victory');
+                        if (bannerIconEl) bannerIconEl.textContent = '🏆';
+                        gameOverTitle.textContent = 'VICTORY';
+                    } else if (resultState === 'defeat') {
+                        bannerEl.classList.add('banner-defeat');
+                        if (bannerIconEl) bannerIconEl.textContent = '💀';
+                        gameOverTitle.textContent = 'DEFEAT';
+                    } else {
+                        bannerEl.classList.add('banner-draw');
+                        if (bannerIconEl) bannerIconEl.textContent = '🤝';
+                        gameOverTitle.textContent = 'DRAW';
+                    }
+                }
+                
+                gameOverMessage.textContent = message;
+
+                // 2. Result Illustration injection
+                const illustrationEl = document.getElementById('gameOverIllustration');
+                if (illustrationEl) {
+                    let svgContent = '';
+                    if (resultState === 'defeat') {
+                        if (reason === 'timeout') {
+                            svgContent = `
+                                <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 80 H90 L80 90 H20 Z" fill="#252545" opacity="0.6"/>
+                                    <g class="svg-animate-hourglass">
+                                        <path d="M35 20 H65 V30 L55 50 L65 70 V80 H35 V70 L45 50 L35 30 Z" fill="#7f8c8d" stroke="#5c6466" stroke-width="2"/>
+                                        <path d="M38 25 H62 V28 L52 48 L48 48 L38 28 Z" fill="#95a5a6"/>
+                                        <path d="M48 52 L52 52 L62 72 V75 H38 V72 Z" fill="#cbd5e0"/>
+                                        <circle cx="50" cy="62" r="3" fill="#ffffff"/>
+                                    </g>
+                                </svg>
+                            `;
+                        } else if (reason === 'checkmate') {
+                            svgContent = `
+                                <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 80 H90 L80 90 H20 Z" fill="#2d1e1e" opacity="0.6"/>
+                                    <g class="svg-animate-crown" transform="rotate(15 50 60)">
+                                        <path d="M35 60 L40 35 L50 48 L60 35 L65 60 Z" fill="#7f8c8d" stroke="#5c6466" stroke-width="2"/>
+                                        <circle cx="40" cy="33" r="2.5" fill="#95a5a6"/>
+                                        <circle cx="50" cy="46" r="2.5" fill="#95a5a6"/>
+                                        <circle cx="60" cy="33" r="2.5" fill="#95a5a6"/>
+                                        <rect x="33" y="60" width="34" height="6" rx="2" fill="#5c6466"/>
+                                        <rect x="37" y="66" width="26" height="4" fill="#3e4445"/>
+                                    </g>
+                                </svg>
+                            `;
+                        } else {
+                            svgContent = `
+                                <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="35" y="20" width="4" height="65" fill="#5c6466" rx="2"/>
+                                    <g class="svg-animate-flag">
+                                        <path d="M39 22 C48 18, 52 26, 65 22 C72 20, 75 23, 75 32 C75 42, 65 38, 55 42 C45 46, 39 38, 39 38 Z" fill="#7f8c8d" stroke="#5c6466" stroke-width="1"/>
+                                    </g>
+                                    <path d="M20 78 L23 68 L28 73 L33 68 L36 78 Z" fill="#95a5a6" transform="rotate(-15 20 78)"/>
+                                </svg>
+                            `;
+                        }
+                    } else if (resultState === 'draw') {
+                        svgContent = `
+                            <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g class="svg-animate-handshake" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M15 50 H30 L45 40 L50 48 L40 55 H25" stroke="#3498db" stroke-width="4"/>
+                                    <path d="M85 50 H70 L55 40 L50 48 L60 55 H75" stroke="#ffd700" stroke-width="4"/>
+                                    <path d="M45 44 L48 52" stroke="#ffffff" stroke-width="3"/>
+                                    <path d="M52 44 L55 52" stroke="#ffffff" stroke-width="3"/>
+                                </g>
+                                <circle cx="50" cy="50" r="35" stroke="rgba(255,255,255,0.06)" stroke-width="2" stroke-dasharray="4 4"/>
+                            </svg>
+                        `;
+                    } else { // victory
+                        if (reason === 'checkmate') {
+                            svgContent = `
+                                <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 80 H90 L80 90 H20 Z" fill="#252545" opacity="0.6"/>
+                                    <g class="svg-animate-crown">
+                                        <path d="M35 60 L40 35 L50 48 L60 35 L65 60 Z" fill="#ffd700" stroke="#b89000" stroke-width="2"/>
+                                        <circle cx="40" cy="33" r="2.5" fill="#ffffff"/>
+                                        <circle cx="50" cy="46" r="2.5" fill="#ffffff"/>
+                                        <circle cx="60" cy="33" r="2.5" fill="#ffffff"/>
+                                        <rect x="33" y="60" width="34" height="6" rx="2" fill="#d4af37"/>
+                                        <rect x="37" y="66" width="26" height="4" fill="#a08020"/>
+                                    </g>
+                                </svg>
+                            `;
+                        } else if (reason === 'timeout') {
+                            svgContent = `
+                                <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="20" y="30" width="60" height="50" rx="8" fill="#1b1b32" stroke="#444" stroke-width="3"/>
+                                    <circle cx="38" cy="55" r="16" fill="#111" stroke="#f0c040" stroke-width="2"/>
+                                    <circle cx="38" cy="55" r="14" fill="#222"/>
+                                    <line x1="38" y1="55" x2="38" y2="45" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                    <line x1="38" y1="55" x2="46" y2="55" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                    <g class="svg-animate-flag">
+                                        <rect x="68" y="24" width="4" height="25" fill="#777"/>
+                                        <path d="M68 28 L52 35 L68 42 Z" fill="#ef4444"/>
+                                    </g>
+                                </svg>
+                            `;
+                        } else { // resignation / general victory
+                            svgContent = `
+                                <svg class="res-svg-illustration" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="35" y="20" width="4" height="65" fill="#777" rx="2"/>
+                                    <g class="svg-animate-flag">
+                                        <path d="M39 22 C48 18, 52 26, 65 22 C72 20, 75 23, 75 32 C75 42, 65 38, 55 42 C45 46, 39 38, 39 38 Z" fill="#ffffff" stroke="#ddd" stroke-width="1"/>
+                                        <path d="M45 27 H55 M45 33 H65" stroke="#eee" stroke-width="1.5" stroke-linecap="round"/>
+                                    </g>
+                                    <path d="M20 78 L23 68 L28 73 L33 68 L36 78 Z" fill="#d4af37" transform="rotate(-15 20 78)"/>
+                                </svg>
+                            `;
+                        }
+                    }
+                    illustrationEl.innerHTML = svgContent;
+                }
+
+                // 3. Stats Grid Populating
+                const resReasonEl = document.getElementById('resSummaryReason');
+                if (resReasonEl) {
+                    let reasonText = 'Draw';
+                    if (reason === 'checkmate') reasonText = 'Checkmate';
+                    else if (reason === 'resign') reasonText = 'Resigned';
+                    else if (reason === 'timeout') reasonText = 'Timeout';
+                    else if (reason === 'stalemate') reasonText = 'Stalemate';
+                    else if (reason === 'draw') {
+                        const drawLabels = {
+                            agreement: 'Draw (Agreement)',
+                            threefold_repetition: 'Draw (Repetition)',
+                            fifty_move_rule: 'Draw (50-move)',
+                            insufficient_material: 'Draw (Material)',
+                        };
+                        reasonText = drawLabels[drawReason] || 'Draw';
+                    }
+                    resReasonEl.textContent = reasonText;
+                }
+
+                const resMovesEl = document.getElementById('resSummaryMoves');
+                if (resMovesEl) {
+                    const fullMoves = Math.ceil(replayMoves.length / 2);
+                    resMovesEl.textContent = `${fullMoves} ${fullMoves === 1 ? 'move' : 'moves'}`;
+                }
 
                 const durationElement = document.getElementById('gameDurationText');
                 
@@ -1844,12 +2002,50 @@ if (gameMode === 'ai') {
             WELCOME & CONFIRMATION LOGIC
             ========================================================== */
             let confirmCallback = null;
+
+            /**
+             * Safely render a confirm-dialog message that may contain a small
+             * whitelist of formatting tags (<br>, <b>, <div> with an inline
+             * style). All other HTML is treated as plain text, preventing XSS
+             * even if a future caller accidentally passes server-controlled data.
+             */
+            function setSafeConfirmHTML(el, html) {
+                // Parse into an inert document so no scripts execute during parsing.
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const allowedTags = new Set(['BR', 'B', 'DIV', 'SPAN']);
+                const allowedStyles = ['line-height', 'font-size'];
+
+                function sanitizeNode(src, dest) {
+                    src.childNodes.forEach(node => {
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            dest.appendChild(document.createTextNode(node.textContent));
+                        } else if (node.nodeType === Node.ELEMENT_NODE && allowedTags.has(node.tagName)) {
+                            const clone = document.createElement(node.tagName);
+                            // Only copy safe inline-style properties, nothing else.
+                            if (node.style) {
+                                allowedStyles.forEach(prop => {
+                                    if (node.style[prop]) clone.style[prop] = node.style[prop];
+                                });
+                            }
+                            sanitizeNode(node, clone);
+                            dest.appendChild(clone);
+                        } else {
+                            // Unknown tag: render its text content only.
+                            sanitizeNode(node, dest);
+                        }
+                    });
+                }
+
+                el.textContent = '';
+                sanitizeNode(doc.body, el);
+            }
+
             function showConfirm(title, msg, callback, titleColor = '#ff6b6b') {
                 if (confirmTitle) {
                     confirmTitle.textContent = title;
                     confirmTitle.style.color = titleColor;
                 }
-                if (confirmMessage) confirmMessage.innerHTML = msg;
+                if (confirmMessage) setSafeConfirmHTML(confirmMessage, msg);
                 confirmCallback = callback;
                 confirmOverlay.classList.add('active');
             }
@@ -1968,10 +2164,10 @@ if (gameMode === 'ai') {
                     const strVal = String(timeLimitMins);
                     if (strVal.includes('|')) {
                         const parts = strVal.split('|');
-                        currentMins = parseInt(parts[0], 10) || 10;
+                        currentMins = parseFloat(parts[0]) || 10;
                         currentInc = parseInt(parts[1], 10) || 0;
                     } else {
-                        currentMins = parseInt(strVal, 10) || 10;
+                        currentMins = parseFloat(strVal) || 10;
                         currentInc = 0;
                     }
                 }
@@ -3174,37 +3370,60 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     applyCustomBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const minsInput = document.getElementById('customMinsInput');
+                        const secsInput = document.getElementById('customSecsInput');
                         const incInput = document.getElementById('customIncInput');
 
                         if (minsInput && incInput) {
                             let mins = parseInt(minsInput.value, 10);
+                            let secs = secsInput ? parseInt(secsInput.value, 10) : 0;
                             let inc = parseInt(incInput.value, 10);
 
-                            if (isNaN(mins) || mins < 1) mins = 10;
+                            if (isNaN(mins) || mins < 0) mins = 0;
                             if (mins > 300) mins = 300;
+                            if (isNaN(secs) || secs < 0) secs = 0;
+                            if (secs > 59) secs = 59;
                             if (isNaN(inc) || inc < 0) inc = 0;
                             if (inc > 180) inc = 180;
 
+                            const totalSecs = mins * 60 + secs;
+                            if (totalSecs <= 0) {
+                                // Require at least 1 second of game time
+                                if (secsInput) secsInput.value = 30;
+                                secs = 30;
+                            }
+
                             minsInput.value = mins;
+                            if (secsInput) secsInput.value = secs;
                             incInput.value = inc;
 
-                            selectedMins = mins;
+                            // selectedMins stores total minutes as a decimal (e.g. 0.5 for 30s)
+                            selectedMins = (mins * 60 + secs) / 60;
                             selectedIncrement = inc;
 
                             // Update active preset styling
                             presetBtns.forEach(b => b.classList.remove('active'));
 
-                            if (inc > 0) {
-                                display.textContent = `${mins} | ${inc}`;
+                            // Build a human-readable display string
+                            let displayText;
+                            const finalTotalSecs = mins * 60 + secs;
+                            if (mins === 0) {
+                                displayText = `${secs}s`;
+                            } else if (secs === 0) {
+                                displayText = `${mins} min`;
                             } else {
-                                display.textContent = `${mins} min`;
+                                displayText = `${mins}:${String(secs).padStart(2, '0')} min`;
                             }
+                            if (inc > 0) {
+                                displayText += ` | ${inc}`;
+                            }
+                            display.textContent = displayText;
 
                             // Close popover
                             popover.style.display = 'none';
                         }
                     });
                 }
+
 
                 // Close popover when clicking anywhere else
                 document.addEventListener('click', (e) => {
@@ -3226,3 +3445,65 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
             });
 
 })();
+
+function updateDailyStreak() {
+
+    const today =
+        new Date().toDateString();
+
+    let streakData =
+        JSON.parse(
+            localStorage.getItem("dailyStreak")
+        );
+
+    if (!streakData) {
+
+        streakData = {
+            streak: 1,
+            lastPlayed: today
+        };
+
+    } else {
+
+        const lastPlayed =
+            new Date(streakData.lastPlayed);
+
+        const currentDate =
+            new Date(today);
+
+        const diffDays =
+            Math.floor(
+                (currentDate - lastPlayed)
+                / (1000 * 60 * 60 * 24)
+            );
+
+        if (diffDays === 1) {
+
+            streakData.streak += 1;
+
+        } else if (diffDays > 1) {
+
+            streakData.streak = 1;
+        }
+
+        streakData.lastPlayed = today;
+    }
+
+    localStorage.setItem(
+        "dailyStreak",
+        JSON.stringify(streakData)
+    );
+
+    const streakEl =
+        document.getElementById(
+            "streak-count"
+        );
+
+    if (streakEl) {
+
+        streakEl.textContent =
+            streakData.streak;
+    }
+}
+
+window.addEventListener("load", updateDailyStreak);

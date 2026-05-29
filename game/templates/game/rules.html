@@ -23,6 +23,7 @@
             --move-dot: rgba(0,0,0,0.3);
             --danger: #ff5555;
             --glow: 0 0 20px rgba(244, 196, 48, 0.15);
+            --header-height: 61px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -34,7 +35,7 @@
             min-height: 100vh;
             overflow-x: hidden;
             margin: 0;
-            padding: 0;  
+            padding: var(--header-height) 0 0;
         }
 
         /* ── Header ── */
@@ -45,8 +46,11 @@
             padding: 0.4rem 2.5rem;
             border-bottom: 1px solid var(--border);
             background: var(--surface);
-            position: sticky;
+            position: fixed;
             top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
             z-index: 100;
         }
 
@@ -120,7 +124,7 @@
         .layout {
             display: grid;
             grid-template-columns: 260px 1fr;
-            min-height: calc(100vh - 61px);
+            min-height: calc(100vh - var(--header-height));
         }
 
         /* ── Sidebar ── */
@@ -129,8 +133,8 @@
             border-right: 1px solid var(--border);
             padding: 1.5rem 0;
             position: sticky;
-            top: 61px;
-            height: calc(100vh - 61px);
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             overflow-y: auto;
         }
 
@@ -501,8 +505,8 @@
 
         .value-row {
             display: grid;
-            grid-template-columns: minmax(140px, 1.2fr) minmax(110px, 0.8fr) 1.4fr;
-            gap: 0.75rem;
+            grid-template-columns: 1fr;
+            gap: 0.3rem;
             align-items: center;
             padding: 1rem 1.1rem;
             border-radius: 12px;
@@ -539,6 +543,7 @@
         }
 
         .value-note {
+            display: none;
             color: var(--muted);
             font-size: 0.9rem;
             line-height: 1.5;
@@ -593,10 +598,10 @@
             .sidebar {
                 display: none;
                 position: fixed;
-                top: 0;
+                top: var(--header-height);
                 left: 0;
                 width: 260px;
-                height: 100vh;
+                height: calc(100vh - var(--header-height));
                 z-index: 300;
                 overflow-y: auto;
                 padding-top: 1rem;
@@ -616,6 +621,16 @@
             .mini-board-container { flex-direction: column; }
 
             .header-subtitle { display: none; }
+
+            .value-row {
+                grid-template-columns: 1fr;
+                gap: 0.3rem;
+            }
+
+            .value-note {
+                display: block;
+                font-size: 0.82rem;
+            }
         }
     </style>
 </head>
@@ -651,7 +666,7 @@
         <div class="rule-nav-item" onclick="showRule('pieces')" id="nav-pieces">
             <span class="icon">♟</span> Piece Moves
         </div>
-        <button class="rule-nav-item" type="button" onclick="showRule('values')" id="nav-values">
+        <button class="rule-nav-item" onclick="showRule('values')" id="nav-values">
             <span class="icon">🧮</span> Piece Values & Scoring
         </button>
         <div class="rule-nav-item" onclick="showRule('pawn')" id="nav-pawn">

@@ -144,6 +144,73 @@ body {
     font-weight: 600;
 }
 
+.profile-dropdown{
+    position: relative;
+    display: inline-block;
+}
+
+.profile-btn{
+    background: #1a1a2e;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.profile-btn:hover{
+    border-color: #f0c040;
+    color: #f0c040;
+}
+
+.dropdown-content{
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 48px;
+    min-width: 220px;
+    background: #111827;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    z-index: 9999;
+}
+
+.profile-dropdown:hover .dropdown-content{
+    display: block;
+}
+
+.dropdown-content a,
+.logout-option{
+    display: block;
+    width: 100%;
+    padding: 14px 18px;
+    color: white;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.3s ease;
+    font-size: 14px;
+}
+
+.dropdown-content a:hover,
+.logout-option:hover{
+    background: rgba(255,255,255,0.06);
+}
+
+.delete-option{
+    color: #ef4444 !important;
+}
+
+.delete-option:hover{
+    background: rgba(239,68,68,0.12) !important;
+}
 
 /* ============================================================
    Game Layout  (left panel · board · right panels)
@@ -1724,6 +1791,48 @@ body {
 
 .offline {
     background-color: #d50000 !important;
+}
+
+/* ================= DAILY STREAK ================= */
+
+.daily-streak-box {
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    color: #f0c040;
+    padding: 8px 14px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 14px rgba(240, 192, 64, 0.08);
+    transition: all 0.25s ease;
+}
+
+.daily-streak-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(240, 192, 64, 0.16);
+}
+
+#streak-count {
+    color: #ffd54f;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+    .daily-streak-box {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+        border-radius: 10px;
+    }
+
+    #streak-count {
+        font-size: 0.9rem;
+    }
 }
 
 /* ============================================================
