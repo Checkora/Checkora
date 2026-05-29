@@ -73,11 +73,11 @@
       href="{% static 'game/favicon.jpeg' %}"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap"
       rel="stylesheet"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
@@ -99,6 +99,7 @@
         <div class="nav-links">
           <a href="#about">About</a>
           <a href="#features">Features</a>
+          <a href="#faq">FAQ</a>
         </div>
       </div>
       <div class="nav-right">
@@ -370,6 +371,71 @@
       </div>
     </section>
 
+    <section id="faq" class="faq-section">
+      <div class="faq-container">
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <p class="faq-subtitle">Everything you need to know about the Checkora chess platform architecture and functionality.</p>
+        
+        <div class="faq-wrapper">
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What makes Checkora a "Hybrid Intelligence" engine?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Checkora offloads complex, compute-intensive tactical configurations and minimax analytics natively to a super-fast, highly optimized C++17 core. Meanwhile, a flexible Python and Django application framework manages sessions, game data validation routing, and smooth presentation handling seamlessly.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I customize the game timing modes?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Yes! The platform natively supports configuration profiles optimized for Bullet, Blitz, and Rapid variants. Match setups are backed up by accurate real-time validation layers that support timing pause-and-resume cycles on active connections.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Does the platform support official FIDE rules?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Absolutely. Checkora's structural architecture natively features rigorous full move validation processes checking rulesets for castling permissions, en passant states, standard checking conditions, stalemates, and dynamic pawn promotion updates.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is my gameplay history and analytical tracking private?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                All metrics are securely tied inside Django application instances. Users gain standalone access controls over structural game analytics, tracking dashboard components, and full options to wipe historical records cleanly via account deletion pathways.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <footer class="footer">
       <div class="footer-container">
         <div class="footer-col brand-column">
@@ -446,19 +512,46 @@
           </a>
         </div>
       </div>
-    </footer>
+    </section>
+
     <div id="backToTopWrapper">
       <span id="backToTopTooltip">Back to Top</span>
       <button id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
         <span class="btn-arrow">^</span>
       </button>
-  </div>
+    </div>
   
-  <script>
+    <script>
       const backToTopWrapper = document.getElementById('backToTopWrapper');
       window.addEventListener('scroll', () => {
           backToTopWrapper.classList.toggle('visible', window.scrollY > 300);
       });
-  </script>
+
+      // FAQ Accordion Functionality
+      document.querySelectorAll('.faq-question').forEach(button => {
+        button.addEventListener('click', () => {
+          const faqItem = button.parentElement;
+          const answer = button.nextElementSibling;
+          
+          // Close other opened items optionally (uncomment below if you want single-collapse behavior)
+          /*
+          document.querySelectorAll('.faq-item').forEach(item => {
+            if (item !== faqItem && item.classList.contains('active')) {
+              item.classList.remove('active');
+              item.querySelector('.faq-answer').style.maxHeight = null;
+            }
+          });
+          */
+
+          faqItem.classList.toggle('active');
+
+          if (faqItem.classList.contains('active')) {
+            answer.style.maxHeight = answer.scrollHeight + "px";
+          } else {
+            answer.style.maxHeight = null;
+          }
+        });
+      });
+    </script>
   </body>
 </html>
