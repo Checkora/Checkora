@@ -15,7 +15,7 @@
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/speed-insights/script.js"></script>
+
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
@@ -24,7 +24,7 @@
     <script>
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/insights/script.js"></script>
+
     <script>
         (function () {
             const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
@@ -42,13 +42,7 @@
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
-  <button class="m-fab-btn" title="Pause"
-    onclick="document.getElementById('pauseBtn').click()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="5" y="3" width="4" height="18" rx="1.5"/>
-      <rect x="15" y="3" width="4" height="18" rx="1.5"/>
-    </svg>
-  </button>
+
   <button class="m-fab-btn m-fab-resign" title="Resign"
     onclick="document.getElementById('resignBtn').click()">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -182,7 +176,7 @@
                 </div>
 
                 <button class="btn" id="welcomeResumeBtn"
-                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
+                    style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Continue
                     Game</button>
             </div>
 
@@ -414,7 +408,7 @@
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
                     <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
-                    <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
+
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>

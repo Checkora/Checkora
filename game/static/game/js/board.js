@@ -40,7 +40,7 @@
             let blackTime = 0;
             let selectedMins = 10;
             let selectedIncrement = 0;
-            let paused = false;
+            
             let timerInterval = null;
             let pendingPromo = null;
             let blindfoldMode = false;
@@ -146,7 +146,7 @@
             const movesEl = document.getElementById('movesList');
             const wCapEl = document.getElementById('whiteCaptured');
             const bCapEl = document.getElementById('blackCaptured');
-            const pauseBtn = document.getElementById('pauseBtn');
+            
             const flipBtn = document.getElementById('flipBtn');
             const promoOverlay = document.getElementById('promoOverlay');
             const promoChoices = document.getElementById('promoChoices');
@@ -463,7 +463,7 @@
                 turn = data.current_turn;
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
-                paused = data.paused;
+                
 
                 gameMode = data.mode || 'pvp';
                 // Sync UI with current game mode
@@ -503,11 +503,12 @@
                 }
 
                 if (drawBtn) drawBtn.style.display = gameMode === 'pvp' ? 'block' : 'none';
-                if (pauseBtn)  pauseBtn.style.display  = 'block';  
-                if (resignBtn) {
-                    resignBtn.style.display = 'block';
-                    resignBtn.hidden = false;
-                }
+                  
+                if (resignBtn) resignBtn.style.display = 'block'; 
+                const isActive = ['active', 'check', 'ok'].includes(data.game_status);
+                if (newPvPBtn) newPvPBtn.style.display = isActive ? 'none' : '';
+                if (newAIBtn) newAIBtn.style.display = isActive ? 'none' : '';
+                if (newFenBtn) newFenBtn.style.display = isActive ? 'none' : '';
 
                 updatePlayerNames(data);
                 updateTurn();
@@ -516,7 +517,7 @@
 
                 buildBoard();
                 renderClocks();
-                updatePauseUI();
+                
                 startTimer();
                 // fix
                 // Removed static styling for AI clock so it displays the countdown timer.
@@ -612,7 +613,7 @@
                                 }
                                 return e.preventDefault();
                             }
-                            if (paused || gameOver) return e.preventDefault();
+                            if (gameOver) return e.preventDefault();
                             
                             const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
                             
@@ -807,7 +808,7 @@
             async function selectPiece(r, c) {
                 const p = board[r][c];
 
-                if (!p || paused || gameOver) return;
+                if (!p || gameOver) return;
 
                 selected = { r, c };
 
@@ -893,7 +894,7 @@
             }
 
             async function tryMove(fr, fc, tr, tc) {
-                if (paused || gameOver) return;
+                if (gameOver) return;
 
                 const p = board[fr][fc];
                 if (!p) return;
@@ -1229,7 +1230,7 @@
                     }
                     return e.preventDefault();
                 }
-                if (paused || gameOver) return e.preventDefault();
+                if (gameOver) return e.preventDefault();
                 
                 const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
                 
@@ -1484,8 +1485,7 @@
             function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
-                replayMode = true;
-                paused = true;
+                
                 clearInterval(timerInterval);
                 
                 if (blindfoldMode) {
@@ -1542,7 +1542,7 @@
                 
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
-                if (pauseBtn) pauseBtn.style.display = 'none';
+                
                 if (newPvPBtn) newPvPBtn.style.display = '';
                 if (newAIBtn) newAIBtn.style.display = '';
                 if (newFenBtn) newFenBtn.style.display = '';
@@ -2047,25 +2047,12 @@
                 if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
             }
 
-            function updatePauseUI() {
-                pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-                pauseBtn.classList.toggle('paused', paused);
-                boardEl.classList.toggle('paused', paused);
-                if (paused) {
-                    boardEl.setAttribute('aria-label', 'Game paused. Click board or press P to resume.');
-                    boardEl.style.cursor = 'pointer';
-                    boardEl.style.pointerEvents = 'auto';
-                } else {
-                    boardEl.removeAttribute('aria-label');
-                    boardEl.style.cursor = '';
-                    boardEl.style.pointerEvents = '';
-                }
-            }
+
 
             function startTimer() {
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
-                    if (paused || gameOver) return;
+                    if (gameOver) return;
 
                     // fix: in AI mode, tick only ONE clock exclusively
                     if (gameMode === 'ai') {
@@ -2116,12 +2103,12 @@
             }
 
             async function pauseGame() {
-                if (paused) return;
+                
                 const d = await post('/api/pause/', { pause: true });
-                paused = d.paused;
+                
                 whiteTime = d.white_time;
                 blackTime = d.black_time;
-                updatePauseUI();
+                
                 renderClocks();
             }
 
@@ -2129,7 +2116,7 @@
                 try {
                     const d = await post('/api/pause/', { pause: false });
 
-                    paused = false;
+                    
 
                     if (d.white_time !== undefined) {
                         whiteTime = d.white_time;
@@ -2139,7 +2126,7 @@
                         blackTime = d.black_time;
                     }
 
-                    updatePauseUI();
+                    
                     renderClocks();
 
                     clearInterval(timerInterval);
@@ -2211,7 +2198,7 @@
             }
 
             async function offerDraw() {
-                if (paused || gameOver || gameMode !== 'pvp') return;
+                if (gameOver || gameMode !== 'pvp') return;
                 const offeringPlayer = turn === 'white' ? 'White' : 'Black';
                 const receivingPlayer = turn === 'white' ? 'Black' : 'White';
 
@@ -2221,7 +2208,7 @@
                     async () => {
                         drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
                         drawOverlay.classList.add('active');
-                        await pauseGame();
+                        
                     },
                     '#f0c040'
                 );
@@ -2323,7 +2310,7 @@
 
                 board = d.board;
                 turn = d.current_turn;
-                paused = false;
+                
                 gameOver = false;
                 whiteAlertFired = false;
                 blackAlertFired = false;
@@ -2333,11 +2320,8 @@
                 gameMode = d.mode;
                 playerColor = d.player_color || 'white';
                 currentDifficulty = d.difficulty || difficulty;
-                if (resignBtn) {
-                    resignBtn.style.display = 'block';
-                    resignBtn.hidden = false;
-                }
-                if (pauseBtn) pauseBtn.style.display = '';
+                if (resignBtn) resignBtn.style.display = '';
+                
                 if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
                 if (newPvPBtn) newPvPBtn.style.display = 'none';
                 if (newAIBtn) newAIBtn.style.display = 'none';
@@ -2363,8 +2347,8 @@
                 await loadGame();
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
-                paused = false;
-                updatePauseUI();
+                
+                
 
                 // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
@@ -2726,8 +2710,8 @@
                 }
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-                paused = false;
-                updatePauseUI();
+                
+                
                 startTimer();
                 queueAIMoveIfNeeded();
             };
@@ -2815,7 +2799,7 @@
                 });
             }
 
-            if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            
             if (muteBtn) muteBtn.onclick = toggleMute;
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
@@ -2951,9 +2935,7 @@
             }
 
     document.addEventListener('visibilitychange', async() => {
-        if (document.hidden) {
-            pauseGame().catch(() => {});
-        } else {
+        if (!document.hidden) {
             await handleReconnect();
         }
     });
@@ -2993,7 +2975,7 @@
                         const tr = ranks.indexOf(match[4]);
                         const promo = match[5] || null;
                         
-                        if (paused || gameOver) {
+                        if (gameOver) {
                             if (manualMoveError) {
                                 manualMoveError.textContent = 'Game is not active';
                                 manualMoveError.style.display = 'block';
@@ -3073,9 +3055,7 @@
                 } else if (key === 'd' && drawBtn && drawBtn.style.display !== 'none' && !drawBtn.disabled) {
                     e.preventDefault();
                     drawBtn.click();
-                } else if (key === 'p' && pauseBtn && pauseBtn.style.display !== 'none') {
-                    e.preventDefault();
-                    pauseBtn.click();
+
                 } else if (key === 'n' && newPvPBtn) {
                     e.preventDefault();
                     newPvPBtn.click();
@@ -3129,10 +3109,6 @@
            // Custom leave confirmation modal instead of browser default dialog
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
-               if (!paused) {
-                    const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
-                    navigator.sendBeacon('/api/pause/', blob);
-                   }
                 });
             }
 
@@ -3165,17 +3141,13 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 if (t) t.style.display = 'none';
                 if (d) d.style.display = 'none';
 
-                // 1. Pause the timer while the alert is open
-                if (!paused && typeof pauseGame === 'function') {
-                    pauseGame().catch(() => {}); // Catch prevents crash if backend hasn't initialized
-                }
+
 
                 showConfirm( //the message on alert
                     "⚠️ Assets Blocked",
                     "<div style='line-height: 1.5; font-size: 0.95rem;'>The chess pieces failed to load.<br><br>Please check your browser permissions (allow images) or disable any ad-blockers on this site.</div>",
                     () => { 
-                        // 2. Set a memory flag to bypass the main menu on reload
-                        sessionStorage.setItem('checkoraAutoResume', 'true');
+                        // 2. Reload
                         window.location.reload(); 
                     },
                     '#f0c040'
@@ -3191,9 +3163,6 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     const defaultClose = noBtn.onclick; 
                     noBtn.onclick = () => {
                         if (defaultClose) defaultClose();
-                        if (paused && typeof resumeGame === 'function') {
-                            resumeGame().catch(() => {});
-                        }
                     };
                 }
             }            function checkAssets() {
@@ -3256,7 +3225,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 const r = parseInt(squareEl.dataset.r);
                 const c = parseInt(squareEl.dataset.c);
                 const piece = board[r][c];
-                if (!piece || paused || gameOver) return;
+                if (!piece || gameOver) return;
 
                 // Check if the piece is playable by the current player (including AI premoves)
                 const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
@@ -3499,14 +3468,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
 
             // Call picker init immediately
             initTimeControlPicker();
-            // Resume game by clicking the paused board overlay
-            boardEl.addEventListener('click', async () => {
-                if (!paused) return;
-                if (drawOverlay.classList.contains('active')) return;
-                if (confirmOverlay.classList.contains('active')) return;
-                if (gameOverOverlay.classList.contains('active')) return;
-                await resumeGame();
-            });
+
 
 })();
 

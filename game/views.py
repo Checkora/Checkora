@@ -241,7 +241,7 @@ def new_game(request):
         game = ChessGame(time_limit=time_limit, increment=increment)
     game.mode = mode
     game.player_color = player_color
-    game.paused = False
+
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
@@ -267,43 +267,7 @@ def new_game(request):
     })
 
 
-@require_POST
-def resume_game(request):
-    """Resume the existing session game without resetting it."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
 
-    game = ChessGame.from_dict(game_data)
-
-    if game.game_status != 'active':
-        return JsonResponse({'valid': False, 'message': 'No active game to resume.'}, status=404)
-
-    game.paused = False
-    game.last_ts = time.time()
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
-
-    return JsonResponse({
-        'valid': True,
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'move_history': game.move_history,
-        'captured_pieces': game.captured,
-        'mode': game.mode,
-        'player_color': game.player_color,
-        'white_name': request.session.get('white_name', 'White'),
-        'black_name': request.session.get('black_name', 'Black'),
-        'game_status': game.game_status,
-        'draw_reason': game.draw_reason,
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'difficulty': request.session.get('difficulty', 'medium'),
-    })
 
 
 @require_GET
@@ -331,19 +295,14 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
-    """Return the full current game state without mutating pause state."""
+    """Return the full current game state."""
     game_data = request.session.get('game')
     if not game_data:
         game = ChessGame()
     else:
         game = ChessGame.from_dict(game_data)
 
-        # Skip clock deduction if tab was closed for too long
-        elapsed = time.time() - game.last_ts
-        if elapsed > 10 and not game.paused:
-            game.paused = True  # pause without deducting lost time
-        else:
-            game.update_clock()
+        game.update_clock()
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
@@ -353,9 +312,7 @@ def get_state(request):
         'current_turn': game.current_turn,
         'white_time': game.white_time,
         'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'paused': game.paused,
+
         'move_history': game.move_history,
         'captured_pieces': game.captured,
         'mode': game.mode,
@@ -370,36 +327,6 @@ def get_state(request):
     })
 
 
-@require_POST
-def set_pause(request):
-    """Toggle the game clock between paused and running."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'paused': False})
-
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
-        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
-
-    pause = data.get('pause', True)
-
-    game = ChessGame.from_dict(game_data)
-
-    # Only deduct elapsed time when transitioning from running to paused.
-    if pause and not game.paused:
-        game.update_clock()
-    game.paused = pause
-    game.last_ts = time.time()
-
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
-
-    return JsonResponse({
-        'paused': game.paused,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-    })
 
 
 @require_POST
