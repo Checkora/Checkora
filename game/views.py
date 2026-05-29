@@ -9,6 +9,8 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
@@ -46,13 +48,15 @@ def index(request):
         request.session['game'] = game.to_dict()
     return render(request, 'game/board.html')
 
-
-def record_game_result(request, mode, winner, reason, player_color='white'):
-    """Save a completed game result to the database."""
+def record_game_result(request, mode, winner, end_reason):
     user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
 
-
+    GameResult.objects.create(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=end_reason,
+    )
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -893,40 +897,28 @@ def logout_view(request):
 
 
 # Protect the stats page with login requirement
-@login_required
-def stats_view(request):
-    """Display game statistics."""
-    # Only show real database records linked to the logged-in user
-    user_results = GameResult.objects.filter(
+@login_required(login_url='/login/')
+def stats(request):
+    # Only fetch games belonging to the logged-in user
+    results = GameResult.objects.filter(
         user=request.user
-    ).exclude(mode__in=['', None])
+    ).order_by('-played_at')[:10]
 
-    recent = user_results.order_by('-played_at')[:20]
-    ai_results = user_results.filter(mode='ai')
+    # AI summary — only this user's AI games
+    ai_games = GameResult.objects.filter(
+        user=request.user,
+        mode='ai'               # ← must be lowercase 'ai' to match your MODEL choices
+    )
 
-    # If winner == player_color, the user won
-    user_ai_wins = ai_results.filter(winner=F('player_color')).count()
-    # If winner != player_color and not a draw, the AI won
-    ai_wins = ai_results.filter(
-        Q(winner='white', player_color='black') |
-        Q(winner='black', player_color='white')
-    ).count()
-
-    ai_draws = ai_results.filter(winner='draw').count()
-    ai_total = ai_results.count()
-
-    # Handle explicit edge cases (e.g. division by zero for win rate)
-    win_percentage = (user_ai_wins / ai_total * 100) if ai_total > 0 else 0
+    ai_wins = ai_games.filter(winner='white').count()   # ← lowercase 'white'
+    draws   = ai_games.filter(winner='draw').count()    # ← lowercase 'draw'
 
     return render(request, 'game/stats.html', {
-        'recent': recent,
-        'ai_total': ai_total,
-        'user_ai_wins': user_ai_wins,
-        'ai_wins': ai_wins,
-        'ai_draws': ai_draws,
-        'win_percentage': round(win_percentage, 2),
+        'results':  results,
+        'total_ai': ai_games.count(),
+        'ai_wins':  ai_wins,
+        'draws':    draws,
     })
-
 @csrf_exempt
 @require_POST
 def cleanup_cron(request):
