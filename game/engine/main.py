@@ -1,28 +1,3 @@
-#!/usr/bin/env python3
-"""Checkora chess engine implemented in Python.
-
-Protocol:
-VALIDATE <board64> <castling_rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc>
--> VALID | INVALID <reason>
-
-MOVES <board64> <castling_rights> <turn> <ep_row> <ep_col> <row> <col>
--> MOVES [<row> <col> <is_capture> <is_promotion> ...]
-
-ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
--> YES | NO
-
-PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
--> PROMOTE <newBoard64>
--> INVALID <reason>
-
-STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
--> STATUS CHECK | CHECKMATE | STALEMATE | OK
-
-BESTMOVE <board64> <castling_rights> <turn> <ep_row> <ep_col> <depth>
--> BESTMOVE <fr> <fc> <tr> <tc>
--> BESTMOVE NONE
-"""
-
 from __future__ import annotations
 
 import sys
@@ -774,7 +749,6 @@ def run():
             load_castling_rights(rights)
             load_en_passant(ep_row, ep_col)
             handle_bestmove(turn, depth)
-
 
 if __name__ == '__main__':
     run()

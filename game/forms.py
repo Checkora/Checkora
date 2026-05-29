@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 
+from .forms_avatar import AvatarUploadForm
+
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)

@@ -6,6 +6,7 @@ from game.models import GameResult
 
 User = get_user_model()
 
+
 def cleanup_stale_games():
     """
     Automated cleanup task for abandoned games.

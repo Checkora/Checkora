@@ -1,5 +1,35 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
+
+
+def avatar_upload_to(instance: "Avatar", filename: str) -> str:
+    """Upload to a deterministic per-user path.
+
+    The original filename is intentionally ignored to reduce edge cases.
+    """
+    return f"avatars/{instance.user_id}/{instance.user_id}.webp"
+
+
+class Avatar(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="avatar")
+    image = models.ImageField(upload_to=avatar_upload_to, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"Avatar(user_id={self.user_id})"
+
+    @property
+    def has_avatar(self) -> bool:
+        return bool(self.image)
+
+    @property
+    def url(self) -> str | None:
+        return self.image.url if self.image else None
 
 
 class GameResult(models.Model):
