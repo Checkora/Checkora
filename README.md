@@ -64,7 +64,7 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 | -------------------- | --------------------------------------------------------------------------------------------------- |
 | AI Opponent          | Minimax search with alpha-beta pruning for challenging gameplay                                     |
 | Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                                      |
-| Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
+| Full Move Validation | Legal moves enforced for all pieces including castling, promotion and en passant|
 | Game Timer           | Per-player countdown clocks with pause support                                                      |
 | Material Score Panel | Live material advantage tracking that updates dynamically during gameplay                           |
 | REST API             | Clean JSON endpoints powering a decoupled frontend                                                  |
