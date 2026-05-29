@@ -2238,9 +2238,9 @@
                 const overlay = document.getElementById('gameOverOverlay');
                 overlay.classList.remove('game-over-celebration');
                 const confettiContainer = overlay.querySelector('.confetti-container');
-                if (confettiContainer) {
+     
                     confettiContainer.remove();
-                }
+            if (confettiContainer) {               }
                 
                 // Get names from inputs
                 let wName = document.getElementById('whiteNameInput')?.value.trim() || '';
@@ -3465,37 +3465,60 @@ if (blackNameInput) {
                     applyCustomBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const minsInput = document.getElementById('customMinsInput');
+                        const secsInput = document.getElementById('customSecsInput');
                         const incInput = document.getElementById('customIncInput');
 
                         if (minsInput && incInput) {
                             let mins = parseInt(minsInput.value, 10);
+                            let secs = secsInput ? parseInt(secsInput.value, 10) : 0;
                             let inc = parseInt(incInput.value, 10);
 
-                            if (isNaN(mins) || mins < 1) mins = 10;
+                            if (isNaN(mins) || mins < 0) mins = 0;
                             if (mins > 300) mins = 300;
+                            if (isNaN(secs) || secs < 0) secs = 0;
+                            if (secs > 59) secs = 59;
                             if (isNaN(inc) || inc < 0) inc = 0;
                             if (inc > 180) inc = 180;
 
+                            const totalSecs = mins * 60 + secs;
+                            if (totalSecs <= 0) {
+                                // Require at least 1 second of game time
+                                if (secsInput) secsInput.value = 30;
+                                secs = 30;
+                            }
+
                             minsInput.value = mins;
+                            if (secsInput) secsInput.value = secs;
                             incInput.value = inc;
 
-                            selectedMins = mins;
+                            // selectedMins stores total minutes as a decimal (e.g. 0.5 for 30s)
+                            selectedMins = (mins * 60 + secs) / 60;
                             selectedIncrement = inc;
 
                             // Update active preset styling
                             presetBtns.forEach(b => b.classList.remove('active'));
 
-                            if (inc > 0) {
-                                display.textContent = `${mins} | ${inc}`;
+                            // Build a human-readable display string
+                            let displayText;
+                            const finalTotalSecs = mins * 60 + secs;
+                            if (mins === 0) {
+                                displayText = `${secs}s`;
+                            } else if (secs === 0) {
+                                displayText = `${mins} min`;
                             } else {
-                                display.textContent = `${mins} min`;
+                                displayText = `${mins}:${String(secs).padStart(2, '0')} min`;
                             }
+                            if (inc > 0) {
+                                displayText += ` | ${inc}`;
+                            }
+                            display.textContent = displayText;
 
                             // Close popover
                             popover.style.display = 'none';
                         }
                     });
                 }
+
 
                 // Close popover when clicking anywhere else
                 document.addEventListener('click', (e) => {
