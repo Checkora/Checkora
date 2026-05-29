@@ -177,7 +177,8 @@ body {
     display: none;
     position: absolute;
     right: 0;
-    top: 55px;
+    top: 100%;
+    margin-top: -2px;
     min-width: 220px;
     background: #111827;
     border-radius: 14px;
