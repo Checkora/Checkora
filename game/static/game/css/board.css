@@ -574,6 +574,9 @@ body {
     cursor: pointer;
     letter-spacing: 0.5px;
     transition: all 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);

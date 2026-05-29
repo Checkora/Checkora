@@ -125,6 +125,9 @@ body {
     background: transparent;
     border: 1px solid rgba(240, 192, 64, 0.35);
     transition: all 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .btn-signin:hover,
@@ -219,6 +222,9 @@ body {
     font-size: 1.05rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: background-color 0.2s, border-color 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .btn-secondary:hover {
