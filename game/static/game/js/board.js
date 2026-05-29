@@ -695,8 +695,8 @@
 
                 // Accessibility: refresh square labels
                 boardEl.querySelectorAll('.square').forEach(square => {
-                    const r = parseInt(square.dataset.row);
-                    const c = parseInt(square.dataset.col);
+                    const r = parseInt(square.dataset.row, 10);
+                    const c = parseInt(square.dataset.col, 10);
 
                     square.setAttribute(
                         'aria-label',
