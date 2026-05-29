@@ -929,6 +929,11 @@ body {
         height: 24px;
     }
 
+    .theme-label {
+        font-size: 0.7rem;
+        max-width: 45px;
+    }
+
     .keyboard-hints {
         font-size: 0.72rem !important;
         line-height: 1.35;
@@ -1134,6 +1139,19 @@ body {
         padding: 6px 12px;
         font-size: 0.8rem;
     }
+
+    .theme-switcher {
+        gap: 8px;
+    }
+
+    .theme-option {
+        gap: 6px;
+    }
+
+    .theme-label {
+        font-size: 0.68rem;
+        max-width: 50px;
+    }
 }
 
 /* ================= CLOCKS ================= */
@@ -1227,6 +1245,30 @@ body {
     gap: 10px;
     justify-content: center;
     margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.theme-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.theme-label {
+    font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 50px;
+    transition: color 0.2s ease;
+}
+
+.theme-btn:hover + .theme-label,
+.theme-option:hover .theme-label {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .theme-btn {
