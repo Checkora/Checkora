@@ -87,16 +87,24 @@ class BaseE2ETest(StaticLiveServerTestCase):
 
         white_input = self.driver.find_element(By.ID, 'whiteNameInput')
         black_input = self.driver.find_element(By.ID, 'blackNameInput')
+
         white_input.clear()
         black_input.clear()
+
         white_input.send_keys('Alice')
         black_input.send_keys('Bob')
 
-        self.driver.find_element(By.ID, 'welcomePvPBtn').click()
+        pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
+        self._js_click(pvp_btn)
+
+        self.wait.until(
+            EC.invisibility_of_element_located((By.ID, 'welcomeOverlay'))
+        )
 
         self.wait.until(
             EC.visibility_of_element_located((By.ID, 'board'))
         )
+
         log_ok("PvP game started — board visible")
 
     def _js_click(self, element):
