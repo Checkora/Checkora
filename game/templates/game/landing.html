@@ -422,7 +422,7 @@
         <div class="footer-col">
           <h4>Legal</h4>
           <ul class="footer-nav-list">
-            <li><a href="{% url 'privacy' %}" class="footer-link">Privacy Policy</a></li>
+            <li><a href="#" class="footer-link" onclick="document.getElementById('privacyModal').style.display='flex'; return false;">Privacy Policy</a></li>
             <li><a href="{% url 'terms' %}" class="footer-link">Terms & Conditions</a></li>
             <li><a href="{% url 'contact' %}" class="footer-link">Contact Us</a></li>
           </ul>
@@ -447,5 +447,93 @@
         </div>
       </div>
     </footer>
+    <div id="privacyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+      <div style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:700px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+  
+          <!-- Header -->
+          <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+              <h1 style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Privacy Policy</h1>
+              <button onclick="document.getElementById('privacyModal').style.display='none'" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+          </div>
+  
+          <!-- Scrollable Content -->
+          <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+              <div style="display:flex; flex-direction:column; gap:14px;">
+  
+                  <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+                      <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+                      <div>
+                          <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Information We Collect</h2>
+                          <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Checkora only collects basic information necessary to manage user authentication and orchestrate your chess matches:</p>
+                          <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                              <li style="margin-bottom:6px;"><strong style="color:#f0c040;">Account Data:</strong> Username, email address, and encrypted password profiles when you register.</li>
+                              <li style="margin-bottom:6px;"><strong style="color:#f0c040;">Gameplay Metrics:</strong> Move history, win/loss stats, match durations, and time preferences for leaderboard rankings.</li>
+                              <li><strong style="color:#f0c040;">Technical Logs:</strong> Minimal session tokens to keep you securely logged in across page reloads.</li>
+                          </ul>
+                      </div>
+                  </div>
+  
+                  <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+                      <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+                      <div>
+                          <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">How Your Data is Used</h2>
+                          <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Your data remains dedicated exclusively to powering your active application experiences:</p>
+                          <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                              <li style="margin-bottom:6px;">Maintain your personalized player profile dashboard and performance metrics.</li>
+                              <li style="margin-bottom:6px;">Calculate real-time material scores and process live move-validation checks.</li>
+                              <li>Optimize the sync pipeline between backend systems and computation services.</li>
+                          </ul>
+                      </div>
+                  </div>
+  
+                  <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+                      <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+                      <div>
+                          <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Cookies and Session Storage</h2>
+                          <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">We use essential cookies and local storage tokens to manage authentication states and secure form submissions against CSRF. No tracking cookies or behavioral profile monitors are embedded inside the platform.</p>
+                      </div>
+                  </div>
+  
+                  <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+                      <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+                      <div>
+                          <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Data Retention & Security</h2>
+                          <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">We retain your profile credentials and match logs for as long as your account remains active. Passwords are securely stored using Django authentication hashing mechanisms.</p>
+                      </div>
+                  </div>
+  
+                  <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+                      <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+                      <div>
+                          <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Open Source Transparency & User Rights</h2>
+                          <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">In alignment with our open-source framework and GSSoC community policies, users maintain full authority over their data and may request account deletion or data removal at any time.</p>
+                      </div>
+                  </div>
+  
+                  <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+                      <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">6</span>
+                      <div>
+                          <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Contact & Community Channels</h2>
+                          <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">If you have questions or feedback regarding this Privacy Policy, please open an issue on our GitHub repository or contact the project maintainers directly.</p>
+                      </div>
+                  </div>
+  
+                  <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">Last updated: May 2026</p>
+  
+              </div>
+          </div>
+  
+          <!-- Footer -->
+          <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; background:#131522;">
+              <button onclick="document.getElementById('privacyModal').style.display='none'" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; font-size:0.95rem; cursor:pointer; box-shadow:0 4px 16px rgba(240,192,64,0.3);">I Agree</button>
+          </div>
+      </div>
+  </div>
+  
+  <script>
+      document.getElementById('privacyModal').addEventListener('click', function(e) {
+          if (e.target === this) this.style.display = 'none';
+      });
+  </script>
   </body>
 </html>
