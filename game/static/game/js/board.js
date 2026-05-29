@@ -629,10 +629,10 @@
                         d.setAttribute('aria-label', getSquareLabel(r, c));
                         d.onkeydown = (e) => handleSquareKeydown(e, r, c);
                          
-                        d.onclick = (e) => {if (!dragging && !touchDragging) {
-                         selectPiece(r, c);
-                       }
-                };
+                        d.onclick = () => {
+                            if (dragging || touchDragging) return;
+                            onClick(r, c);
+                        };
 
                         boardEl.appendChild(d);
                     }
