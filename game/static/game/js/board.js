@@ -587,15 +587,28 @@
                     const img = document.createElement('img');
                     img.src = PIECE_IMG[pKey(p)];
                     img.className = 'piece';
-                    //Set to false, as the parent div now handles dragging
+
                     img.draggable = false;
-                    // Keep this so drops work smoothly on occupied squares
+
                     img.ondragover = e => e.preventDefault();
+
                     el.appendChild(img);
                 }
+
                 refreshHighlights();
                 markPlayable();
                 updateMaterialUI(board);
+
+                // Accessibility: refresh square labels
+                boardEl.querySelectorAll('.square').forEach(square => {
+                    const r = parseInt(square.dataset.row);
+                    const c = parseInt(square.dataset.col);
+
+                    square.setAttribute(
+                        'aria-label',
+                        getSquareLabel(r, c)
+                    );
+                });
             }
 
             function markPlayable() {
@@ -655,7 +668,29 @@
             function getSquareLabel(row, col) {
                 const files = ['a','b','c','d','e','f','g','h'];
                 const ranks = ['8','7','6','5','4','3','2','1'];
-                    return files[col] + ranks[row];
+
+                const squareName = files[col].toUpperCase() + ranks[row];
+                const piece = board[row][col];
+
+                if (!piece) {
+                    return `Empty square ${squareName}`;
+                }
+
+                const color =
+                    piece === piece.toUpperCase()
+                        ? 'White'
+                        : 'Black';
+
+                const pieceNames = {
+                    p: 'Pawn',
+                    r: 'Rook',
+                    n: 'Knight',
+                    b: 'Bishop',
+                    q: 'Queen',
+                    k: 'King'
+                };
+
+                return `${color} ${pieceNames[piece.toLowerCase()]} on ${squareName}`;
             }
 
             // Arrow keys to move focus, Enter/Space to click, Escape to cancel
@@ -675,9 +710,9 @@
                         return;
                     case 'Escape':
                         e.preventDefault();
-                        document.querySelectorAll('.square.selected')
-                                .forEach(s => s.classList.remove('selected'));
-                    return;
+                        deselect();
+                        announceMove('Selection cleared');
+                        return;
                 default:
                     return;
              }
@@ -843,7 +878,10 @@
                                 highlightCheck();
                                 showStatus('', false);
                             }
-                            if (a11yMsg) announceMove(a11yMsg);
+                            if (a11yMsg) {
+                                a11yMsg += `${turn} to move.`;
+                                announceMove(a11yMsg);
+                            };
                         }
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
@@ -851,6 +889,7 @@
                         }
                     } else {
                         showStatus(data.message, true);
+                        announceMove(data.message);
                         deselect();
                     }
                 } catch (e) {
@@ -943,7 +982,10 @@
                                 highlightCheck();
                                 showStatus('Your turn.', false);
                             }
-                            if (a11yMsg) announceMove(a11yMsg);
+                            if (a11yMsg) {
+                                a11yMsg += ' Your turn.';
+                                announceMove(a11yMsg);
+                            }
                         }
                     } else {
                         showStatus(data.message, true);
