@@ -1558,20 +1558,19 @@ body {
     filter: blur(15px);
 }
 
-
 .chessboard.paused::after {
-    content: "Resume to Continue";
+    content: "⏸ GAME PAUSED";
     position: absolute;
-    top: 50%;
+    top: 48%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.92);
     color: #f0c040;
-    padding: 20px 40px;
+    padding: 18px 36px;
     border-radius: 12px;
-    font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: 1px;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 2px;
     white-space: nowrap;
     border: 2px solid #f0c040;
     z-index: 9999;
@@ -1580,13 +1579,22 @@ body {
     cursor: pointer;
     pointer-events: auto;
 }
+
+  
 @media (max-width: 768px) {
     .chessboard.paused::after {
-        font-size: 1rem;
-        padding: 12px 20px;
-        white-space: normal;
+        font-size: 1.2rem;
+        padding: 14px 22px;
         text-align: center;
-        width: 70%;
+        white-space: normal;
+        width: 80%;
+    }
+
+    .chessboard.paused::before {
+        top: calc(48% + 60px);
+        font-size: 0.8rem;
+        width: 85%;
+        white-space: normal;
     }
 }
 
