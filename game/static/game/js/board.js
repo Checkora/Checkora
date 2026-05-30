@@ -2239,10 +2239,15 @@
                 });
             }
             
+            let startingGame = false;
+            
             if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {            
-                if (!validatePlayerNames()) return;
+                if (startingGame) return;
+                startingGame = true;
+                if (!validatePlayerNames()) { startingGame = false; return; }
                 const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('pvp', 'white', 'medium', fen);
+                startingGame = false;
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
@@ -2312,6 +2317,8 @@
             });
 
             if (startAIBtn) startAIBtn.onclick = async () => {
+                if (startingGame) return;
+                startingGame = true;
                 const wNameInput = document.getElementById('whiteNameInput');
                 const errorDiv = document.getElementById('nameError');
 
@@ -2326,6 +2333,7 @@
                     if (wNameInput) {
                         wNameInput.classList.add('input-error');
                     }
+                    startingGame = false;
                     return;
                 }
 
@@ -2338,6 +2346,7 @@
                 const diff = document.getElementById('welcomeDifficultySelect').value;
                 const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('ai', selectedPveColor, diff, fen);
+                startingGame = false;
                 if (!started) return;
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
@@ -2464,9 +2473,12 @@
             };
 
             if (fenStartBtn) fenStartBtn.onclick = async () => {
+                if (startingGame) return;
+                startingGame = true;
                 const fenValue = fenInput?.value?.trim() || '';
                 if (!fenValue) {
                     if (fenError) fenError.textContent = 'Please enter a FEN string.';
+                    startingGame = false;
                     return;
                 }
 
@@ -2474,6 +2486,7 @@
                 const pColor = mode === 'ai' ? playerColor : 'white';
                 const diff = mode === 'ai' ? currentDifficulty : 'medium';
                 const started = await startNewGame(mode, pColor, diff, fenValue);
+                startingGame = false;
                 if (!started) return;
 
                 fenOverlay.classList.remove('active');
