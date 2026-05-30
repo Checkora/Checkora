@@ -1562,7 +1562,8 @@
                     : `Game over. Draw by ${reason || 'stalemate'}.`;
                 announceMove(cleanMsg);
                 
-                document.title = 'Game Over - Checkora';
+                const titleMap = { checkmate: 'Checkmate', stalemate: 'Stalemate', draw: 'Draw', resign: 'Resignation', timeout: 'Timeout' };
+                document.title = `${titleMap[reason] || 'Game Over'} - Checkora`;
             }
 
             /* ==========================================================
