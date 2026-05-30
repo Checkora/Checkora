@@ -83,7 +83,9 @@
               draw:    new Audio(`${SOUND_BASE_URL}draw.mp3`),
             };
 
-            let soundEnabled = true;
+            const SOUND_PREF_KEY = 'checkora_sound_enabled';
+            // Restore sound preference from localStorage (default: enabled)
+            let soundEnabled = localStorage.getItem(SOUND_PREF_KEY) !== 'false';
 
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
@@ -127,11 +129,21 @@
                 if (playback?.catch) playback.catch(() => {});
             }
 
-            function toggleMute() {
-                soundEnabled = !soundEnabled;
+            function syncMuteBtn() {
                 if (muteBtn) {
                     muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
                     muteBtn.setAttribute('aria-pressed', String(soundEnabled));
+                }
+            }
+
+            function toggleMute() {
+                soundEnabled = !soundEnabled;
+                // Persist preference so it survives page reloads
+                localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled));
+                syncMuteBtn();
+                // Announce state change for screen-reader users
+                if (typeof announceMove === 'function') {
+                    announceMove(soundEnabled ? 'Sound effects enabled.' : 'Sound effects muted.');
                 }
             }
 
@@ -2248,6 +2260,8 @@
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
+            // Restore mute button label from persisted preference on page load
+            syncMuteBtn();
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             const blindfoldBtn = document.getElementById('blindfoldBtn');
