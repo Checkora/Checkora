@@ -85,7 +85,12 @@
 
             const SOUND_PREF_KEY = 'checkora_sound_enabled';
             // Restore sound preference from localStorage (default: enabled)
-            let soundEnabled = localStorage.getItem(SOUND_PREF_KEY) !== 'false';
+            let soundEnabled = true;
+            try {
+                soundEnabled = localStorage.getItem(SOUND_PREF_KEY) !== 'false';
+            } catch (e) {
+                // Silently fail if localStorage unavailable
+            }
 
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
@@ -139,12 +144,14 @@
             function toggleMute() {
                 soundEnabled = !soundEnabled;
                 // Persist preference so it survives page reloads
-                localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled));
+                try {
+                    localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled));
+                } catch (e) {
+                    // Silently fail if localStorage unavailable - preference won't persist but toggle still works
+                }
                 syncMuteBtn();
                 // Announce state change for screen-reader users
-                if (typeof announceMove === 'function') {
-                    announceMove(soundEnabled ? 'Sound effects enabled.' : 'Sound effects muted.');
-                }
+                announceMove(soundEnabled ? 'Sound effects enabled.' : 'Sound effects muted.');
             }
 
             /* ==========================================================
