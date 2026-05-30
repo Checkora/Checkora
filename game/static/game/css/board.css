@@ -1260,7 +1260,7 @@ body {
   display: none; 
 }
 
- {
+@media (max-width: 768px) {
   .m-fab {
     display: flex;
     flex-direction: column;
