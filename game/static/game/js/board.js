@@ -1163,36 +1163,42 @@
                             if (a11yMsg) {
                                 a11yMsg += ' Your turn.';
                                 announceMove(a11yMsg);
-                            if (a11yMsg) announceMove(a11yMsg);
-
+                            }
+ 
                             // Trigger queued premove if it exists
                             if (premove) {
                                 const queued = premove;
                                 premove = null;
                                 refreshPremoveHighlight();
-
+ 
                                 const piece = board[queued.from.r][queued.from.c];
                                 if (piece && pColor(piece) === turn) {
                                     setTimeout(() => {
-                                        tryMove(queued.from.r, queued.from.c, queued.to.r, queued.to.c);
+                                        tryMove(
+                                            queued.from.r,
+                                            queued.from.c,
+                                            queued.to.r,
+                                            queued.to.c
+                                        );
                                     }, 150);
                                 } else {
                                     showStatus("Premove cancelled: piece captured or invalid", true);
                                 }
                             }
                         }
-                    } else {
-                        showStatus(data.message, true);
+                        } else {
+                            showStatus(data.message, true);
+                        }
+                    } catch (e) {
+                        clearInterval(thinkingInterval);
+                        await handleReconnect();
+                    } finally {
+                        if (seq === aiRequestSeq) {
+                            aiThinking = false;
+                        }
                     }
-                } catch (e) {
-                    clearInterval(thinkingInterval);
-                    await handleReconnect();
-                } finally {
-                    if (seq === aiRequestSeq) {
-                        aiThinking = false;
-                    }
-                }
-            }
+                }  
+
 
             /* ==========================================================
             EVENTS
@@ -3549,7 +3555,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 if (gameOverOverlay.classList.contains('active')) return;
                 await resumeGame();
             });
-
+        
 })();
 
 function updateDailyStreak() {
