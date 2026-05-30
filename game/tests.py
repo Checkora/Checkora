@@ -2,11 +2,14 @@
 
 import json
 import sys
+import time
 from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core import mail
+from django.core.cache import cache
 from django.urls import reverse
 from django.test import (
     RequestFactory,
@@ -17,6 +20,7 @@ from django.test import (
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
+from .views import CustomPasswordResetView
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -251,6 +255,111 @@ class CustomSetPasswordFormTest(TestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    PASSWORD_RESET_EMAIL_COOLDOWN_SECONDS=300,
+    PASSWORD_RESET_IP_WINDOW_SECONDS=900,
+    PASSWORD_RESET_IP_MAX_REQUESTS=3,
+)
+class PasswordResetRateLimitTest(TestCase):
+    """Password reset requests should be throttled by email and IP."""
+
+    def setUp(self):
+        cache.clear()
+        self.reset_url = reverse('password_reset')
+        self.done_url = reverse('password_reset_done')
+        User.objects.create_user(
+            username='resetplayer',
+            email='reset@example.com',
+            password='StrongPass123!',
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_repeated_email_request_during_cooldown_is_blocked(self):
+        first_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+        )
+
+        self.assertRedirects(first_response, self.done_url)
+        self.assertEqual(len(mail.outbox), 1)
+
+        second_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+            follow=True,
+        )
+
+        self.assertRedirects(second_response, self.reset_url)
+        self.assertContains(
+            second_response,
+            'Please wait',
+        )
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(PASSWORD_RESET_IP_MAX_REQUESTS=2)
+    def test_ip_throttle_blocks_excessive_reset_requests(self):
+        for index in range(3):
+            User.objects.create_user(
+                username=f'resetplayer{index}',
+                email=f'reset{index}@example.com',
+                password='StrongPass123!',
+            )
+
+        for index in range(2):
+            response = self.client.post(
+                self.reset_url,
+                data={'email': f'reset{index}@example.com'},
+                REMOTE_ADDR='203.0.113.20',
+            )
+            self.assertRedirects(response, self.done_url)
+
+        blocked_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset2@example.com'},
+            REMOTE_ADDR='203.0.113.20',
+            follow=True,
+        )
+
+        self.assertRedirects(blocked_response, self.reset_url)
+        self.assertContains(
+            blocked_response,
+            'Too many password reset requests',
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    @override_settings(PASSWORD_RESET_IP_MAX_REQUESTS=2)
+    def test_ip_throttle_message_uses_remaining_window_time(self):
+        User.objects.create_user(
+            username='remainingplayer',
+            email='remaining@example.com',
+            password='StrongPass123!',
+        )
+        view = CustomPasswordResetView()
+        ip_key = view._cache_key('password-reset-ip', '203.0.113.30')
+        cache.set(ip_key, 2, timeout=900)
+        cache.set(
+            view._ip_expires_key(ip_key),
+            time.time() + 125,
+            timeout=900,
+        )
+
+        response = self.client.post(
+            self.reset_url,
+            data={'email': 'remaining@example.com'},
+            REMOTE_ADDR='203.0.113.30',
+            follow=True,
+        )
+
+        self.assertRedirects(response, self.reset_url)
+        self.assertContains(response, '2 minute(s)')
+        self.assertNotContains(response, '15 minute(s)')
+        self.assertEqual(len(mail.outbox), 0)
+
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
@@ -1514,3 +1623,120 @@ class TimeControlIncrementTest(TestCase):
         self.assertIsNotNone(game_dict)
         self.assertEqual(game_dict['increment'], 3)
         self.assertEqual(game_dict['white_time'], 300)
+
+
+class GameResultMoveHistoryTest(TestCase):
+    """Test suite for verifying persistent move history storage in GameResult."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='testplayer', password='password123')
+        from .models import GameResult
+        self.GameResult = GameResult
+
+    def test_record_game_result_saves_moves_explicitly(self):
+        from game.views import record_game_result
+        # Setup dummy request
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        request.session = {}
+
+        moves = [{'notation': 'e4', 'piece': 'P', 'from': [6, 4], 'to': [4, 4], 'color': 'white'}]
+        record_game_result(request, 'pvp', 'white', 'checkmate', 'white', moves=moves)
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.moves, moves)
+
+    def test_record_game_result_falls_back_to_session(self):
+        from game.views import record_game_result
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        
+        moves = [{'notation': 'd4', 'piece': 'P', 'from': [6, 3], 'to': [4, 3], 'color': 'white'}]
+        request.session = {'game': {'move_history': moves}}
+
+        record_game_result(request, 'ai', 'black', 'resign', 'white')
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.moves, moves)
+
+    def test_stale_game_cleanup_saves_move_history(self):
+        from django.contrib.sessions.backends.db import SessionStore
+        import time
+        from game.services import cleanup_stale_games
+
+        s = SessionStore()
+        s.create()
+        moves = [
+            {'notation': 'e4', 'piece': 'P', 'from': [6, 4], 'to': [4, 4], 'color': 'white'},
+            {'notation': 'e5', 'piece': 'p', 'from': [1, 4], 'to': [3, 4], 'color': 'black'},
+            {'notation': 'Nf3', 'piece': 'N', 'from': [7, 6], 'to': [5, 5], 'color': 'white'},
+            {'notation': 'Nc6', 'piece': 'n', 'from': [0, 1], 'to': [2, 2], 'color': 'black'},
+            {'notation': 'Bb5', 'piece': 'B', 'from': [7, 5], 'to': [4, 1], 'color': 'white'},
+        ]
+        s['game'] = {
+            'game_status': 'active',
+            'move_history': moves,
+            'current_turn': 'black',
+            'player_color': 'white',
+            'mode': 'pvp',
+            'last_ts': time.time() - (50 * 3600)
+        }
+        s.save()
+
+        deleted, resigned = cleanup_stale_games()
+        self.assertEqual(resigned, 1)
+        self.assertEqual(deleted, 0)
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.moves, moves)
+
+    def test_backward_compatibility_empty_moves(self):
+        # Existing game results created without moves should default to empty list
+        res = self.GameResult.objects.create(
+            user=self.user,
+            mode='pvp',
+            winner='white',
+            end_reason='checkmate',
+            player_color='white'
+        )
+        self.assertEqual(res.moves, [])
+
+    @mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'Mock validation.'))
+    @mock.patch.object(ChessGame, '_call_engine')
+    def test_make_move_checkmate_saves_move_history(self, mock_engine, mock_validate):
+        # Mock engine status call to return checkmate
+        def fake_engine(cmd):
+            if cmd.startswith('NOTATION'):
+                return 'NOTATION e4'
+            if cmd.startswith('STATUS'):
+                return 'STATUS checkmate'
+            return ''
+        mock_engine.side_effect = fake_engine
+
+        # Populate session with active game
+        self.client.get('/play/')
+        
+        # Player makes the move
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6, 'from_col': 4,
+                'to_row': 4, 'to_col': 4,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['game_status'], 'checkmate')
+
+        # Check that GameResult was created and has moves
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.end_reason, 'checkmate')
+        self.assertEqual(res.winner, 'white')
+        self.assertEqual(len(res.moves), 1)
+        self.assertEqual(res.moves[0]['notation'], 'e4#')
