@@ -302,8 +302,7 @@
             
             // post() uses csrf()
             function csrf() {
-                const m = document.cookie.match(/csrftoken=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
+                return document.querySelector('meta[name="csrf-token"]')?.content || '';
             }
 
             async function get(url) {
@@ -1367,11 +1366,25 @@
                     const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
                     row.className = 'move-row';
-                    row.innerHTML = `
-                        <span class="move-num">${moveNum}.</span>
-                        <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
-                        ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
-                    `;
+
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'move-num';
+                    numSpan.textContent = `${moveNum}.`;
+
+                    const whiteSpan = document.createElement('span');
+                    whiteSpan.className = 'move-white';
+                    whiteSpan.textContent = history[whiteIdx]?.notation ?? '';
+
+                    row.appendChild(numSpan);
+                    row.appendChild(whiteSpan);
+
+                    if (history[blackIdx]) {
+                        const blackSpan = document.createElement('span');
+                        blackSpan.className = 'move-black';
+                        blackSpan.textContent = history[blackIdx].notation;
+                        row.appendChild(blackSpan);
+                    }
+
                     movesEl.appendChild(row);
                 }
             }
@@ -1592,15 +1605,15 @@
                     if (resultState === 'victory') {
                         bannerEl.classList.add('banner-victory');
                         if (bannerIconEl) bannerIconEl.textContent = '🏆';
-                        gameOverTitle.textContent = gameMode === 'pvp' ? '🏆 VICTORY 🏆' : '🏆 VICTORY 🏆';
+                        gameOverTitle.textContent = 'VICTORY';
                     } else if (resultState === 'defeat') {
                         bannerEl.classList.add('banner-defeat');
                         if (bannerIconEl) bannerIconEl.textContent = '💀';
-                        gameOverTitle.textContent = '💀 DEFEAT 💀';
+                        gameOverTitle.textContent = 'DEFEAT';
                     } else {
                         bannerEl.classList.add('banner-draw');
                         if (bannerIconEl) bannerIconEl.textContent = '🤝';
-                        gameOverTitle.textContent = '🤝 DRAW 🤝';
+                        gameOverTitle.textContent = 'DRAW';
                     }
                 }
                 
@@ -2158,12 +2171,50 @@
             WELCOME & CONFIRMATION LOGIC
             ========================================================== */
             let confirmCallback = null;
+
+            /**
+             * Safely render a confirm-dialog message that may contain a small
+             * whitelist of formatting tags (<br>, <b>, <div> with an inline
+             * style). All other HTML is treated as plain text, preventing XSS
+             * even if a future caller accidentally passes server-controlled data.
+             */
+            function setSafeConfirmHTML(el, html) {
+                // Parse into an inert document so no scripts execute during parsing.
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const allowedTags = new Set(['BR', 'B', 'DIV', 'SPAN']);
+                const allowedStyles = ['line-height', 'font-size'];
+
+                function sanitizeNode(src, dest) {
+                    src.childNodes.forEach(node => {
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            dest.appendChild(document.createTextNode(node.textContent));
+                        } else if (node.nodeType === Node.ELEMENT_NODE && allowedTags.has(node.tagName)) {
+                            const clone = document.createElement(node.tagName);
+                            // Only copy safe inline-style properties, nothing else.
+                            if (node.style) {
+                                allowedStyles.forEach(prop => {
+                                    if (node.style[prop]) clone.style[prop] = node.style[prop];
+                                });
+                            }
+                            sanitizeNode(node, clone);
+                            dest.appendChild(clone);
+                        } else {
+                            // Unknown tag: render its text content only.
+                            sanitizeNode(node, dest);
+                        }
+                    });
+                }
+
+                el.textContent = '';
+                sanitizeNode(doc.body, el);
+            }
+
             function showConfirm(title, msg, callback, titleColor = '#ff6b6b') {
                 if (confirmTitle) {
                     confirmTitle.textContent = title;
                     confirmTitle.style.color = titleColor;
                 }
-                if (confirmMessage) confirmMessage.innerHTML = msg;
+                if (confirmMessage) setSafeConfirmHTML(confirmMessage, msg);
                 confirmCallback = callback;
                 confirmOverlay.classList.add('active');
             }
@@ -2282,10 +2333,10 @@
                     const strVal = String(timeLimitMins);
                     if (strVal.includes('|')) {
                         const parts = strVal.split('|');
-                        currentMins = parseInt(parts[0], 10) || 10;
+                        currentMins = parseFloat(parts[0]) || 10;
                         currentInc = parseInt(parts[1], 10) || 0;
                     } else {
-                        currentMins = parseInt(strVal, 10) || 10;
+                        currentMins = parseFloat(strVal) || 10;
                         currentInc = 0;
                     }
                 }
@@ -3457,37 +3508,60 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     applyCustomBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const minsInput = document.getElementById('customMinsInput');
+                        const secsInput = document.getElementById('customSecsInput');
                         const incInput = document.getElementById('customIncInput');
 
                         if (minsInput && incInput) {
                             let mins = parseInt(minsInput.value, 10);
+                            let secs = secsInput ? parseInt(secsInput.value, 10) : 0;
                             let inc = parseInt(incInput.value, 10);
 
-                            if (isNaN(mins) || mins < 1) mins = 10;
+                            if (isNaN(mins) || mins < 0) mins = 0;
                             if (mins > 300) mins = 300;
+                            if (isNaN(secs) || secs < 0) secs = 0;
+                            if (secs > 59) secs = 59;
                             if (isNaN(inc) || inc < 0) inc = 0;
                             if (inc > 180) inc = 180;
 
+                            const totalSecs = mins * 60 + secs;
+                            if (totalSecs <= 0) {
+                                // Require at least 1 second of game time
+                                if (secsInput) secsInput.value = 30;
+                                secs = 30;
+                            }
+
                             minsInput.value = mins;
+                            if (secsInput) secsInput.value = secs;
                             incInput.value = inc;
 
-                            selectedMins = mins;
+                            // selectedMins stores total minutes as a decimal (e.g. 0.5 for 30s)
+                            selectedMins = (mins * 60 + secs) / 60;
                             selectedIncrement = inc;
 
                             // Update active preset styling
                             presetBtns.forEach(b => b.classList.remove('active'));
 
-                            if (inc > 0) {
-                                display.textContent = `${mins} | ${inc}`;
+                            // Build a human-readable display string
+                            let displayText;
+                            const finalTotalSecs = mins * 60 + secs;
+                            if (mins === 0) {
+                                displayText = `${secs}s`;
+                            } else if (secs === 0) {
+                                displayText = `${mins} min`;
                             } else {
-                                display.textContent = `${mins} min`;
+                                displayText = `${mins}:${String(secs).padStart(2, '0')} min`;
                             }
+                            if (inc > 0) {
+                                displayText += ` | ${inc}`;
+                            }
+                            display.textContent = displayText;
 
                             // Close popover
                             popover.style.display = 'none';
                         }
                     });
                 }
+
 
                 // Close popover when clicking anywhere else
                 document.addEventListener('click', (e) => {

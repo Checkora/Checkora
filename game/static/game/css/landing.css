@@ -144,6 +144,9 @@ body {
 }
 
 .profile-btn{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: #111827;
     color: #f0c040;
     border: 1px solid #333;
@@ -154,7 +157,19 @@ body {
     transition: 0.3s ease;
 }
 
-.profile-btn:hover{
+.profile-arrow {
+    display: inline-block;
+    vertical-align: middle;
+    width: 1em;
+    height: 1em;
+    transition: transform 0.3s ease;
+}
+
+.profile-dropdown:hover .profile-arrow {
+    transform: rotate(-90deg);
+}
+
+.profile-btn:hover {
     border-color: #f0c040;
 }
 
@@ -730,6 +745,82 @@ body {
     border-color: rgba(240, 192, 64, 0.3);
     transform: translateY(-3px);
 }
+/*BACK TO TOP BUTTON*/
+
+#backToTopWrapper {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 999;
+}
+
+#backToTopWrapper.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#backToTopTooltip {
+    background: rgba(15, 15, 26, 0.9);
+    color: var(--accent-gold);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(240, 192, 64, 0.3);
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+#backToTopWrapper:hover #backToTopTooltip {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#backToTopBtn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #0f0f1a;
+    border: 1.5px solid rgba(0, 0, 0, 0.4);
+    font-size: 1.3rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    box-shadow: 0 4px 20px rgba(240, 192, 64, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#backToTopBtn:hover {
+    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    box-shadow: 0 6px 24px rgba(240, 192, 64, 0.6);
+}
+
+#backToTopBtn:hover .btn-arrow {
+    animation: arrow-bounce 0.6s ease infinite;
+}
+
+#backToTopBtn:active {
+    transform: scale(0.92);
+}
+
+@keyframes arrow-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
 
 /* ==========================================================================
    Platform Capabilities Section
@@ -799,6 +890,126 @@ body {
 }
 
 /* ==========================================================================
+   FAQ SECTION STYLES
+   ========================================================================== */
+.faq-section {
+  padding: 80px 24px;
+  background-color: #0d0e12; /* Matches deep dark background layout */
+  position: relative;
+}
+
+.faq-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.faq-subtitle {
+  text-align: center;
+  color: #a0a5b5;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  margin-top: -20px;
+  margin-bottom: 48px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.faq-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faq-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.faq-item:hover {
+  border-color: rgba(240, 192, 64, 0.3); /* Subtle gold tint on hover */
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.faq-question {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  transition: color 0.3s ease;
+}
+
+.faq-item:hover .faq-question {
+  color: #ffeaa7; /* Gold highlight text shift */
+}
+
+.faq-icon-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a0a5b5;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease;
+}
+
+.faq-item:hover .faq-icon-arrow {
+  color: #f0c040;
+}
+
+/* Accordion expanded states */
+.faq-item.active {
+  border-color: rgba(240, 192, 64, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.faq-item.active .faq-icon-arrow {
+  transform: rotate(-180deg);
+  color: #f0c040;
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.faq-answer-content {
+  padding: 0 24px 24px 24px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #c4c8d5;
+}
+
+/* Responsive adjustment */
+@media (max-width: 768px) {
+  .faq-section {
+    padding: 60px 16px;
+  }
+  .faq-question {
+    padding: 16px 20px;
+    font-size: 1rem;
+  }
+  .faq-answer-content {
+    padding: 0 20px 20px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+/* ==========================================================================
    Media Queries & Responsiveness Breakpoints
    ========================================================================== */
 @media (max-width: 1024px) {
@@ -835,6 +1046,17 @@ body {
         width: 100%;
         text-align: center;
         box-sizing: border-box;
+    }
+    #backToTopBtn {
+        width: 42px;
+        height: 42px;
+        bottom: 1.2rem;
+        right: 1.2rem;
+        font-size: 1rem;
+    }
+
+    #backToTopBtn:hover {
+        width: 120px;
     }
 
     .footer {
@@ -894,6 +1116,14 @@ body {
         flex-direction: column;
         gap: 1.5rem;
         text-align: center;
+    }
+
+    #backToTopBtn {
+        width: 42px;
+        height: 42px;
+        bottom: 1.2rem;
+        right: 1.2rem;
+        font-size: 1rem;
     }
 }
 

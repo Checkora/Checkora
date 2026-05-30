@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Play Chess | Checkora AI</title>
     <meta name="description" content="Challenge the Checkora AI engine. Play a professional game of chess with advanced AI analysis and move history.">
     <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
@@ -153,7 +154,11 @@
                             <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                                     <label for="customMinsInput" style="color: #8a8aaa; font-size: 0.75rem;">Minutes</label>
-                                    <input type="number" id="customMinsInput" min="1" max="300" value="10" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                    <input type="number" id="customMinsInput" min="0" max="300" value="0" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customSecsInput" style="color: #8a8aaa; font-size: 0.75rem;">Seconds</label>
+                                    <input type="number" id="customSecsInput" min="0" max="59" value="30" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
                                 </div>
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                                     <label for="customIncInput" style="color: #8a8aaa; font-size: 0.75rem;">Increment (s)</label>
@@ -353,7 +358,7 @@
                 </div>
             </div>
 
-            <div class="status-bar" id="statusBar" style="height: 22px; box-sizing: border-box;">
+            <div class="status-bar" id="statusBar">
                 <div id="replayControls" class="replay-controls hidden">
                     <button id="firstReplayBtn">⏮</button>
                     <button id="prevReplayBtn">◀</button>
