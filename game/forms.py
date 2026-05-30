@@ -1,9 +1,10 @@
+from smtplib import SMTPException
+
 from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
 from django.core.mail import BadHeaderError
-from smtplib import SMTPException
 
 
 USERNAME_MIN_LENGTH = 3
