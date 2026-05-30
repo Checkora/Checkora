@@ -6,8 +6,10 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from game.forms import CustomSetPasswordForm
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+path('accounts/', include('allauth.urls')),
     path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
     path('sitemap.xml', TemplateView.as_view(template_name="sitemap.xml", content_type="application/xml")),
     path('', include('game.urls')),

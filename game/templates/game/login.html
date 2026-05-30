@@ -1,4 +1,5 @@
 {% load static %}
+{% load socialaccount %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -53,6 +54,9 @@
                 </label>
             </div>
             <button type="submit" class="btn btn-gold">Sign In</button>
+            <a href="{% provider_login_url 'google' %}" class="btn btn-google">
+    Continue with Google
+</a>
         </form>
         
         <div class="auth-footer">

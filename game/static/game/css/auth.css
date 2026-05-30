@@ -232,7 +232,19 @@ body {
     border-radius: 50%;
     animation: btn-spin 0.6s linear infinite;
 }
-
+.btn-google {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: white;
+    color: black;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    border: 1px solid #ccc;
+    font-weight: 600;
+}
 .auth-footer {
     margin-top: 16px;
     text-align: center;
