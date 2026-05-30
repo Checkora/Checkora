@@ -71,6 +71,9 @@
         if (usernameInput) {
             let debounceTimer;
             let latestVal = '';
+            const minUsernameLength = Number(
+                usernameInput.getAttribute('minlength') || 3
+            );
             const feedback = document.createElement('span');
 
             feedback.className = 'helptext';
@@ -86,8 +89,8 @@
                     return;
                 }
 
-                if (val.length < 3) {
-                    feedback.textContent = 'Username must be at least 3 characters long';
+                if (val.length < minUsernameLength) {
+                    feedback.textContent = `Username must be at least ${minUsernameLength} characters long`;
                     feedback.style.color = '#e57373';
                     return;
                 }

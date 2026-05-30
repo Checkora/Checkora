@@ -16,7 +16,11 @@ from django.test import (
 )
 
 from .engine import ChessGame
-from .forms import CustomSetPasswordForm, CustomUserCreationForm
+from .forms import (
+    CustomSetPasswordForm,
+    CustomUserCreationForm,
+    USERNAME_MIN_LENGTH,
+)
 
 
 class EnginePathResolutionTest(SimpleTestCase):
@@ -151,7 +155,10 @@ class RegistrationViewTest(TestCase):
     def test_username_field_has_minlength_attribute(self):
         form = CustomUserCreationForm()
 
-        self.assertEqual(form.fields['username'].widget.attrs.get('minlength'), '3')
+        self.assertEqual(
+            form.fields['username'].widget.attrs.get('minlength'),
+            str(USERNAME_MIN_LENGTH),
+        )
 
     @override_settings(
         DEBUG=True,

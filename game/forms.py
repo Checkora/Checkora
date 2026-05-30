@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
+from django.core.mail import BadHeaderError
+from smtplib import SMTPException
 
 
 USERNAME_MIN_LENGTH = 3
@@ -71,8 +73,8 @@ class CustomPasswordResetForm(PasswordResetForm):
                 from_email,
                 to_email,
                 html_email_template_name)
-        except Exception:
+        except (SMTPException, BadHeaderError, OSError) as err:
             raise ValidationError(
                 'Failed to send password reset email. '
                 'Please check your email configuration and try again.'
-            )
+            ) from err
