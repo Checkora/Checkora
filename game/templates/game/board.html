@@ -736,7 +736,9 @@
     <script src="{% static 'game/js/board.js' %}"></script>
 
     <script>
-document.getElementById('shareResultBtn').addEventListener('click', function () {
+const shareResultBtn = document.getElementById('shareResultBtn');
+if (shareResultBtn) {
+shareResultBtn.addEventListener('click', function () {
     const title = document.getElementById('gameOverTitle').innerText.trim();
     const message = document.getElementById('gameOverMessage').innerText.trim();
     const whiteName = document.getElementById('whiteNameLabel').innerText.trim();
@@ -788,6 +790,7 @@ ${message}
         modal.style.display = 'none';
     };
 });
+}
 </script>
 
 </body>
