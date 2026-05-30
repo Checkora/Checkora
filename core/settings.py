@@ -148,15 +148,15 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Session Cookie Security
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True').lower() in ('true', '1')
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'True').lower() in ('true', '1')
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 # SSL Redirect
-SECURE_SSL_REDIRECT = not DEBUG and not os.environ.get('CI')
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1') and not os.environ.get('CI')
 
 
 # Email Configuration for OTP and Password Reset EMails
