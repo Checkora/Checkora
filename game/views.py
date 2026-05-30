@@ -5,7 +5,6 @@ import time
 import hashlib
 import secrets
 import re
-import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -1128,7 +1127,7 @@ def cleanup_cron(request):
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
     
-    if not cron_secret or not secrets_module.compare_digest(expected, provided):
+    if not cron_secret or not secrets.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
     
     try:
