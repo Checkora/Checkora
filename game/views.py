@@ -847,6 +847,8 @@ def resend_otp(request):
     ).hexdigest()
 
     request.session['registration_otp_hash'] = otp_hash
+    request.session['otp_created_at'] = time.time()
+    request.session.modified = True
 
     try:
         send_mail(
