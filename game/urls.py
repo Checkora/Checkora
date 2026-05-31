@@ -28,6 +28,9 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('rules/', views.rules, name='rules'),
     path('logout/', views.logout_view, name='logout'),
+    
+    path('delete-account/', views.delete_account, name='delete_account'),
+    path('confirm-delete/<uidb64>/<token>/', views.confirm_delete_account, name='confirm_delete_account'),
 
     # Privacy Policy Fallback Router
     path('privacy.html', views.privacy_view, name='privacy'),
@@ -42,4 +45,6 @@ urlpatterns = [
         views.password_reset_account_selection,
         name='password_reset_account_selection'
     ),
-]
+    
+    
+]   
