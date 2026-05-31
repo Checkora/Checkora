@@ -752,7 +752,14 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
+            # Hash OTP with SECRET_KEY as a secret salt.
+            # CRITICAL SECURITY WARNING: Because Checkora is deployed statelessly, the session backend
+            # is configured to 'signed_cookies'. Signed cookie data is stored in the browser and is
+            # client-readable (base64-encoded). Since a 6-digit OTP space has only 1,000,000 possibilities,
+            # hashing the OTP alone is highly vulnerable to offline brute-force pre-image attacks.
+            # Keying/salting the hash with the server's private settings.SECRET_KEY converts it to a
+            # HMAC-equivalent hash, preventing offline brute-force attacks unless settings.SECRET_KEY itself is compromised.
+            # DO NOT remove settings.SECRET_KEY from this hash!
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
             request.session['otp_created_at'] = time.time()
@@ -961,6 +968,14 @@ def resend_otp(request):
 
     otp = str(secrets.randbelow(900000) + 100000)
 
+    # Hash OTP with SECRET_KEY as a secret salt.
+    # CRITICAL SECURITY WARNING: Because Checkora is deployed statelessly, the session backend
+    # is configured to 'signed_cookies'. Signed cookie data is stored in the browser and is
+    # client-readable (base64-encoded). Since a 6-digit OTP space has only 1,000,000 possibilities,
+    # hashing the OTP alone is highly vulnerable to offline brute-force pre-image attacks.
+    # Keying/salting the hash with the server's private settings.SECRET_KEY converts it to a
+    # HMAC-equivalent hash, preventing offline brute-force attacks unless settings.SECRET_KEY itself is compromised.
+    # DO NOT remove settings.SECRET_KEY from this hash!
     otp_hash = hashlib.sha256(
         f"{otp}:{settings.SECRET_KEY}".encode()
     ).hexdigest()
