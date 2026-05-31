@@ -29,7 +29,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ── Inject toggle into every password field ── */
   document.querySelectorAll('input[type="password"]').forEach((input, i) => {
+    if (input.dataset.passwordToggleReady === "true" || input.closest(".pw-input-wrapper")) {
+      return;
+    }
+
     if (!input.id) input.id = "pw-field-" + i;
+    input.dataset.passwordToggleReady = "true";
+
     // This checks if the field name contains 'confirm' or '2' (standard Django naming)
     if (input.name.includes("confirm") || input.name.includes("2")|| input.id.includes("confirm")) {
       input.addEventListener("paste", (e) => {

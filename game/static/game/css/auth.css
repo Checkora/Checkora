@@ -111,6 +111,27 @@ body {
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
     max-height: 90vh;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #f0c040 #10101d;
+}
+
+.auth-card::-webkit-scrollbar {
+    width: 8px;
+}
+
+.auth-card::-webkit-scrollbar-track {
+    background: #10101d;
+    border-radius: 999px;
+}
+
+.auth-card::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #f0c040, #8a6f1f);
+    border: 2px solid #10101d;
+    border-radius: 999px;
+}
+
+.auth-card::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #ffd96a, #b89528);
 }
 
 .form-group { margin-bottom: 14px; }
@@ -282,6 +303,10 @@ body {
 }
 .pw-input-wrapper input {
     padding-right: 2.5rem;
+}
+.pw-input-wrapper input::-ms-reveal,
+.pw-input-wrapper input::-ms-clear {
+    display: none;
 }
 .pw-toggle {
     position: absolute;
