@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
-
+from django.core.cache import cache
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -10,22 +10,37 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('email',)
 
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            if User.objects.filter(username__iexact=username, is_active=True).exists():
+                raise ValidationError("A user with that username already exists.")
+                
+            lock_session = cache.get(f"otp_lock:username:{username.lower()}")
+            if lock_session and self.request and self.request.session.session_key != lock_session:
+                raise ValidationError("This username is temporarily reserved. Please choose another or try again later.")
+        return username
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if email:
             from django.contrib.auth import get_user_model
             User = get_user_model()
-            if User.objects.filter(email__iexact=email).exists():
+            if User.objects.filter(email__iexact=email, is_active=True).exists():
                 raise ValidationError(
                     "A user with this email address already exists.",
                     code='duplicate_email'
                 )
         return email
 
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
 
 class CustomSetPasswordForm(SetPasswordForm):
-    """Prevent password resets from reusing the account's current password."""
-
     def clean(self):
         cleaned_data = super().clean()
         new_password = cleaned_data.get('new_password2')
@@ -44,10 +59,7 @@ class CustomSetPasswordForm(SetPasswordForm):
             )
         return cleaned_data
 
-
 class CustomPasswordResetForm(PasswordResetForm):
-    """Prevent password resets from reusing the account's current password."""
-
     def send_mail(
         self,
         subject_template_name,
