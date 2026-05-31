@@ -4,8 +4,8 @@ import json
 import time
 import hashlib
 import secrets
-import re
 import secrets as secrets_module
+import re
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -159,6 +159,7 @@ def _game_response_data(game, request=None, meta=None, extra=None):
     if extra:
         data.update(extra)
     return data
+
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
