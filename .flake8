@@ -1,0 +1,19 @@
+[flake8]
+extend-exclude =
+    venv,
+    .venv,
+    .vercel,
+    CodeGraphContext,
+    node_modules,
+    staticfiles,
+    .tmp
+extend-ignore =
+    E231,
+    E261,
+    E302,
+    E402,
+    E501,
+    E701,
+    F401,
+    W291,
+    W293

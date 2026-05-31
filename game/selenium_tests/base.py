@@ -1,5 +1,9 @@
 """Base class for Checkora Selenium E2E tests."""
 
+import shutil
+import tempfile
+from pathlib import Path
+
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -51,11 +55,22 @@ class BaseE2ETest(StaticLiveServerTestCase):
     def setUpClass(cls):
         super().setUpClass()
 
+        tmp_root = Path(__file__).resolve().parents[2] / ".tmp"
+        tmp_root.mkdir(exist_ok=True)
+        cls.chrome_profile_dir = tempfile.mkdtemp(
+            prefix="checkora-chrome-profile-",
+            dir=tmp_root,
+        )
         chrome_options = Options()
-        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-crash-reporter")
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--no-default-browser-check")
+        chrome_options.add_argument("--remote-debugging-port=0")
+        chrome_options.add_argument(f"--user-data-dir={cls.chrome_profile_dir}")
         chrome_options.add_argument("--window-size=1920,1080")
 
         try:
@@ -74,6 +89,8 @@ class BaseE2ETest(StaticLiveServerTestCase):
         if hasattr(cls, 'driver'):
             cls.driver.quit()
             log_info("Chrome WebDriver closed")
+        if hasattr(cls, 'chrome_profile_dir'):
+            shutil.rmtree(cls.chrome_profile_dir, ignore_errors=True)
         super().tearDownClass()
 
     def _start_pvp_game(self):

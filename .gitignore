@@ -46,6 +46,7 @@ staticfiles/
 .DS_Store
 Thumbs.db
 tempCodeRunnerFile*
+.tmp/
 
 # ========================
 # OS
