@@ -1,11 +1,12 @@
-{% load static %}
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Rulebook – Checkora</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/scroll_to_top.css' %}">
     <style>
 
         :root {
@@ -90,11 +91,11 @@
         .header-subtitle {
             margin: 0;
             font-size: 0.82rem;
-            color: #4fc3f7;        
+            color: #4fc3f7;
             font-weight: 700;
             letter-spacing: 0.14em;
             text-transform: uppercase;
-            border-left: 2px solid #2c3245;   
+            border-left: 2px solid #2c3245;
             padding-left: 14px;
         }
 
@@ -639,7 +640,7 @@
     <header>
         <div class="header-left">
             <a href="{% url 'landing' %}" class="logo">
-                <img src="{% static 'game/checkora_icon_only.png' %}" 
+                <img src="{% static 'game/checkora_icon_only.png' %}"
                     style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
                 <span>Checkora</span>
             </a>
@@ -1354,5 +1355,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+<script src="{% static 'game/js/scroll_to_top.js' %}" defer></script>
 </body>
 </html>

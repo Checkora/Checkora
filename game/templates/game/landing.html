@@ -81,6 +81,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
+    <link rel="stylesheet" href="{% static 'game/css/scroll_to_top.css' %}" />
   </head>
 
   <body>
@@ -373,7 +374,7 @@
       <div class="faq-container">
         <h2 class="section-title">Frequently Asked Questions</h2>
         <p class="faq-subtitle">Everything you need to know about the Checkora chess platform architecture and functionality.</p>
-        
+
         <div class="faq-wrapper">
           <div class="faq-item">
             <button class="faq-question">
@@ -475,8 +476,8 @@
             </li>
             <li class="maintainer-item">
               <span class="footer-meta-text">
-                Maintainers: 
-                <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">@triemerge</a> &amp; 
+                Maintainers:
+                <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">@triemerge</a> &amp;
                 <a href="https://github.com/EDWARD-012" target="_blank" rel="noopener noreferrer">@EDWARD-012</a>
               </span>
             </li>
@@ -487,7 +488,7 @@
           <h4>Legal</h4>
           <ul class="footer-nav-list">
             <li><a href="#" class="footer-link" data-modal-trigger="privacyModal">Privacy Policy</a></li>
-            <li><a href="#" class="footer-link" onclick="openTermsModal(); return false;">Terms & Conditions</a></li>     
+            <li><a href="#" class="footer-link" onclick="openTermsModal(); return false;">Terms & Conditions</a></li>
              <li><a href="{% url 'contact' %}" class="footer-link">Contact Us</a></li>
           </ul>
         </div>
@@ -518,13 +519,13 @@
         <span class="btn-arrow">^</span>
       </button>
     </div>
-  
+
     <script>
       const backToTopWrapper = document.getElementById('backToTopWrapper');
       window.addEventListener('scroll', () => {
         backToTopWrapper.classList.toggle('visible', window.scrollY > 300);
       });
-    
+
       document.querySelectorAll('.faq-question').forEach(button => {
         button.addEventListener('click', () => {
           const faqItem = button.parentElement;
@@ -543,38 +544,38 @@
           }
         });
       });
-    
+
       document.addEventListener('DOMContentLoaded', function() {
         const privacyModal = document.getElementById('privacyModal');
         if (!privacyModal) return;
         const privacyInner = privacyModal.querySelector('[tabindex="-1"]');
         if (!privacyInner) return;
         let lastFocused;
-    
+
         window.openPrivacyModal = function(e) {
           lastFocused = e ? e.target : document.activeElement;
           privacyModal.style.display = 'flex';
           privacyInner.focus();
         };
-    
+
         window.closePrivacyModal = function() {
           privacyModal.style.display = 'none';
           if (lastFocused) lastFocused.focus();
         };
-    
+
         document.querySelector('[data-modal-trigger="privacyModal"]').addEventListener('click', function(e) {
           e.preventDefault();
           openPrivacyModal(e);
         });
-    
+
         privacyModal.addEventListener('click', function(e) {
           if (e.target === privacyModal) closePrivacyModal();
         });
-    
+
         document.addEventListener('keydown', function(e) {
           if (e.key === 'Escape' && privacyModal.style.display === 'flex') closePrivacyModal();
         });
-    
+
         privacyModal.addEventListener('keydown', function(e) {
           if (e.key === 'Tab') {
             const focusable = privacyModal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
