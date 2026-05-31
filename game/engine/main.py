@@ -310,6 +310,30 @@ def leaves_king_in_check(move, side):
     return in_check
 
 
+def handle_validate(turn, fr, fc, tr, tc):
+    if not validate_move(turn, fr, fc, tr, tc, silent=True):
+        print('INVALID Illegal move')
+        return
+
+    piece = BOARD[fr][fc]
+    move = Move(
+        fr=fr,
+        fc=fc,
+        tr=tr,
+        tc=tc,
+        promo_piece=(
+            ('Q' if is_white(piece) else 'q')
+            if is_promotion_move(piece, tr)
+            else NO_PROMOTION
+        ),
+    )
+    if leaves_king_in_check(move, turn):
+        print('INVALID Leaves king in check')
+        return
+
+    print('VALID')
+
+
 def handle_moves(turn, row, col):
     piece = BOARD[row][col]
     if is_empty(piece) or color_of(piece) != turn:
@@ -768,7 +792,7 @@ def run():
             load_board(board64)
             load_castling_rights(rights)
             load_en_passant(ep_row, ep_col)
-            validate_move(turn, fr, fc, tr, tc)
+            handle_validate(turn, fr, fc, tr, tc)
         elif command == 'MOVES':
             board64 = next(tokens)
             rights = next(tokens)

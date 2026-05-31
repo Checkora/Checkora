@@ -1,7 +1,11 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
 import json
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 from smtplib import SMTPException
 from unittest import mock
@@ -77,6 +81,95 @@ class EnginePathResolutionTest(SimpleTestCase):
                 ChessGame._build_engine_command(candidates[2]),
                 [sys.executable, candidates[2]],
             )
+
+
+class EngineValidateLegalityTest(SimpleTestCase):
+    """Direct engine validation should reject self-check moves."""
+
+    def _run_engine(self, command, engine_path):
+        result = subprocess.run(
+            ChessGame._build_engine_command(engine_path),
+            input=f'{command}\n',
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def _king_pin_board(self):
+        return ''.join(
+            (
+                'k...r...',
+                '........',
+                '........',
+                '........',
+                '........',
+                '........',
+                '....R...',
+                '....K...',
+            )
+        )
+
+    def _python_engine_path(self):
+        return os.path.join(settings.BASE_DIR, 'game', 'engine', 'main.py')
+
+    def _compiled_cpp_engine_path(self, output_dir):
+        compiler = shutil.which('g++')
+        if compiler is None:
+            self.skipTest('g++ is required for C++ engine parity coverage')
+
+        binary_path = os.path.join(output_dir, 'checkora-engine')
+        source_path = os.path.join(
+            settings.BASE_DIR, 'game', 'engine', 'main.cpp'
+        )
+        subprocess.run(
+            [
+                compiler,
+                '-std=c++17',
+                '-O2',
+                '-Wall',
+                '-Wextra',
+                source_path,
+                '-o',
+                binary_path,
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return binary_path
+
+    def test_validate_rejects_move_that_exposes_own_king(self):
+        board = self._king_pin_board()
+
+        response = self._run_engine(
+            f'VALIDATE {board} - white -1 -1 6 4 6 3',
+            self._python_engine_path(),
+        )
+
+        self.assertEqual(response, 'INVALID Leaves king in check')
+
+    def test_validate_rejects_move_that_exposes_own_king_on_cpp_engine(self):
+        board = self._king_pin_board()
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            engine_path = self._compiled_cpp_engine_path(output_dir)
+            response = self._run_engine(
+                f'VALIDATE {board} - white -1 -1 6 4 6 3',
+                engine_path,
+            )
+
+        self.assertEqual(response, 'INVALID Leaves king in check')
+
+    def test_validate_allows_move_that_keeps_king_shielded(self):
+        board = self._king_pin_board()
+
+        response = self._run_engine(
+            f'VALIDATE {board} - white -1 -1 6 4 5 4',
+            self._python_engine_path(),
+        )
+
+        self.assertEqual(response, 'VALID')
 
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
@@ -1439,6 +1532,7 @@ class CheckUsernameViewTest(TestCase):
         """Should return 405 Method Not Allowed for POST requests."""
         response = self.client.post(reverse('check_username'), {'username': 'newuser'})
         self.assertEqual(response.status_code, 405)
+
 
 class PromotionNotationTest(TestCase):
     """Test standard algebraic notation (SAN) generation for pawn promotions."""
