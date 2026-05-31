@@ -27,7 +27,7 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
 from django.core.mail import (
-    BadHeaderError, 
+    BadHeaderError,
     send_mail,
     EmailMultiAlternatives
 )
@@ -177,7 +177,7 @@ def new_game(request):
         data = json.loads(request.body or '{}')
     except json.JSONDecodeError:
         return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
-    
+
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
@@ -338,9 +338,13 @@ def get_state(request):
     else:
         game = ChessGame.from_dict(game_data)
 
-        # Skip clock deduction if tab was closed for too long
+        # Skip clock deduction if tab was closed for too long, except while
+        # the AI is legitimately calculating its move.
         elapsed = time.time() - game.last_ts
-        if elapsed > 10 and not game.paused:
+        ai_turn_in_progress = (
+            game.mode == 'ai' and game.current_turn != game.player_color
+        )
+        if elapsed > 10 and not game.paused and not ai_turn_in_progress:
             game.paused = True  # pause without deducting lost time
         else:
             game.update_clock()
@@ -576,12 +580,12 @@ def register_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
-        
+
         # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
         if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
             username = request.POST.get('username')
             email = request.POST.get('email')
-            
+
             if username and email:
                 deleted = False
                 # 1. Exact match (User retrying with the exact same details)
@@ -597,7 +601,7 @@ def register_view(request):
                     if User.objects.filter(email=email, is_active=False).exists():
                         User.objects.filter(email=email, is_active=False).delete()
                         deleted = True
-                
+
                 if deleted:
                     # Re-validate the form now that conflicts are cleared
                     form = CustomUserCreationForm(request.POST)
@@ -745,10 +749,10 @@ def verify_otp(request):
                     )
                     email.attach_alternative(html_content,"text/html")
                     email.send(fail_silently=True)
-                
+
                 except Exception as e:
                     logger.warning("Failed to send welcome email: %s", e)
-                    
+
                 login(request, user)
                 messages.success(
                     request,
@@ -1031,14 +1035,14 @@ def login_view(request):
             user = form.get_user()
             login(request, user)
             request.session.cycle_key()  # Prevent session fixation
-            
+
             remember_me = request.POST.get('remember_me')
-            
+
             if remember_me:
                 request.session.set_expiry(1209600)  # 2 weeks
             else:
                 request.session.set_expiry(0)# Browser close
-                
+
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
             return redirect('index')
 
@@ -1100,15 +1104,15 @@ def stats_view(request):
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, 'CRON_SECRET', None)
-    
+
     # Check authorization header
     auth_header = request.headers.get('Authorization')
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
-    
+
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
-    
+
     try:
         deleted, resigned = cleanup_stale_games()
         return JsonResponse({
@@ -1218,7 +1222,7 @@ If this wasn't you, ignore this email.
         request,
         'game/delete_account.html'
     )
-    
+
 
 def confirm_delete_account(request, uidb64, token):
 

@@ -728,6 +728,28 @@ class GameStateTest(TestCase):
         self.assertEqual(data['white_time'], 600)
         self.assertEqual(data['black_time'], 600)
 
+    def test_get_state_keeps_ai_turn_active_during_long_calculation(self):
+        game = ChessGame()
+        game.mode = 'ai'
+        game.player_color = 'white'
+        game.current_turn = 'black'
+        game.paused = False
+        game.last_ts = 100.0
+        game.white_time = 600
+        game.black_time = 600
+        self._set_game_session(game)
+
+        with (
+            mock.patch('game.views.time.time', return_value=111.0),
+            mock.patch('game.engine.time.time', return_value=111.0),
+        ):
+            response = self.client.get('/api/state/')
+
+        data = response.json()
+        self.assertFalse(data['paused'])
+        self.assertEqual(data['white_time'], 600)
+        self.assertEqual(data['black_time'], 589)
+
 class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
