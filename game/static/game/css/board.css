@@ -1168,6 +1168,12 @@ body {
     gap: 6px;
 }
 
+/* Ensure timers are always present/visible after game start (Selenium visibility assertions) */
+#whiteTime, #blackTime {
+    display: inline;
+}
+
+
 .clock .label {
     font-size: clamp(0.5rem, 0.8vw, 0.6rem);
     letter-spacing: -0.1px;

@@ -3,6 +3,8 @@ from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
 
+from .forms_avatar import AvatarUploadForm
+
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
