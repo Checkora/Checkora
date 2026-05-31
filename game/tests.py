@@ -1,5 +1,6 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
+import hashlib
 import json
 import sys
 import time
@@ -150,12 +151,16 @@ class RegistrationViewTest(TestCase):
             'password2': 'StrongPass123!',
         }
 
-        with mock.patch('builtins.print') as mock_print:
+        with (
+            mock.patch('builtins.print') as mock_print,
+            mock.patch('game.views.time.time', return_value=1234567.0),
+        ):
             response = self.client.post('/register/', data=payload, follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
         self.assertNotContains(response, 'Development mode OTP')
         self.assertTrue(User.objects.filter(username='devplayer').exists())
+        self.assertEqual(self.client.session['last_otp_time'], 1234567.0)
         printed_messages = ' '.join(
             str(arg)
             for call in mock_print.call_args_list
@@ -163,6 +168,58 @@ class RegistrationViewTest(TestCase):
         )
         self.assertIn('Development registration OTP', printed_messages)
         self.assertIn('devplayer@example.com', printed_messages)
+
+    @override_settings(
+        DEBUG=False,
+        EMAIL_HOST_USER='sender@example.com',
+        EMAIL_HOST_PASSWORD='app-password'
+    )
+    def test_successful_email_registration_starts_resend_cooldown(self):
+        payload = {
+            'username': 'emailplayer',
+            'email': 'emailplayer@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        with (
+            mock.patch('game.views.send_mail') as mock_send_mail,
+            mock.patch('game.views.time.time', return_value=7654321.0),
+        ):
+            response = self.client.post('/register/', data=payload)
+
+        self.assertRedirects(response, '/verify-otp/', fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(username='emailplayer', is_active=False).exists())
+        self.assertTrue(mock_send_mail.called)
+        self.assertEqual(self.client.session['last_otp_time'], 7654321.0)
+
+    def test_successful_otp_verification_clears_resend_cooldown(self):
+        user = User.objects.create_user(
+            username='verifiedplayer',
+            email='verifiedplayer@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        otp = '123456'
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = hashlib.sha256(
+            f"{otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+        session['otp_created_at'] = 1234500.0
+        session['last_otp_time'] = 1234567.0
+        session.save()
+
+        with mock.patch('game.views.time.time', return_value=1234568.0):
+            response = self.client.post('/verify-otp/', {'otp': otp})
+
+        self.assertRedirects(response, reverse('index'), fetch_redirect_response=False)
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertNotIn('registration_user_id', self.client.session)
+        self.assertNotIn('registration_otp_hash', self.client.session)
+        self.assertNotIn('otp_created_at', self.client.session)
+        self.assertNotIn('last_otp_time', self.client.session)
 
     @override_settings(
         EMAIL_HOST_USER='sender@example.com',
@@ -185,6 +242,8 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
+        self.assertNotIn('last_otp_time', self.client.session)
+        self.assertNotIn('otp_created_at', self.client.session)
 
     def test_duplicate_email_registration_fails(self):
         User.objects.create_user(

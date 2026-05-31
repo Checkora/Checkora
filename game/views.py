@@ -622,6 +622,7 @@ def register_view(request):
             )
 
             if settings.DEBUG and missing_email_credentials:
+                request.session['last_otp_time'] = time.time()
                 print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
                 return redirect('verify_otp')
 
@@ -666,12 +667,15 @@ def register_view(request):
                     fail_silently=False,
                     html_message=html_message
                 )
+                request.session['last_otp_time'] = time.time()
                 return redirect('verify_otp')
             except (SMTPException, BadHeaderError, OSError):
                 # If email fails, delete the user so they can try again
                 user.delete()
                 request.session.pop('registration_user_id', None)
                 request.session.pop('registration_otp_hash', None)
+                request.session.pop('last_otp_time', None)
+                request.session.pop('otp_created_at', None)
                 err_msg = (
                     'Failed to send OTP email. '
                     'Please check your email address and try again.'
@@ -707,6 +711,7 @@ def verify_otp(request):
                 request.session.pop('registration_otp_hash', None)
                 request.session.pop('otp_created_at', None)
                 request.session.pop('registration_user_id', None)
+                request.session.pop('last_otp_time', None)
 
                 return redirect('register')
 
@@ -727,6 +732,7 @@ def verify_otp(request):
                 user.save()
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
+                request.session.pop('last_otp_time', None)
                 request.session.pop('otp_created_at', None)
 
                 try:
