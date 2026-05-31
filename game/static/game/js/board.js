@@ -589,13 +589,6 @@
 
                 const data = await get('/api/state/');
 
-                if (data.time_limit !== undefined) {
-                    selectedMins = data.time_limit / 60;
-                }
-                if (data.increment !== undefined) {
-                    selectedIncrement = data.increment;
-                }
-
                 board = parseBoard(data.board);
                 turn = data.current_turn;
                 whiteTime = data.white_time;
@@ -1591,52 +1584,6 @@
                 return false;
             }
 
-            function detectOpening(moves) {
-                if (!moves || moves.length === 0) return 'Standard Game';
-                
-                const m1 = moves[0];
-                const m2 = moves[1];
-                const m3 = moves[2];
-                const m4 = moves[3];
-                const m5 = moves[4];
-
-                if (m1 === 'e4') {
-                    if (m2 === 'c5') return 'Sicilian Defense';
-                    if (m2 === 'e5') {
-                        if (m3 === 'Nf3') {
-                            if (m4 === 'Nc6') {
-                                if (m5 === 'Bb5') return 'Ruy Lopez';
-                                if (m5 === 'Bc4') return 'Italian Game';
-                                if (m5 === 'd4') return 'Scotch Game';
-                            }
-                            if (m4 === 'Nf6') return 'Petrov Defense';
-                        }
-                        return 'King\'s Pawn Game';
-                    }
-                    if (m2 === 'e6') return 'French Defense';
-                    if (m2 === 'c6') return 'Caro-Kann Defense';
-                    if (m2 === 'd6') return 'Pirc Defense';
-                }
-                if (m1 === 'd4') {
-                    if (m2 === 'd5') {
-                        if (m3 === 'c4') return 'Queen\'s Gambit';
-                        return 'Queen\'s Pawn Game';
-                    }
-                    if (m2 === 'Nf6') {
-                        if (m3 === 'c4') {
-                            if (m4 === 'e6') return 'Nimzo-Indian Defense';
-                            if (m4 === 'g6') return 'King\'s Indian Defense';
-                        }
-                        return 'Indian Defense';
-                    }
-                }
-                if (m1 === 'Nf3') return 'Réti Opening';
-                if (m1 === 'c4') return 'English Opening';
-                if (m1 === 'f4') return 'Bird\'s Opening';
-                
-                return 'Open Game';
-            }
-
             function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
@@ -1652,62 +1599,51 @@
                 }
             
                 let title = '', message = '';
-                
-                // Determine PVP or AI result relative to current player color
-                const isWon = reason === 'checkmate' || reason === 'resign' || reason === 'timeout';
-                const winnerColor = isWon ? (color === 'white' ? 'black' : 'white') : null;
-                
-                let resultState = 'draw'; // 'victory', 'defeat', 'draw'
-                if (isWon) {
-                    if (gameMode === 'ai') {
-                        resultState = (winnerColor === playerColor) ? 'victory' : 'defeat';
-                    } else {
-                        resultState = 'victory'; // Celebrate PvP victory for either side
-                    }
-                }
-                
-                let isCelebration = (resultState === 'victory');
+                let isCelebration = false; // Track if this is a win (not draw/stalemate)
             
                 if (reason === 'checkmate') {
+                    const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
-                    title = 'Checkmate';
-                    message = `${winnerName} Wins!`;
+                    title = '🏆 CHECKMATE! 🏆';
+                    message = `${winnerName} WINS!`;
+                    isCelebration = true;
                 } else if (reason === 'stalemate') {
-                    title = 'Stalemate';
+                    title = 'Stalemate!';
                     message = 'The game is a draw.';
                 } else if (reason === 'draw') {
-                    title = 'Draw';
+                    title = 'Draw!';
                     const drawMessages = {
                         agreement: 'Draw by agreement.',
-                        threefold_repetition: 'Draw by repetition.',
-                        fifty_move_rule: 'Draw by fifty-move rule.',
+                        threefold_repetition: 'Draw by threefold repetition.',
+                        fifty_move_rule: 'Draw by the fifty-move rule.',
                         insufficient_material: 'Draw by insufficient material.',
                     };
                     message = drawMessages[drawReason] || 'The game is a draw.';
                 } else if (reason === 'resign') {
+                    const winner = color === 'white' ? 'Black' : 'White';
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = 'Victory';
-                    message = `${loserName} resigned. ${winnerName} Wins!`;
+                    title = '🏆 VICTORY! 🏆';
+                    message = `${loserName} resigned. ${winnerName} WINS!`;
+                    isCelebration = true;
                 } else if (reason === 'timeout') {
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     const loserName = color === 'white' ? whiteNameLabel.textContent : blackNameLabel.textContent;
-                    title = 'Timeout';
-                    message = `${loserName} ran out of time. ${winnerName} Wins!`;
+                    title = 'Timeout!';
+                    message = `${loserName} ran out of time. ${winnerName} wins!`;
                 }
-                
                 if (resignBtn) resignBtn.style.display = 'none';
                 if (drawBtn) drawBtn.style.display = 'none';
                 if (pauseBtn) pauseBtn.style.display = 'none';
-                if (newPvPBtn) newPvPBtn.style.display = '';
-                if (newAIBtn) newAIBtn.style.display = '';
+                if (newPvPBtn) newPvPBtn.style.display = gameMode === 'pvp' ? '' : 'none';
+                if (newAIBtn) newAIBtn.style.display = gameMode === 'ai' ? '' : 'none';
                 if (newFenBtn) newFenBtn.style.display = '';
 
                 let durationText = '';
 
                 if (gameStartTime) {
                     const duration = Date.now() - gameStartTime;
-                    durationText = formatGameDuration(duration);
+                    durationText = `\nGame duration: ${formatGameDuration(duration)}.`;
                 }
                 
                 replayMoves = [];
@@ -1717,18 +1653,21 @@
                 const moveSpans = document.querySelectorAll('.move-white, .move-black');
 
                 moveSpans.forEach(span => {
-                    const move = span.textContent
-                        ?.replace(/[+#]/g, '')
-                        ?.replace(/\s+/g, '')
-                        ?.trim();
 
-                    if (move && move !== '...') {
-                        console.log("Replay move added:", move);
-                        replayMoves.push(move);
-                    }
-                });
+                const move = span.textContent
+                    ?.replace(/[+#]/g, '')
+                    ?.replace(/\s+/g, '')
+                    ?.trim();
 
-                console.log("FINAL REPLAY MOVES:", replayMoves);
+                if (move && move !== '...') {
+
+                    console.log("Replay move added:", move);
+
+                    replayMoves.push(move);
+                }
+            });
+
+            console.log("FINAL REPLAY MOVES:", replayMoves);
 
                 if (window.Chess) {
                     replayBoard = new window.Chess();
@@ -1888,129 +1827,21 @@
                 }
 
                 const durationElement = document.getElementById('gameDurationText');
+                
                 if (durationElement) {
-                    durationElement.textContent = durationText || '00:00';
+                    durationElement.textContent = durationText;
                 }
+                const gameOverPvPMode = document.getElementById('gameOverPvPMode');
+const gameOverAiMode = document.getElementById('gameOverAiMode');
 
-                // 4. Material Difference and Cloned Captured Pieces
-                const { white: whiteMat, black: blackMat } = calculateMaterial(board);
-                const resMatDiffEl = document.getElementById('resMaterialDiff');
-                if (resMatDiffEl) {
-                    if (whiteMat === blackMat) {
-                        resMatDiffEl.textContent = 'Even';
-                    } else if (whiteMat > blackMat) {
-                        resMatDiffEl.textContent = `White +${whiteMat - blackMat}`;
-                    } else {
-                        resMatDiffEl.textContent = `Black +${blackMat - whiteMat}`;
-                    }
-                }
-
-                const modalWhiteCap = document.getElementById('modalWhiteCaptured');
-                const modalBlackCap = document.getElementById('modalBlackCaptured');
-                if (modalWhiteCap && wCapEl) {
-                    modalWhiteCap.innerHTML = '';
-                    Array.from(wCapEl.children).forEach(child => {
-                        modalWhiteCap.appendChild(child.cloneNode(true));
-                    });
-                }
-                if (modalBlackCap && bCapEl) {
-                    modalBlackCap.innerHTML = '';
-                    Array.from(bCapEl.children).forEach(child => {
-                        modalBlackCap.appendChild(child.cloneNode(true));
-                    });
-                }
-
-                // 5. Dynamic Achievements detection
-                const achievementsListEl = document.getElementById('resAchievementsList');
-                const achievementsSectionEl = document.getElementById('resAchievementsSection');
-                
-                if (achievementsListEl) {
-                    achievementsListEl.innerHTML = '';
-                    const badges = [];
-
-                    if (reason === 'timeout') {
-                        badges.push({ text: 'Won on Time', icon: '⏱️' });
-                    }
-                    if (reason === 'checkmate') {
-                        badges.push({ text: 'Master Tactician', icon: '🧩' });
-                    }
-                    
-                    let hasWhiteQueen = false;
-                    let hasBlackQueen = false;
-                    for (let r = 0; r < 8; r++) {
-                        for (let c = 0; c < 8; c++) {
-                            if (board[r][c] === 'Q') hasWhiteQueen = true;
-                            if (board[r][c] === 'q') hasBlackQueen = true;
-                        }
-                    }
-                    
-                    const wPoints = parseInt(document.getElementById('whitePoints')?.textContent.replace('+', '')) || 0;
-                    const bPoints = parseInt(document.getElementById('blackPoints')?.textContent.replace('+', '')) || 0;
-
-                    if (isWon) {
-                        if (winnerColor === 'white' && hasWhiteQueen) {
-                            badges.push({ text: 'Queen Survived', icon: '👑' });
-                        } else if (winnerColor === 'black' && hasBlackQueen) {
-                            badges.push({ text: 'Queen Survived', icon: '👑' });
-                        }
-                        
-                        if (replayMoves.length <= 30) {
-                            badges.push({ text: 'Lightning Fast', icon: '⚡' });
-                        }
-                        
-                        if (winnerColor === 'white' && wPoints >= 15) {
-                            badges.push({ text: 'Fierce Attacker', icon: '⚔️' });
-                        } else if (winnerColor === 'black' && bPoints >= 15) {
-                            badges.push({ text: 'Fierce Attacker', icon: '⚔️' });
-                        }
-                    } else {
-                        if (whiteMat < blackMat) {
-                            badges.push({ text: 'Resilient Defense (White)', icon: '🛡️' });
-                        } else if (blackMat < whiteMat) {
-                            badges.push({ text: 'Resilient Defense (Black)', icon: '🛡️' });
-                        }
-                    }
-                    
-                    if (badges.length === 0) {
-                        badges.push({ text: 'Good Game', icon: '🤝' });
-                    }
-                    
-                    badges.forEach(badge => {
-                        const badgeDiv = document.createElement('div');
-                        badgeDiv.className = 'achievement-badge';
-                        badgeDiv.innerHTML = `<span class="achievement-badge-icon">${badge.icon}</span> ${badge.text}`;
-                        achievementsListEl.appendChild(badgeDiv);
-                    });
-                    
-                    if (achievementsSectionEl) {
-                        achievementsSectionEl.style.display = 'block';
-                    }
-                }
-
-                // 6. Opening Book and Review Highlights
-                const openingNameEl = document.getElementById('resOpeningName');
-                if (openingNameEl) {
-                    openingNameEl.textContent = detectOpening(replayMoves);
-                }
-                
-                const bestMoveEl = document.getElementById('resBestMove');
-                if (bestMoveEl) {
-                    const highlightMoves = replayMoves.filter(m => m.includes('+') || m.includes('x'));
-                    if (highlightMoves.length > 0) {
-                        bestMoveEl.textContent = `${highlightMoves[highlightMoves.length - 1]} (Excellent)`;
-                    } else if (replayMoves.length > 2) {
-                        bestMoveEl.textContent = `${replayMoves[2]} (Book)`;
-                    } else {
-                        bestMoveEl.textContent = 'Available in full review';
-                    }
-                }
-                
-                const blunderEl = document.getElementById('resBlunder');
-                if (blunderEl) {
-                    blunderEl.textContent = replayMoves.length > 20 ? '1 mistake (Full review)' : 'None';
-                }
-
-                // Delay the overlay and celebration effects by 0.5 seconds
+if (gameMode === 'ai') {
+    if (gameOverAiMode) gameOverAiMode.checked = true;
+    if (gameOverPvPMode) gameOverPvPMode.checked = false;
+} else {
+    if (gameOverPvPMode) gameOverPvPMode.checked = true;
+    if (gameOverAiMode) gameOverAiMode.checked = false;
+}
+                // Delay the overlay and celebration effects by 1 second
                 setTimeout(() => {
                     // Add celebration effects for wins
                     if (isCelebration) {
@@ -2029,15 +1860,15 @@
                     // Trigger fade-in after a short delay
                     setTimeout(() => {
                         gameOverOverlay.style.opacity = '1';
-                    }, 500);
+                    }, 700);
                 }, 500);
                 
                 showStatus(title + ': ' + message, false);
                 
                 // Clean a11y announcement
-                const winnerColorText = color === 'white' ? 'Black' : 'White';
+                const winnerColor = color === 'white' ? 'Black' : 'White';
                 let cleanMsg = reason === 'checkmate' || reason === 'resign' 
-                    ? `Game over. ${winnerColorText} wins by ${reason}.` 
+                    ? `Game over. ${winnerColor} wins by ${reason}.` 
                     : `Game over. Draw by ${reason || 'stalemate'}.`;
                 announceMove(cleanMsg);
                 
@@ -2659,6 +2490,52 @@
                 }
                 if (errorDiv) errorDiv.style.display = 'none';
             }
+            function prepareWelcomeForPvE() {
+    const whiteInput = document.getElementById('whiteNameInput');
+    const blackInput = document.getElementById('blackNameInput');
+    const errorDiv = document.getElementById('nameError');
+
+    // SHOW mode selector (important)
+    modeSelection.style.display = 'flex';
+    pveOptions.style.display = 'flex';
+    nameInputs.style.display = 'flex';
+
+    // Set correct mode
+    gameMode = 'ai';
+
+    // highlight mode buttons
+    updateModeButtonsUI('ai');
+
+    if (whiteInput) {
+        whiteInput.style.display = 'block';
+        whiteInput.placeholder = 'Your Name';
+        whiteInput.classList.remove('input-error');
+
+        whiteInput.value =
+            playerColor === 'white'
+                ? (currentWhiteName || '')
+                : (currentBlackName || '');
+    }
+
+    if (blackInput) {
+        blackInput.style.display = 'none';
+        blackInput.value = 'AI';
+        blackInput.classList.remove('input-error');
+    }
+
+    selectedPveColor = playerColor;
+
+    pveOptions.querySelectorAll('.color-choice').forEach(btn => {
+        const active = btn.dataset.color === playerColor;
+        btn.classList.toggle('active', active);
+        btn.style.borderColor = active ? '#f0c040' : '#444';
+    });
+
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+    }
+}
 
             function dismissGameOverOverlay() {
                 gameOverOverlay.classList.remove('active');
@@ -2669,34 +2546,20 @@
                 }
             }
 
-            function openWelcomeForNewGame() {
-                dismissGameOverOverlay();
-                prepareWelcomeForPvP(true);
+function openWelcomeForNewGame() {
+    dismissGameOverOverlay();
 
-                const whiteInput = document.getElementById('whiteNameInput');
-                const blackInput = document.getElementById('blackNameInput');
-                if (whiteInput) {
-                    whiteInput.value = currentWhiteName || '';
-                }
-                if (blackInput) {
-                    const aiNames = ['AI', 'ai'];
-                    blackInput.value = aiNames.includes(currentBlackName) ? '' : (currentBlackName || '');
-                }
-                if (welcomeFenInput) welcomeFenInput.value = '';
-                if (welcomeFenError) welcomeFenError.textContent = '';
+    if (gameMode === 'ai') {
+        prepareWelcomeForPvE();
+    } else {
+        prepareWelcomeForPvP(true);
+    }
 
-                selectedPveColor = 'white';
-                pveOptions?.querySelectorAll('.color-choice').forEach(btn => {
-                    const isWhite = btn.dataset.color === 'white';
-                    btn.classList.toggle('active', isWhite);
-                    btn.style.borderColor = isWhite ? '#f0c040' : '#444';
-                });
+    if (welcomeFenInput) welcomeFenInput.value = '';
+    if (welcomeFenError) welcomeFenError.textContent = '';
 
-                if (welcomeResumeBtn && gameOver) {
-                    welcomeResumeBtn.style.display = 'none';
-                }
-                welcomeOverlay.classList.add('active');
-            }
+    welcomeOverlay.classList.add('active');
+}
 
             if (welcomeFenInput) {
                 welcomeFenInput.addEventListener('keydown', async (e) => {
@@ -3027,29 +2890,28 @@
             };
 
             if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
-                openWelcomeForNewGame();
-            };
-            const resRematchBtn = document.getElementById('resRematchBtn');
-            if (resRematchBtn) {
-                resRematchBtn.onclick = () => {
-                    dismissGameOverOverlay();
-                    const mode = gameMode;
-                    const pColor = playerColor;
-                    const diff = currentDifficulty;
-                    const timeLimitString = `${selectedMins}|${selectedIncrement}`;
-                    startNewGame(mode, pColor, diff, null, timeLimitString, {
-                        white: currentWhiteName,
-                        black: currentBlackName
-                    });
-                };
-            }
-            const resDownloadPgnBtn = document.getElementById('resDownloadPgnBtn');
-            if (resDownloadPgnBtn) {
-                resDownloadPgnBtn.onclick = () => {
-                    const originalBtn = document.getElementById('copyPgnBtn');
-                    if (originalBtn) originalBtn.click();
-                };
-            }
+    dismissGameOverOverlay();
+
+    if (gameMode === 'ai') {
+        prepareWelcomeForPvE();
+
+        const whiteInput = document.getElementById('whiteNameInput');
+        const blackInput = document.getElementById('blackNameInput');
+
+        if (whiteInput) {
+            whiteInput.value = currentWhiteName || '';
+        }
+
+        if (blackInput) {
+            blackInput.value = '';
+        }
+
+    } else {
+        prepareWelcomeForPvP(true);
+    }
+
+    welcomeOverlay.classList.add('active');
+};
            if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
     const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
     if (confettiContainer) confettiContainer.remove();
