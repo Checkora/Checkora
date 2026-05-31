@@ -629,10 +629,10 @@ bool leavesKingInCheck(const Move &m, const string &side) {
 
     // Apply move
     char p = board[m.fr][m.fc];
-    
+
     // En Passant capture: diagonal pawn move to an empty square
     if (tolower(static_cast<unsigned char>(p)) == 'p' && m.fc != m.tc && board[m.tr][m.tc] == '.') {
-        board[m.fr][m.tc] = '.'; 
+        board[m.fr][m.tc] = '.';
     }
 
     board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : p;
@@ -1024,7 +1024,7 @@ int main() {
             loadCastlingRights(rights);
             EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             validateMove(t, fr, fc, tr, tc);
-        } 
+        }
         else if (command == "MOVES") {
             string b, rights, t; int epR, epC, r, c;
             cin >> b >> rights >> t >> epR >> epC >> r >> c;
@@ -1032,7 +1032,7 @@ int main() {
             loadCastlingRights(rights);
             EN_PASSANT_R = epR; EN_PASSANT_C = epC;
             handleMoves(t, r, c);
-        } 
+        }
         else if (command == "ATTACKED") {
             string b, rights, attackerColor; int r, c;
             cin >> b >> rights >> attackerColor >> r >> c;

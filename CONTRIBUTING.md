@@ -79,14 +79,14 @@ Welcome to GSSoC! Here's how the contribution flow works for this project:
 ```bash
 # Create and activate a virtual environment
 python -m venv .venv
-.venv\Scripts\activate         
+.venv\Scripts\activate
 
 # Install Python dependencies
 pip install -r requirements.txt
 
 # Set up environment variables
 # Copy the example file to a local .env file
-copy .env.example .env           
+copy .env.example .env
 
 # Compile (PowerShell with g++ installed)
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main.exe
@@ -102,14 +102,14 @@ python manage.py runserver
 ```bash
 # Create and activate a virtual environment
 python -m venv .venv
-source .venv/bin/activate   
+source .venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt
 
 # Set up environment variables
 # Copy the example file to a local .env file
-cp .env.example .env            
+cp .env.example .env
 
 # Compile the C++ chess engine
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main

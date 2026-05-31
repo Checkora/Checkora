@@ -203,7 +203,7 @@ def valid_queen(fr, fc, tr, tc):
 def valid_king(color, fr, fc, tr, tc):
     if abs(tr - fr) <= 1 and abs(tc - fc) <= 1:
         return True
-        
+
     if fr == tr and abs(tc - fc) == 2:
         if color == 'white' and fr == 7 and fc == 4:
             if tc == 6 and W_K_CASTLE and is_empty(BOARD[7][5]) and is_empty(BOARD[7][6]):
@@ -219,7 +219,7 @@ def valid_king(color, fr, fc, tr, tc):
             if tc == 2 and B_Q_CASTLE and is_empty(BOARD[0][3]) and is_empty(BOARD[0][2]) and is_empty(BOARD[0][1]):
                 if not is_square_attacked(0, 4, 'white') and not is_square_attacked(0, 3, 'white') and not is_square_attacked(0, 2, 'white'):
                     return True
-                    
+
     return False
 
 

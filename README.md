@@ -511,7 +511,7 @@ Depending on your terminal shell or system policies, activating the virtual envi
     | **Fish Shell** | `source venv/bin/activate.fish` |
 
 ### 🛠️ 3. g++ Compiler Installation & Configuration Problems
-Checkora attempts to compile the C++ chess engine locally to maximize Minimax performance. If `g++` is missing or not configured correctly, it will throw compilation errors. 
+Checkora attempts to compile the C++ chess engine locally to maximize Minimax performance. If `g++` is missing or not configured correctly, it will throw compilation errors.
 
 > [!TIP]
 > If `g++` setup is too tricky for your system, you can skip compiling it! Checkora will automatically detect the absence of the binary and fall back to the Python engine in `game/engine/main.py`.
@@ -546,7 +546,7 @@ If migrations fail to run, or database models get out of sync, you may encounter
     ```bash
     # 1. Generate any missing database schema blueprints
     python manage.py makemigrations game
-    
+
     # 2. Safely apply schema blueprints
     python manage.py migrate
     ```
@@ -561,7 +561,7 @@ If you attempt to launch the Django server without setting up a local configurat
     ```bash
     # Windows PowerShell
     copy .env.example .env
-    
+
     # macOS / Linux
     cp .env.example .env
     ```

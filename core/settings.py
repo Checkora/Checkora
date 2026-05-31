@@ -157,7 +157,7 @@ SECURE_SSL_REDIRECT = not DEBUG
 
 # Email Configuration for OTP and Password Reset EMails
 EMAIL_BACKEND = os.getenv(
-    'EMAIL_BACKEND', 
+    'EMAIL_BACKEND',
     'django.core.mail.backends.smtp.EmailBackend'
 )
 EMAIL_HOST = 'smtp.gmail.com'

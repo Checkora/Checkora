@@ -82,7 +82,7 @@
             font-weight: 700;
             letter-spacing: 0.08em;
             color: #f0c040;
-            text-shadow: 
+            text-shadow:
                 0 0 10px rgba(212, 165, 116, 0.5),
                 0 0 20px rgba(212, 165, 116, 0.3);
         }
@@ -90,11 +90,11 @@
         .header-subtitle {
             margin: 0;
             font-size: 0.82rem;
-            color: #4fc3f7;        
+            color: #4fc3f7;
             font-weight: 700;
             letter-spacing: 0.14em;
             text-transform: uppercase;
-            border-left: 2px solid #2c3245;   
+            border-left: 2px solid #2c3245;
             padding-left: 14px;
         }
 
@@ -326,7 +326,7 @@
             50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
             100% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
         }
-        
+
         .move-hint {
             position: absolute;
             top: 50%; left: 50%;
@@ -398,21 +398,21 @@
             overflow: hidden;
         }
 
-        .step:hover { 
-            background: var(--surface); 
-            border-color: var(--border); 
-            color: var(--text); 
+        .step:hover {
+            background: var(--surface);
+            border-color: var(--border);
+            color: var(--text);
             transform: translateX(4px);
         }
-        
-        .step.active { 
-            background: linear-gradient(90deg, rgba(244,196,48,0.1), transparent); 
+
+        .step.active {
+            background: linear-gradient(90deg, rgba(244,196,48,0.1), transparent);
             border-left: 3px solid var(--gold);
-            color: var(--gold); 
+            color: var(--gold);
             font-weight: 500;
             box-shadow: var(--glow);
         }
-        
+
         .step-num {
             width: 24px; height: 24px;
             border-radius: 50%;
@@ -422,9 +422,9 @@
             font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
             transition: all 0.2s;
         }
-        .step.active .step-num { 
-            background: var(--gold); 
-            color: #000; 
+        .step.active .step-num {
+            background: var(--gold);
+            color: #000;
             border-color: var(--gold);
             box-shadow: 0 0 10px var(--gold);
         }
@@ -461,19 +461,19 @@
             transform: scale(1.03);
         }
 
-        .piece-card .piece-emoji { 
-            font-size: 2.2rem; 
+        .piece-card .piece-emoji {
+            font-size: 2.2rem;
             text-shadow: 0 4px 8px rgba(0,0,0,0.5);
             transition: transform 0.2s;
         }
         .piece-card.active .piece-emoji {
             transform: scale(1.1);
         }
-        
-        .piece-card .piece-name { 
-            font-size: 0.8rem; 
-            color: var(--muted); 
-            margin-top: 8px; 
+
+        .piece-card .piece-name {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 8px;
             font-weight: 500;
         }
         .piece-card.active .piece-name { color: var(--gold); }
@@ -639,7 +639,7 @@
     <header>
         <div class="header-left">
             <a href="{% url 'landing' %}" class="logo">
-                <img src="{% static 'game/checkora_icon_only.png' %}" 
+                <img src="{% static 'game/checkora_icon_only.png' %}"
                     style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
                 <span>Checkora</span>
             </a>
@@ -1047,8 +1047,8 @@ function place(id, r, c, piece) {
         sq.textContent = piece[0];
         const isWhite = piece.includes('\u200B');
         sq.style.color = isWhite ? '#ffffff' : '#111111';
-        sq.style.textShadow = isWhite 
-            ? '0 3px 6px rgba(0,0,0,0.8)' 
+        sq.style.textShadow = isWhite
+            ? '0 3px 6px rgba(0,0,0,0.8)'
             : '0 2px 4px rgba(255,255,255,0.3)';
     }
 }

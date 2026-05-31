@@ -298,12 +298,12 @@ jobs:
       - name: Run Bandit scan (fail on HIGH and MEDIUM)
         run: |
           bandit -r . -f txt -ll > bandit-report.txt || true
-      
+
           echo "## SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           tail -50 bandit-report.txt >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
-      
+
           # Fail on HIGH or MEDIUM severity issues
           if grep -qiE "severity: (high|medium)" bandit-report.txt; then
             echo "❌ High or Medium severity issues found — failing CI"
@@ -311,7 +311,7 @@ jobs:
           else
             echo "✅ No high or medium severity issues"
           fi
-          
+
       - name: Upload Bandit report
         if: always()
         uses: actions/upload-artifact@v4

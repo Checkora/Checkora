@@ -1292,12 +1292,12 @@ class StaleGameCleanupTest(TestCase):
     def setUp(self):
         self.url = '/api/cron/cleanup-stale-games/'
         self.secret = 'test_secret_123'
-        
+
     @override_settings(CRON_SECRET='test_secret_123')
     def test_stale_game_deletion(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         s = SessionStore()
         s.create()
         # low engagement: < 5 moves
@@ -1307,11 +1307,11 @@ class StaleGameCleanupTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 1)
-        
+
         s = SessionStore(session_key=s.session_key)
         self.assertNotIn('game', s)
 
@@ -1320,7 +1320,7 @@ class StaleGameCleanupTest(TestCase):
         from django.contrib.sessions.backends.db import SessionStore
         import time
         from game.models import GameResult
-        
+
         s = SessionStore()
         s.create()
         # high engagement: >= 5 moves
@@ -1333,14 +1333,14 @@ class StaleGameCleanupTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['resigned_games'], 1)
-        
+
         s = SessionStore(session_key=s.session_key)
         self.assertEqual(s['game']['game_status'], 'resignation')
-        
+
         self.assertEqual(GameResult.objects.count(), 1)
         res = GameResult.objects.first()
         self.assertEqual(res.winner, 'black')
@@ -1350,29 +1350,29 @@ class StaleGameCleanupTest(TestCase):
     def test_edge_cases(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         # 1. Game less than 48 hours old
         s1 = SessionStore()
         s1.create()
         s1['game'] = {'game_status': 'active', 'move_history': [1], 'last_ts': time.time() - (10 * 3600)}
         s1.save()
-        
+
         # 2. Game already completed
         s2 = SessionStore()
         s2.create()
         s2['game'] = {'game_status': 'checkmate', 'move_history': [1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
         s2.save()
-        
+
         # 3. Session without game data
         s3 = SessionStore()
         s3.create()
         s3.save()
-        
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 0)
         self.assertEqual(response.json()['resigned_games'], 0)
-        
+
         s1 = SessionStore(session_key=s1.session_key)
         self.assertEqual(s1['game']['game_status'], 'active')
 
@@ -1380,7 +1380,7 @@ class StaleGameCleanupTest(TestCase):
     def test_protected_endpoint(self):
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 401)
-        
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
 
@@ -1484,14 +1484,14 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[4] = 'k'
         board64[60] = 'K'
         board64_str = "".join(board64)
-        
+
         # STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
         cmd = f"STATUS {board64_str} - white -1 -1\n"
-        
+
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -1504,12 +1504,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[45] = 'N'
         board64_str = "".join(board64)
-        
+
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -1522,12 +1522,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[45] = 'B'
         board64_str = "".join(board64)
-        
+
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -1540,12 +1540,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[52] = 'P'
         board64_str = "".join(board64)
-        
+
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS OK")
@@ -1557,11 +1557,11 @@ class InsufficientMaterialDrawTest(TestCase):
         game.board = [[None] * 8 for _ in range(8)]
         game.board[0][4] = 'k'
         game.board[7][4] = 'K'
-        
+
         # Verify the status is 'draw'
         status = game.check_game_status()
         self.assertEqual(status, 'draw')
-        
+
         # Actually trigger a move to verify game state transitions to 'draw' and 'insufficient_material'
         with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
             success, notation, captured, final_status = game.make_move(7, 4, 7, 3)
@@ -1617,7 +1617,7 @@ class TimeControlIncrementTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['valid'])
-        
+
         session = self.client.session
         game_dict = session.get('game')
         self.assertIsNotNone(game_dict)
@@ -1653,7 +1653,7 @@ class GameResultMoveHistoryTest(TestCase):
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        
+
         moves = [{'notation': 'd4', 'piece': 'P', 'from': [6, 3], 'to': [4, 3], 'color': 'white'}]
         request.session = {'game': {'move_history': moves}}
 
@@ -1720,7 +1720,7 @@ class GameResultMoveHistoryTest(TestCase):
 
         # Populate session with active game
         self.client.get('/play/')
-        
+
         # Player makes the move
         response = self.client.post(
             '/api/move/',

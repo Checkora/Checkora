@@ -40,7 +40,7 @@
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
             {% endif %}
-            
+
             {% for field in form %}
                 <div class="form-group">
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -53,10 +53,10 @@
                     {% endif %}
                 </div>
             {% endfor %}
-            
+
             <button type="submit" class="btn btn-gold">Create Account</button>
         </form>
-        
+
         <div class="auth-footer">
             Already have an account? <a href="{% url 'login' %}">Sign In</a>
         </div>
@@ -76,10 +76,10 @@
             feedback.className = 'helptext';
             usernameInput.parentNode.appendChild(feedback);
 
-            usernameInput.addEventListener('input', () => { 
+            usernameInput.addEventListener('input', () => {
                 clearTimeout(debounceTimer);
                 const val = usernameInput.value.trim();
-                latestVal = val;  
+                latestVal = val;
 
                 if (!val) {
                     feedback.textContent = '';
@@ -87,9 +87,9 @@
                 }
 
                 debounceTimer = setTimeout(async () => {
-                    if (val !== latestVal) return;  
+                    if (val !== latestVal) return;
 
-                    try {  
+                    try {
                         const res = await fetch(
                         `${checkUsernameUrl}?username=${encodeURIComponent(val)}`
                         );
@@ -98,7 +98,7 @@
 
                         const data = await res.json();
 
-                        if (val !== latestVal) return;  
+                        if (val !== latestVal) return;
 
                         feedback.textContent = data.available
                         ? '✔ Username available'

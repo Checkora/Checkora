@@ -102,7 +102,7 @@ class ChessGame:
         """Generate a PGN string from move history."""
         if not self.move_history:
             return ""
-        
+
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -121,7 +121,7 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
-        
+
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',

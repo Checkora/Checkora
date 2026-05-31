@@ -34,10 +34,10 @@
             box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
         }
         /* Hide number arrows */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
         input[type=number] {
             -moz-appearance: textfield;
@@ -54,21 +54,21 @@
     <div class="auth-card">
         <form method="POST">
             {% csrf_token %}
-            
+
             {% include 'game/includes/messages.html' %}
-            
+
             <div class="form-group">
                 <label for="otp">Enter 6-Digit OTP</label>
                 <div class="otp-container">
                     <input type="text" id="otp" name="otp" class="otp-input" maxlength="6" pattern="\d{6}" placeholder="000000" autocomplete="off" required>
                 </div>
             </div>
-            
+
             <button type="submit" class="btn btn-gold">Verify & Activate</button>
         </form>
-        
+
         <div class="auth-footer">
-            Didn't receive the code? 
+            Didn't receive the code?
             <a href="{% url 'resend_otp' %}" id = "resend-link">Try again</a>
             <span id="timer" data-remaining-time="{{ remaining_time|default:0 }}"></span>
         </div>

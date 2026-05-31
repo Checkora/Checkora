@@ -25,8 +25,8 @@ body {
    Header
    ============================================================ */
 
-   .header { 
-    padding: 20px 0 8px; 
+   .header {
+    padding: 20px 0 8px;
     position: relative;
     display: flex;
     align-items: center;
@@ -68,7 +68,7 @@ body {
     }
 }
 
-/* Logo text */ 
+/* Logo text */
 .logo-text {
     font-family: 'Cinzel', serif;
     font-size: 26px;
@@ -443,11 +443,11 @@ body {
     justify-content: center;
     align-items: center;
     position: relative;
-    cursor: default;  
+    cursor: default;
 }
 
 .square:has(.piece.playable) {
-    cursor: pointer;   
+    cursor: pointer;
 }
 
 :root {
@@ -862,9 +862,9 @@ body {
     font-weight: bold;
     margin-bottom: 2rem;
     text-decoration: none;
-    display: flex; 
+    display: flex;
     justify-content: flex-start;
-    
+
 }
 
 .back-btn:hover {
@@ -983,7 +983,7 @@ body {
         gap: 6px;
         margin-bottom: 4px;
     }
-    
+
     .logo-text {
         font-size: 1.3rem;
     }
@@ -1278,7 +1278,7 @@ body {
     z-index: 100;
     justify-content: center;
     align-items: center;
-    padding: 20px;             
+    padding: 20px;
     overflow: hidden;
 }
 
@@ -1295,7 +1295,7 @@ body {
     max-width: 480px;
     max-height: min(90vh, fit-content);
     overflow-y: auto;
-    box-sizing: border-box;  
+    box-sizing: border-box;
     position: relative;
 }
 
@@ -1338,7 +1338,7 @@ body {
 
 /* Mobile FAB controls  */
 .m-fab {
-  display: none; 
+  display: none;
 }
 
  {
@@ -1382,7 +1382,7 @@ body {
     box-shadow: 0 2px 12px rgba(0,0,0,0.55),
                 0 0 0 1px rgba(220,60,50,0.1);
   }
-  
+
   .m-fab:has(~ .promo-overlay.active),
   body:has(.promo-overlay.active) .m-fab {
     display: none;
@@ -1607,22 +1607,22 @@ body {
 .square.in-check,
 .square.light.in-check,
 .square.dark.in-check {
-    background: radial-gradient(circle, 
-        rgba(220, 38, 38, 0.45) 0%, 
-        rgba(220, 38, 38, 0.2) 50%, 
+    background: radial-gradient(circle,
+        rgba(220, 38, 38, 0.45) 0%,
+        rgba(220, 38, 38, 0.2) 50%,
         transparent 75%) !important;
     animation: pulse-check 1.5s ease-in-out infinite !important;
-    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
+    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35),
                 0 0 12px rgba(220, 38, 38, 0.25);
 }
 
 @keyframes pulse-check {
     0%, 100% {
-        box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
+        box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35),
                     0 0 12px rgba(220, 38, 38, 0.25);
     }
     50% {
-        box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5), 
+        box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5),
                     0 0 20px rgba(220, 38, 38, 0.4);
     }
 }
@@ -1714,12 +1714,12 @@ body {
     animation: floatUp 2s ease-out forwards;
 }
 .floating-emote.white-emote {
-    top: 10%; 
+    top: 10%;
     left: 10%;
     filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
 }
 .floating-emote.black-emote {
-    top: 10%; 
+    top: 10%;
     right: 10%;
     filter: drop-shadow(0 0 8px rgba(0, 100, 255, 0.8));
 }
@@ -2491,4 +2491,3 @@ body.blindfold-mode .capture-ring {
         transform: none !important;
     }
 }
-

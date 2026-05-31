@@ -30,13 +30,13 @@
     <div class="auth-card">
         <form method="POST">
             {% csrf_token %}
-            
+
             {% include 'game/includes/messages.html' %}
-            
+
             {% if form.non_field_errors %}
                 {{ form.non_field_errors }}
             {% endif %}
-            
+
             {% for field in form %}
                 <div class="form-group">
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -54,7 +54,7 @@
             </div>
             <button type="submit" class="btn btn-gold">Sign In</button>
         </form>
-        
+
         <div class="auth-footer">
             Don't have an account? <a href="{% url 'register' %}">Register here</a>
             <br><br>

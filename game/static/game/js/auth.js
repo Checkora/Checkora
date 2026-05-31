@@ -124,9 +124,9 @@ document.addEventListener("DOMContentLoaded", () => {
       { id: "rule-upper", text: "At least 1 uppercase letter", test: (v) => /[A-Z]/.test(v) },
       { id: "rule-number", text: "At least 1 number", test: (v) => /[0-9]/.test(v) },
       { id: "rule-special", text: "At least 1 special character", test: (v) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/`~]/.test(v) },
-      { 
-        id: "rule-similarity", 
-        text: "Cannot be too similar to email or username", 
+      {
+        id: "rule-similarity",
+        text: "Cannot be too similar to email or username",
         test: (v) => {
             if (!v) return false;
             // Extract the prefix before the '@' for email comparison
@@ -170,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const isValid = allMet && value.length > 0;
       checklist.classList.toggle("all-met", isValid);
-      
+
       // CRITICAL PATCH: Disable the submit button if rules are not met
       if (formBtn) {
           formBtn.disabled = !isValid;
@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     passwordInput.addEventListener("input", validatePassword);
-    
+
     // Cross-bind to email and username so the rule evaluates correctly if filled out of order
     if (emailInput) emailInput.addEventListener("input", validatePassword);
     if (usernameInput) usernameInput.addEventListener("input", validatePassword);

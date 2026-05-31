@@ -35,8 +35,8 @@ body {
    Header
    ============================================================ */
 
-   .header { 
-    padding: 10px 0 6px; 
+   .header {
+    padding: 10px 0 6px;
     display: flex;
     flex-direction: column; /* Stack logo container and subtitle <p> */
 
@@ -73,7 +73,7 @@ body {
     }
 }
 
-/* Logo text */ 
+/* Logo text */
 .logo-text {
     font-family: 'Cinzel', serif;
     font-size: 28px;

@@ -103,7 +103,7 @@
                         </span>
                         <span class="tc-chevron" style="font-size: 0.75rem; opacity: 0.7;">▼</span>
                     </button>
-                    
+
                     <!-- Popover / dropdown panel -->
                     <div class="time-control-popover" id="timeControlPopover" style="display: none; flex-direction: column; background: #16162a; border: 1px solid #f0c040; border-radius: 8px; margin-top: 6px; padding: 12px; z-index: 1000; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); position: absolute; left: 0; right: 0;">
                         <div class="tc-tabs" style="display: flex; gap: 4px; border-bottom: 1px solid #252545; padding-bottom: 8px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap;">
@@ -113,7 +113,7 @@
                             <button type="button" class="tc-tab-btn" data-tab="classical" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Classical</button>
                             <button type="button" class="tc-tab-btn" data-tab="custom" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Custom...</button>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-bullet" style="display: none;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn" data-mins="1" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">1 min</button>
@@ -121,7 +121,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="2" data-inc="1" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">2 | 1</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-blitz" style="display: none;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn" data-mins="3" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">3 min</button>
@@ -130,7 +130,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="5" data-inc="3" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">5 | 3</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-rapid" style="display: block;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn active" data-mins="10" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">10 min</button>
@@ -140,7 +140,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="30" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">30 min</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-classical" style="display: none;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn" data-mins="30" data-inc="20" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">30 | 20</button>
@@ -148,7 +148,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="60" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">60 min</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-custom" style="display: none;">
                             <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
@@ -172,7 +172,7 @@
 
             <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
-                
+
                 <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
@@ -200,10 +200,10 @@
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
                     <button class="btn color-choice active" id="pveWhiteBtn" data-color="white"
                         style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
-                    <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection" 
+                    <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection"
                         style="padding: 12px; flex: 1; border: 1px solid #444; background: linear-gradient(to right, #fff 50%, #000 50%); color: #666; transition: all 0.2s; font-weight: 500;">
             🎲 Random
-        </button>    
+        </button>
                     <button class="btn color-choice" id="pveBlackBtn" data-color="black"
                         style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
                 </div>
@@ -226,11 +226,11 @@
             </div>
         </div>
     </div>
-    
+
     <!-- ========== HEADER ========== -->
-    
+
     <div class="header">
-        
+
         <div class="logo-container">
             <a href="{% url 'landing' %}" class="logo-link">
                 <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
@@ -238,7 +238,7 @@
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
-        
+
         <div class="auth-buttons">
             {% if user.is_authenticated %}
 
@@ -276,7 +276,7 @@
             {% endif %}
         </div>
     </div>
-    
+
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
 
@@ -377,16 +377,16 @@
                        <span class="score-label">White</span>
                        <span id="whiteScore">0</span>
                    </div>
-           
+
                    <div class="score-box">
                        <span class="score-label">Black</span>
                        <span id="blackScore">0</span>
                    </div>
                </div>
-                
+
             </div>
         </div>
-        
+
 <!-- Right Panel: Controls -->
         <div class="panel">
             <div class="card">
@@ -430,7 +430,7 @@
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
-                <a href="/" class="btn" 
+                <a href="/" class="btn"
    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
     EXIT TO HOME
 </a>
@@ -546,7 +546,7 @@
             </button>
         </div>
     </div>
-</div> 
+</div>
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
         <div class="promo-dialog premium-result-dialog" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle" aria-describedby="gameOverMessage">

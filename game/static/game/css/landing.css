@@ -1107,7 +1107,7 @@ body {
     .card:focus-within .card-back {
         opacity: 1;
     }
-    
+
     .footer-link:hover {
         transform: scale(1.03);
     }
