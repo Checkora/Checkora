@@ -29,7 +29,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-tes
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
-
+IS_CI = os.environ.get('CI', '').lower() == 'true'
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
@@ -146,15 +146,15 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Session Cookie Security
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG and not IS_CI
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG and not IS_CI
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 # SSL Redirect
-SECURE_SSL_REDIRECT = not DEBUG and not os.environ.get('CI')
+SECURE_SSL_REDIRECT = not DEBUG and not IS_CI
 if os.environ.get('TRUST_PROXY_SSL_HEADER', '').lower() == 'true':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -183,5 +183,5 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
-
 # Secret token for authenticating Vercel cron job requests to /api/cron/cleanup-stale-games/
+SECURE_SSL_REDIRECT = not DEBUG and not IS_CI
