@@ -1600,6 +1600,9 @@
 
             function getMoveBoard(move) {
                 const snapshot = move?.board;
+                if (typeof snapshot === 'string') {
+                    return parseBoard(snapshot);
+                }
                 if (!Array.isArray(snapshot) || snapshot.length !== 8) {
                     return null;
                 }

@@ -135,7 +135,7 @@ class ChessGame:
 
     def to_dict(self):
         """Serialise state for Django session storage.
-DP cache is intentionally excluded to save cookie space."""
+DP cache is intentionally excluded to keep session payloads compact."""
         return {
             'board': self.board,
             'current_turn': self.current_turn,
@@ -583,7 +583,7 @@ DP cache is intentionally excluded to save cookie space."""
             'captured': captured,
             'color': moved_by,
             'promoted_to': self.board[tr][tc] if promoted else None,
-            'board': [row[:] for row in self.board],
+            'board': self.serialize_board(),
         })
 
         if game_status == 'checkmate':

@@ -1205,11 +1205,17 @@ class MoveHistoryColorTest(TestCase):
 
         game.make_move(6, 4, 4, 4)  # White: e4
         first_snapshot = game.move_history[0]['board']
+        self.assertIsInstance(first_snapshot, str)
+        self.assertEqual(len(first_snapshot), 64)
+        first_snapshot = ChessGame._parse_board64(first_snapshot)
         self.assertIsNone(first_snapshot[6][4])
         self.assertEqual(first_snapshot[4][4], 'P')
 
         game.make_move(1, 4, 3, 4)  # Black: e5
         second_snapshot = game.move_history[1]['board']
+        self.assertIsInstance(second_snapshot, str)
+        self.assertEqual(len(second_snapshot), 64)
+        second_snapshot = ChessGame._parse_board64(second_snapshot)
         self.assertEqual(second_snapshot[4][4], 'P')
         self.assertIsNone(second_snapshot[1][4])
         self.assertEqual(second_snapshot[3][4], 'p')
