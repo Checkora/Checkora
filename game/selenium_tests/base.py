@@ -79,43 +79,42 @@ class BaseE2ETest(StaticLiveServerTestCase):
         super().tearDownClass()
 
     def _start_pvp_game(self, retries=3):
-    """Helper: navigate to homepage and start a PvP game with retry logic."""
-    import time
-    from selenium.common.exceptions import TimeoutException
+        """Helper: navigate to homepage and start a PvP game with retry logic."""
+        import time
+        from selenium.common.exceptions import TimeoutException
 
-    for attempt in range(retries):
-        try:
-            log_info(f"Starting PvP game at {self.live_server_url}/play/")
-            self.driver.get(self.live_server_url + '/play/')
+        for attempt in range(retries):
+            try:
+                log_info(f"Starting PvP game at {self.live_server_url}/play/")
+                self.driver.get(self.live_server_url + '/play/')
 
-            self.wait.until(
-                EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
-            )
+                self.wait.until(
+                    EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
+                )
 
-            white_input = self.driver.find_element(By.ID, 'whiteNameInput')
-            black_input = self.driver.find_element(By.ID, 'blackNameInput')
-            white_input.clear()
-            black_input.clear()
-            white_input.send_keys('Alice')
-            black_input.send_keys('Bob')
+                white_input = self.driver.find_element(By.ID, 'whiteNameInput')
+                black_input = self.driver.find_element(By.ID, 'blackNameInput')
+                white_input.clear()
+                black_input.clear()
+                white_input.send_keys('Alice')
+                black_input.send_keys('Bob')
 
-            self.driver.find_element(By.ID, 'welcomePvPBtn').click()
+                self.driver.find_element(By.ID, 'welcomePvPBtn').click()
 
-            self.wait.until(
-                EC.invisibility_of_element_located((By.ID, 'welcomeOverlay'))
-            )
-            self.wait.until(
-                EC.visibility_of_element_located((By.ID, 'board'))
-            )
-            log_ok("PvP game started — board visible")
-            return
+                self.wait.until(
+                    EC.invisibility_of_element_located((By.ID, 'welcomeOverlay'))
+                )
+                self.wait.until(
+                    EC.visibility_of_element_located((By.ID, 'board'))
+                )
+                log_ok("PvP game started — board visible")
+                return
 
-        except TimeoutException:
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-                continue
-            raise
-
+            except TimeoutException:
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
     def _js_click(self, element):
         """Helper: click element via JavaScript (more reliable than Selenium click)."""
         self.driver.execute_script("arguments[0].click();", element)
