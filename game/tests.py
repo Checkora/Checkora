@@ -1180,6 +1180,75 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
 
+    # ------------------------------------------------------------------
+    # Structural validation (_is_valid_opening_book)
+    # ------------------------------------------------------------------
+
+    def test_validation_rejects_non_dict(self):
+        """List root must be rejected."""
+        self.assertFalse(ChessGame._is_valid_opening_book([]))
+
+    def test_validation_rejects_non_string_key(self):
+        """Integer keys must be rejected."""
+        self.assertFalse(ChessGame._is_valid_opening_book({1: [[6, 4, 4, 4]]}))
+
+    def test_validation_rejects_non_list_value(self):
+        """String value instead of move list must be rejected."""
+        self.assertFalse(ChessGame._is_valid_opening_book(
+            {'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq': 'invalid'}
+        ))
+
+    def test_validation_rejects_wrong_length_move(self):
+        """A move with 2 coordinates must be rejected."""
+        fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq'
+        self.assertFalse(ChessGame._is_valid_opening_book({fen: [[6, 4]]}))
+
+    def test_validation_rejects_out_of_range_move(self):
+        """A move with coordinate 8 must be rejected."""
+        fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq'
+        self.assertFalse(ChessGame._is_valid_opening_book({fen: [[8, 4, 4, 4]]}))
+
+    def test_validation_accepts_valid_book(self):
+        """A well-formed dict must pass validation."""
+        fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq'
+        self.assertTrue(ChessGame._is_valid_opening_book({fen: [[6, 4, 4, 4], [6, 3, 4, 3]]}))
+
+    def test_validation_accepts_empty_dict(self):
+        """An empty dict is a valid (trivial) book."""
+        self.assertTrue(ChessGame._is_valid_opening_book({}))
+
+    def test_validation_rejects_tuple_value(self):
+        """Top-level tuple must be rejected (not a dict)."""
+        self.assertFalse(ChessGame._is_valid_opening_book(()))
+
+    def test_validation_rejects_empty_string_key(self):
+        """Empty string as FEN key must be rejected."""
+        self.assertFalse(ChessGame._is_valid_opening_book({'': [[6, 4, 4, 4]]}))
+
+    def test_validation_rejects_mixed_type_list(self):
+        """A list with a non-int element must be rejected."""
+        fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq'
+        self.assertFalse(ChessGame._is_valid_opening_book({fen: [[6, 4, 'x', 4]]}))
+
+    def test_load_rejects_invalid_book_file(self):
+        """Corrupt JSON that loads as invalid structure must produce empty dict."""
+        ChessGame._opening_book = None
+        with mock.patch.object(ChessGame, 'OPENING_BOOK_PATH', '/nonexistent/bogus.json'):
+            with mock.patch('builtins.open', mock.mock_open(read_data='[]')):
+                book = ChessGame._load_opening_book()
+        self.assertEqual(book, {})
+        ChessGame._opening_book = None
+
+    def test_load_rejects_list_root_file(self):
+        """A JSON file containing a list (not dict) must produce empty dict."""
+        ChessGame._opening_book = None
+        with mock.patch('builtins.open', mock.mock_open(read_data='[]')):
+            with mock.patch.object(ChessGame, 'OPENING_BOOK_PATH', '/fake/book.json'):
+                book = ChessGame._load_opening_book()
+        self.assertEqual(book, {})
+        ChessGame._opening_book = None
+
+
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
 

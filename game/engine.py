@@ -829,12 +829,32 @@ DP cache is intentionally excluded to save cookie space."""
     # ------------------------------------------------------------------
 
     @classmethod
+    def _is_valid_opening_book(cls, data) -> bool:
+        """Validate opening book structure: dict of FEN \u2192 list of 4-int moves."""
+        if not isinstance(data, dict):
+            return False
+        for fen_key, move_list in data.items():
+            if not isinstance(fen_key, str) or not fen_key.strip():
+                return False
+            if not isinstance(move_list, (list, tuple)):
+                return False
+            for move in move_list:
+                if (
+                    not isinstance(move, (list, tuple))
+                    or len(move) != 4
+                    or not all(isinstance(c, int) and 0 <= c <= 7 for c in move)
+                ):
+                    return False
+        return True
+
+    @classmethod
     def _load_opening_book(cls) -> dict:
         """Load the opening book JSON from disk (cached after first load)."""
         if cls._opening_book is None:
             try:
                 with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
-                    cls._opening_book = json.load(fh)
+                    raw = json.load(fh)
+                cls._opening_book = raw if cls._is_valid_opening_book(raw) else {}
             except (OSError, json.JSONDecodeError):
                 cls._opening_book = {}  # Graceful fallback: no book
         return cls._opening_book
