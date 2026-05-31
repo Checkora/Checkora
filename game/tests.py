@@ -6,6 +6,7 @@ from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -152,6 +153,50 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'otp-resend-rate-limit-test',
+        }
+    },
+)
+class ResendOtpRateLimitTest(TestCase):
+    """OTP resend cooldown should be enforced server-side per email."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='pendingplayer',
+            email='pending@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+
+    def _client_with_pending_registration(self):
+        client = self.client_class()
+        session = client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = 'old-hash'
+        session.save()
+        return client
+
+    def test_resend_otp_cache_blocks_fresh_session_for_same_email(self):
+        first_client = self._client_with_pending_registration()
+        second_client = self._client_with_pending_registration()
+
+        with mock.patch('game.views.send_mail') as mock_send_mail:
+            first_response = first_client.get('/resend-otp/')
+            second_response = second_client.get('/resend-otp/')
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.assertEqual(first_response.url, '/verify-otp/')
+        self.assertEqual(second_response.url, '/verify-otp/')
+        self.assertEqual(mock_send_mail.call_count, 1)
 
 
 class CustomSetPasswordFormTest(TestCase):

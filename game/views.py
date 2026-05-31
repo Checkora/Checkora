@@ -14,6 +14,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from smtplib import SMTPException
+from django.core.cache import cache
 from django.core.mail import BadHeaderError, send_mail
 from django.contrib import messages
 from django.db.models import F, Q
@@ -630,6 +631,13 @@ def verify_otp(request):
         remaining_time = max(0, 60 - elapsed)
     return render(request, 'game/verify_otp.html', {'remaining_time': remaining_time})
 
+
+def _otp_rate_cache_key(email):
+    normalized_email = (email or '').strip().lower()
+    email_digest = hashlib.sha256(normalized_email.encode()).hexdigest()
+    return f'otp_rate_{email_digest}'
+
+
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
 
@@ -642,6 +650,11 @@ def resend_otp(request):
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
+    email_key = _otp_rate_cache_key(user.email)
+    if cache.get(email_key):
+        messages.error(request, 'Please wait before requesting a new OTP.')
+        return redirect('verify_otp')
+
     last_otp_time = request.session.get('last_otp_time')
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))
@@ -670,6 +683,7 @@ def resend_otp(request):
             'A new OTP has been sent to your email.'
         )
         request.session['last_otp_time'] = time.time()
+        cache.set(email_key, True, timeout=60)
 
     except (SMTPException, BadHeaderError, OSError):
         messages.error(
