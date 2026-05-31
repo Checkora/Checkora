@@ -246,6 +246,58 @@ body {
 }
 .auth-footer a:hover { text-decoration: underline; }
 
+/* ── "or" divider ── */
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    color: #5a5a7a;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #252545;
+}
+.auth-divider span {
+    padding: 0 12px;
+}
+
+/* ── Google OAuth button ── */
+.btn-google {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 11px 0;
+    background: #ffffff;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
+}
+.btn-google:hover {
+    background: #f7f8f8;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+.btn-google:focus-visible {
+    outline: 2px solid #4285F4;
+    outline-offset: 2px;
+}
+.btn-google .google-icon {
+    flex-shrink: 0;
+}
+
 @media (max-width: 600px) {
     body {
         padding: 20px;
