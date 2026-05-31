@@ -306,8 +306,12 @@
             
             // post() uses csrf()
             function csrf() {
+                const el = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (el && el.value) {
+                    return el.value;
+                }
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
+                return m ? decodeURIComponent(m[1]) : '';
             }
 
             async function get(url) {
@@ -327,11 +331,11 @@
 
             function loadStoredGameState() {
                 try {
-                    const raw = sessionStorage.getItem(GAME_STATE_STORAGE_KEY);
+                    const raw = localStorage.getItem(GAME_STATE_STORAGE_KEY);
                     gameState = raw ? JSON.parse(raw) : null;
                 } catch (_) {
                     gameState = null;
-                    sessionStorage.removeItem(GAME_STATE_STORAGE_KEY);
+                    localStorage.removeItem(GAME_STATE_STORAGE_KEY);
                 }
             }
 
@@ -343,7 +347,7 @@
                 if (!data || !data.game_state) return;
                 gameState = data.game_state;
                 try {
-                    sessionStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(gameState));
+                    localStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(gameState));
                 } catch (_) {
                     // If storage is full or unavailable, keep the in-memory state for this tab.
                 }

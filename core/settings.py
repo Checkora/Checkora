@@ -152,7 +152,7 @@ SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 # SSL Redirect
-SECURE_SSL_REDIRECT = not DEBUG
+SECURE_SSL_REDIRECT = not DEBUG and not os.environ.get('CI')
 
 
 # Email Configuration for OTP and Password Reset EMails

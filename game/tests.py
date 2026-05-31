@@ -25,6 +25,14 @@ from .views import CustomPasswordResetView
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
 
+    def setUp(self):
+        super().setUp()
+        ChessGame._resolved_engine_path = None
+
+    def tearDown(self):
+        ChessGame._resolved_engine_path = None
+        super().tearDown()
+
     def test_uses_first_existing_engine_binary(self):
         candidates = [
             r'C:\fake\game\engine\main.exe',

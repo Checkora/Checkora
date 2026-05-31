@@ -54,6 +54,7 @@ class ChessGame:
 
     # Class-level cache so the file is read only once per process
     _opening_book: dict | None = None
+    _resolved_engine_path: str | None = None
 
     INITIAL_BOARD = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -298,6 +299,9 @@ DP cache is intentionally excluded to save cookie space."""
     @classmethod
     def _resolve_engine_path(cls):
         """Return the first available engine entrypoint for this platform."""
+        if cls._resolved_engine_path is not None:
+            return cls._resolved_engine_path
+
         for path in cls.ENGINE_CANDIDATES:
             if os.path.exists(path):
                 # Serverless workaround: copy the Linux C++ binary to the writable /tmp directory
@@ -312,11 +316,13 @@ DP cache is intentionally excluded to save cookie space."""
                             shutil.copy(path, staging_path)
                             os.chmod(staging_path, 0o755)
                             os.replace(staging_path, tmp_path)
+                        cls._resolved_engine_path = tmp_path
                         return tmp_path
                     except (OSError, shutil.Error) as e:
                         logger.error("Failed to copy/setup engine binary to /tmp: %s", e)
                         # If copying or chmod fails, fall back to the next candidate (e.g. main.py)
                         continue
+                cls._resolved_engine_path = path
                 return path
         return None
 

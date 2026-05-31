@@ -4,7 +4,6 @@ import json
 import time
 import hashlib
 import secrets
-import secrets as secrets_module
 import re
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
@@ -52,16 +51,26 @@ class InvalidGameStateError(ValueError):
     pass
 
 def _sign_state(game_data):
-    """Serialize the game dictionary deterministically and generate a cryptographic signature."""
-    serialized = json.dumps(game_data, sort_keys=True)
-    return signing.dumps(serialized)
+    """Generate a cryptographic signature for the game state dictionary, binding it to the move count to prevent replay attacks."""
+    envelope = {
+        'game': game_data,
+        'move_count': len(game_data.get('move_history', [])),
+    }
+    return signing.dumps(envelope)
 
 def _verify_state(game_data, signature):
-    """Verify that the cryptographic signature matches the game dictionary."""
+    """Verify that the cryptographic signature is valid and matches the game data and move count."""
     try:
-        unsigned = signing.loads(signature)
-        serialized = json.dumps(game_data, sort_keys=True)
-        return unsigned == serialized
+        envelope = signing.loads(signature)
+        if not isinstance(envelope, dict) or 'game' not in envelope or 'move_count' not in envelope:
+            return False
+        
+        # Deep compare the game dictionary
+        if envelope['game'] != game_data:
+            return False
+            
+        expected_move_count = len(game_data.get('move_history', []))
+        return envelope['move_count'] == expected_move_count
     except Exception:
         return False
 
@@ -1233,7 +1242,7 @@ def cleanup_cron(request):
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
     
-    if not cron_secret or not secrets_module.compare_digest(expected, provided):
+    if not cron_secret or not secrets.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
     
     try:
