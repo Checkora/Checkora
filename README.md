@@ -84,7 +84,9 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS / Linux
 
-Note: Django 6.0 requires Python 3.12 or higher. If you have multiple versions on Windows, use a compatible installed version, for example: py -3.12 -m venv venv
+# Note: Django 6.0 requires Python 3.12 or higher. If you have multiple
+# versions on Windows, use a compatible installed version, e.g.:
+# py -3.12 -m venv venv
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -301,6 +303,10 @@ Checkora features a decoupled API layer. Below is the endpoint catalog accompani
 | `GET` | `/api/check-promotion/` | Check if a pawn reaches the promotion rank | `/api/check-promotion/?from_row=1&from_col=0&to_row=0` |
 | `POST` | `/api/ai-move/` | Request the engine to compute the best move | `/api/ai-move/` |
 | `POST` | `/api/pause/` | Pause/Resume game timer countdown | `/api/pause/` |
+| `POST` | `/api/resume/` | Resume a previously saved game | `/api/resume/` |
+| `POST` | `/api/resign/` | Resign the current game | `/api/resign/` |
+| `POST` | `/api/draw/` | Offer or accept a draw in PvP mode | `/api/draw/` |
+| `GET` | `/api/check-username/` | Check if a username is available | `/api/check-username/?username=player1` |
 
 ---
 

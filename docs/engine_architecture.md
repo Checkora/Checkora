@@ -87,18 +87,18 @@ For the first few moves, the engine uses a pre-built opening book:
 - Values: List of valid moves `[from_row, from_col, to_row, to_col]`
 
 ## Move Flow
-1.Player clicks piece
-2.Django calls get_valid_moves()
-3.ChessGame checks DP cache
-4.If not cached → sends MOVES command to C++ engine
-5.C++ returns valid moves
-6.Player selects destination
-7.Django calls make_move()
-8.Move validated and applied
-9.If AI turn → get_ai_move() called
-10.Opening book checked first
-11.If not in book → BESTMOVE sent to C++ engine
-12.AI move returned and applied
+1. Player clicks piece
+2. Django calls `get_valid_moves()`
+3. ChessGame checks DP cache
+4. If not cached → sends `MOVES` command to C++ engine
+5. C++ returns valid moves
+6. Player selects destination
+7. Django calls `make_move()`
+8. Move validated and applied
+9. If AI turn → `get_ai_move()` called
+10. Opening book checked first
+11. If not in book → `BESTMOVE` sent to C++ engine
+12. AI move returned and applied
 
 ## Engine Fallback
 

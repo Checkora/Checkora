@@ -11,8 +11,9 @@
                   r: 5,
                   q: 9,
                   k: 0
-             };
-
+            };
+    
+            
             const PIECE_IMG = {};
             for (const c of ['w', 'b'])
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
@@ -54,6 +55,9 @@
             let gameStartTime = null;
     
             let gameMode = 'pvp';
+            let dailyPuzzleMode = false;
+            let currentPuzzle = null;
+            let puzzleMoveIndex = 0;
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
             let currentBlackName = 'Black';
@@ -75,6 +79,88 @@
                     aiBtn.classList.add("active-mode");
                 }
             }
+
+            // =============================================
+            // Daily Puzzle 
+            // =============================================
+
+            const PUZZLES = [
+                {
+                    id: 1,
+                    fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+                    solution: ["h1h7"]
+                },
+
+                {
+                    id: 2,
+                    fen: "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1",
+                    solution: ["g6g7"]
+                },
+                
+                {
+                    id: 3,
+                    fen: "6k1/5ppp/8/8/8/8/5PPP/5RK1 w - - 0 1",
+                    solution: ["f1e1"]
+                },
+
+                {
+                    id: 4,
+                    fen: "6k1/5ppp/8/8/8/8/5PPP/5QK1 w - - 0 1",
+                    solution: ["f1h7"]
+                },
+                
+                {
+                    id: 5,
+                    fen: "7k/6pp/8/8/8/8/5PPP/6KQ w - - 0 1",
+                    solution: ["h1h7"]
+                },
+
+                {
+                    id: 6,
+                    fen: "7k/5K2/7Q/8/8/8/8/8 w - - 0 1",
+                    solution: ["h6g7"]
+                },
+
+                {
+                    id: 7,
+                    fen: "6k1/5ppp/8/8/8/8/6PP/5RK1 w - - 0 1",
+                    solution: ["f1e1"]
+                },
+            ];
+
+           function getCurrentWeeklyPuzzle() {
+
+                const today = new Date();
+
+                // Monday = 0 ... Sunday = 6
+                const dayIndex =
+                    (today.getDay() + 6) % 7;
+
+                return PUZZLES[dayIndex];
+            }
+    
+            async function startDailyPuzzle() {
+                currentPuzzle = getCurrentWeeklyPuzzle();
+
+                dailyPuzzleMode = true;
+                if (restartPuzzleBtn) {
+                    restartPuzzleBtn.style.display = 'block';
+                }
+                puzzleMoveIndex = 0;
+
+                await startNewGame(
+                    "pvp",
+                    "white",
+                    "medium",
+                    currentPuzzle.fen
+                );
+                const today = new Date().toLocaleDateString();
+                showStatus(
+                    `Daily Puzzle Challenge - ${today}`,
+                    false
+                );
+            }
+    
             let playerColor = 'white';
             let flipped = false;
             let autoFlip = false;
@@ -165,6 +251,7 @@
             const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
             const welcomePvPBtn = document.getElementById('welcomePvPBtn');
             const welcomeAIBtn = document.getElementById('welcomeAIBtn');
+            const welcomeDailyPuzzleBtn = document.getElementById("welcomeDailyPuzzleBtn");
             const welcomeFenInput = document.getElementById('welcomeFenInput');
             const welcomeFenError = document.getElementById('welcomeFenError');
 
@@ -183,6 +270,8 @@
 
             const newPvPBtn = document.getElementById('newPvPBtn');
             const newAIBtn = document.getElementById('newAIBtn');
+            const dailyPuzzleBtn = document.getElementById('dailyPuzzleBtn');
+            const restartPuzzleBtn = document.getElementById('restartPuzzleBtn');
             const newFenBtn = document.getElementById('newFenBtn');
 
             const fenOverlay = document.getElementById('fenOverlay');
@@ -1162,6 +1251,47 @@
                             if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                             board = parseBoard(data.board);
                             turn = data.current_turn;
+
+                            // Daily Puzzle Validation
+                            if (dailyPuzzleMode && currentPuzzle ) {
+
+                                const playedMove =
+                                    `${String.fromCharCode(97 + fc)}${8 - fr}` +
+                                    `${String.fromCharCode(97 + tc)}${8 - tr}`;
+
+                                const expectedMove =
+                                    currentPuzzle.solution[puzzleMoveIndex];
+
+                                if (playedMove === expectedMove) {
+
+                                    puzzleMoveIndex++;
+
+                                    if (puzzleMoveIndex >= currentPuzzle.solution.length) {
+
+                                        showConfirm(
+                                            "🎉 Puzzle Solved!",
+                                            "Come back tomorrow for a new challenge.",
+                                            () => {
+                                                gameLayout.style.visibility = "hidden";
+                                                welcomeOverlay.classList.add("active");
+                                            },
+                                            "#f0c040"
+                                        );
+                                        return;
+                                    }
+                                } else {
+                                    showConfirm(
+                                        "❌ Incorrect Move!",
+                                        "Would you like to try again?",
+                                        () => {
+                                            startDailyPuzzle();
+                                        },
+                                        "#ff4d4d"
+                                    );
+                                    return;
+                                }
+                            }
+                            
                             lastMove = { from: [fr, fc], to: [tr, tc] };
     
                             if (gameMode === 'pvp' && autoFlip) {
@@ -1342,7 +1472,7 @@
             ========================================================== */
             async function onClick(r, c) {
                 if (replayMode) return;
-                if (dragging) return;
+                if (dragging && !touchDragging) return;
 
                 const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
                 const vBoard = isPremoveMode ? getVirtualBoard() : board;
@@ -1609,6 +1739,9 @@
             }
 
             function handleGameStatus(status, drawReason) {
+                if (dailyPuzzleMode) {
+                    return false;
+                }
                 if (status === 'checkmate') {
                     endGame('checkmate', turn);
                     return true;
@@ -1734,6 +1867,7 @@
                 if (pauseBtn) pauseBtn.style.display = 'none';
                 if (newPvPBtn) newPvPBtn.style.display = '';
                 if (newAIBtn) newAIBtn.style.display = '';
+                if (dailyPuzzleBtn) dailyPuzzleBtn.style.display = '';
                 if (newFenBtn) newFenBtn.style.display = '';
 
                 let durationText = '';
@@ -2417,7 +2551,7 @@
                     '#f0c040'
                 );
             }
-
+    
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
                 replayMode = false;
 
@@ -2533,6 +2667,7 @@
                 if (drawBtn) drawBtn.style.display = (gameMode === 'pvp') ? 'block' : 'none';
                 if (newPvPBtn) newPvPBtn.style.display = 'none';
                 if (newAIBtn) newAIBtn.style.display = 'none';
+                if (dailyPuzzleBtn) dailyPuzzleBtn.style.display = 'none';
                 if (newFenBtn) newFenBtn.style.display = 'none';
                 if (gameMode === 'ai') {
                     flipped = (playerColor === 'black');
@@ -2763,6 +2898,15 @@
                 gameLayout.style.visibility = 'visible';
             };
 
+            if (welcomeDailyPuzzleBtn) {
+                welcomeDailyPuzzleBtn.onclick = async () => {
+
+                    await startDailyPuzzle();
+
+                    welcomeOverlay.classList.remove('active');
+                    gameLayout.style.visibility = 'visible';
+                };
+            }
             
             if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
                 modeSelection.style.display = 'none';
@@ -2967,7 +3111,41 @@
                 
                 requestNewGame('ai');
             };
+            if (dailyPuzzleBtn)
+                dailyPuzzleBtn.onclick = async () => {
 
+                    showConfirm(
+                        "Start Daily Puzzle?",
+                        "Your current game will be lost.",
+                        async () => {
+
+                            await startDailyPuzzle();
+
+                        },
+                        "#f0c040"
+                    );
+                };
+            
+            if (restartPuzzleBtn)
+                restartPuzzleBtn.onclick = async () => {
+
+                if (!currentPuzzle) return;
+
+                puzzleMoveIndex = 0;
+
+                await startNewGame(
+                    "pvp",
+                    "white",
+                    "medium",
+                    currentPuzzle.fen
+                );
+
+                showStatus(
+                    "Puzzle Restarted",
+                    false
+                );
+            };
+    
             if (newFenBtn) newFenBtn.onclick = () => {
                 showConfirm(
                     "Load from FEN?",
@@ -3522,15 +3700,15 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 }
             }, { passive: false });
 
-            boardEl.addEventListener('touchend', (e) => {
-                if (!touchStartPos) return;
-
+            boardEl.addEventListener('touchend', async (e) => {
+                const srcSquare = touchDragSrc;
+                if (!srcSquare && !selected) return;
                 const touch = e.changedTouches[0];
                 let movedToSquare = false;
 
                 if (touchDragging && touchDragSrc) {
                     // Clean up original piece transparency
-                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const srcSquareEl = sq(srcSquare.r, srcSquare.c);
                     const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
                     if (pieceImg) {
                         pieceImg.classList.remove('touch-dragging-original');
@@ -3550,7 +3728,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                         const tc = parseInt(destSquareEl.dataset.c, 10);
 
                         if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
-                            tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
+                            await tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
                             movedToSquare = true;
                         }
                     }
@@ -3562,18 +3740,22 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                     // Prevent click generation
                     e.preventDefault();
                 } else {
-                    // Quick tap -> allow tap-to-select and tap-to-destination behavior
-                    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-                    const tapSquareEl = targetEl ? targetEl.closest('.square') : null;
-                    const tapR = tapSquareEl ? parseInt(tapSquareEl.dataset.r, 10) : touchTapSquare?.r;
-                    const tapC = tapSquareEl ? parseInt(tapSquareEl.dataset.c, 10) : touchTapSquare?.c;
+                    e.preventDefault();
 
-                    if (Number.isInteger(tapR) && Number.isInteger(tapC)) {
-                        onClick(tapR, tapC);
-                        e.preventDefault();
-                    }
+                    const targetEl = document.elementFromPoint(
+                        touch.clientX,
+                        touch.clientY
+                    );
+                    if (!targetEl) return;
+                    const squareEl = targetEl.closest('.square');
+                        
+                    if (!squareEl) return;
+
+                    const tr = parseInt(squareEl.dataset.r);
+                    const tc = parseInt(squareEl.dataset.c);
+                    await onClick(tr, tc);
+                    
                 }
-
                 // Reset state
                 touchStartPos = null;
                 touchDragSrc = null;

@@ -657,5 +657,104 @@
         </div>
       </div>
     </div>
+    <div id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:700px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <h1 id="termsModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Terms and Conditions</h1>
+          <button type="button" aria-label="Close terms and conditions" onclick="closeTermsModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Acceptance of Terms</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">By accessing, registering for, or interacting with the Checkora Chess Platform, you agree to comply with and be bound by these Terms and Conditions. If you do not accept these parameters, you are advised to discontinue platform interaction.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Fair Play and Anti-Cheat Policy</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Checkora runs a native high-performance C++ minimax engine designed to provide competitive gameplay. To safeguard integrity:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;">Use of third-party engine assistance, browser modifications, or state-manipulation scripts is strictly prohibited.</li>
+                  <li>Intentionally stalling game clocks or throwing matches to manipulate metrics violates our guidelines.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Account Management and Security</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">When creating profile credentials and completing OTP verification, you are fully accountable for preserving credential confidentiality. Checkora reserves authority to clean up idle ghost accounts that remain abandoned to free system namespaces.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Open Source and Modifications</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">Checkora operates openly under the MIT License. While customization of backend logic modules is encouraged for developer variants, users are requested to interact fairly and maintain the software's style parameters.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Disclaimer of Liability</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">The platform services and integrated AI engines are offered on an "as-is" operational basis. The maintenance team assumes no liability for match state disruptions, profile cache rollbacks during server updates, or local dependency failures in client-side setups.</p>
+              </div>
+            </div>
+            <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">Last updated: May 2026</p>
+          </div>
+        </div>
+        <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; background:#131522;">
+          <button type="button" onclick="closeTermsModal()" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; font-size:0.95rem; cursor:pointer; transition:all 0.2s ease; box-shadow:0 4px 16px rgba(240,192,64,0.3);">I Agree</button>        </div>
+      </div>
+  </div>
+  <script>
+    (function() {
+      const modal = document.getElementById('termsModal');
+      const modalInner = modal.querySelector('[tabindex="-1"]');
+      let lastFocused;
+  
+      function openTermsModal() {
+        lastFocused = document.activeElement;
+        modal.style.display = 'flex';
+        modalInner.focus();
+      }
+  
+      function closeTermsModal() {
+        modal.style.display = 'none';
+        if (lastFocused) lastFocused.focus();
+      }
+  
+      window.openTermsModal = openTermsModal;
+      window.closeTermsModal = closeTermsModal;
+  
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+          closeTermsModal();
+        }
+      });
+  
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeTermsModal();
+      });
+      modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+          const focusable = modal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      });
+    })();
+  </script>
   </body>
 </html>
