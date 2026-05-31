@@ -295,21 +295,20 @@ jobs:
       - name: Install Bandit
         run: pip install bandit
 
-      - name: Run Bandit scan (fail on HIGH and MEDIUM)
+      - name: Run Bandit scan (fail on MEDIUM or HIGH)
         run: |
-          bandit -r . -f txt -ll > bandit-report.txt || true
-      
+          bandit -r . -f txt --severity-level medium > bandit-report.txt || BANDIT_EXIT=$?
+
           echo "## SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           tail -50 bandit-report.txt >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
-      
-          # Fail on HIGH or MEDIUM severity issues
-          if grep -qiE "severity: (high|medium)" bandit-report.txt; then
-            echo "❌ High or Medium severity issues found — failing CI"
+
+          if [ "${BANDIT_EXIT:-0}" -ne 0 ] || grep -Eiq "severity:[[:space:]]*(medium|high)" bandit-report.txt; then
+            echo "Medium or high severity issues found"
             exit 1
           else
-            echo "✅ No high or medium severity issues"
+            echo "No medium or high severity issues"
           fi
           
       - name: Upload Bandit report
