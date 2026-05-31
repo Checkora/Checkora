@@ -781,7 +781,8 @@ DP cache is intentionally excluded to save cookie space."""
 
     @staticmethod
     def _color(piece):
-        if not piece:
+        # Normalize empty-square markers: treat None or '.' as empty
+        if not piece or piece == '.':
             return None
         return 'white' if piece.isupper() else 'black'
 

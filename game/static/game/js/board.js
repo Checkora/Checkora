@@ -22,6 +22,8 @@
             let turn = 'white';
             let selected = null;
             let hints = [];
+            let remainingHints = 3;
+            let hintTimeout = null;
             let lastMove = null;
             let premove = null;
             let highlightedSquare = null;
@@ -195,6 +197,7 @@
             const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
             const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
+            const hintBtn = document.getElementById('hintBtn');
             const resignBtn = document.getElementById('resignBtn');
             const drawBtn = document.getElementById('drawBtn');
             const drawOverlay = document.getElementById('drawOverlay');
@@ -216,6 +219,27 @@
                     a11yAnnouncer.textContent = '';
                     setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
                 }
+            }
+
+            function getServerRemainingHints(data) {
+                const remaining = Number(data?.remaining_hints);
+                if (Number.isFinite(remaining)) {
+                    return Math.max(0, remaining);
+                }
+
+                const hintCount = Number(data?.hint_count);
+                if (Number.isFinite(hintCount)) {
+                    return Math.max(0, 3 - hintCount);
+                }
+
+                return remainingHints;
+            }
+
+            function refreshHintButton(remaining) {
+                remainingHints = Math.max(0, Number.isFinite(remaining) ? remaining : remainingHints);
+                if (!hintBtn) return;
+                hintBtn.textContent = `Hint (${remainingHints})`;
+                hintBtn.disabled = remainingHints <= 0;
             }
 
             let flashTimeout = null;
@@ -526,7 +550,7 @@
                         wName = `AI (White)`;
 
                     }
-                
+
                     // Inject difficulty badge after names are set
                     setTimeout(() => {
                         const aiLabel = playerColor === 'white'
@@ -544,6 +568,9 @@
                         }
                     }, 0);
                 }
+
+                refreshHintButton(getServerRemainingHints(data));
+
                 if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
                 if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
                 if (whiteCapturedName) whiteCapturedName.textContent = wName;
@@ -1129,6 +1156,58 @@
                     if (seq === aiRequestSeq) {
                         aiThinking = false;
                     }
+                }
+            }
+
+            async function showHint() {
+                if (paused || gameOver) {
+                    showStatus('Hints unavailable right now.', true);
+                    return;
+                }
+                if (remainingHints <= 0) {
+                    showStatus('Hint limit reached for this round.', true);
+                    return;
+                }
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    showStatus('Wait for your turn.', true);
+                    return;
+                }
+
+                try {
+                    showStatus('Analyzing best move...', false);
+                    const data = await post('/api/hint/', {});
+
+                    if (!data.valid) {
+                        refreshHintButton(getServerRemainingHints(data));
+                        if (data.message) {
+                            showStatus(data.message, true);
+                        }
+                        return;
+                    }
+
+                    const hint = data.hint;
+                    refreshHintButton(getServerRemainingHints(data));
+
+                    const sourceSquare = sq(hint.from_row, hint.from_col);
+                    const destinationSquare = sq(hint.to_row, hint.to_col);
+
+                    sourceSquare.classList.add("hint-source");
+                    destinationSquare.classList.add("hint-destination");
+                    
+                    if (hintTimeout) {
+                        clearTimeout(hintTimeout);
+                    }
+                    
+                    hintTimeout = setTimeout(() => {
+                        sourceSquare.classList.remove("hint-source");
+                        destinationSquare.classList.remove("hint-destination");
+                    }, 2500);
+
+                    showStatus('Suggested move highlighted.', false);
+
+                } catch (e) {
+                    showStatus('Hint connection error.', true);
                 }
             }
 
@@ -1779,6 +1858,14 @@
                 aiThinking = false;
                 premove = null;
                 refreshPremoveHighlight();
+                remainingHints = 3;
+                selected = null;
+                hints = [];
+                lastMove = null;
+                aiThinking = false;
+                clearInterval(timerInterval);
+
+                refreshHintButton(3);
 
                 clearTimeout(pgnDownloadTimeout);
                 clearTimeout(fenCopyTimeout);
@@ -2148,6 +2235,8 @@
                     }, 2000);
                 }
             };
+
+            if (hintBtn) hintBtn.addEventListener('click', showHint);
 
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
                 const data = await post('/api/resume/', {});

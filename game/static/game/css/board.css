@@ -1041,6 +1041,40 @@ body {
     flex-wrap: nowrap;
 }
 
+/* ================= HINT BUTTON ================= */
+.hint-container {
+    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    max-width: 100%;
+    margin: 0 auto 6px;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.hint-container #hintBtn {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px 0;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(240, 192, 64, 0.12);
+    font-weight: 700;
+    font-size: 0.95rem;
+    align-self: center;
+}
+
+@media (max-width: 768px) {
+    .hint-container {
+        width: var(--mobile-board-size);
+        margin: 0 auto 10px;
+    }
+
+    .hint-container #hintBtn {
+        min-height: 44px;
+        padding: 12px 0;
+        font-size: 0.9rem;
+    }
+}
+
 .clock {
     flex: 1 1 0;
     min-width: 0;
@@ -1221,7 +1255,7 @@ body {
   display: none; 
 }
 
- {
+
   .m-fab {
     display: flex;
     flex-direction: column;
@@ -1267,7 +1301,7 @@ body {
   body:has(.promo-overlay.active) .m-fab {
     display: none;
   }
-}
+
 .promo-logo {
     display: flex;
     align-items: center;
@@ -1761,3 +1795,91 @@ body.blindfold-mode .capture-ring {
     background: #252545;
     border-radius: 1px;
 }
+/* =======================================================
+                        Hint Highlight 
+==========================================================*/
+.hint-source {
+    border: 3px solid white;
+    box-shadow:
+    0 0 10px rgba(255,255,255,0.9),
+    0 0 20px rgba(173,216,230,0.8),
+    0 0 30px rgba(173,216,230,0.6);
+    animation: pulseSource 1.2s infinite;
+}
+        
+.hint-destination {
+    border: 3px solid gold;
+    box-shadow:
+    0 0 10px rgba(255,215,0,0.9),
+    0 0 20px rgba(255,215,0,0.7);
+    animation: pulseDestination 1.2s infinite;
+}
+
+@keyframes pulseSource {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.04);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes pulseDestination {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.03);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+#hintBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(30%);
+    pointer-events: none;
+}
+#hintBtn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 260px;
+    min-width: 100px;
+    min-height: 42px;
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #1a1a2e;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    text-align: center;
+    box-sizing: border-box;
+}
+.hint-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 280px;
+    margin: 8px auto;
+    padding: 0 12px;
+}
+#hintBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.24);
+}
+
