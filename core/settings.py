@@ -21,7 +21,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from .env file
 load_dotenv(BASE_DIR / '.env')
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -29,10 +28,13 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-testing')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = ['.vercel.app', '*']
-
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+    if host.strip()
+]
 
 # Application definition
 
@@ -79,10 +81,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -91,7 +91,6 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -110,7 +109,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -151,9 +149,14 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
 
-# SSL Redirect
-SECURE_SSL_REDIRECT = not DEBUG
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax'
 
+# SSL Redirect
+SECURE_SSL_REDIRECT = not DEBUG and not os.environ.get('CI')
+if os.environ.get('TRUST_PROXY_SSL_HEADER', '').lower() == 'true':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Email Configuration for OTP and Password Reset EMails
 EMAIL_BACKEND = os.getenv(
@@ -167,7 +170,6 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-
 # Redirect after login
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
@@ -178,9 +180,8 @@ PASSWORD_RESET_TIMEOUT = 300
 # SECURITY SETTINGS (Implemented via GSSoC Audit)
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_HSTS_SECONDS = 31536000  # 1 year
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
 
 # Secret token for authenticating Vercel cron job requests to /api/cron/cleanup-stale-games/
-CRON_SECRET = os.environ.get('CRON_SECRET')

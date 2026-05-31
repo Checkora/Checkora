@@ -93,7 +93,9 @@ class BaseE2ETest(StaticLiveServerTestCase):
         black_input.send_keys('Bob')
 
         self.driver.find_element(By.ID, 'welcomePvPBtn').click()
-
+        self.wait.until(
+            EC.invisibility_of_element_located((By.ID, 'welcomeOverlay'))
+        )
         self.wait.until(
             EC.visibility_of_element_located((By.ID, 'board'))
         )
