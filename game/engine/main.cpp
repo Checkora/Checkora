@@ -461,13 +461,24 @@ static const int kingMiddleTable[8][8] = {
     { 20, 20,  0,  0,  0,  0, 20, 20},
     { 20, 30, 10,  0,  0, 10, 30, 20}
 };
+
+static const int kingEndgameTable[8][8] = {
+    {-50,-30,-30,-30,-30,-30,-30,-50},
+    {-30,-10,-10,-10,-10,-10,-10,-30},
+    {-30,-10, 20, 30, 30, 20,-10,-30},
+    {-30,-10, 30, 40, 40, 30,-10,-30},
+    {-30,-10, 30, 40, 40, 30,-10,-30},
+    {-30,-10, 20, 30, 30, 20,-10,-30},
+    {-30,-20,-10,  0,  0,-10,-20,-30},
+    {-50,-40,-30,-20,-20,-30,-40,-50}
+};
 // clang-format on
 
 /**
  * Positional bonus for a single piece at (row, col).
  * White reads the table top-down; black mirrors it.
  */
-int positionalBonus(char piece, int row, int col) {
+int positionalBonus(char piece, int row, int col, bool isEndgame) {
     char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
     int r = isWhite(piece) ? row : (7 - row);
 
@@ -477,7 +488,7 @@ int positionalBonus(char piece, int row, int col) {
         case 'b': return bishopTable[r][col];
         case 'r': return rookTable[r][col];
         case 'q': return queenTable[r][col];
-        case 'k': return kingMiddleTable[r][col];
+        case 'k': return isEndgame ? kingEndgameTable[r][col] : kingMiddleTable[r][col];
         default:  return 0;
     }
 }
@@ -488,12 +499,30 @@ int positionalBonus(char piece, int row, int col) {
  */
 int evaluate() {
     int score = 0;
+    int queenCount = 0;
+    int minorCount = 0;
+
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            char p = board[r][c];
+            if (isEmpty(p)) continue;
+            char type = tolower(static_cast<unsigned char>(p));
+            if (type == 'q') {
+                queenCount++;
+            } else if (type == 'n' || type == 'b') {
+                minorCount++;
+            }
+        }
+    }
+
+    bool isEndgame = (queenCount == 0 || minorCount <= 6);
+
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
             char p = board[r][c];
             if (isEmpty(p)) continue;
 
-            int val = pieceValue(p) + positionalBonus(p, r, c);
+            int val = pieceValue(p) + positionalBonus(p, r, c, isEndgame);
             score += isWhite(p) ? val : -val;
         }
     }

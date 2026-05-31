@@ -23,7 +23,7 @@ from django.utils.encoding import (
 )
 
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
 from django.core.mail import (
@@ -850,10 +850,124 @@ def resend_otp(request):
     return redirect('verify_otp')
 
 class CustomPasswordResetView(PasswordResetView):
+    """Password reset view with email cooldown and IP-level throttling."""
+
+    form_class = PasswordResetForm
+    email_cooldown_message = (
+        'Please wait {duration} before requesting another password reset email.'
+    )
+    ip_throttle_message = (
+        'Too many password reset requests were sent from your network. '
+        'Please wait {duration} before trying again.'
+    )
+
+    def _cache_key(self, prefix, value):
+        normalized = (value or 'unknown').strip().lower()
+        digest = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
+        return f'{prefix}:{digest}'
+
+    def _ip_expires_key(self, ip_key):
+        return f'{ip_key}:expires'
+
+    def _client_ip(self, request):
+        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if forwarded_for:
+            return forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR', 'unknown')
+
+    def _format_duration(self, seconds):
+        seconds = max(1, int(seconds))
+        minutes, remainder = divmod(seconds, 60)
+        if minutes and remainder:
+            return f'{minutes} minute(s) and {remainder} second(s)'
+        if minutes:
+            return f'{minutes} minute(s)'
+        return f'{remainder} second(s)'
+
+    def _cooldown_remaining(self, cache_key):
+        expires_at = cache.get(cache_key)
+        if not expires_at:
+            return 0
+        return max(0, int(expires_at - time.time()))
+
+    def _get_limited_response(self, request, email):
+        email_key = self._cache_key('password-reset-email', email)
+        remaining = self._cooldown_remaining(email_key)
+        if remaining:
+            messages.error(
+                request,
+                self.email_cooldown_message.format(
+                    duration=self._format_duration(remaining)
+                ),
+            )
+            return redirect('password_reset')
+
+        ip_key = self._cache_key(
+            'password-reset-ip',
+            self._client_ip(request),
+        )
+        ip_attempts = cache.get(ip_key, 0)
+        max_attempts = getattr(settings, 'PASSWORD_RESET_IP_MAX_REQUESTS', 3)
+        if ip_attempts >= max_attempts:
+            remaining = self._cooldown_remaining(self._ip_expires_key(ip_key))
+            if not remaining:
+                remaining = getattr(settings, 'PASSWORD_RESET_IP_WINDOW_SECONDS', 900)
+            messages.error(
+                request,
+                self.ip_throttle_message.format(
+                    duration=self._format_duration(remaining)
+                ),
+            )
+            return redirect('password_reset')
+
+        request._password_reset_email_key = email_key
+        request._password_reset_ip_key = ip_key
+        return None
+
+    def _record_password_reset_request(self, request):
+        email_timeout = getattr(
+            settings,
+            'PASSWORD_RESET_EMAIL_COOLDOWN_SECONDS',
+            300,
+        )
+        cache.set(
+            request._password_reset_email_key,
+            time.time() + email_timeout,
+            timeout=email_timeout,
+        )
+
+        ip_timeout = getattr(settings, 'PASSWORD_RESET_IP_WINDOW_SECONDS', 900)
+        ip_expires_key = self._ip_expires_key(request._password_reset_ip_key)
+        if not cache.add(request._password_reset_ip_key, 1, timeout=ip_timeout):
+            cache.incr(request._password_reset_ip_key)
+            if not cache.get(ip_expires_key):
+                cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
+        else:
+            cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
+
+    def _single_user_form(self, selected_user):
+        base_form = self.get_form_class()
+
+        class SingleUserPasswordResetForm(base_form):
+            def get_users(self, email):
+                if selected_user and selected_user.has_usable_password():
+                    return [selected_user]
+                return []
+
+        return SingleUserPasswordResetForm
+
     def post(self, request, *args, **kwargs):
 
         email = request.POST.get('email', '').strip().lower()
-        users = User.objects.filter(email=email)
+        if not email:
+            messages.error(
+                request,
+                'Please enter a valid email address.'
+            )
+
+            return redirect('password_reset')
+
+        users = User.objects.filter(email__iexact=email)
 
         if users.count() > 1 and not request.POST.get(
             'selected_username'
@@ -868,58 +982,43 @@ class CustomPasswordResetView(PasswordResetView):
                 request,
                 'game/password_reset.html',
                 {
-                    'form': self.form_class,
+                    'form': self.get_form(),
                     'usernames': usernames,
                     'email': email
                 }
             )
-        if not email:
-            messages.error(
-                request,
-                'Please enter a valid email address.'
-            )
-
-            return redirect('password_reset')
-        cache_key = (f"password_reset_cooldown_{email}")
-
-        if cache.get(cache_key):
-
-            messages.error(
-                request,
-                'Please wait 60 seconds before requesting another password reset email.',
-            )
-
-            return redirect('password_reset')
-        cache.set(cache_key, True, timeout=60)
         selected_username = request.POST.get(
             'selected_username'
         )
 
+        form_class = self.get_form_class()
         if selected_username:
 
             selected_user = User.objects.filter(
                 username=selected_username,
-                email=email
+                email__iexact=email
             ).first()
 
-            from django.contrib.auth.forms import (
-                PasswordResetForm
-            )
+            if not selected_user:
+                messages.error(
+                    request,
+                    'Please select a valid account for this email address.',
+                )
+                return redirect('password_reset')
 
-            class SingleUserPasswordResetForm(
-                PasswordResetForm
-            ):
+            form_class = self._single_user_form(selected_user)
 
-                def get_users(self, email):
+        form = form_class(**self.get_form_kwargs())
+        if not form.is_valid():
+            return self.form_invalid(form)
 
-                    return [selected_user]
+        limited_response = self._get_limited_response(request, email)
+        if limited_response:
+            return limited_response
 
-            self.form_class = (SingleUserPasswordResetForm)
-        return super().post(
-            request,
-            *args,
-            **kwargs
-        )
+        response = self.form_valid(form)
+        self._record_password_reset_request(request)
+        return response
 
 
 def login_view(request):

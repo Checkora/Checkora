@@ -73,11 +73,11 @@
       href="{% static 'game/favicon.jpeg' %}"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap"
       rel="stylesheet"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
@@ -99,14 +99,13 @@
         <div class="nav-links">
           <a href="#about">About</a>
           <a href="#features">Features</a>
+          <a href="#faq">FAQ</a>
         </div>
       </div>
       <div class="nav-right">
         {% if user.is_authenticated %}
         <div class="profile-dropdown">
-          <button class="profile-btn">
-              {{ user.username }} ⌄
-          </button>
+          <button type="button" class="profile-btn">{{ user.username }} <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
           <div class="dropdown-content">
             <a href="/play/"> Dashboard </a>
 
@@ -185,13 +184,13 @@
                   <p>Powers intelligent AI gameplay. A custom high-performance engine calculates tactical configurations rapidly, challenging players at all skill levels.</p>
               </div>
 
-              <div class="about-bento-card">
+              <div class="about-bento-card highlight-accent">
                   <div class="about-card-icon">⚙️</div>
                   <h3>Hybrid Architecture</h3>
                   <p>Django and Python smoothly orchestrate core application routing, data states, and user sessions while handling real-time engine communication.</p>
               </div>
 
-              <div class="about-bento-card">
+              <div class="about-bento-card highlight-accent">
                   <div class="about-card-icon">📊</div>
                   <h3>Smooth Interactions</h3>
                   <p>Gain unhindered access to active statistics tracking, a responsive user layout, and synchronized match configurations natively built for seamless flow.</p>
@@ -370,6 +369,71 @@
       </div>
     </section>
 
+    <section id="faq" class="faq-section">
+      <div class="faq-container">
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <p class="faq-subtitle">Everything you need to know about the Checkora chess platform architecture and functionality.</p>
+        
+        <div class="faq-wrapper">
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What makes Checkora a "Hybrid Intelligence" engine?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Checkora offloads complex, compute-intensive tactical configurations and minimax analytics natively to a super-fast, highly optimized C++17 core. Meanwhile, a flexible Python and Django application framework manages sessions, game data validation routing, and smooth presentation handling seamlessly.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I customize the game timing modes?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Yes! The platform natively supports configuration profiles optimized for Bullet, Blitz, and Rapid variants. Match setups are backed up by accurate real-time validation layers that support timing pause-and-resume cycles on active connections.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Does the platform support official FIDE rules?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Absolutely. Checkora's structural architecture natively features rigorous full move validation processes checking rulesets for castling permissions, en passant states, standard checking conditions, stalemates, and dynamic pawn promotion updates.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is my gameplay history and analytical tracking private?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                All metrics are securely tied inside Django application instances. Users gain standalone access controls over structural game analytics, tracking dashboard components, and full options to wipe historical records cleanly via account deletion pathways.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <footer class="footer">
       <div class="footer-container">
         <div class="footer-col brand-column">
@@ -422,9 +486,9 @@
         <div class="footer-col">
           <h4>Legal</h4>
           <ul class="footer-nav-list">
-            <li><a href="{% url 'privacy' %}" class="footer-link">Privacy Policy</a></li>
-            <li><a href="{% url 'terms' %}" class="footer-link">Terms & Conditions</a></li>
-            <li><a href="{% url 'contact' %}" class="footer-link">Contact Us</a></li>
+            <li><a href="#" class="footer-link" data-modal-trigger="privacyModal">Privacy Policy</a></li>
+            <li><a href="#" class="footer-link" onclick="openTermsModal(); return false;">Terms & Conditions</a></li>     
+             <li><a href="{% url 'contact' %}" class="footer-link">Contact Us</a></li>
           </ul>
         </div>
       </div>
@@ -446,6 +510,251 @@
           </a>
         </div>
       </div>
-    </footer>
+    </section>
+
+    <div id="backToTopWrapper">
+      <span id="backToTopTooltip">Back to Top</span>
+      <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <span class="btn-arrow">^</span>
+      </button>
+    </div>
+  
+    <script>
+      const backToTopWrapper = document.getElementById('backToTopWrapper');
+      window.addEventListener('scroll', () => {
+        backToTopWrapper.classList.toggle('visible', window.scrollY > 300);
+      });
+    
+      document.querySelectorAll('.faq-question').forEach(button => {
+        button.addEventListener('click', () => {
+          const faqItem = button.parentElement;
+          const answer = button.nextElementSibling;
+          document.querySelectorAll('.faq-item').forEach(item => {
+            if (item !== faqItem && item.classList.contains('active')) {
+              item.classList.remove('active');
+              item.querySelector('.faq-answer').style.maxHeight = null;
+            }
+          });
+          faqItem.classList.toggle('active');
+          if (faqItem.classList.contains('active')) {
+            answer.style.maxHeight = answer.scrollHeight + "px";
+          } else {
+            answer.style.maxHeight = null;
+          }
+        });
+      });
+    
+      document.addEventListener('DOMContentLoaded', function() {
+        const privacyModal = document.getElementById('privacyModal');
+        if (!privacyModal) return;
+        const privacyInner = privacyModal.querySelector('[tabindex="-1"]');
+        if (!privacyInner) return;
+        let lastFocused;
+    
+        window.openPrivacyModal = function(e) {
+          lastFocused = e ? e.target : document.activeElement;
+          privacyModal.style.display = 'flex';
+          privacyInner.focus();
+        };
+    
+        window.closePrivacyModal = function() {
+          privacyModal.style.display = 'none';
+          if (lastFocused) lastFocused.focus();
+        };
+    
+        document.querySelector('[data-modal-trigger="privacyModal"]').addEventListener('click', function(e) {
+          e.preventDefault();
+          openPrivacyModal(e);
+        });
+    
+        privacyModal.addEventListener('click', function(e) {
+          if (e.target === privacyModal) closePrivacyModal();
+        });
+    
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && privacyModal.style.display === 'flex') closePrivacyModal();
+        });
+    
+        privacyModal.addEventListener('keydown', function(e) {
+          if (e.key === 'Tab') {
+            const focusable = privacyModal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault(); last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault(); first.focus();
+            }
+          }
+        });
+      });
+    </script>
+    <div id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:700px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <h1 id="privacyModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Privacy Policy</h1>
+          <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Information We Collect</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Checkora only collects basic information necessary to manage user authentication and orchestrate your chess matches:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;"><strong style="color:#f0c040;">Account Data:</strong> Username, email address, and encrypted password profiles when you register.</li>
+                  <li style="margin-bottom:6px;"><strong style="color:#f0c040;">Gameplay Metrics:</strong> Move history, win/loss stats, match durations, and time preferences for leaderboard rankings.</li>
+                  <li><strong style="color:#f0c040;">Technical Logs:</strong> Minimal session tokens to keep you securely logged in across page reloads.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">How Your Data is Used</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Your data remains dedicated exclusively to powering your active application experiences:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;">Maintain your personalized player profile dashboard and performance metrics.</li>
+                  <li style="margin-bottom:6px;">Calculate real-time material scores and process live move-validation checks.</li>
+                  <li>Optimize the sync pipeline between backend systems and computation services.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Cookies and Session Storage</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">We use essential cookies and local storage tokens to manage authentication states and secure form submissions against CSRF. No tracking cookies or behavioral profile monitors are embedded inside the platform.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Data Retention & Security</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">We retain your profile credentials and match logs for as long as your account remains active. Passwords are securely stored using Django authentication hashing mechanisms.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Open Source Transparency & User Rights</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">In alignment with our open-source framework and GSSoC community policies, users maintain full authority over their data and may request account deletion or data removal at any time.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">6</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Contact & Community Channels</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">If you have questions or feedback regarding this Privacy Policy, please open an issue on our GitHub repository or contact the project maintainers directly.</p>
+              </div>
+            </div>
+            <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">Last updated: May 2026</p>
+          </div>
+        </div>
+        <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; background:#131522;">
+          <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; font-size:0.95rem; cursor:pointer; box-shadow:0 4px 16px rgba(240,192,64,0.3);">I Agree</button>
+        </div>
+      </div>
+    </div>
+    <div id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:700px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <h1 id="termsModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Terms and Conditions</h1>
+          <button type="button" aria-label="Close terms and conditions" onclick="closeTermsModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Acceptance of Terms</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">By accessing, registering for, or interacting with the Checkora Chess Platform, you agree to comply with and be bound by these Terms and Conditions. If you do not accept these parameters, you are advised to discontinue platform interaction.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Fair Play and Anti-Cheat Policy</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Checkora runs a native high-performance C++ minimax engine designed to provide competitive gameplay. To safeguard integrity:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;">Use of third-party engine assistance, browser modifications, or state-manipulation scripts is strictly prohibited.</li>
+                  <li>Intentionally stalling game clocks or throwing matches to manipulate metrics violates our guidelines.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Account Management and Security</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">When creating profile credentials and completing OTP verification, you are fully accountable for preserving credential confidentiality. Checkora reserves authority to clean up idle ghost accounts that remain abandoned to free system namespaces.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Open Source and Modifications</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">Checkora operates openly under the MIT License. While customization of backend logic modules is encouraged for developer variants, users are requested to interact fairly and maintain the software's style parameters.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Disclaimer of Liability</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">The platform services and integrated AI engines are offered on an "as-is" operational basis. The maintenance team assumes no liability for match state disruptions, profile cache rollbacks during server updates, or local dependency failures in client-side setups.</p>
+              </div>
+            </div>
+            <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">Last updated: May 2026</p>
+          </div>
+        </div>
+        <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; background:#131522;">
+          <button type="button" onclick="closeTermsModal()" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; font-size:0.95rem; cursor:pointer; transition:all 0.2s ease; box-shadow:0 4px 16px rgba(240,192,64,0.3);">I Agree</button>        </div>
+      </div>
+  </div>
+  <script>
+    (function() {
+      const modal = document.getElementById('termsModal');
+      const modalInner = modal.querySelector('[tabindex="-1"]');
+      let lastFocused;
+  
+      function openTermsModal() {
+        lastFocused = document.activeElement;
+        modal.style.display = 'flex';
+        modalInner.focus();
+      }
+  
+      function closeTermsModal() {
+        modal.style.display = 'none';
+        if (lastFocused) lastFocused.focus();
+      }
+  
+      window.openTermsModal = openTermsModal;
+      window.closeTermsModal = closeTermsModal;
+  
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+          closeTermsModal();
+        }
+      });
+  
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeTermsModal();
+      });
+      modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+          const focusable = modal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      });
+    })();
+  </script>
   </body>
 </html>

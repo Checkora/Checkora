@@ -2,11 +2,14 @@
 
 import json
 import sys
+import time
 from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core import mail
+from django.core.cache import cache
 from django.urls import reverse
 from django.test import (
     RequestFactory,
@@ -17,6 +20,7 @@ from django.test import (
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
+from .views import CustomPasswordResetView
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -251,6 +255,111 @@ class CustomSetPasswordFormTest(TestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    PASSWORD_RESET_EMAIL_COOLDOWN_SECONDS=300,
+    PASSWORD_RESET_IP_WINDOW_SECONDS=900,
+    PASSWORD_RESET_IP_MAX_REQUESTS=3,
+)
+class PasswordResetRateLimitTest(TestCase):
+    """Password reset requests should be throttled by email and IP."""
+
+    def setUp(self):
+        cache.clear()
+        self.reset_url = reverse('password_reset')
+        self.done_url = reverse('password_reset_done')
+        User.objects.create_user(
+            username='resetplayer',
+            email='reset@example.com',
+            password='StrongPass123!',
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_repeated_email_request_during_cooldown_is_blocked(self):
+        first_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+        )
+
+        self.assertRedirects(first_response, self.done_url)
+        self.assertEqual(len(mail.outbox), 1)
+
+        second_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+            follow=True,
+        )
+
+        self.assertRedirects(second_response, self.reset_url)
+        self.assertContains(
+            second_response,
+            'Please wait',
+        )
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(PASSWORD_RESET_IP_MAX_REQUESTS=2)
+    def test_ip_throttle_blocks_excessive_reset_requests(self):
+        for index in range(3):
+            User.objects.create_user(
+                username=f'resetplayer{index}',
+                email=f'reset{index}@example.com',
+                password='StrongPass123!',
+            )
+
+        for index in range(2):
+            response = self.client.post(
+                self.reset_url,
+                data={'email': f'reset{index}@example.com'},
+                REMOTE_ADDR='203.0.113.20',
+            )
+            self.assertRedirects(response, self.done_url)
+
+        blocked_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset2@example.com'},
+            REMOTE_ADDR='203.0.113.20',
+            follow=True,
+        )
+
+        self.assertRedirects(blocked_response, self.reset_url)
+        self.assertContains(
+            blocked_response,
+            'Too many password reset requests',
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    @override_settings(PASSWORD_RESET_IP_MAX_REQUESTS=2)
+    def test_ip_throttle_message_uses_remaining_window_time(self):
+        User.objects.create_user(
+            username='remainingplayer',
+            email='remaining@example.com',
+            password='StrongPass123!',
+        )
+        view = CustomPasswordResetView()
+        ip_key = view._cache_key('password-reset-ip', '203.0.113.30')
+        cache.set(ip_key, 2, timeout=900)
+        cache.set(
+            view._ip_expires_key(ip_key),
+            time.time() + 125,
+            timeout=900,
+        )
+
+        response = self.client.post(
+            self.reset_url,
+            data={'email': 'remaining@example.com'},
+            REMOTE_ADDR='203.0.113.30',
+            follow=True,
+        )
+
+        self.assertRedirects(response, self.reset_url)
+        self.assertContains(response, '2 minute(s)')
+        self.assertNotContains(response, '15 minute(s)')
+        self.assertEqual(len(mail.outbox), 0)
+
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""

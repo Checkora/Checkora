@@ -131,6 +131,10 @@ CACHES = {
     }
 }
 
+PASSWORD_RESET_EMAIL_COOLDOWN_SECONDS = 300
+PASSWORD_RESET_IP_WINDOW_SECONDS = 900
+PASSWORD_RESET_IP_MAX_REQUESTS = 3
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
