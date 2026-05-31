@@ -102,7 +102,7 @@ class ChessGame:
         """Generate a PGN string from move history."""
         if not self.move_history:
             return ""
-        
+
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -121,7 +121,7 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
-        
+
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
@@ -135,7 +135,7 @@ class ChessGame:
 
     def to_dict(self):
         """Serialise state for Django session storage.
-DP cache is intentionally excluded to save cookie space."""
+DP cache is intentionally excluded to keep session payloads compact."""
         return {
             'board': self.board,
             'current_turn': self.current_turn,
@@ -583,6 +583,7 @@ DP cache is intentionally excluded to save cookie space."""
             'captured': captured,
             'color': moved_by,
             'promoted_to': self.board[tr][tc] if promoted else None,
+            'board': self.serialize_board(),
         })
 
         if game_status == 'checkmate':
