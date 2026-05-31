@@ -931,6 +931,11 @@ body {
         gap: 6px;
     }
 
+    .theme-labels {
+        gap: 3px 6px;
+        font-size: 0.65rem;
+    }
+
     .theme-btn {
         width: 24px;
         height: 24px;
@@ -1267,6 +1272,23 @@ body {
 .theme-btn[data-theme="green"]   { background-color: #2e5a31; }
 .theme-btn[data-theme="blue"]    { background-color: #2e4a5a; }
 .theme-btn[data-theme="pastel"]  { background-color: #a55cc7; }
+
+.theme-labels {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 8px;
+    max-width: 100%;
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: clamp(0.62rem, 0.58rem + 0.2vw, 0.72rem);
+    line-height: 1.25;
+    text-align: center;
+}
+
+.theme-labels span {
+    white-space: nowrap;
+}
 
 /* ================= PROMOTION MODAL ================= */
 
@@ -2491,4 +2513,3 @@ body.blindfold-mode .capture-ring {
         transform: none !important;
     }
 }
-
