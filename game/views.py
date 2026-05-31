@@ -51,7 +51,12 @@ class InvalidGameStateError(ValueError):
     pass
 
 def _sign_state(game_data):
-    """Generate a cryptographic signature for the game state dictionary, binding it to the move count to prevent replay attacks."""
+    """Generate a cryptographic signature for the game state dictionary.
+    
+    Guarantees the game state payload originated on the server and was not tampered with.
+    Note: A purely stateless client-owned model cannot fully prevent replay of older valid states 
+    (e.g., undoing moves against the AI) without server-side state tracking.
+    """
     envelope = {
         'game': game_data,
         'move_count': len(game_data.get('move_history', [])),
