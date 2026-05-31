@@ -20,7 +20,7 @@ def cleanup_stale_games():
     resigned_count = 0
     
     # Iterate over all sessions
-    for session in Session.objects.all():
+    for session in Session.objects.iterator():
         try:
             session_data = session.get_decoded()
         except Exception:
@@ -70,7 +70,8 @@ def cleanup_stale_games():
                     mode=mode,
                     winner=winner,
                     end_reason='resign',
-                    player_color=player_color
+                    player_color=player_color,
+                    moves=game_data.get('move_history', [])
                 )
                 result.full_clean()
                 result.save()
