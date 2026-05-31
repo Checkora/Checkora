@@ -1673,8 +1673,7 @@
                     return;
                 }
                 movesEl.innerHTML = '';
-                for (let i = currentMoveHistory.length - 1; i >= 0; i -= 2) {
-                    const whiteIdx = i % 2 === 0 ? i : i - 1;
+                for (let whiteIdx = 0; whiteIdx < currentMoveHistory.length; whiteIdx += 2) {
                     const blackIdx = whiteIdx + 1;
                     const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
@@ -1774,6 +1773,9 @@
             function getMoveBoard(move) {
                 const snapshot = move?.board;
                 if (typeof snapshot === 'string') {
+                    if (snapshot.length !== 64) {
+                        return null;
+                    }
                     return parseBoard(snapshot);
                 }
                 if (!Array.isArray(snapshot) || snapshot.length !== 8) {
@@ -2678,10 +2680,6 @@
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, preservePuzzleMode = false) {
                 replayMode = false;
 
-                if (!preservePuzzleMode) {
-                    resetDailyPuzzleState();
-                }
-
                 if (autoReplayInterval) {
                     clearInterval(autoReplayInterval);
                     autoReplayInterval = null;
@@ -2771,6 +2769,10 @@
                     }
                     showStatus(message, true);
                     return false;
+                }
+
+                if (!preservePuzzleMode) {
+                    resetDailyPuzzleState();
                 }
 
                 board = d.board;
@@ -3466,6 +3468,8 @@
                 manualMoveInput.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
+                        if (blockHistoryReviewInput()) return;
+
                         const val = manualMoveInput.value.trim().toLowerCase();
                         if (!val) return;
 
