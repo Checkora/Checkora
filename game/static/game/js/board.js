@@ -327,11 +327,11 @@
 
             function loadStoredGameState() {
                 try {
-                    const raw = localStorage.getItem(GAME_STATE_STORAGE_KEY);
+                    const raw = sessionStorage.getItem(GAME_STATE_STORAGE_KEY);
                     gameState = raw ? JSON.parse(raw) : null;
                 } catch (_) {
                     gameState = null;
-                    localStorage.removeItem(GAME_STATE_STORAGE_KEY);
+                    sessionStorage.removeItem(GAME_STATE_STORAGE_KEY);
                 }
             }
 
@@ -343,7 +343,7 @@
                 if (!data || !data.game_state) return;
                 gameState = data.game_state;
                 try {
-                    localStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(gameState));
+                    sessionStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(gameState));
                 } catch (_) {
                     // If storage is full or unavailable, keep the in-memory state for this tab.
                 }
