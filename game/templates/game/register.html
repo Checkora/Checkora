@@ -51,6 +51,12 @@
                     {% if field.errors %}
                         {{ field.errors }}
                     {% endif %}
+                    {% if field.name == "password1" %}
+<div id="password-strength-container">
+    <div id="password-strength-bar"></div>
+    <small id="password-strength-text" aria-live="polite"></small>
+</div>
+{% endif %}
                 </div>
             {% endfor %}
             
@@ -61,7 +67,55 @@
             Already have an account? <a href="{% url 'login' %}">Sign In</a>
         </div>
     </div>
+     <script>
+const passwordInput = document.getElementById('id_password1');
 
+if (passwordInput) {
+    const strengthBar = document.getElementById('password-strength-bar');
+    const strengthText = document.getElementById('password-strength-text');
+
+    passwordInput.addEventListener('input', () => {
+        const value = passwordInput.value;
+        let strength = 0;
+        let text = '';
+
+        if (value.length >= 8) strength++;
+        if (/[A-Z]/.test(value)) strength++;
+        if (/[0-9]/.test(value)) strength++;
+        if (/[^A-Za-z0-9]/.test(value)) strength++;
+
+        strengthBar.style.height = '6px';
+        strengthBar.style.borderRadius = '6px';
+        strengthBar.style.marginTop = '8px';
+        strengthBar.style.transition = '0.3s';
+          if (value.length === 0) {
+    strengthBar.style.width = '0%';
+    strengthBar.style.background = 'transparent';
+    strengthText.textContent = '';
+    return;
+}
+        if (strength <= 1) {
+            strengthBar.style.width = '25%';
+            strengthBar.style.background = 'red';
+            text = 'Weak';
+        } else if (strength === 2) {
+            strengthBar.style.width = '50%';
+            strengthBar.style.background = 'orange';
+            text = 'Medium';
+        } else if (strength === 3) {
+            strengthBar.style.width = '75%';
+            strengthBar.style.background = 'yellow';
+            text = 'Good';
+        } else {
+            strengthBar.style.width = '100%';
+            strengthBar.style.background = 'limegreen';
+            text = 'Strong';
+        }
+
+        strengthText.textContent = text;
+    });
+}
+</script>
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>
     <script>
