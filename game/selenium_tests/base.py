@@ -115,6 +115,7 @@ class BaseE2ETest(StaticLiveServerTestCase):
                     time.sleep(2 ** attempt)
                     continue
                 raise
+                
     def _js_click(self, element):
         """Helper: click element via JavaScript (more reliable than Selenium click)."""
         self.driver.execute_script("arguments[0].click();", element)
