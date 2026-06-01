@@ -4,19 +4,22 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: read
+concurrency:
+  group: pr-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   label:
     name: Label PR size and area
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
 
     steps:
       - name: Apply size and area labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const owner = context.repo.owner;
