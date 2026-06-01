@@ -95,4 +95,4 @@ jobs:
             const labelsToAdd = [selectedSizeLabel, ...selectedAreaLabels];
             await github.rest.issues.addLabels({ owner, repo, issue_number: pullNumber, labels: labelsToAdd });
 
-            core.info(`Applied labels: ${labelsToAdd.join(', ')}`);
+            console.log(`Applied labels: ${labelsToAdd.join(', ')}`);
