@@ -2775,11 +2775,17 @@
                 selected = null;
                 hints = [];
                 await loadGame();
+
+                // NEW: Force sync the theme to the newly rebuilt DOM
+                if (typeof applyCurrentTheme === 'function') {
+                    applyCurrentTheme();
+                }
+
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
                 paused = false;
                 updatePauseUI();
-
+                
                 // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
                     queueAIMoveIfNeeded();
@@ -3384,26 +3390,31 @@
             }
 
             // Theme Switcher
-            function initThemeSwitcher() {
+            function applyCurrentTheme() {
                 const themeBtns = document.querySelectorAll('.theme-btn');
-                const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
+                const currentTheme = localStorage.getItem('chessBoardTheme') || 'classic';
                 document.documentElement.setAttribute('data-theme', currentTheme);
 
                 themeBtns.forEach(btn => {
                     if (btn.dataset.theme === currentTheme) {
                         btn.classList.add('active');
                         btn.setAttribute('aria-pressed', 'true');
+                    } else {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-pressed', 'false');
                     }
+                });
+            }
+
+            function initThemeSwitcher() {
+                applyCurrentTheme(); // Apply on initial load
+
+                const themeBtns = document.querySelectorAll('.theme-btn');
+                themeBtns.forEach(btn => {
                     btn.onclick = () => {
                         const theme = btn.dataset.theme;
-                        document.documentElement.setAttribute('data-theme', theme);
                         localStorage.setItem('chessBoardTheme', theme);
-                        themeBtns.forEach(b => {
-                            b.classList.remove('active');
-                            b.setAttribute('aria-pressed', 'false');
-                        });
-                        btn.classList.add('active');
-                        btn.setAttribute('aria-pressed', 'true');
+                        applyCurrentTheme(); // Apply immediately on click
                     };
                 });
             }
