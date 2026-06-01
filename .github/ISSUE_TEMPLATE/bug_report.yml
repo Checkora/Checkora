@@ -1,0 +1,53 @@
+name: "🐛 Bug Report"
+description: "File a structured bug report to help us improve Checkora."
+title: "[Bug]: "
+labels: ["type/bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out this form as completely as possible.
+  - type: textarea
+    id: description
+    attributes:
+      label: "Bug Description"
+      description: "A clear and concise description of what the bug is."
+      placeholder: "Explain what happens..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Explain how we can reproduce this bug locally."
+      placeholder: |
+        1. Open Checkora
+        2. Click on 'Play vs AI'
+        3. Make move e2e4...
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: "Expected vs Actual Behavior"
+      description: "What did you expect to happen, and what actually happened?"
+      placeholder: "Expected X but got Y..."
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: "Environment Details"
+      description: "OS version, Python version, Browser version (e.g. Windows 11, Chrome 120, Python 3.12)"
+      placeholder: "e.g. Windows 11, Chrome 120, Python 3.12"
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Code of Conduct & Contribution Checklist"
+      options:
+        - label: "I have checked the existing issues to ensure this bug has not already been reported."
+          required: true
+        - label: "I agree to follow this project's Code of Conduct."
+          required: true

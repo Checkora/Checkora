@@ -286,15 +286,21 @@ All checks must pass before a maintainer can merge your PR.
 
 ## 🐛 Reporting Issues
 
-When reporting issues, please include:
+We use **GitHub Issue Forms (YAML templates)** to make reporting issues and suggesting features structured, clean, and highly actionable. When opening an issue on GitHub, you will be presented with structured forms to fill out instead of plain markdown templates.
 
-- A clear description of the problem
-- Steps to reproduce
-- Expected vs. actual behavior
-- Your environment (OS, Python version, browser if UI-related)
-- Relevant error messages or stack traces
+### Types of Issues
+1. **Bug Report Form**: Pre-configured with fields for:
+   - **Bug Description**: A clear and concise description of the issue.
+   - **Steps to Reproduce**: Step-by-step instructions to reproduce the behavior locally.
+   - **Expected vs Actual Behavior**: Contrast between what should happen and what did happen.
+   - **Environment Details**: OS, Python, and browser details to aid reproduction.
+2. **Feature Request Form**: Pre-configured with fields for:
+   - **Problem Statement**: What friction or gap does this feature address?
+   - **Proposed Solution**: A clear, technical, or design description of your proposed feature.
+   - **Alternative Solutions**: Any workarounds or alternative designs considered.
 
-Use the **bug report template** when opening an issue.
+Please make sure to fill out all required fields and check the box indicating you have verified the issue does not already exist.
+
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>
