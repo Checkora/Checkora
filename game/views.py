@@ -1016,9 +1016,17 @@ class CustomPasswordResetView(PasswordResetView):
         if limited_response:
             return limited_response
 
-        response = self.form_valid(form)
-        self._record_password_reset_request(request)
-        return response
+        try:
+            response = self.form_valid(form)
+            self._record_password_reset_request(request)
+            return response
+        except Exception as e:
+            logger.error("Password reset email sending failed: %s", e)
+            messages.error(
+                request,
+                'Failed to send password reset email due to a mail server connection issue. Please try again later.'
+            )
+            return redirect('password_reset')
 
 
 def login_view(request):
