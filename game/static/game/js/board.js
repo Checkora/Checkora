@@ -2254,6 +2254,22 @@
                     blunderEl.textContent = replayMoves.length > 20 ? '1 mistake (Full review)' : 'None';
                 }
 
+                // 7. Post-Game Analysis Dashboard
+                get('/api/analysis/').then(analysis => {
+                    const analysisSection = document.getElementById('resAnalysisSection');
+                    if (!analysisSection || !analysis) return;
+
+                    const fullMoves = Math.ceil((analysis.total_moves || 0) / 2);
+                    document.getElementById('anaMovesVal').textContent = fullMoves;
+                    document.getElementById('anaCapturesVal').textContent = analysis.captures ?? 0;
+                    document.getElementById('anaChecksVal').textContent = analysis.checks ?? 0;
+                    document.getElementById('anaPromotionsVal').textContent = analysis.promotions ?? 0;
+                    document.getElementById('anaOpeningVal').textContent = detectOpening(analysis.notations || []);
+                    document.getElementById('anaDurationVal').textContent = durationText || '—';
+
+                    analysisSection.style.display = 'block';
+                }).catch(() => {});
+
                 // Delay the overlay and celebration effects by 0.5 seconds
                 setTimeout(() => {
                     // Add celebration effects for wins
