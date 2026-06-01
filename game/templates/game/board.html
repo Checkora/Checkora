@@ -3,6 +3,7 @@
 <html lang="en">
 
 <head>
+    {% include 'game/includes/theme_init.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Play Chess | Checkora AI</title>
@@ -17,6 +18,7 @@
     </script>
     <script defer src="/_vercel/speed-insights/script.js"></script>
 
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 
@@ -241,6 +243,7 @@
         </div>
         
         <div class="auth-buttons">
+            {% include 'game/includes/theme_toggle.html' %}
             {% if user.is_authenticated %}
 
             <div class="profile-dropdown">
@@ -740,6 +743,7 @@
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="{% static 'game/js/theme.js' %}"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
     <script>

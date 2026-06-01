@@ -1,0 +1,108 @@
+/* Site-wide light / dark color scheme (separate from board square themes) */
+
+:root,
+[data-color-scheme="dark"] {
+    --background: #0f0f1a;
+    --foreground: #d0d0d0;
+    --foreground-muted: #8a8aaa;
+    --foreground-secondary: #aaaaaa;
+    --title: #ffffff;
+    --card: #16162a;
+    --card-hover: #1a1a35;
+    --border: #252545;
+    --input-bg: #1a1a2e;
+    --input-border: #444444;
+    --nav-bg: rgba(15, 15, 26, 0.94);
+    --nav-border: rgba(255, 255, 255, 0.05);
+    --accent: #f0c040;
+    --accent-hover: #ffeaa7;
+    --shadow: rgba(5, 8, 15, 0.22);
+    --overlay-bg: rgba(0, 0, 0, 0.85);
+    --focus-ring: #f0c040;
+}
+
+[data-color-scheme="light"] {
+    --background: #f4f4f8;
+    --foreground: #1e2230;
+    --foreground-muted: #5c6378;
+    --foreground-secondary: #4a5068;
+    --title: #0f1219;
+    --card: #ffffff;
+    --card-hover: #f0f1f6;
+    --border: #d8dce8;
+    --input-bg: #ffffff;
+    --input-border: #c5cad8;
+    --nav-bg: rgba(255, 255, 255, 0.94);
+    --nav-border: rgba(0, 0, 0, 0.08);
+    --accent: #c99b1a;
+    --accent-hover: #a67d10;
+    --shadow: rgba(15, 20, 40, 0.08);
+    --overlay-bg: rgba(15, 20, 40, 0.45);
+    --focus-ring: #c99b1a;
+}
+
+/* Toggle control */
+.color-scheme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--accent);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    flex-shrink: 0;
+}
+
+.color-scheme-toggle:hover {
+    background: var(--card-hover);
+    border-color: var(--accent);
+}
+
+.color-scheme-toggle:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
+.color-scheme-toggle svg {
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+}
+
+.color-scheme-toggle .icon-sun,
+.color-scheme-toggle .icon-moon {
+    display: none;
+}
+
+[data-color-scheme="dark"] .color-scheme-toggle .icon-sun {
+    display: block;
+}
+
+[data-color-scheme="light"] .color-scheme-toggle .icon-moon {
+    display: block;
+}
+
+.auth-theme-bar {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    z-index: 10;
+}
+
+@media (max-width: 480px) {
+    .auth-theme-bar {
+        top: 1rem;
+        right: 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .color-scheme-toggle {
+        transition: none;
+    }
+}

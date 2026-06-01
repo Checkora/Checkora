@@ -264,3 +264,43 @@ class NavigationTest(BaseE2ETest):
         )
         self.assertTrue(error_div.is_displayed())
         log_ok(f"Validation error shown: '{error_div.text}'")
+
+    # ───────────────────────────────────────────────────────────────
+    # Test 12: Site color scheme toggle
+    # ───────────────────────────────────────────────────────────────
+    def test_12_color_scheme_toggle_on_homepage(self):
+        """Color scheme toggle switches light/dark and persists."""
+        log_info("Testing color scheme toggle...")
+        self.driver.get(self.live_server_url + '/')
+
+        toggle = self.wait.until(
+            EC.presence_of_element_located((By.ID, 'colorSchemeToggle')),
+            message="Color scheme toggle not found on homepage"
+        )
+        self.assertTrue(toggle.is_displayed())
+        log_ok("Color scheme toggle visible")
+
+        html = self.driver.find_element(By.TAG_NAME, 'html')
+        self.assertEqual(
+            html.get_attribute('data-color-scheme'),
+            'dark',
+            "Default color scheme should be dark"
+        )
+
+        toggle.click()
+        self.wait.until(
+            lambda d: d.find_element(By.TAG_NAME, 'html').get_attribute(
+                'data-color-scheme'
+            ) == 'light',
+            message="Toggle did not switch to light mode"
+        )
+        log_ok("Switched to light mode")
+
+        self.driver.refresh()
+        self.wait.until(
+            lambda d: d.find_element(By.TAG_NAME, 'html').get_attribute(
+                'data-color-scheme'
+            ) == 'light',
+            message="Light mode did not persist after refresh"
+        )
+        log_ok("Light mode persisted after refresh")
