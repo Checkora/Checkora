@@ -86,7 +86,7 @@
                 {
                     id: 1,
                     fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
-                    solution: ["h1h7"]
+                    solution: ["g2g4"]
                 },
 
                 {
@@ -125,8 +125,103 @@
                     solution: ["f1e1"]
                 },
             ];
+     
 
-           function getCurrentWeeklyPuzzle() {
+            // =============================================
+            // Daily Puzzle Streak
+            // =============================================
+
+            function getPuzzleStreak() {
+                try{
+                    return JSON.parse(
+                        localStorage.getItem("dailyPuzzleStreak")
+                    ) || {
+                        streak: 0,
+                        lastCompleted: null,
+                        longestStreak: 0
+                    };
+                }catch (error) {
+                    console.error("Failed to load puzzle streak:", error);
+
+                    return {
+                        streak: 0,
+                        lastCompleted: null,
+                        longestStreak: 0
+                    };
+                }
+            }
+
+            function savePuzzleStreak(data) {
+                try{
+                    localStorage.setItem(
+                    "dailyPuzzleStreak",
+                    JSON.stringify(data)
+                );
+                }catch (error) {
+                    console.error("Failed to save puzzle streak:", error);
+                }
+            }
+        
+            function getLocalDateString() {
+                const today = new Date();
+
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, "0");
+                const day = String(today.getDate()).padStart(2, "0");
+
+                return `${year}-${month}-${day}`;
+            }
+        function updatePuzzleStreak() {
+
+            const today = new Date();
+            const todayStr = getLocalDateString();
+
+            const streakData = getPuzzleStreak();
+
+            if (streakData.lastCompleted === todayStr) {
+                return streakData.streak;
+            }
+
+            const yesterday = new Date();
+                yesterday.setDate(today.getDate() - 1);
+
+            const yesterdayStr =
+                `${yesterday.getFullYear()}-${String(
+                yesterday.getMonth() + 1
+                ).padStart(2, "0")}-${String(
+                yesterday.getDate()
+                ).padStart(2, "0")}`;
+
+            if (streakData.lastCompleted === yesterdayStr) {
+                streakData.streak++;
+            } else {
+                streakData.streak = 1;
+            }
+
+            streakData.lastCompleted = todayStr;
+
+            if (
+                streakData.streak >
+                streakData.longestStreak
+            ) {
+                streakData.longestStreak =
+                streakData.streak;
+            }
+
+            savePuzzleStreak(streakData);
+
+            return streakData.streak;
+            }
+            function updateStreakDisplay() {
+                const streakData = getPuzzleStreak();
+
+                const streakEl = document.getElementById("streak-count");
+                if (streakEl) {
+                    streakEl.textContent = streakData.streak;
+                }
+            }
+    
+            function getCurrentWeeklyPuzzle() {
 
                 const today = new Date();
 
@@ -141,6 +236,11 @@
                 currentPuzzle = getCurrentWeeklyPuzzle();
 
                 dailyPuzzleMode = true;
+                document.getElementById("whiteClock").style.display = "none";
+                document.getElementById("blackClock").style.display = "none";
+
+                document.getElementById("streak-counter").style.display = "block";
+                updateStreakDisplay();
                 if (restartPuzzleBtn) {
                     restartPuzzleBtn.style.display = 'block';
                 }
@@ -153,10 +253,13 @@
                     currentPuzzle.fen
                 );
                 const today = new Date().toLocaleDateString();
+                const streakData = getPuzzleStreak();
+                updateStreakDisplay();
                 showStatus(
-                    `Daily Puzzle Challenge - ${today}`,
+                    `Daily Puzzle Challenge - ${today} | 🔥 Current Streak: ${streakData.streak}`,
                     false
                 );
+               
             }
     
             let playerColor = 'white';
@@ -1239,10 +1342,14 @@
                                     puzzleMoveIndex++;
 
                                     if (puzzleMoveIndex >= currentPuzzle.solution.length) {
-
+                                        
+                                        const streak = updatePuzzleStreak();
+                                        updateStreakDisplay();
                                         showConfirm(
                                             "🎉 Puzzle Solved!",
-                                            "Come back tomorrow for a new challenge.",
+                                            `🔥 Current Streak: ${streak}<br> 
+                                            🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                            Come back tomorrow for a new challenge.`,
                                             () => {
                                                 gameLayout.style.visibility = "hidden";
                                                 welcomeOverlay.classList.add("active");
@@ -2522,6 +2629,18 @@
             }
     
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
+                replayMode = false;
+                // Show clocks for normal games
+                document.getElementById("whiteClock").style.display = "";
+                document.getElementById("blackClock").style.display = "";
+
+                const streakCounter =
+                    document.getElementById("streak-counter");
+
+                if (streakCounter) {
+                    streakCounter.style.display = "none";
+                }
+
                 replayMode = false;
 
                 if (autoReplayInterval) {
