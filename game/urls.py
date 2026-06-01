@@ -7,6 +7,7 @@ urlpatterns = [
     path('api/move/', views.make_move, name='make_move'),
     path('api/valid-moves/', views.valid_moves, name='valid_moves'),
     path('api/new-game/', views.new_game, name='new_game'),
+    path('api/resume/', views.resume_game, name='resume_game'),
     path(
         'api/check-promotion/', views.check_promotion, name='check_promotion'
     ),
@@ -16,12 +17,27 @@ urlpatterns = [
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
+    path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
 
     # Authentication
+    path('api/check-username/', views.check_username, name='check_username'),
     path('register/', views.register_view, name='register'),
     path('register/check-username/', views.check_username, name='check_username'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
+    path('resend-otp/', views.resend_otp, name='resend_otp'),
     path('login/', views.login_view, name='login'),
     path('rules/', views.rules, name='rules'),
     path('logout/', views.logout_view, name='logout'),
 ]
+    
+    path('delete-account/', views.delete_account, name='delete_account'),
+    path('confirm-delete/<uidb64>/<token>/', views.confirm_delete_account, name='confirm_delete_account'),
+    
+    path(
+        'password-reset-account-selection/',
+        views.password_reset_account_selection,
+        name='password_reset_account_selection'
+    ),
+    
+    
+]   
