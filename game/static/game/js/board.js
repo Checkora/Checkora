@@ -142,17 +142,17 @@
             }
 
             function toggleMute() {
-                soundEnabled = !soundEnabled;
-                // Persist preference so it survives page reloads
-                try {
-                    localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled));
-                } catch (e) {
-                    // Silently fail if localStorage unavailable - preference won't persist but toggle still works
-                }
-                syncMuteBtn();
-                // Announce state change for screen-reader users
-                announceMove(soundEnabled ? 'Sound effects enabled.' : 'Sound effects muted.');
-            }
+    soundEnabled = !soundEnabled;
+    // Persist preference so it survives page reloads
+    try {
+        localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled));
+    } catch (e) {
+        // Silently fail if localStorage unavailable - preference won't persist but toggle still works
+    }
+    syncMuteBtn();
+    // Announce state change for screen-reader users
+    announceMove(soundEnabled ? 'Sound effects enabled.' : 'Sound effects muted.');
+}
 
             /* ==========================================================
             DOM REFERENCES
