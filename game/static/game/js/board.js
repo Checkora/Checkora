@@ -3301,6 +3301,31 @@
                 };
             }
 
+            const coordsToggleBtn = document.getElementById('coordsToggleBtn');
+            let coordsVisible = true;
+            try {
+                coordsVisible = localStorage.getItem('chessCoordsVisible') !== 'false';
+            } catch (e) {}
+
+            function updateCoordsUI() {
+                const ranks = document.getElementById('ranksLabels');
+                const files = document.getElementById('filesLabels');
+                if (ranks) ranks.style.display = coordsVisible ? 'flex' : 'none';
+                if (files) files.style.display = coordsVisible ? 'flex' : 'none';
+                if (coordsToggleBtn) coordsToggleBtn.textContent = 'Coordinates: ' + (coordsVisible ? 'ON' : 'OFF');
+            }
+
+            if (coordsToggleBtn) {
+                updateCoordsUI();
+                coordsToggleBtn.onclick = () => {
+                    coordsVisible = !coordsVisible;
+                    try {
+                        localStorage.setItem('chessCoordsVisible', coordsVisible);
+                    } catch (e) {}
+                    updateCoordsUI();
+                };
+            }
+
             if (resignBtn) resignBtn.onclick = () => {
                 if (!gameOver) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
