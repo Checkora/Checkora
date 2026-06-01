@@ -1,11 +1,11 @@
 :root {
-    --bg-dark: #0f0f1a;
-    --card-bg: #16162a;
-    --card-border: #252545;
-    --text-primary: #d0d0d0;
-    --text-secondary: #aaaaaa;
-    --text-title: #ffffff;
-    --accent-gold: #f0c040;
+    --bg-dark: var(--background);
+    --card-bg: var(--card);
+    --card-border: var(--border);
+    --text-primary: var(--foreground);
+    --text-secondary: var(--foreground-secondary);
+    --text-title: var(--title);
+    --accent-gold: var(--accent);
     --danger-red: #ff6b6b;
 }
 

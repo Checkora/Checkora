@@ -12,9 +12,10 @@ html, body {
 }
 
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    position: relative;
 
     min-height: 100vh;
 
@@ -79,7 +80,7 @@ body {
     font-size: 28px;
     font-weight: 700;
     letter-spacing: 3px;
-    color: #f0c040;
+    color: var(--accent);
     text-transform: uppercase;
 }
 
@@ -95,8 +96,8 @@ body {
 
 
 .auth-card {
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 12px;
 
     width: min(90vw, 520px);
@@ -117,23 +118,23 @@ body {
 .form-group label {
     display: block;
     font-size: 1rem;
-    color: #8a8aaa;
+    color: var(--foreground-muted);
     margin-bottom: 8px;
     letter-spacing: 0.5px;
 }
 .form-group input {
     width: 100%;
     padding: 16px 18px;
-    background: #0f0f1a;
-    border: 1px solid #333;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
     border-radius: 6px;
-    color: #fff;
+    color: var(--title);
     font-size: 1.1rem;
     transition: all 0.2s ease;
 }
 .form-group input:focus {
     outline: none;
-    border-color: #f0c040;
+    border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.2);
 }
 

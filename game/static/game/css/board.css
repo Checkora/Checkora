@@ -9,8 +9,8 @@ html {
 }
 
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     display: flex;
@@ -74,7 +74,7 @@ body {
     font-size: 26px;
     font-weight: 700;
     letter-spacing: 2px;
-    color: #f0c040;
+    color: var(--accent);
 }
 
 /* Responsive logo sizes */
@@ -252,8 +252,8 @@ body {
 }
 
 .card {
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 14px;
 }
@@ -451,7 +451,7 @@ body {
 }
 
 :root {
-    --page-bg: #0f0f1a;
+    --page-bg: var(--background);
     --layout-gap: clamp(8px, 1.1vw, 18px);
     --layout-padding-x: clamp(10px, 1.5vw, 20px);
     --layout-padding-y: clamp(12px, 1.5vw, 20px);

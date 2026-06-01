@@ -2,21 +2,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_init.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Rulebook – Checkora</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
     <style>
 
         :root {
-            --bg: #0a0b10;
-            --surface: #141722;
-            --surface2: #1e2230;
-            --border: #2c3245;
-            --gold: #f4c430;
-            --gold-dim: #c99b1a;
-            --text: #f0f0f5;
-            --muted: #8b92a5;
+            --bg: var(--background);
+            --surface: var(--card);
+            --surface2: var(--card-hover);
+            --gold: var(--accent);
+            --gold-dim: var(--accent-hover);
+            --text: var(--title);
+            --muted: var(--foreground-muted);
             --light-sq: #f0d9b5;
             --dark-sq: #b58863;
             --highlight: rgba(244, 196, 48, 0.5);
@@ -645,7 +646,10 @@
             </a>
             <h1 class="header-subtitle">Interactive Chess Rulebook</h1>
         </div>
-        <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+            {% include 'game/includes/theme_toggle.html' %}
+            <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        </div>
     </header>
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"
@@ -1354,5 +1358,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+<script src="{% static 'game/js/theme.js' %}"></script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+<script>
+(function () {
+    var VALID = ['light', 'dark'];
+    var saved = 'dark';
+    try {
+        saved = localStorage.getItem('checkoraColorScheme') || 'dark';
+    } catch (e) { /* ignore */ }
+    if (VALID.indexOf(saved) === -1) {
+        saved = 'dark';
+    }
+    document.documentElement.setAttribute('data-color-scheme', saved);
+})();
+</script>

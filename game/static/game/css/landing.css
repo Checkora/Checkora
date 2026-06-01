@@ -1,13 +1,12 @@
 :root {
-    --bg-dark: #0f0f1a;
-    --nav-bg: #12121f;
-    --card-bg: #16162a;
-    --card-border: #252545;
-    --card-hover: #1a1a35;
-    --text-primary: #d0d0d0;
-    --text-title: #ffffff;
-    --text-secondary: #aaaaaa;
-    --accent-gold: #f0c040;
+    --bg-dark: var(--background);
+    --card-bg: var(--card);
+    --card-border: var(--border);
+    --card-hover: var(--card-hover);
+    --text-primary: var(--foreground);
+    --text-title: var(--title);
+    --text-secondary: var(--foreground-secondary);
+    --accent-gold: var(--accent);
 }
 
 * {
@@ -38,8 +37,8 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 5%;
-    background-color: rgba(15, 15, 26, 0.94);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background-color: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
     position: sticky;
     top: 0;
     z-index: 1000;

@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% include 'game/includes/theme_init.html' %}
     <script>
       if (navigator.webdriver) {
         document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
@@ -80,6 +81,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}" />
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
   </head>
 
@@ -103,6 +105,7 @@
         </div>
       </div>
       <div class="nav-right">
+        {% include 'game/includes/theme_toggle.html' %}
         {% if user.is_authenticated %}
         <div class="profile-dropdown">
           <button type="button" class="profile-btn">{{ user.username }} <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
@@ -853,5 +856,6 @@
     });
   })();
   </script>
+  <script src="{% static 'game/js/theme.js' %}"></script>
   </body>
 </html>

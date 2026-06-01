@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/auth_theme_assets.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify your Email | Checkora</title>
@@ -45,6 +46,7 @@
     </style>
 </head>
 <body>
+    <div class="auth-theme-bar">{% include 'game/includes/theme_toggle.html' %}</div>
 
     <div class="header">
         <h1>Verify your Email</h1>
@@ -95,5 +97,6 @@
     }
     updateTimer();
 </script>
+<script src="{% static 'game/js/theme.js' %}"></script>
 </body>
 </html>
