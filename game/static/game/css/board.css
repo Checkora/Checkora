@@ -1341,7 +1341,7 @@ body {
   display: none; 
 }
 
- {
+ 
   .m-fab {
     display: flex;
     flex-direction: column;
@@ -1387,7 +1387,7 @@ body {
   body:has(.promo-overlay.active) .m-fab {
     display: none;
   }
-}
+
 .promo-logo {
     display: flex;
     align-items: center;
