@@ -20,12 +20,12 @@
                     PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
 
             const PIECE_NAMES = {
-                'p': 'pawn',
-                'r': 'rook',
-                'n': 'knight',
-                'b': 'bishop',
-                'q': 'queen',
-                'k': 'king'
+                'p': 'Pawn',
+                'r': 'Rook',
+                'n': 'Knight',
+                'b': 'Bishop',
+                'q': 'Queen',
+                'k': 'King'
             };
 
             let board = [];
