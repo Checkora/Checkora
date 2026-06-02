@@ -79,8 +79,15 @@ body {
     font-size: 28px;
     font-weight: 700;
     letter-spacing: 3px;
-    color: #f0c040;
     text-transform: uppercase;
+}
+
+.logo-white {
+    color: #ffffff;
+}
+
+.logo-gold {
+    color: #f0c040;
 }
 
 /* Responsive logo sizes */

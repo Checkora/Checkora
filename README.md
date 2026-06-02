@@ -198,6 +198,7 @@ Checkora/
 │   │       ├── verify_otp.html    # Two-factor verification panel
 │   │       ├── rules.html         # Gameplay and chess educational rules guide
 │   │       ├── stats.html         # User match metrics, profiles, and scoreboards
+│   │       ├── welcome_email.html # HTML email template sent to users after successful registration
 │   │       ├── password_reset.html # Password reset trigger page
 │   │       ├── password_reset_complete.html # Confirmation of successful reset
 │   │       ├── password_reset_confirm.html  # Verification form link target
