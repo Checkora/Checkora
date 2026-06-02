@@ -340,6 +340,12 @@ def get_state(request):
         game = ChessGame()
     else:
         game = ChessGame.from_dict(game_data)
+        # Fix: Prevent completed games (checkmate/stalemate/draw) from being reloaded
+        # when the user revisits the Play page.
+        if game.game_status in ('checkmate', 'stalemate', 'draw'):
+            request.session.pop('game', None)
+            request.session.modified = True
+            game = ChessGame()
 
         # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
