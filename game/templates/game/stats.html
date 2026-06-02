@@ -60,6 +60,7 @@
                     <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
                     <td>
                         <button
+                            type="button"
                             class="details-btn"
                             data-mode="{{ result.get_mode_display }}"
                             data-winner="{{ result.get_winner_display }}"
@@ -81,7 +82,7 @@
     </div>
     {% endif %}
 
-    <div id="gameSummaryOverlay" id="gameSummaryOverlay" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" 
+    <div id="gameSummaryOverlay" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" 
         style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
     <div style=" background:#16162a; border:1px solid #252545; border-radius:12px; padding:25px; width:500px; max-width:90%; color:white;">
         <div class="promo-title" id="summaryTitle">
@@ -94,7 +95,10 @@
             <p><strong>Move Count:</strong> <span id="summaryMoves"></span></p>
             <p><strong>Played At:</strong> <span id="summaryDate"></span></p>
         </div>
-        <button onclick="closeSummary()" class="btn btn-gold">
+        <button
+            type="button"
+            onclick="closeSummary()"
+            class="btn btn-gold close-summary-btn">
             Close
         </button>
     </div>
@@ -107,11 +111,37 @@ function openGameDetails(btn) {
     document.getElementById('summaryMoves').textContent = btn.dataset.moves;
     document.getElementById('summaryDate').textContent = btn.dataset.date;
 
-    document.getElementById('gameSummaryOverlay').style.display = 'flex';
+    const overlay = document.getElementById('gameSummaryOverlay');
+
+    overlay.style.display = 'flex';
+    overlay._opener = btn;
+
+    const closeBtn = overlay.querySelector('.close-summary-btn');
+    if (closeBtn) {
+        closeBtn.focus();
+    }
 }
 function closeSummary() {
-    document.getElementById('gameSummaryOverlay').style.display = 'none';
+    const overlay = document.getElementById('gameSummaryOverlay');
+
+    overlay.style.display = 'none';
+
+    if (overlay._opener) {
+        overlay._opener.focus();
+    }
 }
+document.addEventListener('keydown', function(e) {
+    const overlay = document.getElementById('gameSummaryOverlay');
+
+    if (e.key === 'Escape' && overlay.style.display === 'flex') {
+        closeSummary();
+    }
+});
+document.getElementById('gameSummaryOverlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSummary();
+    }
+});
 </script>
 </body>
 </html>
