@@ -351,12 +351,24 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔧 Install Chrome
+      - name: 🔧 Install Chrome (use pre-installed or cache)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+          if google-chrome-stable --version &>/dev/null; then
+            echo "Chrome already available: $(google-chrome-stable --version)"
+          else
+            sudo apt-get update
+            sudo apt-get install -y google-chrome-stable
+          fi
+
+      - name: 📦 Cache static files
+        id: cache-static
+        uses: actions/cache@v4
+        with:
+          path: staticfiles
+          key: staticfiles-${{ runner.os }}-${{ hashFiles('game/static/**/*', 'game/templates/**/*') }}
 
       - name: 📦 Collect static files
+        if: steps.cache-static.outputs.cache-hit != 'true'
         run: python manage.py collectstatic --noinput
 
       - name: 🧪 Run Selenium E2E Tests
