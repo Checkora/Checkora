@@ -985,7 +985,8 @@
                 // fix
                 // Removed static styling for AI clock so it displays the countdown timer.
 
-                if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
+                const isOnWelcomeScreen = welcomeOverlay.classList.contains('active');
+                    if (!isOnWelcomeScreen && data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
                 }
                 if (!welcomeOverlay.classList.contains('active')) {
