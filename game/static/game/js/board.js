@@ -225,7 +225,18 @@
             savePuzzleStreak(streakData);
 
             return streakData.streak;
-            }
+        }
+    
+        function clearPuzzleHints() {
+            document
+                .querySelectorAll(".puzzle-hint")
+                .forEach(square => {
+                    square.classList.remove("puzzle-hint");
+                });
+
+            hintSquares = [];
+        }
+    
             function updateStreakDisplay() {
                 const streakData = getPuzzleStreak();
 
@@ -365,10 +376,6 @@
 
                 document.getElementById("streak-counter").style.display = "block";
                 updateStreakDisplay();
-                if (restartPuzzleBtn) {
-                    restartPuzzleBtn.style.display = 'block';
-                }
-                puzzleMoveIndex = 0;
 
                 await startNewGame(
                     "pvp",
@@ -504,6 +511,7 @@
             const newAIBtn = document.getElementById('newAIBtn');
             const dailyPuzzleBtn = document.getElementById('dailyPuzzleBtn');
             const restartPuzzleBtn = document.getElementById('restartPuzzleBtn');
+            const hintPuzzleBtn = document.getElementById('hintPuzzleBtn');    
             const newFenBtn = document.getElementById('newFenBtn');
 
             const fenOverlay = document.getElementById('fenOverlay');
@@ -2852,6 +2860,10 @@
                     streakCounter.style.display = "none";
                 }
 
+                if (hintPuzzleBtn) {
+                    hintPuzzleBtn.style.display = 'none';
+                }
+
                 replayMode = false;
 
                 if (autoReplayInterval) {
@@ -3427,13 +3439,20 @@
                         "#f0c040"
                     );
                 };
-            
+    
+            if (hintPuzzleBtn)
+                hintPuzzleBtn.onclick = () => {
+                showPuzzleHint();
+            };
+    
             if (restartPuzzleBtn)
                 restartPuzzleBtn.onclick = async () => {
 
                 if (!currentPuzzle) return;
 
                 puzzleMoveIndex = 0;
+                hintLevel = 0;
+                clearPuzzleHints();
 
                 await startNewGame(
                     "pvp",
@@ -3447,6 +3466,11 @@
                     false
                 );
             };
+    
+            if (hintPuzzleBtn)
+                hintPuzzleBtn.onclick = () => {
+                    showPuzzleHint();
+                };
     
             if (newFenBtn) newFenBtn.onclick = () => {
                 showConfirm(
