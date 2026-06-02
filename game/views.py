@@ -45,6 +45,7 @@ from .models import GameResult
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games, get_opening_reply
 from .analysis import build_summary
+VALID_OPENINGS = {'italian_game', 'sicilian_defense', 'queens_gambit'}
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -231,7 +232,6 @@ def new_game(request):
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
 
-    VALID_OPENINGS = {'italian_game', 'sicilian_defense', 'queens_gambit'}
     raw_opening = data.get('opening', '') if mode == 'ai' else ''
     opening = raw_opening if raw_opening in VALID_OPENINGS else ''
     request.session['opening'] = opening
@@ -437,8 +437,11 @@ def ai_move(request):
     opening = request.session.get('opening', '')
     book_move = None
     if opening:
-        ai_half_moves = len(game.move_history)
-        book_move = get_opening_reply(opening, ai_half_moves)
+        try:
+            ai_half_moves = len(game.move_history)
+            book_move = get_opening_reply(opening, ai_half_moves)
+        except Exception:
+            book_move = None
 
     if book_move:
         best = {
@@ -448,7 +451,7 @@ def ai_move(request):
             'to_col':   book_move[3],
         }
         valid = game.get_valid_moves(best['from_row'], best['from_col'])
-        if [best['to_row'], best['to_col']] not in valid:
+        if not any(m['row'] == best['to_row'] and m['col'] == best['to_col'] for m in valid):
             request.session['opening'] = ''
             request.session.modified = True
             best = game.get_ai_move(depth=depth)
