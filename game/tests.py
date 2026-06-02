@@ -1100,8 +1100,8 @@ class OpeningBookTest(SimpleTestCase):
         def fake_validate(fr, fc, tr, tc):
             coords = [fr, fc, tr, tc]
             if coords == [6, 4, 4, 4]:
-                return (True, 'ok')
-            return (False, 'bad')
+                return True, 'ok'
+            return False, 'bad'
 
         with mock.patch.object(
             ChessGame, 'validate_move',
