@@ -1409,7 +1409,7 @@ body {
   body:has(.promo-overlay.active) .m-fab {
     display: none;
   }
-
+}
 .promo-logo {
     display: flex;
     align-items: center;
