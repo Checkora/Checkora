@@ -207,6 +207,16 @@ body {
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
+.btn-google {
+    background: #ffffff;
+    color: #202124;
+    border: 1px solid #d9d9d9;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.btn-google:hover {
+    background: #f7f7f7;
+    transform: translateY(-1px);
+}
 
 /* ── Loading spinner state ── */
 @keyframes btn-spin {

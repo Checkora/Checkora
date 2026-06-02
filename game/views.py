@@ -1025,6 +1025,8 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('index')
 
+    google_login_url = reverse('google_login')
+
     if request.method == 'POST':
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
@@ -1041,11 +1043,17 @@ def login_view(request):
                 
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
             return redirect('index')
-
     else:
         form = AuthenticationForm()
 
-    return render(request, 'game/login.html', {'form': form})
+    return render(
+        request,
+        'game/login.html',
+        {
+            'form': form,
+            'google_login_url': google_login_url,
+        }
+    )
 
 
 @xframe_options_sameorigin

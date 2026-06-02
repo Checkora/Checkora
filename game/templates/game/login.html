@@ -53,6 +53,9 @@
                 </label>
             </div>
             <button type="submit" class="btn btn-gold">Sign In</button>
+            {% if google_login_url %}
+                <a href="{{ google_login_url }}" class="btn btn-google">Sign in with Google</a>
+            {% endif %}
         </form>
         
         <div class="auth-footer">

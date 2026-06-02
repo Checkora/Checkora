@@ -45,9 +45,14 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'game',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'game.apps.GameConfig',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +62,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -181,6 +187,39 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Redirect after login
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
+SITE_ID = 1
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_LOGOUT_ON_GET = True
+
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_ADAPTER = 'game.adapters.CheckoraSocialAccountAdapter'
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+        'APP': {
+            'client_id': os.getenv('GOOGLE_OAUTH_CLIENT_ID', ''),
+            'secret': os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', ''),
+            'key': '',
+        },
+    },
+}
 
 # Password reset link expiration (5 minutes)
 PASSWORD_RESET_TIMEOUT = 300

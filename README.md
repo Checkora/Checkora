@@ -101,6 +101,7 @@ cp .env.example .env
 
 # Open `.env` and set SECRET_KEY if needed
 # Configure EMAIL_HOST_USER and EMAIL_HOST_PASSWORD for OTP and password reset emails
+# Set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET for Google OAuth login
 # 5. Run migrations and start the server
 python manage.py migrate
 python manage.py runserver

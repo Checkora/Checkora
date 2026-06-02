@@ -207,6 +207,36 @@ class RegistrationViewTest(TestCase):
         self.assertFalse(User.objects.filter(username='newplayer').exists())
 
 
+class LoginViewTest(TestCase):
+    """Login page should expose Google OAuth and preserve local auth."""
+
+    def test_login_page_includes_google_oauth_button(self):
+        response = self.client.get(reverse('login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Sign in with Google')
+        self.assertContains(
+            response,
+            reverse('google_login')
+        )
+
+    def test_local_login_still_works(self):
+        User.objects.create_user(
+            username='localuser',
+            email='localuser@example.com',
+            password='StrongPass123!',
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse('login'),
+            data={'username': 'localuser', 'password': 'StrongPass123!'},
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse('index'))
+        self.assertTrue(response.context['user'].is_authenticated)
+
+
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
 
