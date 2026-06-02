@@ -72,7 +72,6 @@
             let stockfishWorker = null;
     
             let hintLevel = 0;
-            let hintSquares = [];
 
             let expectedMoveEval = null;
             let evaluationCache = {};
@@ -240,7 +239,6 @@
             }
     
             function clearPuzzleHints() {
-                hintSquares = [];
                 hintLevel = 0;
 
                 document.querySelectorAll(".square").forEach(square => {
@@ -257,10 +255,10 @@
                 if (!move) return;
 
                 const fromFile = move.charCodeAt(0) - 97;
-                const fromRank = 8 - parseInt(move[1]);
+                const fromRank = 8 - parseInt(move[1], 10);
 
                 const toFile = move.charCodeAt(2) - 97;
-                const toRank = 8 - parseInt(move[3]);
+                const toRank = 8 - parseInt(move[3], 10);
 
                 clearPuzzleHints();
                 const sourceSq = sq(fromRank, fromFile);
@@ -274,7 +272,7 @@
 
                     hintLevel = 1;
 
-                } else {
+                } else if (hintLevel === 1) {
 
                     if (sourceSq) {
                         sourceSq.classList.add("hint-source");
