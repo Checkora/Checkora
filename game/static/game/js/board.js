@@ -58,6 +58,8 @@
             let dailyPuzzleMode = false;
             let currentPuzzle = null;
             let puzzleMoveIndex = 0;
+            let hintLevel = 0;
+            let hintSquares = [];
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
             let currentBlackName = 'Black';
@@ -211,7 +213,18 @@
             savePuzzleStreak(streakData);
 
             return streakData.streak;
-            }
+        }
+    
+        function clearPuzzleHints() {
+            document
+                .querySelectorAll(".puzzle-hint")
+                .forEach(square => {
+                    square.classList.remove("puzzle-hint");
+                });
+
+            hintSquares = [];
+        }
+    
             function updateStreakDisplay() {
                 const streakData = getPuzzleStreak();
 
@@ -231,6 +244,60 @@
 
                 return PUZZLES[dayIndex];
             }
+            
+            function showPuzzleHint() {
+                if (!currentPuzzle) return;
+
+                const move = currentPuzzle.solution[puzzleMoveIndex];
+
+                if (!move) return;
+
+                clearPuzzleHints();
+
+                const fromFile = move.charCodeAt(0) - 97;
+                const fromRank = 8 - parseInt(move[1]);
+                const toFile = move.charCodeAt(2) - 97;
+                const toRank = 8 - parseInt(move[3]);
+
+                if (hintLevel === 0) {
+                    const fromSquare =
+                        sq(fromRank, fromFile);
+
+                    if (fromSquare) {
+                        fromSquare.classList.add(
+                            "puzzle-hint"
+                        );
+                    }
+
+                    showStatus(
+                        "💡 Hint: Look carefully at the highlighted piece.",
+                        false
+                    );
+                } else {
+                    const fromSquare = sq(fromRank, fromFile);
+
+                    const toSquare = sq(toRank, toFile);
+
+                    if (fromSquare) {
+                        fromSquare.classList.add(
+                            "puzzle-hint"
+                        );
+                    }
+
+                    if (toSquare) {
+                        toSquare.classList.add(
+                            "puzzle-hint"
+                        );
+                    }
+
+                    showStatus(
+                        "💡 Strong Hint: The highlighted move is important.",
+                        false
+                    );
+                }
+            
+                hintLevel++;
+            }
     
             async function startDailyPuzzle() {
                 currentPuzzle = getCurrentWeeklyPuzzle();
@@ -241,10 +308,6 @@
 
                 document.getElementById("streak-counter").style.display = "block";
                 updateStreakDisplay();
-                if (restartPuzzleBtn) {
-                    restartPuzzleBtn.style.display = 'block';
-                }
-                puzzleMoveIndex = 0;
 
                 await startNewGame(
                     "pvp",
@@ -252,6 +315,18 @@
                     "medium",
                     currentPuzzle.fen
                 );
+
+                if (restartPuzzleBtn) {
+                    restartPuzzleBtn.style.display = 'block';
+                }
+
+                if (hintPuzzleBtn) {
+                    hintPuzzleBtn.style.display = 'block';
+                }
+
+                puzzleMoveIndex = 0;
+                hintLevel = 0;
+                clearPuzzleHints();
                 const today = new Date().toLocaleDateString();
                 const streakData = getPuzzleStreak();
                 updateStreakDisplay();
@@ -373,6 +448,7 @@
             const newAIBtn = document.getElementById('newAIBtn');
             const dailyPuzzleBtn = document.getElementById('dailyPuzzleBtn');
             const restartPuzzleBtn = document.getElementById('restartPuzzleBtn');
+            const hintPuzzleBtn = document.getElementById('hintPuzzleBtn');    
             const newFenBtn = document.getElementById('newFenBtn');
 
             const fenOverlay = document.getElementById('fenOverlay');
@@ -2621,6 +2697,10 @@
                     streakCounter.style.display = "none";
                 }
 
+                if (hintPuzzleBtn) {
+                    hintPuzzleBtn.style.display = 'none';
+                }
+
                 replayMode = false;
 
                 if (autoReplayInterval) {
@@ -3196,13 +3276,20 @@
                         "#f0c040"
                     );
                 };
-            
+    
+            if (hintPuzzleBtn)
+                hintPuzzleBtn.onclick = () => {
+                showPuzzleHint();
+            };
+    
             if (restartPuzzleBtn)
                 restartPuzzleBtn.onclick = async () => {
 
                 if (!currentPuzzle) return;
 
                 puzzleMoveIndex = 0;
+                hintLevel = 0;
+                clearPuzzleHints();
 
                 await startNewGame(
                     "pvp",
@@ -3216,6 +3303,11 @@
                     false
                 );
             };
+    
+            if (hintPuzzleBtn)
+                hintPuzzleBtn.onclick = () => {
+                    showPuzzleHint();
+                };
     
             if (newFenBtn) newFenBtn.onclick = () => {
                 showConfirm(
