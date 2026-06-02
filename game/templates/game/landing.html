@@ -2,6 +2,15 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- ──preloader on loading page reload ── -->
+    <script>
+        (function () {
+        var nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') {
+          window.location.replace("{% url 'preloader' %}");
+        }
+        })();
+    </script>
     <script>
       if (navigator.webdriver) {
         document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');

@@ -50,6 +50,8 @@ def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
 
+def preloader(request):
+    return render(request, 'game/preloading.html')
 
 @ensure_csrf_cookie
 def index(request):
@@ -566,7 +568,10 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(username__iexact=username).exists()
+    exists = User.objects.filter(
+        username__iexact=username,
+        is_active=True
+    ).exists()
     return JsonResponse({'available': not exists})
 
 
@@ -700,7 +705,11 @@ def verify_otp(request):
 
         if otp_created_at:
             if time.time() - otp_created_at > 300:
-
+                try:
+                    user = User.objects.get(id=user_id, is_active=False)
+                    user.delete()
+                except User.DoesNotExist:
+                    pass
                 messages.error(
                     request,
                     'OTP has expired. Please register again.',
@@ -744,7 +753,7 @@ def verify_otp(request):
                         from_email=settings.EMAIL_HOST_USER,
                         to=[user.email],
                     )
-                    email.attach_alternative(html_content,"text/html")
+                    email.attach_alternative(html_content, "text/html")
                     email.send(fail_silently=True)
                 
                 except Exception as e:
@@ -1024,7 +1033,7 @@ class CustomPasswordResetView(PasswordResetView):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('index')
+        return redirect('landing')
 
     if request.method == 'POST':
         form = AuthenticationForm(data=request.POST)
@@ -1041,7 +1050,7 @@ def login_view(request):
                 request.session.set_expiry(0)# Browser close
                 
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
-            return redirect('index')
+            return redirect('landing')
 
     else:
         form = AuthenticationForm()

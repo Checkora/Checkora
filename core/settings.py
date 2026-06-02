@@ -180,7 +180,7 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Redirect after login
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'index'
+LOGIN_REDIRECT_URL = 'landing'
 
 # Password reset link expiration (5 minutes)
 PASSWORD_RESET_TIMEOUT = 300
