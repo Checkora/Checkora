@@ -2,5 +2,11 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /verify-otp/
+Disallow: /resend-otp/
+Disallow: /delete-account/
+Disallow: /confirm-delete/
+Disallow: /api
+Disallow: /api/
+Disallow: /password-reset-account-selection/
 
 Sitemap: https://checkora.vercel.app/sitemap.xml

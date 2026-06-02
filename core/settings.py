@@ -29,7 +29,11 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-testing')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+IS_PRODUCTION = os.environ.get('VERCEL_ENV') == 'production'
+if IS_PRODUCTION:
+    DEBUG = False
+else:
+    DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['.vercel.app', '*']
 
@@ -146,17 +150,19 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-# Session Cookie Security
+# Session and CSRF cookie security (production only — local runserver is HTTP).
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = IS_PRODUCTION
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = IS_PRODUCTION
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# SSL Redirect
-SECURE_SSL_REDIRECT = not DEBUG and not os.environ.get('CI')
+# SSL redirect and HSTS only on Vercel; avoids local HTTP→HTTPS redirect loops.
+SECURE_SSL_REDIRECT = IS_PRODUCTION
+if IS_PRODUCTION:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Email Configuration for OTP and Password Reset EMails
@@ -182,9 +188,9 @@ PASSWORD_RESET_TIMEOUT = 300
 # SECURITY SETTINGS (Implemented via GSSoC Audit)
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_HSTS_SECONDS = 31536000  # 1 year
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_SECONDS = 31536000 if IS_PRODUCTION else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = IS_PRODUCTION
+SECURE_HSTS_PRELOAD = IS_PRODUCTION
 
 # Secret token for authenticating Vercel cron job requests to /api/cron/cleanup-stale-games/
 CRON_SECRET = os.environ.get('CRON_SECRET')

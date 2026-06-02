@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
+    path('api/analyze-game/', views.analyze_game_view, name='analyze_game'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
 
     # Authentication
@@ -30,15 +31,7 @@ urlpatterns = [
     
     path('delete-account/', views.delete_account, name='delete_account'),
     path('confirm-delete/<uidb64>/<token>/', views.confirm_delete_account, name='confirm_delete_account'),
-
-    # Privacy Policy Fallback Router
-    path('privacy.html', views.privacy_view, name='privacy'),
-
-    # Terms and Conditions Fallback Router
-    path('terms.html', views.terms_view, name='terms'),
-
-    # Contact Us Fallback Router
-    path('contact.html', views.contact_view, name='contact'),
+    
     path(
         'password-reset-account-selection/',
         views.password_reset_account_selection,

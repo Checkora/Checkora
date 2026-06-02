@@ -4,7 +4,6 @@ import json
 import time
 import hashlib
 import secrets
-import re
 import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
@@ -45,21 +44,7 @@ from .engine import ChessGame
 from .models import GameResult
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
-
-_SAFE_NOTATION = re.compile(
-    r'^([KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](=[QRBN])?[+#]?'  # standard moves
-    r'|O-O(-O)?[+#]?)$' # castling
-)
-
-def _sanitize_notation(notation):
-    if not isinstance(notation, str):
-        return ''
-    return notation if _SAFE_NOTATION.match(notation) else ''
-
-def _sanitize_move_history(move_history):
-    for move in move_history:
-        move['notation'] = _sanitize_notation(move.get('notation', ''))
-    return move_history
+from .analysis import build_summary
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -136,8 +121,6 @@ def make_move(request):
     )
 
     if success:
-        for move in game.move_history:
-            move['notation'] = _sanitize_notation(move.get('notation', ''))
         request.session['game'] = game.to_dict()
         request.session.modified = True
         if game_status == 'checkmate':
@@ -301,7 +284,6 @@ def resume_game(request):
     game.last_ts = time.time()
     request.session['game'] = game.to_dict()
     request.session.modified = True
-    _sanitize_move_history(game.move_history)
 
     return JsonResponse({
         'valid': True,
@@ -364,7 +346,6 @@ def get_state(request):
         else:
             game.update_clock()
 
-    _sanitize_move_history(game.move_history)
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
@@ -478,8 +459,6 @@ def ai_move(request):
     )
 
     if success:
-        for move in game.move_history:
-            move['notation'] = _sanitize_notation(move.get('notation', ''))
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
@@ -1280,3 +1259,26 @@ def confirm_delete_account(request, uidb64, token):
     )
 
     return redirect('landing')
+@csrf_exempt
+@require_POST
+def analyze_game_view(request):
+    """
+    Analyze a completed game based on its move history and return statistics.
+    Expects JSON payload with 'moves' (list of notation strings), 'result', and 'reason'.
+    """
+    try:
+        data = json.loads(request.body)
+        moves = data.get('moves', [])
+        result = data.get('result', 'Unknown')
+        reason = data.get('reason', 'Unknown')
+        
+        # Ensure moves is a list of strings
+        if not isinstance(moves, list):
+            moves = []
+        moves = [str(m) for m in moves]
+            
+        summary = build_summary(moves, result, reason)
+        return JsonResponse(summary)
+    except Exception as e:
+        logger.error('Failed to analyze game: %s', e)
+        return JsonResponse({'error': 'Failed to analyze game'}, status=400)
