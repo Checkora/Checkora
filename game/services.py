@@ -1,4 +1,4 @@
-import time
+import time, json, os
 from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -79,3 +79,34 @@ def cleanup_stale_games():
                 resigned_count += 1
                 
     return deleted_count, resigned_count
+
+_NAMED_LINES_CACHE = None
+
+def _load_named_lines():
+    global _NAMED_LINES_CACHE
+    if _NAMED_LINES_CACHE is None:
+        book_path = os.path.join(os.path.dirname(__file__), 'engine', 'opening_book.json')
+        try:
+            with open(book_path) as f:
+                _NAMED_LINES_CACHE = json.load(f).get('_named_lines', {})
+        except (OSError, json.JSONDecodeError):
+            _NAMED_LINES_CACHE = {}
+    return _NAMED_LINES_CACHE
+
+def get_opening_line(name):
+    """return full move list for a named opening, or empty list if not found"""
+    lines = _load_named_lines()
+    opening = lines.get(name, {})
+    return opening.get('moves', [])
+
+
+def get_opening_reply(name, move_index):
+    """
+    return the theory reply at move_index.
+    move_index is the index of the AI's next move in the sequence.
+    returns None if out of book.
+    """
+    moves = get_opening_line(name)
+    if move_index < len(moves):
+        return moves[move_index]
+    return None
