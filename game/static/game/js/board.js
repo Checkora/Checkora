@@ -2822,6 +2822,10 @@
                     async () => {
                         drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
                         drawOverlay.classList.add('active');
+                        const pauseOverlay = document.getElementById('pauseOverlay');
+                        if (pauseOverlay) {
+                            pauseOverlay.style.display = 'none';
+                        }
                         await pauseGame();
                     },
                     '#f0c040'
@@ -3534,6 +3538,11 @@
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
+                document.body.classList.remove("modal-open");
+                document.body.classList.remove("modal-open");
+                if (pauseOverlay && paused) {
+                    pauseOverlay.style.display = 'flex';
+                }
                 const data = await post('/api/draw/', { action: 'accept' });
                 if (data.success) {
                     if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
@@ -3542,6 +3551,9 @@
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
+                if (pauseOverlay && paused) {
+                    pauseOverlay.style.display = 'flex';
+                }
                 resumeGame();
             };
 
