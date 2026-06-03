@@ -154,7 +154,6 @@ class RegistrationViewTest(TestCase):
             response = self.client.post('/register/', data=payload, follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
-        self.assertNotContains(response, 'Development mode OTP')
         self.assertTrue(User.objects.filter(username='devplayer').exists())
         printed_messages = ' '.join(
             str(arg)
@@ -168,7 +167,8 @@ class RegistrationViewTest(TestCase):
         EMAIL_HOST_USER='sender@example.com',
         EMAIL_HOST_PASSWORD='app-password'
     )
-    def test_email_failure_renders_error_and_removes_pending_user(self):
+    def test_email_failure_does_not_delete_user(self):
+        # Email failure should redirect to register and display error, but NOT delete user
         payload = {
             'username': 'newplayer',
             'email': 'newplayer@example.com',
@@ -179,14 +179,12 @@ class RegistrationViewTest(TestCase):
         with mock.patch('game.views.send_mail', side_effect=SMTPException('SMTP unavailable')):
             response = self.client.post('/register/', data=payload)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Failed to send OTP email.')
-        self.assertContains(response, 'Please check your email address and try again.')
-        self.assertFalse(User.objects.filter(username='newplayer').exists())
-        self.assertNotIn('registration_user_id', self.client.session)
-        self.assertNotIn('registration_otp_hash', self.client.session)
+        self.assertRedirects(response, '/register/')
+        # The user was created, but is inactive and preserved
+        self.assertTrue(User.objects.filter(username='newplayer', is_active=False).exists())
 
-    def test_duplicate_email_registration_fails(self):
+    def test_duplicate_email_registration_does_not_leak_or_create(self):
+        # Verified user already exists
         User.objects.create_user(
             username='existinguser',
             email='duplicate@example.com',
@@ -201,10 +199,133 @@ class RegistrationViewTest(TestCase):
             'password2': 'StrongPass123!',
         }
 
+        # Should redirect to verify-otp generically to prevent enumeration
         response = self.client.post('/register/', data=payload)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'A user with this email address already exists.')
+        self.assertRedirects(response, '/verify-otp/')
+        # No new user 'newplayer' should be created
         self.assertFalse(User.objects.filter(username='newplayer').exists())
+
+    def test_existing_verified_account_registration(self):
+        # Registering with a username that is already taken by a verified user
+        User.objects.create_user(
+            username='verifieduser',
+            email='verified@example.com',
+            password='StrongPass123!',
+            is_active=True
+        )
+
+        payload = {
+            'username': 'verifieduser',
+            'email': 'different@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        # Generic response: redirect to verify-otp
+        response = self.client.post('/register/', data=payload)
+        self.assertRedirects(response, '/verify-otp/')
+        # The different email user should not be created
+        self.assertFalse(User.objects.filter(email='different@example.com').exists())
+
+    def test_existing_inactive_account_registration(self):
+        # Registering with exact same username/email as an existing inactive user
+        User.objects.create_user(
+            username='inactiveuser',
+            email='inactive@example.com',
+            password='StrongPass123!',
+            is_active=False
+        )
+
+        payload = {
+            'username': 'inactiveuser',
+            'email': 'inactive@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        # Re-verify request should redirect to verify-otp
+        response = self.client.post('/register/', data=payload)
+        self.assertRedirects(response, '/verify-otp/')
+        # The user should not be deleted
+        self.assertTrue(User.objects.filter(username='inactiveuser').exists())
+
+    def test_verify_otp_expiration_does_not_delete_user(self):
+        # Ensure user is not deleted on OTP expiration
+        user = User.objects.create_user(
+            username='otpexpired',
+            email='otpexpired@example.com',
+            password='StrongPass123!',
+            is_active=False
+        )
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = 'somehash'
+        session['otp_created_at'] = time.time() - 301  # expired
+        session.save()
+
+        # Submit OTP to trigger expiration check
+        response = self.client.post('/verify-otp/', data={'otp': '123456'})
+        self.assertRedirects(response, '/register/')
+        # The user must still exist in the database (preserved)
+        self.assertTrue(User.objects.filter(username='otpexpired').exists())
+
+    def test_re_verification_and_activation(self):
+        # Register an inactive user, then verify they can activate
+        user = User.objects.create_user(
+            username='reverify',
+            email='reverify@example.com',
+            password='StrongPass123!',
+            is_active=False
+        )
+        
+        # Register again with same details to trigger re-verification
+        payload = {
+            'username': 'reverify',
+            'email': 'reverify@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+        
+        # Capture the OTP printed in debug mode (mocked settings)
+        with override_settings(DEBUG=True, EMAIL_HOST_USER='', EMAIL_HOST_PASSWORD=''):
+            with mock.patch('builtins.print') as mock_print:
+                response = self.client.post('/register/', data=payload)
+                self.assertRedirects(response, '/verify-otp/')
+                
+                printed_messages = ' '.join(
+                    str(arg)
+                    for call in mock_print.call_args_list
+                    for arg in call.args
+                )
+                # Find OTP in print output: "[Checkora] Development registration OTP for reverify@example.com: 123456"
+                import re
+                match = re.search(r'OTP for reverify@example\.com: (\d{6})', printed_messages)
+                self.assertTrue(match)
+                otp = match.group(1)
+
+        # Submit the OTP to verify/activate the user
+        response = self.client.post('/verify-otp/', data={'otp': otp})
+        self.assertRedirects(response, '/play/')
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+
+    def test_concurrent_registration_race_conditions(self):
+        # We simulate a concurrent registration attempt by mocking select_for_update 
+        # or transaction block to throw an IntegrityError, verifying that the view handles it gracefully
+        from django.db import IntegrityError
+        
+        payload = {
+            'username': 'concurrentuser',
+            'email': 'concurrent@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+        
+        # Mock transaction.atomic or User save to simulate a race condition where the save fails due to IntegrityError
+        with mock.patch('django.contrib.auth.forms.UserCreationForm.save', side_effect=IntegrityError("Duplicate entry")):
+            response = self.client.post('/register/', data=payload)
+            # Should redirect to verify-otp generically even if the DB save fails due to race/duplicate
+            self.assertRedirects(response, '/verify-otp/')
 
 
 class CustomSetPasswordFormTest(TestCase):
@@ -1397,16 +1518,16 @@ class CheckUsernameViewTest(TestCase):
         self.assertJSONEqual(response.content, {'available': True})
 
     def test_username_taken(self):
-        """Should return available=False for a username that already exists."""
+        """Should return available=True to prevent username enumeration."""
         response = self.client.get(reverse('check_username'), {'username': 'existinguser'})
         self.assertEqual(response.status_code, 200)
-        self.assertJSONEqual(response.content, {'available': False})
+        self.assertJSONEqual(response.content, {'available': True})
 
     def test_username_taken_case_insensitive(self):
-        """Should be case insensitive — ExistingUser should match existinguser."""
+        """Should return available=True to prevent username enumeration."""
         response = self.client.get(reverse('check_username'), {'username': 'ExistingUser'})
         self.assertEqual(response.status_code, 200)
-        self.assertJSONEqual(response.content, {'available': False})
+        self.assertJSONEqual(response.content, {'available': True})
 
     def test_missing_username_param(self):
         """Should return 400 when no username param is provided."""

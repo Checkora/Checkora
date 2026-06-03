@@ -573,11 +573,9 @@ def check_username(request):
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(
-        username__iexact=username,
-        is_active=True
-    ).exists()
-    return JsonResponse({'available': not exists})
+    # Always return True to prevent user enumeration.
+    # Actual availability checks and error messaging are handled securely in registration.
+    return JsonResponse({'available': True})
 
 
 def register_view(request):
@@ -588,42 +586,110 @@ def register_view(request):
         form = CustomUserCreationForm(request.POST)
         is_valid = form.is_valid()
         
-        # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
-        if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
-            username = request.POST.get('username')
-            email = request.POST.get('email')
-            
-            if username and email:
-                deleted = False
-                # 1. Exact match (User retrying with the exact same details)
-                if User.objects.filter(username=username, email=email, is_active=False).exists():
-                    User.objects.filter(username=username, email=email, is_active=False).delete()
-                    deleted = True
+        # Intercept uniqueness validation errors and remove them from form.errors to prevent user enumeration
+        errors_data = form.errors.as_data()
+        has_other_errors = False
+        has_username_uniqueness_error = False
+        has_email_uniqueness_error = False
+
+        if 'username' in errors_data:
+            for err in errors_data['username']:
+                if err.code == 'unique':
+                    has_username_uniqueness_error = True
                 else:
-                    # 2. Username conflict (Free up unverified, abandoned usernames)
-                    if User.objects.filter(username=username, is_active=False).exists():
-                        User.objects.filter(username=username, is_active=False).delete()
-                        deleted = True
-                    # 3. Email conflict (Free up unverified, abandoned emails)
-                    if User.objects.filter(email=email, is_active=False).exists():
-                        User.objects.filter(email=email, is_active=False).delete()
-                        deleted = True
-                
-                if deleted:
-                    # Re-validate the form now that conflicts are cleared
-                    form = CustomUserCreationForm(request.POST)
-                    is_valid = form.is_valid()
+                    has_other_errors = True
 
-        if is_valid:
-            user = form.save(commit=False)
-            user.is_active = False  # Deactivate account till OTP is verified
-            user.save()
+        if 'email' in errors_data:
+            for err in errors_data['email']:
+                if err.code == 'duplicate_email':
+                    has_email_uniqueness_error = True
+                else:
+                    has_other_errors = True
 
-            # Generate 6-digit OTP
-            otp = str(secrets.randbelow(900000) + 100000)
-            request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
-            otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+        for field, err_list in errors_data.items():
+            if field not in ('username', 'email') and err_list:
+                has_other_errors = True
+
+        # If there are other validation errors (e.g. password too weak), show them, but hide uniqueness errors
+        if has_other_errors:
+            if has_username_uniqueness_error:
+                username_errors = [e for e in errors_data['username'] if e.code != 'unique']
+                if username_errors:
+                    form.errors['username'] = form.error_class(username_errors)
+                else:
+                    form.errors.pop('username', None)
+            if has_email_uniqueness_error:
+                email_errors = [e for e in errors_data['email'] if e.code != 'duplicate_email']
+                if email_errors:
+                    form.errors['email'] = form.error_class(email_errors)
+                else:
+                    form.errors.pop('email', None)
+            return render(request, 'game/register.html', {'form': form})
+
+        # No other validation errors. We proceed with the secure registration flow.
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password1')
+
+        if not username or not email or not password:
+            return render(request, 'game/register.html', {'form': form})
+
+        from django.db import transaction, IntegrityError
+        
+        user_to_verify = None
+        conflict_detected = False
+        conflict_type = None
+        existing_user_by_email = None
+        existing_user_by_username = None
+
+        try:
+            with transaction.atomic():
+                # Lock rows to prevent race conditions during concurrent registration attempts
+                existing_user_by_username = User.objects.select_for_update().filter(username__iexact=username).first()
+                existing_user_by_email = User.objects.select_for_update().filter(email__iexact=email).first()
+
+                if not existing_user_by_username and not existing_user_by_email:
+                    # Case A: No conflicts. Save new user atomically.
+                    user = form.save(commit=False)
+                    user.is_active = False
+                    user.save()
+                    user_to_verify = user
+                else:
+                    conflict_detected = True
+        except IntegrityError:
+            conflict_detected = True
+
+        if conflict_detected:
+            # Fetch latest committed database state
+            existing_user_by_username = User.objects.filter(username__iexact=username).first()
+            existing_user_by_email = User.objects.filter(email__iexact=email).first()
+
+            if existing_user_by_username and existing_user_by_email and existing_user_by_username == existing_user_by_email:
+                if not existing_user_by_username.is_active:
+                    # Case B: Exact match inactive account. Trigger secure re-verification.
+                    user_to_verify = existing_user_by_username
+                else:
+                    conflict_type = 'exact_active'
+            else:
+                if existing_user_by_email:
+                    if existing_user_by_email.is_active:
+                        conflict_type = 'email_active'
+                    else:
+                        # Case C: Email matches an inactive account under a different username.
+                        # Trigger secure re-verification for that inactive account.
+                        user_to_verify = existing_user_by_email
+                elif existing_user_by_username:
+                    if existing_user_by_username.is_active:
+                        conflict_type = 'username_active'
+                    else:
+                        conflict_type = 'username_inactive'
+
+        otp = str(secrets.randbelow(900000) + 100000)
+        otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+
+        if user_to_verify:
+            # Send verification OTP to the user
+            request.session['registration_user_id'] = user_to_verify.id
             request.session['registration_otp_hash'] = otp_hash
             request.session['otp_created_at'] = time.time()
 
@@ -633,10 +699,9 @@ def register_view(request):
             )
 
             if settings.DEBUG and missing_email_credentials:
-                print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
+                print(f"[Checkora] Development registration OTP for {user_to_verify.email}: {otp}")
                 return redirect('verify_otp')
 
-            # Send Email
             try:
                 msg_plain = (
                     f'Your OTP for registration is: {otp}\n\n'
@@ -672,22 +737,74 @@ def register_view(request):
                 send_mail(
                     'Your Checkora Verification Code',
                     msg_plain,
-                    None,  # Will use EMAIL_HOST_USER
-                    [user.email],
+                    None,
+                    [user_to_verify.email],
                     fail_silently=False,
                     html_message=html_message
                 )
                 return redirect('verify_otp')
-            except (SMTPException, BadHeaderError, OSError):
-                # If email fails, delete the user so they can try again
-                user.delete()
-                request.session.pop('registration_user_id', None)
-                request.session.pop('registration_otp_hash', None)
+            except (SMTPException, BadHeaderError, OSError) as e:
+                logger.error(f"Failed to send OTP email: {e}")
                 err_msg = (
                     'Failed to send OTP email. '
                     'Please check your email address and try again.'
                 )
                 messages.error(request, err_msg)
+                request.session.pop('registration_user_id', None)
+                request.session.pop('registration_otp_hash', None)
+                request.session.pop('otp_created_at', None)
+                return redirect('register')
+        else:
+            # Case D: Active account/username conflicts.
+            # Setup dummy session state to prevent timing attacks / enumeration
+            dummy_id = -1
+            dummy_otp = str(secrets.randbelow(900000) + 100000)
+            dummy_hash = hashlib.sha256(f"{dummy_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+            request.session['registration_user_id'] = dummy_id
+            request.session['registration_otp_hash'] = dummy_hash
+            request.session['otp_created_at'] = time.time()
+
+            missing_email_credentials = (
+                not settings.EMAIL_HOST_USER or
+                not settings.EMAIL_HOST_PASSWORD
+            )
+
+            # Send relevant alerts/notifications via email
+            if not (settings.DEBUG and missing_email_credentials):
+                try:
+                    if conflict_type in ('exact_active', 'email_active'):
+                        email_to = email
+                        subject = 'Checkora Registration Attempt'
+                        msg_plain = (
+                            f"Hello! Someone tried to register a Checkora account using your email address.\n\n"
+                            f"Since you already have an active account, no action is required. If you forgot your credentials, please use the password reset form."
+                        )
+                        send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
+                    elif conflict_type in ('username_active', 'username_inactive'):
+                        email_to = email
+                        subject = 'Checkora Registration Failed'
+                        msg_plain = (
+                            f"Hello! Someone tried to register a Checkora account using the username '{username}' and this email address.\n\n"
+                            f"However, the username '{username}' is already taken. If you wish to register, please choose a different username."
+                        )
+                        send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
+
+                        if conflict_type == 'username_active' and existing_user_by_username:
+                            owner_email = existing_user_by_username.email
+                            if owner_email:
+                                subject = 'Checkora Username Alert'
+                                msg_plain = (
+                                    f"Hello! Someone tried to register an account using your username '{username}'.\n\n"
+                                    f"Since you already have an active account, no action is required."
+                                )
+                                send_mail(subject, msg_plain, None, [owner_email], fail_silently=True)
+                except Exception as e:
+                    logger.error(f"Failed to send security alert email: {e}")
+
+            if settings.DEBUG and missing_email_credentials:
+                print(f"[Checkora] Development dummy registration attempt for email: {email}")
+
+            return redirect('verify_otp')
     else:
         form = CustomUserCreationForm()
 
@@ -710,11 +827,7 @@ def verify_otp(request):
 
         if otp_created_at:
             if time.time() - otp_created_at > 300:
-                try:
-                    user = User.objects.get(id=user_id, is_active=False)
-                    user.delete()
-                except User.DoesNotExist:
-                    pass
+                # Security design: Do not delete inactive users on OTP expiration.
                 messages.error(
                     request,
                     'OTP has expired. Please register again.',
@@ -722,7 +835,6 @@ def verify_otp(request):
                 request.session.pop('registration_otp_hash', None)
                 request.session.pop('otp_created_at', None)
                 request.session.pop('registration_user_id', None)
-
                 return redirect('register')
 
         entered_otp = request.POST.get('otp', '').strip()
@@ -815,6 +927,7 @@ def verify_otp(request):
         }
     )
 
+
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
 
@@ -822,11 +935,27 @@ def resend_otp(request):
         messages.error(request, 'Session expired. Please register again.')
         return redirect('register')
 
+    # Handle dummy session to prevent user enumeration
+    if user_id == -1:
+        last_otp_time = request.session.get('last_otp_time')
+        if last_otp_time and time.time() - last_otp_time < 60:
+            remaining = int(60 - (time.time() - last_otp_time))
+            messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
+            return redirect('verify_otp')
+
+        messages.success(
+            request,
+            'A new OTP has been sent to your email.'
+        )
+        request.session['last_otp_time'] = time.time()
+        return redirect('verify_otp')
+
     try:
         user = User.objects.get(id=user_id, is_active=False)
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
+        
     last_otp_time = request.session.get('last_otp_time')
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))
