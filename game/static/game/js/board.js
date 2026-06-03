@@ -3628,7 +3628,7 @@
                         try {
                             const result = await post('/api/resign/', {});
                             if (result.valid) {
-                                if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                               
                                 const loserColor = result.winner === 'white' ? 'black' : 'white';
                                 endGame('resign', loserColor);
                             } else {
@@ -3646,7 +3646,7 @@
                 drawOverlay.classList.remove('active');
                 const data = await post('/api/draw/', { action: 'accept' });
                 if (data.success) {
-                    if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                   
                     endGame('draw', turn, data.draw_reason);
                 }
             };
