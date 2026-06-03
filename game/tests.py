@@ -636,6 +636,17 @@ class NewGameTest(TestCase):
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(len(data['move_history']), 0)
 
+    def test_invalid_json_returns_400(self):
+        response = self.client.post(
+            '/api/new-game/',
+            data='{"mode":',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['valid'])
+        self.assertIn('Invalid JSON', response.json()['message'])
+
 class CheckPromotionTest(TestCase):
     """Test the /api/check-promotion/ endpoint."""
 
@@ -780,6 +791,17 @@ class PauseTest(TestCase):
         self.assertEqual(data['white_time'], 597)
         self.assertEqual(data['black_time'], 600)
 
+    def test_invalid_json_returns_400(self):
+        response = self.client.post(
+            '/api/pause/',
+            data='{"pause":',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['valid'])
+        self.assertIn('Invalid JSON', response.json()['message'])
+
 class DrawOfferTest(TestCase):
     """Test draw agreement persistence through the API."""
 
@@ -801,6 +823,17 @@ class DrawOfferTest(TestCase):
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'draw')
         self.assertEqual(state['draw_reason'], 'agreement')
+
+    def test_invalid_json_returns_400(self):
+        response = self.client.post(
+            '/api/draw/',
+            data='{"action":',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['success'])
+        self.assertIn('Invalid JSON', response.json()['message'])
 
 class DrawRuleTest(SimpleTestCase):
     """Test rule-based draw detection in the engine."""

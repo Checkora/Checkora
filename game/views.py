@@ -86,6 +86,25 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     )
 
 
+def _load_json_object(request, failure_key='valid'):
+    """Parse a JSON object body and return a validation response on bad input."""
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return None, JsonResponse(
+            {failure_key: False, 'message': 'Invalid JSON payload.'},
+            status=400,
+        )
+
+    if not isinstance(data, dict):
+        return None, JsonResponse(
+            {failure_key: False, 'message': 'JSON payload must be an object.'},
+            status=400,
+        )
+
+    return data, None
+
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -181,10 +200,9 @@ def valid_moves(request):
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
-        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+    data, error_response = _load_json_object(request)
+    if error_response:
+        return error_response
     
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
@@ -385,10 +403,9 @@ def set_pause(request):
     if not game_data:
         return JsonResponse({'paused': False})
 
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
-        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+    data, error_response = _load_json_object(request)
+    if error_response:
+        return error_response
 
     pause = data.get('pause', True)
 
@@ -505,12 +522,9 @@ def offer_draw(request):
             {'success': False, 'message': 'No active game.'}, status=400
         )
 
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
-        return JsonResponse(
-            {'valid': False, 'message': 'Invalid request data.'}, status=400
-        )
+    data, error_response = _load_json_object(request, failure_key='success')
+    if error_response:
+        return error_response
 
     action = data.get('action')
 
