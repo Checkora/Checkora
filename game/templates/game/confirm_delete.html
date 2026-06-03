@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Deletion | Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <style>
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #1e293b 0%, #0f172a 45%, #020617 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+        }
+        .card {
+            background: rgba(15,23,42,0.92);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 42px 36px;
+            max-width: 460px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { color: #fff; font-size: 28px; margin-bottom: 12px; }
+        p { color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 28px; }
+        .btn {
+            display: inline-block;
+            padding: 14px 36px;
+            border-radius: 14px;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: #fff;
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(220,38,38,0.35);
+        }
+        .btn-cancel {
+            background: rgba(255,255,255,0.06);
+            color: #94a3b8;
+            margin-left: 12px;
+            text-decoration: none;
+        }
+        .btn-cancel:hover { color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Confirm Account Deletion</h1>
+        <p>This action is permanent and cannot be undone. All your account data will be permanently removed from Checkora.</p>
+        <form method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="uidb64" value="{{ uidb64 }}">
+            <input type="hidden" name="token" value="{{ token }}">
+            <button type="submit" class="btn btn-danger">Delete My Account</button>
+        </form>
+        <a href="{% url 'landing' %}" class="btn btn-cancel">Cancel</a>
+    </div>
+</body>
+</html>

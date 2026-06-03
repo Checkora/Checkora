@@ -1204,109 +1204,58 @@ def password_reset_account_selection(request):
 
 
 @login_required
+@require_POST
 def delete_account(request):
+    username = request.POST.get('username')
+    password = request.POST.get('password')
 
-    if request.method == 'POST':
+    user = authenticate(username=username, password=password)
 
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        user = authenticate(
-            username=username,
-            password=password
+    if user and user == request.user:
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        delete_link = request.build_absolute_uri(
+            reverse('confirm_delete_account', kwargs={'uidb64': uid, 'token': token})
         )
 
-        if user and user == request.user:
-
-            uid = urlsafe_base64_encode(
-                force_bytes(user.pk)
-            )
-
-            token = default_token_generator.make_token(user)
-            delete_link = request.build_absolute_uri(
-                reverse(
-                    'confirm_delete_account',
-                    kwargs={
-                        'uidb64': uid,
-                        'token': token
-                    }
-                )
-            )
-
-            try:
-
-                send_mail(
-                    subject='Confirm Account Deletion',
-                    message=f"""
-Click the link below to permanently delete your account:
+        try:
+            send_mail(
+                subject='Confirm Account Deletion',
+                message=f"""Click the link below to permanently delete your account:
 
 {delete_link}
 
-If this wasn't you, ignore this email.
-""",
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
+If this wasn't you, ignore this email.""",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            messages.success(request, 'Confirmation email sent to your registered email.')
+        except Exception:
+            messages.error(request, 'Failed to send confirmation email.')
 
-                messages.success(
-                    request,
-                    'Confirmation email sent to your registered email.'
-                )
+        return redirect('index')
 
-            except Exception:
-                messages.error(
-                    request,
-                    'Failed to send confirmation email.'
-                )
-
-            return redirect('index')
-
-        messages.error(
-            request,
-            'Invalid username or password.'
-        )
-
-    return render(
-        request,
-        'game/delete_account.html'
-    )
-
+    messages.error(request, 'Invalid username or password.')
+    return render(request, 'game/delete_account.html')
 
 def confirm_delete_account(request, uidb64, token):
-
     try:
-
-        uid = force_str(
-            urlsafe_base64_decode(uidb64)
-        )
-
+        uid = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)
-
     except Exception:
-
         user = None
 
-    if user and default_token_generator.check_token(
-        user,
-        token
-    ):
+    if not user or not default_token_generator.check_token(user, token):
+        messages.error(request, 'Invalid or expired deletion link.')
+        return redirect('landing')
 
+    if request.method == 'POST':
         logout(request)
-
         user.delete()
+        return render(request, 'game/delete_success.html')
 
-        return render(
-            request,
-            'game/delete_success.html'
-        )
-
-    messages.error(
-        request,
-        'Invalid or expired deletion link.'
-    )
-
-    return redirect('landing')
+    return render(request, 'game/confirm_delete.html', {'uidb64': uidb64, 'token': token})
 @csrf_exempt
 @require_POST
 def analyze_game_view(request):
