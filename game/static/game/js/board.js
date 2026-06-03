@@ -2062,6 +2062,26 @@
                 const bPointsEl = document.getElementById('blackPoints');
                 if (wPointsEl) wPointsEl.textContent = `+${whitePoints}`;
                 if (bPointsEl) bPointsEl.textContent = `+${blackPoints}`;
+
+                // Update Material Advantage Bar
+                const totalPoints = whitePoints + blackPoints;
+                let whitePercentage = 50;
+                let blackPercentage = 50;
+
+                if (totalPoints > 0) {
+                    whitePercentage = (whitePoints / totalPoints) * 100;
+                    blackPercentage = (blackPoints / totalPoints) * 100;
+                }
+
+                const materialBarWhite = document.getElementById('materialBarWhite');
+                const materialBarBlack = document.getElementById('materialBarBlack');
+                const materialLabelWhite = document.getElementById('materialLabelWhite');
+                const materialLabelBlack = document.getElementById('materialLabelBlack');
+
+                if (materialBarWhite) materialBarWhite.style.height = whitePercentage + '%';
+                if (materialBarBlack) materialBarBlack.style.height = blackPercentage + '%';
+                if (materialLabelWhite) materialLabelWhite.textContent = `+${whitePoints}`;
+                if (materialLabelBlack) materialLabelBlack.textContent = `+${blackPoints}`;
             }
 
             function showStatus(msg, err) {
