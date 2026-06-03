@@ -41,7 +41,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
-from .models import GameResult
+from .models import GameResult, PuzzleStats
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 from .analysis import build_summary
@@ -56,6 +56,11 @@ def preloader(request):
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
+    if 'game' in request.session:
+        game_data = request.session['game']
+        status = game_data.get('game_status', 'active')
+        if status in ['checkmate', 'draw', 'resign', 'stalemate', 'timeout']:
+            del request.session['game']
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
@@ -1105,6 +1110,47 @@ def stats_view(request):
         'ai_wins': ai_wins,
         'ai_draws': ai_draws,
         'win_percentage': round(win_percentage, 2),
+    })
+
+@login_required
+def leaderboard_view(request):
+    leaderboard = PuzzleStats.objects.select_related(
+        "user"
+    ).order_by(
+        "-puzzles_solved",
+        "-best_streak"
+    )
+
+    return render(
+        request,
+        "game/leaderboard.html",
+        {
+            "leaderboard": leaderboard
+        }
+    )
+
+@login_required
+@require_POST
+def update_puzzle_stats(request):
+    data = json.loads(request.body)
+
+    stats, _ = PuzzleStats.objects.get_or_create(
+        user=request.user
+    )
+
+    stats.puzzles_solved = data.get("puzzles_solved", 0)
+    stats.current_streak = data.get("current_streak", 0)
+    stats.best_streak = data.get("best_streak", 0)
+    stats.daily_completions = data.get("daily_completions", 0)
+
+    stats.save()
+
+    return JsonResponse({"success": True})
+
+def puzzle_stats_view(request):
+    return JsonResponse({
+        "streak": 0,
+        "longest_streak": 0
     })
 
 @csrf_exempt
