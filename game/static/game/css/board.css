@@ -2536,3 +2536,21 @@ body.blindfold-mode .capture-ring {
         0 0 12px rgba(76, 175, 80, 0.6);
     border-radius: 4px;
 }
+
+.modal-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-secondary, #999);
+    padding: 4px 8px;
+    z-index: 10;
+}
+.modal-close-btn:hover {
+    color: var(--text-primary, #fff);
+}
+

@@ -603,6 +603,7 @@
             const fenCancelBtn = document.getElementById('fenCancelBtn');
 
             const gameOverOverlay = document.getElementById('gameOverOverlay');
+            const gameOverCloseBtn = document.getElementById('gameOverCloseBtn');
             const gameOverTitle = document.getElementById('gameOverTitle');
             const gameOverMessage = document.getElementById('gameOverMessage');
             const gameOverStartBtn = document.getElementById('gameOverStartBtn');
@@ -668,6 +669,7 @@
             }
 
             let gameOver = false;
+            let dismissedGameOver = false;
             let aiThinking = false;
             let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
             
@@ -1082,7 +1084,7 @@
                     highlightCheck();
                 }
 
-                if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
+                if (!dismissedGameOver && data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
                 }
                 if (!welcomeOverlay.classList.contains('active')) {
@@ -2168,6 +2170,7 @@
 
             async function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
+                dismissedGameOver = false;
                 gameOver = true;
                 replayMode = true;
                 paused = true;
@@ -3719,6 +3722,15 @@
     const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
     if (confettiContainer) confettiContainer.remove();
 });
+
+            if (gameOverCloseBtn) {
+                gameOverCloseBtn.addEventListener('click', () => {
+                    gameOverOverlay.classList.remove('active', 'game-over-celebration');
+                    dismissedGameOver = true;
+                    const confetti = gameOverOverlay.querySelector('.confetti-container');
+                    if (confetti) confetti.remove();
+                });
+            }
 
             // ========== Exit to Menu Logic ==========
             const exitToMenuBtn = document.getElementById('exitToMenuBtn');
