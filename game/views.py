@@ -584,7 +584,7 @@ def register_view(request):
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
-        is_valid = form.is_valid()
+        form.is_valid()
         
         # Intercept uniqueness validation errors and remove them from form.errors to prevent user enumeration
         errors_data = form.errors.as_data()
@@ -776,8 +776,8 @@ def register_view(request):
                         email_to = email
                         subject = 'Checkora Registration Attempt'
                         msg_plain = (
-                            f"Hello! Someone tried to register a Checkora account using your email address.\n\n"
-                            f"Since you already have an active account, no action is required. If you forgot your credentials, please use the password reset form."
+                            "Hello! Someone tried to register a Checkora account using your email address.\n\n"
+                            "Since you already have an active account, no action is required. If you forgot your credentials, please use the password reset form."
                         )
                         send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
                     elif conflict_type in ('username_active', 'username_inactive'):
@@ -795,7 +795,7 @@ def register_view(request):
                                 subject = 'Checkora Username Alert'
                                 msg_plain = (
                                     f"Hello! Someone tried to register an account using your username '{username}'.\n\n"
-                                    f"Since you already have an active account, no action is required."
+                                    "Since you already have an active account, no action is required."
                                 )
                                 send_mail(subject, msg_plain, None, [owner_email], fail_silently=True)
                 except Exception as e:
