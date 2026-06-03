@@ -557,8 +557,8 @@ def resign_game(request):
 
     try:
         record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
-    except Exception as e:
-        logger.error('Failed to record resign result: %s', e)
+    except Exception:
+        logger.exception('Failed to record resign result')
 
     return JsonResponse({
         'valid': True,
@@ -578,12 +578,34 @@ def check_username(request):
     return JsonResponse({'available': True})
 
 
+def get_client_ip(request):
+    """Retrieve the client IP address from request metadata."""
+    forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('index')
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
+        
+        # Check IP-level rate limit first
+        client_ip = get_client_ip(request)
+        ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+        ip_key = f"register-ip-limit:{ip_hash}"
+        ip_attempts = cache.get(ip_key, 0)
+        max_ip_attempts = 5  # Allow up to 5 registration attempts per 10 minutes per IP
+        if ip_attempts >= max_ip_attempts:
+            form.add_error(None, "Too many registration attempts from your network. Please wait a few minutes and try again.")
+            return render(request, 'game/register.html', {'form': form})
+            
+        # Increment IP attempts
+        cache.set(ip_key, ip_attempts + 1, timeout=600)  # 10 minutes window
+
         form.is_valid()
         
         # Intercept uniqueness validation errors and remove them from form.errors to prevent user enumeration
@@ -613,17 +635,15 @@ def register_view(request):
         # If there are other validation errors (e.g. password too weak), show them, but hide uniqueness errors
         if has_other_errors:
             if has_username_uniqueness_error:
-                username_errors = [e for e in errors_data['username'] if e.code != 'unique']
-                if username_errors:
-                    form.errors['username'] = form.error_class(username_errors)
-                else:
-                    form.errors.pop('username', None)
+                form.errors.pop('username', None)
+                for err in errors_data.get('username', []):
+                    if err.code != 'unique':
+                        form.add_error('username', err)
             if has_email_uniqueness_error:
-                email_errors = [e for e in errors_data['email'] if e.code != 'duplicate_email']
-                if email_errors:
-                    form.errors['email'] = form.error_class(email_errors)
-                else:
-                    form.errors.pop('email', None)
+                form.errors.pop('email', None)
+                for err in errors_data.get('email', []):
+                    if err.code != 'duplicate_email':
+                        form.add_error('email', err)
             return render(request, 'game/register.html', {'form': form})
 
         # No other validation errors. We proceed with the secure registration flow.
@@ -633,6 +653,19 @@ def register_view(request):
 
         if not username or not email or not password:
             return render(request, 'game/register.html', {'form': form})
+
+        # Cooldown to prevent spamming emails / alerts
+        email_hash = hashlib.sha256(email.lower().encode()).hexdigest()
+        email_cooldown_key = f"register-email-cooldown:{email_hash}"
+        email_throttled = cache.get(email_cooldown_key) is not None
+        if not email_throttled:
+            cache.set(email_cooldown_key, True, timeout=60)  # 60 seconds cooldown for email sending
+
+        username_hash = hashlib.sha256(username.lower().encode()).hexdigest()
+        username_cooldown_key = f"register-username-cooldown:{username_hash}"
+        username_throttled = cache.get(username_cooldown_key) is not None
+        if not username_throttled:
+            cache.set(username_cooldown_key, True, timeout=60)  # 60 seconds cooldown
 
         from django.db import transaction, IntegrityError
         
@@ -703,58 +736,60 @@ def register_view(request):
                 print(f"[Checkora] Development registration OTP for {user_to_verify.email}: {otp}")
                 return redirect('verify_otp')
 
-            try:
-                msg_plain = (
-                    f'Your OTP for registration is: {otp}\n\n'
-                    'Please enter this code to activate your account.'
-                )
-                html_message = (
-                    "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
-                    "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
-                    "20px; text-align: center;\"><div style=\"background-"
-                    "color: #16162a; border: 1px solid #252545; border-radius"
-                    ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
-                    "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
-                    "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
-                    ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
-                    "<span style=\"color: #f0c040;\">ORA</span></h1>"
-                    "<hr style=\"border: none; border-top: 1px solid #252545; "
-                    "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
-                    "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
-                    "to the elite chess platform. To activate your account "
-                    "and start playing, please use the verification code "
-                    "below:</p><div style=\"margin: 35px 0;\"><span style=\""
-                    "font-family: 'Consolas', monospace; font-size: 36px; "
-                    "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
-                    "background: #0f0f1a; padding: 15px 25px; border-radius: "
-                    "8px; border: 1px solid #3d3222; display: inline-block;"
-                    "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
-                    "size: 14px; margin-top: 30px;\">Enter this code on the "
-                    "verification page to complete your registration.</p>"
-                    "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
-                    "40px;\">If you didn't attempt to register on Checkora, "
-                    "please safely ignore this email.</p></div></div>"
-                ).format(otp=otp)
-                send_mail(
-                    'Your Checkora Verification Code',
-                    msg_plain,
-                    None,
-                    [user_to_verify.email],
-                    fail_silently=False,
-                    html_message=html_message
-                )
-                return redirect('verify_otp')
-            except (SMTPException, BadHeaderError, OSError) as e:
-                logger.error(f"Failed to send OTP email: {e}")
-                err_msg = (
-                    'Failed to send OTP email. '
-                    'Please check your email address and try again.'
-                )
-                messages.error(request, err_msg)
-                request.session.pop('registration_user_id', None)
-                request.session.pop('registration_otp_hash', None)
-                request.session.pop('otp_created_at', None)
-                return redirect('register')
+            if not email_throttled:
+                try:
+                    msg_plain = (
+                        f'Your OTP for registration is: {otp}\n\n'
+                        'Please enter this code to activate your account.'
+                    )
+                    html_message = (
+                        "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
+                        "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
+                        "20px; text-align: center;\"><div style=\"background-"
+                        "color: #16162a; border: 1px solid #252545; border-radius"
+                        ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
+                        "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
+                        "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
+                        ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
+                        "<span style=\"color: #f0c040;\">ORA</span></h1>"
+                        "<hr style=\"border: none; border-top: 1px solid #252545; "
+                        "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
+                        "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
+                        "to the elite chess platform. To activate your account "
+                        "and start playing, please use the verification code "
+                        "below:</p><div style=\"margin: 35px 0;\"><span style=\""
+                        "font-family: 'Consolas', monospace; font-size: 36px; "
+                        "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
+                        "background: #0f0f1a; padding: 15px 25px; border-radius: "
+                        "8px; border: 1px solid #3d3222; display: inline-block;"
+                        "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
+                        "size: 14px; margin-top: 30px;\">Enter this code on the "
+                        "verification page to complete your registration.</p>"
+                        "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
+                        "40px;\">If you didn't attempt to register on Checkora, "
+                        "please safely ignore this email.</p></div></div>"
+                    ).format(otp=otp)
+                    send_mail(
+                        'Your Checkora Verification Code',
+                        msg_plain,
+                        None,
+                        [user_to_verify.email],
+                        fail_silently=False,
+                        html_message=html_message
+                    )
+                except (SMTPException, BadHeaderError, OSError):
+                    logger.exception("Failed to send OTP email")
+                    err_msg = (
+                        'Failed to send OTP email. '
+                        'Please check your email address and try again.'
+                    )
+                    messages.error(request, err_msg)
+                    request.session.pop('registration_user_id', None)
+                    request.session.pop('registration_otp_hash', None)
+                    request.session.pop('otp_created_at', None)
+                    return redirect('register')
+
+            return redirect('verify_otp')
         else:
             # Case D: Active account/username conflicts.
             # Setup dummy session state to prevent timing attacks / enumeration
@@ -774,24 +809,26 @@ def register_view(request):
             if not (settings.DEBUG and missing_email_credentials):
                 try:
                     if conflict_type in ('exact_active', 'email_active'):
-                        email_to = email
-                        subject = 'Checkora Registration Attempt'
-                        msg_plain = (
-                            "Hello! Someone tried to register a Checkora account using your email address.\n\n"
-                            "Since you already have an active account, no action is required. If you forgot your credentials, please use the password reset form."
-                        )
-                        send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
-                    elif conflict_type == 'username_active' and existing_user_by_username:
-                        owner_email = existing_user_by_username.email
-                        if owner_email:
-                            subject = 'Checkora Username Alert'
+                        if not email_throttled:
+                            email_to = email
+                            subject = 'Checkora Registration Attempt'
                             msg_plain = (
-                                f"Hello! Someone tried to register an account using your username '{username}'.\n\n"
-                                "Since you already have an active account, no action is required."
+                                "Hello! Someone tried to register a Checkora account using your email address.\n\n"
+                                "Since you already have an active account, no action is required. If you forgot your credentials, please use the password reset form."
                             )
-                            send_mail(subject, msg_plain, None, [owner_email], fail_silently=True)
-                except Exception as e:
-                    logger.error(f"Failed to send security alert email: {e}")
+                            send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
+                    elif conflict_type == 'username_active' and existing_user_by_username:
+                        if not username_throttled:
+                            owner_email = existing_user_by_username.email
+                            if owner_email:
+                                subject = 'Checkora Username Alert'
+                                msg_plain = (
+                                    f"Hello! Someone tried to register an account using your username '{username}'.\n\n"
+                                    "Since you already have an active account, no action is required."
+                                )
+                                send_mail(subject, msg_plain, None, [owner_email], fail_silently=True)
+                except Exception:
+                    logger.exception("Failed to send security alert email")
 
             if settings.DEBUG and missing_email_credentials:
                 print(f"[Checkora] Development dummy registration attempt for email: {email}")
@@ -865,8 +902,8 @@ def verify_otp(request):
                     email.attach_alternative(html_content, "text/html")
                     email.send(fail_silently=True)
                 
-                except Exception as e:
-                    logger.warning("Failed to send welcome email: %s", e)
+                except Exception:
+                    logger.warning("Failed to send welcome email", exc_info=True)
                     
                 login(request, user)
                 messages.success(
@@ -1439,6 +1476,6 @@ def analyze_game_view(request):
             
         summary = build_summary(moves, result, reason)
         return JsonResponse(summary)
-    except Exception as e:
-        logger.error('Failed to analyze game: %s', e)
+    except Exception:
+        logger.exception('Failed to analyze game')
         return JsonResponse({'error': 'Failed to analyze game'}, status=400)

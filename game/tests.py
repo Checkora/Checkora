@@ -137,6 +137,9 @@ class ServerErrorPageTest(SimpleTestCase):
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
+    def setUp(self):
+        cache.clear()
+
     @override_settings(
         DEBUG=True,
         EMAIL_HOST_USER='',
@@ -322,10 +325,52 @@ class RegistrationViewTest(TestCase):
         }
         
         # Mock transaction.atomic or User save to simulate a race condition where the save fails due to IntegrityError
-        with mock.patch('django.contrib.auth.forms.UserCreationForm.save', side_effect=IntegrityError("Duplicate entry")):
+        with mock.patch('game.views.CustomUserCreationForm.save', side_effect=IntegrityError("Duplicate entry")):
             response = self.client.post('/register/', data=payload)
             # Should redirect to verify-otp generically even if the DB save fails due to race/duplicate
             self.assertRedirects(response, '/verify-otp/')
+
+
+class CleanupInactiveUsersCommandTest(TestCase):
+    """Test the cleanup_inactive_users management command."""
+
+    def test_cleanup_deletes_old_inactive_users(self):
+        from django.core.management import call_command
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Active user (should not be deleted)
+        User.objects.create_user(
+            username='active_user',
+            email='active@example.com',
+            password='StrongPass123!',
+            is_active=True
+        )
+        # Inactive user within retention window (should not be deleted)
+        User.objects.create_user(
+            username='recent_inactive',
+            email='recent@example.com',
+            password='StrongPass123!',
+            is_active=False
+        )
+        # Inactive user outside retention window (should be deleted)
+        old_inactive = User.objects.create_user(
+            username='old_inactive',
+            email='old@example.com',
+            password='StrongPass123!',
+            is_active=False
+        )
+        # Set date_joined to 25 hours ago
+        old_inactive.date_joined = timezone.now() - timedelta(hours=25)
+        old_inactive.save()
+
+        # Run command with 24 hours retention
+        call_command('cleanup_inactive_users', retention_hours=24.0)
+
+        # Check who was deleted
+        self.assertTrue(User.objects.filter(username='active_user').exists())
+        self.assertTrue(User.objects.filter(username='recent_inactive').exists())
+        self.assertFalse(User.objects.filter(username='old_inactive').exists())
 
 
 class CustomSetPasswordFormTest(TestCase):
