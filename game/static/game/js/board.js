@@ -438,7 +438,7 @@
                 if (!soundEnabled || !data?.valid) return;
 
                  // Skip — playGameOverSound() handles all terminal states
-                const terminalStates = ['checkmate', 'stalemate', 'draw', 'timeout', 'resign'];
+                const terminalStates = ['checkmate', 'stalemate', 'draw', 'timeout'];
                 if (terminalStates.includes(data.game_status)) return;
 
                 let sound = sounds.move;
