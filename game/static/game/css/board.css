@@ -741,6 +741,77 @@ body {
 .status-bar.error { color: #ff6b6b; }
 
 /* ============================================================
+   Material Advantage Bar
+   ============================================================ */
+.material-advantage-bar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+    height: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    justify-content: center;
+}
+
+.material-advantage-bar {
+    width: 32px;
+    height: 100%;
+    border: 2px solid var(--card-border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--card-bg);
+    display: flex;
+    flex-direction: column-reverse;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.material-bar-white {
+    background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+    transition: height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex: 0 0 auto;
+}
+
+.material-bar-black {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    transition: height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex: 1 1 auto;
+}
+
+.material-label-white,
+.material-label-black {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-align: center;
+    width: 32px;
+}
+
+.material-label-white {
+    color: #333;
+}
+
+.material-label-black {
+    color: #ccc;
+}
+
+[data-theme="light"] .material-bar-white {
+    background: linear-gradient(135deg, #e8e8e8, #d8d8d8);
+}
+
+[data-theme="light"] .material-bar-black {
+    background: linear-gradient(135deg, #404040, #303030);
+}
+
+[data-theme="light"] .material-label-white {
+    color: #1a1a1a;
+}
+
+[data-theme="light"] .material-label-black {
+    color: #6b7280;
+}
+
+/* ============================================================
    Move History
    ============================================================ */
 /* ============================================================
