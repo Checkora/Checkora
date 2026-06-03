@@ -39,5 +39,6 @@ urlpatterns = [
         name='password_reset_account_selection'
     ),
     
-    
+    path('leaderboard/', views.leaderboard_view, name='leaderboard'),
+    path("api/puzzle-stats/", views.puzzle_stats_view, name="puzzle_stats"),
 ]   
