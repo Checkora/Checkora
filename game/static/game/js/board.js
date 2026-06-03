@@ -497,7 +497,9 @@
                 if (!soundEnabled || !data?.valid) return;
 
                 let sound = sounds.move;
-                if (['checkmate', 'stalemate', 'draw', 'timeout'].includes(data.game_status)) {
+                if (data.game_status === 'checkmate') {
+                    return;
+                } else if (['stalemate', 'draw', 'timeout'].includes(data.game_status)) {
                     sound = sounds.draw;
                 } else if (data.game_status === 'check') {
                     sound = sounds.check;
@@ -508,6 +510,64 @@
                 sound.currentTime = 0;
                 const playback = sound.play();
                 if (playback?.catch) playback.catch(() => {});
+            }
+
+            function playGameOverSound(reason, resultState) {
+                if (!soundEnabled) return;
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const now = audioCtx.currentTime;
+                    if (reason === 'timeout') {
+                        for (let i = 0; i < 3; i++) {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'square';
+                            osc.frequency.value = 440;
+                            gain.gain.setValueAtTime(0.15, now + i * 0.2);
+                            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.1);
+                            osc.connect(gain);
+                            gain.connect(audioCtx.destination);
+                            osc.start(now + i * 0.2);
+                            osc.stop(now + i * 0.2 + 0.1);
+                        }
+                    } else if (resultState === 'victory') {
+                        [523.25, 659.25, 783.99].forEach((freq, i) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            gain.gain.setValueAtTime(0.3, now + i * 0.15);
+                            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.4);
+                            osc.connect(gain);
+                            gain.connect(audioCtx.destination);
+                            osc.start(now + i * 0.15);
+                            osc.stop(now + i * 0.15 + 0.4);
+                        });
+                    } else if (resultState === 'defeat') {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(220, now);
+                        osc.frequency.linearRampToValueAtTime(110, now + 0.6);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.8);
+                    } else {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.value = 330;
+                        gain.gain.setValueAtTime(0.25, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.5);
+                    }
+                } catch (e) {}
             }
 
             function toggleMute() {
@@ -2196,7 +2256,6 @@
                 }
                 
                 let isCelebration = (resultState === 'victory');
-                
                 
                 // Play distinct game over sound
                 playGameOverSound(reason, resultState);
