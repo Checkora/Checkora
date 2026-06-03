@@ -1138,18 +1138,11 @@ def cleanup_cron(request):
         }, status=500)
 
 def password_reset_account_selection(request):
-
-    email = request.GET.get('email')
-
-    users = User.objects.filter(email=email)
-
+    email = request.GET.get('email', '')
     return render(
         request,
         'game/password_reset_account_selection.html',
-        {
-            'users': users,
-            'email': email
-        }
+        {'email': email}
     )
 
 
