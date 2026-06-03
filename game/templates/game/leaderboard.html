@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Puzzle Leaderboard</title>
+    <style>
+        body {
+            background: #0f0f1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #444;
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background: #f0c040;
+            color: black;
+        }
+
+        tr:nth-child(even) {
+            background: #1a1a2e;
+        }
+
+        a {
+            color: #f0c040;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🏆 Puzzle Leaderboard</h1>
+
+    <a href="{% url 'landing' %}">← Back to Home</a>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>User</th>
+                <th>Puzzles Solved</th>
+                <th>Best Streak</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for player in leaderboard %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ player.user.username }}</td>
+                <td>{{ player.puzzles_solved }}</td>
+                <td>{{ player.best_streak }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No leaderboard data available.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>
