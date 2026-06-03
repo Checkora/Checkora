@@ -2,16 +2,25 @@
 
 import json
 import sys
+import time
 from smtplib import SMTPException
 from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core import mail
+from django.core.cache import cache
 from django.urls import reverse
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import (
+    RequestFactory,
+    SimpleTestCase,
+    TestCase,
+    override_settings,
+)
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
+from .views import CustomPasswordResetView
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -81,13 +90,49 @@ class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
 
     def test_landing_page_loads(self):
-        response = self.client.get('/')
+        response = self.client.get('/home/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
     def test_landing_page_links_to_play(self):
-        response = self.client.get('/')
+        response = self.client.get('/home/')
         self.assertContains(response, '/play/')
+
+
+class NotFoundPageTest(TestCase):
+    """Custom 404 page should match the product theme and navigation flow."""
+
+    @override_settings(DEBUG=False, SECURE_SSL_REDIRECT=False)
+    def test_unknown_url_renders_themed_404_page(self):
+        response = self.client.get('/this-route-does-not-exist/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'This move is illegal!', status_code=404)
+        self.assertContains(response, 'Return to Main Menu', status_code=404)
+        self.assertContains(response, reverse('landing'), status_code=404)
+
+
+class ServerErrorPageTest(SimpleTestCase):
+    """Custom 500 page should match the product theme and recovery flow."""
+
+    def test_custom_500_handler_renders_themed_page(self):
+        from core.urls import custom_server_error
+
+        request = RequestFactory().get('/server-error/')
+        response = custom_server_error(request)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertContains(
+            response,
+            'The King has fallen!',
+            status_code=500,
+        )
+        self.assertContains(
+            response,
+            'Return to Main Menu',
+            status_code=500,
+        )
+        self.assertContains(response, reverse('landing'), status_code=500)
+
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
@@ -141,6 +186,26 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
+    def test_duplicate_email_registration_fails(self):
+        User.objects.create_user(
+            username='existinguser',
+            email='duplicate@example.com',
+            password='StrongPass123!',
+            is_active=True
+        )
+
+        payload = {
+            'username': 'newplayer',
+            'email': 'duplicate@example.com',
+            'password1': 'StrongPass123!',
+            'password2': 'StrongPass123!',
+        }
+
+        response = self.client.post('/register/', data=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A user with this email address already exists.')
+        self.assertFalse(User.objects.filter(username='newplayer').exists())
+
 
 class CustomSetPasswordFormTest(TestCase):
     """Password reset form should reject reusing the current password."""
@@ -190,6 +255,111 @@ class CustomSetPasswordFormTest(TestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    PASSWORD_RESET_EMAIL_COOLDOWN_SECONDS=300,
+    PASSWORD_RESET_IP_WINDOW_SECONDS=900,
+    PASSWORD_RESET_IP_MAX_REQUESTS=3,
+)
+class PasswordResetRateLimitTest(TestCase):
+    """Password reset requests should be throttled by email and IP."""
+
+    def setUp(self):
+        cache.clear()
+        self.reset_url = reverse('password_reset')
+        self.done_url = reverse('password_reset_done')
+        User.objects.create_user(
+            username='resetplayer',
+            email='reset@example.com',
+            password='StrongPass123!',
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_repeated_email_request_during_cooldown_is_blocked(self):
+        first_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+        )
+
+        self.assertRedirects(first_response, self.done_url)
+        self.assertEqual(len(mail.outbox), 1)
+
+        second_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+            follow=True,
+        )
+
+        self.assertRedirects(second_response, self.reset_url)
+        self.assertContains(
+            second_response,
+            'Please wait',
+        )
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(PASSWORD_RESET_IP_MAX_REQUESTS=2)
+    def test_ip_throttle_blocks_excessive_reset_requests(self):
+        for index in range(3):
+            User.objects.create_user(
+                username=f'resetplayer{index}',
+                email=f'reset{index}@example.com',
+                password='StrongPass123!',
+            )
+
+        for index in range(2):
+            response = self.client.post(
+                self.reset_url,
+                data={'email': f'reset{index}@example.com'},
+                REMOTE_ADDR='203.0.113.20',
+            )
+            self.assertRedirects(response, self.done_url)
+
+        blocked_response = self.client.post(
+            self.reset_url,
+            data={'email': 'reset2@example.com'},
+            REMOTE_ADDR='203.0.113.20',
+            follow=True,
+        )
+
+        self.assertRedirects(blocked_response, self.reset_url)
+        self.assertContains(
+            blocked_response,
+            'Too many password reset requests',
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    @override_settings(PASSWORD_RESET_IP_MAX_REQUESTS=2)
+    def test_ip_throttle_message_uses_remaining_window_time(self):
+        User.objects.create_user(
+            username='remainingplayer',
+            email='remaining@example.com',
+            password='StrongPass123!',
+        )
+        view = CustomPasswordResetView()
+        ip_key = view._cache_key('password-reset-ip', '203.0.113.30')
+        cache.set(ip_key, 2, timeout=900)
+        cache.set(
+            view._ip_expires_key(ip_key),
+            time.time() + 125,
+            timeout=900,
+        )
+
+        response = self.client.post(
+            self.reset_url,
+            data={'email': 'remaining@example.com'},
+            REMOTE_ADDR='203.0.113.30',
+            follow=True,
+        )
+
+        self.assertRedirects(response, self.reset_url)
+        self.assertContains(response, '2 minute(s)')
+        self.assertNotContains(response, '15 minute(s)')
+        self.assertEqual(len(mail.outbox), 0)
+
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
@@ -300,6 +470,115 @@ class MoveValidationTest(TestCase):
         data = r.json()
         self.assertTrue(data['valid'])
         self.assertEqual(data['captured'], 'p')
+
+
+class MoveCoordinatesValidationTest(TestCase):
+    """Test coordinate validation for chess move API endpoint."""
+
+    def setUp(self):
+        self.client.get('/play/')
+        self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
+        self.mock_validate = self.validate_patcher.start()
+        self.mock_validate.return_value = (True, "Mock validation.")
+
+        self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
+        self.mock_engine = self.engine_patcher.start()
+        self.mock_engine.return_value = "STATUS ok"
+
+    def tearDown(self):
+        self.validate_patcher.stop()
+        self.engine_patcher.stop()
+
+    def test_valid_coordinates(self):
+        """Move with valid coordinates (0-7) should succeed validation."""
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6, 'from_col': 4,
+                'to_row': 4, 'to_col': 4,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['valid'])
+
+    def test_negative_coordinates(self):
+        """Move with negative coordinates should return 400 Bad Request."""
+        invalid_payloads = [
+            {'from_row': -1, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': -4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': -1, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': -8},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+    def test_coordinates_greater_than_7(self):
+        """Move with coordinates greater than 7 should return 400 Bad Request."""
+        invalid_payloads = [
+            {'from_row': 8, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 9, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 10, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 8},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+    def test_non_integer_coordinates(self):
+        """Move with non-integer coordinates should return 400 Bad Request."""
+        invalid_payloads = [
+            {'from_row': '6', 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6.5, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': True, 'from_col': 4, 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': [4], 'to_row': 4, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': None, 'to_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': {'val': 4}},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+    def test_malformed_input_values(self):
+        """Move with malformed/missing coordinate inputs should return 400 Bad Request."""
+        invalid_payloads = [
+            {},
+            {'from_row': 6, 'from_col': 4},
+            {'from_row': 6, 'from_col': 4, 'to_row': 4},
+        ]
+        for payload in invalid_payloads:
+            response = self.client.post(
+                '/api/move/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
+        response = self.client.post(
+            '/api/move/',
+            data="not-a-json-string",
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"error": "Invalid board coordinates"})
+
 
 class ValidMovesTest(TestCase):
     """Test /api/valid-moves/ endpoint."""
@@ -1193,3 +1472,271 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
         self.assertEqual(notation, 'a8=Q')
+
+
+class InsufficientMaterialDrawTest(TestCase):
+    """Test cases for insufficient material draw detection in Python engine fallback and ChessGame integration."""
+
+    def test_python_engine_insufficient_material_k_vs_k(self):
+        """Python fallback engine should return 'STATUS DRAW' for King vs. King."""
+        # board64 string: K at e1 (index 60), k at e8 (index 4), others '.'
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64_str = "".join(board64)
+        
+        # STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_insufficient_material_k_n_vs_k(self):
+        """Python fallback engine should return 'STATUS DRAW' for King + Knight vs. King."""
+        # board64: K at e1 (60), N at f3 (45), k at e8 (4)
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64[45] = 'N'
+        board64_str = "".join(board64)
+        
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_insufficient_material_k_b_vs_k(self):
+        """Python fallback engine should return 'STATUS DRAW' for King + Bishop vs. King."""
+        # board64: K at e1 (60), B at f3 (45), k at e8 (4)
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64[45] = 'B'
+        board64_str = "".join(board64)
+        
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_sufficient_material_k_p_vs_k(self):
+        """Python fallback engine should return 'STATUS OK' for King + Pawn vs. King."""
+        # board64: K at e1 (60), P at e2 (52), k at e8 (4)
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[60] = 'K'
+        board64[52] = 'P'
+        board64_str = "".join(board64)
+        
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS OK")
+
+    def test_chess_game_draws_on_insufficient_material(self):
+        """ChessGame should end in a draw with 'insufficient_material' reason under insufficient material conditions."""
+        game = ChessGame()
+        # Clear board except for the Kings
+        game.board = [[None] * 8 for _ in range(8)]
+        game.board[0][4] = 'k'
+        game.board[7][4] = 'K'
+        
+        # Verify the status is 'draw'
+        status = game.check_game_status()
+        self.assertEqual(status, 'draw')
+        
+        # Actually trigger a move to verify game state transitions to 'draw' and 'insufficient_material'
+        with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
+            success, notation, captured, final_status = game.make_move(7, 4, 7, 3)
+            self.assertTrue(success)
+            self.assertEqual(final_status, 'draw')
+            self.assertEqual(game.game_status, 'draw')
+            self.assertEqual(game.draw_reason, 'insufficient_material')
+
+    def test_chess_game_draws_on_insufficient_material_cpp_mocked(self):
+        """ChessGame should handle 'STATUS DRAW' from a C++ engine correctly."""
+        game = ChessGame()
+        with mock.patch.object(game, '_call_engine', return_value="STATUS DRAW"):
+            status = game.check_game_status()
+            self.assertEqual(status, 'draw')
+
+class TimeControlIncrementTest(TestCase):
+    """Test flexible time control and increment logic."""
+
+    def test_increment_applied_after_move(self):
+        game = ChessGame(time_limit=600, increment=5)
+        self.assertEqual(game.increment, 5)
+        self.assertEqual(game.white_time, 600)
+        self.assertEqual(game.black_time, 600)
+
+        with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
+            # White makes a move
+            success, _, _, _ = game.make_move(6, 4, 4, 4)
+            self.assertTrue(success)
+            self.assertEqual(game.white_time, 605)
+
+            # Black makes a move
+            success, _, _, _ = game.make_move(1, 4, 3, 4)
+            self.assertTrue(success)
+            self.assertEqual(game.black_time, 605)
+
+    def test_session_serialization_preserves_increment(self):
+        game = ChessGame(time_limit=300, increment=2)
+        restored = ChessGame.from_dict(game.to_dict())
+        self.assertEqual(restored.increment, 2)
+        self.assertEqual(restored.white_time, 300)
+        self.assertEqual(restored.black_time, 300)
+
+    def test_new_game_api_handles_increment(self):
+        self.client.get('/play/')
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'pvp',
+                'time_limit': 300,
+                'increment': 3
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['valid'])
+        
+        session = self.client.session
+        game_dict = session.get('game')
+        self.assertIsNotNone(game_dict)
+        self.assertEqual(game_dict['increment'], 3)
+        self.assertEqual(game_dict['white_time'], 300)
+
+
+class GameResultMoveHistoryTest(TestCase):
+    """Test suite for verifying persistent move history storage in GameResult."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='testplayer', password='password123')
+        from .models import GameResult
+        self.GameResult = GameResult
+
+    def test_record_game_result_saves_moves_explicitly(self):
+        from game.views import record_game_result
+        # Setup dummy request
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        request.session = {}
+
+        moves = [{'notation': 'e4', 'piece': 'P', 'from': [6, 4], 'to': [4, 4], 'color': 'white'}]
+        record_game_result(request, 'pvp', 'white', 'checkmate', 'white', moves=moves)
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.moves, moves)
+
+    def test_record_game_result_falls_back_to_session(self):
+        from game.views import record_game_result
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        
+        moves = [{'notation': 'd4', 'piece': 'P', 'from': [6, 3], 'to': [4, 3], 'color': 'white'}]
+        request.session = {'game': {'move_history': moves}}
+
+        record_game_result(request, 'ai', 'black', 'resign', 'white')
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.moves, moves)
+
+    def test_stale_game_cleanup_saves_move_history(self):
+        from django.contrib.sessions.backends.db import SessionStore
+        import time
+        from game.services import cleanup_stale_games
+
+        s = SessionStore()
+        s.create()
+        moves = [
+            {'notation': 'e4', 'piece': 'P', 'from': [6, 4], 'to': [4, 4], 'color': 'white'},
+            {'notation': 'e5', 'piece': 'p', 'from': [1, 4], 'to': [3, 4], 'color': 'black'},
+            {'notation': 'Nf3', 'piece': 'N', 'from': [7, 6], 'to': [5, 5], 'color': 'white'},
+            {'notation': 'Nc6', 'piece': 'n', 'from': [0, 1], 'to': [2, 2], 'color': 'black'},
+            {'notation': 'Bb5', 'piece': 'B', 'from': [7, 5], 'to': [4, 1], 'color': 'white'},
+        ]
+        s['game'] = {
+            'game_status': 'active',
+            'move_history': moves,
+            'current_turn': 'black',
+            'player_color': 'white',
+            'mode': 'pvp',
+            'last_ts': time.time() - (50 * 3600)
+        }
+        s.save()
+
+        deleted, resigned = cleanup_stale_games()
+        self.assertEqual(resigned, 1)
+        self.assertEqual(deleted, 0)
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.moves, moves)
+
+    def test_backward_compatibility_empty_moves(self):
+        # Existing game results created without moves should default to empty list
+        res = self.GameResult.objects.create(
+            user=self.user,
+            mode='pvp',
+            winner='white',
+            end_reason='checkmate',
+            player_color='white'
+        )
+        self.assertEqual(res.moves, [])
+
+    @mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'Mock validation.'))
+    @mock.patch.object(ChessGame, '_call_engine')
+    def test_make_move_checkmate_saves_move_history(self, mock_engine, mock_validate):
+        # Mock engine status call to return checkmate
+        def fake_engine(cmd):
+            if cmd.startswith('NOTATION'):
+                return 'NOTATION e4'
+            if cmd.startswith('STATUS'):
+                return 'STATUS checkmate'
+            return ''
+        mock_engine.side_effect = fake_engine
+
+        # Populate session with active game
+        self.client.get('/play/')
+        
+        # Player makes the move
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6, 'from_col': 4,
+                'to_row': 4, 'to_col': 4,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['game_status'], 'checkmate')
+
+        # Check that GameResult was created and has moves
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.end_reason, 'checkmate')
+        self.assertEqual(res.winner, 'white')
+        self.assertEqual(len(res.moves), 1)
+        self.assertEqual(res.moves[0]['notation'], 'e4#')

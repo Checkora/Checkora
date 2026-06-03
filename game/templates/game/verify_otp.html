@@ -48,7 +48,7 @@
 
     <div class="header">
         <h1>Verify your Email</h1>
-        <p>We've sent a 6-digit code to your email address.</p>
+        <p>We've sent a 6-digit code to {{ user_email|default:"your email address" }}.</p>
     </div>
 
     <div class="auth-card">
@@ -70,13 +70,13 @@
         <div class="auth-footer">
             Didn't receive the code? 
             <a href="{% url 'resend_otp' %}" id = "resend-link">Try again</a>
-            <span id="timer"></span>
+            <span id="timer" data-remaining-time="{{ remaining_time|default:0 }}"></span>
         </div>
     </div>
 <script>
-    let remainingTime = {{ remaining_time|default:0 }};
     const resendLink = document.getElementById("resend-link");
     const timer = document.getElementById("timer");
+    let remainingTime = parseInt(timer.dataset.remainingTime || "0", 10);
 
     function updateTimer() {
         if (remainingTime > 0) {

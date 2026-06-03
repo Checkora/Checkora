@@ -2151,6 +2151,7 @@
                 const isWon = reason === 'checkmate' || reason === 'resign' || reason === 'timeout';
                 const winnerColor = isWon ? (color === 'white' ? 'black' : 'white') : null;
 
+                
                 let resultState = 'draw'; // 'victory', 'defeat', 'draw'
                 if (isWon) {
                     if (gameMode === 'ai') {
@@ -2166,6 +2167,7 @@
                 // Play distinct game over sound
                 playGameOverSound(reason, resultState);
 
+            
                 if (reason === 'checkmate') {
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     title = 'Checkmate';
@@ -2422,6 +2424,102 @@
                 // 5. Dynamic Achievements detection
                 const achievementsListEl = document.getElementById('resAchievementsList');
                 const achievementsSectionEl = document.getElementById('resAchievementsSection');
+                
+                if (achievementsListEl) {
+                    achievementsListEl.innerHTML = '';
+                    const badges = [];
+
+                    if (reason === 'timeout') {
+                        badges.push({ text: 'Won on Time', icon: '⏱️' });
+                    }
+                    if (reason === 'checkmate') {
+                        badges.push({ text: 'Master Tactician', icon: '🧩' });
+                    }
+                    
+                    let hasWhiteQueen = false;
+                    let hasBlackQueen = false;
+                    for (let r = 0; r < 8; r++) {
+                        for (let c = 0; c < 8; c++) {
+                            if (board[r][c] === 'Q') hasWhiteQueen = true;
+                            if (board[r][c] === 'q') hasBlackQueen = true;
+                        }
+                    }
+                    
+                    const wPoints = parseInt(document.getElementById('whitePoints')?.textContent.replace('+', '')) || 0;
+                    const bPoints = parseInt(document.getElementById('blackPoints')?.textContent.replace('+', '')) || 0;
+
+                    if (isWon) {
+                        if (winnerColor === 'white' && hasWhiteQueen) {
+                            badges.push({ text: 'Queen Survived', icon: '👑' });
+                        } else if (winnerColor === 'black' && hasBlackQueen) {
+                            badges.push({ text: 'Queen Survived', icon: '👑' });
+                        }
+                        
+                        if (replayMoves.length <= 30) {
+                            badges.push({ text: 'Lightning Fast', icon: '⚡' });
+                        }
+                        
+                        if (winnerColor === 'white' && wPoints >= 15) {
+                            badges.push({ text: 'Fierce Attacker', icon: '⚔️' });
+                        } else if (winnerColor === 'black' && bPoints >= 15) {
+                            badges.push({ text: 'Fierce Attacker', icon: '⚔️' });
+                        }
+                    } else {
+                        if (whiteMat < blackMat) {
+                            badges.push({ text: 'Resilient Defense (White)', icon: '🛡️' });
+                        } else if (blackMat < whiteMat) {
+                            badges.push({ text: 'Resilient Defense (Black)', icon: '🛡️' });
+                        }
+                    }
+                    
+                    if (badges.length === 0) {
+                        badges.push({ text: 'Good Game', icon: '🤝' });
+                    }
+                    
+                    badges.forEach(badge => {
+                        const badgeDiv = document.createElement('div');
+                        badgeDiv.className = 'achievement-badge';
+                        badgeDiv.innerHTML = `<span class="achievement-badge-icon">${badge.icon}</span> ${badge.text}`;
+                        achievementsListEl.appendChild(badgeDiv);
+                    });
+                    
+                    if (achievementsSectionEl) {
+                        achievementsSectionEl.style.display = 'block';
+                    }
+                }
+
+                // 6. Opening Book and Review Highlights
+                let analysisData = null;
+                try {
+                    analysisData = await post('/api/analyze-game/', {
+                        moves: replayMoves,
+                        result: resultState,
+                        reason: reason
+                    });
+                } catch(e) {
+                    console.error("Failed to fetch post-game analysis", e);
+                }
+
+                const openingNameEl = document.getElementById('resOpeningName');
+                if (openingNameEl) {
+                    openingNameEl.textContent = analysisData?.opening || 'Standard Game';
+                }
+                
+                // Populate new stats
+                if (analysisData) {
+                    const capEl = document.getElementById('resAnalysisCaptures');
+                    if (capEl) capEl.textContent = analysisData.captures || 0;
+                    
+                    const chkEl = document.getElementById('resAnalysisChecks');
+                    if (chkEl) chkEl.textContent = analysisData.checks || 0;
+                    
+                    const matEl = document.getElementById('resAnalysisCheckmates');
+                    if (matEl) matEl.textContent = analysisData.checkmates || 0;
+                    
+                    const proEl = document.getElementById('resAnalysisPromotions');
+                    if (proEl) proEl.textContent = analysisData.promotions || 0;
+                }
+                
                 
                 if (achievementsListEl) {
                     achievementsListEl.innerHTML = '';
@@ -2948,6 +3046,14 @@
                 // Show clocks for normal games
                 document.getElementById("whiteClock").style.display = "";
                 document.getElementById("blackClock").style.display = "";
+
+                const streakCounter =
+                    document.getElementById("streak-counter");
+
+                if (streakCounter) {
+                    streakCounter.style.display = "none";
+                }
+
 
                 const streakCounter =
                     document.getElementById("streak-counter");
@@ -3535,6 +3641,22 @@
             if (restartPuzzleBtn)
                 restartPuzzleBtn.onclick = async () => {
 
+
+                    showConfirm(
+                        "Start Daily Puzzle?",
+                        "Your current game will be lost.",
+                        async () => {
+
+                            await startDailyPuzzle();
+
+                        },
+                        "#f0c040"
+                    );
+                };
+            
+            if (restartPuzzleBtn)
+                restartPuzzleBtn.onclick = async () => {
+
                 if (!currentPuzzle) return;
 
                 puzzleMoveIndex = 0;
@@ -3629,6 +3751,7 @@
                             const result = await post('/api/resign/', {});
                             if (result.valid) {
                                
+                                if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
                                 const loserColor = result.winner === 'white' ? 'black' : 'white';
                                 endGame('resign', loserColor);
                             } else {
@@ -4167,6 +4290,121 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', closeLeaveConfirm);
                         activeTouchPieceClone.remove();
                         activeTouchPieceClone = null;
                     }
+
+                    // Identify target square element under the touch coordinates
+                    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const destSquareEl = targetEl ? targetEl.closest('.square') : null;
+                    if (destSquareEl) {
+                        const tr = parseInt(destSquareEl.dataset.r, 10);
+                        const tc = parseInt(destSquareEl.dataset.c, 10);
+
+                        if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
+                            await tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
+                            movedToSquare = true;
+                        }
+                    }
+
+                    if (!movedToSquare) {
+                        deselect();
+                    }
+
+                    // Prevent click generation
+                    e.preventDefault();
+                } else {
+                    e.preventDefault();
+
+                    const targetEl = document.elementFromPoint(
+                        touch.clientX,
+                        touch.clientY
+                    );
+                    if (!targetEl) return;
+                    const squareEl = targetEl.closest('.square');
+                        
+                    if (!squareEl) return;
+
+                    const tr = parseInt(squareEl.dataset.r);
+                    const tc = parseInt(squareEl.dataset.c);
+                    await onClick(tr, tc);
+                    
+                }
+                // Reset state
+                touchStartPos = null;
+                touchDragSrc = null;
+                touchTapSquare = null;
+                touchDragging = false;
+            }, { passive: false });
+
+            boardEl.addEventListener('touchcancel', (e) => {
+                if (!touchStartPos) return;
+
+                if (touchDragging && touchDragSrc) {
+                    const srcSquareEl = sq(touchDragSrc.r, touchDragSrc.c);
+                    const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
+                    if (pieceImg) {
+                        pieceImg.classList.remove('touch-dragging-original');
+                    }
+
+                    if (activeTouchPieceClone) {
+                        activeTouchPieceClone.remove();
+                        activeTouchPieceClone = null;
+                    }
+
+                    deselect();
+                }
+
+                touchStartPos = null;
+                touchDragSrc = null;
+                touchTapSquare = null;
+                touchDragging = false;
+            }, { passive: true });
+
+            // INLINE INITIALIZATION FOR CUSTOM TIME CONTROL POPUP
+            function initTimeControlPicker() {
+                const trigger = document.getElementById('timeControlTrigger');
+                const popover = document.getElementById('timeControlPopover');
+                const tabs = document.querySelectorAll('.tc-tab-btn');
+                const tabContents = document.querySelectorAll('.tc-tab-content');
+                const presetBtns = document.querySelectorAll('.tc-preset-btn');
+                const applyCustomBtn = document.getElementById('applyCustomTCBtn');
+                const display = document.getElementById('tcDisplayText');
+
+                if (!trigger || !popover) return;
+
+                // Toggle popover
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isVisible = popover.style.display === 'flex';
+                    popover.style.display = isVisible ? 'none' : 'flex';
+                });
+
+                // Tab switching
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+
+                        const targetTab = tab.dataset.tab;
+                        tabContents.forEach(content => {
+                            if (content.id === `tab-${targetTab}`) {
+                                content.style.display = 'block';
+                            } else {
+                                content.style.display = 'none';
+                            }
+                        });
+                    });
+                });
+
+                // Preset button selection
+                presetBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        presetBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+
+                        selectedMins = parseInt(btn.dataset.mins, 10);
+                        selectedIncrement = parseInt(btn.dataset.inc, 10);
+
 
                     // Identify target square element under the touch coordinates
                     const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);

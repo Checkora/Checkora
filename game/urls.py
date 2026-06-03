@@ -2,7 +2,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.landing, name='landing'),
+    path('', views.preloader, name='preloader'),
+    path('home/', views.landing, name='landing'),
     path('play/', views.index, name='index'),
     path('api/move/', views.make_move, name='make_move'),
     path('api/valid-moves/', views.valid_moves, name='valid_moves'),
@@ -17,6 +18,7 @@ urlpatterns = [
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
     path('stats/', views.stats_view, name='stats'),
+    path('api/analyze-game/', views.analyze_game_view, name='analyze_game'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
 
     # Authentication
@@ -27,4 +29,16 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('rules/', views.rules, name='rules'),
     path('logout/', views.logout_view, name='logout'),
-]
+    
+    path('delete-account/', views.delete_account, name='delete_account'),
+    path('confirm-delete/<uidb64>/<token>/', views.confirm_delete_account, name='confirm_delete_account'),
+    
+    path(
+        'password-reset-account-selection/',
+        views.password_reset_account_selection,
+        name='password_reset_account_selection'
+    ),
+    
+    path('leaderboard/', views.leaderboard_view, name='leaderboard'),
+    path("api/puzzle-stats/", views.puzzle_stats_view, name="puzzle_stats"),
+]   
