@@ -1,13 +1,49 @@
 :root {
+    --bg-primary: #0b1020;
     --bg-dark: #0f0f1a;
     --nav-bg: #12121f;
+
     --card-bg: #16162a;
     --card-border: #252545;
     --card-hover: #1a1a35;
+
     --text-primary: #d0d0d0;
     --text-title: #ffffff;
     --text-secondary: #aaaaaa;
+
     --accent-gold: #f0c040;
+    --border-color: rgba(255,255,255,0.1);
+}
+
+[data-theme="light"] {
+    --bg-primary: #f5f7fb;
+    --bg-dark: #f5f7fb;
+    --nav-bg: #ffffff;
+
+    --card-bg: #ffffff;
+    --card-border: #d1d5db;
+    --card-hover: #f3f4f6;
+
+    --text-primary: #111827;
+    --text-title: #000000;
+    --text-secondary: #4b5563;
+
+    --accent-gold: #d4a017;
+    --border-color: rgba(0,0,0,0.1);
+}
+.theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    background: var(--card-bg);
 }
 
 * {
@@ -26,7 +62,7 @@ section {
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: var(--bg-dark);
+    background-color: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
@@ -38,7 +74,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 5%;
-    background-color: rgba(15, 15, 26, 0.94);
+    background-color: var(--nav-bg);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     position: sticky;
     top: 0;
@@ -147,7 +183,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: #111827;
+    background: var(--card-bg);
     color: #f0c040;
     border: 1px solid #333;
     padding: 12px 18px;
@@ -179,7 +215,7 @@ body {
     right: 0;
     top: 55px;
     min-width: 220px;
-    background: #111827;
+    background: var(--card-bg);
     border-radius: 14px;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.08);
@@ -254,7 +290,7 @@ body {
 .hero {
     position: relative;
     min-height: 80vh;
-    background-color: var(--bg-dark);
+    background-color: var(--bg-primary);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -612,7 +648,7 @@ body {
     max-width: 1200px;
     margin: 6rem auto 3rem;
     padding: 4rem 4rem 2rem;
-    background-color: #121224; /* Clean premium inner contrast backdrop */
+    background-color: var(--card-bg); /* Clean premium inner contrast backdrop */
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 20px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
@@ -894,7 +930,7 @@ body {
    ========================================================================== */
 .faq-section {
   padding: 80px 24px;
-  background-color: #0d0e12; /* Matches deep dark background layout */
+  background-color: var(--bg-dark); /* Matches deep dark background layout */
   position: relative;
 }
 
@@ -1138,4 +1174,19 @@ body {
         text-align: center;
         box-sizing: border-box;
     }
+}
+[data-theme="light"] .architecture-badge {
+    color: #374151;
+}
+
+[data-theme="light"] .text-highlight {
+    color: #111827;
+}
+
+[data-theme="light"] .faq-question {
+    color: #111827;
+}
+
+[data-theme="light"] .faq-answer-content {
+    color: #374151;
 }

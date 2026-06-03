@@ -3742,8 +3742,8 @@
             // Theme Switcher
             function initThemeSwitcher() {
                 const themeBtns = document.querySelectorAll('.theme-btn');
-                const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
-                document.documentElement.setAttribute('data-theme', currentTheme);
+                const currentTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
+                document.documentElement.setAttribute('data-board-theme', currentTheme);
 
                 themeBtns.forEach(btn => {
                     if (btn.dataset.theme === currentTheme) {
@@ -3752,7 +3752,8 @@
                     }
                     btn.onclick = () => {
                         const theme = btn.dataset.theme;
-                        document.documentElement.setAttribute('data-theme', theme);
+                        document.documentElement.setAttribute('data-board-theme', theme);
+                        localStorage.setItem('boardTheme', theme);
                         localStorage.setItem('chessBoardTheme', theme);
                         themeBtns.forEach(b => {
                             b.classList.remove('active');
