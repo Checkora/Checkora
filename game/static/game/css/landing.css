@@ -823,33 +823,31 @@ body {
 }
 
 /* --- Responsive Mobile Overrides --- */
+/* --- Responsive Mobile Overrides --- */
 @media (max-width: 768px) {
     /* Stabilize container and prevent flex-direction stacking constraints */
     #backToTopWrapper {
-        bottom: 1.5rem !important;
-        right: 1.5rem !important;
-        gap: 0 !important;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        gap: 0;
     }
 
-    /* Completely neutralize and hide the text label on mobile to preserve touch targets */
+    /* Completely neutralize and hide the text label on mobile */
     #backToTopTooltip {
-        display: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
+        display: none;
     }
 
     /* Optimize the main touch target for mobile devices */
     #backToTopBtn {
-        width: 48px !important;
-        height: 48px !important;
-        font-size: 1.15rem !important;
-        box-shadow: 0 4px 15px rgba(240, 192, 64, 0.3) !important;
+        width: 48px;
+        height: 48px;
+        font-size: 1.15rem;
+        box-shadow: 0 4px 15px rgba(240, 192, 64, 0.3);
     }
     
-    /* Disable the bounce animation on hover for touch devices to avoid stuck states */
+    /* Disable the bounce animation on hover for touch devices */
     #backToTopBtn:hover .btn-arrow {
-        animation: none !important;
+        animation: none;
     }
 }
 
