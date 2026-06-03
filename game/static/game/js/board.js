@@ -434,17 +434,18 @@
                 return true;
             }
 
-            
             function playSound(data) {
                 if (!soundEnabled || !data?.valid) return;
 
+                 // Skip — playGameOverSound() handles all terminal states
+                const terminalStates = ['checkmate', 'stalemate', 'draw', 'timeout', 'resign'];
+                if (terminalStates.includes(data.game_status)) return;
+
                 let sound = sounds.move;
-                if (['checkmate', 'stalemate', 'draw', 'timeout'].includes(data.game_status)) {
-                    sound = sounds.draw;
-                } else if (data.game_status === 'check') {
-                    sound = sounds.check;
+                if (data.game_status === 'check') {
+                sound = sounds.check;
                 } else if (data.captured || data.is_capture) {
-                    sound = sounds.capture;
+                sound = sounds.capture;
                 }
 
                 sound.currentTime = 0;
@@ -452,6 +453,7 @@
                 if (playback?.catch) playback.catch(() => {});
             }
 
+              
             function toggleMute() {
                 soundEnabled = !soundEnabled;
                 if (muteBtn) {
@@ -462,8 +464,6 @@
 
             function playGameOverSound(reason, resultState) {
                 if (!soundEnabled) return;
-
-                 console.log('playGameOverSound called - reason:', reason, 'resultState:', resultState);
 
                 let sound = null;
 
@@ -480,8 +480,6 @@
                 sound = sounds.win;
                 }
             }
-
-                 console.log('Sound selected:', sound?.src);
 
                 if (sound) {
                 sound.currentTime = 0;
@@ -2091,8 +2089,6 @@
                 const isWon = reason === 'checkmate' || reason === 'resign' || reason === 'timeout';
                 const winnerColor = isWon ? (color === 'white' ? 'black' : 'white') : null;
 
-                console.log('endGame called - reason:', reason, 'color:', color, 'winnerColor:', winnerColor, 'gameMode:', gameMode, 'playerColor:', playerColor);
-               
                 let resultState = 'draw'; // 'victory', 'defeat', 'draw'
                 if (isWon) {
                     if (gameMode === 'ai') {
