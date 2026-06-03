@@ -780,24 +780,15 @@ def register_view(request):
                             "Since you already have an active account, no action is required. If you forgot your credentials, please use the password reset form."
                         )
                         send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
-                    elif conflict_type in ('username_active', 'username_inactive'):
-                        email_to = email
-                        subject = 'Checkora Registration Failed'
-                        msg_plain = (
-                            f"Hello! Someone tried to register a Checkora account using the username '{username}' and this email address.\n\n"
-                            f"However, the username '{username}' is already taken. If you wish to register, please choose a different username."
-                        )
-                        send_mail(subject, msg_plain, None, [email_to], fail_silently=True)
-
-                        if conflict_type == 'username_active' and existing_user_by_username:
-                            owner_email = existing_user_by_username.email
-                            if owner_email:
-                                subject = 'Checkora Username Alert'
-                                msg_plain = (
-                                    f"Hello! Someone tried to register an account using your username '{username}'.\n\n"
-                                    "Since you already have an active account, no action is required."
-                                )
-                                send_mail(subject, msg_plain, None, [owner_email], fail_silently=True)
+                    elif conflict_type == 'username_active' and existing_user_by_username:
+                        owner_email = existing_user_by_username.email
+                        if owner_email:
+                            subject = 'Checkora Username Alert'
+                            msg_plain = (
+                                f"Hello! Someone tried to register an account using your username '{username}'.\n\n"
+                                "Since you already have an active account, no action is required."
+                            )
+                            send_mail(subject, msg_plain, None, [owner_email], fail_silently=True)
                 except Exception as e:
                     logger.error(f"Failed to send security alert email: {e}")
 
