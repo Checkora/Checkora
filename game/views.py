@@ -652,6 +652,7 @@ def register_view(request):
                     # Case A: No conflicts. Save new user atomically.
                     user = form.save(commit=False)
                     user.is_active = False
+                    user.full_clean()
                     user.save()
                     user_to_verify = user
                 else:
