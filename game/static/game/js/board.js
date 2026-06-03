@@ -397,12 +397,15 @@
             let flipped = false;
             let autoFlip = false;
 
-            const SOUND_BASE_URL = window.SOUND_BASE_URL || '/static/game/sounds/';
-            const sounds = {
-              move:    new Audio(`${SOUND_BASE_URL}move.wav`),
-              capture: new Audio(`${SOUND_BASE_URL}capture.mp3`),
-              check:   new Audio(`${SOUND_BASE_URL}check.wav`),
-              draw:    new Audio(`${SOUND_BASE_URL}draw.mp3`),
+           const sounds = {
+           move:     new Audio(`${SOUND_BASE_URL}move.wav`),
+           capture:  new Audio(`${SOUND_BASE_URL}capture.mp3`),
+           check:    new Audio(`${SOUND_BASE_URL}check.wav`),
+           draw:     new Audio(`${SOUND_BASE_URL}draw.mp3`),
+           win:      new Audio(`${SOUND_BASE_URL}win.mp3`),
+           loss:     new Audio(`${SOUND_BASE_URL}loss.mp3`),
+           gameDraw: new Audio(`${SOUND_BASE_URL}draw_end.mp3`),
+           timeout:  new Audio(`${SOUND_BASE_URL}timeout.mp3`),
             };
 
             let soundEnabled = true;
@@ -456,6 +459,36 @@
                     muteBtn.setAttribute('aria-pressed', String(soundEnabled));
                 }
             }
+
+            function playGameOverSound(reason, resultState) {
+                if (!soundEnabled) return;
+
+                 console.log('playGameOverSound called - reason:', reason, 'resultState:', resultState);
+
+                let sound = null;
+
+                if (reason === 'stalemate' || reason === 'draw') {
+                sound = sounds.gameDraw;
+                } else if (reason === 'timeout') {
+                sound = sounds.timeout;
+                }
+            
+                else if (reason === 'checkmate' || reason === 'resign') {
+                if (resultState === 'defeat') {
+                sound = sounds.loss;
+                } else {
+                sound = sounds.win;
+                }
+            }
+
+                 console.log('Sound selected:', sound?.src);
+
+                if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch((e) => console.log('Sound play error:', e));
+                }
+            }
+
 
             /* ==========================================================
             DOM REFERENCES
@@ -2057,7 +2090,9 @@
                 // Determine PVP or AI result relative to current player color
                 const isWon = reason === 'checkmate' || reason === 'resign' || reason === 'timeout';
                 const winnerColor = isWon ? (color === 'white' ? 'black' : 'white') : null;
-                
+
+                console.log('endGame called - reason:', reason, 'color:', color, 'winnerColor:', winnerColor, 'gameMode:', gameMode, 'playerColor:', playerColor);
+               
                 let resultState = 'draw'; // 'victory', 'defeat', 'draw'
                 if (isWon) {
                     if (gameMode === 'ai') {
@@ -2068,7 +2103,11 @@
                 }
                 
                 let isCelebration = (resultState === 'victory');
-            
+                
+                
+                // Play distinct game over sound
+                playGameOverSound(reason, resultState);
+
                 if (reason === 'checkmate') {
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     title = 'Checkmate';
