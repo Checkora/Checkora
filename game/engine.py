@@ -93,6 +93,7 @@ class ChessGame:
         self.repetition_counts = {self.repetition_history[0]: 1}
         self.game_status = 'active'
         self.draw_reason = None
+        self.threefold_warning = False
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -155,6 +156,7 @@ DP cache is intentionally excluded to save cookie space."""
             'repetition_history': self.repetition_history,
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
+            'threefold_warning': self.threefold_warning,
         }
 
     @classmethod
@@ -180,7 +182,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.halfmove_clock = data.get('halfmove_clock', 0)
         game.game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
-
+        game.threefold_warning = data.get('threefold_warning', False)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -233,6 +235,7 @@ DP cache is intentionally excluded to save cookie space."""
         game._rebuild_repetition_counts()
         game.game_status = 'active'
         game.draw_reason = None
+        game.threefold_warning = False
         game.last_ts = time.time()
         return game
 
@@ -601,6 +604,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         repetition_count = self.repetition_counts.get(
             self.generate_position_key(), 1)
+        
+        # Warning on second occurrence
+        self.threefold_warning = (repetition_count == 2)
+
         if repetition_count >= 3:
             self.game_status = 'draw'
             self.draw_reason = 'threefold_repetition'
@@ -613,6 +620,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         self.game_status = 'active'
         self.draw_reason = None
+        
+        if repetition_count != 2:
+            self.threefold_warning = False
+    
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):

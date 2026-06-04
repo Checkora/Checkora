@@ -71,4 +71,34 @@ class PuzzleStats(models.Model):
     def __str__(self):
         return f"{self.user.username} Puzzle Stats"
     
-    
+class LessonProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lesson_progress"
+    )
+
+    lesson_name = models.CharField(
+        max_length=100
+    )
+
+    completed = models.BooleanField(
+        default=False
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        unique_together = (
+            "user",
+            "lesson_name"
+        )
+
+    def __str__(self):
+        return (
+            f"{self.user.username} - "
+            f"{self.lesson_name}"
+        )

@@ -2,6 +2,7 @@
 # Triggers:
 #   • Every push to EVERY branch  → lint + compile + test + migrate-check + security
 #   • Every PR targeting main      → same checks (required to merge)
+#   • PRs with assignee mismatch   → auto-closed + CI skipped (pr-guardian.yml)
 #   • Push/merge to main only      → all checks THEN deploy to Vercel
 # Contributors see test results immediately after any push — no PR needed.
 # -------------------------------------------------------------------
@@ -26,6 +27,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write   # allows posting CI summary comments on PRs
+  issues: read             # PR guardian reads linked issue assignees
   deployments: read      # required for Vercel preview polling
 
 env:
@@ -35,12 +37,40 @@ env:
   PYTHON_VERSION: "3.12"
 
 # ───────────────────────────────────────────────────────────────────
-# JOB 1 — Python Lint (flake8)
+# JOB 0 — PR Guardian (assignee must match linked issue)
 # ───────────────────────────────────────────────────────────────────
 jobs:
+  pr-guardian:
+    name: 🛡️ PR Guardian
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      ci_allowed: ${{ steps.check.outputs.ci_allowed }}
+      reason: ${{ steps.check.outputs.reason }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🛡️ Check PR author is assigned to linked issue(s)
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: python .github/scripts/pr_assignee_check.py ci
+
+  # ───────────────────────────────────────────────────────────────────
+  # JOB 1 — Python Lint (flake8)
+  # ───────────────────────────────────────────────────────────────────
   lint:
     name: 🔍 Lint (flake8)
     runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
 
     steps:
       - name: 📥 Checkout code
@@ -77,6 +107,11 @@ jobs:
   compile-engine:
     name: ⚙️ Compile C++ Engine
     runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
 
     steps:
       - name: 📥 Checkout code
@@ -120,7 +155,13 @@ jobs:
   test:
     name: 🧪 Django Tests
     runs-on: ubuntu-latest
-    needs: [lint, compile-engine]
+    needs: [pr-guardian, lint, compile-engine]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success' &&
+      needs.compile-engine.result == 'success'
 
     steps:
       - name: 📥 Checkout code
@@ -197,7 +238,12 @@ jobs:
   migrate-check:
     name: 🗄️ Migration Check
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [pr-guardian, lint]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success'
 
     steps:
       - name: 📥 Checkout code
@@ -235,6 +281,11 @@ jobs:
   security:
     name: 🔒 Security Scan (pip-audit)
     runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
 
     steps:
       - name: 📥 Checkout code
@@ -273,7 +324,12 @@ jobs:
   sast:
     name: SAST (Bandit)
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [pr-guardian, lint]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success'
 
     steps:
       - name: Checkout code
@@ -297,7 +353,7 @@ jobs:
 
       - name: Run Bandit scan (fail on HIGH and MEDIUM)
         run: |
-          bandit -r . -f txt -ll > bandit-report.txt || true
+          bandit -r . --exclude ./.github -f txt -ll > bandit-report.txt || true
       
           echo "## SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -327,7 +383,13 @@ jobs:
   selenium-tests:
     name: 🌐 Selenium E2E Tests
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [pr-guardian, lint, test]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success' &&
+      needs.test.result == 'success'
 
     steps:
       - name: 📥 Checkout code
@@ -400,4 +462,6 @@ jobs:
 # NOTE: Deployment is handled natively by Vercel's GitHub integration.
 # Vercel auto-deploys on every push to main and creates preview
 # deployments for every PR — no separate deploy job needed here.
+# Preview skips for assignee mismatch when GITHUB_TOKEN is set in Vercel
+# (see vercel.json ignoreCommand and .github/scripts/pr_assignee_check.py).
 # ───────────────────────────────────────────────────────────────────

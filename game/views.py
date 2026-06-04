@@ -7,11 +7,12 @@ import secrets
 import secrets as secrets_module
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import (
     urlsafe_base64_encode,
     urlsafe_base64_decode
@@ -27,7 +28,7 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
 from django.core.mail import (
-    BadHeaderError, 
+    BadHeaderError,
     send_mail,
     EmailMultiAlternatives
 )
@@ -42,7 +43,11 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
-from .models import GameResult, PuzzleStats
+from .models import (
+    GameResult,
+    PuzzleStats,
+    LessonProgress,
+)
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
 from .analysis import build_summary
@@ -151,6 +156,7 @@ def make_move(request):
         'captured_pieces': game.captured,
         'game_status': game_status,
         'draw_reason': game.draw_reason,
+        'threefold_warning': game.threefold_warning,
         'fen': game.generate_fen_key(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
@@ -186,7 +192,7 @@ def new_game(request):
         data = json.loads(request.body or '{}')
     except json.JSONDecodeError:
         return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
-    
+
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
     fen = data.get('fen')
@@ -309,6 +315,7 @@ def resume_game(request):
         'black_name': request.session.get('black_name', 'Black'),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'threefold_warning': game.threefold_warning,
         'fen': game.generate_fen_key(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
@@ -376,6 +383,7 @@ def get_state(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'threefold_warning': game.threefold_warning,
     })
 
 
@@ -475,7 +483,7 @@ def ai_move(request):
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
-
+    
     return JsonResponse({
         'valid': success,
         'message': message,
@@ -491,6 +499,7 @@ def ai_move(request):
         'ai_move': best,
         'game_status': game_status,
         'draw_reason': game.draw_reason,
+        'threefold_warning': game.threefold_warning,
         'fen': game.generate_fen_key(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
@@ -856,6 +865,8 @@ def verify_otp(request):
 
                 except (TemplateDoesNotExist, TemplateSyntaxError):
                     logger.exception("Failed to render welcome email template.")
+                except Exception as e:
+                    logger.warning("Failed to send welcome email: %s", e)
 
                 login(request, user)
                 messages.success(
@@ -1164,14 +1175,14 @@ def login_view(request):
             user = form.get_user()
             login(request, user)
             request.session.cycle_key()  # Prevent session fixation
-            
+
             remember_me = request.POST.get('remember_me')
-            
+
             if remember_me:
                 request.session.set_expiry(1209600)  # 2 weeks
             else:
                 request.session.set_expiry(0)# Browser close
-                
+
             messages.success(request, f'Welcome back, {user.username}! Login successful.')
             return redirect('landing')
 
@@ -1274,15 +1285,15 @@ def puzzle_stats_view(request):
 def cleanup_cron(request):
     """Secure cron-triggered cleanup endpoint for abandoned games."""
     cron_secret = getattr(settings, 'CRON_SECRET', None)
-    
+
     # Check authorization header
     auth_header = request.headers.get('Authorization')
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
-    
+
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
-    
+
     try:
         deleted, resigned = cleanup_stale_games()
         return JsonResponse({
@@ -1380,7 +1391,7 @@ If this wasn't you, ignore this email.
         request,
         'game/delete_account.html'
     )
-    
+
 
 def confirm_delete_account(request, uidb64, token):
 
@@ -1428,14 +1439,657 @@ def analyze_game_view(request):
         moves = data.get('moves', [])
         result = data.get('result', 'Unknown')
         reason = data.get('reason', 'Unknown')
-        
+
         # Ensure moves is a list of strings
         if not isinstance(moves, list):
             moves = []
         moves = [str(m) for m in moves]
-            
+
         summary = build_summary(moves, result, reason)
         return JsonResponse(summary)
     except Exception as e:
         logger.error('Failed to analyze game: %s', e)
         return JsonResponse({'error': 'Failed to analyze game'}, status=400)
+
+def lessons_view(request):
+    lessons = {
+        "Beginner": [
+            "How Pieces Move",
+            "Check and Checkmate",
+            "Castling",
+            "Opening Principles",
+        ],
+        "Intermediate": [
+            "Forks",
+            "Pins",
+            "Skewers",
+            "Discovered Attacks",
+        ],
+        "Advanced": [
+            "Pawn Structures",
+            "King Safety",
+            "Piece Activity",
+            "Basic Endgames",
+        ],
+    }
+
+    completed_lessons = []
+
+    if request.user.is_authenticated:
+        completed_lessons = list(
+            LessonProgress.objects.filter(
+                user=request.user,
+                completed=True
+            ).values_list(
+                "lesson_name",
+                flat=True
+            )
+        )
+    total_lessons = sum(
+        len(lesson_list)
+        for lesson_list in lessons.values()
+    )
+
+    completed_count = len(completed_lessons)
+
+    return render(
+        request,
+        "lessons.html",
+        {
+            "lessons": lessons,
+            "completed_lessons": completed_lessons,
+            "total_lessons": total_lessons,
+            "completed_count": completed_count
+        }
+    )
+
+
+def lesson_detail_view(request, lesson_name):
+    lesson_data = {
+        "How Pieces Move": {
+            "title": "How Pieces Move",
+            "description": "Learn how each chess piece moves on the board.",
+            "practice_question": "Which piece can move any number of squares in any direction?",
+            "practice_answer": "Queen",
+            "quiz_question": "Which piece can jump over other pieces?",
+            "quiz_options": [
+                "Bishop",
+                "Rook",
+                "Knight",
+                "Queen"
+            ],
+            "quiz_answer": "Knight",
+            "content": [
+                "Pawn moves forward one square and captures diagonally.",
+                "Knight moves in an L-shape and can jump over pieces.",
+                "Bishop moves diagonally across the board.",
+                "Rook moves horizontally and vertically.",
+                "Queen combines rook and bishop movement.",
+                "King moves one square in any direction."
+            ],
+
+            "board_examples": [
+                {
+                    "title": "Pawn Movement",
+                    "position": {
+                        "e2": "P"
+                    },
+                    "highlight": [
+                        "e3",
+                        "e4"
+                    ]
+                },
+
+                {
+                    "title": "Knight Movement",
+                    "position": {
+                        "g1": "N"
+                    },
+                    "highlight": [
+                        "e2",
+                        "f3",
+                        "h3"
+                    ]
+                },
+
+                {
+                    "title": "Bishop Movement",
+                    "position": {
+                        "d4": "B"
+                    },
+                    "highlight": [
+                        "c3",
+                        "b2",
+                        "a1",
+                        "e5",
+                        "f6",
+                        "g7",
+                        "h8"
+                    ]
+                }
+            ]
+        },
+
+        "Check and Checkmate": {
+            "title": "Check and Checkmate",
+            "description": "Understand checks and winning positions.",
+            "practice_question": "What is the difference between check and checkmate?",
+            "practice_answer": "Check can be escaped. Checkmate cannot be escaped and ends the game.",
+            "quiz_question": "What ends a chess game immediately?",
+            "quiz_options": [
+                "Check",
+                "Checkmate",
+                "Castling",
+                "Promotion"
+            ],
+            "quiz_answer": "Checkmate",
+            "content": [
+                "A king under attack is in check.",
+                "A player must respond to a check immediately.",
+                "You can escape check by moving, blocking, or capturing.",
+                "Checkmate occurs when no legal move can save the king.",
+                "Checkmate immediately ends the game."
+            ],
+            "board_examples": [
+                {
+                    "title": "Check Example",
+                    "position": {
+                        "e8": "K",
+                        "e1": "R"
+                    },
+                    "highlight": ["e8"]
+                },
+                {
+                    "title": "Simple Checkmate",
+                    "position": {
+                        "h8": "K",
+                        "g7": "Q",
+                        "f6": "K"
+                    },
+                    "highlight": ["g7"]
+                }
+            ]
+        },
+
+        "Castling": {
+            "title": "Castling",
+            "description": "Learn how castling protects your king.",
+            "practice_question": "Can you castle if your king has already moved?",
+            "practice_answer": "No. Castling is only allowed if the king and rook have never moved.",
+            "quiz_question": "What is the main purpose of castling?",
+            "quiz_options": [
+                "To capture an opponent's piece",
+                "To protect the king and activate the rook",
+                "To promote a pawn",
+                "To check the opponent's king"
+            ],
+            "quiz_answer": "To protect the king and activate the rook",
+            "content": [
+                "Castling moves the king and rook simultaneously.",
+                "The king cannot castle if it has already moved.",
+                "The rook involved must not have moved.",
+                "The king cannot castle through check.",
+                "Castling improves king safety and rook activity."
+            ],
+            "board_examples": [
+                {
+                    "title": "Kingside Castling",
+                    "position": {
+                        "e1": "K",
+                        "h1": "R"
+                    },
+                    "highlight": [
+                        "f1",
+                        "g1"
+                    ]
+                }
+            ]
+        },
+
+        "Opening Principles": {
+            "title": "Opening Principles",
+            "description": "Build a strong position from the start.",
+            "practice_question": "What area of the board should you try to control during the opening?",
+            "practice_answer": "The center of the board.",
+            "quiz_question": "What should you generally do first in the opening?",
+            "quiz_options": [
+                "Attack immediately",
+                "Develop pieces",
+                "Move queen repeatedly",
+                "Push edge pawns"
+            ],
+            "quiz_answer": "Develop pieces",
+            "content": [
+                "Control the center with pawns and pieces.",
+                "Develop knights and bishops early.",
+                "Avoid moving the same piece repeatedly.",
+                "Castle early for king safety.",
+                "Connect your rooks."
+            ],
+            "board_examples": [
+                {
+                    "title": "Control the Center",
+                    "position": {
+                        "e2": "P",
+                        "d2": "P"
+                    },
+                    "highlight": [
+                        "e4",
+                        "d4"
+                    ]
+                },
+                {
+                    "title": "Develop Knights",
+                    "position": {
+                        "b1": "N",
+                        "g1": "N"
+                    },
+                    "highlight": [
+                        "c3",
+                        "f3"
+                    ]
+                }
+            ]
+        },
+
+        "Forks": {
+            "title": "Forks",
+            "description": "Attack multiple pieces with one move.",
+            "steps": [
+                {
+                    "instruction": "Move the knight to fork the king and queen.",
+                    "fen": "8/3q4/8/4N3/8/8/8/4K3 w - - 0 1",
+                    "correct_move": "Nc6"
+                }
+            ],
+            "practice_question": "Which piece is most famous for creating forks?",
+            "practice_answer": "Knight",
+            "quiz_question": "What is a fork in chess?",
+            "quiz_options": [
+                "Attacking the king",
+                "Attacking two or more targets simultaneously",
+                "Moving the queen",
+                "Creating a pin"
+            ],
+            "quiz_answer": "Attacking two or more targets simultaneously",
+            "content": [
+                "A fork attacks two or more targets simultaneously.",
+                "Knights are especially effective at creating forks.",
+                "Forks often win material."
+            ],
+            "board_examples": [
+                {
+                    "title": "Knight Fork",
+                    "position": {
+                        "f6": "N",
+                        "e8": "Q",
+                        "g8": "R"
+                    },
+                    "highlight": [
+                        "e8",
+                        "g8"
+                    ]
+                }
+            ]
+        },
+
+        "Pins": {
+            "title": "Pins",
+            "description": "Restrict an opponent's piece from moving.",
+            "practice_question": "What is an absolute pin?",
+            "practice_answer": "A pin where moving the pinned piece would expose the king to attack.",
+            "quiz_question": "What is an absolute pin?",
+            "quiz_options": [
+                "A pin against a rook",
+                "A pin against a bishop",
+                "A pin where moving exposes the king",
+                "A pin against a queen"
+            ],
+            "quiz_answer": "A pin where moving exposes the king",
+            "content": [
+                "A pin occurs when moving a piece exposes a more valuable piece.",
+                "Absolute pins involve the king.",
+                "Pinned pieces often become vulnerable.",
+                "Bishops and rooks commonly create pins.",
+                "Pins can create tactical opportunities."
+            ],
+            "board_examples": [
+                {
+                    "title": "Bishop Pin",
+                    "position": {
+                        "b5": "B",
+                        "c6": "N",
+                        "e8": "K"
+                    },
+                    "highlight": [
+                        "c6",
+                        "e8"
+                    ]
+                }
+            ]
+        },
+
+        "Skewers": {
+            "title": "Skewers",
+            "description": "Force a valuable piece to move and expose another piece.",
+            "practice_question": "In a skewer, which piece is attacked first?",
+            "practice_answer": "The more valuable piece is attacked first.",
+            "quiz_question": "In a skewer, which piece is attacked first?",
+            "quiz_options": [
+                "The least valuable piece",
+                "The king only",
+                "The more valuable piece",
+                "A pawn"
+            ],
+            "quiz_answer": "The more valuable piece",
+            "content": [
+                "A skewer is the opposite of a pin.",
+                "The more valuable piece is attacked first.",
+                "After it moves, a less valuable piece is exposed.",
+                "Bishops, rooks, and queens often create skewers.",
+                "Skewers frequently win material."
+            ],
+            "board_examples": [
+                {
+                    "title": "Queen Skewer",
+                    "position": {
+                        "a4": "Q",
+                        "e8": "K",
+                        "e7": "R"
+                    },
+                    "highlight": [
+                        "e8",
+                        "e7"
+                    ]
+                }
+            ]
+        },
+
+        "Discovered Attacks": {
+            "title": "Discovered Attacks",
+            "description": "Reveal an attack by moving another piece.",
+            "practice_question": "What creates a discovered attack?",
+            "practice_answer": "Moving one piece away to reveal an attack from another piece.",
+            "quiz_question": "What creates a discovered attack?",
+            "quiz_options": [
+                "Promoting a pawn",
+                "Moving a piece to reveal another attack",
+                "Castling",
+                "Checking the king"
+            ],
+            "quiz_answer": "Moving a piece to reveal another attack",
+            "content": [
+                "One piece moves away to uncover another attack.",
+                "Discovered attacks can be very powerful.",
+                "Discovered checks are especially dangerous.",
+                "Always look for hidden lines between pieces.",
+                "Coordinate your pieces to create tactical threats."
+            ],
+            "board_examples": [
+                {
+                    "title": "Discovered Attack",
+                    "position": {
+                        "a1": "R",
+                        "a2": "N",
+                        "a8": "Q"
+                    },
+                    "highlight": [
+                        "a2",
+                        "a8"
+                    ]
+                }
+            ]
+        },
+
+        "Pawn Structures": {
+            "title": "Pawn Structures",
+            "description": "Understand how pawns shape the game.",
+            "practice_question": "What type of pawn has no friendly pawns on adjacent files?",
+            "practice_answer": "An isolated pawn.",
+            "quiz_question": "Which pawn is considered a weakness?",
+            "quiz_options": [
+                "Passed pawn",
+                "Connected pawn",
+                "Isolated pawn",
+                "Protected pawn"
+            ],
+            "quiz_answer": "Isolated pawn",
+            "content": [
+                "Pawn structure determines long-term strategy.",
+                "Avoid creating unnecessary weak pawns.",
+                "Passed pawns can become powerful assets.",
+                "Pawn chains provide support and control.",
+                "Doubled and isolated pawns can become weaknesses."
+            ],
+            "board_examples": [
+                {
+                    "title": "Pawn Chain",
+                    "position": {
+                        "c3": "P",
+                        "d4": "P",
+                        "e5": "P"
+                    },
+                    "highlight": [
+                        "c3",
+                        "d4",
+                        "e5"
+                    ]
+                },
+                {
+                    "title": "Isolated Pawn",
+                    "position": {
+                        "d4": "P"
+                    },
+                    "highlight": [
+                        "d4"
+                    ]
+                }
+            ]
+        },
+
+        "King Safety": {
+            "title": "King Safety",
+            "description": "Keep your king protected throughout the game.",
+            "practice_question": "What is usually the safest way to protect your king in the opening?",
+            "practice_answer": "Castling.",
+            "quiz_question": "What is the safest way to protect your king in the opening?",
+            "quiz_options": [
+                "Move the king forward",
+                "Keep the king in the center",
+                "Castle",
+                "Trade queens immediately"
+            ],
+            "quiz_answer": "Castle",
+            "content": [
+                "Castle early whenever possible.",
+                "Avoid weakening squares around your king.",
+                "Keep defensive pieces nearby.",
+                "Watch for open files and diagonals.",
+                "A safe king allows active play elsewhere."
+            ],
+            "board_examples": [
+                {
+                    "title": "Safe Castled King",
+                    "position": {
+                        "g1": "K",
+                        "f2": "P",
+                        "g2": "P",
+                        "h2": "P"
+                    },
+                    "highlight": [
+                        "f2",
+                        "g2",
+                        "h2"
+                    ]
+                }
+            ]
+        },
+
+        "Piece Activity": {
+            "title": "Piece Activity",
+            "description": "Maximize the effectiveness of your pieces.",
+            "practice_question": "What is generally better: an active piece or a passive piece?",
+            "practice_answer": "An active piece.",
+            "quiz_question": "Which piece is generally stronger?",
+            "quiz_options": [
+                "A trapped piece",
+                "A passive piece",
+                "An active piece",
+                "A blocked piece"
+            ],
+            "quiz_answer": "An active piece",
+            "content": [
+                "Active pieces control more squares.",
+                "Avoid placing pieces on passive squares.",
+                "Coordinate pieces to work together.",
+                "Occupy open files and strong outposts.",
+                "Activity often outweighs material advantages."
+            ],
+            "board_examples": [
+                {
+                    "title": "Active Knight",
+                    "position": {
+                        "d5": "N"
+                    },
+                    "highlight": [
+                        "b4",
+                        "b6",
+                        "c3",
+                        "c7",
+                        "e3",
+                        "e7",
+                        "f4",
+                        "f6"
+                    ]
+                }
+            ]
+        },
+
+        "Basic Endgames": {
+            "title": "Basic Endgames",
+            "description": "Learn essential endgame techniques.",
+            "practice_question": "Which piece becomes especially important in the endgame?",
+            "practice_answer": "The king.",
+            "quiz_question": "Which piece becomes especially powerful in the endgame?",
+            "quiz_options": [
+                "Knight",
+                "Bishop",
+                "Queen",
+                "King"
+            ],
+            "quiz_answer": "King",
+            "content": [
+                "King activity becomes very important.",
+                "Learn basic king and pawn endings.",
+                "Understand opposition and triangulation.",
+                "Promote passed pawns whenever possible.",
+                "Practice common checkmating patterns."
+            ],
+            "board_examples": [
+                {
+                    "title": "King and Pawn Endgame",
+                    "position": {
+                        "e5": "K",
+                        "e6": "P",
+                        "e8": "K"
+                    },
+                    "highlight": [
+                        "e6",
+                        "e7",
+                        "e8"
+                    ]
+                },
+                {
+                    "title": "Opposition",
+                    "position": {
+                        "e4": "K",
+                        "e6": "K"
+                    },
+                    "highlight": [
+                        "e4",
+                        "e6"
+                    ]
+                }
+            ]
+        }
+    }
+
+    lesson = lesson_data.get(lesson_name)
+    
+    if lesson is None:
+        raise Http404("Lesson not found")
+    
+    lesson_order = list(lesson_data.keys())
+
+    current_index = lesson_order.index(lesson_name)
+
+    previous_lesson = None
+    next_lesson = None
+
+    if current_index > 0:
+        previous_lesson = lesson_order[current_index - 1]
+
+    if current_index < len(lesson_order) - 1:
+        next_lesson = lesson_order[current_index + 1]
+
+    is_completed = False
+
+    if request.user.is_authenticated:
+        is_completed = LessonProgress.objects.filter(
+            user=request.user,
+            lesson_name=lesson_name,
+            completed=True
+        ).exists()
+
+    difficulty = "Beginner"
+    if lesson_name in [
+        "Forks",
+        "Pins",
+        "Skewers",
+        "Discovered Attacks"
+    ]:
+        difficulty = "Intermediate"
+
+    elif lesson_name in [
+        "Pawn Structures",
+        "King Safety",
+        "Piece Activity",
+        "Basic Endgames"
+    ]:
+        difficulty = "Advanced"
+
+    return render(
+        request,
+        "game/lesson_detail.html",
+        {
+            "lesson": lesson,
+            "lesson_steps": lesson.get("steps", []),
+            "board_examples": lesson.get(
+                "board_examples",
+                []
+            ),
+            "previous_lesson": previous_lesson,
+            "next_lesson": next_lesson,
+            "is_completed": is_completed,
+            "difficulty": difficulty,
+
+        }
+    )
+
+@login_required
+@require_POST
+def complete_lesson(request, lesson_name):
+
+    LessonProgress.objects.update_or_create(
+        user=request.user,
+        lesson_name=lesson_name,
+        defaults={
+            "completed": True,
+            "completed_at": timezone.now(),
+        }
+    )
+
+    return redirect(
+        "lesson_detail",
+        lesson_name=lesson_name
+    )

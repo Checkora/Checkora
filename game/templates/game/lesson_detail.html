@@ -1,0 +1,398 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ lesson.title }} - Checkora</title>
+
+    <style>
+        body {
+            background: #121212;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #f0c040;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .lesson-box {
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+
+        h1 {
+            color: #f0c040;
+            margin-bottom: 15px;
+        }
+
+        .description {
+            color: #d0d0d0;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .lesson-content {
+            margin-top: 20px;
+            margin-bottom: 30px;
+            padding-left: 25px;
+        }
+
+        .lesson-content li {
+            margin-bottom: 12px;
+            line-height: 1.7;
+            color: #e0e0e0;
+        }
+
+        .board-placeholder {
+            height: 400px;
+            border: 2px dashed #555;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #aaa;
+            font-size: 18px;
+        }
+
+        .complete-btn {
+            background: #f0c040;
+            color: #121212;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .quiz-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .quiz-btn:hover {
+            background: #444;
+        }
+
+        .complete-btn:hover {
+            opacity: 0.9;
+        }
+
+        .lesson-navigation {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .lesson-navigation a {
+            color: #f0c040;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .lesson-navigation a:hover {
+            text-decoration: underline;
+        }
+
+        .coming-soon {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(240,192,64,0.1);
+            border-left: 4px solid #f0c040;
+            border-radius: 8px;
+        }
+
+        .lesson-square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 38px;
+            cursor: pointer;
+        }
+
+        .light {
+            background: #f0d9b5;
+        }
+
+        .dark {
+            background: #b58863;
+        }
+
+        .lesson-board-wrapper{
+            display:flex;
+            justify-content:center;
+            margin:20px 0;
+        }
+
+        .lesson-board{
+            width:480px;
+            height:480px;
+
+            display:grid;
+            grid-template-columns:repeat(8,1fr);
+
+            border:2px solid #f0c040;
+        }
+
+        .lesson-square{
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            font-size:42px;
+            user-select:none;
+        }       
+
+        .lesson-square.light{
+            background:#f0d9b5;
+        }
+
+        .lesson-square.dark{
+            background:#b58863;
+        }
+
+        .board-demo{
+            margin-top:30px;
+        }
+
+        #demo-board{
+            width:100%;
+            max-width:520px;
+            aspect-ratio:1/1;
+
+            display:grid;
+            grid-template-columns:repeat(8,1fr);
+            grid-template-rows:repeat(8,1fr);
+
+            border:2px solid #f0c040;
+            margin:20px auto;
+        }
+
+        .demo-square{
+            display:flex;
+            justify-content:center;
+            align-items:center;
+
+            aspect-ratio:1/1;
+
+            font-size:clamp(
+                20px,
+                4vw,
+                42px
+            );
+        }
+
+        .demo-light{
+            background:#f0d9b5;
+        }
+
+        .demo-dark{
+            background:#b58863;
+        }
+
+        .highlight-square{
+            background:#81c784 !important;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <a href="{% url 'lessons' %}" class="back-btn">
+        ← Back to Lessons
+    </a>
+
+    <div class="lesson-box">
+
+    <h1>{{ lesson.title }}</h1>
+
+    <p class="description">
+        {{ lesson.description }}
+    </p>
+
+    <h2>📖 Lesson Content</h2>
+
+    {% if lesson.content %}
+    <ul class="lesson-content">
+
+        {% for point in lesson.content %}
+        <li>{{ point }}</li>
+        {% endfor %}
+
+    </ul>
+    {% endif %}
+
+    {% if board_examples %}
+
+    <div class="board-demo">
+
+        <h2>♟ Interactive Board Example</h2>
+
+        <h3 id="example-title"></h3>
+
+        <div id="demo-board"></div>
+
+        <button
+            id="next-example-btn"
+            class="complete-btn"
+        >
+            Next Example
+        </button>
+    </div>
+
+    {{ board_examples|json_script:"board-examples-data" }}
+
+    {% endif %}
+
+
+    {% if lesson.practice_question %}
+    <div class="coming-soon">
+
+        <h3>📝 Practice Exercise</h3>
+
+        <p><strong>Question:</strong> {{ lesson.practice_question }}</p>
+
+        <details>
+            <summary>Show Answer</summary>
+            <p>{{ lesson.practice_answer }}</p>
+        </details>
+
+    </div>
+    {% endif %}
+
+
+    <div style="margin-top:25px;">
+    
+    {% if is_completed %}
+
+    <button
+        class="complete-btn"
+        disabled
+    >
+        ✓ Completed
+    </button>
+
+    {% else %}
+
+    <form
+        method="post"
+        action="{% url 'complete_lesson' lesson.title %}"
+    >
+        {% csrf_token %}
+
+        <button
+            type="submit"
+            class="complete-btn"
+        >
+            ✓ Mark Lesson Complete
+        </button>
+    </form>
+
+    {% endif %}
+
+    </div>
+
+    {% if lesson.quiz_question %}
+
+    <div class="coming-soon">
+
+        <h3>🎯 Quick Quiz</h3>
+
+        <p>{{ lesson.quiz_question }}</p>
+
+        {% for option in lesson.quiz_options %}
+
+            <button
+                class="quiz-btn"
+                onclick="checkAnswer('{{ option }}', '{{ lesson.quiz_answer }}')"
+            >
+                {{ option }}
+            </button>
+
+            <br><br>
+
+        {% endfor %}
+
+        <p id="quiz-result"></p>
+
+    </div>
+
+    {% endif %}
+
+    <div class="coming-soon">
+        🚀 Future update: Interactive board demonstrations,
+        practice positions, quizzes, and lesson progress tracking.
+    </div>
+    <div class="lesson-navigation">
+
+        {% if previous_lesson %}
+            <a href="{% url 'lesson_detail' previous_lesson %}">
+                ← {{ previous_lesson }}
+            </a>
+        {% endif %}
+
+        {% if next_lesson %}
+            <a href="{% url 'lesson_detail' next_lesson %}">
+                {{ next_lesson }} →
+            </a>
+        {% endif %}
+    </div>
+
+</div>
+
+
+</div>
+
+</div>
+
+<script>
+
+function checkAnswer(selected, correct) {
+
+    const result =
+        document.getElementById("quiz-result");
+
+    if (selected === correct) {
+
+        result.innerHTML =
+            "✅ Correct Answer!";
+
+        result.style.color = "#4caf50";
+
+    } else {
+
+        result.innerHTML =
+            "❌ Incorrect. Try Again.";
+
+        result.style.color = "#ff5252";
+    }
+}
+
+</script>
+<script src="{% static 'game/js/lesson_demo.js' %}"></script>
+</body>
+</html>
