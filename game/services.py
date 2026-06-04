@@ -1,5 +1,7 @@
 import time
+from django.conf import settings
 from django.contrib.sessions.models import Session
+from django.contrib.sessions.backends.db import SessionStore
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from game.models import GameResult
@@ -13,6 +15,9 @@ def cleanup_stale_games():
     Rule A (Low Engagement): < 5 moves -> hard deletion (remove game from session).
     Rule B (High Engagement): >= 5 moves -> auto-resign inactive player.
     """
+    if settings.SESSION_ENGINE != 'django.contrib.sessions.backends.db':
+        return 0, 0
+
     # 48 hours in seconds
     stale_threshold = time.time() - (48 * 3600)
     
@@ -37,11 +42,12 @@ def cleanup_stale_games():
         moves_count = len(game_data.get('move_history', []))
         
         with transaction.atomic():
+            store = SessionStore(session_key=session.session_key)
             if moves_count < 5:
                 # Rule A: Hard deletion
-                del session_data['game']
-                session.session_data = Session.objects.encode(session_data)
-                session.save()
+                if 'game' in store:
+                    del store['game']
+                    store.save()
                 deleted_count += 1
             else:
                 # Rule B: Auto-resignation
@@ -56,10 +62,11 @@ def cleanup_stale_games():
                 else:
                     winner = 'black' if current_turn == 'white' else 'white'
                 
-                game_data['game_status'] = 'resignation'
-                session_data['game'] = game_data
-                session.session_data = Session.objects.encode(session_data)
-                session.save()
+                if 'game' in store:
+                    gd = store['game']
+                    gd['game_status'] = 'resignation'
+                    store['game'] = gd
+                    store.save()
                 
                 # Create a GameResult historically linking to the user if auth is known
                 user_id = session_data.get('_auth_user_id')

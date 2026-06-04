@@ -4,7 +4,7 @@ import json
 import time
 import hashlib
 import secrets
-import secrets as secrets_module
+import re
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import JsonResponse
@@ -37,14 +37,192 @@ from django.core.cache import cache
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib.auth.decorators import login_required
 
 from .engine import ChessGame
 from .models import GameResult, PuzzleStats
 logger = logging.getLogger(__name__)
 from game.services import cleanup_stale_games
-from .analysis import build_summary
+from django.core import signing
+
+class InvalidGameStateError(ValueError):
+    """Raised when client-supplied game state is invalid, tampered, or missing."""
+    pass
+
+def _sign_state(game_data):
+    """Generate a cryptographic signature for the game state dictionary.
+    
+    Guarantees the game state payload originated on the server and was not tampered with.
+    Note: A purely stateless client-owned model cannot fully prevent replay of older valid states 
+    (e.g., undoing moves against the AI) without server-side state tracking.
+    """
+    envelope = {
+        'game': game_data,
+        'move_count': len(game_data.get('move_history', [])),
+    }
+    return signing.dumps(envelope)
+
+def _verify_state(game_data, signature):
+    """Verify that the cryptographic signature is valid and matches the game data and move count."""
+    try:
+        envelope = signing.loads(signature)
+        if not isinstance(envelope, dict) or 'game' not in envelope or 'move_count' not in envelope:
+            return False
+        
+        # Deep compare the game dictionary
+        if envelope['game'] != game_data:
+            return False
+            
+        expected_move_count = len(game_data.get('move_history', []))
+        return envelope['move_count'] == expected_move_count
+    except Exception:
+        return False
+
+_SAFE_NOTATION = re.compile(
+    r'^([KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](=[QRBN])?[+#]?'  # standard moves
+    r'|O-O(-O)?[+#]?)$' # castling
+)
+
+def _sanitize_notation(notation):
+    if not isinstance(notation, str):
+        return ''
+    return notation if _SAFE_NOTATION.match(notation) else ''
+
+def _sanitize_move_history(move_history):
+    for move in move_history:
+        move['notation'] = _sanitize_notation(move.get('notation', ''))
+    return move_history
+
+
+def _clean_player_name(raw, fallback):
+    name = (raw or '').strip()
+    if not name or len(name) > 30:
+        return fallback
+    return name
+
+
+def _state_payload(game, meta=None, request=None):
+    """Build the client-owned gameplay state envelope."""
+    meta = meta or {}
+    white_name = meta.get('white_name')
+    black_name = meta.get('black_name')
+    difficulty = meta.get('difficulty')
+
+    if request is not None:
+        white_name = white_name or request.session.get('white_name')
+        black_name = black_name or request.session.get('black_name')
+        difficulty = difficulty or request.session.get('difficulty')
+
+    game_dict = game.to_dict()
+    payload = {
+        'game': game_dict,
+        'white_name': _clean_player_name(white_name, 'White'),
+        'black_name': _clean_player_name(black_name, 'Black'),
+        'difficulty': difficulty or 'medium',
+    }
+    payload['signature'] = _sign_state(game_dict)
+    return payload
+
+
+def _state_meta(payload):
+    if isinstance(payload, dict):
+        return {
+            'white_name': _clean_player_name(payload.get('white_name'), 'White'),
+            'black_name': _clean_player_name(payload.get('black_name'), 'Black'),
+            'difficulty': payload.get('difficulty') or 'medium',
+        }
+    return {
+        'white_name': 'White',
+        'black_name': 'Black',
+        'difficulty': 'medium',
+    }
+
+
+def _state_from_request_data(request, data=None, allow_new=False):
+    """Return (game, meta, source) preferring client-provided state."""
+    data = data or {}
+    payload = data.get('game_state') if isinstance(data, dict) else None
+    if isinstance(payload, dict):
+        game_data = payload.get('game', payload)
+        signature = payload.get('signature')
+        if isinstance(game_data, dict):
+            if not signature or not _verify_state(game_data, signature):
+                raise InvalidGameStateError("Invalid or tampered game state signature.")
+            try:
+                return ChessGame.from_dict(game_data), _state_meta(payload), 'payload'
+            except (KeyError, ValueError, TypeError) as e:
+                raise InvalidGameStateError(f"Malformed game state: {e}")
+
+    # Legacy fallback: cached state using session token
+    legacy_game_id = request.session.get('legacy_game_id')
+    if legacy_game_id:
+        game_data = cache.get(f"legacy_game:{legacy_game_id}")
+        if isinstance(game_data, dict):
+            try:
+                return ChessGame.from_dict(game_data), _state_meta(request.session), 'session'
+            except (KeyError, ValueError, TypeError) as e:
+                raise InvalidGameStateError(f"Malformed session game state: {e}")
+
+    # Fallback to direct session game dict if cache misses or for old in-transition sessions
+    game_data = request.session.get('game')
+    if isinstance(game_data, dict):
+        try:
+            return ChessGame.from_dict(game_data), _state_meta(request.session), 'session'
+        except (KeyError, ValueError, TypeError) as e:
+            raise InvalidGameStateError(f"Malformed session game state: {e}")
+
+    if allow_new:
+        return ChessGame(), _state_meta(data), 'new'
+
+    return None, _state_meta(data), 'missing'
+
+
+def _maybe_save_legacy_session(request, game, meta, source):
+    """Keep old session clients working without using sessions for new clients."""
+    if source != 'session':
+        return
+    legacy_game_id = request.session.get('legacy_game_id')
+    if not legacy_game_id:
+        legacy_game_id = secrets.token_hex(16)
+        request.session['legacy_game_id'] = legacy_game_id
+    
+    # Store full game dict in the server-side cache (24 hours timeout)
+    cache.set(f"legacy_game:{legacy_game_id}", game.to_dict(), timeout=86400)
+    
+    request.session['white_name'] = meta.get('white_name', 'White')
+    request.session['black_name'] = meta.get('black_name', 'Black')
+    request.session['difficulty'] = meta.get('difficulty', 'medium')
+    request.session.modified = True
+
+
+def _game_response_data(game, request=None, meta=None, extra=None):
+    meta = _state_meta(meta)
+    payload = _state_payload(game, meta, request)
+    data = {
+        'board': game.board,
+        'current_turn': game.current_turn,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'time_limit': getattr(game, 'time_limit', 600),
+        'increment': getattr(game, 'increment', 0),
+        'move_history': game.move_history,
+        'captured_pieces': game.captured,
+        'mode': game.mode,
+        'player_color': game.player_color,
+        'white_name': payload['white_name'],
+        'black_name': payload['black_name'],
+        'difficulty': payload['difficulty'],
+        'game_status': game.game_status,
+        'draw_reason': game.draw_reason,
+        'fen': game.generate_fen_key(),
+        'pgn': game.generate_pgn(payload['white_name'], payload['black_name']),
+        'game_state': payload,
+    }
+    if extra:
+        data.update(extra)
+    return data
+
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -55,15 +233,7 @@ def preloader(request):
 
 @ensure_csrf_cookie
 def index(request):
-    """Render the board and initialise a new game in the session."""
-    if 'game' in request.session:
-        game_data = request.session['game']
-        status = game_data.get('game_status', 'active')
-        if status in ['checkmate', 'draw', 'resign', 'stalemate', 'timeout']:
-            del request.session['game']
-    if 'game' not in request.session:
-        game = ChessGame()
-        request.session['game'] = game.to_dict()
+    """Render the board. Gameplay state is owned by the browser."""
     return render(request, 'game/board.html')
 
 
@@ -71,7 +241,12 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
     if moves is None:
-        game_data = request.session.get('game')
+        legacy_game_id = request.session.get('legacy_game_id')
+        game_data = None
+        if legacy_game_id:
+            game_data = cache.get(f"legacy_game:{legacy_game_id}")
+        if not game_data:
+            game_data = request.session.get('game')
         if game_data and isinstance(game_data, dict):
             moves = game_data.get('move_history', [])
         else:
@@ -120,60 +295,60 @@ def make_move(request):
             status=400,
         )
 
-    game_data = request.session.get('game')
-    game = ChessGame.from_dict(game_data) if game_data else ChessGame()
+    try:
+        game, meta, source = _state_from_request_data(request, data, allow_new=False)
+        if not game:
+            return JsonResponse({"error": "No active game found. Please start a new game."}, status=400)
+    except InvalidGameStateError as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
     if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        for move in game.move_history:
+            move['notation'] = _sanitize_notation(move.get('notation', ''))
+        _maybe_save_legacy_session(request, game, meta, source)
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
 
-    return JsonResponse({
+    return JsonResponse(_game_response_data(game, request, meta, {
         'valid': success,
         'message': message,
         'captured': captured,
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'move_history': game.move_history,
-        'captured_pieces': game.captured,
         'game_status': game_status,
-        'draw_reason': game.draw_reason,
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'white_name': request.session.get('white_name', 'White'),
-        'black_name': request.session.get('black_name', 'Black'),
-    })
+    }))
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 def valid_moves(request):
     """Return every legal destination for a piece."""
     try:
-        row = int(request.GET['row'])
-        col = int(request.GET['col'])
+        data = json.loads(request.body or '{}') if request.method == 'POST' else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    try:
+        source_data = data if request.method == 'POST' else request.GET
+        row = int(source_data['row'])
+        col = int(source_data['col'])
     except (KeyError, ValueError, TypeError):
         return JsonResponse({'valid_moves': []}, status=400)
 
     if not (0 <= row < 8 and 0 <= col < 8):
         return JsonResponse({'valid_moves': []}, status=400)
 
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'valid_moves': []})
+    try:
+        game, _, _ = _state_from_request_data(request, data)
+        if not game:
+            return JsonResponse({'valid_moves': []}, status=400)
+    except InvalidGameStateError as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
-    game = ChessGame.from_dict(game_data)
     moves = game.get_valid_moves(row, col)
     return JsonResponse({'valid_moves': moves})
 
@@ -221,20 +396,11 @@ def new_game(request):
     elif player_color not in ('white', 'black'):
         player_color = 'white'
 
-    def _clean_name(raw, fallback):
-        name = (raw or '').strip()
-        if not name or len(name) > 30:
-            return fallback
-        return name
-
-    request.session['white_name'] = _clean_name(
-        data.get('white_name'), 'White'
-    )
-    request.session['black_name'] = _clean_name(
-        data.get('black_name'), 'Black'
-    )
-    request.session['difficulty'] = difficulty
-    request.session['player_color'] = player_color
+    meta = {
+        'white_name': _clean_player_name(data.get('white_name'), 'White'),
+        'black_name': _clean_player_name(data.get('black_name'), 'Black'),
+        'difficulty': difficulty,
+    }
 
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
@@ -251,101 +417,96 @@ def new_game(request):
     game.player_color = player_color
     game.paused = False
 
-    request.session['game'] = game.to_dict()
+    # Seed the legacy session and server-side cache fallback path (Issue 7)
+    legacy_game_id = secrets.token_hex(16)
+    request.session['legacy_game_id'] = legacy_game_id
+    cache.set(f"legacy_game:{legacy_game_id}", game.to_dict(), timeout=86400)
+    request.session['white_name'] = meta['white_name']
+    request.session['black_name'] = meta['black_name']
+    request.session['difficulty'] = meta['difficulty']
     request.session.modified = True
-    request.session.save()
 
-    return JsonResponse({
+    return JsonResponse(_game_response_data(game, request, meta, {
         'valid': True,
-        'board': game.board,
-        'current_turn': game.current_turn,
         'move_history': [],
         'captured_pieces': {'white': [], 'black': []},
-        'mode': game.mode,
-        'player_color': game.player_color,
-        'white_name': request.session['white_name'],
-        'black_name': request.session['black_name'],
-        'difficulty': difficulty,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'game_status': game.game_status,
-        'draw_reason': game.draw_reason,
-    })
+    }))
 
 
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        data = {}
 
-    game = ChessGame.from_dict(game_data)
+    try:
+        game, meta, source = _state_from_request_data(request, data)
+        if not game:
+            return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
+    except InvalidGameStateError as e:
+        return JsonResponse({'valid': False, 'message': str(e)}, status=400)
 
     if game.game_status != 'active':
         return JsonResponse({'valid': False, 'message': 'No active game to resume.'}, status=404)
 
     game.paused = False
     game.last_ts = time.time()
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    _maybe_save_legacy_session(request, game, meta, source)
+    _sanitize_move_history(game.move_history)
 
-    return JsonResponse({
+    return JsonResponse(_game_response_data(game, request, meta, {
         'valid': True,
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'move_history': game.move_history,
-        'captured_pieces': game.captured,
-        'mode': game.mode,
-        'player_color': game.player_color,
-        'white_name': request.session.get('white_name', 'White'),
-        'black_name': request.session.get('black_name', 'Black'),
-        'game_status': game.game_status,
-        'draw_reason': game.draw_reason,
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'difficulty': request.session.get('difficulty', 'medium'),
-    })
+    }))
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 def check_promotion(request):
     """Return whether a planned move triggers pawn promotion."""
     try:
-        from_row = int(request.GET['from_row'])
-        from_col = int(request.GET['from_col'])
-        to_row = int(request.GET['to_row'])
+        data = json.loads(request.body or '{}') if request.method == 'POST' else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    try:
+        source_data = data if request.method == 'POST' else request.GET
+        from_row = int(source_data['from_row'])
+        from_col = int(source_data['from_col'])
+        to_row = int(source_data['to_row'])
     except (KeyError, ValueError, TypeError):
         return JsonResponse({'is_promotion': False})
 
     if not (0 <= from_row < 8 and 0 <= from_col < 8 and 0 <= to_row < 8):
         return JsonResponse({'is_promotion': False})
 
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'is_promotion': False})
+    try:
+        game, _, _ = _state_from_request_data(request, data)
+        if not game:
+            return JsonResponse({'is_promotion': False}, status=400)
+    except InvalidGameStateError as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
     is_promo = ChessGame.is_promotion_move(
-        game_data['board'], from_row, from_col, to_row,
+        game.board, from_row, from_col, to_row,
     )
     return JsonResponse({'is_promotion': is_promo})
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 def get_state(request):
     """Return the full current game state without mutating pause state."""
-    game_data = request.session.get('game')
-    if not game_data:
-        game = ChessGame()
-    else:
-        game = ChessGame.from_dict(game_data)
+    try:
+        data = json.loads(request.body or '{}') if request.method == 'POST' else {}
+    except json.JSONDecodeError:
+        data = {}
 
+    try:
+        game, meta, source = _state_from_request_data(request, data, allow_new=True)
+    except InvalidGameStateError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+    if source != 'new':
         # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
@@ -353,46 +514,30 @@ def get_state(request):
         else:
             game.update_clock()
 
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    _sanitize_move_history(game.move_history)
+    _maybe_save_legacy_session(request, game, meta, source)
 
-    return JsonResponse({
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
+    return JsonResponse(_game_response_data(game, request, meta, {
         'paused': game.paused,
-        'move_history': game.move_history,
-        'captured_pieces': game.captured,
-        'mode': game.mode,
-        'player_color': game.player_color,
-        'difficulty': request.session.get('difficulty', 'medium'),
-        'white_name': request.session.get('white_name', 'White'),
-        'black_name': request.session.get('black_name', 'Black'),
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'game_status': game.game_status,
-        'draw_reason': game.draw_reason,
-    })
+    }))
 
 
 @require_POST
 def set_pause(request):
     """Toggle the game clock between paused and running."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'paused': False})
-
     try:
         data = json.loads(request.body or '{}')
     except json.JSONDecodeError:
         return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
 
-    pause = data.get('pause', True)
+    try:
+        game, meta, source = _state_from_request_data(request, data)
+        if not game:
+            return JsonResponse({'paused': False}, status=400)
+    except InvalidGameStateError as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
-    game = ChessGame.from_dict(game_data)
+    pause = data.get('pause', True)
 
     # Only deduct elapsed time when transitioning from running to paused.
     if pause and not game.paused:
@@ -400,27 +545,30 @@ def set_pause(request):
     game.paused = pause
     game.last_ts = time.time()
 
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    _maybe_save_legacy_session(request, game, meta, source)
 
-    return JsonResponse({
+    return JsonResponse(_game_response_data(game, request, meta, {
         'paused': game.paused,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-    })
+    }))
 
 
 @require_POST
 def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
-    game_data = request.session.get('game')
-    if not game_data:
-        err_msg = 'No active game.'
-        return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
-        )
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
 
-    game = ChessGame.from_dict(game_data)
+    try:
+        game, meta, source = _state_from_request_data(request, data)
+        if not game:
+            err_msg = 'No active game.'
+            return JsonResponse(
+                {'valid': False, 'message': err_msg}, status=400
+            )
+    except InvalidGameStateError as e:
+        return JsonResponse({'valid': False, 'message': str(e)}, status=400)
 
     if game.mode != 'ai':
         err_msg = 'Not in AI mode.'
@@ -429,7 +577,7 @@ def ai_move(request):
         )
 
     # Depth Mapping — lower depth = faster response
-    difficulty = request.session.get('difficulty', 'medium')
+    difficulty = meta.get('difficulty', 'medium')
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
@@ -445,20 +593,13 @@ def ai_move(request):
             game_status = 'stalemate'
 
         game.game_status = game_status
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        _maybe_save_legacy_session(request, game, meta, source)
 
-        return JsonResponse({
+        return JsonResponse(_game_response_data(game, request, meta, {
             'valid': True,
             'game_status': game_status,
-            'board': game.board,
-            'current_turn': game.current_turn,
-            'white_time': game.white_time,
-            'black_time': game.black_time,
-            'move_history': game.move_history,
-            'captured_pieces': game.captured,
             'message': '',
-        })
+        }))
 
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
@@ -466,8 +607,9 @@ def ai_move(request):
     )
 
     if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        for move in game.move_history:
+            move['notation'] = _sanitize_notation(move.get('notation', ''))
+        _maybe_save_legacy_session(request, game, meta, source)
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -475,42 +617,32 @@ def ai_move(request):
         elif game_status in ('stalemate', 'draw'):
             record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
 
-    return JsonResponse({
+    return JsonResponse(_game_response_data(game, request, meta, {
         'valid': success,
         'message': message,
         'captured': captured,
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'move_history': game.move_history,
-        'captured_pieces': game.captured,
         'ai_move': best,
         'game_status': game_status,
-        'draw_reason': game.draw_reason,
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'white_name': request.session.get('white_name', 'White'),
-        'black_name': request.session.get('black_name', 'Black'),
-    })
+    }))
 
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse(
-            {'success': False, 'message': 'No active game.'}, status=400
-        )
-
     try:
         data = json.loads(request.body or '{}')
     except json.JSONDecodeError:
         return JsonResponse(
             {'valid': False, 'message': 'Invalid request data.'}, status=400
         )
+
+    try:
+        game, meta, source = _state_from_request_data(request, data)
+        if not game:
+            return JsonResponse(
+                {'success': False, 'message': 'No active game.'}, status=400
+            )
+    except InvalidGameStateError as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
 
     action = data.get('action')
 
@@ -520,52 +652,55 @@ def offer_draw(request):
         )
 
     if action == 'accept':
-        game = ChessGame.from_dict(game_data)
         if game.game_status != 'active':
             return JsonResponse(
                 {'success': False, 'message': 'Game is not active.'}, status=400
             )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        _maybe_save_legacy_session(request, game, meta, source)
         record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
-        return JsonResponse({
+        return JsonResponse(_game_response_data(game, request, meta, {
             'success': True,
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
-        })
+        }))
 
     return JsonResponse({'success': True})
 
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        data = {}
 
-    game = ChessGame.from_dict(game_data)
+    try:
+        game, meta, source = _state_from_request_data(request, data)
+        if not game:
+            return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+    except InvalidGameStateError as e:
+        return JsonResponse({'valid': False, 'message': str(e)}, status=400)
 
     resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
     game_status = 'resignation'
 
     game.game_status = game_status
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    _maybe_save_legacy_session(request, game, meta, source)
 
     try:
         record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
     except Exception as e:
         logger.error('Failed to record resign result: %s', e)
 
-    return JsonResponse({
+    return JsonResponse(_game_response_data(game, request, meta, {
         'valid': True,
         'message': f'{resigning_player.capitalize()} resigned.',
         'winner': winner,
         'game_status': game_status
-    })
+    }))
 
 @require_GET
 def check_username(request):
@@ -622,7 +757,14 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
+            # Hash OTP with SECRET_KEY as a secret salt.
+            # CRITICAL SECURITY WARNING: Because Checkora is deployed statelessly, the session backend
+            # is configured to 'signed_cookies'. Signed cookie data is stored in the browser and is
+            # client-readable (base64-encoded). Since a 6-digit OTP space has only 1,000,000 possibilities,
+            # hashing the OTP alone is highly vulnerable to offline brute-force pre-image attacks.
+            # Keying/salting the hash with the server's private settings.SECRET_KEY converts it to a
+            # HMAC-equivalent hash, preventing offline brute-force attacks unless settings.SECRET_KEY itself is compromised.
+            # DO NOT remove settings.SECRET_KEY from this hash!
             otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
             request.session['otp_created_at'] = time.time()
@@ -835,6 +977,14 @@ def resend_otp(request):
 
     otp = str(secrets.randbelow(900000) + 100000)
 
+    # Hash OTP with SECRET_KEY as a secret salt.
+    # CRITICAL SECURITY WARNING: Because Checkora is deployed statelessly, the session backend
+    # is configured to 'signed_cookies'. Signed cookie data is stored in the browser and is
+    # client-readable (base64-encoded). Since a 6-digit OTP space has only 1,000,000 possibilities,
+    # hashing the OTP alone is highly vulnerable to offline brute-force pre-image attacks.
+    # Keying/salting the hash with the server's private settings.SECRET_KEY converts it to a
+    # HMAC-equivalent hash, preventing offline brute-force attacks unless settings.SECRET_KEY itself is compromised.
+    # DO NOT remove settings.SECRET_KEY from this hash!
     otp_hash = hashlib.sha256(
         f"{otp}:{settings.SECRET_KEY}".encode()
     ).hexdigest()
@@ -1162,7 +1312,7 @@ def cleanup_cron(request):
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
     
-    if not cron_secret or not secrets_module.compare_digest(expected, provided):
+    if not cron_secret or not secrets.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
     
     try:

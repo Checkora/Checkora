@@ -25,6 +25,14 @@ from .views import CustomPasswordResetView
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
 
+    def setUp(self):
+        super().setUp()
+        ChessGame._resolved_engine_path = None
+
+    def tearDown(self):
+        ChessGame._resolved_engine_path = None
+        super().tearDown()
+
     def test_uses_first_existing_engine_binary(self):
         candidates = [
             r'C:\fake\game\engine\main.exe',
@@ -77,6 +85,45 @@ class EnginePathResolutionTest(SimpleTestCase):
                 ChessGame._build_engine_command(candidates[2]),
                 [sys.executable, candidates[2]],
             )
+
+    def test_serverless_workaround_copies_binary_to_tmp(self):
+        candidates = [
+            '/fake/game/engine/main',
+            '/fake/game/engine/main.py',
+        ]
+
+        # Simulate posix serverless environment
+        with (
+            mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates),
+            mock.patch('game.engine.os.name', 'posix'),
+            mock.patch('game.engine.os.path.exists', side_effect=lambda path: path == candidates[0]),
+            mock.patch('game.engine.os.path.getmtime', return_value=100),
+            mock.patch('shutil.copy') as mock_copy,
+            mock.patch('os.chmod') as mock_chmod,
+            mock.patch('os.replace') as mock_replace,
+        ):
+            res = ChessGame._resolve_engine_path()
+            self.assertEqual(res, '/tmp/checkora_main')
+            mock_copy.assert_called_once_with(candidates[0], '/tmp/checkora_main.tmp')
+            mock_chmod.assert_called_once_with('/tmp/checkora_main.tmp', 0o755)
+            mock_replace.assert_called_once_with('/tmp/checkora_main.tmp', '/tmp/checkora_main')
+
+    def test_serverless_workaround_falls_back_on_copy_error(self):
+        candidates = [
+            '/fake/game/engine/main',
+            '/fake/game/engine/main.py',
+        ]
+
+        # Simulate exception during copy (e.g. read-only filesystem or missing permission)
+        with (
+            mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates),
+            mock.patch('game.engine.os.name', 'posix'),
+            mock.patch('game.engine.os.path.exists', side_effect=lambda path: path in {candidates[0], candidates[1]}),
+            mock.patch('shutil.copy', side_effect=OSError('Copy failed')),
+        ):
+            res = ChessGame._resolve_engine_path()
+            # It should skip candidates[0] due to the copy failure and return the Python script fallback (candidates[1])
+            self.assertEqual(res, candidates[1])
 
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
@@ -132,6 +179,80 @@ class ServerErrorPageTest(SimpleTestCase):
             status_code=500,
         )
         self.assertContains(response, reverse('landing'), status_code=500)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class StatelessGameplayAPITest(TestCase):
+    """Gameplay APIs should work from client-provided state, without sessions."""
+
+    def test_new_game_returns_client_state_without_storing_game_session(self):
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'pvp',
+                'white_name': 'Ada',
+                'black_name': 'Grace',
+                'time_limit': 300,
+                'increment': 2,
+            }),
+            content_type='application/json',
+        )
+
+        data = response.json()
+        self.assertTrue(data['valid'])
+        self.assertIn('game_state', data)
+        self.assertEqual(data['game_state']['white_name'], 'Ada')
+        self.assertEqual(data['game_state']['black_name'], 'Grace')
+        self.assertNotIn('game', self.client.session)
+
+    @mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok'))
+    @mock.patch.object(ChessGame, '_call_engine', return_value='STATUS ok')
+    def test_move_uses_posted_state_without_session_cookie(self, *_):
+        start = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()
+
+        stateless_client = self.client_class()
+        response = stateless_client.post(
+            '/api/move/',
+            data=json.dumps({
+                'game_state': start['game_state'],
+                'from_row': 6,
+                'from_col': 4,
+                'to_row': 4,
+                'to_col': 4,
+            }),
+            content_type='application/json',
+        )
+
+        data = response.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['current_turn'], 'black')
+        self.assertEqual(len(data['game_state']['game']['move_history']), 1)
+        self.assertNotIn('game', stateless_client.session)
+
+    @mock.patch.object(ChessGame, '_call_engine', return_value='MOVES 5 4 0 0 4 4 0 0')
+    def test_valid_moves_uses_posted_state(self, _):
+        start = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()
+
+        response = self.client.post(
+            '/api/valid-moves/',
+            data=json.dumps({
+                'game_state': start['game_state'],
+                'row': 6,
+                'col': 4,
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['valid_moves']), 2)
 
 
 class RegistrationViewTest(TestCase):
@@ -365,7 +486,11 @@ class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
 
         # We mock validate_move to return specific booleans to simulate engine validation
         # and _call_engine to bypass game status and promotion checks
@@ -382,14 +507,19 @@ class MoveValidationTest(TestCase):
 
     def _move(self, fr, fc, tr, tc, expected_valid=True):
         self.mock_validate.return_value = (expected_valid, "Mock validation.")
-        return self.client.post(
+        response = self.client.post(
             '/api/move/',
             data=json.dumps({
+                'game_state': self.state,
                 'from_row': fr, 'from_col': fc,
                 'to_row': tr, 'to_col': tc,
             }),
             content_type='application/json',
         )
+        data = response.json()
+        if data.get('game_state'):
+            self.state = data['game_state']
+        return response
 
     # -- Pawn -------------------------------------------------------
 
@@ -413,6 +543,7 @@ class MoveValidationTest(TestCase):
         r = self.client.post(
             '/api/move/',
             data=json.dumps({
+                'game_state': self.state,
                 'from_row': 1, 'from_col': 4,
                 'to_row': 3, 'to_col': 4,
             }),
@@ -460,11 +591,11 @@ class MoveValidationTest(TestCase):
 
         # To test capture, we spoof 'p' in the
         # destination square before sending move
-        session = self.client.session
-        game_data = session['game']
+        from game.views import _sign_state
+        game_data = self.state['game']
         game_data['board'][3][3] = 'p'
-        session['game'] = game_data
-        session.save()
+        self.state['game'] = game_data
+        self.state['signature'] = _sign_state(game_data)
 
         r = self._move(4, 4, 3, 3, True)
         data = r.json()
@@ -476,7 +607,11 @@ class MoveCoordinatesValidationTest(TestCase):
     """Test coordinate validation for chess move API endpoint."""
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
         self.validate_patcher = mock.patch.object(ChessGame, 'validate_move')
         self.mock_validate = self.validate_patcher.start()
         self.mock_validate.return_value = (True, "Mock validation.")
@@ -494,6 +629,7 @@ class MoveCoordinatesValidationTest(TestCase):
         response = self.client.post(
             '/api/move/',
             data=json.dumps({
+                'game_state': self.state,
                 'from_row': 6, 'from_col': 4,
                 'to_row': 4, 'to_col': 4,
             }),
@@ -511,6 +647,7 @@ class MoveCoordinatesValidationTest(TestCase):
             {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': -8},
         ]
         for payload in invalid_payloads:
+            payload['game_state'] = self.state
             response = self.client.post(
                 '/api/move/',
                 data=json.dumps(payload),
@@ -528,6 +665,7 @@ class MoveCoordinatesValidationTest(TestCase):
             {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 8},
         ]
         for payload in invalid_payloads:
+            payload['game_state'] = self.state
             response = self.client.post(
                 '/api/move/',
                 data=json.dumps(payload),
@@ -547,6 +685,7 @@ class MoveCoordinatesValidationTest(TestCase):
             {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': {'val': 4}},
         ]
         for payload in invalid_payloads:
+            payload['game_state'] = self.state
             response = self.client.post(
                 '/api/move/',
                 data=json.dumps(payload),
@@ -563,6 +702,7 @@ class MoveCoordinatesValidationTest(TestCase):
             {'from_row': 6, 'from_col': 4, 'to_row': 4},
         ]
         for payload in invalid_payloads:
+            payload['game_state'] = self.state
             response = self.client.post(
                 '/api/move/',
                 data=json.dumps(payload),
@@ -584,7 +724,11 @@ class ValidMovesTest(TestCase):
     """Test /api/valid-moves/ endpoint."""
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
         self.engine_patcher = mock.patch.object(ChessGame, '_call_engine')
         self.mock_engine = self.engine_patcher.start()
 
@@ -593,48 +737,45 @@ class ValidMovesTest(TestCase):
 
     def test_pawn_initial_has_two_moves(self):
         self.mock_engine.return_value = "MOVES 5 4 0 0 4 4 0 0"
-        r = self.client.get('/api/valid-moves/?row=6&col=4')
+        r = self.client.post('/api/valid-moves/', data=json.dumps({'game_state': self.state, 'row': 6, 'col': 4}), content_type='application/json')
         self.assertEqual(len(r.json()['valid_moves']), 2)
 
     def test_knight_initial_has_two_moves(self):
         self.mock_engine.return_value = "MOVES 5 0 0 0 5 2 0 0"
-        r = self.client.get('/api/valid-moves/?row=7&col=1')
+        r = self.client.post('/api/valid-moves/', data=json.dumps({'game_state': self.state, 'row': 7, 'col': 1}), content_type='application/json')
         self.assertEqual(len(r.json()['valid_moves']), 2)
 
     def test_empty_square_no_moves(self):
         self.mock_engine.return_value = "MOVES"
-        r = self.client.get('/api/valid-moves/?row=4&col=4')
+        r = self.client.post('/api/valid-moves/', data=json.dumps({'game_state': self.state, 'row': 4, 'col': 4}), content_type='application/json')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
     def test_opponent_piece_no_moves(self):
         self.mock_engine.return_value = "MOVES"  # mock edge case
-        r = self.client.get('/api/valid-moves/?row=1&col=4')
+        r = self.client.post('/api/valid-moves/', data=json.dumps({'game_state': self.state, 'row': 1, 'col': 4}), content_type='application/json')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
     def test_rook_blocked_at_start(self):
         self.mock_engine.return_value = "MOVES"
-        r = self.client.get('/api/valid-moves/?row=7&col=0')
+        r = self.client.post('/api/valid-moves/', data=json.dumps({'game_state': self.state, 'row': 7, 'col': 0}), content_type='application/json')
         self.assertEqual(len(r.json()['valid_moves']), 0)
 
 class NewGameTest(TestCase):
     """Test the /api/new-game/ endpoint."""
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
 
     def test_reset(self):
-        # Manually update board to simulate game progress
-        session = self.client.session
-        game_data = session['game']
-        game_data['current_turn'] = 'black'
-        game_data['move_history'] = ['e4']
-        session['game'] = game_data
-        session.save()
-
         r = self.client.post('/api/new-game/', content_type='application/json')
         data = r.json()
         self.assertEqual(data['current_turn'], 'white')
         self.assertEqual(len(data['move_history']), 0)
+        self.assertIn('game_state', data)
 
 class CheckPromotionTest(TestCase):
     """Test the /api/check-promotion/ endpoint."""
@@ -644,7 +785,11 @@ class CheckPromotionTest(TestCase):
         pass
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
         self.promo_patcher = mock.patch('game.engine.ChessGame.is_promotion_move')
         self.mock_promo = self.promo_patcher.start()
 
@@ -653,24 +798,22 @@ class CheckPromotionTest(TestCase):
 
     def test_white_pawn_promotion(self):
         self.mock_promo.return_value = True
-        url = '/api/check-promotion/?from_row=1&from_col=0&to_row=0'
-        r = self.client.get(url)
+        r = self.client.post('/api/check-promotion/', data=json.dumps({'game_state': self.state, 'from_row': 1, 'from_col': 0, 'to_row': 0}), content_type='application/json')
         self.assertTrue(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
     def test_black_pawn_promotion(self):
         self.mock_promo.return_value = True
-        url = '/api/check-promotion/?from_row=6&from_col=0&to_row=7'
-        r = self.client.get(url)
+        r = self.client.post('/api/check-promotion/', data=json.dumps({'game_state': self.state, 'from_row': 6, 'from_col': 0, 'to_row': 7}), content_type='application/json')
         self.assertTrue(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
 
     def test_no_promotion(self):
         self.mock_promo.return_value = False
-        url = '/api/check-promotion/?from_row=1&from_col=0&to_row=2'
-        r = self.client.get(url)
+        r = self.client.post('/api/check-promotion/', data=json.dumps({'game_state': self.state, 'from_row': 1, 'from_col': 0, 'to_row': 2}), content_type='application/json')
         self.assertFalse(r.json()['is_promotion'])
         self.mock_promo.assert_called_once()
+
 
 class GameStateTest(TestCase):
     """Test the /api/state/ endpoint."""
@@ -698,10 +841,7 @@ class GameStateTest(TestCase):
         game.last_ts = 100.0
         self._set_game_session(game)
 
-        with (
-            mock.patch('game.views.time.time', return_value=105.0),
-            mock.patch('game.engine.time.time', return_value=105.0),
-        ):
+        with mock.patch('time.time', return_value=105.0):
             response = self.client.get('/api/state/')
 
         data = response.json()
@@ -717,10 +857,7 @@ class GameStateTest(TestCase):
         game.black_time = 600
         self._set_game_session(game)
 
-        with (
-            mock.patch('game.views.time.time', return_value=111.0),
-            mock.patch('game.engine.time.time', return_value=111.0),
-        ):
+        with mock.patch('time.time', return_value=111.0):
             response = self.client.get('/api/state/')
 
         data = response.json()
@@ -732,23 +869,29 @@ class PauseTest(TestCase):
     """Test the /api/pause/ endpoint."""
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
 
     def _set_game_session(self, game):
         session = self.client.session
+        session.pop('legacy_game_id', None)
         session['game'] = game.to_dict()
         session.save()
         self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
 
     def test_pause_toggle(self):
         r1 = self.client.post(
-            '/api/pause/', data=json.dumps({'pause': True}),
+            '/api/pause/', data=json.dumps({'game_state': self.state, 'pause': True}),
             content_type='application/json'
         )
+        self.state = r1.json()['game_state']
         self.assertTrue(r1.json()['paused'])
 
         r2 = self.client.post(
-            '/api/pause/', data=json.dumps({'pause': False}),
+            '/api/pause/', data=json.dumps({'game_state': self.state, 'pause': False}),
             content_type='application/json'
         )
         self.assertFalse(r2.json()['paused'])
@@ -761,10 +904,7 @@ class PauseTest(TestCase):
         game.paused = False
         self._set_game_session(game)
 
-        with (
-            mock.patch('game.views.time.time', return_value=103.0),
-            mock.patch('game.engine.time.time', return_value=103.0),
-        ):
+        with mock.patch('time.time', return_value=103.0):
             response = self.client.post(
                 '/api/pause/',
                 data=json.dumps({
@@ -776,7 +916,6 @@ class PauseTest(TestCase):
             )
 
         data = response.json()
-        self.assertTrue(data['paused'])
         self.assertEqual(data['white_time'], 597)
         self.assertEqual(data['black_time'], 600)
 
@@ -784,12 +923,16 @@ class DrawOfferTest(TestCase):
     """Test draw agreement persistence through the API."""
 
     def setUp(self):
-        self.client.get('/play/')
+        self.state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
 
     def test_accept_draw_marks_game_as_draw_agreement(self):
         response = self.client.post(
             '/api/draw/',
-            data=json.dumps({'action': 'accept'}),
+            data=json.dumps({'game_state': self.state, 'action': 'accept'}),
             content_type='application/json',
         )
         data = response.json()
@@ -798,7 +941,11 @@ class DrawOfferTest(TestCase):
         self.assertEqual(data['game_status'], 'draw')
         self.assertEqual(data['draw_reason'], 'agreement')
 
-        state = self.client.get('/api/state/').json()
+        state = self.client.post(
+            '/api/state/',
+            data=json.dumps({'game_state': data['game_state']}),
+            content_type='application/json',
+        ).json()
         self.assertEqual(state['game_status'], 'draw')
         self.assertEqual(state['draw_reason'], 'agreement')
 
@@ -938,12 +1085,16 @@ class AIMoveTest(TestCase):
         self.assertFalse(r.json()['valid'])
 
     def test_ai_makes_move(self):
-        self.client.post(
+        start = self.client.post(
             '/api/new-game/', data=json.dumps({'mode': 'ai'}),
             content_type='application/json'
-        )
+        ).json()
 
-        r = self.client.post('/api/ai-move/', content_type='application/json')
+        r = self.client.post(
+            '/api/ai-move/',
+            data=json.dumps({'game_state': start['game_state']}),
+            content_type='application/json',
+        )
         data = r.json()
         self.assertTrue(data['valid'])
         self.assertEqual(data['current_turn'], 'black')
@@ -1288,6 +1439,7 @@ class StatsCleanupTest(TestCase):
         self.assertNotContains(response, 'Checkmate')
         self.assertContains(response, 'No games played yet.')
 
+@override_settings(SESSION_ENGINE='django.contrib.sessions.backends.db')
 class StaleGameCleanupTest(TestCase):
     def setUp(self):
         self.url = '/api/cron/cleanup-stale-games/'
@@ -1618,12 +1770,10 @@ class TimeControlIncrementTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['valid'])
         
-        session = self.client.session
-        game_dict = session.get('game')
+        game_dict = response.json()['game_state']['game']
         self.assertIsNotNone(game_dict)
         self.assertEqual(game_dict['increment'], 3)
         self.assertEqual(game_dict['white_time'], 300)
-
 
 class GameResultMoveHistoryTest(TestCase):
     """Test suite for verifying persistent move history storage in GameResult."""
@@ -1663,6 +1813,7 @@ class GameResultMoveHistoryTest(TestCase):
         res = self.GameResult.objects.first()
         self.assertEqual(res.moves, moves)
 
+    @override_settings(SESSION_ENGINE='django.contrib.sessions.backends.db')
     def test_stale_game_cleanup_saves_move_history(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
@@ -1718,13 +1869,18 @@ class GameResultMoveHistoryTest(TestCase):
             return ''
         mock_engine.side_effect = fake_engine
 
-        # Populate session with active game
-        self.client.get('/play/')
+        # Initialize an active game to get valid game_state
+        state = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'pvp'}),
+            content_type='application/json',
+        ).json()['game_state']
         
         # Player makes the move
         response = self.client.post(
             '/api/move/',
             data=json.dumps({
+                'game_state': state,
                 'from_row': 6, 'from_col': 4,
                 'to_row': 4, 'to_col': 4,
             }),

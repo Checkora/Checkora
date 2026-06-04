@@ -148,21 +148,15 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 # Session and CSRF cookie security (production only — local runserver is HTTP).
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = IS_PRODUCTION
 SESSION_COOKIE_SAMESITE = 'Lax'
 
-CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = IS_PRODUCTION
-CSRF_COOKIE_SAMESITE = 'Lax'
-
-# SSL redirect and HSTS only on Vercel; avoids local HTTP→HTTPS redirect loops.
-SECURE_SSL_REDIRECT = IS_PRODUCTION
-if IS_PRODUCTION:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SSL Redirect
+SECURE_SSL_REDIRECT = not DEBUG and not os.environ.get('CI')
 
 
 # Email Configuration for OTP and Password Reset EMails

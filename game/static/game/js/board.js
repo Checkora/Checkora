@@ -78,6 +78,8 @@
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
             let currentBlackName = 'Black';
+            let gameState = null;
+            const GAME_STATE_STORAGE_KEY = 'checkora.gameState.v1';
             // Updates UI to highlight selected game mode button
             function updateModeButtonsUI(mode) {
                 const pvpBtn = document.getElementById("newPvPBtn");
@@ -687,9 +689,9 @@
             
             // post() uses csrf()
             function csrf() {
-                const input = document.querySelector('[name=csrfmiddlewaretoken]');
-                if (input?.value) {
-                    return input.value;
+                const el = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (el && el.value) {
+                    return el.value;
                 }
                 const m = document.cookie.match(/csrftoken=([^;]+)/);
                 return m ? decodeURIComponent(m[1]) : '';
@@ -708,6 +710,30 @@
                     },
                     body: JSON.stringify(body)
                 })).json();
+            }
+
+            function loadStoredGameState() {
+                try {
+                    const raw = localStorage.getItem(GAME_STATE_STORAGE_KEY);
+                    gameState = raw ? JSON.parse(raw) : null;
+                } catch (_) {
+                    gameState = null;
+                    localStorage.removeItem(GAME_STATE_STORAGE_KEY);
+                }
+            }
+
+            function withGameState(body = {}) {
+                return gameState ? { ...body, game_state: gameState } : body;
+            }
+
+            function syncGameState(data) {
+                if (!data || !data.game_state) return;
+                gameState = data.game_state;
+                try {
+                    localStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(gameState));
+                } catch (_) {
+                    // If storage is full or unavailable, keep the in-memory state for this tab.
+                }
             }
 
             function isAITurn() {
@@ -974,7 +1000,8 @@
                 whiteAlertFired = false;
                 blackAlertFired = false;
 
-                const data = await get('/api/state/');
+                const data = await post('/api/state/', withGameState());
+                syncGameState(data);
 
                 if (data.time_limit !== undefined) {
                     selectedMins = data.time_limit / 60;
@@ -1355,7 +1382,7 @@
                 }
 
                 // NORMAL MOVE LOGIC
-                const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+                const data = await post('/api/valid-moves/', withGameState({ row: r, col: c }));
 
                 hints = data.valid_moves || [];
 
@@ -1509,7 +1536,8 @@
                     };
                     if (promotionPiece) body.promotion_piece = promotionPiece;
 
-                    const data = await post('/api/move/', body);
+                    const data = await post('/api/move/', withGameState(body));
+                    syncGameState(data);
                         if (data.valid) {
                             illegalMoveCount = 0;
                             playSound(data);
@@ -1718,7 +1746,8 @@
                         return;
                     }
 
-                    const data = await post('/api/ai-move/', {});
+                    const data = await post('/api/ai-move/', withGameState());
+                    syncGameState(data);
                     clearInterval(thinkingInterval); // fix: clear after API call completes, not before
 
                     // Abort if sequence is no longer current after API call completes
@@ -2779,7 +2808,8 @@
 
             async function pauseGame() {
                 if (paused) return;
-                const d = await post('/api/pause/', { pause: true });
+                const d = await post('/api/pause/', withGameState({ pause: true }));
+                syncGameState(d);
                 paused = d.paused;
                 whiteTime = d.white_time;
                 blackTime = d.black_time;
@@ -2789,7 +2819,8 @@
 
             async function resumeGame() {
                 try {
-                    const d = await post('/api/pause/', { pause: false });
+                    const d = await post('/api/pause/', withGameState({ pause: false }));
+                    syncGameState(d);
 
                     paused = false;
 
@@ -2996,6 +3027,7 @@
                 if (welcomeFenError) welcomeFenError.textContent = '';
 
                 const d = await post('/api/new-game/', payload);
+                syncGameState(d);
 
                 if (d.valid === false || !d.board) {
                     const message = d.message || 'Unable to start a new game.';
@@ -3372,7 +3404,8 @@
                 }
             };
             if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-    const data = await get('/api/state/');
+    const data = await post('/api/state/', withGameState());
+    syncGameState(data);
 
     if (data.pgn) {
         const blob = new Blob([data.pgn], { type: 'text/plain' });
@@ -3401,7 +3434,8 @@
 };
 
             if (copyFenBtn) copyFenBtn.onclick = async () => {
-                const data = await get('/api/state/');
+                const data = await post('/api/state/', withGameState());
+                syncGameState(data);
                 if (data.fen) {
                     navigator.clipboard.writeText(data.fen);
                     
@@ -3415,7 +3449,8 @@
             };
 
             if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
-                const data = await post('/api/resume/', {});
+                const data = await post('/api/resume/', withGameState());
+                syncGameState(data);
                 if (!data.valid) {
                     welcomeResumeBtn.style.display = 'none';
                     return;
@@ -3584,7 +3619,8 @@
                 if (!gameOver) {
                     showConfirm("Resign?", "Are you sure you want to resign?", async () => {
                         try {
-                            const result = await post('/api/resign/', {});
+                            const result = await post('/api/resign/', withGameState());
+                            syncGameState(result);
                             if (result.valid) {
                                 if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
                                 const loserColor = result.winner === 'white' ? 'black' : 'white';
@@ -3602,7 +3638,8 @@
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
-                const data = await post('/api/draw/', { action: 'accept' });
+                const data = await post('/api/draw/', withGameState({ action: 'accept' }));
+                syncGameState(data);
                 if (data.success) {
                     if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
                     endGame('draw', turn, data.draw_reason);
@@ -3882,7 +3919,7 @@
             if (!navigator.webdriver) {
                 window.addEventListener('beforeunload', (e) => {
                if (!paused) {
-                    const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
+                    const blob = new Blob([JSON.stringify(withGameState({ pause: true }))], { type: 'application/json' });
                     navigator.sendBeacon('/api/pause/', blob);
                    }
                 });
@@ -4018,6 +4055,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', closeLeaveConfirm);
             if (typeof module !== "undefined" && module.exports) {
                 module.exports = { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache };
             } else {
+                loadStoredGameState();
                 loadGame();
             }
 
