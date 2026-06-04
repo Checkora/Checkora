@@ -341,9 +341,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-selenium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-selenium-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: 📥 Install dependencies
         run: |
