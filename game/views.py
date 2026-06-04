@@ -712,6 +712,23 @@ def verify_otp(request):
 
     if request.method == 'POST':
         otp_created_at = request.session.get('otp_created_at')
+        failed_attempts = request.session.get('otp_failed_attempts', 0)
+
+        if failed_attempts >= 5:
+            try:
+                user = User.objects.get(id=user_id, is_active=False)
+                user.delete()
+            except User.DoesNotExist:
+                pass
+            messages.error(
+                request,
+                'Too many invalid OTP attempts. Please register again.',
+            )
+            request.session.pop('registration_otp_hash', None)
+            request.session.pop('otp_created_at', None)
+            request.session.pop('registration_user_id', None)
+            request.session.pop('otp_failed_attempts', None)
+            return redirect('register')
 
         if otp_created_at:
             if time.time() - otp_created_at > 300:
@@ -727,7 +744,7 @@ def verify_otp(request):
                 request.session.pop('registration_otp_hash', None)
                 request.session.pop('otp_created_at', None)
                 request.session.pop('registration_user_id', None)
-
+                request.session.pop('otp_failed_attempts', None)
                 return redirect('register')
 
         entered_otp = request.POST.get('otp', '').strip()
@@ -740,6 +757,7 @@ def verify_otp(request):
             entered_otp_hash,
             stored_otp_hash
         ):
+            request.session.pop('otp_failed_attempts', None)
             try:
                 user = User.objects.get(id=user_id)
                 user.is_active = True
@@ -785,6 +803,7 @@ def verify_otp(request):
                 return redirect('register')
 
         else:
+            request.session['otp_failed_attempts'] = failed_attempts + 1
             messages.error(request, 'Invalid OTP. Please try again.')
 
     remaining_time = 0
