@@ -3250,7 +3250,7 @@
                 
                 pveOptions.style.display = 'none';
                 modeSelection.style.display = 'flex';
-                nameInputs.style.display = 'flex';
+                nameInputs.style.display = 'none';
                 
                 if (whiteInput) {
                     whiteInput.style.display = 'block';
@@ -3326,7 +3326,13 @@
                 });
             }
             
-            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {            
+            if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+                modeSelection.style.display = 'none';
+                nameInputs.style.display = 'flex';
+            };
+
+            const startPvPBtn = document.getElementById('startPvPBtn');
+            if (startPvPBtn) startPvPBtn.onclick = async () => {
                 if (!validatePlayerNames()) return;
                 const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('pvp', 'white', 'medium', fen);

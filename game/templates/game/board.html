@@ -81,7 +81,7 @@
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
 
-            <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
+            <div id="nameInputs" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 25px;">
                 <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17" required
                     minlength="1"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
@@ -170,9 +170,9 @@
                         </div>
                     </div>
                 </div>
+                <button class="btn btn-gold" id="startPvPBtn" style="padding: 12px; font-size: 1.05rem; margin-top: 10px;">Start Game</button>
             </div>
 
-            <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
                 
                 <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
