@@ -418,6 +418,11 @@ body {
     font-weight: 600;
 }
 
+.hide-coordinates .ranks,
+.hide-coordinates .files {
+    visibility: hidden;
+}
+
 .chessboard {
     display: grid;
     grid-template-columns: repeat(8, 1fr);

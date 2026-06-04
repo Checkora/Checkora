@@ -2976,6 +2976,21 @@
                 initThemeSwitcher();
             }
 
+            // Coordinates toggle
+            const coordsCheckbox = document.getElementById('showCoordsCheckbox');
+            const boardContainer = document.querySelector('.board-container');
+            if (coordsCheckbox && boardContainer) {
+                const saved = localStorage.getItem('showCoordinates');
+                const isVisible = saved !== null ? saved === 'true' : true;
+                coordsCheckbox.checked = isVisible;
+                boardContainer.classList.toggle('hide-coordinates', !isVisible);
+                coordsCheckbox.addEventListener('change', () => {
+                    const visible = coordsCheckbox.checked;
+                    boardContainer.classList.toggle('hide-coordinates', !visible);
+                    localStorage.setItem('showCoordinates', visible);
+                });
+            }
+
     document.addEventListener('visibilitychange', async() => {
         if (document.hidden) {
             pauseGame().catch(() => {});
