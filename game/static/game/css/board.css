@@ -2028,7 +2028,7 @@ body.blindfold-mode .capture-ring {
 }
 
 /* =======================================================
-                        Hint Highlight 
+                        Hint Highlight
 ==========================================================*/
 .hint-source {
     border: 3px solid white;
@@ -2102,15 +2102,7 @@ body.blindfold-mode .capture-ring {
     text-align: center;
     box-sizing: border-box;
 }
-.hint-container {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    max-width: 280px;
-    margin: 8px auto;
-    padding: 0 12px;
-}
-#hintBtn:hover {
+#hintBtn:not(:disabled):hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.24);
 }

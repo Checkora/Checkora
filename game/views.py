@@ -517,6 +517,7 @@ def ai_move(request):
 
 @require_POST
 def hint_move(request):
+    """Return the best move hint for the current position."""
     game_data = request.session.get('game')
 
     if not game_data:
@@ -526,7 +527,13 @@ def hint_move(request):
         }, status=400)
 
     game = ChessGame.from_dict(game_data)
-
+    
+    if game.game_status != 'active':  
+        return JsonResponse({
+            'valid': False,
+            'message': 'Game is not active.'
+        }, status=400)
+        
     hint_count = request.session.get('hint_count', 0)
 
     if hint_count >= 3:

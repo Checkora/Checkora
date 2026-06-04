@@ -1935,6 +1935,11 @@
 
                     const sourceSquare = sq(hint.from_row, hint.from_col);
                     const destinationSquare = sq(hint.to_row, hint.to_col);
+                    
+                    if (!sourceSquare || !destinationSquare) {
+                        showStatus('Hint display error.', true);
+                        return;
+                    }
 
                     sourceSquare.classList.add("hint-source");
                     destinationSquare.classList.add("hint-destination");
@@ -1944,8 +1949,10 @@
                     }
                     
                     hintTimeout = setTimeout(() => {
-                        sourceSquare.classList.remove("hint-source");
-                        destinationSquare.classList.remove("hint-destination");
+                        if (sourceSquare && destinationSquare) {
+                            sourceSquare.classList.remove("hint-source");
+                            destinationSquare.classList.remove("hint-destination");
+                        }
                     }, 2500);
 
                     showStatus('Suggested move highlighted.', false);
