@@ -81,7 +81,7 @@ class CustomPasswordResetForm(PasswordResetForm):
         from_email,
         to_email,
         html_email_template_name=None
-    ):
+    ): 
         try:
             super().send_mail(
                 subject_template_name,
