@@ -216,6 +216,30 @@
             background:#81c784 !important;
         }
 
+        #lesson-instruction{
+            text-align:center;
+            font-size:18px;
+            margin-bottom:15px;
+            color:#f0c040;
+        }
+
+        #lesson-result{
+            text-align:center;
+            font-size:18px;
+            font-weight:bold;
+            margin-top:15px;
+        }
+
+        .valid-move{
+            background:#81c784 !important;
+        }
+
+        .selected-square{
+            outline:4px solid yellow;
+        }
+
+
+
     </style>
 </head>
 <body>
@@ -268,6 +292,34 @@
 
     {% endif %}
 
+    {% if lesson.lesson_steps %}
+
+    <div class="lesson-practice">
+
+        <h2>🎯 Practice Position</h2>
+
+        <p id="lesson-instruction"></p>
+
+        <div class="lesson-board-wrapper">
+            <div id="practice-board" class="lesson-board"></div>
+        </div>
+
+        <p id="lesson-result"></p>
+
+        <button
+            id="retry-btn"
+            class="complete-btn"
+            style="display:none; margin-top:10px;"
+        >
+            🔄 Retry
+        </button>
+
+    </div>
+
+    {{ lesson.lesson_steps|json_script:"lesson-steps-data" }}
+    {{ lesson.practice_position|json_script:"practice-position-data" }}
+
+    {% endif %}
 
     {% if lesson.practice_question %}
     <div class="coming-soon">
@@ -394,5 +446,6 @@ function checkAnswer(selected, correct) {
 
 </script>
 <script src="{% static 'game/js/lesson_demo.js' %}"></script>
+<script src="{% static 'game/js/lesson_practice.js' %}"></script>
 </body>
 </html>
