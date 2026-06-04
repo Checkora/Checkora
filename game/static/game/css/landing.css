@@ -853,9 +853,9 @@ body {
 }
 
 .capability-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
-    border-color: rgba(240, 192, 64, 0.35);
+    transform: translateY(-6px);
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 18px rgba(240, 192, 64, 0.18);
 }
 
 .capability-icon {
