@@ -2002,3 +2002,7 @@ class GameResultMoveHistoryTest(TestCase):
         self.assertEqual(res.winner, 'white')
         self.assertEqual(len(res.moves), 1)
         self.assertEqual(res.moves[0]['notation'], 'e4#')
+
+    def test_pr_check_dummy(self):
+        """A simple dummy test to trigger PR/CI checks."""
+        self.assertTrue(True)
