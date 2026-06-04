@@ -716,6 +716,20 @@ def verify_otp(request):
 
     if request.method == 'POST':
         otp_created_at = request.session.get('otp_created_at')
+        otp_attempts = request.session.get('otp_attempts', 0)
+
+        if otp_attempts >= 5:
+            try:
+                user = User.objects.get(id=user_id, is_active=False)
+                user.delete()
+            except User.DoesNotExist:
+                pass
+            request.session.pop('registration_otp_hash', None)
+            request.session.pop('otp_created_at', None)
+            request.session.pop('registration_user_id', None)
+            request.session.pop('otp_attempts', None)
+            messages.error(request, 'Too many invalid attempts. Please register again.')
+            return redirect('register')
 
         if otp_created_at:
             if time.time() - otp_created_at > 300:
@@ -731,6 +745,7 @@ def verify_otp(request):
                 request.session.pop('registration_otp_hash', None)
                 request.session.pop('otp_created_at', None)
                 request.session.pop('registration_user_id', None)
+                request.session.pop('otp_attempts', None)
 
                 return redirect('register')
 
@@ -752,6 +767,7 @@ def verify_otp(request):
                 del request.session['registration_user_id']
                 del request.session['registration_otp_hash']
                 request.session.pop('otp_created_at', None)
+                request.session.pop('otp_attempts', None)
 
                 try:
                     html_content = render_to_string(
@@ -789,7 +805,12 @@ def verify_otp(request):
                 return redirect('register')
 
         else:
-            messages.error(request, 'Invalid OTP. Please try again.')
+            request.session['otp_attempts'] = otp_attempts + 1
+            remaining = 4 - otp_attempts
+            if remaining > 0:
+                messages.error(request, f'Invalid OTP. {remaining} attempt(s) remaining.')
+            else:
+                messages.error(request, 'Too many invalid attempts. Please register again.')
 
     remaining_time = 0
     last_otp_time = request.session.get('last_otp_time')
