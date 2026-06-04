@@ -174,7 +174,6 @@ body {
 }
 
 .dropdown-content{
-    display: none;
     position: absolute;
     right: 0;
     top: 55px;
@@ -185,10 +184,17 @@ body {
     border: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 10px 30px rgba(0,0,0,0.4);
     z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
 }
 
-.profile-dropdown:hover .dropdown-content{
-    display: block;
+.profile-dropdown:hover .dropdown-content,
+.profile-dropdown:focus-within .dropdown-content{
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .dropdown-content a,
