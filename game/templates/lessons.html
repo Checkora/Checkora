@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Chess Lessons - Checkora</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #121212;
+            color: white;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #f0c040;
+        }
+
+        .category {
+            margin-top: 30px;
+        }
+
+        .lesson-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+            gap: 15px;
+        }
+
+        .lesson-card {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #333;
+            transition: 0.3s;
+        }
+
+        .lesson-card:hover {
+            transform: translateY(-4px);
+            border-color: #f0c040;
+        }
+
+        a {
+            text-decoration: none;
+            color: white;
+        }
+
+        .progress-box {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+        }
+
+        .progress-box h3 {
+            color: #f0c040;
+            margin: 0;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<h1>♟ Learn Chess</h1>
+
+<div class="progress-box">
+    <h3>
+        Progress:
+        {{ completed_count }}/{{ total_lessons }}
+        Lessons Completed
+    </h3>
+</div>
+
+{% for category, lesson_list in lessons.items %}
+
+<div class="category">
+
+    <h2>{{ category }}</h2>
+
+    <div class="lesson-grid">
+
+        {% for lesson in lesson_list %}
+
+        <a href="{% url 'lesson_detail' lesson %}">
+            <div class="lesson-card">
+                {% if lesson in completed_lessons %}
+                    ✓ {{ lesson }}
+                {% else %}
+                    {{ lesson }}
+                {% endif %}
+            </div>
+        </a>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+{% endfor %}
+
+</body>
+</html>

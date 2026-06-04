@@ -304,7 +304,6 @@
 
                 return PUZZLES[dayIndex];
             }
-    
 
             function initStockfish() {
                 if (!stockfishWorker) {
@@ -464,12 +463,15 @@
             let flipped = false;
             let autoFlip = false;
 
-            const SOUND_BASE_URL = window.SOUND_BASE_URL || '/static/game/sounds/';
-            const sounds = {
-              move:    new Audio(`${SOUND_BASE_URL}move.wav`),
-              capture: new Audio(`${SOUND_BASE_URL}capture.mp3`),
-              check:   new Audio(`${SOUND_BASE_URL}check.wav`),
-              draw:    new Audio(`${SOUND_BASE_URL}draw.mp3`),
+           const sounds = {
+           move:     new Audio(`${SOUND_BASE_URL}move.wav`),
+           capture:  new Audio(`${SOUND_BASE_URL}capture.mp3`),
+           check:    new Audio(`${SOUND_BASE_URL}check.wav`),
+           draw:     new Audio(`${SOUND_BASE_URL}draw.mp3`),
+           win:      new Audio(`${SOUND_BASE_URL}win.mp3`),
+           loss:     new Audio(`${SOUND_BASE_URL}loss.mp3`),
+           gameDraw: new Audio(`${SOUND_BASE_URL}draw_end.mp3`),
+           timeout:  new Audio(`${SOUND_BASE_URL}timeout.mp3`),
             };
 
             let soundEnabled = true;
@@ -523,6 +525,34 @@
                     muteBtn.setAttribute('aria-pressed', String(soundEnabled));
                 }
             }
+
+            function playGameOverSound(reason, resultState) {
+                if (!soundEnabled) return;
+
+
+                let sound = null;
+
+                if (reason === 'stalemate' || reason === 'draw') {
+                sound = sounds.gameDraw;
+                } else if (reason === 'timeout') {
+                sound = sounds.timeout;
+                }
+            
+                else if (reason === 'checkmate' || reason === 'resign') {
+                if (resultState === 'defeat') {
+                sound = sounds.loss;
+                } else {
+                sound = sounds.win;
+                }
+            }
+
+                
+                if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch((e) => console.log('Sound play error:', e));
+                }
+            }
+
 
             /* ==========================================================
             DOM REFERENCES
@@ -1079,6 +1109,13 @@
                 // fix
                 // Removed static styling for AI clock so it displays the countdown timer.
 
+                // Restore check highlight if game was reloaded while in check
+                if (data.game_status === 'check') {
+                    applyCheckHighlight();
+                } else {
+                    highlightCheck();
+                }
+
                 if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
                     handleGameStatus(data.game_status, data.draw_reason);
                 }
@@ -1554,6 +1591,15 @@
                             board = parseBoard(data.board);
                             turn = data.current_turn;
 
+                            const hasThreefoldWarning = data.threefold_warning;
+
+                            if (hasThreefoldWarning) {
+                                showStatus(
+                                    '⚠️ This position has appeared twice. One more repetition will trigger a draw.',
+                                    false
+                                );
+                            }
+                            
                             // Daily Puzzle Validation
                             if (dailyPuzzleMode && currentPuzzle && !puzzleAnalyzing) {
 
@@ -1680,6 +1726,9 @@
                             a11yMsg = `${capturer} captured ${capturedColor}'s ${pieceName} on ${targetSquare}. `;
                         } else if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
+                            if (window.checkLessonMove && lastMove) {
+                                window.checkLessonMove(lastMove);
+                            }
                             a11yMsg = `${playedColor} played ${lastMove}. `;
                         }
 
@@ -1692,7 +1741,9 @@
                                 a11yMsg += checkMsg;
                             } else {
                                 highlightCheck();
-                                showStatus('', false);
+                                if (!hasThreefoldWarning) {
+                                    showStatus('', false);
+                                }
                             }
                             if (a11yMsg) announceMove(a11yMsg);
                         }
@@ -1768,7 +1819,14 @@
                             const mv = data.ai_move;
                             await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                             board = parseBoard(data.board);
-                            turn = data.current_turn;
+
+                            if (data.threefold_warning) {
+                                showStatus(
+                                    '⚠️ This position has appeared twice. One more repetition will trigger a draw.',
+                                    false
+                                );
+                            }
+                            
                             lastMove = { from: [mv.from_row, mv.from_col], to: [mv.to_row, mv.to_col] };
                             whiteTime = data.white_time;
                             blackTime = data.black_time;
@@ -1794,6 +1852,9 @@
                             a11yMsg = `${capturer} captured ${capturedColor}'s ${pieceName} on ${targetSquare}. `;
                         } else if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
+                            if (window.checkLessonMove && lastMove) {
+                                window.checkLessonMove(lastMove);
+                            }
                             a11yMsg = `AI played ${lastMove}. `;
                         }
 
@@ -1806,7 +1867,9 @@
                                 a11yMsg += checkMsg;
                             } else {
                                 highlightCheck();
-                                showStatus('Your turn.', false);
+                                if (!hasThreefoldWarning) {
+                                    showStatus('Your turn.', false);
+                                }
                             }
                             if (a11yMsg) announceMove(a11yMsg);
 
@@ -2077,6 +2140,16 @@
             UI UPDATES
             ========================================================== */
             function updateTurn() {
+                if (
+                    !turnEl ||
+                    !whiteNameLabel ||
+                    !blackNameLabel ||
+                    !wCapEl ||
+                    !bCapEl
+                ) {
+                    return;
+                }
+                
                 const badge = turnEl;
                 badge.className = 'turn-badge ' + turn;
                 
@@ -2212,7 +2285,11 @@
                 }
                 
                 let isCelebration = (resultState === 'victory');
-            
+                
+                
+                // Play distinct game over sound
+                playGameOverSound(reason, resultState);
+
                 if (reason === 'checkmate') {
                     const winnerName = color === 'white' ? blackNameLabel.textContent : whiteNameLabel.textContent;
                     title = 'Checkmate';
@@ -3414,6 +3491,7 @@
                     errorDiv.style.display = 'none';
                 }
             };
+            if (pveOptions) {
             const colorBtns = pveOptions.querySelectorAll('.color-choice');
             colorBtns.forEach(btn => {
                 btn.onclick = () => {
@@ -3426,7 +3504,7 @@
                     selectedPveColor = btn.dataset.color;
                 };
             });
-
+        } 
             if (startAIBtn) startAIBtn.onclick = async () => {
                 const wNameInput = document.getElementById('whiteNameInput');
                 const errorDiv = document.getElementById('nameError');
