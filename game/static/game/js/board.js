@@ -19,6 +19,15 @@
                 for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
                     PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
 
+            const PIECE_NAMES = {
+                'p': 'Pawn',
+                'r': 'Rook',
+                'n': 'Knight',
+                'b': 'Bishop',
+                'q': 'Queen',
+                'k': 'King'
+            };
+
             let board = [];
             let turn = 'white';
             let selected = null;
@@ -58,6 +67,14 @@
             let dailyPuzzleMode = false;
             let currentPuzzle = null;
             let puzzleMoveIndex = 0;
+            let currentPuzzleFen = null;
+            let puzzleAnalyzing = false;
+            let stockfishWorker = null;
+    
+            let hintLevel = 0;
+
+            let expectedMoveEval = null;
+            let evaluationCache = {};
             let currentDifficulty = 'medium';
             let currentWhiteName = 'White';
             let currentBlackName = 'Black';
@@ -88,7 +105,7 @@
                 {
                     id: 1,
                     fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
-                    solution: ["h1h7"]
+                    solution: ["g2g4"]
                 },
 
                 {
@@ -127,8 +144,151 @@
                     solution: ["f1e1"]
                 },
             ];
+     
 
-           function getCurrentWeeklyPuzzle() {
+            // =============================================
+            // Daily Puzzle Streak
+            // =============================================
+
+            function getPuzzleStreak() {
+                try{
+                    return JSON.parse(
+                        localStorage.getItem("dailyPuzzleStreak")
+                    ) || {
+                        streak: 0,
+                        lastCompleted: null,
+                        longestStreak: 0
+                    };
+                }catch (error) {
+                    console.error("Failed to load puzzle streak:", error);
+
+                    return {
+                        streak: 0,
+                        lastCompleted: null,
+                        longestStreak: 0
+                    };
+                }
+            }
+
+            function savePuzzleStreak(data) {
+                try{
+                    localStorage.setItem(
+                    "dailyPuzzleStreak",
+                    JSON.stringify(data)
+                );
+                }catch (error) {
+                    console.error("Failed to save puzzle streak:", error);
+                }
+            }
+        
+            function getLocalDateString() {
+                const today = new Date();
+
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, "0");
+                const day = String(today.getDate()).padStart(2, "0");
+
+                return `${year}-${month}-${day}`;
+            }
+        function updatePuzzleStreak() {
+
+            const today = new Date();
+            const todayStr = getLocalDateString();
+
+            const streakData = getPuzzleStreak();
+
+            if (streakData.lastCompleted === todayStr) {
+                return streakData.streak;
+            }
+
+            const yesterday = new Date();
+                yesterday.setDate(today.getDate() - 1);
+
+            const yesterdayStr =
+                `${yesterday.getFullYear()}-${String(
+                yesterday.getMonth() + 1
+                ).padStart(2, "0")}-${String(
+                yesterday.getDate()
+                ).padStart(2, "0")}`;
+
+            if (streakData.lastCompleted === yesterdayStr) {
+                streakData.streak++;
+            } else {
+                streakData.streak = 1;
+            }
+
+            streakData.lastCompleted = todayStr;
+
+            if (
+                streakData.streak >
+                streakData.longestStreak
+            ) {
+                streakData.longestStreak =
+                streakData.streak;
+            }
+
+            savePuzzleStreak(streakData);
+
+            return streakData.streak;
+            }
+            function updateStreakDisplay() {
+                const streakData = getPuzzleStreak();
+
+                const streakEl = document.getElementById("streak-count");
+                if (streakEl) {
+                    streakEl.textContent = streakData.streak;
+                }
+            }
+    
+            function clearPuzzleHints() {
+                hintLevel = 0;
+
+                document.querySelectorAll(".square").forEach(square => {
+                    square.classList.remove("hint-source");
+                    square.classList.remove("hint-target");
+                });
+            }
+
+            function showPuzzleHint() {
+                if (!dailyPuzzleMode || !currentPuzzle) return;
+
+                const move = currentPuzzle.solution[puzzleMoveIndex];
+
+                if (!move) return;
+
+                const fromFile = move.charCodeAt(0) - 97;
+                const fromRank = 8 - parseInt(move[1], 10);
+
+                const toFile = move.charCodeAt(2) - 97;
+                const toRank = 8 - parseInt(move[3], 10);
+
+                clearPuzzleHints();
+                const sourceSq = sq(fromRank, fromFile);
+                const targetSq = sq(toRank, toFile);
+
+                if (hintLevel === 0) {
+
+                    if (sourceSq) {
+                        sourceSq.classList.add("hint-source")
+                    };
+
+                    hintLevel = 1;
+
+                } else if (hintLevel === 1) {
+
+                    if (sourceSq) {
+                        sourceSq.classList.add("hint-source");
+                    }
+
+                    if (targetSq) {
+                        targetSq.classList.add("hint-target");
+                    }
+
+                    hintLevel = 2;
+                }
+            }
+    
+            function getCurrentWeeklyPuzzle() {
 
                 const today = new Date();
 
@@ -139,26 +299,159 @@
                 return PUZZLES[dayIndex];
             }
     
+
+            function initStockfish() {
+                if (!stockfishWorker) {
+                    stockfishWorker = new Worker('/static/game/js/stockfish.js');
+                    stockfishWorker.postMessage('setoption name Hash value 16');
+                    stockfishWorker.postMessage('setoption name Contempt value 0');
+                }
+            }
+
+            function getStockfishEval(fen) {
+                if (evaluationCache[fen]) {
+                    return Promise.resolve(evaluationCache[fen]);
+                }
+                return new Promise((resolve) => {
+                    initStockfish();
+                    
+                    let scoreType = 'cp';
+                    let scoreValue = 0;
+                    
+                    const onMessage = (e) => {
+                        const line = e.data;
+                        const match = line.match(/score (cp|mate) (-?\d+)/);
+                        if (match) {
+                            scoreType = match[1];
+                            scoreValue = parseInt(match[2], 10);
+                        }
+                        
+                        if (line.startsWith('bestmove')) {
+                            stockfishWorker.removeEventListener('message', onMessage);
+                            const result = { type: scoreType, value: scoreValue };
+                            evaluationCache[fen] = result;
+                            resolve(result);
+                        }
+                    };
+                    
+                    stockfishWorker.addEventListener('message', onMessage);
+                    stockfishWorker.postMessage('ucinewgame');
+                    stockfishWorker.postMessage(`position fen ${fen}`);
+                    stockfishWorker.postMessage('go depth 6 movetime 100');
+                });
+            }
+
+            function getPlayerScore(evalResult) {
+                const type = evalResult.type;
+                const value = evalResult.value;
+                if (type === 'mate') {
+                    if (value > 0) {
+                        return -10000 + value;
+                    } else {
+                        return 10000 + value;
+                    }
+                } else {
+                    return -value || 0;
+                }
+            }
+
+            async function precalculateExpectedMoveEval() {
+                if (!currentPuzzle) return;
+                const expectedMove = currentPuzzle.solution[puzzleMoveIndex];
+                if (!expectedMove) return;
+                try {
+                    if (!window.Chess) return;
+                    const chess = new window.Chess(currentPuzzleFen);
+                    const from = expectedMove.substring(0, 2);
+                    const to = expectedMove.substring(2, 4);
+                    const promo = expectedMove.length > 4 ? expectedMove.charAt(4) : undefined;
+                    chess.move({ from, to, promotion: promo });
+                    const expectedFen = chess.fen();
+                    expectedMoveEval = await getStockfishEval(expectedFen);
+                } catch (e) {
+                    console.error("Error precalculating expected move eval:", e);
+                }
+            }
+
+            async function validateMoveWithStockfish(previousFen, playedFen, expectedMove) {
+                try {
+                    let expectedEval = expectedMoveEval;
+                    if (!expectedEval) {
+                        if (!window.Chess) {
+                            console.error("Chess.js not loaded");
+                            return false;
+                        }
+                        const chess = new window.Chess(previousFen);
+                        const from = expectedMove.substring(0, 2);
+                        const to = expectedMove.substring(2, 4);
+                        const promo = expectedMove.length > 4 ? expectedMove.charAt(4) : undefined;
+                        chess.move({ from, to, promotion: promo });
+                        const expectedFen = chess.fen();
+                        expectedEval = await getStockfishEval(expectedFen);
+                    }
+
+                    const playedEval = await getStockfishEval(playedFen);
+
+                    const valExpected = getPlayerScore(expectedEval);
+                    const valPlayed = getPlayerScore(playedEval);
+
+                    const isCorrect = (valPlayed >= 9000) || 
+                                      (valPlayed >= valExpected - 50) || 
+                                      (valPlayed >= 300 && valExpected >= 300);
+
+                    return isCorrect;
+                } catch (e) {
+                    console.error("Stockfish validation error:", e);
+                    return false;
+                }
+            }
+
+            function clearEvaluationCache() {
+                evaluationCache = {};
+            }
+    
             async function startDailyPuzzle() {
                 currentPuzzle = getCurrentWeeklyPuzzle();
 
                 dailyPuzzleMode = true;
+                document.getElementById("whiteClock").style.display = "none";
+                document.getElementById("blackClock").style.display = "none";
+
+                document.getElementById("streak-counter").style.display = "block";
+                updateStreakDisplay();
+
                 if (restartPuzzleBtn) {
                     restartPuzzleBtn.style.display = 'block';
                 }
+
+                if (hintPuzzleBtn) {
+                    hintPuzzleBtn.style.display = 'block';
+                }
+
                 puzzleMoveIndex = 0;
+                clearPuzzleHints();
 
                 await startNewGame(
                     "pvp",
                     "white",
                     "medium",
-                    currentPuzzle.fen
+                    currentPuzzle.fen,
+                    null,
+                    null,
+                    true
                 );
+                currentPuzzleFen = currentPuzzle.fen;
+                expectedMoveEval = null;
+                initStockfish();
+                precalculateExpectedMoveEval();
                 const today = new Date().toLocaleDateString();
+                const streakData = getPuzzleStreak();
+                updateStreakDisplay();
                 showStatus(
-                    `Daily Puzzle Challenge - ${today}`,
+                    `Daily Puzzle Challenge - ${today} | 🔥 Current Streak: ${streakData.streak}`,
                     false
                 );
+               
             }
     
             let playerColor = 'white';
@@ -272,6 +565,7 @@
             const newAIBtn = document.getElementById('newAIBtn');
             const dailyPuzzleBtn = document.getElementById('dailyPuzzleBtn');
             const restartPuzzleBtn = document.getElementById('restartPuzzleBtn');
+            const hintPuzzleBtn = document.getElementById('hintPuzzleBtn');
             const newFenBtn = document.getElementById('newFenBtn');
 
             const fenOverlay = document.getElementById('fenOverlay');
@@ -794,14 +1088,13 @@
                 
                 if (gameMode === 'ai'){
                     const diffLabel = (currentDifficulty || 'medium').toUpperCase();
-                    const player_name = playerColor === 'white' ? data.white_name : data.black_name;
+                    const humanName = currentWhiteName || document.getElementById('whiteNameInput')?.value?.trim()?.slice(0, 17) || 'Player';
                     if(playerColor === 'white'){
-                        wName = player_name;
+                        wName = humanName;
                         bName = `AI (Black)`;
                     }else{
-                        bName = player_name;
+                        bName = humanName;
                         wName = `AI (White)`;
-
                     }
                 
                     // Inject difficulty badge after names are set
@@ -1253,7 +1546,7 @@
                             turn = data.current_turn;
 
                             // Daily Puzzle Validation
-                            if (dailyPuzzleMode && currentPuzzle ) {
+                            if (dailyPuzzleMode && currentPuzzle && !puzzleAnalyzing) {
 
                                 const playedMove =
                                     `${String.fromCharCode(97 + fc)}${8 - fr}` +
@@ -1264,13 +1557,22 @@
 
                                 if (playedMove === expectedMove) {
 
+                                    clearPuzzleHints();
+
                                     puzzleMoveIndex++;
+                                    currentPuzzleFen = data.fen;
+                                    expectedMoveEval = null;
+                                    precalculateExpectedMoveEval();
 
                                     if (puzzleMoveIndex >= currentPuzzle.solution.length) {
-
+                                        
+                                        const streak = updatePuzzleStreak();
+                                        updateStreakDisplay();
                                         showConfirm(
                                             "🎉 Puzzle Solved!",
-                                            "Come back tomorrow for a new challenge.",
+                                            `🔥 Current Streak: ${streak}<br> 
+                                            🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                            Come back tomorrow for a new challenge.`,
                                             () => {
                                                 gameLayout.style.visibility = "hidden";
                                                 welcomeOverlay.classList.add("active");
@@ -1280,14 +1582,61 @@
                                         return;
                                     }
                                 } else {
-                                    showConfirm(
-                                        "❌ Incorrect Move!",
-                                        "Would you like to try again?",
-                                        () => {
-                                            startDailyPuzzle();
-                                        },
-                                        "#ff4d4d"
-                                    );
+                                    // Start Stockfish validation for alternative moves
+                                    puzzleAnalyzing = true;
+                                    const origStatus = document.getElementById("game-status") ? document.getElementById("game-status").textContent : "";
+                                    showStatus("Analyzing move with Stockfish...", false);
+
+                                    validateMoveWithStockfish(currentPuzzleFen, data.fen, expectedMove)
+                                        .then((isCorrect) => {
+                                            puzzleAnalyzing = false;
+                                            showStatus(origStatus, false);
+
+                                            if (isCorrect) {
+                                                puzzleMoveIndex++;
+                                                currentPuzzleFen = data.fen;
+                                                expectedMoveEval = null;
+                                                precalculateExpectedMoveEval();
+
+                                                if (puzzleMoveIndex >= currentPuzzle.solution.length) {
+                                                    const streak = updatePuzzleStreak();
+                                                    updateStreakDisplay();
+                                                    showConfirm(
+                                                        "🎉 Puzzle Solved!",
+                                                        `🔥 Current Streak: ${streak}<br> 
+                                                        🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                                        Come back tomorrow for a new challenge.`,
+                                                        () => {
+                                                            gameLayout.style.visibility = "hidden";
+                                                            welcomeOverlay.classList.add("active");
+                                                        },
+                                                        "#f0c040"
+                                                    );
+                                                }
+                                            } else {
+                                                showConfirm(
+                                                    "❌ Incorrect Move!",
+                                                    "Would you like to try again?",
+                                                    () => {
+                                                        startDailyPuzzle();
+                                                    },
+                                                    "#ff4d4d"
+                                                );
+                                            }
+                                        })
+                                        .catch((err) => {
+                                            console.error("Stockfish validation promise error:", err);
+                                            puzzleAnalyzing = false;
+                                            showStatus(origStatus, false);
+                                            showConfirm(
+                                                "❌ Incorrect Move!",
+                                                "Would you like to try again?",
+                                                () => {
+                                                    startDailyPuzzle();
+                                                },
+                                                "#ff4d4d"
+                                            );
+                                        });
                                     return;
                                 }
                             }
@@ -1312,9 +1661,16 @@
                             startTimer();
                             updateMaterialUI(board);
                         let a11yMsg = '';
-                        if (data.move_history && data.move_history.length > 0) {
+                        const playedColor = turn === 'white' ? 'Black' : 'White';
+                        if (data.captured) {
+                            const targetSquare = getSquareLabel(tr, tc);
+                            const pieceCode = (typeof data.captured === 'string') ? data.captured : '';
+                            const pieceName = PIECE_NAMES[pieceCode.toLowerCase()] || 'piece';
+                            const capturer = playedColor;
+                            const capturedColor = capturer === 'White' ? 'Black' : 'White';
+                            a11yMsg = `${capturer} captured ${capturedColor}'s ${pieceName} on ${targetSquare}. `;
+                        } else if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
-                            const playedColor = turn === 'white' ? 'Black' : 'White';
                             a11yMsg = `${playedColor} played ${lastMove}. `;
                         }
 
@@ -1322,7 +1678,7 @@
                         if (!gameEnded) {
                             if (data.game_status === 'check') {
                                 applyCheckHighlight();
-                                const checkMsg = turn === 'white' ? 'White is in check!' : 'Black is in check!';
+                                const checkMsg = turn === 'white' ? 'Check to White King!' : 'Check to Black King!';
                                 showStatus(checkMsg, true);
                                 a11yMsg += checkMsg;
                             } else {
@@ -1420,7 +1776,15 @@
                             startTimer();
                             updateMaterialUI(board);
                         let a11yMsg = '';
-                        if (data.move_history && data.move_history.length > 0) {
+                        const playedColor = turn === 'white' ? 'Black' : 'White';
+                        if (data.captured) {
+                            const targetSquare = getSquareLabel(mv.to_row, mv.to_col);
+                            const pieceCode = (typeof data.captured === 'string') ? data.captured : '';
+                            const pieceName = PIECE_NAMES[pieceCode.toLowerCase()] || 'piece';
+                            const capturer = playedColor;
+                            const capturedColor = capturer === 'White' ? 'Black' : 'White';
+                            a11yMsg = `${capturer} captured ${capturedColor}'s ${pieceName} on ${targetSquare}. `;
+                        } else if (data.move_history && data.move_history.length > 0) {
                             const lastMove = data.move_history[data.move_history.length - 1].notation;
                             a11yMsg = `AI played ${lastMove}. `;
                         }
@@ -1429,8 +1793,9 @@
                         if (!gameEnded) {
                             if (data.game_status === 'check') {
                                 applyCheckHighlight();
-                                showStatus('You are in check!', true);
-                                a11yMsg += 'You are in check!';
+                                const checkMsg = turn === 'white' ? 'Check to White King!' : 'Check to Black King!';
+                                showStatus(checkMsg, true);
+                                a11yMsg += checkMsg;
                             } else {
                                 highlightCheck();
                                 showStatus('Your turn.', false);
@@ -1757,53 +2122,7 @@
                 return false;
             }
 
-            function detectOpening(moves) {
-                if (!moves || moves.length === 0) return 'Standard Game';
-                
-                const m1 = moves[0];
-                const m2 = moves[1];
-                const m3 = moves[2];
-                const m4 = moves[3];
-                const m5 = moves[4];
-
-                if (m1 === 'e4') {
-                    if (m2 === 'c5') return 'Sicilian Defense';
-                    if (m2 === 'e5') {
-                        if (m3 === 'Nf3') {
-                            if (m4 === 'Nc6') {
-                                if (m5 === 'Bb5') return 'Ruy Lopez';
-                                if (m5 === 'Bc4') return 'Italian Game';
-                                if (m5 === 'd4') return 'Scotch Game';
-                            }
-                            if (m4 === 'Nf6') return 'Petrov Defense';
-                        }
-                        return 'King\'s Pawn Game';
-                    }
-                    if (m2 === 'e6') return 'French Defense';
-                    if (m2 === 'c6') return 'Caro-Kann Defense';
-                    if (m2 === 'd6') return 'Pirc Defense';
-                }
-                if (m1 === 'd4') {
-                    if (m2 === 'd5') {
-                        if (m3 === 'c4') return 'Queen\'s Gambit';
-                        return 'Queen\'s Pawn Game';
-                    }
-                    if (m2 === 'Nf6') {
-                        if (m3 === 'c4') {
-                            if (m4 === 'e6') return 'Nimzo-Indian Defense';
-                            if (m4 === 'g6') return 'King\'s Indian Defense';
-                        }
-                        return 'Indian Defense';
-                    }
-                }
-                if (m1 === 'Nf3') return 'Réti Opening';
-                if (m1 === 'c4') return 'English Opening';
-                if (m1 === 'f4') return 'Bird\'s Opening';
-                
-                return 'Open Game';
-            }
-
-            function endGame(reason, color, drawReason = null) {
+            async function endGame(reason, color, drawReason = null) {
                 if (gameOver) return;
                 gameOver = true;
                 replayMode = true;
@@ -2155,9 +2474,35 @@
                 }
 
                 // 6. Opening Book and Review Highlights
+                let analysisData = null;
+                try {
+                    analysisData = await post('/api/analyze-game/', {
+                        moves: replayMoves,
+                        result: resultState,
+                        reason: reason
+                    });
+                } catch(e) {
+                    console.error("Failed to fetch post-game analysis", e);
+                }
+
                 const openingNameEl = document.getElementById('resOpeningName');
                 if (openingNameEl) {
-                    openingNameEl.textContent = detectOpening(replayMoves);
+                    openingNameEl.textContent = analysisData?.opening || 'Standard Game';
+                }
+                
+                // Populate new stats
+                if (analysisData) {
+                    const capEl = document.getElementById('resAnalysisCaptures');
+                    if (capEl) capEl.textContent = analysisData.captures || 0;
+                    
+                    const chkEl = document.getElementById('resAnalysisChecks');
+                    if (chkEl) chkEl.textContent = analysisData.checks || 0;
+                    
+                    const matEl = document.getElementById('resAnalysisCheckmates');
+                    if (matEl) matEl.textContent = analysisData.checkmates || 0;
+                    
+                    const proEl = document.getElementById('resAnalysisPromotions');
+                    if (proEl) proEl.textContent = analysisData.promotions || 0;
                 }
                 
                 const bestMoveEl = document.getElementById('resBestMove');
@@ -2203,9 +2548,32 @@
                 
                 // Clean a11y announcement
                 const winnerColorText = color === 'white' ? 'Black' : 'White';
-                let cleanMsg = reason === 'checkmate' || reason === 'resign' 
-                    ? `Game over. ${winnerColorText} wins by ${reason}.` 
-                    : `Game over. Draw by ${reason || 'stalemate'}.`;
+                let cleanMsg = '';
+                if (reason === 'checkmate') {
+                    cleanMsg = `Checkmate. ${winnerColorText} wins!`;
+                } else if (reason === 'resign') {
+                    const resigningColorText = color === 'white' ? 'White' : 'Black';
+                    cleanMsg = `${resigningColorText} has resigned. ${winnerColorText} wins!`;
+                } else if (reason === 'timeout') {
+                    const timeoutColorText = color === 'white' ? 'White' : 'Black';
+                    cleanMsg = `${timeoutColorText} ran out of time. ${winnerColorText} wins!`;
+                } else if (reason === 'stalemate') {
+                    cleanMsg = 'Game drawn by stalemate.';
+                } else if (reason === 'draw') {
+                    if (drawReason === 'agreement') {
+                        cleanMsg = 'Game drawn by agreement.';
+                    } else if (drawReason === 'threefold_repetition') {
+                        cleanMsg = 'Game drawn by threefold repetition.';
+                    } else if (drawReason === 'fifty_move_rule') {
+                        cleanMsg = 'Game drawn by fifty-move rule.';
+                    } else if (drawReason === 'insufficient_material') {
+                        cleanMsg = 'Game drawn by insufficient material.';
+                    } else {
+                        cleanMsg = 'Game drawn by agreement / stalemate / threefold repetition.';
+                    }
+                } else {
+                    cleanMsg = 'Game drawn by agreement / stalemate / threefold repetition.';
+                }
                 announceMove(cleanMsg);
                 
                 document.title = 'Game Over - Checkora';
@@ -2490,6 +2858,7 @@
                 }
                 if (confirmMessage) confirmMessage.innerHTML = msg;
                 confirmCallback = callback;
+                boardEl.classList.add('confirm-open');
                 confirmOverlay.classList.add('active');
             }
 
@@ -2552,7 +2921,30 @@
                 );
             }
     
-            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null) {
+            async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
+                evaluationCache = {};
+                if (!isPuzzle) {
+                    dailyPuzzleMode = false;
+                    currentPuzzle = null;
+                    currentPuzzleFen = null;
+                    puzzleAnalyzing = false;
+                    if (stockfishWorker) {
+                        stockfishWorker.terminate();
+                        stockfishWorker = null;
+                    }
+                }
+                replayMode = false;
+                // Show clocks for normal games
+                document.getElementById("whiteClock").style.display = "";
+                document.getElementById("blackClock").style.display = "";
+
+                const streakCounter =
+                    document.getElementById("streak-counter");
+
+                if (streakCounter) {
+                    streakCounter.style.display = "none";
+                }
+
                 replayMode = false;
 
                 if (autoReplayInterval) {
@@ -3072,14 +3464,21 @@
             };
 
             if (confirmYesBtn) confirmYesBtn.onclick = () => {
-                confirmOverlay.classList.remove('active');
-                if (confirmCallback) confirmCallback();
-                confirmCallback = null;
-            };
+    boardEl.classList.remove('confirm-open');
+
+    confirmOverlay.classList.remove('active');
+
+    if (confirmCallback) confirmCallback();
+
+    confirmCallback = null;
+};
             if (confirmNoBtn) confirmNoBtn.onclick = () => {
-                confirmOverlay.classList.remove('active');
-                confirmCallback = null;
-            };
+    boardEl.classList.remove('confirm-open');
+
+    confirmOverlay.classList.remove('active');
+
+    confirmCallback = null;
+};
 
             if (newPvPBtn) newPvPBtn.onclick = () => {
                 // Clear any lingering celebration effects
@@ -3132,6 +3531,7 @@
                 if (!currentPuzzle) return;
 
                 puzzleMoveIndex = 0;
+                clearPuzzleHints();
 
                 await startNewGame(
                     "pvp",
@@ -3144,6 +3544,11 @@
                     "Puzzle Restarted",
                     false
                 );
+            };
+    
+            if (hintPuzzleBtn)
+                hintPuzzleBtn.onclick = () => {
+                    showPuzzleHint();
             };
     
             if (newFenBtn) newFenBtn.onclick = () => {
@@ -3423,16 +3828,14 @@
 
                 const key = e.key.toLowerCase();
                 const hasBlockingOverlay =
-                    document.querySelector(
-                        '.modal.show, [role="dialog"]:not([hidden]), .promo-overlay.active'
-                    ) ||
-                    (shareModal?.style.display && shareModal.style.display !== 'none') ||
-                    (rulebookModal?.style.display && rulebookModal.style.display !== 'none') ||
+                    (shareModal?.style.display === 'flex') ||
+                    (rulebookModal?.style.display === 'flex') ||
                     fenOverlay?.classList.contains('active') ||
                     confirmOverlay?.classList.contains('active') ||
                     drawOverlay?.classList.contains('active') ||
                     gameOverOverlay?.classList.contains('active') ||
-                    welcomeOverlay?.classList.contains('active');
+                    welcomeOverlay?.classList.contains('active') ||
+                    leaveConfirmOverlay?.classList.contains('active');
 
             // Allow Escape to close overlays
             if (hasBlockingOverlay && key !== 'escape') {
@@ -3458,6 +3861,13 @@
                 } else if (key === 'a' && newAIBtn) {
                     e.preventDefault();
                     newAIBtn.click();
+                } else if (key === 'h') {
+                    e.preventDefault();
+                    if (shouldConfirmLeave()) {
+                        openLeaveConfirm();
+                    } else {
+                        window.location.href = '/';
+                    }
 
                 } else if (key === 'escape') {
                     e.preventDefault();
@@ -3472,6 +3882,10 @@
 
                     if (fenOverlay?.classList.contains('active')) {
                         fenOverlay.classList.remove('active');
+                    }
+
+                    if (leaveConfirmOverlay?.classList.contains('active')) {
+                        closeLeaveConfirm();
                     }
                 }
             });
@@ -3513,25 +3927,55 @@
 
 // Leave Game confirmation modal logic
 const leaveConfirmOverlay = document.getElementById('leaveConfirmOverlay');
+const leaveConfirmDialog = document.getElementById('leaveConfirmDialog');
 const leaveConfirmYes = document.getElementById('leaveConfirmYes');
 const leaveConfirmNo = document.getElementById('leaveConfirmNo');
+const shouldConfirmLeave = () => !gameOver && !welcomeOverlay.classList.contains('active');
+let leaveConfirmFocusReturn = null;
+
+function openLeaveConfirm() {
+    if (!leaveConfirmOverlay) return;
+    leaveConfirmFocusReturn = document.activeElement;
+    leaveConfirmOverlay.classList.add('active');
+    leaveConfirmOverlay.setAttribute('aria-hidden', 'false');
+    if (typeof announceMove === 'function') {
+        announceMove('Confirm navigation to home page');
+    }
+    setTimeout(() => {
+        if (leaveConfirmNo) {
+            leaveConfirmNo.focus();
+        } else if (leaveConfirmDialog) {
+            leaveConfirmDialog.focus();
+        }
+    }, 0);
+}
+
+function closeLeaveConfirm() {
+    if (!leaveConfirmOverlay) return;
+    leaveConfirmOverlay.classList.remove('active');
+    leaveConfirmOverlay.setAttribute('aria-hidden', 'true');
+    if (leaveConfirmFocusReturn && typeof leaveConfirmFocusReturn.focus === 'function') {
+        leaveConfirmFocusReturn.focus();
+    }
+    leaveConfirmFocusReturn = null;
+}
+
+function confirmLeave() {
+    window.location.href = '/';
+}
 
 document.querySelectorAll('a[href="/"]').forEach(link => {
     link.addEventListener('click', (e) => {
-        if (!gameOver && !welcomeOverlay.classList.contains('active')) {
+        if (shouldConfirmLeave()) {
             e.preventDefault();
-            leaveConfirmOverlay.style.display = 'flex';
+            openLeaveConfirm();
         }
     });
 });
 
-if (leaveConfirmYes) leaveConfirmYes.addEventListener('click', () => {
-    window.location.href = '/';
-});
+if (leaveConfirmYes) leaveConfirmYes.addEventListener('click', confirmLeave);
 
-if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
-    leaveConfirmOverlay.style.display = 'none';
-});
+if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', closeLeaveConfirm);
 
             
             function showAssetWarning() {
@@ -3609,7 +4053,7 @@ if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', () => {
                 }
             });
             if (typeof module !== "undefined" && module.exports) {
-                module.exports = { pColor, getSquareLabel, formatTime };
+                module.exports = { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache };
             } else {
                 loadStoredGameState();
                 loadGame();

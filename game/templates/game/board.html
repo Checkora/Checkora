@@ -39,6 +39,7 @@
 
 
 <body>
+    <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
@@ -68,13 +69,14 @@
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
+    <img src="{% static 'game/checkora_icon_only.png' %}"
+         style="height: 3rem; width: auto; object-fit: contain;"
+         alt="Checkora">
 
-                    <img src="{% static 'game/checkora_icon_only.png' %}"
-                        style="height: 3rem; width: auto; object-fit: contain;" alt="Checkora">
-
-                    <span>CHECKORA</span>
-
-                </div>
+    <span class="logo-text">
+        <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+    </span>
+</div>
 
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
@@ -233,8 +235,10 @@
         
         <div class="logo-container">
             <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
-                <span class="logo-text">Checkora</span>
+                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+                <span class="logo-text">
+    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+</span>
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
@@ -250,6 +254,10 @@
                 <div class="dropdown-content">
                     <a href="/stats/">
                         Stats
+                    </a>
+
+                    <a href="{% url 'leaderboard' %}">
+                        Leaderboard
                     </a>
 
                     <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
@@ -330,7 +338,7 @@
                     <span id="status-text">Online</span>
                 </div>
 
-                <div class="streak-counter">
+                <div id="streak-counter" class="streak-counter" style="display:none;">
                     🔥 <span id="streak-count">0</span> Day Streak
                 </div>
 
@@ -416,7 +424,9 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
-                    <button type="button" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
+                    <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
+                    <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
+                    <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
@@ -527,12 +537,12 @@
     </div>
 
    <!-- ========== LEAVE GAME CONFIRMATION MODAL ========== -->
-<div class="promo-overlay" id="leaveConfirmOverlay" style="display:none;">
-    <div class="promo-dialog" style="max-width: 340px; text-align: center;">
-        <div class="promo-title" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
+<div class="promo-overlay" id="leaveConfirmOverlay" role="dialog" aria-modal="true" aria-labelledby="leaveConfirmTitle" aria-describedby="leaveConfirmMessage" aria-hidden="true">
+    <div class="promo-dialog" id="leaveConfirmDialog" tabindex="-1" style="max-width: 340px; text-align: center;">
+        <div class="promo-title" id="leaveConfirmTitle" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
             Leave the Game?
         </div>
-        <p style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
+        <p id="leaveConfirmMessage" style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
             Are you sure you want to go back to Home? Your current game progress will be lost.
         </p>
         <div style="display: flex; gap: 12px; justify-content: center;">
@@ -610,6 +620,22 @@
                             <div class="stat-item">
                                 <span class="stat-label">Material</span>
                                 <span class="stat-value" id="resMaterialDiff">Even</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Captures</span>
+                                <span class="stat-value" id="resAnalysisCaptures">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checks</span>
+                                <span class="stat-value" id="resAnalysisChecks">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checkmates</span>
+                                <span class="stat-value" id="resAnalysisCheckmates">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Promotions</span>
+                                <span class="stat-value" id="resAnalysisPromotions">0</span>
                             </div>
                         </div>
 

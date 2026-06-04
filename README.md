@@ -106,7 +106,7 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Open `http://127.0.0.1:8000/` in your browser and start playing.
+Open **`http://127.0.0.1:8000/`** in your browser and start playing. The terminal shows this same address — always use **`http://`**, never **`https://`**, because the development server does not support SSL.
 
 ### Compile the C++ Engine _(optional but recommended)_
 
@@ -198,6 +198,7 @@ Checkora/
 │   │       ├── verify_otp.html    # Two-factor verification panel
 │   │       ├── rules.html         # Gameplay and chess educational rules guide
 │   │       ├── stats.html         # User match metrics, profiles, and scoreboards
+│   │       ├── welcome_email.html # HTML email template sent to users after successful registration
 │   │       ├── password_reset.html # Password reset trigger page
 │   │       ├── password_reset_complete.html # Confirmation of successful reset
 │   │       ├── password_reset_confirm.html  # Verification form link target
@@ -576,6 +577,16 @@ If you already have another service running on your local port 8000, Django will
     ```bash
     python manage.py runserver 8080
     ```
+
+### 🔒 7. Local SSL Error (`ERR_SSL_PROTOCOL_ERROR`)
+
+If the browser shows `ERR_SSL_PROTOCOL_ERROR` or the terminal prints *"You're accessing the development server over HTTPS, but it only supports HTTP"*, the browser is using HTTPS against the local HTTP dev server.
+
+*   **Resolution:**
+    1. Copy the example env file if you have not already: `copy .env.example .env` (Windows) or `cp .env.example .env` (macOS/Linux).
+    2. Copy the exact URL from the terminal, for example **`http://127.0.0.1:8000/`** — include `http://` and do not let the browser change it to `https://`.
+    3. Disable your browser's HTTPS-upgrade setting for local development (for example, Chrome/Brave: "Always use secure connections" / "Upgrade connections to HTTPS").
+    4. Clear cached HSTS for `127.0.0.1` if the browser keeps forcing HTTPS (Chrome/Brave: `chrome://net-internals/#hsts`; steps vary by browser).
 
 ## Contributor Support & Feedback
 
