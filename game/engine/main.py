@@ -541,6 +541,12 @@ def minimax(depth, alpha, beta, maximizing):
             BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
             BOARD[move.fr][move.fc] = '.'
 
+            ep_r, ep_c, ep_cap = -1, -1, '.'
+            if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
+                ep_r, ep_c = move.fr, move.tc
+                ep_cap = BOARD[ep_r][ep_c]
+                BOARD[ep_r][ep_c] = '.'
+
             rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
             if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
                 if move.tc == 6:
@@ -574,6 +580,9 @@ def minimax(depth, alpha, beta, maximizing):
             W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
             B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
 
+            if ep_r != -1:
+                BOARD[ep_r][ep_c] = ep_cap
+
             BOARD[move.fr][move.fc] = src_piece
             BOARD[move.tr][move.tc] = dst_piece
             if rook_fr != -1:
@@ -592,6 +601,12 @@ def minimax(depth, alpha, beta, maximizing):
         dst_piece = BOARD[move.tr][move.tc]
         BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
         BOARD[move.fr][move.fc] = '.'
+
+        ep_r, ep_c, ep_cap = -1, -1, '.'
+        if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
+            ep_r, ep_c = move.fr, move.tc
+            ep_cap = BOARD[ep_r][ep_c]
+            BOARD[ep_r][ep_c] = '.'
 
         rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
         if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
@@ -625,6 +640,9 @@ def minimax(depth, alpha, beta, maximizing):
 
         W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
         B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
+
+        if ep_r != -1:
+            BOARD[ep_r][ep_c] = ep_cap
 
         BOARD[move.fr][move.fc] = src_piece
         BOARD[move.tr][move.tc] = dst_piece
@@ -703,6 +721,12 @@ def handle_bestmove(turn, depth):
         BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
         BOARD[move.fr][move.fc] = '.'
 
+        ep_r, ep_c, ep_cap = -1, -1, '.'
+        if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
+            ep_r, ep_c = move.fr, move.tc
+            ep_cap = BOARD[ep_r][ep_c]
+            BOARD[ep_r][ep_c] = '.'
+
         rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
         if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
             if move.tc == 6:
@@ -735,6 +759,9 @@ def handle_bestmove(turn, depth):
 
         W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
         B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
+
+        if ep_r != -1:
+            BOARD[ep_r][ep_c] = ep_cap
 
         BOARD[move.fr][move.fc] = src_piece
         BOARD[move.tr][move.tc] = dst_piece

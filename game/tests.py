@@ -90,12 +90,12 @@ class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
 
     def test_landing_page_loads(self):
-        response = self.client.get('/')
+        response = self.client.get('/home/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
     def test_landing_page_links_to_play(self):
-        response = self.client.get('/')
+        response = self.client.get('/home/')
         self.assertContains(response, '/play/')
 
 
