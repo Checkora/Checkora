@@ -2407,6 +2407,32 @@
                     goToReplayMove(replayIndex);
                 };
             }
+
+            // Arrow key navigation in replay mode
+            document.addEventListener('keydown', (e) => {
+                if (!replayMode) return;
+                const tag = e.target.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        if (prevReplayBtn) prevReplayBtn.click();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        if (nextReplayBtn) nextReplayBtn.click();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        if (firstReplayBtn) firstReplayBtn.click();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        if (lastReplayBtn) lastReplayBtn.click();
+                        break;
+                }
+            });
+
             if (replayGameBtn) {
 
                 replayGameBtn.onclick = () => {
