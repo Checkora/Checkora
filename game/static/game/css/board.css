@@ -695,25 +695,6 @@ body {
 /* ============================================================
    Move History
    ============================================================ */
-/* ==========================================
-   FIX: Pause overlay should not overlap modals
-   ========================================== */
-
-#drawOverlay {
-    z-index: 12000 !important;
-}
-
-.pause-overlay,
-#pauseOverlay,
-.resume-overlay {
-    z-index: 9000;
-}
-
-body.modal-open .pause-overlay,
-body.modal-open #pauseOverlay,
-body.modal-open .resume-overlay {
-    display: none !important;
-}
 /* ============================================================
    Replay Controls
    ============================================================ */

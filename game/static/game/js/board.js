@@ -2813,6 +2813,7 @@
 
             async function offerDraw() {
                 if (paused || gameOver || gameMode !== 'pvp') return;
+
                 const offeringPlayer = turn === 'white' ? 'White' : 'Black';
                 const receivingPlayer = turn === 'white' ? 'Black' : 'White';
 
@@ -2820,18 +2821,18 @@
                     "Offer Draw?",
                     `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`,
                     async () => {
-                        drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
+                        drawMessage.textContent =
+                            `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
+
                         drawOverlay.classList.add('active');
-                        const pauseOverlay = document.getElementById('pauseOverlay');
-                        if (pauseOverlay) {
-                            pauseOverlay.style.display = 'none';
-                        }
+
+                        boardEl?.classList.add('confirm-open');
+
                         await pauseGame();
                     },
                     '#f0c040'
                 );
             }
-    
             async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
                 evaluationCache = {};
                 if (!isPuzzle) {
@@ -3538,22 +3539,19 @@
             if (drawBtn) drawBtn.onclick = offerDraw;
             if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
                 drawOverlay.classList.remove('active');
-                document.body.classList.remove("modal-open");
-                document.body.classList.remove("modal-open");
-                if (pauseOverlay && paused) {
-                    pauseOverlay.style.display = 'flex';
-                }
+                boardEl?.classList.remove('confirm-open');
                 const data = await post('/api/draw/', { action: 'accept' });
                 if (data.success) {
-                    if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => {}); }
+                    if (soundEnabled) {
+                        sounds.draw.currentTime = 0;
+                        sounds.draw.play().catch(() => {});
+                    }
                     endGame('draw', turn, data.draw_reason);
                 }
             };
             if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
                 drawOverlay.classList.remove('active');
-                if (pauseOverlay && paused) {
-                    pauseOverlay.style.display = 'flex';
-                }
+                boardEl?.classList.remove('confirm-open');
                 resumeGame();
             };
 
