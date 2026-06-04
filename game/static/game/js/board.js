@@ -3326,50 +3326,79 @@
                 });
             }
             
-            if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {            
+            if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+                // Hide mode selection, show inputs and PvP controls
+                modeSelection.style.display = 'none';
+                nameInputs.style.display = 'flex';
+                document.getElementById('pvpControls').style.display = 'flex';
+                pveOptions.style.display = 'none';
+            
+                // Setup input fields for PvP
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'White Player Name';
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'block';
+                    blackInput.placeholder = 'Black Player Name';
+                    if (blackInput.value === 'AI' || blackInput.value.toLowerCase() === 'ai') {
+                        blackInput.value = ''; 
+                    }
+                }
+                const errorDiv = document.getElementById('nameError');
+                if (errorDiv) errorDiv.style.display = 'none';
+            };
+            
+            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
+                // Hide mode selection, show inputs and AI controls
+                modeSelection.style.display = 'none';
+                nameInputs.style.display = 'flex';
+                pveOptions.style.display = 'flex';
+                if (document.getElementById('pvpControls')) document.getElementById('pvpControls').style.display = 'none';
+            
+                // Setup input fields for AI
+                const whiteInput = document.getElementById('whiteNameInput');
+                const blackInput = document.getElementById('blackNameInput');
+                
+                if (whiteInput) {
+                    whiteInput.style.display = 'block';
+                    whiteInput.placeholder = 'Your Name';
+                }
+                if (blackInput) {
+                    blackInput.style.display = 'none';
+                    blackInput.value = 'AI';
+                }
+                const errorDiv = document.getElementById('nameError');
+                if (errorDiv) errorDiv.style.display = 'none';
+            };
+
+            // The back button for the AI menu
+            if (backToModes) backToModes.onclick = () => {
+                pveOptions.style.display = 'none';
+                nameInputs.style.display = 'none';
+                modeSelection.style.display = 'flex';
+            };
+
+            // The back button for the PvP menu
+            const backFromPvPBtn = document.getElementById('backFromPvPBtn');
+            if (backFromPvPBtn) backFromPvPBtn.onclick = () => {
+                document.getElementById('pvpControls').style.display = 'none';
+                nameInputs.style.display = 'none';
+                modeSelection.style.display = 'flex';
+            };
+
+            // Start Game button for PvP
+            const startPvPBtn = document.getElementById('startPvPBtn');
+            if (startPvPBtn) startPvPBtn.onclick = async () => {
                 if (!validatePlayerNames()) return;
                 const fen = welcomeFenInput?.value?.trim() || null;
                 const started = await startNewGame('pvp', 'white', 'medium', fen);
                 if (!started) return;
+                
                 welcomeOverlay.classList.remove('active');
                 gameLayout.style.visibility = 'visible';
-            };
-
-            if (welcomeDailyPuzzleBtn) {
-                welcomeDailyPuzzleBtn.onclick = async () => {
-
-                    await startDailyPuzzle();
-
-                    welcomeOverlay.classList.remove('active');
-                    gameLayout.style.visibility = 'visible';
-                };
-            }
-            
-            if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
-                modeSelection.style.display = 'none';
-                pveOptions.style.display = 'flex';
-
-                const whiteInput = document.getElementById('whiteNameInput');
-                const blackInput = document.getElementById('blackNameInput');
-                const errorDiv = document.getElementById('nameError');
-
-                if (whiteInput) {
-                    whiteInput.style.display = 'block';
-                    whiteInput.placeholder = 'Your Name';
-                    whiteInput.classList.remove('input-error');
-                }
-
-                if (blackInput) {
-                    blackInput.style.display = 'none';
-                    blackInput.value = 'AI';
-                    blackInput.classList.remove('input-error');
-                }
-
-                if (errorDiv) {
-                    errorDiv.style.display = 'none';
-                }
-
-                nameInputs.style.display = 'flex';
             };
             
             
