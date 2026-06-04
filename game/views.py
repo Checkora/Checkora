@@ -637,7 +637,7 @@ def register_view(request):
                 not settings.EMAIL_HOST_PASSWORD
             )
 
-            if settings.DEBUG and missing_email_credentials:
+            if False:
                 print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
                 return redirect('verify_otp')
 
