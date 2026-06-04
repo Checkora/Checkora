@@ -1,4 +1,5 @@
 """Game views for the Checkora chess platform."""
+import os
 import logging
 import json
 import time
@@ -641,7 +642,7 @@ def register_view(request):
                 not settings.EMAIL_HOST_PASSWORD
             )
 
-            if settings.DEBUG and missing_email_credentials:
+            if os.getenv("DISPLAY_OTP", "").lower() == "true" and missing_email_credentials:
                 print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
                 return redirect('verify_otp')
 
