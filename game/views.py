@@ -2008,16 +2008,6 @@ def lesson_detail_view(request, lesson_name):
                 }
             ],
             "lesson_steps": [
-            {
-                "title": "Isolated Pawn",
-                "position": {
-                    "d4": "P"
-                },
-                "highlight": [
-                    "d4"
-                ]
-            }
-        "lesson_steps": [
                 {
                     "instruction": "Advance the passed pawn from d5 to d6.",
                     "expected_move": "d5-d6"
@@ -2027,6 +2017,14 @@ def lesson_detail_view(request, lesson_name):
             "practice_position": {
                 "d5": "P",
                 "e1": "K"
+            }
+        },
+        "King Safety": {
+            "title": "King Safety",
+            "description": "Keep your king protected throughout the game.",
+            "practice_question": "What is usually the safest way to protect your king in the opening?",
+            "practice_answer": "Castling.",
+            "quiz_question": "What is the safest way to protect your king in the opening?",
             "quiz_options": [
                 "Move the king forward",
                 "Keep the king in the center",

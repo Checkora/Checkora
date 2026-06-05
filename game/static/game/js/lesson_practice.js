@@ -517,6 +517,9 @@ function checkMove(move) {
     }
     
     const expectedMove =
+        lessonSteps[
+            currentStep
+        ].expected_move;
 
     const result =
         document.getElementById(
