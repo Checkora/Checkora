@@ -9,6 +9,7 @@
     --input-border: #444;
     --input-text: #ffffff;
     --input-placeholder: #8a8aaa;
+    --accent-gold: #f0c040;
 }
 
 [data-theme="light"] {
@@ -22,6 +23,7 @@
     --input-border: #d1d5db;
     --input-text: #111827;
     --input-placeholder: #6b7280;
+    --accent-gold: #d4a017;
 }
 
 
@@ -1663,7 +1665,7 @@ body {
 }
 
 [data-theme="light"] .promo-overlay .tc-tab-btn.active {
-    color: #b2870f !important;
+    color: var(--accent-gold) !important;
 }
 
 .promo-pieces {

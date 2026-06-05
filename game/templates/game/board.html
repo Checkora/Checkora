@@ -27,12 +27,22 @@
     <script defer src="/_vercel/insights/script.js"></script>
     <script>
         (function () {
+            const safeLocalStorage = {
+                get(key) {
+                    try {
+                        return window.localStorage.getItem(key);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+            };
+
             const VALID_APP_THEMES = ['light', 'dark'];
             const VALID_BOARD_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
 
-            let savedAppTheme = localStorage.getItem('theme');
+            let savedAppTheme = safeLocalStorage.get('theme');
             if (!VALID_APP_THEMES.includes(savedAppTheme)) {
-                const legacyAppTheme = localStorage.getItem('chessBoardTheme');
+                const legacyAppTheme = safeLocalStorage.get('chessBoardTheme');
                 savedAppTheme = VALID_APP_THEMES.includes(legacyAppTheme) ? legacyAppTheme : null;
             }
             if (!savedAppTheme) {
@@ -40,9 +50,9 @@
             }
             document.documentElement.setAttribute('data-theme', savedAppTheme);
 
-            let savedBoardTheme = localStorage.getItem('boardTheme') || localStorage.getItem('chessBoardTheme');
+            let savedBoardTheme = safeLocalStorage.get('boardTheme') || safeLocalStorage.get('chessBoardTheme');
             if (!savedBoardTheme) {
-                const legacyTheme = localStorage.getItem('theme');
+                const legacyTheme = safeLocalStorage.get('theme');
                 if (!VALID_APP_THEMES.includes(legacyTheme) && VALID_BOARD_THEMES.includes(legacyTheme)) {
                     savedBoardTheme = legacyTheme;
                 }
@@ -89,7 +99,7 @@
         <div class="promo-dialog">
             <div style="margin-bottom: 20px; color:#f0c040; position: relative;">
                 <a href="/" class="back-btn">← Back to Home</a>
-                <button id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
+                <button type="button" id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
