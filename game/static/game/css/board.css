@@ -447,6 +447,7 @@ body {
 .board-row {
     display: flex;
     align-items: flex-start;
+    max-width: 100%;
 }
 
 .board-grid-wrap {
@@ -777,7 +778,7 @@ body {
 .material-bar-black {
     background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
     transition: height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    flex: 1 1 auto;
+    flex: 0 0 auto;
 }
 
 .material-label-white,
@@ -790,11 +791,11 @@ body {
 }
 
 .material-label-white {
-    color: #333;
+    color: #f3f4f6;
 }
 
 .material-label-black {
-    color: #ccc;
+    color: #cbd5e1;
 }
 
 [data-theme="light"] .material-bar-white {
@@ -1109,7 +1110,8 @@ body {
 @media (max-width: 768px) {
     :root {
         --board-border-width: 3px;
-        --mobile-board-size: min(calc(100vw - 40px), 480px);
+        --material-bar-column-width: 44px;
+        --mobile-board-size: min(calc(100vw - var(--rank-label-width) - var(--material-bar-column-width) - 40px), 480px);
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
         --square-size: var(--mobile-square-size);
     }
@@ -1221,6 +1223,11 @@ body {
     .files {
         width: calc(var(--mobile-square-size) * 8);
         margin-left: calc(var(--rank-label-width) + var(--board-border-width));
+    }
+
+    .material-advantage-bar-container {
+        flex: 0 0 calc(var(--material-bar-column-width) - 8px);
+        margin-left: 8px;
     }
 
     .piece {
@@ -1786,7 +1793,8 @@ body {
 
 @media (max-width: 400px) {
     :root {
-        --mobile-board-size: min(calc(100vw - 24px), 360px);
+        --material-bar-column-width: 38px;
+        --mobile-board-size: min(calc(100vw - var(--rank-label-width) - var(--material-bar-column-width) - 24px), 360px);
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
         --square-size: var(--mobile-square-size);
     }
@@ -1824,6 +1832,11 @@ body {
         max-width: 100%;
         margin: 0 auto;
         overflow-x: hidden;
+    }
+
+    .material-advantage-bar-container {
+        flex-basis: calc(var(--material-bar-column-width) - 6px);
+        margin-left: 6px;
     }
 
     .files span,

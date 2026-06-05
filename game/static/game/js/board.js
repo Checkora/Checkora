@@ -2137,8 +2137,8 @@
 
                 // Update Material Advantage Bar
                 const totalPoints = whitePoints + blackPoints;
-                let whitePercentage = 50;
-                let blackPercentage = 50;
+                let whitePercentage = 0;
+                let blackPercentage = 0;
 
                 if (totalPoints > 0) {
                     whitePercentage = (whitePoints / totalPoints) * 100;
