@@ -1,52 +1,31 @@
+import json
+import os
+
+_openings_cache = None
+
+def _load_openings() -> list[dict]:
+    global _openings_cache
+    if _openings_cache is None:
+        path = os.path.join(os.path.dirname(__file__), 'opening_book_index.json')
+        with open(path) as f:
+            data = json.load(f)
+        _openings_cache = sorted(data, key=lambda x: len(x["moves"]), reverse=True)
+    return _openings_cache
+
 def detect_opening(moves: list[str]) -> str | None:
     """
     Detect the opening played based on the move sequence.
     Replicates and enhances the existing frontend logic.
     Returns None if no specific opening is matched.
     """
-    if not moves or len(moves) == 0:
+    if not moves:
         return None
 
-    m1 = moves[0] if len(moves) > 0 else None
-    m2 = moves[1] if len(moves) > 1 else None
-    m3 = moves[2] if len(moves) > 2 else None
-    m4 = moves[3] if len(moves) > 3 else None
-    m5 = moves[4] if len(moves) > 4 else None
-
-    # Sanitize inputs to remove checks, mates, etc., if needed,
-    # though usually opening moves don't involve checks/captures initially,
-    # it's safe to use exact matches for standard openings.
-    
-    if m1 == 'e4':
-        if m2 == 'c5': return 'Sicilian Defense'
-        if m2 == 'e5':
-            if m3 == 'Nf3':
-                if m4 == 'Nc6':
-                    if m5 == 'Bb5': return 'Ruy Lopez'
-                    if m5 == 'Bc4': return 'Italian Game'
-                    if m5 == 'd4': return 'Scotch Game'
-                if m4 == 'Nf6': return 'Petrov Defense'
-            return "King's Pawn Game"
-        if m2 == 'e6': return 'French Defense'
-        if m2 == 'c6': return 'Caro-Kann Defense'
-        if m2 == 'd6': return 'Pirc Defense'
-        return "King's Pawn Game"
-        
-    if m1 == 'd4':
-        if m2 == 'd5':
-            if m3 == 'c4': return "Queen's Gambit"
-            return "Queen's Pawn Game"
-        if m2 == 'Nf6':
-            if m3 == 'c4':
-                if m4 == 'e6': return 'Nimzo-Indian Defense'
-                if m4 == 'g6': return "King's Indian Defense"
-            return 'Indian Defense'
-        return "Queen's Pawn Game"
-        
-    if m1 == 'Nf3': return 'Réti Opening'
-    if m1 == 'c4': return 'English Opening'
-    if m1 == 'f4': return "Bird's Opening"
-    
+    openings = _load_openings()
+    for opening in openings:
+        op_moves = opening["moves"]
+        if len(moves) >= len(op_moves) and moves[:len(op_moves)] == op_moves:
+            return opening["name"]
     return None
 
 def count_captures(moves: list[str]) -> int:
