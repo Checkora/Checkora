@@ -270,7 +270,7 @@ jobs:
         run: |
           # set -o pipefail ensures test failures aren't swallowed by tee
           set -o pipefail
-          python manage.py test game.tests --verbosity=2 2>&1 | tee test_output.txt
+          python manage.py test game.tests --verbosity=2 --parallel 2>&1 | tee test_output.txt
 
       - name: 📋 Print test summary to Actions UI
         if: always()
