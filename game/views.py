@@ -2007,17 +2007,20 @@ def lesson_detail_view(request, lesson_name):
                     ]
                 }
             ],
+            
             "lesson_steps": [
                 {
                     "instruction": "Advance the passed pawn from d5 to d6.",
                     "expected_move": "d5-d6"
                 }
             ],
+            
             "practice_position": {
                 "d5": "P",
                 "e1": "K"
             },
         },
+        
         "King Safety": {
             "title": "King Safety",
             "description": "Keep your king protected throughout the game.",

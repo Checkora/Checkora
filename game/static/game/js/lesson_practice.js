@@ -538,10 +538,7 @@ function checkMove(move) {
 
         currentStep++;
 
-        if (
-            currentStep <
-            lessonSteps.length
-        ) {
+        if (currentStep < lessonSteps.length) {
 
             document.getElementById(
                 "lesson-instruction"
