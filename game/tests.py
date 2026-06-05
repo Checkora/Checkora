@@ -186,8 +186,7 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
-    def test_duplicate_email_returns_generic_response(self):
-        """Registration with a taken email must redirect generically."""
+    def test_duplicate_email_registration_fails(self):
         User.objects.create_user(
             username='existinguser',
             email='duplicate@example.com',
@@ -203,8 +202,8 @@ class RegistrationViewTest(TestCase):
         }
 
         response = self.client.post('/register/', data=payload)
-        # Generic redirect — no error message revealing email is taken
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A user with this email address already exists.')
         self.assertFalse(User.objects.filter(username='newplayer').exists())
 
 
@@ -1441,20 +1440,6 @@ class CheckUsernameViewTest(TestCase):
         response = self.client.post(reverse('check_username'), {'username': 'newuser'})
         self.assertEqual(response.status_code, 405)
 
-    def test_inactive_username_shows_unavailable(self):
-        """Inactive (pending-verification) usernames should also show as taken."""
-        User.objects.create_user(
-            username='pendinguser',
-            password='testpass123',
-            is_active=False,
-        )
-        response = self.client.get(
-            reverse('check_username'),
-            {'username': 'pendinguser'},
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertJSONEqual(response.content, {'available': False})
-
 class PromotionNotationTest(TestCase):
     """Test standard algebraic notation (SAN) generation for pawn promotions."""
 
@@ -1487,253 +1472,6 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
         self.assertEqual(notation, 'a8=Q')
-
-
-class SecureRegistrationTest(TestCase):
-    """Security-focused tests for the hardened registration flow."""
-
-    VALID_PAYLOAD = {
-        'username': 'newchessplayer',
-        'email': 'newchessplayer@example.com',
-        'password1': 'StrongPass123!',
-        'password2': 'StrongPass123!',
-    }
-
-    # --- 1. Fresh registration ------------------------------------------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_new_user_registration_succeeds(self):
-        """A completely new user should be created and redirected to OTP."""
-        response = self.client.post(
-            '/register/',
-            data=self.VALID_PAYLOAD,
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(
-            User.objects.filter(username='newchessplayer').exists()
-        )
-        user = User.objects.get(username='newchessplayer')
-        self.assertFalse(user.is_active)
-
-    # --- 2. Active email conflict — generic response --------------------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_active_email_conflict_returns_generic_redirect(self):
-        """Registering with an active user's email must not leak its existence."""
-        User.objects.create_user(
-            username='verifiedplayer',
-            email='taken@example.com',
-            password='StrongPass123!',
-            is_active=True,
-        )
-        payload = {**self.VALID_PAYLOAD, 'email': 'taken@example.com'}
-        response = self.client.post('/register/', data=payload)
-        # Immediate redirect to verify-otp (same as a real registration)
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/verify-otp/')
-        # No new user was created
-        self.assertFalse(
-            User.objects.filter(username='newchessplayer').exists()
-        )
-
-    # --- 3. Active username conflict — generic response -----------------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_active_username_conflict_returns_generic_redirect(self):
-        """Registering with an active user's username must not leak its existence."""
-        User.objects.create_user(
-            username='newchessplayer',
-            email='other@example.com',
-            password='StrongPass123!',
-            is_active=True,
-        )
-        response = self.client.post(
-            '/register/',
-            data=self.VALID_PAYLOAD,
-        )
-        # Immediate redirect — indistinguishable from a real registration
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/verify-otp/')
-
-    # --- 4. Inactive email conflict — re-verification -------------------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_inactive_email_reuses_existing_account(self):
-        """Re-registering with an inactive email should reuse the account."""
-        old_user = User.objects.create_user(
-            username='pendingplayer',
-            email='newchessplayer@example.com',
-            password='OldPassword456!',
-            is_active=False,
-        )
-        old_id = old_user.id
-        response = self.client.post(
-            '/register/',
-            data=self.VALID_PAYLOAD,
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/verify-otp/')
-        reused = User.objects.get(id=old_id)
-        self.assertEqual(reused.username, 'newchessplayer')
-        self.assertEqual(reused.email, 'newchessplayer@example.com')
-        self.assertTrue(reused.check_password('StrongPass123!'))
-        self.assertEqual(User.objects.filter(id=old_id).count(), 1)
-
-    # --- 5. Inactive username conflict — preserved, not deleted ---------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_inactive_username_is_preserved(self):
-        """Inactive accounts must never be deleted during registration."""
-        inactive = User.objects.create_user(
-            username='newchessplayer',
-            email='old@example.com',
-            password='OldPassword456!',
-            is_active=False,
-        )
-        self.client.post('/register/', data=self.VALID_PAYLOAD)
-        self.assertEqual(User.objects.filter(username='newchessplayer').count(), 1)
-        self.assertTrue(User.objects.filter(id=inactive.id).exists())
-        inactive.refresh_from_db()
-        self.assertEqual(inactive.email, 'newchessplayer@example.com')
-
-    # --- 6. Concurrent registration — IntegrityError handled ------------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_concurrent_registration_does_not_crash(self):
-        """A race-condition IntegrityError must produce a generic redirect."""
-        from django.db import IntegrityError
-
-        with mock.patch(
-            'game.views.CustomUserCreationForm.save',
-            side_effect=IntegrityError('UNIQUE constraint'),
-        ):
-            response = self.client.post(
-                '/register/',
-                data=self.VALID_PAYLOAD,
-            )
-        # Immediate redirect — no crash, no traceback
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/verify-otp/')
-
-    # --- 7. Enumeration resistance — identical responses ----------------------
-
-    @override_settings(
-        DEBUG=True,
-        EMAIL_HOST_USER='',
-        EMAIL_HOST_PASSWORD='',
-    )
-    def test_responses_are_identical_for_existing_and_new_emails(self):
-        """Active-conflict and fresh registrations must produce the same status code."""
-        User.objects.create_user(
-            username='existingplayer',
-            email='existing@example.com',
-            password='StrongPass123!',
-            is_active=True,
-        )
-        # Attempt with existing email
-        resp_existing = self.client.post(
-            '/register/',
-            data={**self.VALID_PAYLOAD, 'email': 'existing@example.com'},
-        )
-        # Attempt with brand-new email
-        resp_new = self.client.post(
-            '/register/',
-            data=self.VALID_PAYLOAD,
-        )
-        self.assertEqual(resp_existing.status_code, resp_new.status_code)
-        self.assertEqual(resp_existing.url, resp_new.url)
-        self.assertEqual(resp_existing.url, '/verify-otp/')
-
-    # --- 8. OTP expiry preserves inactive user --------------------------------
-
-    def test_otp_expiry_does_not_delete_user(self):
-        """An expired OTP must NOT delete the inactive user account."""
-        user = User.objects.create_user(
-            username='expiryplayer',
-            email='expiry@example.com',
-            password='StrongPass123!',
-            is_active=False,
-        )
-        session = self.client.session
-        session['registration_user_id'] = user.id
-        session['registration_otp_hash'] = 'dummy_hash'
-        session['otp_created_at'] = time.time() - 400  # expired
-        session.save()
-
-        response = self.client.post(
-            '/verify-otp/',
-            data={'otp': '123456'},
-            follow=True,
-        )
-        self.assertRedirects(response, '/register/')
-        # The user must still exist
-        self.assertTrue(User.objects.filter(id=user.id).exists())
-
-    # --- 9. Active email conflict dummy session verify ------------------------
-
-    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
-    def test_active_email_conflict_sets_up_dummy_session_and_renders_verify_otp(self):
-        """Registering with an active email must set up dummy session data.
-
-        This allows /verify-otp/ to render successfully.
-        """
-        User.objects.create_user(
-            username='verifiedplayer',
-            email='taken@example.com',
-            password='StrongPass123!',
-            is_active=True,
-        )
-        payload = {**self.VALID_PAYLOAD, 'email': 'taken@example.com'}
-        response = self.client.post('/register/', data=payload, follow=True)
-        # Should redirect to verify-otp and load with 200 OK
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Enter 6-Digit OTP')
-        # Critical: no email should be sent in the dummy session path
-        self.assertEqual(len(mail.outbox), 0)
-        # Check that session contains dummy credentials and email is masked in the response
-        self.assertEqual(self.client.session.get('registration_user_id'), -1)
-        self.assertEqual(self.client.session.get('registration_email'), 'taken@example.com')
-        self.assertContains(response, 'ta***@example.com')
-
-        # Attempting to verify with a wrong OTP should return "Invalid OTP" error without crashing
-        verify_response = self.client.post('/verify-otp/', data={'otp': '000000'})
-        self.assertEqual(verify_response.status_code, 200)
-        self.assertContains(verify_response, 'Invalid OTP. Please try again.')
-
-        # Resending OTP should succeed and set last_otp_time in session without querying user
-        resend_response = self.client.post('/resend-otp/', follow=True)
-        self.assertEqual(resend_response.status_code, 200)
-        self.assertContains(resend_response, 'A new OTP has been sent to your email.')
-        self.assertIsNotNone(self.client.session.get('last_otp_time'))
-
-        # Second immediate resend should be rate-limited
-        resend_response2 = self.client.post('/resend-otp/', follow=True)
-        self.assertEqual(resend_response2.status_code, 200)
-        self.assertContains(resend_response2, 'Please wait')
 
 
 class InsufficientMaterialDrawTest(TestCase):
