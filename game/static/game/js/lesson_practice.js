@@ -1,7 +1,6 @@
 let lessonSteps = [];
 let currentStep = 0;
 let initialPosition = {};
-let currentLegalMoves = [];
 
 function getKnightMoves(square) {
 
@@ -363,10 +362,6 @@ document.addEventListener(
 
                     const piece =
                         square.innerText;
-                    
-                    if (!piece) {
-                        return;
-                    }
 
                     let moves = [];
 
@@ -418,8 +413,6 @@ document.addEventListener(
                             );
                     }
 
-                    currentLegalMoves = moves;
-
                     moves.forEach(
                         move => {
 
@@ -448,14 +441,6 @@ document.addEventListener(
 
                 const move =
                     from + "-" + to;
-                if (
-                    !currentLegalMoves.includes(
-                        to
-                    )
-                ) {
-
-                    return;
-                }
                 
                 const sourceSquare =
                     selectedSquare;
@@ -475,18 +460,16 @@ document.addEventListener(
                             );
                         }
                     );
-                const retryBtn =
-                    document.getElementById(
+                document.
+                    getElementById(
                         "retry-btn"
-                    );
-                if (retryBtn) {
-                    retryBtn.addEventListener(
+                    )
+                    .addEventListener(
                         "click",
                         () => {
                             location.reload();
                         }
                     );
-                }
                 
                 selectedSquare = null;
 
@@ -508,13 +491,6 @@ document.addEventListener(
 );
 
 function checkMove(move) {
-
-    if (
-        currentStep >=
-        lessonSteps.length
-    ) {
-        return false;
-    }
 
     const expectedMove =
         lessonSteps[
