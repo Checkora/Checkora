@@ -489,3 +489,53 @@ body.login-page .helptext {
   transform: translateX(-3px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
+
+/* ── Google OAuth Button ── */
+.btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 13px 0;
+    background: #1e1e35;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: #e8e8f0;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    margin-bottom: 4px;
+}
+.btn-google:hover {
+    background: #252545;
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.btn-google:active {
+    transform: translateY(0);
+}
+
+/* ── Auth Divider ── */
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 6px 0;
+    color: #4a4a6a;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #252545;
+}
