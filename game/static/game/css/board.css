@@ -214,9 +214,12 @@ body {
 }
 
 .profile-btn{
-    background: #1a1a2e;
-    color: #fff;
-    border: 1px solid #444;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--card-border);
     padding: 8px 14px;
     border-radius: 10px;
     cursor: pointer;
