@@ -1376,19 +1376,11 @@
 
                 if (!p || paused || gameOver) return;
 
-                selected = { r, c };
-
-                // PREMOVE MODE DURING AI TURN
-                if (
-                    gameMode === 'ai' &&
-                    turn !== playerColor &&
-                    pColor(p) === playerColor
-                ) {
-                    hints = [];
-
-                    refreshHighlights();
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    showToast("Waiting for AI to move...", "info");
+                    showStatus("Waiting for AI to move...", false);
                     return;
-                }
+}
 
                 // NORMAL MOVE LOGIC
                 const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
@@ -1529,12 +1521,13 @@
                 }
                 
                 if (success) {
-                    showStatus('Connection restored', false);
+                    showToast('Connection restored', 'success');
                     setTimeout(() => {
                         showStatus('', false);
                     }, 2000);
                 } else {
-                    showStatus('Unable to reconnect. Please refresh.', true);
+                    showStatus('', false);
+                    showToast('Unable to reconnect. Please refresh.', 'error');
                 }
                 reconnecting = false;
             }async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
@@ -1711,11 +1704,16 @@
                         }
 
                         if (gameMode === 'ai' && turn !== playerColor && !gameOver) {
+                            showToast("Waiting for AI to move...", "info");
                             requestAIMove();
                         }
                     } else {
-                        showStatus(data.message, true);
+
+                        showToast(String(data.message), "error");
+
+              
                         flashBoard();
+
                         deselect();
                         if (premoveQueue.length > 0) {
                             premoveQueue = [];
