@@ -221,6 +221,21 @@
                         <option value="hard">Hard</option>
                     </select>
                 </div>
+
+                <!-- Inside #pveOptions div, before startAIBtn -->
+                <div id="aiOpeningContainer" style="margin-bottom: 10px;">
+                    <label for="welcomeOpeningSelect" style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem; text-align: center;">
+                        Opening (optional)
+                    </label>
+                    <select id="welcomeOpeningSelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                        <option value="">— No preference (AI decides) —</option>
+                        <option value="italian_game">Italian Game</option>
+                        <option value="sicilian_defense">Sicilian Defense</option>
+                        <option value="queens_gambit">Queen's Gambit</option>
+                    </select>
+                </div>
+
                 <button class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start
                     Game</button>
                 <button class="btn" id="backToModes"

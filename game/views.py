@@ -49,8 +49,9 @@ from .models import (
     LessonProgress,
 )
 logger = logging.getLogger(__name__)
-from game.services import cleanup_stale_games
+from game.services import cleanup_stale_games, get_opening_reply
 from .analysis import build_summary
+VALID_OPENINGS = {'italian_game', 'sicilian_defense', 'queens_gambit'}
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -243,6 +244,10 @@ def new_game(request):
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
 
+    raw_opening = data.get('opening', '') if mode == 'ai' else ''
+    opening = raw_opening if raw_opening in VALID_OPENINGS else ''
+    request.session['opening'] = opening
+
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
@@ -279,6 +284,7 @@ def new_game(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'opening': opening,
     })
 
 
@@ -442,7 +448,29 @@ def ai_move(request):
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
-    best = game.get_ai_move(depth=depth)
+    opening = request.session.get('opening', '')
+    book_move = None
+    if opening:
+        try:
+            ai_half_moves = len(game.move_history)
+            book_move = get_opening_reply(opening, ai_half_moves)
+        except Exception:
+            book_move = None
+
+    if book_move:
+        best = {
+            'from_row': book_move[0],
+            'from_col': book_move[1],
+            'to_row':   book_move[2],
+            'to_col':   book_move[3],
+        }
+        valid = game.get_valid_moves(best['from_row'], best['from_col'])
+        if not any(m['row'] == best['to_row'] and m['col'] == best['to_col'] for m in valid):
+            request.session['opening'] = ''
+            request.session.modified = True
+            best = game.get_ai_move(depth=depth)
+    else:
+        best = game.get_ai_move(depth=depth)
 
     if not best:
         if game.game_status == 'checkmate':
@@ -504,6 +532,7 @@ def ai_move(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+        'opening': request.session.get('opening', ''),
     })
 
 @require_POST

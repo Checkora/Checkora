@@ -3062,7 +3062,8 @@
                     black_name: bName,
                     difficulty: difficulty,
                     time_limit: timeLimit,
-                    increment: increment
+                    increment: increment,
+                    opening: document.getElementById('welcomeOpeningSelect')?.value || '',
                 };
 
                 const fenValue = (fen && fen.trim()) ? fen.trim() : null;
