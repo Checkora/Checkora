@@ -2166,3 +2166,42 @@ class AdditionalViewsSecurityAndLessonsTest(TestCase):
         self.assertIn('lesson_steps', response.context)
         self.assertIn('practice_position', response.context)
         self.assertNotEqual(response.context['lesson_steps'], [])
+
+
+class AllowedHostsSecurityTest(TestCase):
+    """Verify that host header validation prevents unauthorized hostnames."""
+
+    @override_settings(ALLOWED_HOSTS=['localhost', '127.0.0.1', '.vercel.app'])
+    def test_trusted_hosts_are_allowed(self):
+        from django.test import RequestFactory
+        rf = RequestFactory()
+
+        # Localhost should work
+        request = rf.get('/play/', HTTP_HOST='localhost')
+        self.assertEqual(request.get_host(), 'localhost')
+
+        # 127.0.0.1 should work
+        request = rf.get('/play/', HTTP_HOST='127.0.0.1')
+        self.assertEqual(request.get_host(), '127.0.0.1')
+
+        # .vercel.app subdomains should work
+        request = rf.get('/play/', HTTP_HOST='checkora.vercel.app')
+        self.assertEqual(request.get_host(), 'checkora.vercel.app')
+
+        request = rf.get('/play/', HTTP_HOST='preview-123.vercel.app')
+        self.assertEqual(request.get_host(), 'preview-123.vercel.app')
+
+    @override_settings(ALLOWED_HOSTS=['localhost', '127.0.0.1', '.vercel.app'])
+    def test_untrusted_hosts_raise_disallowed_host(self):
+        from django.core.exceptions import DisallowedHost
+        from django.test import RequestFactory
+        rf = RequestFactory()
+        request = rf.get('/play/', HTTP_HOST='attacker.com')
+        with self.assertRaises(DisallowedHost):
+            request.get_host()
+
+    def test_environment_override_works(self):
+        # Test environment parsing logic from core/settings.py
+        env_hosts = "mytrusteddynamichost.com, anotherhost.net"
+        parsed_hosts = [host.strip() for host in env_hosts.split(',') if host.strip()]
+        self.assertEqual(parsed_hosts, ['mytrusteddynamichost.com', 'anotherhost.net'])

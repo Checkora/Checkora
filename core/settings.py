@@ -35,7 +35,21 @@ if IS_PRODUCTION:
 else:
     DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['.vercel.app', '*']
+# Configure ALLOWED_HOSTS using environment variables with secure defaults.
+# This prevents host header attacks (e.g. password reset URL poisoning) by restricting accepted domains.
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+else:
+    # Safe fallback default lists for local development and Vercel environments.
+    # Note: Wildcard '*' is removed to prevent security vulnerabilities.
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '[::1]',
+        '.vercel.app',
+    ]
+
 
 
 # Application definition
