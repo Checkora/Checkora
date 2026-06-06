@@ -845,7 +845,12 @@ DP cache is intentionally excluded to save cookie space."""
         if cls._opening_book is None:
             try:
                 with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
-                    cls._opening_book = json.load(fh)
+                    data = json.load(fh)
+
+                if not isinstance(data, dict):
+                    raise ValueError("Opening book must be a dict of FEN -> moves")
+
+                cls._opening_book = data
             except (OSError, json.JSONDecodeError):
                 cls._opening_book = {}  # Graceful fallback: no book
         return cls._opening_book
@@ -905,7 +910,8 @@ DP cache is intentionally excluded to save cookie space."""
             if (
                 not isinstance(move, (list, tuple))
                 or len(move) != 4
-                or not all(isinstance(c, int) and 0 <= c <= 7 for c in move)
+                or any(type(c) is not int for c in move)
+                or any(c < 0 or c > 7 for c in move)
             ):
                 continue
             fr, fc, tr, tc = move
