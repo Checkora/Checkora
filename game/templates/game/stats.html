@@ -19,12 +19,26 @@
         a { color: #f0c040; text-decoration: none; }
         a:hover { text-decoration: underline; }
         .back { text-align: center; margin-top: 30px; }
+        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .btn { display: inline-block; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; border: none; font-size: 14px; }
+        .btn-gold { background: #f0c040; color: #0f0f1a; }
+        .btn-gold:hover { background: #e0b030; text-decoration: none; }
+        .btn-outline { background: transparent; color: #f0c040; border: 1px solid #f0c040; }
+        .btn-outline:hover { background: #f0c040; color: #0f0f1a; text-decoration: none; }
+        .btn-danger { background: transparent; color: #e57373; border: 1px solid #e57373; }
+        .btn-danger:hover { background: #e57373; color: #fff; text-decoration: none; }
     </style>
 </head>
 <body>
-    <div style="margin-bottom: 20px;">
-        <a href="/" class="back-btn">← Back to Home</a>
+    <!-- FIX #980: replaced hardcoded href="/" with proper navigation -->
+    <div class="nav-bar">
+        <a href="{% url 'index' %}" class="btn btn-gold">← Back to Game</a>
+        <form method="POST" action="{% url 'logout' %}" style="margin: 0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Log Out</button>
+        </form>
     </div>
+
     <h1>CHECK<span>ORA</span> &mdash; Game Statistics</h1>
 
     <h2>AI Game Summary</h2>
