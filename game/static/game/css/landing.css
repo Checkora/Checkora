@@ -855,6 +855,35 @@ body {
     }
 }
 
+/* --- Responsive Mobile Overrides --- */
+/* --- Responsive Mobile Overrides --- */
+@media (max-width: 768px) {
+    /* Stabilize container and prevent flex-direction stacking constraints */
+    #backToTopWrapper {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        gap: 0;
+    }
+
+    /* Completely neutralize and hide the text label on mobile */
+    #backToTopTooltip {
+        display: none;
+    }
+
+    /* Optimize the main touch target for mobile devices */
+    #backToTopBtn {
+        width: 48px;
+        height: 48px;
+        font-size: 1.15rem;
+        box-shadow: 0 4px 15px rgba(240, 192, 64, 0.3);
+    }
+    
+    /* Disable the bounce animation on hover for touch devices */
+    #backToTopBtn:hover .btn-arrow {
+        animation: none;
+    }
+}
+
 /* ==========================================================================
    Platform Capabilities Section
    ========================================================================== */

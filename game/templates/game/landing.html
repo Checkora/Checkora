@@ -524,12 +524,11 @@
     </section>
 
     <div id="backToTopWrapper">
-      <span id="backToTopTooltip">Back to Top</span>
-      <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-        <span class="btn-arrow">^</span>
-      </button>
+    <span id="backToTopTooltip">Back to Top</span>
+    <button type="button" id="backToTopBtn" aria-label="Back to top"      onclick="window.scrollTo({top:0,behavior:'smooth'})">
+      <span class="btn-arrow">^</span>
+    </button>
     </div>
-  
     <script>
       const backToTopWrapper = document.getElementById('backToTopWrapper');
       window.addEventListener('scroll', () => {
