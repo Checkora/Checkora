@@ -22,6 +22,7 @@ from django.utils.encoding import (
     force_bytes,
     force_str
 )
+from django.utils.text import slugify
 
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
@@ -1475,6 +1476,36 @@ def analyze_game_view(request):
         logger.error('Failed to analyze game: %s', e)
         return JsonResponse({'error': 'Failed to analyze game'}, status=400)
 
+
+_LESSON_NAMES = (
+    "How Pieces Move",
+    "Check and Checkmate",
+    "Castling",
+    "Opening Principles",
+    "Forks",
+    "Pins",
+    "Skewers",
+    "Discovered Attacks",
+    "Pawn Structures",
+    "King Safety",
+    "Piece Activity",
+    "Basic Endgames",
+)
+
+
+def _lesson_name_from_slug(lesson_slug):
+    for name in _LESSON_NAMES:
+        if slugify(name) == lesson_slug:
+            return name
+    return None
+
+
+def _resolve_lesson_name(url_key):
+    if url_key in _LESSON_NAMES:
+        return url_key
+    return _lesson_name_from_slug(url_key)
+
+
 def lessons_view(request):
     lessons = {
         "Beginner": [
@@ -1529,6 +1560,10 @@ def lessons_view(request):
 
 
 def lesson_detail_view(request, lesson_name):
+    resolved_name = _resolve_lesson_name(lesson_name)
+    if resolved_name is not None:
+        lesson_name = resolved_name
+
     lesson_data = {
         "How Pieces Move": {
             "title": "How Pieces Move",
@@ -2271,6 +2306,12 @@ def lesson_detail_view(request, lesson_name):
 @login_required
 @require_POST
 def complete_lesson(request, lesson_name):
+    resolved_name = _resolve_lesson_name(lesson_name)
+    if resolved_name is not None:
+        lesson_name = resolved_name
+
+    if lesson_name not in _LESSON_NAMES:
+        raise Http404("Lesson not found")
 
     LessonProgress.objects.update_or_create(
         user=request.user,
@@ -2283,6 +2324,5 @@ def complete_lesson(request, lesson_name):
 
     return redirect(
         "lesson_detail",
-        lesson_name=lesson_name
+        lesson_name=slugify(lesson_name)
     )
- 

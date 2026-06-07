@@ -82,7 +82,7 @@
 
         {% for lesson in lesson_list %}
 
-        <a href="{% url 'lesson_detail' lesson %}">
+        <a href="{% url 'lesson_detail' lesson|slugify %}">
             <div class="lesson-card">
                 {% if lesson in completed_lessons %}
                     ✓ {{ lesson }}

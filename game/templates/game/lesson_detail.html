@@ -353,7 +353,7 @@
 
     <form
         method="post"
-        action="{% url 'complete_lesson' lesson.title %}"
+        action="{% url 'complete_lesson' lesson.title|slugify %}"
     >
         {% csrf_token %}
 
@@ -398,13 +398,13 @@
     <div class="lesson-navigation">
 
         {% if previous_lesson %}
-            <a href="{% url 'lesson_detail' previous_lesson %}">
+            <a href="{% url 'lesson_detail' previous_lesson|slugify %}">
                 ← {{ previous_lesson }}
             </a>
         {% endif %}
 
         {% if next_lesson %}
-            <a href="{% url 'lesson_detail' next_lesson %}">
+            <a href="{% url 'lesson_detail' next_lesson|slugify %}">
                 {{ next_lesson }} →
             </a>
         {% endif %}

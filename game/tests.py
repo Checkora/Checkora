@@ -2152,17 +2152,26 @@ class AdditionalViewsSecurityAndLessonsTest(TestCase):
         self.assertEqual(session.get('registration_otp_hash'), initial_hash)
 
     def test_lesson_detail_view_exposes_context(self):
-        # Test beginner lesson "How Pieces Move"
-        response = self.client.get(reverse('lesson_detail', args=['How Pieces Move']))
+        response = self.client.get(reverse('lesson_detail', args=['how-pieces-move']))
         self.assertEqual(response.status_code, 200)
         self.assertIn('lesson_steps', response.context)
         self.assertIn('practice_position', response.context)
         self.assertNotEqual(response.context['lesson_steps'], [])
         self.assertIsNotNone(response.context['practice_position'])
 
-        # Test intermediate lesson "Forks" which has steps mapping
-        response = self.client.get(reverse('lesson_detail', args=['Forks']))
+        response = self.client.get(
+            reverse('lesson_detail', args=['check-and-checkmate'])
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(reverse('lesson_detail', args=['forks']))
         self.assertEqual(response.status_code, 200)
         self.assertIn('lesson_steps', response.context)
         self.assertIn('practice_position', response.context)
         self.assertNotEqual(response.context['lesson_steps'], [])
+
+    def test_lesson_detail_invalid_slug_returns_404(self):
+        response = self.client.get(
+            reverse('lesson_detail', args=['not-a-real-lesson'])
+        )
+        self.assertEqual(response.status_code, 404)

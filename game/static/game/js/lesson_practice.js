@@ -354,19 +354,16 @@ document.addEventListener(
                 }
 
                 if (!selectedSquare) {
+                    const piece = square.innerHTML.trim();
+                    if (!piece) {
+                        return;
+                    }
 
                     selectedSquare = square;
 
                     square.classList.add(
                         "selected-square"
                     );
-
-                    const piece =
-                        square.innerText;
-                    
-                    if (!piece) {
-                        return;
-                    }
 
                     let moves = [];
 
@@ -475,19 +472,7 @@ document.addEventListener(
                             );
                         }
                     );
-                const retryBtn =
-                    document.getElementById(
-                        "retry-btn"
-                    );
-                if (retryBtn) {
-                    retryBtn.addEventListener(
-                        "click",
-                        () => {
-                            location.reload();
-                        }
-                    );
-                }
-                
+
                 selectedSquare = null;
 
                 const isCorrect = checkMove(move);
@@ -504,6 +489,13 @@ document.addEventListener(
                 }
             }
         );
+
+        const retryBtn = document.getElementById("retry-btn");
+        if (retryBtn) {
+            retryBtn.addEventListener("click", () => {
+                location.reload();
+            });
+        }
     }
 );
 
