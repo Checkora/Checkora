@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkora Achievements</title>
+
+    <style>
+        body {
+            background: #0f0f1a;
+            color: #d0d0d0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #f0c040;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8a8aaa;
+            margin-bottom: 40px;
+        }
+
+        .achievement-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .achievement-card {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 12px;
+            padding: 20px;
+            transition: 0.3s ease;
+        }
+
+        .achievement-card:hover {
+            transform: translateY(-4px);
+            border-color: #f0c040;
+        }
+
+        .achievement-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .icon {
+            font-size: 34px;
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .description {
+            color: #b0b0c0;
+            margin: 15px 0;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .unlocked {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid #2ecc71;
+        }
+
+        .locked {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 25px;
+            color: #f0c040;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .stats-banner {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .stats-banner h2 {
+            color: #f0c040;
+            margin: 0;
+        }
+
+        .stats-banner p {
+            color: #8a8aaa;
+        }
+    </style>
+</head>
+<body>
+
+<a href="{% url 'stats' %}" class="back-btn">
+    ← Back to Statistics
+</a>
+
+<h1>🏆 Achievement Collection</h1>
+<p class="subtitle">
+    Track your chess milestones and unlock exclusive achievements.
+</p>
+
+<div class="stats-banner">
+    <h2>{{ unlocked|length }} / {{ achievements|length }}</h2>
+    <p>Achievements Unlocked</p>
+</div>
+
+<div class="achievement-grid">
+
+{% for achievement in achievements %}
+
+    <div class="achievement-card">
+
+        <div class="achievement-header">
+            <div class="icon">
+                {{ achievement.icon }}
+            </div>
+
+            <div class="title">
+                {{ achievement.title }}
+            </div>
+        </div>
+
+        <div class="description">
+            {{ achievement.description }}
+        </div>
+
+        {% if achievement.id in unlocked %}
+            <span class="status unlocked">
+                ✅ Unlocked
+            </span>
+        {% else %}
+            <span class="status locked">
+                🔒 Locked
+            </span>
+        {% endif %}
+
+    </div>
+
+{% endfor %}
+
+</div>
+
+</body>
+</html>

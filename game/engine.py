@@ -22,7 +22,7 @@ import subprocess
 import json
 import sys
 import time
-
+from datetime import date
 
 class ChessGame:
     """Manage a single chess game: state, validation,
@@ -67,7 +67,7 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600):
+    def __init__(self, time_limit=600, increment=0):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -76,6 +76,8 @@ class ChessGame:
         self.valid_moves_cache = {}
         self.white_time = time_limit
         self.black_time = time_limit
+        self.time_limit = time_limit
+        self.increment = increment
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -91,15 +93,25 @@ class ChessGame:
         self.repetition_counts = {self.repetition_history[0]: 1}
         self.game_status = 'active'
         self.draw_reason = None
+        self.threefold_warning = False
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
-    def generate_pgn(self):
+    def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
         if not self.move_history:
             return ""
+        
+        # Compute result based on game status
+        result = '*'
+        if self.game_status == 'checkmate':
+            result = '0-1' if self.current_turn == 'white' else '1-0'
+        elif self.game_status in ('draw', 'stalemate'):
+            result = '1/2-1/2'
+        elif self.game_status == 'resignation':
+            result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
         for i in range(0, len(self.move_history), 2):
@@ -110,11 +122,14 @@ class ChessGame:
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
+        
+        today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
-            '[White "White"]',
-            '[Black "Black"]',
-            '[Result "*"]',
+            f'[White "{white_name}"]',
+            f'[Black "{black_name}"]',
+            f'[Date "{today}"]',
+            f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves
@@ -129,6 +144,8 @@ DP cache is intentionally excluded to save cookie space."""
             'captured': self.captured,
             'white_time': self.white_time,
             'black_time': self.black_time,
+            'time_limit': self.time_limit,
+            'increment': self.increment,
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
@@ -139,6 +156,7 @@ DP cache is intentionally excluded to save cookie space."""
             'repetition_history': self.repetition_history,
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
+            'threefold_warning': self.threefold_warning,
         }
 
     @classmethod
@@ -152,6 +170,8 @@ DP cache is intentionally excluded to save cookie space."""
         game.paused = data.get('paused', False)
         game.white_time = data['white_time']
         game.black_time = data['black_time']
+        game.time_limit = data.get('time_limit', 600)
+        game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
         game.player_color = data.get('player_color', 'white')
@@ -162,7 +182,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.halfmove_clock = data.get('halfmove_clock', 0)
         game.game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
-
+        game.threefold_warning = data.get('threefold_warning', False)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -175,7 +195,7 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str, time_limit=600):
+    def from_fen(cls, fen: str, time_limit=600, increment=0):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -202,7 +222,7 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls(time_limit=time_limit)
+        game = cls(time_limit=time_limit, increment=increment)
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
@@ -215,6 +235,7 @@ DP cache is intentionally excluded to save cookie space."""
         game._rebuild_repetition_counts()
         game.game_status = 'active'
         game.draw_reason = None
+        game.threefold_warning = False
         game.last_ts = time.time()
         return game
 
@@ -519,9 +540,8 @@ DP cache is intentionally excluded to save cookie space."""
 
         notation = self._notation(
             fr, fc, tr, tc, piece, captured,
-            board_before, rights_before, ep_before)
-        if promoted and '=' not in notation:
-            notation += '=' + (self.board[tr][tc] or 'Q').upper()
+            board_before, rights_before, ep_before,
+            promo_char=(promotion_piece or 'q') if promoted else None)
 
         # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
@@ -529,8 +549,15 @@ DP cache is intentionally excluded to save cookie space."""
         # Save who made this move before switching
         moved_by = self.current_turn
 
-        # Switch turn
+        # Apply increment to the player who just made the move
         is_white = self.current_turn == 'white'
+        if self.increment > 0:
+            if is_white:
+                self.white_time += self.increment
+            else:
+                self.black_time += self.increment
+
+        # Switch turn
         self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()
@@ -577,6 +604,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         repetition_count = self.repetition_counts.get(
             self.generate_position_key(), 1)
+        
+        # Warning on second occurrence
+        self.threefold_warning = (repetition_count == 2)
+
         if repetition_count >= 3:
             self.game_status = 'draw'
             self.draw_reason = 'threefold_repetition'
@@ -589,6 +620,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         self.game_status = 'active'
         self.draw_reason = None
+        
+        if repetition_count != 2:
+            self.threefold_warning = False
+    
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
@@ -693,10 +728,15 @@ DP cache is intentionally excluded to save cookie space."""
 
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,
-                  ep_str=None):
+                  ep_str=None, promo_char=None):
         """
         Generate SAN notation via C++ engine if possible,
           else simplified fallback."""
+        if promo_char:
+            promo_char = promo_char.lower()
+            if promo_char not in ('q', 'r', 'b', 'n'):
+                promo_char = 'q'
+
         if board_str and rights_str:
             ep_str = ep_str or self._serialize_ep()
             cmd = (
@@ -704,6 +744,8 @@ DP cache is intentionally excluded to save cookie space."""
                 f" {self.current_turn} {ep_str}"
                 f" {fr} {fc} {tr} {tc}"
             )
+            if promo_char:
+                cmd += f" {promo_char}"
             resp = self._call_engine(cmd)
             if resp and resp.startswith("NOTATION"):
                 parts = resp.split()
@@ -747,6 +789,8 @@ DP cache is intentionally excluded to save cookie space."""
                         notation = f"{p_char}x{t_coord}"
                     else:
                         notation = f"{p_char}{t_coord}"
+        if promo_char and '=' not in notation:
+            notation += '=' + promo_char.upper()
         return notation
 
     @staticmethod

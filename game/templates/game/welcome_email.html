@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to Checkora</title>
+</head>
+
+<body style="
+    background-color:#0b1020;
+    padding:40px;
+    font-family:Arial, sans-serif;
+    color:white;
+">
+
+    <div style="
+        max-width:600px;
+        margin:auto;
+        background:#121933;
+        padding:40px;
+        border-radius:16px;
+        border:1px solid #2a3566;
+    ">
+
+        
+    <div style="text-align:center; margin-bottom:30px;">
+
+        <img
+            src="https://checkora.vercel.app/static/game/checkora_icon_only.png"
+            alt="Checkora Logo"
+            style="
+                width:120px;
+                max-width:100%;
+            "
+        >
+
+        </div>
+        <p style="
+            font-size:18px;
+            margin-bottom:20px;
+        ">
+            Hello <strong>{{ username }}</strong>,
+        </p>
+
+        <p style="
+            color:#d1d5db;
+            line-height:1.8;
+            font-size:16px;
+        ">
+            Your account has been successfully verified and
+            we’re excited to have you join the Checkora
+            chess community.
+        </p>
+
+        <p style="
+            margin-top:25px;
+            font-size:16px;
+        ">
+            You can now:
+        </p>
+
+        <ul style="
+            color:#d1d5db;
+            line-height:1.8;
+            padding-left:20px;
+        ">
+            <li>Play exciting chess matches</li>
+            <li>Challenge friends and opponents</li>
+            <li>Improve your chess strategy</li>
+        </ul>
+
+        <div style="text-align:center; margin:40px 0;">
+
+            <a href="{{ app_url }}"
+               style="
+                    background:#facc15;
+                    color:black;
+                    padding:14px 28px;
+                    text-decoration:none;
+                    border-radius:8px;
+                    font-weight:bold;
+                    font-size:16px;
+                    display:inline-block;
+               ">
+
+                Start Playing
+
+            </a>
+
+        </div>
+
+        <p style="
+            color:#9ca3af;
+            font-size:14px;
+            line-height:1.6;
+        ">
+            If you did not create this account,
+            please ignore this email.
+        </p>
+
+        <hr style="
+            border:none;
+            border-top:1px solid #2a3566;
+            margin:30px 0;
+        ">
+
+        <p style="
+            text-align:center;
+            color:#9ca3af;
+            font-size:14px;
+        ">
+            — The Checkora Team ♟️
+        </p>
+
+    </div>
+
+</body>
+</html>
