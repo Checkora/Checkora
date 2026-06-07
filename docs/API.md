@@ -259,3 +259,144 @@ Serves the animated preloader screen. This is the root entry point of the applic
 - If `/home/` detects a page reload (`performance.getEntriesByType('navigation')[0].type === 'reload'`), it bounces the user back to `/` to replay the preloader.
 
 ---
+
+## 11. Resume Game
+
+Restores the latest in-session game state when an active game exists.
+
+*   **URL:** `/api/resume/`
+*   **Method:** `POST`
+*   **Auth Required:** No
+*   **Headers:** `X-CSRFToken` required
+*   **Request Body:** None
+*   **Session Dependency:** `game` session key must contain an active game.
+*   **Success Response:**
+    ```json
+    {
+      "valid": true,
+      "board": [[...]],
+      "current_turn": "white",
+      "white_time": 575,
+      "black_time": 572,
+      "time_limit": 600,
+      "increment": 5,
+      "move_history": [],
+      "captured_pieces": {"white": [], "black": []},
+      "mode": "pvp",
+      "player_color": "white",
+      "white_name": "Alice",
+      "black_name": "Bob",
+      "game_status": "active",
+      "draw_reason": null,
+      "threefold_warning": false,
+      "fen": "rn1qkb1r/pppb1ppp/5n2/1BpP4/8/5N2/PPP1PPPP/RNBQK2R b KQkq - 1 4",
+      "pgn": "[Event \"Checkora\"] ...",
+      "difficulty": "medium"
+    }
+    ```
+*   **Error Response (no saved game):**
+    ```json
+    {
+      "valid": false,
+      "message": "No saved game found."
+    }
+    ```
+  - **Status Code:** `404 Not Found`
+*   **Error Response (not active):**
+    ```json
+    {
+      "valid": false,
+      "message": "No active game to resume."
+    }
+    ```
+  - **Status Code:** `404 Not Found`
+
+---
+
+## 12. Resign Game
+
+Marks the current game as resigned and determines a winner.
+
+*   **URL:** `/api/resign/`
+*   **Method:** `POST`
+*   **Auth Required:** No
+*   **Headers:** `X-CSRFToken` required
+*   **Request Body:** None
+*   **Session Dependency:** `game` session key must exist.
+*   **Success Response:**
+    ```json
+    {
+      "valid": true,
+      "message": "White resigned.",
+      "winner": "black",
+      "game_status": "resignation"
+    }
+    ```
+*   **Error Response:**
+    ```json
+    {
+      "valid": false,
+      "message": "No active game."
+    }
+    ```
+  - **Status Code:** `400 Bad Request`
+
+---
+
+## 13. Analyze Game
+
+Processes move history and returns a summary of game statistics.
+
+*   **URL:** `/api/analyze-game/`
+*   **Method:** `POST`
+*   **Auth Required:** No
+*   **Headers:** CSRF exempt
+*   **Request Body:**
+    ```json
+    {
+      "moves": ["e4", "e5", "Nf3", "Nc6"],
+      "result": "White wins",
+      "reason": "Checkmate"
+    }
+    ```
+*   **Success Response:**
+    ```json
+    {
+      "opening": "King's Pawn Game",
+      "result": "White wins",
+      "total_moves": 2,
+      "captures": 0,
+      "checks": 0,
+      "checkmates": 0,
+      "promotions": 0,
+      "end_reason": "Checkmate"
+    }
+    ```
+*   **Error Response:**
+    ```json
+    {
+      "error": "Failed to analyze game"
+    }
+    ```
+  - **Status Code:** `400 Bad Request`
+
+---
+
+## 14. Puzzle Stats
+
+Returns puzzle streak counters used by front-end dashboard cards.
+
+*   **URL:** `/api/puzzle-stats/`
+*   **Method:** `GET`
+*   **Auth Required:** No
+*   **Request Params:** None
+*   **Success Response:**
+    ```json
+    {
+      "streak": 0,
+      "longest_streak": 0
+    }
+    ```
+*   **Notes:** Current implementation returns placeholder values (both fields are hardcoded to `0`).
+
+---
