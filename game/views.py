@@ -1298,16 +1298,20 @@ def leaderboard_view(request):
 @login_required
 @require_POST
 def update_puzzle_stats(request):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     stats, _ = PuzzleStats.objects.get_or_create(
         user=request.user
     )
 
-    stats.puzzles_solved = data.get("puzzles_solved", 0)
-    stats.current_streak = data.get("current_streak", 0)
-    stats.best_streak = data.get("best_streak", 0)
-    stats.daily_completions = data.get("daily_completions", 0)
+    stats.puzzles_solved += 1
+    stats.current_streak += 1
+    if stats.current_streak > stats.best_streak:
+        stats.best_streak = stats.current_streak
+    stats.daily_completions += 1
 
     stats.save()
     
