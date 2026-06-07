@@ -176,6 +176,12 @@ class FeaturedBadge(models.Model):
         on_delete=models.CASCADE
     )
 
+    class Meta:
+        unique_together = ("user", "achievement")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.achievement.title}"
+
     def save(self, *args, **kwargs):
         if not self.pk:
             count = FeaturedBadge.objects.filter(
@@ -187,7 +193,5 @@ class FeaturedBadge(models.Model):
                     "Users can only feature up to 3 badges"
                 )
 
+        self.full_clean()
         super().save(*args, **kwargs)
-
-    class Meta:
-        unique_together = ("user", "achievement")
