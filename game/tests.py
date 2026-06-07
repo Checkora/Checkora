@@ -100,6 +100,19 @@ class LandingViewTest(TestCase):
         self.assertContains(response, '/play/')
 
 
+class DisclaimerViewTest(TestCase):
+    """The disclaimer page should be reachable and visible from the landing page."""
+
+    def test_disclaimer_route_and_footer_link(self):
+        response = self.client.get('/disclaimer/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'This page provides a clear statement')
+
+        home = self.client.get('/home/')
+        self.assertContains(home, 'Disclaimer')
+        self.assertContains(home, reverse('disclaimer'))
+
+
 class NotFoundPageTest(TestCase):
     """Custom 404 page should match the product theme and navigation flow."""
 

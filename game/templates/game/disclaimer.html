@@ -1,0 +1,207 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Disclaimer | Checkora</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0a0b10;
+        --surface: #141722;
+        --surface2: #1e2230;
+        --border: #2c3245;
+        --gold: #f4c430;
+        --gold-dim: #c99b1a;
+        --text: #f0f0f5;
+        --muted: #8b92a5;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 12% 10%, rgba(244, 196, 48, 0.08), transparent 30%),
+          var(--bg);
+        color: var(--text);
+        font-family: 'Inter', sans-serif;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        background: rgba(20, 23, 34, 0.95);
+        backdrop-filter: blur(8px);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .brand img {
+        width: 30px;
+        height: 30px;
+      }
+
+      .brand span {
+        font-size: 1.15rem;
+        color: var(--gold);
+      }
+
+      .back-link {
+        color: var(--muted);
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .back-link:hover {
+        color: var(--gold);
+      }
+
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(244, 196, 48, 0.04), rgba(20, 23, 34, 0.9));
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 2vw, 2.5rem);
+      }
+
+      h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.2rem;
+        color: #f3f4ff;
+      }
+
+      p, li {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .lead {
+        margin-top: 0.45rem;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-top: 1rem;
+        border: 1px solid rgba(244, 196, 48, 0.35);
+        color: #ffeb9f;
+        border-radius: 999px;
+        padding: 0.3rem 0.8rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      section {
+        margin-top: 2rem;
+        border-left: 3px solid var(--gold);
+        padding-left: 1rem;
+      }
+
+      ul {
+        margin: 0.5rem 0 0;
+        padding-left: 1.3rem;
+      }
+
+      li + li {
+        margin-top: 0.45rem;
+      }
+
+      @media (min-width: 768px) {
+        .panel {
+          padding: 2.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <a class="brand" href="{% url 'landing' %}">
+        <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora logo" />
+        <span>CHECK<span style="color:#fff">ORA</span></span>
+      </a>
+      <a class="back-link" href="{% url 'landing' %}">← Back to home</a>
+    </div>
+
+    <main>
+      <article class="panel">
+        <span class="badge">Legal & documentation</span>
+        <h1>Disclaimer</h1>
+        <p class="lead">This page provides a clear statement of platform usage boundaries, data responsibilities, and legal limits for using Checkora.</p>
+
+        <section>
+          <h2>General information disclaimer</h2>
+          <p>
+            Checkora is provided as an educational chess platform. Gameplay features, analytics,
+            and recommendations are intended to support learning and entertainment, not professional
+            chess coaching guarantees.
+          </p>
+        </section>
+
+        <section>
+          <h2>Limitation of liability</h2>
+          <p>
+            The Checkora team is not liable for losses, damages, service interruptions,
+            or account-level outcomes from gameplay actions, external API dependencies, third-party
+            browser extensions, or environment-level failures.
+          </p>
+        </section>
+
+        <section>
+          <h2>Accuracy of information</h2>
+          <p>
+            Move validation logic and analysis summaries are maintained with care, but mistakes may
+            still occur due to software edge cases, configuration differences, or user environment
+            constraints.
+          </p>
+        </section>
+
+        <section>
+          <h2>External links disclaimer</h2>
+          <p>
+            Pages that link to external websites are provided for convenience only. We do not control
+            those sites and are not responsible for their content, terms, or practices.
+          </p>
+        </section>
+
+        <section>
+          <h2>User responsibilities</h2>
+          <ul>
+            <li>Use your account credentials securely and protect your one-time passcodes.</li>
+            <li>Review rules carefully before using analytics, statistics, and puzzle features.</li>
+            <li>Report misuse, inaccuracies, or policy questions through official issue channels.</li>
+          </ul>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>

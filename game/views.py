@@ -1234,6 +1234,10 @@ def rules(request):
     return render(request, 'game/rules.html')
 
 
+def disclaimer(request):
+    return render(request, 'game/disclaimer.html')
+
+
 @require_POST
 def logout_view(request):
     logout(request)
