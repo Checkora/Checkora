@@ -21,6 +21,67 @@ body {
     max-width: 100vw;
 }
 
+/* Light page theme */
+:root[data-page-theme="light"] {
+    --page-bg-color: #f5f5f5;
+    --page-text-color: #333333;
+    --page-border-color: #ddd;
+    --page-card-bg: #ffffff;
+    --page-input-bg: #ffffff;
+    --page-input-border: #ccc;
+}
+
+/* Dark page theme (default) */
+:root[data-page-theme="dark"] {
+    --page-bg-color: #0f0f1a;
+    --page-text-color: #d0d0d0;
+    --page-border-color: #444;
+    --page-card-bg: #1a1a2e;
+    --page-input-bg: #1a1a2e;
+    --page-input-border: #444;
+}
+
+:root[data-page-theme="light"] body {
+    background-color: var(--page-bg-color);
+    color: var(--page-text-color);
+}
+
+:root[data-page-theme="light"] .promo-dialog,
+:root[data-page-theme="light"] .card {
+    background-color: var(--page-card-bg);
+    color: var(--page-text-color);
+    border-color: var(--page-border-color);
+}
+
+:root[data-page-theme="light"] input,
+:root[data-page-theme="light"] select,
+:root[data-page-theme="light"] textarea {
+    background-color: var(--page-input-bg);
+    color: var(--page-text-color);
+    border-color: var(--page-input-border);
+}
+
+:root[data-page-theme="light"] .welcome-msg {
+    color: #666;
+}
+
+:root[data-page-theme="light"] .btn-signin,
+:root[data-page-theme="light"] .btn-logout {
+    color: #f0c040;
+}
+
+:root[data-page-theme="light"] .btn-logout {
+    background: rgba(255, 107, 107, 0.2);
+}
+
+:root[data-page-theme="light"] .theme-toggle-btn {
+    color: #f0c040;
+}
+
+:root[data-page-theme="light"] .theme-toggle-btn:hover {
+    background: rgba(240, 192, 64, 0.15);
+}
+
 /* ============================================================
    Header
    ============================================================ */
@@ -155,6 +216,32 @@ body {
     border-radius: 6px;
     font-size: 0.9rem;
     font-weight: 600;
+}
+
+.theme-toggle-btn {
+    background: none;
+    border: none;
+    color: #f0c040;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(240, 192, 64, 0.1);
+    transform: scale(1.1);
+}
+
+.theme-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    transition: transform 0.4s ease;
 }
 
 .profile-dropdown{

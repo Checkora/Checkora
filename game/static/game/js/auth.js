@@ -82,6 +82,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  /* ── Day/Night theme toggle ── */
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const themeIcon = document.querySelector('.theme-icon');
+  const htmlElement = document.documentElement;
+
+  function updateThemeIcon() {
+    const currentTheme = htmlElement.getAttribute('data-page-theme') || 'dark';
+    if (themeIcon) {
+      themeIcon.textContent = currentTheme === 'dark' ? 'light_mode' : 'dark_mode';
+    }
+  }
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', function() {
+      const currentTheme = htmlElement.getAttribute('data-page-theme') || 'dark';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      htmlElement.setAttribute('data-page-theme', newTheme);
+      updateThemeIcon();
+      try {
+        localStorage.setItem('pageTheme', newTheme);
+      } catch (e) {
+        console.warn('Could not save theme to localStorage:', e);
+      }
+    });
+  }
+
+  updateThemeIcon();
+  /* ── Password validation checklist (register page only) ── */
  /* ── Password validation checklist (register page only) ── */
   const passwordInput = document.querySelector('input[name="password1"]');
   const emailInput = document.querySelector('input[name="email"]');

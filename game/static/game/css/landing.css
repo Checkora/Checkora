@@ -10,6 +10,30 @@
     --accent-gold: #f0c040;
 }
 
+:root[data-page-theme="light"] {
+    --bg-dark: #f5f5f5;
+    --nav-bg: #ffffff;
+    --card-bg: #ffffff;
+    --card-border: #e0e0e0;
+    --card-hover: #f9f9f9;
+    --text-primary: #333333;
+    --text-title: #1a1a1a;
+    --text-secondary: #666666;
+    --accent-gold: #d4a020;
+}
+
+:root[data-page-theme="dark"] {
+    --bg-dark: #0f0f1a;
+    --nav-bg: #12121f;
+    --card-bg: #16162a;
+    --card-border: #252545;
+    --card-hover: #1a1a35;
+    --text-primary: #d0d0d0;
+    --text-title: #ffffff;
+    --text-secondary: #aaaaaa;
+    --accent-gold: #f0c040;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -30,7 +54,28 @@ body {
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 25%;
+    height: 100vh;
+    background: linear-gradient(135deg, rgba(240, 192, 64, 0.08) 0%, rgba(212, 165, 116, 0.04) 100%);
+    border-right: 1px solid rgba(240, 192, 64, 0.1);
+    pointer-events: none;
+    z-index: 0;
+    transition: all 0.3s ease;
+}
+
+:root[data-page-theme="light"] body::before {
+    background: linear-gradient(135deg, rgba(212, 165, 116, 0.06) 0%, rgba(240, 192, 64, 0.02) 100%);
+    border-right-color: rgba(212, 165, 116, 0.2);
 }
 
 .navbar {
@@ -361,35 +406,6 @@ body {
     position: relative;
     max-width: 850px;
     margin: 0 auto;
-    text-align: center;
-    z-index: 5;
-}
-
-.architecture-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    background-color: rgba(30, 41, 59, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 9999px;
-    padding: 0.45rem 1.2rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #cbd5e1;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 2.2rem;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.live-pulse {
-    width: 6px;
-    height: 6px;
-    background-color: #10b981;
-    border-radius: 50%;
-    box-shadow: 0 0 8px #10b981;
-    animation: micro-engine-pulse 2s infinite ease-in-out;
 }
 
 .hero-title {
@@ -524,7 +540,7 @@ body {
     position: relative;
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s, background-color 0.3s ease;
 }
 
 .card:hover {

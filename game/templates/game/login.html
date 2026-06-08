@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script>
+        (function () {
+            const VALID_PAGE_THEMES = ['light', 'dark'];
+            let savedPageTheme = 'dark';
+            try { savedPageTheme = localStorage.getItem('pageTheme') || 'dark'; } catch (e) { }
+            if (!VALID_PAGE_THEMES.includes(savedPageTheme)) savedPageTheme = 'dark';
+            document.documentElement.setAttribute('data-page-theme', savedPageTheme);
+        })();
+    </script>
 </head>
 <body class="login-page">
     <!-- Upgraded Back-to-home Button -->
@@ -18,6 +28,11 @@
         </svg>
         <span>Back to Home</span>
     </a>
+
+    <!-- Theme Toggle Button -->
+    <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Day/Night" aria-label="Toggle Day/Night mode">
+        <i class="material-icons theme-icon">dark_mode</i>
+    </button>
 
     <div class="header">
         <div class="logo-container">
