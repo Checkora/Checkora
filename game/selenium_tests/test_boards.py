@@ -6,6 +6,27 @@ from .base import BaseE2ETest, log_ok, log_fail, log_info
 
 
 class UITest(BaseE2ETest):
+    def _start_pvp_game(self):
+        """Helper to start a PvP game with the new two-step UI."""
+        self.driver.get(self.live_server_url + '/play/')
+        
+        # 1. Click PvP mode button to reveal inputs
+        self.wait.until(EC.element_to_be_clickable((By.ID, 'welcomePvPBtn'))).click()
+        
+        # 2. Fill in the names
+        white_input = self.wait.until(EC.visibility_of_element_located((By.ID, 'whiteNameInput')))
+        white_input.clear()
+        white_input.send_keys("Player 1")
+        
+        black_input = self.driver.find_element(By.ID, 'blackNameInput')
+        black_input.clear()
+        black_input.send_keys("Player 2")
+        
+        # 3. Click the new Start Game button
+        self.driver.find_element(By.ID, 'startPvPBtn').click()
+        
+        # Wait for the overlay to disappear
+        self.wait.until(EC.invisibility_of_element_located((By.ID, 'welcomeOverlay')))
 
     # ───────────────────────────────────────────────────────────────
     # Test 1: Welcome Overlay

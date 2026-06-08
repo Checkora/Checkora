@@ -6,6 +6,21 @@ from .base import BaseE2ETest, log_ok, log_info
 
 
 class NavigationTest(BaseE2ETest):
+    def _start_pvp_game(self):
+        """Helper to start a PvP game with the new two-step UI."""
+        self.driver.get(self.live_server_url + '/play/')
+        self.wait.until(EC.element_to_be_clickable((By.ID, 'welcomePvPBtn'))).click()
+        
+        white_input = self.wait.until(EC.visibility_of_element_located((By.ID, 'whiteNameInput')))
+        white_input.clear()
+        white_input.send_keys("Player 1")
+        
+        black_input = self.driver.find_element(By.ID, 'blackNameInput')
+        black_input.clear()
+        black_input.send_keys("Player 2")
+        
+        self.driver.find_element(By.ID, 'startPvPBtn').click()
+        self.wait.until(EC.invisibility_of_element_located((By.ID, 'welcomeOverlay')))
 
     # ───────────────────────────────────────────────────────────────
     # Test 1: Homepage (Landing Page) Loads
@@ -41,12 +56,11 @@ class NavigationTest(BaseE2ETest):
         self.assertTrue(welcome_overlay.is_displayed())
         log_ok("Welcome overlay visible")
 
-        # Name inputs
+        # Name inputs should be present but HIDDEN initially
         white_input = self.driver.find_element(By.ID, 'whiteNameInput')
         black_input = self.driver.find_element(By.ID, 'blackNameInput')
-        self.assertIsNotNone(white_input)
-        self.assertIsNotNone(black_input)
-        log_ok("Name inputs present")
+        self.assertFalse(white_input.is_displayed(), "White input should be hidden initially")
+        self.assertFalse(black_input.is_displayed(), "Black input should be hidden initially")
 
         # Mode buttons
         pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
@@ -244,18 +258,20 @@ class NavigationTest(BaseE2ETest):
     # ───────────────────────────────────────────────────────────────
     # Test 11: Name Validation Error Shows on Empty Submit
     # ───────────────────────────────────────────────────────────────
-    def test_11_name_validation_error_on_empty_submit(self):
-        """Clicking PvP without entering names shows validation error."""
+def test_11_name_validation_error_on_empty_submit(self):
+        """Clicking Start without entering names shows validation error."""
         log_info("Testing name validation...")
         self.driver.get(self.live_server_url + '/play/')
 
-        self.wait.until(
-            EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
-        )
+        self.wait.until(EC.presence_of_element_located((By.ID, 'welcomeOverlay')))
 
-        # Click PvP without entering names
+        # 1. Click PvP to reveal the setup menu
         pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
         pvp_btn.click()
+
+        # 2. Wait for the new Start button to appear, then click it while names are blank
+        start_btn = self.wait.until(EC.element_to_be_clickable((By.ID, 'startPvPBtn')))
+        start_btn.click()
 
         # Error div should be visible
         error_div = self.wait.until(
