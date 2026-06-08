@@ -2775,11 +2775,8 @@
                 selected = null;
                 hints = [];
                 await loadGame();
-
-                // NEW: Force sync the theme to the newly rebuilt DOM
-                if (typeof applyCurrentTheme === 'function') {
-                    applyCurrentTheme();
-                }
+                // Force sync the theme to the newly rebuilt DOM
+                applyCurrentTheme();
 
                 // Apply active state after UI reload
                 updateModeButtonsUI(gameMode);
