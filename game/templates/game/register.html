@@ -26,7 +26,9 @@
     <div class="header">
            <div class="logo-container">
                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
-               <span class="logo-text">Checkora</span>
+               <span class="logo-text">
+    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+</span>
            </div>
       <p>Create an account to track your stats</p>
     </div>
@@ -46,7 +48,7 @@
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                     {{ field }}
                     {% if field.help_text %}
-                        <span class="helptext">{{ field.help_text|safe }}</span>
+                        <span class="helptext">{{ field.help_text}}</span>
                     {% endif %}
                     {% if field.errors %}
                         {{ field.errors }}

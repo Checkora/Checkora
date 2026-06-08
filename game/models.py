@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
-
+from django.db.models import Q
+from django.core.exceptions import ValidationError
 
 class GameResult(models.Model):
     user = models.ForeignKey(
@@ -29,9 +30,168 @@ class GameResult(models.Model):
     winner = models.CharField(max_length=10, choices=WINNER_CHOICES)
     end_reason = models.CharField(max_length=25, choices=END_REASON_CHOICES)
     played_at = models.DateTimeField(auto_now_add=True)
+    moves = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of moves played during the game in chronological order"
+    )
 
     class Meta:
         ordering = ["-played_at"]
 
     def __str__(self):
         return f"{self.mode} | {self.winner} | {self.end_reason}"
+
+class PuzzleStats(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="puzzle_stats"
+    )
+
+    puzzles_solved = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+    )
+    current_streak = models.PositiveIntegerField(default=0)
+    best_streak = models.PositiveIntegerField(
+        default=0,
+        db_index=True
+    )
+    daily_completions = models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(best_streak__gte=models.F("current_streak")),
+                name="best_streak_gte_current_streak",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} Puzzle Stats"
+    
+class LessonProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lesson_progress"
+    )
+
+    lesson_name = models.CharField(
+        max_length=100
+    )
+
+    completed = models.BooleanField(
+        default=False
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        unique_together = (
+            "user",
+            "lesson_name"
+        )
+
+    def __str__(self):
+        return (
+            f"{self.user.username} - "
+            f"{self.lesson_name}"
+        )
+        
+class Achievement(models.Model):
+    CATEGORY_CHOICES = [
+        ("gameplay", "Gameplay"),
+        ("puzzle", "Puzzle"),
+        ("lessons", "Lessons"),
+        ("streaks", "Streaks"),
+        ("special", "Special Achievements"),
+    ]
+
+    RARITY_CHOICES = [
+        ("common", "Common"),
+        ("rare", "Rare"),
+        ("epic", "Epic"),
+        ("legendary", "Legendary"),
+    ]
+
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=100)
+    description = models.TextField()
+    icon = models.CharField(max_length=10)
+
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default="gameplay"
+    )
+
+    rarity = models.CharField(
+        max_length=20,
+        choices=RARITY_CHOICES,
+        default="common"
+    )
+
+    def __str__(self):
+        return self.title
+    
+class UserAchievement(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE
+    )
+
+    achievement = models.ForeignKey(
+        Achievement,
+        on_delete=models.CASCADE
+    )
+
+    unlocked_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        unique_together = (
+            "user",
+            "achievement"
+        )
+
+    def __str__(self):
+        return f"{self.user.username} - {self.achievement.title}"
+
+
+class FeaturedBadge(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="featured_badges"
+    )
+
+    achievement = models.ForeignKey(
+        Achievement,
+        on_delete=models.CASCADE
+    )
+
+    class Meta:
+        unique_together = ("user", "achievement")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.achievement.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            count = FeaturedBadge.objects.filter(
+                user=self.user
+            ).count()
+
+            if count >= 3:
+                raise ValidationError(
+                    "Users can only feature up to 3 badges"
+                )
+
+        self.full_clean()
+        super().save(*args, **kwargs)

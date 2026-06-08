@@ -239,3 +239,23 @@ Checks whether a username already exists in the system. Used during registration
   - **Status Code:** `400 Bad Request`
 
 ---
+
+## 10. Preloader
+
+Serves the animated preloader screen. This is the root entry point of the application — all visitors land here first before being redirected to the main landing page.
+
+*   **URL:** `/`
+*   **Method:** `GET`
+*   **Auth Required:** No
+*   **Request Params:** None
+*   **View:** `views.preloader`
+*   **Template:** `game/preloading.html`
+*   **Success Response:** Renders the preloader HTML page with animated chess engine boot sequence.
+*   **Redirect Behaviour:** After 2.6s the client-side JavaScript redirects to `/home/`.
+
+**Notes:**
+- This endpoint has no JSON response — it returns a full HTML page.
+- The redirect to `/home/` is handled entirely client-side via `window.location.href`.
+- If `/home/` detects a page reload (`performance.getEntriesByType('navigation')[0].type === 'reload'`), it bounces the user back to `/` to replay the preloader.
+
+---

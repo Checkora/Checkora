@@ -39,6 +39,7 @@
 
 
 <body>
+    <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
@@ -68,13 +69,14 @@
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
+    <img src="{% static 'game/checkora_icon_only.png' %}"
+         style="height: 3rem; width: auto; object-fit: contain;"
+         alt="Checkora">
 
-                    <img src="{% static 'game/checkora_icon_only.png' %}"
-                        style="height: 3rem; width: auto; object-fit: contain;" alt="Checkora">
-
-                    <span>CHECKORA</span>
-
-                </div>
+    <span class="logo-text">
+        <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+    </span>
+</div>
 
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
@@ -153,7 +155,11 @@
                             <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                                     <label for="customMinsInput" style="color: #8a8aaa; font-size: 0.75rem;">Minutes</label>
-                                    <input type="number" id="customMinsInput" min="1" max="300" value="10" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                    <input type="number" id="customMinsInput" min="0" max="300" value="0" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customSecsInput" style="color: #8a8aaa; font-size: 0.75rem;">Seconds</label>
+                                    <input type="number" id="customSecsInput" min="0" max="59" value="30" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
                                 </div>
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                                     <label for="customIncInput" style="color: #8a8aaa; font-size: 0.75rem;">Increment (s)</label>
@@ -173,7 +179,12 @@
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
-
+                <button type="button" 
+                        class="btn btn-gold"
+                        id="welcomeDailyPuzzleBtn"
+                        style="padding: 12px; font-size: 1.05rem;">
+                    Daily Puzzle Challenge
+                </button>
                 <div class="fen-input-group">
                     <label class="fen-label" for="welcomeFenInput">Optional FEN</label>
                     <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste FEN to start from a custom position">
@@ -224,24 +235,53 @@
         
         <div class="logo-container">
             <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
-                <span class="logo-text">Checkora</span>
+                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+                <span class="logo-text">
+    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+</span>
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
         
         <div class="auth-buttons">
             {% if user.is_authenticated %}
-            <span class="welcome-msg">Welcome, <span class="username">{{ user.username }}</span></span>
-            <form method="post" action="{% url 'logout' %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn-logout">Logout</button>
-            </form>
+
+            <div class="profile-dropdown">
+                <button class="profile-btn">
+                    {{ user.username }} ⌄
+                </button>
+
+                <div class="dropdown-content">
+                    <a href="/stats/">
+                        Stats
+                    </a>
+
+                    <a href="{% url 'leaderboard' %}">
+                        Leaderboard
+                    </a>
+
+                    <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
+                    <form
+                        method="post"
+                        action="{% url 'logout' %}"
+                        style="margin:0;"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="logout-option"
+                        >
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
             {% else %}
+
             <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
             <a href="{% url 'register' %}" class="btn-register">Register</a>
             {% endif %}
-            <a href="/stats/" class="btn-signin">Stats</a>
         </div>
     </div>
     
@@ -298,6 +338,10 @@
                     <span id="status-text">Online</span>
                 </div>
 
+                <div id="streak-counter" class="streak-counter" style="display:none;">
+                    🔥 <span id="streak-count">0</span> Day Streak
+                </div>
+
                 <div id="blackClock" class="clock black">
                     <span class="label">
                         <span id="blackNameLabel">BLACK</span>
@@ -326,7 +370,14 @@
                 </div>
             </div>
 
-            <div class="status-bar" id="statusBar" style="height: 22px; box-sizing: border-box;">
+            <div class="status-bar" id="statusBar">
+                <div id="replayControls" class="replay-controls hidden">
+                    <button id="firstReplayBtn">⏮</button>
+                    <button id="prevReplayBtn">◀</button>
+                    <button id="playReplayBtn">▶</button>
+                    <button id="nextReplayBtn">▶▶</button>
+                    <button id="lastReplayBtn">⏭</button>
+                </div>
                 <!--Score bar-->
                   <div id="game-status">Game started</div>
                    <div class="score-panel">
@@ -349,19 +400,30 @@
             <div class="card">
                 <div class="card-title">Board Theme</div>
                 <div class="theme-switcher">
-                    <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme"
-                        aria-pressed="true" type="button"></button>
-                    <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme"
-                        aria-pressed="false" type="button"></button>
+                    <div class="theme-option">
+                        <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme" aria-pressed="true" type="button"></button>
+                        <span class="theme-label">Classic</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Dark</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Green</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Blue</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Pastel</span>
+                    </div>
                 </div>
-                <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
-                    Classic · Dark · Green · Blue · Pastel
+                <div class="preference-container">
+                    <input type="checkbox" id="showCoordinatesCheckbox" class="custom-checkbox" checked>
+                    <label for="showCoordinatesCheckbox" class="preference-label">Show Coordinates</label>
                 </div>
             </div>
             <div class="card">
@@ -372,6 +434,10 @@
                    <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
+                    <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
+                    <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
+                    <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
@@ -482,12 +548,12 @@
     </div>
 
    <!-- ========== LEAVE GAME CONFIRMATION MODAL ========== -->
-<div class="promo-overlay" id="leaveConfirmOverlay" style="display:none;">
-    <div class="promo-dialog" style="max-width: 340px; text-align: center;">
-        <div class="promo-title" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
+<div class="promo-overlay" id="leaveConfirmOverlay" role="dialog" aria-modal="true" aria-labelledby="leaveConfirmTitle" aria-describedby="leaveConfirmMessage" aria-hidden="true">
+    <div class="promo-dialog" id="leaveConfirmDialog" tabindex="-1" style="max-width: 340px; text-align: center;">
+        <div class="promo-title" id="leaveConfirmTitle" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
             Leave the Game?
         </div>
-        <p style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
+        <p id="leaveConfirmMessage" style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
             Are you sure you want to go back to Home? Your current game progress will be lost.
         </p>
         <div style="display: flex; gap: 12px; justify-content: center;">
@@ -504,19 +570,128 @@
 </div> 
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
-        <div class="promo-dialog">
-            <div class="promo-title" id="gameOverTitle" style="font-size: 1.5rem; color: #f0c040; margin-bottom: 10px;">
-                Game Over</div>
-            <p id="gameOverMessage" style="color: #ccc; margin-bottom: 25px; font-size: 1rem;"></p>
-            <p id="gameDurationText" style="color: #aaa; margin-bottom: 20px; font-size: 0.9rem;"></p>
+        <div class="promo-dialog premium-result-dialog" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle" aria-describedby="gameOverMessage">
+            <div class="result-modal-columns">
+                <!-- Left Column: Banner, Illustration & Buttons -->
+                <div class="result-column-left">
+                    <!-- Dynamic Result Banner -->
+                    <div id="gameOverBanner" class="result-banner">
+                        <span class="banner-icon" id="bannerIcon">🏆</span>
+                        <div class="promo-title" id="gameOverTitle" style="font-size: 1.6rem; margin-bottom: 2px;">Game Over</div>
+                        <div class="banner-subtitle" id="gameOverMessage">Victory!</div>
+                    </div>
 
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button type="button" class="btn btn-gold" id="shareResultBtn" style="padding: 12px; font-size: 1rem;">📤 Share Result</button>
-                <button class="btn btn-gold" id="gameOverStartBtn" style="padding: 12px; font-size: 1rem;">Start New Game</button>
-               <a href="{% url 'landing' %}" class="btn" id="gameOverExitBtn"
-   style="padding: 12px; font-size: 1rem; margin-top: 10px; background: #333; color: #fff; cursor: pointer; text-align: center; text-decoration: none; display: block;">
-    Exit to Home
-</a>
+                    <!-- Result Illustration -->
+                    <div id="gameOverIllustration" class="result-illustration"></div>
+
+                    <!-- Improved Action Buttons -->
+                    <div class="modal-actions-container">
+                        <button type="button" class="btn btn-gold action-btn-glow" id="resRematchBtn">
+                            <span class="btn-icon">▶</span> Rematch
+                        </button>
+                        <div class="primary-actions-row">
+                            <button type="button" class="btn btn-gold" id="gameOverStartBtn">
+                                <span class="btn-icon">♟</span> New Game
+                            </button>
+                            <button type="button" class="btn btn-secondary-outline" id="replayGameBtn">
+                                <span class="btn-icon">📋</span> Analyze Game
+                            </button>
+                        </div>
+                        <div class="secondary-actions-row">
+                            <button type="button" class="btn-flat" id="shareResultBtn" title="Share Result">
+                                <span class="flat-icon">📤</span> Share
+                            </button>
+                            <button type="button" class="btn-flat" id="resDownloadPgnBtn" title="Download PGN">
+                                <span class="flat-icon">📄</span> PGN
+                            </button>
+                            <a href="{% url 'landing' %}" class="btn-flat" id="gameOverExitBtn" title="Return Home">
+                                <span class="flat-icon">🏠</span> Home
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Stats, Achievements & Review -->
+                <div class="result-column-right">
+                    <!-- Enhanced Match Summary Card -->
+                    <div class="result-summary-card">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Result</span>
+                                <span class="stat-value" id="resSummaryReason">Checkmate</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Moves</span>
+                                <span class="stat-value" id="resSummaryMoves">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Duration</span>
+                                <span class="stat-value" id="gameDurationText">00:00</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Material</span>
+                                <span class="stat-value" id="resMaterialDiff">Even</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Captures</span>
+                                <span class="stat-value" id="resAnalysisCaptures">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checks</span>
+                                <span class="stat-value" id="resAnalysisChecks">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checkmates</span>
+                                <span class="stat-value" id="resAnalysisCheckmates">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Promotions</span>
+                                <span class="stat-value" id="resAnalysisPromotions">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Material difference and captured pieces summary -->
+                        <div class="summary-material-section">
+                            <div class="captured-preview-container">
+                                <div class="captured-row-mini">
+                                    <span class="side-indicator-dot white"></span>
+                                    <div class="captured-list-mini" id="modalWhiteCaptured"></div>
+                                </div>
+                                <div class="captured-row-mini">
+                                    <span class="side-indicator-dot black"></span>
+                                    <div class="captured-list-mini" id="modalBlackCaptured"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Achievements & Highlights Section -->
+                    <div class="achievements-section" id="resAchievementsSection">
+                        <div class="section-subtitle">Notable Achievements</div>
+                        <div class="achievements-list" id="resAchievementsList">
+                            <!-- Badges injected dynamically by board.js -->
+                        </div>
+                    </div>
+
+                    <!-- Game Review Preview -->
+                    <div class="game-review-preview">
+                        <div class="opening-row">
+                            <span class="opening-icon">📖</span>
+                            <span class="opening-title">Opening Played:</span>
+                            <span class="opening-val" id="resOpeningName">Standard Opening</span>
+                        </div>
+                        <div class="review-details">
+                            <div class="detail-cell best-move-cell">
+                                <span class="detail-label">Best Move Found</span>
+                                <span class="detail-value" id="resBestMove">Nf3 (Excellent)</span>
+                            </div>
+                            <div class="detail-cell mistake-cell">
+                                <span class="detail-label">Blunder</span>
+                                <span class="detail-value" id="resBlunder">None</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -597,9 +772,11 @@
          JAVASCRIPT
          ======================================================== -->
     <script src="{% static 'game/js/toast.js' %}"></script>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
     <script>
