@@ -258,7 +258,7 @@ class NavigationTest(BaseE2ETest):
     # ───────────────────────────────────────────────────────────────
     # Test 11: Name Validation Error Shows on Empty Submit
     # ───────────────────────────────────────────────────────────────
-def test_11_name_validation_error_on_empty_submit(self):
+    def test_11_name_validation_error_on_empty_submit(self):
         """Clicking Start without entering names shows validation error."""
         log_info("Testing name validation...")
         self.driver.get(self.live_server_url + '/play/')
