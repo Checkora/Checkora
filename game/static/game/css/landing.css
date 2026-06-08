@@ -386,8 +386,8 @@ body {
 }
 
 @keyframes chess-drift {
-  0%   { transform: perspective(900px) rotateX(32deg) translateX(0) translateY(0); }
-  100% { transform: perspective(900px) rotateX(32deg) translateX(-90px) translateY(-90px); }
+  0%   { transform: perspective(900px) rotateX(50deg) translateX(0) translateY(0); }
+  100% { transform: perspective(900px) rotateX(50deg) translateX(-90px) translateY(-90px); }
 }
 
 .hero-board-vignette {
