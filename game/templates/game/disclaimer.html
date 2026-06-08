@@ -1,0 +1,278 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disclaimer - Checkora</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #0a0b10;
+            --surface: #141722;
+            --surface-hover: #1c2030;
+            --gold: #f4c430;
+            --gold-hover: #e0b328;
+            --text: #ffffff;
+            --text-muted: #8a8d98;
+            --border: rgba(255, 255, 255, 0.08);
+            --font-primary: 'DM Sans', sans-serif;
+            --font-display: 'Playfair Display', serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Fixed Navigation Top Bar Pattern */
+        .nav-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background-color: rgba(10, 11, 16, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            z-index: 1000;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .logo-img {
+            height: 32px;
+            width: auto;
+        }
+
+        .logo-text {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .logo-highlight {
+            color: var(--gold);
+        }
+
+        /* Container Main Layout */
+        .main-content {
+            flex: 1;
+            max-width: 900px;
+            width: 100%;
+            margin: 120px auto 60px auto;
+            padding: 0 24px;
+        }
+
+        .page-title-section {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .page-title-section h1 {
+            font-family: var(--font-display);
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .page-title-section p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Content Cards matching .rule-card pattern */
+        .rule-card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .rule-card:hover {
+            border-color: rgba(244, 196, 48, 0.3);
+        }
+
+        .rule-card h2 {
+            font-family: var(--font-display);
+            color: var(--gold);
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rule-card h2::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 18px;
+            background-color: var(--gold);
+            border-radius: 2px;
+        }
+
+        .rule-card p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1rem;
+            margin-bottom: 12px;
+        }
+
+        .rule-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Clean Footer element matching standalone rule layouts */
+        .legal-footer {
+            text-align: center;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: auto;
+        }
+
+        /* Responsive Breakpoints matching rules.html */
+        @media (max-width: 768px) {
+            .nav-header {
+                padding: 0 20px;
+            }
+            .main-content {
+                margin-top: 100px;
+                padding: 0 16px;
+            }
+            .page-title-section h1 {
+                font-size: 2.2rem;
+            }
+            .rule-card {
+                padding: 24px;
+            }
+        }
+
+        /* Back Button Style Configuration */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding: 10px 20px;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .back-btn svg {
+            transition: transform 0.2s ease;
+        }
+
+        /* Hover and Interactive Interactive Responses */
+        .back-btn:hover {
+            color: var(--gold);
+            border-color: rgba(244, 196, 48, 0.4);
+            background-color: var(--surface-hover);
+            transform: translateY(-1px);
+        }
+
+        .back-btn:hover svg {
+            transform: translateX(-4px); /* Subtle shift left on hover */
+        }
+
+        .back-btn:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <header class="nav-header">
+        <a href="{% url 'landing' %}" class="logo-container">
+            <img src="{% static 'images/logo.png' %}" alt="Checkora Logo" class="logo-img" onerror="this.style.display='none'">
+            <span class="logo-text">CHECK<span class="logo-highlight">ORA</span></span>
+        </a>
+        <div style="color: var(--text-muted); font-size: 0.9rem;">LEGAL PORTAL</div>
+    </header>
+
+    <main class="main-content">
+        <div class="page-title-section">
+            <h1>Platform Disclaimer</h1>
+            <p>Terms of Use & Interpretations</p>
+            
+            <a href="{% url 'landing' %}" class="back-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Home
+            </a>
+        </div>
+
+        <section class="rule-card">
+            <h2>General Information</h2>
+            <p>The information, services, and structural match simulation environments provided on the Checkora chess platform are intended solely for general informational, educational, and recreational entertainment purposes.</p>
+            <p>All modules are interactive and provided on an "as-is" and "as-available" execution model without absolute performance assertions of any kind.</p>
+        </section>
+
+        <section class="rule-card">
+            <h2>Limitation of Liability</h2>
+            <p>To the fullest extent permitted by applicable law, Checkora, its core architects, and open-source contribution members shall assume no accountability for any direct, indirect, accidental, or consequential operational data disruptions.</p>
+            <p>This includes server connection synchronizations, temporary match state profile resets, algorithmic parsing variances, or system downtime occurrences.</p>
+        </section>
+
+        <section class="rule-card">
+            <h2>Accuracy of Information</h2>
+            <p>While our platform orchestrates high-performance processing algorithms utilizing custom C++ Minimax structures coupled with specialized Python web controllers, we make no absolute claims regarding real-time analytical precision.</p>
+            <p>Evaluations, dynamic material calculation logs, and strategic suggestion paths are algorithmic estimations and do not denote official chess arbitrage metrics.</p>
+        </section>
+
+        <section class="rule-card">
+            <h2>External Links</h2>
+            <p>Checkora features embedded repository vectors, community server reference endpoints, and references linking directly to external portals (such as GitHub, Discord, or official regulatory chess federations).</p>
+            <p>We do not manage, maintain, or assert editorial monitoring over the content tracking policies, validation sequences, or data privacy structures maintained by third-party web domains.</p>
+        </section>
+
+        <section class="rule-card">
+            <h2>User Responsibility Statement</h2>
+            <p>By engaging with live gameplay matches, training scenarios, or automated tracking engines on Checkora, you accept full responsibility for structural client system performance and game timer data consistency.</p>
+            <p>Users remain obligated to maintain secure credentials and conform cleanly to fair-play criteria across standard matchmaking arrays.</p>
+        </section>
+    </main>
+
+    <footer class="legal-footer">
+        &copy; 2026 Checkora. All rights reserved. Managed under standard open-source distribution.
+    </footer>
+
+</body>
+</html>

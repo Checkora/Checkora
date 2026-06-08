@@ -216,6 +216,30 @@
             background:#81c784 !important;
         }
 
+        #lesson-instruction{
+            text-align:center;
+            font-size:18px;
+            margin-bottom:15px;
+            color:#f0c040;
+        }
+
+        #lesson-result{
+            text-align:center;
+            font-size:18px;
+            font-weight:bold;
+            margin-top:15px;
+        }
+
+        .valid-move{
+            background:#81c784 !important;
+        }
+
+        .selected-square{
+            outline:4px solid yellow;
+        }
+
+
+
     </style>
 </head>
 <body>
@@ -268,6 +292,35 @@
 
     {% endif %}
 
+    {% if lesson_steps %}
+
+    <div class="lesson-practice">
+
+        <h2>🎯 Practice Position</h2>
+
+        <p id="lesson-instruction"></p>
+
+        <div class="lesson-board-wrapper">
+            <div id="practice-board" class="lesson-board"></div>
+        </div>
+
+        <p id="lesson-result"></p>
+
+        <button
+            type="button"
+            id="retry-btn"
+            class="complete-btn"
+            style="display:none; margin-top:10px;"
+        >
+            🔄 Retry
+        </button>
+
+    </div>
+
+    {{ lesson_steps|json_script:"lesson-steps-data" }}
+    {{ practice_position|json_script:"practice-position-data" }}
+
+    {% endif %}
 
     {% if lesson.practice_question %}
     <div class="coming-soon">
@@ -300,7 +353,7 @@
 
     <form
         method="post"
-        action="{% url 'complete_lesson' lesson.title %}"
+        action="{% url 'complete_lesson' lesson.title|slugify %}"
     >
         {% csrf_token %}
 
@@ -342,21 +395,16 @@
     </div>
 
     {% endif %}
-
-    <div class="coming-soon">
-        🚀 Future update: Interactive board demonstrations,
-        practice positions, quizzes, and lesson progress tracking.
-    </div>
     <div class="lesson-navigation">
 
         {% if previous_lesson %}
-            <a href="{% url 'lesson_detail' previous_lesson %}">
+            <a href="{% url 'lesson_detail' previous_lesson|slugify %}">
                 ← {{ previous_lesson }}
             </a>
         {% endif %}
 
         {% if next_lesson %}
-            <a href="{% url 'lesson_detail' next_lesson %}">
+            <a href="{% url 'lesson_detail' next_lesson|slugify %}">
                 {{ next_lesson }} →
             </a>
         {% endif %}
@@ -394,5 +442,6 @@ function checkAnswer(selected, correct) {
 
 </script>
 <script src="{% static 'game/js/lesson_demo.js' %}"></script>
+<script src="{% static 'game/js/lesson_practice.js' %}"></script>
 </body>
 </html>
