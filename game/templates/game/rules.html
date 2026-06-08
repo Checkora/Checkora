@@ -505,8 +505,8 @@
 
         .value-row {
             display: grid;
-            grid-template-columns: minmax(140px, 1.2fr) minmax(110px, 0.8fr) 1.4fr;
-            gap: 0.75rem;
+            grid-template-columns: 1fr;
+            gap: 0.3rem;
             align-items: center;
             padding: 1rem 1.1rem;
             border-radius: 12px;
@@ -543,6 +543,7 @@
         }
 
         .value-note {
+            display: none;
             color: var(--muted);
             font-size: 0.9rem;
             line-height: 1.5;
@@ -620,6 +621,16 @@
             .mini-board-container { flex-direction: column; }
 
             .header-subtitle { display: none; }
+
+            .value-row {
+                grid-template-columns: 1fr;
+                gap: 0.3rem;
+            }
+
+            .value-note {
+                display: block;
+                font-size: 0.82rem;
+            }
         }
     </style>
 </head>
@@ -655,7 +666,7 @@
         <div class="rule-nav-item" onclick="showRule('pieces')" id="nav-pieces">
             <span class="icon">♟</span> Piece Moves
         </div>
-        <button class="rule-nav-item" type="button" onclick="showRule('values')" id="nav-values">
+        <button class="rule-nav-item" onclick="showRule('values')" id="nav-values">
             <span class="icon">🧮</span> Piece Values & Scoring
         </button>
         <div class="rule-nav-item" onclick="showRule('pawn')" id="nav-pawn">

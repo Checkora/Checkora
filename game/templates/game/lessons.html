@@ -1,0 +1,359 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Chess Lessons - Checkora</title>
+
+    <link rel="icon" href="{% static 'game/favicon.jpeg' %}?v=2">
+
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #0f0f0f;
+            color: #ffffff;
+            padding: 30px;
+            margin: 0;
+        }       
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            color: #f0c040;
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            color: #bdbdbd;
+            font-size: 1rem;
+        }
+
+        .progress-box {
+            background: linear-gradient(145deg, #1b1b1b, #242424);
+            border: 1px solid #333;
+            border-radius: 18px;
+            padding: 25px;
+            margin-bottom: 35px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-header h2 {
+            margin: 0;
+            color: #f0c040;
+        }
+
+        .progress-header span {
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: #333;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f0c040, #ffdf70);
+            border-radius: 20px;
+        }
+
+        .continue-learning {
+            background: linear-gradient(145deg, #1b1b1b, #242424);
+            border: 1px solid #333;
+            border-radius: 18px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+
+        .continue-learning h2 {
+            color: #f0c040;
+            margin-top: 0;
+        }
+
+        .continue-learning p {
+            color: #bdbdbd;
+            margin-bottom: 0;
+        }
+
+        .category {
+            margin-bottom: 45px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .category-header h2 {
+            margin: 0;
+            color: #f0c040;
+            font-size: 1.8rem;
+        }
+
+        .lesson-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 22px;
+        }
+
+        .lesson-card {
+            background: linear-gradient(145deg, #1c1c1c, #262626);
+            border: 1px solid #333;
+            border-radius: 18px;
+            padding: 20px;
+            min-height: 180px;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+
+            transition: all 0.3s ease;
+        }
+
+        .lesson-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: #f0c040;
+            box-shadow: 0 14px 30px rgba(240, 192, 64, 0.30);
+        }
+
+        .lesson-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .lesson-icon {
+            font-size: 28px;
+        }
+
+        .lesson-card h3 {
+            color: white;
+            font-size: 1.2rem;
+            margin: 18px 0;
+            line-height: 1.4;
+        }
+
+        .lesson-meta {
+            color: #bdbdbd;
+            font-size: 0.9rem;
+        }
+
+        .status {
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .pending {
+            background: #f0c040;
+            color: #121212;
+        }
+
+        .completed {
+            background: #22c55e;
+            color: white;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .beginner {
+            background: #16a34a;
+        }
+
+        .intermediate {
+            background: #f59e0b;
+        }
+
+        .advanced {
+            background: #dc2626;
+        }
+
+        .learning-stats {
+            margin-top: 15px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .learning-stats span {
+            background: rgba(240,192,64,0.15);
+            color: #f0c040;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .lesson-count {
+            background: #2a2a2a;
+            color: #f0c040;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+       .progress-text {
+            margin-top: 12px;
+            color: #bdbdbd;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+
+            body {
+                padding: 15px;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .progress-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .lesson-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="hero">
+    <h1>♟ Chess Learning Hub</h1>
+    <p>Master chess from beginner to advanced lessons.</p>
+</div>
+
+<div class="progress-box">
+    <div class="progress-header">
+        <h2>Your Learning Progress</h2>
+        <span>{{ completed_count }}/{{ total_lessons }} Completed</span>
+    </div>
+
+    <div
+        class="progress-bar"
+        role="progressbar"
+        aria-valuenow="{% widthratio completed_count total_lessons 100 %}"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-label="Lesson completion progress">
+
+        <div
+            class="progress-fill"
+            style="width:{% widthratio completed_count total_lessons 100 %}%">
+        </div>
+
+    </div>
+
+    <p class="progress-text">
+        Keep going! Complete lessons to improve your chess skills.
+    </p>
+</div>
+
+<div class="continue-learning">
+    <h2>▶ Continue Learning</h2>
+    <p>Track your progress and continue mastering chess lessons.</p>
+
+    <div class="learning-stats">
+        <span>{{ completed_count }} Completed</span>
+        <span>{{ total_lessons }} Total Lessons</span>
+    </div>
+</div>
+
+{% for category, lesson_list in lessons.items %}
+
+<div class="category">
+
+    <div class="category-header">
+
+        {% if category == "Beginner" %}
+            <span class="category-badge beginner">Beginner</span>
+        {% elif category == "Intermediate" %}
+            <span class="category-badge intermediate">Intermediate</span>
+        {% else %}
+            <span class="category-badge advanced">Advanced</span>
+        {% endif %}
+
+        <span class="lesson-count">
+            {{ lesson_list|length }} Lessons
+        </span>
+
+    </div>
+  
+    <div class="lesson-grid">
+
+        {% for lesson in lesson_list %}
+
+        <a href="{% url 'lesson_detail' lesson|slugify %}">
+           <div class="lesson-card">
+
+                <div class="lesson-top">
+
+                    <div class="lesson-icon" aria-hidden="true">
+                        ♜
+                    </div>
+
+                    {% if lesson in completed_lessons %}
+                        <span class="status completed">
+                            ✓ Completed
+                        </span>
+                    {% else %}
+                        <span class="status pending">
+                            Start
+                        </span>
+                    {% endif %}
+
+                </div>
+
+                <h3>{{ lesson }}</h3>
+
+                <div class="lesson-meta">
+                    <span aria-hidden="true">📚</span>
+                    Chess Lesson
+                </div>
+
+            </div>
+        </a>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+{% endfor %}
+
+</body>
+</html>

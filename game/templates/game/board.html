@@ -47,6 +47,7 @@
 
 
 <body>
+    <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
@@ -76,13 +77,14 @@
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
+    <img src="{% static 'game/checkora_icon_only.png' %}"
+         style="height: 3rem; width: auto; object-fit: contain;"
+         alt="Checkora">
 
-                    <img src="{% static 'game/checkora_icon_only.png' %}"
-                        style="height: 3rem; width: auto; object-fit: contain;" alt="Checkora">
-
-                    <span>CHECKORA</span>
-
-                </div>
+    <span class="logo-text">
+        <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+    </span>
+</div>
 
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
@@ -161,7 +163,11 @@
                             <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                                     <label for="customMinsInput" style="color: #8a8aaa; font-size: 0.75rem;">Minutes</label>
-                                    <input type="number" id="customMinsInput" min="1" max="300" value="10" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                    <input type="number" id="customMinsInput" min="0" max="300" value="0" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
+                                </div>
+                                <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="customSecsInput" style="color: #8a8aaa; font-size: 0.75rem;">Seconds</label>
+                                    <input type="number" id="customSecsInput" min="0" max="59" value="30" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #0f0f1a; color: #fff; width: 100%; font-size: 0.85rem;">
                                 </div>
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                                     <label for="customIncInput" style="color: #8a8aaa; font-size: 0.75rem;">Increment (s)</label>
@@ -181,7 +187,12 @@
                     (PvP)</button>
                 <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
-
+                <button type="button" 
+                        class="btn btn-gold"
+                        id="welcomeDailyPuzzleBtn"
+                        style="padding: 12px; font-size: 1.05rem;">
+                    Daily Puzzle Challenge
+                </button>
                 <div class="fen-input-group">
                     <label class="fen-label" for="welcomeFenInput">Optional FEN</label>
                     <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste FEN to start from a custom position">
@@ -232,8 +243,10 @@
         
         <div class="logo-container">
             <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
-                <span class="logo-text">Checkora</span>
+                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+                <span class="logo-text">
+    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+</span>
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
@@ -252,6 +265,10 @@
                 <div class="dropdown-content">
                     <a href="/stats/">
                         Stats
+                    </a>
+
+                    <a href="{% url 'leaderboard' %}">
+                        Leaderboard
                     </a>
 
                     <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
@@ -332,7 +349,7 @@
                     <span id="status-text">Online</span>
                 </div>
 
-                <div class="streak-counter">
+                <div id="streak-counter" class="streak-counter" style="display:none;">
                     🔥 <span id="streak-count">0</span> Day Streak
                 </div>
 
@@ -364,7 +381,7 @@
                 </div>
             </div>
 
-            <div class="status-bar" id="statusBar" style="height: 22px; box-sizing: border-box;">
+            <div class="status-bar" id="statusBar">
                 <div id="replayControls" class="replay-controls hidden">
                     <button id="firstReplayBtn">⏮</button>
                     <button id="prevReplayBtn">◀</button>
@@ -394,19 +411,26 @@
             <div class="card">
                 <div class="card-title">Board Theme</div>
                 <div class="theme-switcher">
-                    <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme"
-                        aria-pressed="true" type="button"></button>
-                    <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme"
-                        aria-pressed="false" type="button"></button>
-                </div>
-                <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
-                    Classic · Dark · Green · Blue · Pastel
+                    <div class="theme-option">
+                        <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme" aria-pressed="true" type="button"></button>
+                        <span class="theme-label">Classic</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Dark</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Green</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Blue</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Pastel</span>
+                    </div>
                 </div>
             </div>
             <div class="card">
@@ -417,6 +441,10 @@
                    <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                    <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
+                    <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
+                    <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
+                    <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
@@ -527,12 +555,12 @@
     </div>
 
    <!-- ========== LEAVE GAME CONFIRMATION MODAL ========== -->
-<div class="promo-overlay" id="leaveConfirmOverlay" style="display:none;">
-    <div class="promo-dialog" style="max-width: 340px; text-align: center;">
-        <div class="promo-title" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
+<div class="promo-overlay" id="leaveConfirmOverlay" role="dialog" aria-modal="true" aria-labelledby="leaveConfirmTitle" aria-describedby="leaveConfirmMessage" aria-hidden="true">
+    <div class="promo-dialog" id="leaveConfirmDialog" tabindex="-1" style="max-width: 340px; text-align: center;">
+        <div class="promo-title" id="leaveConfirmTitle" style="font-size: 1.3rem; color: #f0c040; margin-bottom: 10px;">
             Leave the Game?
         </div>
-        <p style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
+        <p id="leaveConfirmMessage" style="color: #ccc; margin-bottom: 25px; font-size: 0.95rem;">
             Are you sure you want to go back to Home? Your current game progress will be lost.
         </p>
         <div style="display: flex; gap: 12px; justify-content: center;">
@@ -610,6 +638,22 @@
                             <div class="stat-item">
                                 <span class="stat-label">Material</span>
                                 <span class="stat-value" id="resMaterialDiff">Even</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Captures</span>
+                                <span class="stat-value" id="resAnalysisCaptures">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checks</span>
+                                <span class="stat-value" id="resAnalysisChecks">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checkmates</span>
+                                <span class="stat-value" id="resAnalysisCheckmates">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Promotions</span>
+                                <span class="stat-value" id="resAnalysisPromotions">0</span>
                             </div>
                         </div>
 
