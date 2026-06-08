@@ -19,7 +19,6 @@ class CustomUserCreationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         username = self.fields['username']
-        username.min_length = USERNAME_MIN_LENGTH
         username.widget.attrs['minlength'] = str(USERNAME_MIN_LENGTH)
 
     def clean_username(self):
