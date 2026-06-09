@@ -70,21 +70,10 @@ body {
 
 /* Logo text */ 
 .logo-text {
-    font-family: Cinzel, serif;
+    font-family: 'Cinzel', serif;
     font-size: 26px;
     font-weight: 700;
     letter-spacing: 2px;
-}
-
-.promo-logo .logo-text {
-    font-size: 1.8rem;
-}
-
-.logo-white {
-    color: #ffffff;
-}
-
-.logo-gold {
     color: #f0c040;
 }
 
@@ -96,8 +85,6 @@ body {
     .logo-text {
         font-size: 20px;
     }
-
-
 }
 
 .header .badge {
@@ -163,36 +150,27 @@ body {
 }
 
 .profile-btn{
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #0f172a;
-    color: #f0c040;
-    border: 1px solid #2d3748;
+    background: #1a1a2e;
+    color: #fff;
+    border: 1px solid #444;
     padding: 8px 14px;
     border-radius: 10px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;
     transition: all 0.3s ease;
-    min-height: 40px;
-    appearance: none;
-    -webkit-appearance: none;
 }
 
 .profile-btn:hover{
     border-color: #f0c040;
     color: #f0c040;
-    box-shadow: 0 0 15px rgba(240, 192, 64, 0.25);
-    transform: translateY(-1px);
 }
 
 .dropdown-content{
     display: none;
     position: absolute;
     right: 0;
-    top: 100%;
-    margin-top: -2px;
+    top: 48px;
     min-width: 220px;
     background: #111827;
     border-radius: 14px;
@@ -569,19 +547,12 @@ body {
     background-color: rgba(40, 120, 220, 0.55) !important;
 }
 
-.square.premove {
-    outline: 2px dashed #3b82f6 !important;
-    outline-offset: -3px;
-    background-color: rgba(59, 130, 246, 0.15) !important;
-    background-image: repeating-linear-gradient(
-        45deg,
-        rgba(255, 255, 255, 0.1) 0,
-        rgba(255, 255, 255, 0.1) 3px,
-        transparent 3px,
-        transparent 8px
-    ) !important;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
-    z-index: 5;
+.square.premove.light {
+    background-color: rgba(255, 80, 80, 0.45);
+}
+
+.square.premove.dark {
+    background-color: rgba(180, 40, 40, 0.6);
 }
 
 /* Valid-move dot */
@@ -1176,40 +1147,6 @@ body {
     flex-wrap: nowrap;
 }
 
-/* ================= HINT BUTTON ================= */
-.hint-container {
-    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
-    max-width: 100%;
-    margin: 0 auto 6px;
-    display: flex;
-    justify-content: center;
-    box-sizing: border-box;
-}
-
-.hint-container #hintBtn {
-    width: 100%;
-    max-width: 100%;
-    padding: 10px 0;
-    border-radius: 6px;
-    box-shadow: 0 6px 18px rgba(240, 192, 64, 0.12);
-    font-weight: 700;
-    font-size: 0.95rem;
-    align-self: center;
-}
-
-@media (max-width: 768px) {
-    .hint-container {
-        width: var(--mobile-board-size);
-        margin: 0 auto 10px;
-    }
-
-    .hint-container #hintBtn {
-        min-height: 44px;
-        padding: 12px 0;
-        font-size: 0.9rem;
-    }
-}
-
 .clock {
     flex: 1 1 auto;
     min-width: 0;
@@ -1313,8 +1250,8 @@ body {
 
 .theme-btn.active {
     border-color: #f0c040;
-    box-shadow: 0 0 6px rgba(240, 192, 64, 0.35);
-    transform: scale(1.1);
+    box-shadow: 0 0 0 3px #f0c040, 0 0 8px rgba(240, 192, 64, 0.5);
+    transform: scale(1.25);
     opacity: 1;
 }
 
@@ -1398,7 +1335,6 @@ body {
 }
 
 
-
   .m-fab {
     display: flex;
     flex-direction: column;
@@ -1409,19 +1345,6 @@ body {
     z-index: 10000;
   }
   .m-fab-btn {
-
-@media (max-width: 768px) {
-    .m-fab {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        position: fixed;
-        top: 14px;
-        right: 12px;
-        z-index: 10000;
-    }
-.m-fab-btn {
-
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -1465,19 +1388,12 @@ body {
     gap: 12px;
 }
 
-.promo-logo .logo-text {
+.promo-logo span {
     font-family: 'Cinzel', serif;
     font-size: 1.8rem;
     font-weight: 700;
-    letter-spacing: 2px;
-}
-
-.promo-logo .logo-white {
-    color: #ffffff;
-}
-
-.promo-logo .logo-gold {
     color: #f0c040;
+    letter-spacing: 2px;
 }
 
 .promo-title img {
@@ -1717,7 +1633,7 @@ body {
 }
 
 
-.chessboard.paused:not(.confirm-open)::after {
+.chessboard.paused::after {
     content: "Resume to Continue";
     position: absolute;
     top: 50%;
@@ -2025,86 +1941,6 @@ body.blindfold-mode .capture-ring {
 .tc-tabs::-webkit-scrollbar-thumb {
     background: #252545;
     border-radius: 1px;
-}
-
-/* =======================================================
-                        Hint Highlight
-==========================================================*/
-.hint-source {
-    border: 3px solid white;
-    box-shadow:
-    0 0 10px rgba(255,255,255,0.9),
-    0 0 20px rgba(173,216,230,0.8),
-    0 0 30px rgba(173,216,230,0.6);
-    animation: pulseSource 1.2s infinite;
-}
-        
-.hint-destination {
-    border: 3px solid gold;
-    box-shadow:
-    0 0 10px rgba(255,215,0,0.9),
-    0 0 20px rgba(255,215,0,0.7);
-    animation: pulseDestination 1.2s infinite;
-}
-
-@keyframes pulseSource {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.04);
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
-
-@keyframes pulseDestination {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.03);
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
-
-#hintBtn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    filter: grayscale(30%);
-    pointer-events: none;
-}
-#hintBtn {
-    -webkit-appearance: none;
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    max-width: 260px;
-    min-width: 100px;
-    min-height: 42px;
-    background: linear-gradient(135deg, #f0c040, #d4a020);
-    color: #1a1a2e;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-    text-align: center;
-    box-sizing: border-box;
-}
-#hintBtn:not(:disabled):hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.24);
 }
 
 /* ============================================================
@@ -2649,20 +2485,112 @@ body.blindfold-mode .capture-ring {
     }
 
 }
+/* ================= HINT BUTTON ================= */
 
-/* Puzzle Hint System */
+.hint-container {
+    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    max-width: 100%;
+    margin: 8px auto;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+}
 
+#hintBtn {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #1a1a2e;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+
+    box-sizing: border-box;
+}
+
+#hintBtn:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+}
+
+#hintBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(30%);
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+
+    .hint-container {
+        width: var(--mobile-board-size);
+        max-width: 100%;
+        margin: 10px auto;
+    }
+
+    #hintBtn {
+        min-height: 48px;
+        font-size: 0.9rem;
+        padding: 12px;
+    }
+}
+/* =======================================================
+                        Hint Highlight
+==========================================================*/
 .hint-source {
+    border: 3px solid white;
     box-shadow:
-        inset 0 0 0 4px #f0c040,
-        0 0 12px rgba(240, 192, 64, 0.6);
-    border-radius: 4px;
+        0 0 10px rgba(255,255,255,0.9),
+        0 0 20px rgba(173,216,230,0.8),
+        0 0 30px rgba(173,216,230,0.6);
+    animation: pulseSource 1.2s infinite;
 }
 
-.hint-target {
+.hint-destination {
+    border: 3px solid gold;
     box-shadow:
-        inset 0 0 0 4px #4caf50,
-        0 0 12px rgba(76, 175, 80, 0.6);
-    border-radius: 4px;
+        0 0 10px rgba(255,215,0,0.9),
+        0 0 20px rgba(255,215,0,0.7);
+    animation: pulseDestination 1.2s infinite;
 }
 
+@keyframes pulseSource {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.04);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes pulseDestination {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.03);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
