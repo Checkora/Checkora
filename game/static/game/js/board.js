@@ -2941,7 +2941,21 @@
                     "Your current progress will be lost.<br>Are you sure you want to start a new game?",
                     () => {
                         const diff = document.getElementById('confirmDifficultySelect').value;
-                        const timeLimitMins = parseInt(document.getElementById('confirmTimerSelect').value, 10);
+                        const timeLimitMins = document.getElementById('confirmTimerSelect').value;
+                        if (timeLimitMins) {
+                            const parts = String(timeLimitMins).split('|');
+                            selectedMins = parseInt(parts[0], 10) || 10;
+                            selectedIncrement = parseInt(parts[1], 10) || 0;
+                            
+                            const triggerText = document.getElementById('tcDisplayText');
+                            if (triggerText) {
+                                const selectEl = document.getElementById('confirmTimerSelect');
+                                const selectedOption = selectEl.options[selectEl.selectedIndex];
+                                if (selectedOption) {
+                                    triggerText.textContent = selectedOption.textContent;
+                                }
+                            }
+                        }
                         if (mode === 'ai') {
                             showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeLimitMins));
                         } else {
