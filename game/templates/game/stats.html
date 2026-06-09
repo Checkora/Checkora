@@ -58,8 +58,11 @@
                 <tr>
                     <th>Mode</th>
                     <th>Winner</th>
-                    <th>End Reason</th>
-                    <th>Played At</th>
+                    <!--rename from end reson to result for better understanding -->
+                    <th>Result</th>
+                    <th>Moves</th>
+                    <th>Played At</th> 
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>
@@ -68,7 +71,21 @@
                     <td>{{ result.get_mode_display }}</td>
                     <td>{{ result.get_winner_display }}</td>
                     <td>{{ result.get_end_reason_display }}</td>
+                    <td>{{ result.moves|length }}</td>
                     <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <button
+                            type="button"
+                            class="details-btn"
+                            data-mode="{{ result.get_mode_display }}"
+                            data-winner="{{ result.get_winner_display }}"
+                            data-reason="{{ result.get_end_reason_display }}"
+                            data-moves="{{ result.moves|length }}"
+                            data-date="{{ result.played_at|date:'Y-m-d H:i' }}"
+                            onclick="openGameDetails(this)">
+                            View Summary
+                        </button>
+                </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -80,5 +97,66 @@
     </div>
     {% endif %}
 
+    <div id="gameSummaryOverlay" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" 
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
+    <div style=" background:#16162a; border:1px solid #252545; border-radius:12px; padding:25px; width:500px; max-width:90%; color:white;">
+        <div class="promo-title" id="summaryTitle">
+            Game Summary
+        </div>
+        <div class="summary-card">
+            <p><strong>Mode:</strong> <span id="summaryMode"></span></p>
+            <p><strong>Winner:</strong> <span id="summaryWinner"></span></p>
+            <p><strong>Result:</strong> <span id="summaryReason"></span></p>
+            <p><strong>Move Count:</strong> <span id="summaryMoves"></span></p>
+            <p><strong>Played At:</strong> <span id="summaryDate"></span></p>
+        </div>
+        <button
+            type="button"
+            onclick="closeSummary()"
+            class="btn btn-gold close-summary-btn">
+            Close
+        </button>
+    </div>
+</div>
+<script>
+function openGameDetails(btn) {
+    document.getElementById('summaryMode').textContent = btn.dataset.mode;
+    document.getElementById('summaryWinner').textContent = btn.dataset.winner;
+    document.getElementById('summaryReason').textContent = btn.dataset.reason;
+    document.getElementById('summaryMoves').textContent = btn.dataset.moves;
+    document.getElementById('summaryDate').textContent = btn.dataset.date;
+
+    const overlay = document.getElementById('gameSummaryOverlay');
+
+    overlay.style.display = 'flex';
+    overlay._opener = btn;
+
+    const closeBtn = overlay.querySelector('.close-summary-btn');
+    if (closeBtn) {
+        closeBtn.focus();
+    }
+}
+function closeSummary() {
+    const overlay = document.getElementById('gameSummaryOverlay');
+
+    overlay.style.display = 'none';
+
+    if (overlay._opener) {
+        overlay._opener.focus();
+    }
+}
+document.addEventListener('keydown', function(e) {
+    const overlay = document.getElementById('gameSummaryOverlay');
+
+    if (e.key === 'Escape' && overlay.style.display === 'flex') {
+        closeSummary();
+    }
+});
+document.getElementById('gameSummaryOverlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSummary();
+    }
+});
+</script>
 </body>
 </html>
