@@ -1249,6 +1249,46 @@
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
             function formatTime(t) { return fmt(t); }
 
+                function updateThinkingDots() {
+    const whiteClock = document.getElementById('whiteClock');
+    const blackClock = document.getElementById('blackClock');
+
+    if (!whiteClock || !blackClock) return;
+
+    // Remove existing dots
+    whiteClock.querySelector('.thinking-dots')?.remove();
+    blackClock.querySelector('.thinking-dots')?.remove();
+
+    // Stop when game ends
+    if (paused || gameOver) return;
+
+    const activeClock =
+        whiteClock.classList.contains('active')
+            ? whiteClock
+            : blackClock.classList.contains('active')
+                ? blackClock
+                : null;
+
+    if (!activeClock) return;
+    
+    const dots = document.createElement('span');
+dots.className = 'thinking-dots';
+
+dots.innerHTML = `
+    <span></span>
+    <span></span>
+    <span></span>
+`;
+
+const timeEl = activeClock.querySelector('.time');
+
+if (timeEl) {
+    timeEl.appendChild(dots);
+}
+
+                }
+
+
             function renderClocks() {
                 const wTime = document.getElementById('whiteTime');
                 const bTime = document.getElementById('blackTime');
@@ -1299,12 +1339,14 @@
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
                 if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
+                updateThinkingDots();
             }
 
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
+                updateThinkingDots();
             }
 
             function startTimer() {
