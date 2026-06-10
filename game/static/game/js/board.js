@@ -3894,7 +3894,28 @@
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-                
+                if (replayMode) {
+                    if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        prevReplayBtn?.click();
+                        return;
+                    }
+                    if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        nextReplayBtn?.click();
+                        return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        firstReplayBtn?.click();
+                        return;
+                    }
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        lastReplayBtn?.click();
+                        return;
+                    }
+                }
 
                 const key = e.key.toLowerCase();
                 const hasBlockingOverlay =

@@ -49,6 +49,8 @@ document.body.innerHTML = `
   <div id="turnBadgeText"></div>
   <input type="checkbox" id="showCoordinatesCheckbox">
 `;
+global.SOUND_BASE_URL = '/static/game/sounds/';
+
 // Mock Worker for Jest
 global.Worker = class MockWorker {
   constructor(url) {
