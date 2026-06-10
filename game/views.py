@@ -1595,6 +1595,19 @@ LESSON_LEVELS = [
     },
 ]
 
+LESSON_CATEGORIES = {
+    "Beginner": LESSON_LEVELS[0]["lessons"],
+    "Intermediate": LESSON_LEVELS[1]["lessons"],
+    "Advanced": LESSON_LEVELS[2]["lessons"],
+}
+
+
+def get_total_lessons():
+    return sum(
+        len(level["lessons"])
+        for level in LESSON_LEVELS
+    )
+
 def _lesson_name_from_slug(lesson_slug):
     for name in _LESSON_NAMES:
         if slugify(name) == lesson_slug:
@@ -1650,10 +1663,7 @@ def lessons_view(request):
             )
         )
         
-    total_lessons = sum(
-        len(level["lessons"])
-        for level in LESSON_LEVELS
-    )
+    total_lessons = get_total_lessons()
     
     unlocked_lessons = get_unlocked_lessons(
         completed_lessons
@@ -1664,8 +1674,10 @@ def lessons_view(request):
         "game/lessons.html",
         {
             "levels": LESSON_LEVELS,
+            "lessons": LESSON_CATEGORIES,
             "unlocked_lessons": unlocked_lessons,
             "completed_lessons": completed_lessons,
+            "completed_count": len(completed_lessons),
             "total_lessons": total_lessons,
         }
     )
@@ -2470,6 +2482,7 @@ def lesson_map_view(request):
     unlocked_lessons = get_unlocked_lessons(
         completed_lessons
     )
+    total_lessons = get_total_lessons()
 
     return render(
         request,
@@ -2478,6 +2491,8 @@ def lesson_map_view(request):
             "levels": LESSON_LEVELS,
             "completed_lessons": completed_lessons,
             "unlocked_lessons": unlocked_lessons,
+            "completed_count": len(completed_lessons),
+            "total_lessons": total_lessons,
         }
     )
 
