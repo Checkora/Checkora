@@ -199,3 +199,4 @@ SECURE_HSTS_PRELOAD = IS_PRODUCTION
 
 # Secret token for authenticating Vercel cron job requests to /api/cron/cleanup-stale-games/
 CRON_SECRET = os.environ.get('CRON_SECRET')
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
