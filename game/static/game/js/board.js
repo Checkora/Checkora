@@ -436,7 +436,14 @@
            timeout:  new Audio(`${SOUND_BASE_URL}timeout.mp3`),
             };
 
+            const SOUND_PREF_KEY = 'checkora_sound_enabled';
+            // Restore sound preference from localStorage (default: enabled)
             let soundEnabled = true;
+            try {
+                soundEnabled = localStorage.getItem(SOUND_PREF_KEY) !== 'false';
+            } catch (e) {
+                // Silently fail if localStorage unavailable
+            }
 
             function validatePlayerNames() {
                 const wNameInput = document.getElementById('whiteNameInput');
@@ -480,41 +487,25 @@
                 if (playback?.catch) playback.catch(() => {});
             }
 
-            function toggleMute() {
-                soundEnabled = !soundEnabled;
+            function syncMuteBtn() {
                 if (muteBtn) {
                     muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
                     muteBtn.setAttribute('aria-pressed', String(soundEnabled));
                 }
             }
 
-            function playGameOverSound(reason, resultState) {
-                if (!soundEnabled) return;
-
-
-                let sound = null;
-
-                if (reason === 'stalemate' || reason === 'draw') {
-                sound = sounds.gameDraw;
-                } else if (reason === 'timeout') {
-                sound = sounds.timeout;
-                }
-            
-                else if (reason === 'checkmate' || reason === 'resign') {
-                if (resultState === 'defeat') {
-                sound = sounds.loss;
-                } else {
-                sound = sounds.win;
-                }
-            }
-
-                
-                if (sound) {
-                sound.currentTime = 0;
-                sound.play().catch((e) => console.log('Sound play error:', e));
-                }
-            }
-
+            function toggleMute() {
+    soundEnabled = !soundEnabled;
+    // Persist preference so it survives page reloads
+    try {
+        localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled));
+    } catch (e) {
+        // Silently fail if localStorage unavailable - preference won't persist but toggle still works
+    }
+    syncMuteBtn();
+    // Announce state change for screen-reader users
+    announceMove(soundEnabled ? 'Sound effects enabled.' : 'Sound effects muted.');
+}
 
             /* ==========================================================
             DOM REFERENCES
@@ -3696,6 +3687,8 @@ if (timeEl) {
 
             if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
             if (muteBtn) muteBtn.onclick = toggleMute;
+            // Restore mute button label from persisted preference on page load
+            syncMuteBtn();
             if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
 
             const blindfoldBtn = document.getElementById('blindfoldBtn');
