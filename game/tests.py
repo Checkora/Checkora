@@ -139,7 +139,6 @@ class ServerErrorPageTest(SimpleTestCase):
         )
         self.assertContains(response, reverse('landing'), status_code=500)
 
-
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
@@ -983,7 +982,6 @@ class DrawRuleTest(SimpleTestCase):
 
     def test_en_passant_capture_removes_pawn(self):
         game = ChessGame()
-
     # e2-e4
         game.make_move(6, 4, 4, 4)
 
@@ -1002,7 +1000,7 @@ class DrawRuleTest(SimpleTestCase):
         self.assertTrue(success)
         self.assertEqual(captured, 'p')
         
-        # self.assertEqual(game.board[3][4])      # e5 empty
+        # self.assertEqual(game.board[3][4])  # e5 empty
         self.assertIsNone(game.board[3][3])     # captured pawn removed
         self.assertEqual(game.board[2][3], 'P') # white pawn moved to d6
         

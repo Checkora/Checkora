@@ -1144,6 +1144,8 @@
 
       <button
   type="button"
+  aria-label="Close keyboard shortcuts dialog"
+  title="Close"
   onclick="closeShortcutsModal()"
               style="background:none;border:none;color:white;font-size:22px;cursor:pointer;">
         ✕
@@ -1236,30 +1238,34 @@
       return;
     }
 
-    <button
-  type="button"
-  onclick="closeShortcutsModal()"
+        if (modal.style.display === "flex") {
+      return;
+    }
 
-      switch (e.key.toLowerCase()) {
+    if (!gPressed) {
+      return;
+    }
 
-        case "h":
-          window.location.href = "{% url 'landing' %}";
-          break;
+    switch (e.key.toLowerCase()) {
 
-        case "p":
-          window.location.href = "{% url 'index' %}";
-          break;
+      case "h":
+        window.location.href = "{% url 'landing' %}";
+        break;
 
-        case "l":
-          window.location.href = "{% url 'leaderboard' %}";
-          break;
+      case "p":
+        window.location.href = "{% url 'index' %}";
+        break;
 
-        case "s":
-          window.location.href = "{% url 'lessons' %}";
-          break;
-      }
+      case "l":
+        window.location.href = "{% url 'leaderboard' %}";
+        break;
 
-      gPressed = false;
+      case "s":
+        window.location.href = "{% url 'lessons' %}";
+        break;
+    }
+
+    gPressed = false;
     }
   });
 
