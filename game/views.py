@@ -672,6 +672,31 @@ def resign_game(request):
     })
 
 @require_GET
+def game_analysis(request):
+    """Compute post-game analysis stats from the current session's move history."""
+    game_data = request.session.get('game')
+    if not game_data:
+        return JsonResponse({'error': 'No game data found.'}, status=404)
+
+    move_history = game_data.get('move_history', [])
+
+    captures = sum(1 for m in move_history if 'x' in m.get('notation', ''))
+    checks = sum(1 for m in move_history if '+' in m.get('notation', '') and '#' not in m.get('notation', ''))
+    promotions = sum(1 for m in move_history if '=' in m.get('notation', ''))
+    total_moves = len(move_history)
+
+    notations = [m.get('notation', '') for m in move_history]
+
+    return JsonResponse({
+        'total_moves': total_moves,
+        'captures': captures,
+        'checks': checks,
+        'promotions': promotions,
+        'notations': notations,
+    })
+
+
+@require_GET
 def check_username(request):
     """Check if a username is already taken.
 
