@@ -970,7 +970,6 @@ class DrawRuleTest(SimpleTestCase):
 
     def test_en_passant_target_preserved_in_session(self):
         game = ChessGame()
-            
         game.make_move(6, 4, 4, 4)
 
         restored = ChessGame.from_dict(game.to_dict())
