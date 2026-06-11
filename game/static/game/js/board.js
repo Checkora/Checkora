@@ -98,50 +98,7 @@
             // =============================================
             // Daily Puzzle 
             // =============================================
-
-            const PUZZLES = [
-                {
-                    id: 1,
-                    fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
-                    solution: ["g2g4"]
-                },
-
-                {
-                    id: 2,
-                    fen: "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1",
-                    solution: ["g6g7"]
-                },
-                
-                {
-                    id: 3,
-                    fen: "6k1/5ppp/8/8/8/8/5PPP/5RK1 w - - 0 1",
-                    solution: ["f1e1"]
-                },
-
-                {
-                    id: 4,
-                    fen: "6k1/5ppp/8/8/8/8/5PPP/5QK1 w - - 0 1",
-                    solution: ["f1h7"]
-                },
-                
-                {
-                    id: 5,
-                    fen: "7k/6pp/8/8/8/8/5PPP/6KQ w - - 0 1",
-                    solution: ["h1h7"]
-                },
-
-                {
-                    id: 6,
-                    fen: "7k/5K2/7Q/8/8/8/8/8 w - - 0 1",
-                    solution: ["h6g7"]
-                },
-
-                {
-                    id: 7,
-                    fen: "6k1/5ppp/8/8/8/8/6PP/5RK1 w - - 0 1",
-                    solution: ["f1e1"]
-                },
-            ];
+            // Daily puzzles are fetched dynamically from the database.
      
 
             // =============================================
@@ -286,16 +243,7 @@
                 }
             }
     
-            function getCurrentWeeklyPuzzle() {
-
-                const today = new Date();
-
-                // Monday = 0 ... Sunday = 6
-                const dayIndex =
-                    (today.getDay() + 6) % 7;
-
-                return PUZZLES[dayIndex];
-            }
+            // getCurrentWeeklyPuzzle is retired; puzzles are fetched dynamically.
 
             function initStockfish() {
                 if (!stockfishWorker) {
@@ -408,7 +356,29 @@
             }
     
             async function startDailyPuzzle() {
-                currentPuzzle = getCurrentWeeklyPuzzle();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const response = await fetch('/api/puzzles/daily/', {
+                        signal: controller.signal
+                    });
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch daily puzzle: ${response.statusText}`);
+                    }
+                    currentPuzzle = await response.json();
+                } catch (error) {
+                    console.error("Error fetching daily puzzle:", error);
+                    // Fallback to a default puzzle in case API fails
+                    currentPuzzle = {
+                        id: 1,
+                        title: "Default Puzzle",
+                        fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+                        solution: ["g2g4"],
+                        difficulty: "medium"
+                    };
+                } finally {
+                    clearTimeout(timeoutId);
+                }
 
                 dailyPuzzleMode = true;
                 document.getElementById("whiteClock").style.display = "none";

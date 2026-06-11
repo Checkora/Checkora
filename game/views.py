@@ -57,6 +57,7 @@ from .models import (
     UserAchievement,
     FeaturedBadge,
     UserProgress,
+    ChessPuzzle,
     PlayerRating,
     RatingHistory,
 )
@@ -1671,6 +1672,36 @@ def puzzle_stats_view(request):
         "streak": 0,
         "longest_streak": 0
     })
+
+
+def get_daily_puzzle(request):
+    """Serve a puzzle corresponding to the current date."""
+    today = timezone.localdate()
+    puzzle = ChessPuzzle.objects.filter(date=today).first()
+
+    if not puzzle:
+        total_puzzles = ChessPuzzle.objects.count()
+        if total_puzzles > 0:
+            index = today.toordinal() % total_puzzles
+            puzzle = ChessPuzzle.objects.order_by('id')[index]
+
+    if not puzzle:
+        return JsonResponse({
+            "id": 0,
+            "title": "Default Puzzle",
+            "fen": "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+            "solution": ["g2g4"],
+            "difficulty": "medium"
+        })
+
+    return JsonResponse({
+        "id": puzzle.id,
+        "title": puzzle.title,
+        "fen": puzzle.fen,
+        "solution": puzzle.solution,
+        "difficulty": puzzle.difficulty or "medium"
+    })
+
 
 @csrf_exempt
 @require_POST
