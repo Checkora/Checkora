@@ -233,6 +233,14 @@ Checkora/
 
 Checkora uses a clean three-layer architecture:
 
+```mermaid
+flowchart TD
+    Browser["Browser (JS / HTML / CSS)"] --> Django["Django Views (views.py)"]
+    Django --> Wrapper["ChessGame Wrapper (engine.py)"]
+    Wrapper --> Cpp["C++ Binary (main.exe / main)"]
+    Wrapper --> Python["Python Script (main.py)"]
+```
+
 ```
 Browser (JS/HTML/CSS)
        |
