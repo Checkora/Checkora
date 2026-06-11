@@ -459,33 +459,6 @@ body {
   100% { opacity:0; transform:scale(0.9);                   text-shadow:none; }
 }
 
-.architecture-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    background-color: rgba(30, 41, 59, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 9999px;
-    padding: 0.45rem 1.2rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #cbd5e1;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 2.2rem;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.live-pulse {
-    width: 6px;
-    height: 6px;
-    background-color: #10b981;
-    border-radius: 50%;
-    box-shadow: 0 0 8px #10b981;
-    animation: micro-engine-pulse 2s infinite ease-in-out;
-}
-
 .hero-title {
     font-size: clamp(2.4rem, 6vw, 4.2rem);
     font-weight: 800;
@@ -569,20 +542,6 @@ body {
     border-color: var(--accent-gold);
     color: var(--text-title);
     transform: translateY(-2px);
-}
-
-@keyframes micro-engine-pulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-
-    50% {
-        transform: scale(1.25);
-        opacity: 0.4;
-    }
 }
 
 /* ==========================================================================
