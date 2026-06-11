@@ -403,3 +403,388 @@ Returns puzzle streak information for the puzzle interface.
 - Both `streak` and `longest_streak` are hardcoded to `0` until persistent puzzle statistics are wired into this response.
 
 ---
+
+## 15. Get Daily Puzzle
+
+Retrieves the daily chess puzzle corresponding to the current date. If no puzzle is assigned to the current date, the endpoint falls back to a rotating puzzle from the database. If no puzzles exist, a default puzzle is returned.
+
+* **URL:** `/api/puzzles/daily/`
+* **Method:** `GET`
+* **Auth Required:** No
+* **Request Params:** None
+* **Success Response:**
+
+  ```json
+  {
+    "id": 42,
+    "title": "Mate in Two",
+    "fen": "8/8/8/8/8/8/8/8 w - - 0 1",
+    "solution": ["Qh7#"],
+    "difficulty": "easy"
+  }
+  ```
+* **Fallback Response (No Puzzles Available):**
+
+  ```json
+  {
+    "id": 0,
+    "title": "Default Puzzle",
+    "fen": "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+    "solution": ["g2g4"],
+    "difficulty": "medium"
+  }
+  ```
+
+---
+
+## 16. Complete Lesson
+
+Marks a lesson as completed for the authenticated user and awards XP for the first completion.
+
+* **URL:** `/lessons/<lesson_name>/complete/`
+* **Method:** `POST`
+* **Auth Required:** Yes
+* **CSRF Required:** Yes
+* **Request Body:** None
+* **Success Response:** Redirects to the lesson detail page for the completed lesson.
+* **Behavior:**
+
+  * Resolves lesson aliases to their canonical lesson names.
+  * Records completion status and completion timestamp.
+  * Awards 25 XP if the lesson has not been completed previously.
+* **Error Response:**
+
+  ```text
+  Lesson not found
+  ```
+
+  * **Status Code:** `404 Not Found`
+
+---
+
+## 17. Download Achievement Badge
+
+Generates and returns a downloadable PNG badge image for an unlocked achievement.
+
+* **URL:** `/achievement/<achievement_id>/download/`
+* **Method:** `GET`
+* **Auth Required:** Yes
+* **Request Params:** None
+* **Success Response:** Returns a downloadable PNG file attachment.
+* **Error Response (Achievement Not Found):**
+
+  * **Status Code:** `404 Not Found`
+* **Error Response (Badge Generation Failure):**
+
+  ```text
+  Badge generation failed.
+  ```
+
+  * **Status Code:** `500 Internal Server Error`
+
+---
+
+## 18. Feature Achievement Badge
+
+Adds an unlocked achievement badge to the user's featured badge collection.
+
+* **URL:** `/feature-badge/<achievement_id>/`
+* **Method:** `GET`
+* **Auth Required:** Yes
+* **Request Params:** None
+* **Success Response:** Redirects to the achievements page and displays:
+
+  ```text
+  Badge featured successfully.
+  ```
+* **Error Response (Achievement Not Unlocked):**
+
+  ```text
+  You can only feature unlocked badges.
+  ```
+* **Error Response (Maximum Featured Badges Reached):**
+
+  ```text
+  You can only feature up to 3 badges.
+  ```
+* **Notes:**
+
+  * Maximum featured badges per user: 3.
+  * Duplicate requests do not create duplicate featured badges.
+
+---
+
+## 19. Remove Featured Badge
+
+Removes a badge from the authenticated user's featured badge collection.
+
+* **URL:** `/remove-featured-badge/<badge_id>/`
+* **Method:** `GET`
+* **Auth Required:** Yes
+* **Request Params:** None
+* **Success Response:** Redirects to the achievements page and displays:
+
+  ```text
+  Featured badge removed.
+  ```
+* **Notes:**
+
+  * Only badges belonging to the authenticated user can be removed.
+  * Missing badges are ignored without raising an error.
+
+---
+
+## 20. Cleanup Stale Games (Internal)
+
+Administrative endpoint used by scheduled jobs to clean abandoned game sessions and resign inactive players.
+
+* **URL:** `/api/cron/cleanup-stale-games/`
+* **Method:** `POST`
+* **Auth Required:** Bearer Token
+* **CSRF Required:** No (`@csrf_exempt`)
+* **Request Body:** None
+* **Required Header:**
+
+  ```http
+  Authorization: Bearer <CRON_SECRET>
+  ```
+* **Success Response:**
+
+  ```json
+  {
+    "status": "success",
+    "deleted_games": 12,
+    "resigned_games": 4
+  }
+  ```
+* **Error Response (Unauthorized):**
+
+  ```json
+  {
+    "error": "Unauthorized"
+  }
+  ```
+
+  * **Status Code:** `401 Unauthorized`
+* **Error Response (Server Error):**
+
+  ```json
+  {
+    "status": "error",
+    "message": "<error details>"
+  }
+  ```
+
+  * **Status Code:** `500 Internal Server Error`
+
+---
+
+## 21. Password Reset Account Selection
+
+Displays all accounts associated with an email address during the password reset workflow.
+
+* **URL:** `/password-reset-account-selection/`
+* **Method:** `GET`
+* **Auth Required:** No
+* **Request Params:** `?email=user@example.com`
+* **Success Response:** Renders the password reset account selection page.
+* **Template:** `game/password_reset_account_selection.html`
+* **Context Variables:**
+
+  * `users` — matching accounts.
+  * `email` — supplied email address.
+
+---
+
+## 22. Verify OTP
+
+Verifies the registration OTP and activates the user account.
+
+* **URL:** `/verify-otp/`
+* **Method:** `GET`, `POST`
+* **Auth Required:** No
+* **Request Params (GET):** None
+* **Request Body (POST):**
+
+  ```text
+  otp=<6-digit-code>
+  ```
+* **Success Behavior:**
+
+  * Validates OTP hash.
+  * Activates the user account.
+  * Sends a welcome email.
+  * Logs the user in.
+  * Cycles the session key.
+  * Clears registration session data.
+  * Redirects to the home page.
+* **Error Response (Expired OTP):**
+
+  ```text
+  OTP has expired. Please register again.
+  ```
+
+  * Redirects to `/register/`
+* **Error Response (Invalid OTP):**
+
+  ```text
+  Invalid OTP. Please try again.
+  ```
+* **Error Response (Too Many Attempts):**
+
+  ```text
+  Too many incorrect attempts. Please register again.
+  ```
+
+  * Redirects to `/register/`
+* **Error Response (User Not Found):**
+
+  ```text
+  User not found. Please register again.
+  ```
+
+  * Redirects to `/register/`
+* **Notes:**
+
+  * OTP expires after 300 seconds.
+  * Maximum failed attempts: 5.
+  * OTP values are stored as SHA-256 hashes.
+
+---
+
+## 23. Resend OTP
+
+Generates and sends a new OTP during account registration.
+
+* **URL:** `/resend-otp/`
+* **Method:** `POST`
+* **Auth Required:** No
+* **CSRF Required:** Yes
+* **Request Body:** None
+* **Success Response:** Redirects to `/verify-otp/` and displays:
+
+  ```text
+  A new OTP has been sent to your email.
+  ```
+* **Error Response (Session Expired):**
+
+  ```text
+  Session expired. Please register again.
+  ```
+
+  * Redirects to `/register/`
+* **Error Response (Rate Limited):**
+
+  ```text
+  Please wait <n> seconds before requesting a new OTP.
+  ```
+
+  * Redirects to `/verify-otp/`
+* **Error Response (Email Failure):**
+
+  ```text
+  Failed to resend OTP. Please try again.
+  ```
+
+  * Redirects to `/verify-otp/`
+* **Notes:**
+
+  * OTP requests are limited to one request every 60 seconds.
+  * Newly generated OTPs replace previously issued OTPs.
+
+---
+
+## 24. Delete Account
+
+Initiates the account deletion workflow by sending a confirmation email.
+
+* **URL:** `/delete-account/`
+* **Method:** `GET`, `POST`
+* **Auth Required:** Yes
+* **Request Params (GET):** None
+* **Request Body (POST):**
+
+  ```text
+  username=<username>
+  password=<password>
+  ```
+* **Success Response:** Sends a confirmation email and redirects to the home page.
+* **Success Message:**
+
+  ```text
+  Confirmation email sent to your registered email.
+  ```
+* **Error Response (Invalid Credentials):**
+
+  ```text
+  Invalid username or password.
+  ```
+* **Error Response (Email Failure):**
+
+  ```text
+  Failed to send confirmation email.
+  ```
+* **Notes:**
+
+  * The account is not deleted during this step.
+  * Deletion requires email confirmation.
+
+---
+
+## 25. Confirm Account Deletion
+
+Validates a secure deletion token and permanently removes the user account.
+
+* **URL:** `/confirm-delete/<uidb64>/<token>/`
+* **Method:** `GET`
+* **Auth Required:** No
+* **Request Params:** None
+* **Success Response:** Logs out the user, deletes the account, and renders:
+
+  ```text
+  game/delete_success.html
+  ```
+* **Error Response:**
+
+  ```text
+  Invalid or expired deletion link.
+  ```
+
+  * Redirects to the landing page.
+* **Notes:**
+
+  * User identity is validated using `uidb64`.
+  * Token validation uses Django's `default_token_generator`.
+  * Account deletion is permanent.
+
+
+Final confirmation endpoint for permanent account deletion.
+
+* **URL:** `/confirm-delete/<uidb64>/<token>/`
+* **Method:** `GET`
+* **Auth Required:** No
+
+### Parameters
+
+| Parameter | Description             |
+| --------- | ----------------------- |
+| uidb64    | Encoded user identifier |
+| token     | Secure deletion token   |
+
+### Purpose
+
+Validates the deletion token and permanently removes the account.
+
+### Success Response
+
+Renders a confirmation page and deletes the account if the token is valid.
+
+### Possible Error Cases
+
+* Invalid token
+* Expired token
+* User not found
+* Already deleted account
+
+---
+---
