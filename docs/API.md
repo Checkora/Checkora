@@ -259,3 +259,147 @@ Serves the animated preloader screen. This is the root entry point of the applic
 - If `/home/` detects a page reload (`performance.getEntriesByType('navigation')[0].type === 'reload'`), it bounces the user back to `/` to replay the preloader.
 
 ---
+
+## 11. Resume Game
+Resumes an existing active game stored in the user's session without resetting the board, clocks, move history, or metadata.
+
+*   **URL:** `/api/resume/`
+*   **Method:** `POST`
+*   **Auth Required:** No
+*   **CSRF Required:** Yes, include `X-CSRFToken` in the request headers.
+*   **Session Dependency:** Requires an existing `game` object in the session with `game_status` set to `active`.
+*   **Request Body:** None
+*   **Success Response:**
+    ```json
+    {
+      "valid": true,
+      "board": [[...]],
+      "current_turn": "white",
+      "white_time": 600,
+      "black_time": 600,
+      "time_limit": 600,
+      "increment": 0,
+      "move_history": [...],
+      "captured_pieces": {"white": [], "black": []},
+      "mode": "pvp",
+      "player_color": "white",
+      "white_name": "White",
+      "black_name": "Black",
+      "game_status": "active",
+      "draw_reason": null,
+      "threefold_warning": false,
+      "fen": "current-fen-key",
+      "pgn": "current-pgn-text",
+      "difficulty": "medium"
+    }
+    ```
+*   **Error Response (no saved game):**
+    ```json
+    {
+      "valid": false,
+      "message": "No saved game found."
+    }
+    ```
+    - **Status Code:** `404 Not Found`
+*   **Error Response (saved game is not active):**
+    ```json
+    {
+      "valid": false,
+      "message": "No active game to resume."
+    }
+    ```
+    - **Status Code:** `404 Not Found`
+
+---
+
+## 12. Resign Game
+Ends the current session game by recording a resignation and determining the winner from the current mode and active player.
+
+*   **URL:** `/api/resign/`
+*   **Method:** `POST`
+*   **Auth Required:** No
+*   **CSRF Required:** Yes, include `X-CSRFToken` in the request headers.
+*   **Session Dependency:** Requires an existing `game` object in the session.
+*   **Request Body:** None
+*   **Success Response:**
+    ```json
+    {
+      "valid": true,
+      "message": "White resigned.",
+      "winner": "black",
+      "game_status": "resignation"
+    }
+    ```
+*   **Error Response (no active game):**
+    ```json
+    {
+      "valid": false,
+      "message": "No active game."
+    }
+    ```
+    - **Status Code:** `400 Bad Request`
+
+---
+
+## 13. Analyze Game
+Analyzes a completed game's move history and returns summary statistics for the post-game analysis view.
+
+*   **URL:** `/api/analyze-game/`
+*   **Method:** `POST`
+*   **Auth Required:** No
+*   **CSRF Required:** No. This endpoint is decorated with `@csrf_exempt`.
+*   **Request Body:**
+    ```json
+    {
+      "moves": ["e4", "e5", "Nf3", "Nc6"],
+      "result": "White wins",
+      "reason": "checkmate"
+    }
+    ```
+*   **Request Body Fields:**
+    - `moves`: list of SAN notation strings. Non-list values are treated as an empty list.
+    - `result`: optional result label. Defaults to `"Unknown"` if omitted.
+    - `reason`: optional end reason. Defaults to `"Unknown"` if omitted.
+*   **Success Response:**
+    ```json
+    {
+      "opening": "Italian Game",
+      "result": "White wins",
+      "total_moves": 2,
+      "captures": 0,
+      "checks": 0,
+      "checkmates": 0,
+      "promotions": 0,
+      "end_reason": "checkmate"
+    }
+    ```
+*   **Error Response:**
+    ```json
+    {
+      "error": "Failed to analyze game"
+    }
+    ```
+    - **Status Code:** `400 Bad Request`
+
+---
+
+## 14. Get Puzzle Stats
+Returns puzzle streak information for the puzzle interface.
+
+*   **URL:** `/api/puzzle-stats/`
+*   **Method:** `GET`
+*   **Auth Required:** No
+*   **Request Params:** None
+*   **Success Response:**
+    ```json
+    {
+      "streak": 0,
+      "longest_streak": 0
+    }
+    ```
+
+**Notes:**
+- This endpoint currently returns placeholder values from `views.puzzle_stats_view`.
+- Both `streak` and `longest_streak` are hardcoded to `0` until persistent puzzle statistics are wired into this response.
+
+---

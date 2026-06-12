@@ -104,50 +104,7 @@
             // =============================================
             // Daily Puzzle 
             // =============================================
-
-            const PUZZLES = [
-                {
-                    id: 1,
-                    fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
-                    solution: ["g2g4"]
-                },
-
-                {
-                    id: 2,
-                    fen: "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1",
-                    solution: ["g6g7"]
-                },
-                
-                {
-                    id: 3,
-                    fen: "6k1/5ppp/8/8/8/8/5PPP/5RK1 w - - 0 1",
-                    solution: ["f1e1"]
-                },
-
-                {
-                    id: 4,
-                    fen: "6k1/5ppp/8/8/8/8/5PPP/5QK1 w - - 0 1",
-                    solution: ["f1h7"]
-                },
-                
-                {
-                    id: 5,
-                    fen: "7k/6pp/8/8/8/8/5PPP/6KQ w - - 0 1",
-                    solution: ["h1h7"]
-                },
-
-                {
-                    id: 6,
-                    fen: "7k/5K2/7Q/8/8/8/8/8 w - - 0 1",
-                    solution: ["h6g7"]
-                },
-
-                {
-                    id: 7,
-                    fen: "6k1/5ppp/8/8/8/8/6PP/5RK1 w - - 0 1",
-                    solution: ["f1e1"]
-                },
-            ];
+            // Daily puzzles are fetched dynamically from the database.
      
 
             // =============================================
@@ -292,16 +249,7 @@
                 }
             }
     
-            function getCurrentWeeklyPuzzle() {
-
-                const today = new Date();
-
-                // Monday = 0 ... Sunday = 6
-                const dayIndex =
-                    (today.getDay() + 6) % 7;
-
-                return PUZZLES[dayIndex];
-            }
+            // getCurrentWeeklyPuzzle is retired; puzzles are fetched dynamically.
 
             function initStockfish() {
                 if (!stockfishWorker) {
@@ -414,7 +362,29 @@
             }
     
             async function startDailyPuzzle() {
-                currentPuzzle = getCurrentWeeklyPuzzle();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const response = await fetch('/api/puzzles/daily/', {
+                        signal: controller.signal
+                    });
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch daily puzzle: ${response.statusText}`);
+                    }
+                    currentPuzzle = await response.json();
+                } catch (error) {
+                    console.error("Error fetching daily puzzle:", error);
+                    // Fallback to a default puzzle in case API fails
+                    currentPuzzle = {
+                        id: 1,
+                        title: "Default Puzzle",
+                        fen: "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+                        solution: ["g2g4"],
+                        difficulty: "medium"
+                    };
+                } finally {
+                    clearTimeout(timeoutId);
+                }
 
                 dailyPuzzleMode = true;
                 document.getElementById("whiteClock").style.display = "none";
@@ -930,68 +900,82 @@
                 const s = boardEl.querySelector('.square');
                 return s ? s.getBoundingClientRect().width : 60;
             }
-
+            
             async function animateMove(fr, fc, tr, tc) {
+                
                 if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-                const animations = [];
-                const size = getSquareSize();
-                const mult = flipped ? -1 : 1;
+    const animations = [];
+    const size = getSquareSize();
+    const mult = flipped ? -1 : 1;
 
-                function createAnim(p, dRow, dCol) {
-                    return new Promise(resolve => {
-                        p.style.transition = 'transform 0.25s ease-in-out, opacity 0.2s ease';
-                        p.style.transform = `translate(${dCol * size * mult}px, ${dRow * size * mult}px)`;
-                        p.classList.add('moving');
+    function createAnim(p, dRow, dCol) {
+        return new Promise(resolve => {
+            const originSquare = p.parentElement;
 
-                        const onEnd = () => {
-                            p.removeEventListener('transitionend', onEnd);
-                            p.classList.remove('moving');
-                            p.style.transform = 'none';
-                            p.style.transition = '';
-                            resolve();
-                        };
-                        p.addEventListener('transitionend', onEnd);
-                        setTimeout(onEnd, 300);
-                    });
-                }
+            if (originSquare) {
+               const ghost = p.cloneNode(true);
+               ghost.classList.add('piece-ghost');
 
-                // 1. Moving piece
-                const piece = sq(fr, fc).querySelector('.piece');
-                if (piece) {
-                    animations.push(createAnim(piece, tr - fr, tc - fc));
-                    
-                    // 2. Castling detection
-                    const pType = board[fr][fc];
-                    if (pType && pType.toLowerCase() === 'k' && Math.abs(tc - fc) === 2) {
-                        const isShort = tc > fc;
-                        const rookFr = fr;
-                        const rookFc = isShort ? 7 : 0;
-                        const rookTr = fr;
-                        const rookTc = isShort ? 5 : 3;
-                        const rook = sq(rookFr, rookFc).querySelector('.piece');
-                        if (rook) {
-                            animations.push(createAnim(rook, rookTr - rookFr, rookTc - rookFc));
-                        }
-                    }
-                }
+               originSquare.appendChild(ghost);
 
-                // 3. Capture detection (including En Passant)
-                let capturedSq = sq(tr, tc);
-                // En Passant: capture pawn is not on target square
-                const isEnPassant = piece && piece.src.includes('p.png') && fc !== tc && !board[tr][tc];
-                if (isEnPassant) {
-                    capturedSq = sq(fr, tc);
-                }
-                
-                const targetPiece = capturedSq.querySelector('.piece');
-                if (targetPiece) {
-                    targetPiece.classList.add('captured');
-                }
-
-                await Promise.all(animations);
+               ghost.addEventListener(
+                  'animationend',
+                   () => ghost.remove(),
+                   { once: true }
+                );
             }
 
+            p.classList.add('moving');
+            p.style.transition = 'transform 0.25s ease-in-out, opacity 0.2s ease';
+            p.style.transform = `translate(${dCol * size * mult}px, ${dRow * size * mult}px)`;
+
+            const onEnd = () => {
+                p.removeEventListener('transitionend', onEnd);
+                p.classList.remove('moving');
+                p.style.transform = 'none';
+                p.style.transition = '';
+                resolve();
+            };
+            p.addEventListener('transitionend', onEnd);
+            setTimeout(onEnd, 300);
+        });
+    }
+
+    const piece = sq(fr, fc).querySelector('.piece');
+    if (piece) {
+        animations.push(createAnim(piece, tr - fr, tc - fc));
+
+        const pType = board[fr][fc];
+        if (pType && pType.toLowerCase() === 'k' && Math.abs(tc - fc) === 2) {
+            const isShort = tc > fc;
+            const rookFr = fr;
+            const rookFc = isShort ? 7 : 0;
+            const rookTr = fr;
+            const rookTc = isShort ? 5 : 3;
+            const rook = sq(rookFr, rookFc).querySelector('.piece');
+            if (rook) {
+                animations.push(createAnim(rook, rookTr - rookFr, rookTc - rookFc));
+            }
+        }
+    }
+
+    let capturedSq = sq(tr, tc);
+    const isEnPassant = piece && piece.src.includes('p.png') && fc !== tc && !board[tr][tc];
+    if (isEnPassant) {
+        capturedSq = sq(fr, tc);
+    }
+
+    const targetPiece = capturedSq.querySelector('.piece');
+    if (targetPiece) {
+        targetPiece.classList.add('captured');
+    }
+
+    await Promise.all(animations);
+}
+            
+         
+              
             function parseBoard(s) {
                 if (!s || typeof s !== 'string') return s;
                 const b = [];
@@ -1190,7 +1174,6 @@
                         d.onclick = () => onClick(r, c);
                         d.oncontextmenu = (e) => {
                             e.preventDefault();
-                            e.stopPropagation();
                             toggleSquareHighlight(r, c);
                         };
                         d.ondragover = e => e.preventDefault();
@@ -2127,7 +2110,7 @@
 
                         if (move) {
                             const result = replayBoard.move(move);
-                            console.log("Replaying:", move, result)
+                        
                         }
                     }
 
@@ -2273,6 +2256,7 @@
                     const blindfoldBtn = document.getElementById('blindfoldBtn');
                     if (blindfoldBtn) blindfoldBtn.textContent = 'Blindfold: OFF';
                 }
+                updateThinkingDots();
             
                 let title = '', message = '';
                 
@@ -2341,19 +2325,22 @@
                 replayMoves = [];
                 replayIndex = 0;
 
-                // USE ORIGINAL HISTORY INSTEAD OF REVERSED DOM
-                const moveSpans = document.querySelectorAll('.move-white, .move-black');
+                // Reverse the rows so we get the oldest moves first
+                const moveRows = Array.from(document.querySelectorAll('.move-row')).reverse();
 
-                moveSpans.forEach(span => {
-                    const move = span.textContent
-                        ?.replace(/[+#]/g, '')
-                        ?.replace(/\s+/g, '')
-                        ?.trim();
+                moveRows.forEach(row => {
+                    const spans = row.querySelectorAll('.move-white, .move-black');
+                    spans.forEach(span => {
+                        const move = span.textContent
+                            ?.replace(/[+#]/g, '')
+                            ?.replace(/\s+/g, '')
+                            ?.trim();
 
-                    if (move && move !== '...') {
-                        console.log("Replay move added:", move);
-                        replayMoves.push(move);
-                    }
+                        if (move && move !== '...') {
+                            console.log("Replay move added:", move);
+                            replayMoves.push(move);
+                        }
+                    });
                 });
 
                 console.log("FINAL REPLAY MOVES:", replayMoves);
@@ -2806,6 +2793,75 @@
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
             function formatTime(t) { return fmt(t); }
+
+                function updateThinkingDots() {
+    const whiteClock = document.getElementById('whiteClock');
+    const blackClock = document.getElementById('blackClock');
+
+    if (!whiteClock || !blackClock) return;
+    
+    // Determine target clock before any DOM changes
+let targetClock = null;
+
+if (!paused && !gameOver) {
+    if (whiteClock.classList.contains('active')) {
+        targetClock = whiteClock;
+    } else if (blackClock.classList.contains('active')) {
+        targetClock = blackClock;
+    }
+}
+
+// Check if dots are already in the correct place
+const whiteTimeEl = whiteClock.querySelector('.time');
+const blackTimeEl = blackClock.querySelector('.time');
+
+const whiteHasDots =
+    whiteTimeEl?.querySelector('.thinking-dots') !== null;
+
+const blackHasDots =
+    blackTimeEl?.querySelector('.thinking-dots') !== null;
+
+if (targetClock === whiteClock && whiteHasDots && !blackHasDots) return;
+
+if (targetClock === blackClock && blackHasDots && !whiteHasDots) return;
+
+if (!targetClock && !whiteHasDots && !blackHasDots) return;
+
+
+    // Remove existing dots
+    whiteClock.querySelector('.thinking-dots')?.remove();
+    blackClock.querySelector('.thinking-dots')?.remove();
+
+    // Stop when game ends
+    if (paused || gameOver) return;
+
+    const activeClock =
+        whiteClock.classList.contains('active')
+            ? whiteClock
+            : blackClock.classList.contains('active')
+                ? blackClock
+                : null;
+
+    if (!targetClock) return;
+    
+    const dots = document.createElement('span');
+dots.className = 'thinking-dots';
+
+dots.innerHTML = `
+    <span></span>
+    <span></span>
+    <span></span>
+`;
+
+const timeEl = targetClock.querySelector('.time');
+
+if (timeEl) {
+    timeEl.appendChild(dots);
+}
+
+                }
+
+
             
             function formatGameDuration(ms) {
                 const totalSeconds = Math.floor(ms / 1000);
@@ -2878,12 +2934,14 @@
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
                 if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
+                updateThinkingDots();
             }
 
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
+                updateThinkingDots();
                 if (paused) {
                     boardEl.setAttribute('aria-label', 'Game paused. Click board or press P to resume.');
                     boardEl.style.cursor = 'pointer';
@@ -3847,8 +3905,8 @@
             // Theme Switcher
             function initThemeSwitcher() {
                 const themeBtns = document.querySelectorAll('.theme-btn');
-                const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
-                document.documentElement.setAttribute('data-theme', currentTheme);
+                const currentTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
+                document.documentElement.setAttribute('data-board-theme', currentTheme);
 
                 themeBtns.forEach(btn => {
                     if (btn.dataset.theme === currentTheme) {
@@ -3857,7 +3915,8 @@
                     }
                     btn.onclick = () => {
                         const theme = btn.dataset.theme;
-                        document.documentElement.setAttribute('data-theme', theme);
+                        document.documentElement.setAttribute('data-board-theme', theme);
+                        localStorage.setItem('boardTheme', theme);
                         localStorage.setItem('chessBoardTheme', theme);
                         themeBtns.forEach(b => {
                             b.classList.remove('active');
@@ -3869,10 +3928,37 @@
                 });
             }
 
+            // Coordinates Visibility Preference
+            function initCoordinatesToggle() {
+                const showCoordsBtn = document.getElementById('showCoordinatesCheckbox');
+                if (!showCoordsBtn) return;
+
+                const savedShowCoords = localStorage.getItem('showCoordinates') !== 'false';
+                showCoordsBtn.checked = savedShowCoords;
+
+                if (!savedShowCoords && boardEl) {
+                    boardEl.classList.add('hide-coordinates');
+                }
+
+                showCoordsBtn.addEventListener('change', () => {
+                    if (showCoordsBtn.checked) {
+                        if (boardEl) boardEl.classList.remove('hide-coordinates');
+                        localStorage.setItem('showCoordinates', 'true');
+                    } else {
+                        if (boardEl) boardEl.classList.add('hide-coordinates');
+                        localStorage.setItem('showCoordinates', 'false');
+                    }
+                });
+            }
+
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initThemeSwitcher);
+                document.addEventListener('DOMContentLoaded', () => {
+                    initThemeSwitcher();
+                    initCoordinatesToggle();
+                });
             } else {
                 initThemeSwitcher();
+                initCoordinatesToggle();
             }
 
     document.addEventListener('visibilitychange', async() => {
@@ -3969,7 +4055,28 @@
                 const tag = document.activeElement && document.activeElement.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-                
+                if (replayMode) {
+                    if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        prevReplayBtn?.click();
+                        return;
+                    }
+                    if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        nextReplayBtn?.click();
+                        return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        firstReplayBtn?.click();
+                        return;
+                    }
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        lastReplayBtn?.click();
+                        return;
+                    }
+                }
 
                 const key = e.key.toLowerCase();
                 const hasBlockingOverlay =

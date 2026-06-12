@@ -69,5 +69,39 @@
         </tbody>
     </table>
 
+    <h1 style="margin-top:50px;">♟ Chess Rating Leaderboard</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>User</th>
+                <th>Rating</th>
+                <th>Games Played</th>
+                <th>Wins</th>
+                <th>Loss</th>
+                <th>Draws</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for player in chess_leaderboard %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ player.user.username }}</td>
+                <td>{{ player.rating }}</td>
+                <td>{{ player.games_played }}</td>
+                <td>{{ player.wins }}</td>
+                <td>{{ player.losses }}</td>
+                <td>{{ player.draws }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7">No chess rating data available.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
 </body>
 </html>

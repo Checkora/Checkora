@@ -47,7 +47,10 @@ document.body.innerHTML = `
   <div id="whiteCapturedName"></div>
   <div id="blackCapturedName"></div>
   <div id="turnBadgeText"></div>
+  <input type="checkbox" id="showCoordinatesCheckbox">
 `;
+global.SOUND_BASE_URL = '/static/game/sounds/';
+
 // Mock Worker for Jest
 global.Worker = class MockWorker {
   constructor(url) {
@@ -95,6 +98,16 @@ global.Chess = class MockChess {
     const moveStr = typeof moveObj === 'string' ? moveObj : `${moveObj.from}${moveObj.to}`;
     this._fen = `${this._fen}_then_${moveStr}`;
     return {};
+  }
+};
+
+global.SOUND_BASE_URL = '/static/game/sounds/';
+global.Audio = class MockAudio {
+  constructor(src) {
+    this.src = src;
+  }
+  play() {
+    return Promise.resolve();
   }
 };
 
@@ -194,5 +207,28 @@ describe("validateMoveWithStockfish", () => {
     global.mockScores['played_fen'] = { type: 'cp', value: 200 };
     const result = await validateMoveWithStockfish("startpos", "played_fen", "e2e4");
     expect(result).toBe(false);
+  });
+});
+
+describe("Coordinates visibility toggle", () => {
+  test("toggles .hide-coordinates class on #board when checkbox changes state", () => {
+    const checkbox = document.getElementById("showCoordinatesCheckbox");
+    const board = document.getElementById("board");
+    
+    // Default should be checked (true) and class should not be present
+    expect(checkbox.checked).toBe(true);
+    expect(board.classList.contains("hide-coordinates")).toBe(false);
+    
+    // Simulate unchecking
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event("change"));
+    expect(board.classList.contains("hide-coordinates")).toBe(true);
+    expect(localStorage.getItem("showCoordinates")).toBe("false");
+    
+    // Simulate checking again
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event("change"));
+    expect(board.classList.contains("hide-coordinates")).toBe(false);
+    expect(localStorage.getItem("showCoordinates")).toBe("true");
   });
 });

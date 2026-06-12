@@ -27,11 +27,41 @@
     <script defer src="/_vercel/insights/script.js"></script>
     <script>
         (function () {
-            const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
-            let saved = 'classic';
-            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
-            if (!VALID_THEMES.includes(saved)) saved = 'classic';
-            document.documentElement.setAttribute('data-theme', saved);
+            const safeLocalStorage = {
+                get(key) {
+                    try {
+                        return window.localStorage.getItem(key);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+            };
+
+            const VALID_APP_THEMES = ['light', 'dark'];
+            const VALID_BOARD_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
+
+            let savedAppTheme = safeLocalStorage.get('theme');
+            if (!VALID_APP_THEMES.includes(savedAppTheme)) {
+                const legacyAppTheme = safeLocalStorage.get('chessBoardTheme');
+                savedAppTheme = VALID_APP_THEMES.includes(legacyAppTheme) ? legacyAppTheme : null;
+            }
+            if (!savedAppTheme) {
+                savedAppTheme = 'dark';
+            }
+            document.documentElement.setAttribute('data-theme', savedAppTheme);
+
+            let savedBoardTheme = safeLocalStorage.get('boardTheme') || safeLocalStorage.get('chessBoardTheme');
+            if (!savedBoardTheme) {
+                const legacyTheme = safeLocalStorage.get('theme');
+                if (!VALID_APP_THEMES.includes(legacyTheme) && VALID_BOARD_THEMES.includes(legacyTheme)) {
+                    savedBoardTheme = legacyTheme;
+                }
+            }
+            if (!VALID_BOARD_THEMES.includes(savedBoardTheme)) {
+                savedBoardTheme = 'classic';
+            }
+            document.documentElement.setAttribute('data-board-theme', savedBoardTheme);
+
         })();
     </script>
 
@@ -63,8 +93,9 @@
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 10000;">
         <div class="promo-dialog">
-            <div style="margin-bottom: 20px; color:#f0c040;">
+            <div style="margin-bottom: 20px; color:#f0c040; position: relative;">
                 <a href="/" class="back-btn">← Back to Home</a>
+                <button type="button" id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -260,6 +291,10 @@
                         Leaderboard
                     </a>
 
+                    <a href="{% url 'achievements' %}">
+                        Achievements
+                    </a>
+
                     <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
                     <form
                         method="post"
@@ -405,19 +440,30 @@
             <div class="card">
                 <div class="card-title">Board Theme</div>
                 <div class="theme-switcher">
-                    <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme"
-                        aria-pressed="true" type="button"></button>
-                    <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme"
-                        aria-pressed="false" type="button"></button>
+                    <div class="theme-option">
+                        <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme" aria-pressed="true" type="button"></button>
+                        <span class="theme-label">Classic</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Dark</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Green</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Blue</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Pastel</span>
+                    </div>
                 </div>
-                <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
-                    Classic · Dark · Green · Blue · Pastel
+                <div class="preference-container">
+                    <input type="checkbox" id="showCoordinatesCheckbox" class="custom-checkbox" checked>
+                    <label for="showCoordinatesCheckbox" class="preference-label">Show Coordinates</label>
                 </div>
             </div>
             <div class="card">
@@ -766,6 +812,7 @@
          JAVASCRIPT
          ======================================================== -->
     <script src="{% static 'game/js/toast.js' %}"></script>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
@@ -826,7 +873,7 @@ ${message}
     };
 });
 </script>
-
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 
 

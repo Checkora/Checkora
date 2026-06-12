@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,6 +34,119 @@
         <div class="card"><div class="num">{{ user_ai_wins }}</div><div class="label">User Wins vs AI</div></div>
         <div class="card"><div class="num">{{ ai_wins }}</div><div class="label">AI Wins</div></div>
         <div class="card"><div class="num">{{ ai_draws }}</div><div class="label">Draws</div></div>
+        <div class="card">
+            <div class="num">{{ progress.level }}</div>
+            <div class="label">🏆 Level</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ progress.xp }}</div>
+            <div class="label">⚡ XP</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ rating.rating }}</div>
+            <div class="label">♟ Chess Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">
+                {% if rating.rating < 1000 %}
+                    Beginner
+                {% elif rating.rating < 1400 %}
+                    Intermediate
+                {% elif rating.rating < 1800 %}
+                    Advanced
+                {% else %}
+                    Expert
+                {% endif %}
+            </div>
+            <div class="label">🏅 Rank Tier</div>
+        </div>
+    </div>
+
+    <div style="text-align:center; margin-top:20px; margin-bottom:20px;">
+        <a href="{% url 'achievements' %}"
+            style="
+                background:#f0c040;
+                color:#0f0f1a;
+                padding:12px 20px;
+                border-radius:8px;
+                font-weight:bold;
+                text-decoration:none;
+                display:inline-block;
+            ">
+            🏆 View Achievements
+        </a>
+    </div>
+
+    <h2>Advanced Performance Metrics</h2>
+
+    <div class="summary">
+        <div class="card">
+            <div class="num">{{ total_games }}</div>
+            <div class="label">Total Games</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ total_wins }}</div>
+            <div class="label">Wins</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ total_losses }}</div>
+            <div class="label">Losses</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ total_draws }}</div>
+            <div class="label">Draws</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ overall_win_rate }}%</div>
+            <div class="label">Win Rate</div>
+        </div>
+    </div>
+
+    <h2>Color Statistics</h2>
+
+    <div class="summary">
+        <div class="card">
+            <div class="num">{{ games_as_white }}</div>
+            <div class="label">Games as White</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ games_as_black }}</div>
+            <div class="label">Games as Black</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ white_win_rate }}%</div>
+            <div class="label">White Win Rate</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ black_win_rate }}%</div>
+            <div class="label">Black Win Rate</div>
+        </div>
+    </div>
+
+    <h2>Activity Statistics</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ games_this_week }}</div>
+            <div class="label">Games This Week</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ games_this_month }}</div>
+            <div class="label">Games This Month</div>
+        </div>
+
     </div>
 
     <h2>Recent Games</h2>
@@ -64,6 +178,122 @@
         <p>No games played yet. Play a game to see your stats here!</p>
     </div>
     {% endif %}
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 
+    <h2>Learning Progress</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ lessons_completed }}</div>
+            <div class="label">Lessons Completed</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ lesson_completion_percentage }}%</div>
+            <div class="label">Lesson Completion</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ progress.level }}</div>
+            <div class="label">Current Level</div>
+        </div>
+
+    </div>
+
+    <h2>Rating Analytics</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ highest_rating }}</div>
+            <div class="label">Highest Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ lowest_rating }}</div>
+            <div class="label">Lowest Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ average_rating }}</div>
+            <div class="label">Average Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">
+                {% if total_rating_change > 0 %}
+                    +{{ total_rating_change }}
+                {% else %}
+                    {{ total_rating_change }}
+                {% endif %}
+            </div>
+            <div class="label">Rating Change</div>
+        </div>
+
+    </div>
+
+    <h2>Puzzle Analytics</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ puzzle_stats.puzzles_solved }}</div>
+            <div class="label">Puzzles Solved</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ puzzle_stats.current_streak }}</div>
+            <div class="label">Current Streak</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ puzzle_stats.best_streak }}</div>
+            <div class="label">Best Streak</div>
+        </div>
+
+    </div>
+
+    <h2>Chess Rating History</h2>
+
+    {% if history %}
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Result</th>
+                    <th>Old Rating</th>
+                    <th>New Rating</th>
+                    <th>Change</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in history %}
+                <tr>
+                    <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ item.result }}</td>
+                    <td>{{ item.old_rating }}</td>
+                    <td>{{ item.new_rating }}</td>
+
+                    <td>
+                        {% if item.rating_change > 0 %}
+                            +{{ item.rating_change }}
+                        {% else %}
+                            {{ item.rating_change }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">
+        <p>No rating history available yet.</p>
+    </div>
+    {% endif %}
+    
 </body>
 </html>

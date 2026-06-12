@@ -6,217 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ lesson.title }} - Checkora</title>
-
-    <style>
-        body {
-            background: #121212;
-            color: white;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 40px;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: auto;
-        }
-
-        .back-btn {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #f0c040;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .lesson-box {
-            background: #1e1e1e;
-            padding: 25px;
-            border-radius: 12px;
-            border: 1px solid #333;
-        }
-
-        h1 {
-            color: #f0c040;
-            margin-bottom: 15px;
-        }
-
-        .description {
-            color: #d0d0d0;
-            line-height: 1.6;
-            margin-bottom: 30px;
-        }
-
-        .lesson-content {
-            margin-top: 20px;
-            margin-bottom: 30px;
-            padding-left: 25px;
-        }
-
-        .lesson-content li {
-            margin-bottom: 12px;
-            line-height: 1.7;
-            color: #e0e0e0;
-        }
-
-        .board-placeholder {
-            height: 400px;
-            border: 2px dashed #555;
-            border-radius: 12px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #aaa;
-            font-size: 18px;
-        }
-
-        .complete-btn {
-            background: #f0c040;
-            color: #121212;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .quiz-btn {
-            background: #333;
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 8px;
-        }
-
-        .quiz-btn:hover {
-            background: #444;
-        }
-
-        .complete-btn:hover {
-            opacity: 0.9;
-        }
-
-        .lesson-navigation {
-            margin-top: 30px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .lesson-navigation a {
-            color: #f0c040;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .lesson-navigation a:hover {
-            text-decoration: underline;
-        }
-
-        .coming-soon {
-            margin-top: 25px;
-            padding: 15px;
-            background: rgba(240,192,64,0.1);
-            border-left: 4px solid #f0c040;
-            border-radius: 8px;
-        }
-
-        .lesson-square {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 38px;
-            cursor: pointer;
-        }
-
-        .light {
-            background: #f0d9b5;
-        }
-
-        .dark {
-            background: #b58863;
-        }
-
-        .lesson-board-wrapper{
-            display:flex;
-            justify-content:center;
-            margin:20px 0;
-        }
-
-        .lesson-board{
-            width:480px;
-            height:480px;
-
-            display:grid;
-            grid-template-columns:repeat(8,1fr);
-
-            border:2px solid #f0c040;
-        }
-
-        .lesson-square{
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            font-size:42px;
-            user-select:none;
-        }       
-
-        .lesson-square.light{
-            background:#f0d9b5;
-        }
-
-        .lesson-square.dark{
-            background:#b58863;
-        }
-
-        .board-demo{
-            margin-top:30px;
-        }
-
-        #demo-board{
-            width:100%;
-            max-width:520px;
-            aspect-ratio:1/1;
-
-            display:grid;
-            grid-template-columns:repeat(8,1fr);
-            grid-template-rows:repeat(8,1fr);
-
-            border:2px solid #f0c040;
-            margin:20px auto;
-        }
-
-        .demo-square{
-            display:flex;
-            justify-content:center;
-            align-items:center;
-
-            aspect-ratio:1/1;
-
-            font-size:clamp(
-                20px,
-                4vw,
-                42px
-            );
-        }
-
-        .demo-light{
-            background:#f0d9b5;
-        }
-
-        .demo-dark{
-            background:#b58863;
-        }
-
-        .highlight-square{
-            background:#81c784 !important;
-        }
-
-    </style>
+    <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
 </head>
 <body>
 
@@ -246,16 +36,30 @@
     </ul>
     {% endif %}
 
-    {% if board_examples %}
+    <div class="coord-toggle-container">
+        <input type="checkbox" id="lessonCoordToggle" class="custom-checkbox" checked>
+        <label for="lessonCoordToggle" class="coord-toggle-label">Show Coordinates</label>
+    </div>
 
+    {% if board_examples %}
+   
     <div class="board-demo">
 
         <h2>♟ Interactive Board Example</h2>
 
         <h3 id="example-title"></h3>
-
-        <div id="demo-board"></div>
-
+        
+        <div class="lesson-board-aligned">
+            <div class="lesson-board-row">
+                <div class="lesson-ranks">
+                    <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+                </div>
+                <div id="demo-board"></div>
+            </div>
+            <div class="lesson-files">
+                <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+        </div>
         <button
             id="next-example-btn"
             class="complete-btn"
@@ -268,6 +72,45 @@
 
     {% endif %}
 
+    {% if lesson_steps %}
+
+    <div class="lesson-practice">
+
+        <h2>🎯 Practice Position</h2>
+
+        <p id="lesson-instruction"></p>
+
+        <div class="lesson-board-aligned">
+            <div class="lesson-board-row">
+                <div class="lesson-ranks">
+                    <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+                </div>
+                <div class="lesson-board-wrapper">
+                    <div id="practice-board" class="lesson-board"></div>
+                </div>
+            </div>
+            <div class="lesson-files">
+                <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+        </div>
+
+        <p id="lesson-result"></p>
+
+        <button
+            type="button"
+            id="retry-btn"
+            class="complete-btn"
+            style="display:none; margin-top:10px;"
+        >
+            🔄 Retry
+        </button>
+
+    </div>
+
+    {{ lesson_steps|json_script:"lesson-steps-data" }}
+    {{ practice_position|json_script:"practice-position-data" }}
+
+    {% endif %}
 
     {% if lesson.practice_question %}
     <div class="coming-soon">
@@ -300,7 +143,7 @@
 
     <form
         method="post"
-        action="{% url 'complete_lesson' lesson.title %}"
+        action="{% url 'complete_lesson' lesson.title|slugify %}"
     >
         {% csrf_token %}
 
@@ -342,21 +185,16 @@
     </div>
 
     {% endif %}
-
-    <div class="coming-soon">
-        🚀 Future update: Interactive board demonstrations,
-        practice positions, quizzes, and lesson progress tracking.
-    </div>
     <div class="lesson-navigation">
 
         {% if previous_lesson %}
-            <a href="{% url 'lesson_detail' previous_lesson %}">
+            <a href="{% url 'lesson_detail' previous_lesson|slugify %}">
                 ← {{ previous_lesson }}
             </a>
         {% endif %}
 
         {% if next_lesson %}
-            <a href="{% url 'lesson_detail' next_lesson %}">
+            <a href="{% url 'lesson_detail' next_lesson|slugify %}">
                 {{ next_lesson }} →
             </a>
         {% endif %}
@@ -394,5 +232,7 @@ function checkAnswer(selected, correct) {
 
 </script>
 <script src="{% static 'game/js/lesson_demo.js' %}"></script>
+<script src="{% static 'game/js/lesson_practice.js' %}"></script>
+<script src="{% static 'game/js/lesson_coordinates.js' %}"></script>
 </body>
 </html>
