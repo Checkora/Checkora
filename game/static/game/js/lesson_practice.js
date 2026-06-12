@@ -68,6 +68,10 @@ function getPawnMoves(square) {
             file + (rank + 1)
         );
     }
+    
+    if (rank === 2) {
+        moves.push(file + (rank + 2));
+    }
 
     return moves;
 }
@@ -280,7 +284,9 @@ document.addEventListener(
             B: "♗",
             R: "♖",
             Q: "♕",
-            K: "♔"
+            K: "♔",
+
+            
         };
 
         board.innerHTML = "";

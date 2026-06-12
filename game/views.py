@@ -48,6 +48,9 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
+from django.db.models import Avg, Max, Min, Sum
+from datetime import timedelta
+
 from .engine import ChessGame
 from .models import (
     GameResult,
@@ -1597,6 +1600,26 @@ def stats_view(request):
         user=request.user
     ).exclude(mode__in=['', None])
 
+    total_games = user_results.count()
+
+    total_wins = user_results.filter(
+        winner=F("player_color")
+    ).exclude(
+        winner="draw"
+    ).count()
+
+    total_losses = user_results.filter(
+        Q(player_color="white", winner="black") |
+        Q(player_color="black", winner="white")
+    ).count()
+
+    total_draws = user_results.filter(winner="draw").count()
+
+    overall_win_rate = (
+        round((total_wins / total_games) * 100, 2)
+        if total_games > 0 else 0
+    )
+
     recent = user_results.order_by('-played_at')[:20]
     progress, _ = UserProgress.objects.get_or_create(
         user=request.user
@@ -1623,8 +1646,98 @@ def stats_view(request):
 
     history = RatingHistory.objects.filter(
         user=request.user
-    )[:10]
+    )
 
+    recent_history = history[:10]
+    
+    # Color Statistics
+    games_as_white = user_results.filter(
+        player_color="white"
+    ).count()
+
+    games_as_black = user_results.filter(
+        player_color="black"
+    ).count()
+
+    white_wins = user_results.filter(
+        player_color="white",
+        winner="white"
+    ).count()
+
+    black_wins = user_results.filter(
+        player_color="black",
+        winner="black"
+    ).count()
+
+    white_win_rate = (
+        round((white_wins / games_as_white) * 100, 2)
+        if games_as_white else 0
+    )
+
+    black_win_rate = (
+        round((black_wins / games_as_black) * 100, 2)
+        if games_as_black else 0
+    )
+    
+    # Activity Statistics
+    week_ago = timezone.now() - timedelta(days=7)
+    month_ago = timezone.now() - timedelta(days=30)
+
+    games_this_week = user_results.filter(
+        played_at__gte=week_ago
+    ).count()
+
+    games_this_month = user_results.filter(
+        played_at__gte=month_ago
+    ).count()
+
+    # Rating Analytics
+    if history.exists():
+        highest_rating = max(
+            history.aggregate(Max("new_rating"))["new_rating__max"],
+            history.aggregate(Max("old_rating"))["old_rating__max"]
+        )
+
+        lowest_rating = min(
+            history.aggregate(Min("new_rating"))["new_rating__min"],
+            history.aggregate(Min("old_rating"))["old_rating__min"]
+        )
+    else:
+        highest_rating = rating.rating
+        lowest_rating = rating.rating
+        
+    average_rating = history.aggregate(
+        Avg("new_rating")
+    )["new_rating__avg"] or rating.rating
+
+    total_rating_change = history.aggregate(
+        Sum("rating_change")
+    )["rating_change__sum"] or 0
+
+    # Learning Progress
+    lessons_completed = LessonProgress.objects.filter(
+        user=request.user,
+        completed=True
+    ).count()
+
+    total_lessons = sum(
+        len(level["lessons"])
+        for level in LESSON_LEVELS
+    )
+    lesson_completion_percentage = (
+        round(
+            (lessons_completed / total_lessons) * 100,
+            2
+        )
+        if total_lessons > 0
+        else 0
+    )
+    
+    # Puzzle Analytics
+    puzzle_stats, _ = PuzzleStats.objects.get_or_create(
+        user=request.user
+    )
+    
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
@@ -1634,7 +1747,30 @@ def stats_view(request):
         'win_percentage': round(win_percentage, 2),
         'progress': progress,
         'rating': rating,
-        'history': history,
+        'history': recent_history,
+        
+        "total_games": total_games,
+        "total_wins": total_wins,
+        "total_losses": total_losses,
+        "total_draws": total_draws,
+        "overall_win_rate": overall_win_rate,
+
+        "games_as_white": games_as_white,
+        "games_as_black": games_as_black,
+        "white_win_rate": white_win_rate,
+        "black_win_rate": black_win_rate,
+
+        "highest_rating": highest_rating,
+        "lowest_rating": lowest_rating,
+        "average_rating": round(average_rating, 2),
+        "total_rating_change": total_rating_change,
+        "games_this_week": games_this_week,
+        "games_this_month": games_this_month,
+
+        "lessons_completed": lessons_completed,
+        "lesson_completion_percentage": lesson_completion_percentage,
+
+        "puzzle_stats": puzzle_stats,
     })
 
 @login_required
@@ -1899,10 +2035,20 @@ _LESSON_NAMES = (
     "Check and Checkmate",
     "Castling",
     "Opening Principles",
+    "Chess Notation",
+    "Piece Values",
+    "En Passant",
+    "Pawn Promotion",
+    
     "Forks",
     "Pins",
     "Skewers",
     "Discovered Attacks",
+    "Double Attacks",
+    "Removing the Defender",
+    "Deflection",
+    "Decoy",
+
     "Pawn Structures",
     "King Safety",
     "Piece Activity",
@@ -1918,6 +2064,10 @@ LESSON_LEVELS = [
             "Check and Checkmate",
             "Castling",
             "Opening Principles",
+            "Chess Notation",
+            "Piece Values",
+            "En Passant",
+            "Pawn Promotion",
         ],
     },
     {
@@ -1928,6 +2078,10 @@ LESSON_LEVELS = [
             "Pins",
             "Skewers",
             "Discovered Attacks",
+            "Double Attacks",
+            "Removing the Defender",
+            "Deflection",
+            "Decoy",
         ],
     },
     {
@@ -2288,6 +2442,170 @@ def lesson_detail_view(request, lesson_name):
             },
         },
 
+        "Chess Notation": {
+            "title": "Chess Notation",
+            "description": "Learn how chess moves are recorded.",
+            "practice_question": "What does Nf3 mean?",
+            "practice_answer": "Knight moves to f3.",
+            "quiz_question": "Which letter represents the King?",
+            "quiz_options": [
+                "Q",
+                "K",
+                "N",
+                "R"
+            ],
+            "quiz_answer": "K",
+            "content": [
+                "Chess notation records every move in a game.",
+                "Files are labeled a through h.",
+                "Ranks are labeled 1 through 8.",
+                "Pieces use letter abbreviations.",
+                "Notation helps analyze games."
+            ],
+            "board_examples": [
+                {
+                    "title": "Square e4",
+                    "position": {
+                        "e4": "P"
+                    },
+                    "highlight": ["e4"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Move the pawn from e2 to e4.",
+                    "expected_move": "e2-e4"
+                }
+            ],
+            "practice_position": {
+                "e2": "P"
+            }
+        },
+
+        "Piece Values": {
+            "title": "Piece Values",
+            "description": "Understand the relative value of pieces.",
+            "practice_question": "Which piece is usually worth 9 points?",
+            "practice_answer": "Queen",
+            "quiz_question": "How many points is a rook worth?",
+            "quiz_options": [
+                "3",
+                "5",
+                "9",
+                "1"
+            ],
+            "quiz_answer": "5",
+            "content": [
+                "Pawn = 1 point.",
+                "Knight = 3 points.",
+                "Bishop = 3 points.",
+                "Rook = 5 points.",
+                "Queen = 9 points.",
+                "King is invaluable."
+            ],
+            "board_examples": [
+                {
+                    "title": "Major Pieces",
+                    "position": {
+                        "d1": "Q",
+                        "a1": "R"
+                    },
+                    "highlight": ["d1", "a1"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Move the queen from d1 to d4.",
+                    "expected_move": "d1-d4"
+                }
+            ],
+            "practice_position": {
+                "d1": "Q"
+            }
+        },
+
+        "En Passant": {
+            "title": "En Passant",
+            "description": "Learn the special pawn capture rule.",
+            "practice_question": "When can en passant be played?",
+            "practice_answer": "Immediately after a pawn advances two squares.",
+            "quiz_question": "How long is an en passant opportunity available?",
+            "quiz_options": [
+                "One move",
+                "Two moves",
+                "Forever",
+                "Until capture"
+            ],
+            "quiz_answer": "One move",
+            "content": [
+                "En passant is a special pawn capture.",
+                "It occurs after an enemy pawn advances two squares.",
+                "The capture must be immediate.",
+                "The captured pawn is removed.",
+                "The opportunity disappears after one move."
+            ],
+            "board_examples": [
+                {
+                    "title": "En Passant Opportunity",
+                    "position": {
+                        "e5": "P",
+                        "d5": "P"
+                    },
+                    "highlight": ["d6"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Capture the pawn en passant.",
+                    "expected_move": "d5-d6"
+                }
+            ],
+            "practice_position": {
+                "e5": "P",
+                "d5": "P"
+            }
+        },
+
+        "Pawn Promotion": {
+            "title": "Pawn Promotion",
+            "description": "Promote a pawn when it reaches the final rank.",
+            "practice_question": "What piece is most commonly chosen during promotion?",
+            "practice_answer": "Queen",
+            "quiz_question": "When can a pawn be promoted?",
+            "quiz_options": [
+                "At the 5th rank",
+                "At the 6th rank",
+                "At the 8th rank",
+                "After capturing"
+            ],
+            "quiz_answer": "At the 8th rank",
+            "content": [
+                "A pawn promotes upon reaching the last rank.",
+                "Promotion usually becomes a queen.",
+                "You may choose rook, bishop, knight, or queen.",
+                "Promotion can decide games.",
+                "Always look for promotion opportunities."
+            ],
+            "board_examples": [
+                {
+                    "title": "Promotion Square",
+                    "position": {
+                        "g7": "P"
+                    },
+                    "highlight": ["g8"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Move the pawn from g7 to g8.",
+                    "expected_move": "g7-g8"
+                }
+            ],
+            "practice_position": {
+                "g7": "P"
+            }
+        },
+        
         "Forks": {
             "title": "Forks",
             "description": "Attack multiple pieces with one move.",
@@ -2481,6 +2799,178 @@ def lesson_detail_view(request, lesson_name):
             }
         },
 
+        "Double Attacks": {
+            "title": "Double Attacks",
+            "description": "Attack two targets at the same time.",
+            "practice_question": "What is the goal of a double attack?",
+            "practice_answer": "To attack multiple targets simultaneously.",
+            "quiz_question": "A fork is a type of?",
+            "quiz_options": [
+                "Pin",
+                "Double Attack",
+                "Skewer",
+                "Promotion"
+            ],
+            "quiz_answer": "Double Attack",
+            "content": [
+                "A double attack threatens two targets at once.",
+                "Forks are common examples of double attacks.",
+                "Double attacks often win material.",
+                "Look for overloaded defenders.",
+                "Knights excel at double attacks."
+            ],
+            "board_examples": [
+                {
+                    "title": "Knight Double Attack",
+                    "position": {
+                        "e5": "N",
+                        "d7": "Q",
+                        "f7": "R"
+                    },
+                    "highlight": ["d7", "f7"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Move the knight from e5 to c6 and attack two pieces.",
+                    "expected_move": "e5-c6"
+                }
+            ],
+            "practice_position": {
+                "e5": "N",
+                "d8": "Q",
+                "e8": "K"
+            }
+        },
+
+        "Removing the Defender": {
+            "title": "Removing the Defender",
+            "description": "Eliminate a key defending piece.",
+            "practice_question": "Why remove a defender?",
+            "practice_answer": "To make another piece vulnerable.",
+            "quiz_question": "What happens after removing a defender?",
+            "quiz_options": [
+                "The defended piece becomes vulnerable",
+                "The king castles",
+                "A pawn promotes",
+                "The game ends"
+            ],
+            "quiz_answer": "The defended piece becomes vulnerable",
+            "content": [
+                "Many pieces rely on defenders.",
+                "Removing a defender creates tactical opportunities.",
+                "Captures often begin combinations.",
+                "Always identify key defenders.",
+                "Winning defenders wins material."
+            ],
+            "board_examples": [
+                {
+                    "title": "Remove the Defender",
+                    "position": {
+                        "d8": "q",
+                        "d7": "R"
+                    },
+                    "highlight": ["d7"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Capture the defending rook on d7.",
+                    "expected_move": "d1-d7"
+                }
+            ],
+            "practice_position": {
+                "d1": "Q",
+                "d7": "R",
+                "d8": "q"
+            }
+        },
+
+        "Deflection": {
+            "title": "Deflection",
+            "description": "Force a piece away from an important square.",
+            "practice_question": "What is the purpose of deflection?",
+            "practice_answer": "To move a defender away from its duty.",
+            "quiz_question": "Deflection works by?",
+            "quiz_options": [
+                "Promoting a pawn",
+                "Moving a piece away from defense",
+                "Castling",
+                "Checking the king"
+            ],
+            "quiz_answer": "Moving a piece away from defense",
+            "content": [
+                "Deflection distracts a defending piece.",
+                "The defender abandons an important square.",
+                "This often wins material.",
+                "Deflection appears in many combinations.",
+                "Look for overloaded pieces."
+            ],
+            "board_examples": [
+                {
+                    "title": "Deflect the Rook",
+                    "position": {
+                        "d8": "R",
+                        "d7": "Q"
+                    },
+                    "highlight": ["d8"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Move the queen to d8 and deflect the rook.",
+                    "expected_move": "d1-d8"
+                }
+            ],
+            "practice_position": {
+                "d1": "Q",
+                "d8": "R",
+                "d7": "Q"
+            }
+        },
+
+        "Decoy": {
+            "title": "Decoy",
+            "description": "Lure a piece onto a vulnerable square.",
+            "practice_question": "What is a decoy tactic?",
+            "practice_answer": "Luring a piece to an unfavorable square.",
+            "quiz_question": "What does a decoy do?",
+            "quiz_options": [
+                "Protects a pawn",
+                "Lures a piece",
+                "Promotes a pawn",
+                "Creates a draw"
+            ],
+            "quiz_answer": "Lures a piece",
+            "content": [
+                "A decoy lures a piece away.",
+                "The target is forced onto a bad square.",
+                "Decoys often lead to checkmate.",
+                "Sacrifices are common in decoy tactics.",
+                "Always look for forced responses."
+            ],
+            "board_examples": [
+                {
+                    "title": "Decoy the King",
+                    "position": {
+                        "g7": "Q",
+                        "h8": "K"
+                    },
+                    "highlight": ["g7"]
+                }
+            ],
+            "lesson_steps": [
+                {
+                    "instruction": "Sacrifice the queen on g8 to lure the king.",
+                    "expected_move": "g7-g8"
+                }
+            ],
+            "practice_position": {
+                "g7": "Q",
+                "h8": "K"
+            }
+        },
+        
         "Pawn Structures": {
             "title": "Pawn Structures",
             "description": "Understand how pawns shape the game.",
@@ -2730,7 +3220,12 @@ def lesson_detail_view(request, lesson_name):
         "Forks",
         "Pins",
         "Skewers",
-        "Discovered Attacks"
+        "Discovered Attacks",
+        "Double Attacks",
+        "Removing the Defender",
+        "Deflection",
+        "Decoy",
+        
     ]:
         difficulty = "Intermediate"
 
