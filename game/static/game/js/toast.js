@@ -35,10 +35,16 @@
             info: 'ℹ️'
         };
 
-        toast.innerHTML = `
-            <span class="toast-icon">${icons[type] || icons.info}</span>
-            <span class="toast-message">${message}</span>
-        `;
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'toast-icon';
+        iconSpan.textContent = icons[type] || icons.info;
+        
+        const messageSpan = document.createElement('span');
+        messageSpan.className = 'toast-message';
+        messageSpan.textContent = message;
+
+        toast.appendChild(iconSpan);
+        toast.appendChild(messageSpan);
 
         container.appendChild(toast);
 
