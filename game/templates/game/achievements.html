@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkora Achievements</title>
+
+    <style>
+        body {
+            background: #0f0f1a;
+            color: #d0d0d0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #f0c040;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8a8aaa;
+            margin-bottom: 40px;
+        }
+
+        .achievement-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .achievement-card {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 12px;
+            padding: 20px;
+            transition: 0.3s ease;
+        }
+
+        .achievement-card:hover {
+            transform: translateY(-4px);
+            border-color: #f0c040;
+        }
+
+        .achievement-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .icon {
+            font-size: 34px;
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .description {
+            color: #b0b0c0;
+            margin: 15px 0;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .unlocked {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid #2ecc71;
+        }
+
+        .locked {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 25px;
+            color: #f0c040;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .stats-banner {
+            background: #16162a;
+            border: 1px solid #252545;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .stats-banner h2 {
+            color: #f0c040;
+            margin: 0;
+        }
+
+        .stats-banner p {
+            color: #8a8aaa;
+        }
+
+        .feature-btn {
+            margin-top: 12px;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #f0c040;
+            color: #111;
+            font-weight: bold;
+        }
+
+        .feature-btn:hover {
+            opacity: 0.9;
+        }
+
+        .featured-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .featured-badge {
+            background: #252545;
+            border: 1px solid #f0c040;
+            border-radius: 10px;
+            padding: 10px 15px;
+            font-weight: bold;
+        }
+
+        .category {
+            color: #f0c040;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .rarity {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        .rarity-common { background: #444; }
+        .rarity-rare { background: #1e88e5; }
+        .rarity-epic { background: #8e24aa; }
+        .rarity-legendary { background: #ff9800; }
+
+        .remove-btn {
+            margin-top: 8px;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .download-btn {
+            display: inline-block;
+            margin-top: 12px;
+            margin-right: 10px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: #2ecc71;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .download-btn:hover {
+            opacity: 0.9;
+        }
+
+    </style>
+</head>
+<body>
+
+<a href="{% url 'stats' %}" class="back-btn">
+    ← Back to Statistics
+</a>
+
+<h1>🏆 Achievement Collection</h1>
+<p class="subtitle">
+    Track your chess milestones and unlock exclusive achievements.
+</p>
+
+<div class="stats-banner">
+    <h2>{{ unlocked|length }} / {{ achievements|length }}</h2>
+    <p>Achievements Unlocked</p>
+</div>
+
+<div class="stats-banner">
+    <h2>⭐ Featured Badges</h2>
+
+    {% if featured_badges %}
+        <div class="featured-badges">
+            {% for badge in featured_badges %}
+                <div class="featured-badge">
+                    {{ badge.achievement.icon }}
+                    {{ badge.achievement.title }}
+
+                    <form method="post"
+                        action="{% url 'remove_featured_badge' badge.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="remove-btn">
+                            ❌ Remove
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No featured badges selected yet.</p>
+    {% endif %}
+</div>
+
+<div class="achievement-grid">
+
+{% for achievement in achievements %}
+
+    <div class="achievement-card">
+
+        <div class="achievement-header">
+            <div class="icon">
+                {{ achievement.icon }}
+            </div>
+
+            <div class="title">
+                {{ achievement.title }}
+            </div>
+        </div>
+
+        <div class="category">
+            {{ achievement.get_category_display }}
+        </div>
+
+        <div class="rarity rarity-{{ achievement.rarity }}">
+            {{ achievement.get_rarity_display }}
+        </div>
+
+        <div class="description">
+            {{ achievement.description }}
+        </div>
+
+        {% if achievement.id in unlocked %}
+            <span class="status unlocked">
+                ✅ Unlocked
+            </span>
+
+            <a
+                href="{% url 'download_badge' achievement.id %}"
+                class="download-btn"
+            >
+                ⬇ Download Badge
+            </a>
+            
+            <form method="post"
+                action="{% url 'feature_badge' achievement.id %}">
+                {% csrf_token %}
+                <button type="submit" class="feature-btn">
+                    ⭐ Feature Badge
+                </button>
+            </form>
+
+        {% else %}
+            <span class="status locked">
+                🔒 Locked
+            </span>
+        {% endif %}
+
+    </div>
+
+{% endfor %}
+
+</div>
+
+</body>
+</html>
