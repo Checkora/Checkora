@@ -35,9 +35,7 @@
 
             let remainingHints = 3;
             let hintTimeout = null;
-            let lastMove = null;
             let premove = null;
-            let highlightedSquare = null;
 
              let lastMove = null;
              let premoveQueue = [];
