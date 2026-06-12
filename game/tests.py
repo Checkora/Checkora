@@ -513,6 +513,52 @@ class MoveValidationTest(TestCase):
         self.assertEqual(data['captured'], 'p')
 
 
+class ServerSideMoveValidationTest(TestCase):
+    """Test server-side move validation resists stale or tampered clients."""
+
+    def setUp(self):
+        self.client.get('/play/')
+
+    def _session_game_data(self):
+        return self.client.session['game']
+
+    def test_rejects_stale_client_fen_before_mutating_session(self):
+        before = self._session_game_data()
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6, 'from_col': 4,
+                'to_row': 4, 'to_col': 4,
+                'fen': '8/8/8/8/8/8/8/8 w -',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(response.json()['valid'])
+        self.assertEqual(self._session_game_data(), before)
+
+    @mock.patch.object(ChessGame, '_call_engine')
+    def test_rejects_illegal_move_without_changing_session(self, mock_engine):
+        mock_engine.return_value = "MOVES"
+        before = self._session_game_data()
+        game = ChessGame.from_dict(before)
+
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6, 'from_col': 4,
+                'to_row': 3, 'to_col': 4,
+                'fen': game.generate_fen_key(),
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['valid'])
+        self.assertEqual(self._session_game_data(), before)
+
+
 class MoveCoordinatesValidationTest(TestCase):
     """Test coordinate validation for chess move API endpoint."""
 

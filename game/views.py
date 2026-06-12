@@ -186,6 +186,16 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
         check_game_achievements(user)
 
 
+def _client_position_matches_session(data, game):
+    """Return whether an optional client FEN still matches server state."""
+    client_fen = data.get('fen')
+    if client_fen is None:
+        return True
+    if not isinstance(client_fen, str) or not client_fen.strip():
+        return False
+    return client_fen.strip() == game.generate_fen_key()
+
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -222,6 +232,15 @@ def make_move(request):
 
     game_data = request.session.get('game')
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
+
+    if not _client_position_matches_session(data, game):
+        return JsonResponse({
+            'valid': False,
+            'message': 'Board state is stale. Reload the game before moving.',
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'fen': game.generate_fen_key(),
+        }, status=409)
 
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
