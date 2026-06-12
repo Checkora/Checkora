@@ -43,7 +43,12 @@ def index(request):
 def record_game_result(request, mode, winner, reason, player_color='white'):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
-    GameResult.objects.create(user=user, mode=mode, winner=winner, end_reason=reason, player_color=player_color)
+    GameResult.objects.create(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        player_color=player_color)
 
 
 @require_POST
@@ -74,9 +79,19 @@ def make_move(request):
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                game.draw_reason or 'stalemate',
+                game.player_color)
 
     return JsonResponse({
         'valid': success,
@@ -296,14 +311,24 @@ def ai_move(request):
 
     best = game.get_ai_move(depth=depth)
     best = game.get_ai_move(depth=depth)
-    
+
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color)
             game_status = 'checkmate'
         else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                'stalemate',
+                game.player_color)
             game_status = 'stalemate'
 
         game.game_status = game_status
@@ -324,7 +349,7 @@ def ai_move(request):
 
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
-        best['to_row'],   best['to_col'],
+        best['to_row'], best['to_col'],
     )
 
     if success:
@@ -333,9 +358,19 @@ def ai_move(request):
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                game.draw_reason or 'stalemate',
+                game.player_color)
 
     return JsonResponse({
         'valid': success,
@@ -376,7 +411,12 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color)
+        record_game_result(
+            request,
+            game.mode,
+            'draw',
+            'agreement',
+            game.player_color)
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -433,8 +473,10 @@ def register_view(request):
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
-            # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
-            otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+            # Hash OTP with SECRET_KEY as salt to prevent reading from signed
+            # cookies
+            otp_hash = hashlib.sha256(
+                f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
 
             # Send Email
@@ -498,26 +540,26 @@ def register_view(request):
 def check_username(request):
     """Check username availability and provide suggestions."""
     username = request.GET.get("username", "").strip()
-    
+
     if not username:
         return JsonResponse({
             "available": False,
             "message": "Username is required."
         })
-    
+
     # Check length
     if len(username) < 3:
         return JsonResponse({
             "available": False,
             "message": "❌ Username must be at least 3 characters."
         })
-    
+
     if len(username) > 150:
         return JsonResponse({
             "available": False,
             "message": "❌ Username must be 150 characters or fewer."
         })
-    
+
     # Check valid characters (letters, digits, @/./+/-/_)
     pattern = r'^[\w.@+-]+$'
     if not re.match(pattern, username):
@@ -525,24 +567,25 @@ def check_username(request):
             "available": False,
             "message": "❌ Only letters, digits, and @/./+/-/_ are allowed."
         })
-    
+
     # Check if username exists (case insensitive)
     exists = User.objects.filter(username__iexact=username).exists()
-    
+
     if exists:
         # Generate suggestions
         suggestions = []
         # Clean the base username (remove special chars for suggestions)
         base_username = re.sub(r'[^a-zA-Z0-9]', '', username)[:20]
-        
+
         if base_username:
             for i in range(1, 5):
                 suggestion = f"{base_username}{i}"
-                if not User.objects.filter(username__iexact=suggestion).exists():
+                if not User.objects.filter(
+                        username__iexact=suggestion).exists():
                     suggestions.append(suggestion)
                     if len(suggestions) >= 3:
                         break
-        
+
         # Add underscore suggestions if needed - with loop protection
         if len(suggestions) < 3:
             import random
@@ -550,22 +593,31 @@ def check_username(request):
             attempts = 0
             while len(suggestions) < 3 and attempts < max_attempts:
                 suffix = random.randint(10, 999)
-                suggestion = f"{base_username}_{suffix}" if base_username else f"user_{suffix}"
-                if suggestion not in suggestions and not User.objects.filter(username__iexact=suggestion).exists():
+                suggestion = (
+                    f"{base_username}_{suffix}"
+                    if base_username
+                    else f"user_{suffix}"
+                )
+                username_exists = User.objects.filter(
+                    username__iexact=suggestion
+                ).exists()
+
+                if suggestion not in suggestions and not username_exists:
                     suggestions.append(suggestion)
                 attempts += 1
-        
+
         return JsonResponse({
             "available": False,
             "message": "❌ Username already taken.",
             "suggestions": suggestions
         })
-    
+
     return JsonResponse({
         "available": True,
         "message": "✅ Username is available!",
         "suggestions": []
     })
+
 
 def verify_otp(request):
     if request.user.is_authenticated:
@@ -581,7 +633,9 @@ def verify_otp(request):
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
         # Verify hash
-        entered_otp_hash = hashlib.sha256(f"{entered_otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+        entered_otp_hash = hashlib.sha256(
+            f"{entered_otp}:{
+                settings.SECRET_KEY}".encode()).hexdigest()
 
         if entered_otp_hash == stored_otp_hash:
             try:
