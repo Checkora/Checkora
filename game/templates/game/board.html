@@ -43,14 +43,14 @@
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
-  <button class="m-fab-btn" title="Pause"
+  <button type="button" class="m-fab-btn" title="Pause"
     onclick="document.getElementById('pauseBtn').click()">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
       <rect x="5" y="3" width="4" height="18" rx="1.5"/>
       <rect x="15" y="3" width="4" height="18" rx="1.5"/>
     </svg>
   </button>
-  <button class="m-fab-btn m-fab-resign" title="Resign"
+  <button type="button" class="m-fab-btn m-fab-resign" title="Resign"
     onclick="document.getElementById('resignBtn').click()">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
       <path d="M4 3h14l-4 4.5 4 4.5H4V3z"/>
@@ -175,9 +175,9 @@
             <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
                 
-                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
+                <button type="button" class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
-                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
+                <button type="button" class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
                 <button type="button" 
                         class="btn btn-gold"
@@ -192,7 +192,7 @@
                     <div class="fen-error" id="welcomeFenError"></div>
                 </div>
 
-                <button class="btn" id="welcomeResumeBtn"
+                <button type="button" class="btn" id="welcomeResumeBtn"
                     style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff; display: none;">Resume
                     Game</button>
             </div>
@@ -200,13 +200,13 @@
             <div id="pveOptions" style="display: none; flex-direction: column; gap: 14px;">
                 <div style="color: #fff; font-size: 1.1rem; text-align: center; margin-bottom: 5px;">Play as:</div>
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
-                    <button class="btn color-choice active" id="pveWhiteBtn" data-color="white"
+                    <button type="button" class="btn color-choice active" id="pveWhiteBtn" data-color="white"
                         style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
                     <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection" 
                         style="padding: 12px; flex: 1; border: 1px solid #444; background: linear-gradient(to right, #fff 50%, #000 50%); color: #666; transition: all 0.2s; font-weight: 500;">
             🎲 Random
         </button>    
-                    <button class="btn color-choice" id="pveBlackBtn" data-color="black"
+                    <button type="button" class="btn color-choice" id="pveBlackBtn" data-color="black"
                         style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
                 </div>
 
@@ -221,9 +221,9 @@
                         <option value="hard">Hard</option>
                     </select>
                 </div>
-                <button class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start
+                <button type="button" class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start
                     Game</button>
-                <button class="btn" id="backToModes"
+                <button type="button" class="btn" id="backToModes"
                     style="padding: 12px; font-size: 1.05rem; background: #333; color: #fff;">Back</button>
             </div>
         </div>
@@ -247,7 +247,7 @@
             {% if user.is_authenticated %}
 
             <div class="profile-dropdown">
-                <button class="profile-btn">
+                <button type="button" class="profile-btn">
                     {{ user.username }} ⌄
                 </button>
 
@@ -310,11 +310,11 @@
             <div class="card" id="emotePanel" style="display: none;">
                 <div class="card-title">React</div>
                 <div style="display: flex; gap: 8px; justify-content: space-around; font-size: 1.5rem; flex-wrap: wrap;">
-                    <button class="emote-btn" data-emote="👍" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
-                    <button class="emote-btn" data-emote="🤝" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
-                    <button class="emote-btn" data-emote="😂" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
-                    <button class="emote-btn" data-emote="😮" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
-                    <button class="emote-btn" data-emote="🏳️" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
+                    <button type="button" class="emote-btn" data-emote="👍" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
+                    <button type="button" class="emote-btn" data-emote="🤝" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
+                    <button type="button" class="emote-btn" data-emote="😂" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
+                    <button type="button" class="emote-btn" data-emote="😮" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
+                    <button type="button" class="emote-btn" data-emote="🏳️" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
                 </div>
             </div>
         </div>
@@ -372,11 +372,11 @@
 
             <div class="status-bar" id="statusBar">
                 <div id="replayControls" class="replay-controls hidden">
-                    <button id="firstReplayBtn">⏮</button>
-                    <button id="prevReplayBtn">◀</button>
-                    <button id="playReplayBtn">▶</button>
-                    <button id="nextReplayBtn">▶▶</button>
-                    <button id="lastReplayBtn">⏭</button>
+                    <button type="button" id="firstReplayBtn">⏮</button>
+                    <button type="button" id="prevReplayBtn">◀</button>
+                    <button type="button" id="playReplayBtn">▶</button>
+                    <button type="button" id="nextReplayBtn">▶▶</button>
+                    <button type="button" id="lastReplayBtn">⏭</button>
                 </div>
                 <!--Score bar-->
                   <div id="game-status">Game started</div>
@@ -431,24 +431,24 @@
                 <div style="display: flex; flex-direction: column; gap: 8px;">
 
                     <button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
-                   <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
-                    <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
-                    <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
+                   <button type="button" class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
+                    <button type="button" class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
+                    <button type="button" class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
                     <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
                     <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
                     <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
-                    <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
+                    <button type="button" class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
-                    <button class="btn btn-gold" id="newFenBtn">Load Game</button>
-                    <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
+                    <button type="button" class="btn btn-gold" id="newFenBtn">Load Game</button>
+                    <button type="button" class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
                     <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
-                        <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
+                        <button type="button" class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
                     <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
                     <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
-                    <button class="btn btn-gold" style="width: 100%;"
+                    <button type="button" class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
                 <a href="/" class="btn" 
@@ -507,8 +507,8 @@
                 </select>
             </div>
             <div style="display: flex; gap: 12px; justify-content: center;">
-                <button class="btn btn-gold" id="confirmYesBtn" style="width: 90px;">Yes</button>
-                <button class="btn" id="confirmNoBtn"
+                <button type="button" class="btn btn-gold" id="confirmYesBtn" style="width: 90px;">Yes</button>
+                <button type="button" class="btn" id="confirmNoBtn"
                     style="width: 90px; background: #333; color: #fff;">Cancel</button>
             </div>
         </div>
@@ -519,8 +519,8 @@
             <div class="promo-title">Draw Offer</div>
             <p id="drawMessage" style="color: #ccc; margin-bottom: 20px; font-size: 1rem;"></p>
             <div style="display: flex; gap: 12px; justify-content: center;">
-                <button class="btn btn-gold" id="drawAcceptBtn" style="width: 90px;">Accept</button>
-                <button class="btn" id="drawDeclineBtn"
+                <button type="button" class="btn btn-gold" id="drawAcceptBtn" style="width: 90px;">Accept</button>
+                <button type="button" class="btn" id="drawDeclineBtn"
                     style="width: 90px; background: #333; color: #fff;">Decline</button>
             </div>
         </div>
@@ -533,8 +533,8 @@
             <input type="text" id="fenInput" class="fen-input" placeholder="Paste FEN string">
             <div class="fen-error" id="fenError"></div>
             <div class="fen-actions">
-                <button class="btn btn-gold" id="fenStartBtn" style="width: 110px;">Start</button>
-                <button class="btn" id="fenCancelBtn" style="width: 110px; background: #333; color: #fff;">Cancel</button>
+                <button type="button" class="btn btn-gold" id="fenStartBtn" style="width: 110px;">Start</button>
+                <button type="button" class="btn" id="fenCancelBtn" style="width: 110px; background: #333; color: #fff;">Cancel</button>
             </div>
         </div>
     </div>
@@ -703,15 +703,15 @@
             </div>
             <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">Which color do you want to play?</p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button class="btn" id="chooseWhite"
+                <button type="button" class="btn" id="chooseWhite"
                     style="padding: 12px; background: #fff; color: #000; font-size: 1rem; border-radius: 6px;">
                     Play as White
                 </button>
-                <button class="btn" id="chooseBlack"
+                <button type="button" class="btn" id="chooseBlack"
                     style="padding: 12px; background: #000; color: #fff; font-size: 1rem; border-radius: 6px; border: 1px solid #555;">
                     Play as Black
                 </button>
-                <button class="btn btn-gold" id="chooseRandom" style="padding: 12px; font-size: 1rem;">
+                <button type="button" class="btn btn-gold" id="chooseRandom" style="padding: 12px; font-size: 1rem;">
                     Random
                 </button>
             </div>
