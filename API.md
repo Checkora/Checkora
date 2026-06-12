@@ -200,3 +200,40 @@ Allows players to offer or accept a draw agreement in PvP mode.
       "game_status": "draw_agreement" // Only present if action was "accept"
     }
     ```
+
+---
+
+## 9. Check Username Availability
+Checks whether a username already exists in the system. Used during registration to provide live feedback before form submission.
+
+- **URL:** `/api/check-username/`
+- **Method:** `GET`
+- **Auth Required:** No
+- **Request Params:** `?username=your_username`
+
+- **Success Response (username is free):**
+
+```json
+  {
+    "available": true
+  }
+```
+
+- **Username Taken Response:**
+
+```json
+  {
+    "available": false
+  }
+```
+
+- **Error Response (no username provided):**
+
+```json
+  {
+    "available": false,
+    "error": "No username provided"
+  }
+```
+
+  - **Status Code:** `400 Bad Request`

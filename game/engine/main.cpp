@@ -138,9 +138,9 @@ bool pathClear(int fr, int fc, int tr, int tc) {
  */
 bool isSquareAttacked(int tr, int tc, string attackerColor) {
     char pKnight = (attackerColor == "white") ? 'N' : 'n';
-    char pRook   = (attackerColor == "white") ? 'R' : 'r';
-    char pBishop = (attackerColor == "white") ? 'B' : 'b';
-    char pQueen  = (attackerColor == "white") ? 'Q' : 'q';
+    // char pRook   = (attackerColor == "white") ? 'R' : 'r';
+    // char pBishop = (attackerColor == "white") ? 'B' : 'b';
+    // char pQueen  = (attackerColor == "white") ? 'Q' : 'q';
     char pPawn   = (attackerColor == "white") ? 'P' : 'p';
     char pKing   = (attackerColor == "white") ? 'K' : 'k';
 
@@ -461,13 +461,24 @@ static const int kingMiddleTable[8][8] = {
     { 20, 20,  0,  0,  0,  0, 20, 20},
     { 20, 30, 10,  0,  0, 10, 30, 20}
 };
+
+static const int kingEndgameTable[8][8] = {
+    {-50,-30,-30,-30,-30,-30,-30,-50},
+    {-30,-10,-10,-10,-10,-10,-10,-30},
+    {-30,-10, 20, 30, 30, 20,-10,-30},
+    {-30,-10, 30, 40, 40, 30,-10,-30},
+    {-30,-10, 30, 40, 40, 30,-10,-30},
+    {-30,-10, 20, 30, 30, 20,-10,-30},
+    {-30,-20,-10,  0,  0,-10,-20,-30},
+    {-50,-40,-30,-20,-20,-30,-40,-50}
+};
 // clang-format on
 
 /**
  * Positional bonus for a single piece at (row, col).
  * White reads the table top-down; black mirrors it.
  */
-int positionalBonus(char piece, int row, int col) {
+int positionalBonus(char piece, int row, int col, bool isEndgame) {
     char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
     int r = isWhite(piece) ? row : (7 - row);
 
@@ -477,7 +488,7 @@ int positionalBonus(char piece, int row, int col) {
         case 'b': return bishopTable[r][col];
         case 'r': return rookTable[r][col];
         case 'q': return queenTable[r][col];
-        case 'k': return kingMiddleTable[r][col];
+        case 'k': return isEndgame ? kingEndgameTable[r][col] : kingMiddleTable[r][col];
         default:  return 0;
     }
 }
@@ -488,12 +499,30 @@ int positionalBonus(char piece, int row, int col) {
  */
 int evaluate() {
     int score = 0;
+    int queenCount = 0;
+    int minorCount = 0;
+
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            char p = board[r][c];
+            if (isEmpty(p)) continue;
+            char type = tolower(static_cast<unsigned char>(p));
+            if (type == 'q') {
+                queenCount++;
+            } else if (type == 'n' || type == 'b') {
+                minorCount++;
+            }
+        }
+    }
+
+    bool isEndgame = (queenCount == 0 || minorCount <= 6);
+
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
             char p = board[r][c];
             if (isEmpty(p)) continue;
 
-            int val = pieceValue(p) + positionalBonus(p, r, c);
+            int val = pieceValue(p) + positionalBonus(p, r, c, isEndgame);
             score += isWhite(p) ? val : -val;
         }
     }
@@ -792,7 +821,7 @@ void handleStatus(const string &turn) {
  * Generates accurate Standard Algebraic Notation (SAN) for a move,
  * including full disambiguation support (e.g., Rfe1, N5f3).
  */
-void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
+void handleNotation(const string &turn, int fr, int fc, int tr, int tc, char promo = '\0') {
     char piece = board[fr][fc];
     if (isEmpty(piece)) {
         cout << "NOTATION ?" << endl;
@@ -802,6 +831,15 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
     char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
     bool isCapture = !isEmpty(board[tr][tc]);
     string files = "abcdefgh";
+
+    char promoChar = '\0';
+    if (isPromotionMove(piece, tr)) {
+        char lowerPromo = tolower(static_cast<unsigned char>(promo));
+        if (lowerPromo != 'q' && lowerPromo != 'r' && lowerPromo != 'b' && lowerPromo != 'n') {
+            lowerPromo = 'q';
+        }
+        promoChar = toupper(static_cast<unsigned char>(lowerPromo));
+    }
 
     // 1. Castling
     if (type == 'k') {
@@ -820,6 +858,11 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
         }
         res += files[static_cast<string::size_type>(tc)];
         res += to_string(8 - tr);
+
+        if (promoChar != '\0') {
+            res += '=';
+            res += promoChar;
+        }
 
     } else {
         res += static_cast<char>(toupper(static_cast<unsigned char>(type)));
@@ -866,8 +909,11 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc) {
     // Apply move temporarily to check for Check/Checkmate
     char src = board[fr][fc];
     char dst = board[tr][tc];
-    // Use the piece type from board for status check (ignore promotion choice for now)
-    board[tr][tc] = src;
+    if (promoChar != '\0') {
+        board[tr][tc] = (turn == "white") ? promoChar : tolower(static_cast<unsigned char>(promoChar));
+    } else {
+        board[tr][tc] = src;
+    }
     board[fr][fc] = '.';
 
     string opponent = (turn == "white") ? "black" : "white";
@@ -1022,10 +1068,17 @@ int main() {
         else if (command == "NOTATION") {
             string b, rights, t; int epR, epC, fr, fc, tr, tc;
             cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc;
+            char promo = '\0';
+            while (cin.peek() == ' ' || cin.peek() == '\t') {
+                cin.get();
+            }
+            if (cin.peek() != '\n' && cin.peek() != '\r' && cin.peek() != EOF) {
+                cin >> promo;
+            }
             loadBoard(b);
             loadCastlingRights(rights);
             EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleNotation(t, fr, fc, tr, tc);
+            handleNotation(t, fr, fc, tr, tc, promo);
         }
     }
     return 0;

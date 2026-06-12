@@ -152,7 +152,7 @@ class UITest(BaseE2ETest):
     # Test 9: Theme Switcher
     # ───────────────────────────────────────────────────────────────
     def test_09_theme_switcher_buttons_exist(self):
-        """4 theme buttons (classic, dark, green, blue) are present."""
+        """5 theme buttons (classic, dark, green, blue, pastel) are present."""
         log_info("Testing theme switcher...")
         self._start_pvp_game()
 
@@ -160,5 +160,5 @@ class UITest(BaseE2ETest):
             lambda d: d.find_elements(By.CLASS_NAME, 'theme-btn'),
             message="Theme buttons not found"
         )
-        self.assertEqual(len(theme_btns), 4, f"Expected 4 theme buttons, got {len(theme_btns)}")
+        self.assertEqual(len(theme_btns), 5, f"Expected 5 theme buttons, got {len(theme_btns)}")
         log_ok(f"{len(theme_btns)} theme buttons found")

@@ -428,16 +428,26 @@ KING_MIDDLE_TABLE = (
     (20, 20, 0, 0, 0, 0, 20, 20),
     (20, 30, 10, 0, 0, 10, 30, 20),
 )
+KING_ENDGAME_TABLE = (
+    (-50, -30, -30, -30, -30, -30, -30, -50),
+    (-30, -10, -10, -10, -10, -10, -10, -30),
+    (-30, -10, 20, 30, 30, 20, -10, -30),
+    (-30, -10, 30, 40, 40, 30, -10, -30),
+    (-30, -10, 30, 40, 40, 30, -10, -30),
+    (-30, -10, 20, 30, 30, 20, -10, -30),
+    (-30, -20, -10, 0, 0, -10, -20, -30),
+    (-50, -40, -30, -20, -20, -30, -40, -50),
+)
 
 
-def positional_bonus(piece, row, col):
+def positional_bonus(piece, row, col, is_endgame=False):
     lookup = {
         'p': PAWN_TABLE,
         'n': KNIGHT_TABLE,
         'b': BISHOP_TABLE,
         'r': ROOK_TABLE,
         'q': QUEEN_TABLE,
-        'k': KING_MIDDLE_TABLE,
+        'k': KING_ENDGAME_TABLE if is_endgame else KING_MIDDLE_TABLE,
     }
     mirrored_row = row if is_white(piece) else 7 - row
     table = lookup.get(piece.lower())
@@ -446,12 +456,28 @@ def positional_bonus(piece, row, col):
 
 def evaluate():
     score = 0
+    queen_count = 0
+    minor_count = 0
+
     for row in range(8):
         for col in range(8):
             piece = BOARD[row][col]
             if is_empty(piece):
                 continue
-            value = piece_value(piece) + positional_bonus(piece, row, col)
+            type_ = piece.lower()
+            if type_ == 'q':
+                queen_count += 1
+            elif type_ in ('n', 'b'):
+                minor_count += 1
+
+    is_endgame = (queen_count == 0 or minor_count <= 6)
+
+    for row in range(8):
+        for col in range(8):
+            piece = BOARD[row][col]
+            if is_empty(piece):
+                continue
+            value = piece_value(piece) + positional_bonus(piece, row, col, is_endgame)
             score += value if is_white(piece) else -value
     return score
 
@@ -613,6 +639,27 @@ def minimax(depth, alpha, beta, maximizing):
     return best_value
 
 
+def is_insufficient_material():
+    """Checks if the current board state is a draw due to insufficient material.
+    Simple cases: K vs K, K+N vs K, K+B vs K.
+    """
+    total_minor = 0
+    for row in range(8):
+        for col in range(8):
+            p = BOARD[row][col]
+            if p == '.':
+                continue
+            type_ = p.lower()
+            if type_ == 'k':
+                continue
+            # If there's a pawn, rook, or queen, checkmate is possible
+            if type_ in ('p', 'r', 'q'):
+                return False
+            total_minor += 1
+    # Draw if total non-king pieces is 0 or 1
+    return total_minor <= 1
+
+
 def handle_status(turn):
     opponent = 'black' if turn == 'white' else 'white'
     king_row, king_col = find_king(turn)
@@ -628,7 +675,12 @@ def handle_status(turn):
         print('STATUS CHECKMATE' if in_check else 'STATUS STALEMATE')
         return
 
-    print('STATUS CHECK' if in_check else 'STATUS OK')
+    if in_check:
+        print('STATUS CHECK')
+    elif is_insufficient_material():
+        print('STATUS DRAW')
+    else:
+        print('STATUS OK')
 
 
 def handle_bestmove(turn, depth):
