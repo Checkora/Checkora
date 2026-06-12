@@ -2,6 +2,15 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- ──preloader on loading page reload ── -->
+    <script>
+        (function () {
+        var nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') {
+          window.location.replace("{% url 'preloader' %}");
+        }
+        })();
+    </script>
     <script>
       if (navigator.webdriver) {
         document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
@@ -103,6 +112,9 @@
         </div>
       </div>
       <div class="nav-right">
+        <button type="button" id="themeToggle" class="theme-toggle">
+            🌙
+        </button>
         {% if user.is_authenticated %}
         <div class="profile-dropdown">
           <button type="button" class="profile-btn">{{ user.username }} <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
@@ -110,6 +122,11 @@
             <a href="/play/"> Dashboard </a>
 
             <a href="/stats/"> Stats </a>
+
+            <a href="{% url 'leaderboard' %}"> Leaderboard </a>
+
+            <a href="{% url 'achievements' %}"> Achievements </a>
+
             <a
               href="{% url 'delete_account' %}"
               class="delete-option"
@@ -148,6 +165,9 @@
       <div class="ambient-glow glow-gold"></div>
       <div class="ambient-glow glow-blue"></div>
 
+      <div id="chess-board-bg"></div>
+      <div class="hero-board-vignette"></div>
+
       <div class="hero-inner-wrapper">
         <div class="architecture-badge">
           <span class="live-pulse"></span>
@@ -165,9 +185,76 @@
 
         <div class="hero-actions">
           <a href="{% url 'index' %}" class="btn-primary-gold">Start Game</a>
+          <a href="{% url 'lessons' %}" class="btn-primary-gold" aria-label="Chess Lessons">📚 Lessons</a>
           <a href="#about" class="btn-secondary-ghost">Learn More</a>
         </div>
       </div>
+
+      <script>
+        const board = document.getElementById('chess-board-bg');
+        const pieces = ['♛','♚','♞','♝','♜','♟'];
+        const darkSquares = [];
+
+        for(let r=0;r<20;r++){
+          for(let c=0;c<20;c++){
+            const sq = document.createElement('div');
+            sq.className = (r+c)%2===1 ? 'csq dark' : 'csq light';
+            sq.dataset.r = r; sq.dataset.c = c;
+            board.appendChild(sq);
+            if((r+c)%2===1) darkSquares.push({el:sq,r,c});
+          }
+        }
+
+        function isBehindText(r,c){ return r>=7&&r<=13&&c>=7&&c<=13; }
+
+        function triggerPiece(zone){
+          let pool;
+          if(zone==='right') pool = darkSquares.filter(s=>s.c>=5&&!s.el.dataset.busy);
+          else if(zone==='left') pool = darkSquares.filter(s=>s.c<=2&&!s.el.dataset.busy);
+          else pool = darkSquares.filter(s=>!s.el.dataset.busy);
+          if(!pool.length) return;
+          const chosen = pool[Math.floor(Math.random()*pool.length)];
+          const sq = chosen.el;
+          const behind = isBehindText(chosen.r, chosen.c);
+          sq.dataset.busy='1';
+          const dur = 2000+Math.random()*900;
+          const glow = document.createElement('div');
+          glow.className = behind ? 'sq-glow dim' : 'sq-glow bright';
+          glow.style.animationDuration = dur+'ms';
+          sq.appendChild(glow);
+          const icon = document.createElement('div');
+          icon.textContent = pieces[Math.floor(Math.random()*pieces.length)];
+          icon.className = behind ? 'sq-piece dim' : 'sq-piece bright';
+          icon.style.animationDuration = dur+'ms';
+          sq.appendChild(icon);
+          setTimeout(()=>{
+            glow.remove(); icon.remove(); delete sq.dataset.busy;
+          }, dur+50);
+        }
+
+      const intervals = [];
+      intervals.push(setInterval(()=>triggerPiece('right'), 450));
+      intervals.push(setInterval(()=>triggerPiece('left'), 550));
+      intervals.push(setInterval(()=>triggerPiece(null), 250));
+      intervals.push(setInterval(()=>triggerPiece(null), 380));
+      
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          intervals.forEach(id => clearInterval(id));
+          intervals.length = 0;
+        } else {
+          intervals.push(setInterval(()=>triggerPiece('right'), 450));
+          intervals.push(setInterval(()=>triggerPiece('left'), 550));
+          intervals.push(setInterval(()=>triggerPiece(null), 250));
+          intervals.push(setInterval(()=>triggerPiece(null), 380));
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        intervals.forEach(id => clearInterval(id));
+      });
+      </script>
     </main>
 
     <section id="about" class="about">
@@ -455,8 +542,11 @@
           <h4>Platform</h4>
           <ul class="footer-nav-list">
             <li><a href="{% url 'index' %}" class="footer-link">Play Game</a></li>
+            <li><a href="{% url 'leaderboard' %}" class="footer-link">Leaderboard</a></li>
+            <li><a href="{% url 'achievements' %}" class="footer-link">Achievements</a></li>
             <li><a href="{% url 'stats' %}" class="footer-link">Statistics</a></li>
             <li><a href="{% url 'rules' %}" class="footer-link">Rulebook</a></li>
+            <li><a href="{% url 'lessons' %}" class="footer-link">Lessons</a></li>
           </ul>
         </div>
 
@@ -488,6 +578,7 @@
           <ul class="footer-nav-list">
             <li><a href="#" class="footer-link" data-modal-trigger="privacyModal">Privacy Policy</a></li>
             <li><a href="#" class="footer-link" onclick="openTermsModal(); return false;">Terms & Conditions</a></li>     
+            <li><a href="#" class="footer-link" onclick="openDisclaimerModal(); return false;">Disclaimer</a></li>
             <li><a href="#" class="footer-link" onclick="openContactModal(); return false;">Contact Us</a></li>
           </ul>
         </div>
@@ -590,12 +681,12 @@
       });
     </script>
     <div id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
-      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:700px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
         <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
           <h1 id="privacyModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Privacy Policy</h1>
           <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
         </div>
-        <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+        <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
           <div style="display:flex; flex-direction:column; gap:14px;">
             <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
               <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
@@ -658,12 +749,12 @@
       </div>
     </div>
     <div id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
-      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:700px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
         <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
           <h1 id="termsModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Terms and Conditions</h1>
           <button type="button" aria-label="Close terms and conditions" onclick="closeTermsModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
         </div>
-        <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+        <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
           <div style="display:flex; flex-direction:column; gap:14px;">
             <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
               <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
@@ -763,7 +854,7 @@
         <h1 id="contactModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Contact Us</h1>
         <button type="button" aria-label="Close contact form" onclick="closeContactModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
       </div>
-      <div style="overflow-y:auto; padding:24px 28px; flex:1;">
+      <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
         <p style="color:rgba(255,255,255,0.6); font-size:0.93rem; margin-bottom:28px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:20px;">Have questions about the C++ platform integration or found a glitch? Reach out to the maintainers.</p>
         <div style="display:grid; grid-template-columns:0.8fr 1.5fr; gap:40px;">
 
@@ -853,5 +944,189 @@
     });
   })();
   </script>
+  <script src="{% static 'game/js/theme.js' %}"></script>
+
+  <div id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerModalTitle"
+      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+
+    <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+
+      <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center;">
+        <h1 id="disclaimerModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700;">Disclaimer</h1>
+
+        <button type="button" aria-label="Close disclaimer" onclick="closeDisclaimerModal()"
+                style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer;">
+          ✕
+        </button>
+      </div>
+
+      <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
+        <div style="display:flex; flex-direction:column; gap:14px;">
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                General Information
+              </h2>
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                The information, services, and structural match simulation environments provided on the Checkora chess platform are intended solely for general informational, educational, and recreational entertainment purposes.
+              </p>
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">
+                All modules are interactive and provided on an "as-is" and "as-available" execution model without absolute performance assertions of any kind.
+              </p>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                Limitation of Liability
+              </h2>
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                To the fullest extent permitted by applicable law, Checkora, its core architects, and open-source contribution members shall assume no accountability for any direct, indirect, accidental, or consequential operational data disruptions.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">Server connection synchronization issues.</li>
+                <li style="margin-bottom:6px;">Temporary match-state profile resets.</li>
+                <li style="margin-bottom:6px;">Algorithmic parsing variances.</li>
+                <li>System downtime occurrences.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                Accuracy of Information
+              </h2>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                While our platform utilizes a custom C++ Minimax engine alongside Python web orchestration, we make no absolute guarantees regarding analytical precision.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">Position evaluations are algorithmic estimates.</li>
+                <li style="margin-bottom:6px;">Material calculations may vary.</li>
+                <li>Strategic suggestions are not official chess arbitration metrics.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                External Links
+              </h2>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                Checkora may reference external resources and community platforms.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">GitHub repositories.</li>
+                <li style="margin-bottom:6px;">Discord community servers.</li>
+                <li>Official chess federation resources.</li>
+              </ul>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin-top:10px;">
+                We do not control or guarantee the content, policies, or privacy practices of third-party services.
+              </p>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                User Responsibility Statement
+              </h2>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                By using Checkora, you acknowledge responsibility for maintaining fair and secure usage of the platform.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">Maintain secure account credentials.</li>
+                <li style="margin-bottom:6px;">Follow fair-play policies.</li>
+                <li style="margin-bottom:6px;">Ensure client-side system reliability.</li>
+                <li>Accept timer synchronization limitations inherent to online systems.</li>
+              </ul>
+            </div>
+          </div>
+
+          <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">
+            Last updated: June 2026
+          </p>
+
+        </div>
+      </div>
+
+      <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end;">
+        <button type="button"
+                onclick="closeDisclaimerModal()"
+                style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; cursor:pointer;">
+          I Understand
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  (function () {
+      const modal = document.getElementById('disclaimerModal');
+      const modalInner = modal.querySelector('[tabindex="-1"]');
+      let lastFocused;
+
+      function openDisclaimerModal() {
+          lastFocused = document.activeElement;
+          modal.style.display = 'flex';
+          modalInner.focus();
+      }
+
+      function closeDisclaimerModal() {
+          modal.style.display = 'none';
+          if (lastFocused) lastFocused.focus();
+      }
+
+      window.openDisclaimerModal = openDisclaimerModal;
+      window.closeDisclaimerModal = closeDisclaimerModal;
+
+      document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && modal.style.display === 'flex') {
+              closeDisclaimerModal();
+          }
+      });
+
+      modal.addEventListener('click', function (e) {
+          if (e.target === modal) closeDisclaimerModal();
+      });
+
+      modal.addEventListener('keydown', function (e) {
+          if (e.key === 'Tab') {
+              const focusable = modal.querySelectorAll(
+                  'button,[href],[tabindex]:not([tabindex="-1"])'
+              );
+
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+
+              if (e.shiftKey && document.activeElement === first) {
+                  e.preventDefault();
+                  last.focus();
+              } else if (!e.shiftKey && document.activeElement === last) {
+                  e.preventDefault();
+                  first.focus();
+              }
+          }
+      });
+  })();
+  </script>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
   </body>
 </html>

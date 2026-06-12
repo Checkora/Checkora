@@ -27,11 +27,41 @@
     <script defer src="/_vercel/insights/script.js"></script>
     <script>
         (function () {
-            const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
-            let saved = 'classic';
-            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
-            if (!VALID_THEMES.includes(saved)) saved = 'classic';
-            document.documentElement.setAttribute('data-theme', saved);
+            const safeLocalStorage = {
+                get(key) {
+                    try {
+                        return window.localStorage.getItem(key);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+            };
+
+            const VALID_APP_THEMES = ['light', 'dark'];
+            const VALID_BOARD_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
+
+            let savedAppTheme = safeLocalStorage.get('theme');
+            if (!VALID_APP_THEMES.includes(savedAppTheme)) {
+                const legacyAppTheme = safeLocalStorage.get('chessBoardTheme');
+                savedAppTheme = VALID_APP_THEMES.includes(legacyAppTheme) ? legacyAppTheme : null;
+            }
+            if (!savedAppTheme) {
+                savedAppTheme = 'dark';
+            }
+            document.documentElement.setAttribute('data-theme', savedAppTheme);
+
+            let savedBoardTheme = safeLocalStorage.get('boardTheme') || safeLocalStorage.get('chessBoardTheme');
+            if (!savedBoardTheme) {
+                const legacyTheme = safeLocalStorage.get('theme');
+                if (!VALID_APP_THEMES.includes(legacyTheme) && VALID_BOARD_THEMES.includes(legacyTheme)) {
+                    savedBoardTheme = legacyTheme;
+                }
+            }
+            if (!VALID_BOARD_THEMES.includes(savedBoardTheme)) {
+                savedBoardTheme = 'classic';
+            }
+            document.documentElement.setAttribute('data-board-theme', savedBoardTheme);
+
         })();
     </script>
 
@@ -63,19 +93,21 @@
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 10000;">
         <div class="promo-dialog">
-            <div style="margin-bottom: 20px; color:#f0c040;">
+            <div style="margin-bottom: 20px; color:#f0c040; position: relative;">
                 <a href="/" class="back-btn">← Back to Home</a>
+                <button type="button" id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <div class="promo-title promo-logo">
+    <img src="{% static 'game/checkora_icon_only.png' %}"
+         style="height: 3rem; width: auto; object-fit: contain;"
+         alt="Checkora">
 
-                    <img src="{% static 'game/checkora_icon_only.png' %}"
-                        style="height: 3rem; width: auto; object-fit: contain;" alt="Checkora">
-
-                    <span>CHECKORA</span>
-
-                </div>
+    <span class="logo-text">
+        <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+    </span>
+</div>
 
             </div>
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
@@ -234,8 +266,10 @@
         
         <div class="logo-container">
             <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="">
-                <span class="logo-text">Checkora</span>
+                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+                <span class="logo-text">
+    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
+</span>
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
@@ -251,6 +285,14 @@
                 <div class="dropdown-content">
                     <a href="/stats/">
                         Stats
+                    </a>
+
+                    <a href="{% url 'leaderboard' %}">
+                        Leaderboard
+                    </a>
+
+                    <a href="{% url 'achievements' %}">
+                        Achievements
                     </a>
 
                     <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
@@ -393,19 +435,30 @@
             <div class="card">
                 <div class="card-title">Board Theme</div>
                 <div class="theme-switcher">
-                    <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme"
-                        aria-pressed="true" type="button"></button>
-                    <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme"
-                        aria-pressed="false" type="button"></button>
-                    <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme"
-                        aria-pressed="false" type="button"></button>
+                    <div class="theme-option">
+                        <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme" aria-pressed="true" type="button"></button>
+                        <span class="theme-label">Classic</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Dark</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Green</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Blue</span>
+                    </div>
+                    <div class="theme-option">
+                        <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme" aria-pressed="false" type="button"></button>
+                        <span class="theme-label">Pastel</span>
+                    </div>
                 </div>
-                <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;">
-                    Classic · Dark · Green · Blue · Pastel
+                <div class="preference-container">
+                    <input type="checkbox" id="showCoordinatesCheckbox" class="custom-checkbox" checked>
+                    <label for="showCoordinatesCheckbox" class="preference-label">Show Coordinates</label>
                 </div>
             </div>
             <div class="card">
@@ -417,7 +470,9 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
+                    <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
                     <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
+                    <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
@@ -612,6 +667,22 @@
                                 <span class="stat-label">Material</span>
                                 <span class="stat-value" id="resMaterialDiff">Even</span>
                             </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Captures</span>
+                                <span class="stat-value" id="resAnalysisCaptures">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checks</span>
+                                <span class="stat-value" id="resAnalysisChecks">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Checkmates</span>
+                                <span class="stat-value" id="resAnalysisCheckmates">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Promotions</span>
+                                <span class="stat-value" id="resAnalysisPromotions">0</span>
+                            </div>
                         </div>
 
                         <!-- Material difference and captured pieces summary -->
@@ -736,6 +807,7 @@
          JAVASCRIPT
          ======================================================== -->
     <script src="{% static 'game/js/toast.js' %}"></script>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
     <script>
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
@@ -796,7 +868,7 @@ ${message}
     };
 });
 </script>
-
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 
 

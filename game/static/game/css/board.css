@@ -1,3 +1,35 @@
+:root {
+    --bg-primary: #0f0f1a;
+    --card-bg: #16162a;
+    --card-border: #252545;
+    --text-primary: #d0d0d0;
+    --text-title: #ffffff;
+    --text-secondary: #8a8aaa;
+    --input-bg: #1a1a2e;
+    --input-border: #444;
+    --input-text: #ffffff;
+    --input-placeholder: #8a8aaa;
+    --accent-gold: #f0c040;
+}
+
+[data-theme="light"] {
+    --bg-primary: #f5f7fb;
+    --card-bg: #ffffff;
+    --card-border: #d1d5db;
+    --text-primary: #111827;
+    --text-title: #000000;
+    --text-secondary: #6b7280;
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+    --input-text: #111827;
+    --input-placeholder: #6b7280;
+    --accent-gold: #d4a017;
+}
+
+
+
+
+
 /* ============================================================
    Reset & Base
    ============================================================ */
@@ -9,8 +41,8 @@ html {
 }
 
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     display: flex;
@@ -26,19 +58,18 @@ body {
    ============================================================ */
 
    .header { 
-    padding: 20px 0 8px; 
-    position: relative;
+    padding: 20px 32px 8px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     width: 100%;
 }
 
 .logo-container {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 8px;
+    flex-wrap: nowrap;
 }
 
 /* Logo home link */
@@ -70,11 +101,41 @@ body {
 
 /* Logo text */ 
 .logo-text {
-    font-family: 'Cinzel', serif;
+    font-family: Cinzel, serif;
     font-size: 26px;
     font-weight: 700;
     letter-spacing: 2px;
+}
+
+.promo-logo .logo-text {
+    font-size: 1.8rem;
+}
+
+.logo-white {
+    color: var(--text-title);
+}
+
+.logo-gold {
     color: #f0c040;
+}
+
+.theme-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translateY(-4px);
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 1rem;
+    transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+
+.theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 /* Responsive logo sizes */
@@ -85,6 +146,8 @@ body {
     .logo-text {
         font-size: 20px;
     }
+
+
 }
 
 .header .badge {
@@ -100,10 +163,12 @@ body {
     padding: 2px 8px;
     border-radius: 4px;
     border: 1px solid rgba(212, 165, 116, 0.3);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .auth-buttons {
-    position: absolute;
+    /* position: absolute; */
     right: 24px;
     top: 50%;
     transform: translateY(-50%);
@@ -150,38 +215,59 @@ body {
 }
 
 .profile-btn{
-    background: #1a1a2e;
-    color: #fff;
-    border: 1px solid #444;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    color: #f0c040;
+    border: 1px solid #2d3748;
     padding: 8px 14px;
     border-radius: 10px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;
     transition: all 0.3s ease;
+    min-height: 40px;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
 .profile-btn:hover{
     border-color: #f0c040;
     color: #f0c040;
+    box-shadow: 0 0 15px rgba(240, 192, 64, 0.25);
+    transform: translateY(-1px);
 }
 
 .dropdown-content{
-    display: none;
+    opacity: 0;
+    visibility: hidden;
     position: absolute;
     right: 0;
-    top: 48px;
+    top: 100%;
+    margin-top: -2px;
     min-width: 220px;
-    background: #111827;
+    background: var(--card-bg);
     border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--card-border);
     overflow: hidden;
     box-shadow: 0 10px 30px rgba(0,0,0,0.4);
     z-index: 9999;
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+    transform: translateY(10px);
+    pointer-events: none;
 }
 
-.profile-dropdown:hover .dropdown-content{
-    display: block;
+.profile-dropdown.active .dropdown-content{
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+    transition-delay: 0s;
+}
+
+.profile-dropdown:not(.active) .dropdown-content {
+    transition-delay: 0.15s;
 }
 
 .dropdown-content a,
@@ -189,7 +275,7 @@ body {
     display: block;
     width: 100%;
     padding: 14px 18px;
-    color: white;
+    color: var(--text-primary);
     text-decoration: none;
     background: transparent;
     border: none;
@@ -230,7 +316,8 @@ body {
     max-width: 100%;
     margin: 0 auto;
     overflow-x: hidden;
-    box-sizing: border-box;
+    box-sizing: content-box;
+
 }
 
 .panel {
@@ -252,8 +339,8 @@ body {
 }
 
 .card {
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 8px;
     padding: 14px;
 }
@@ -286,9 +373,9 @@ body {
     width: 100%;
     padding: 10px;
     border-radius: 6px;
-    border: 1px solid #444;
-    background: #1a1a2e;
-    color: #fff;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-primary);
     font-size: 0.9rem;
 }
 
@@ -429,7 +516,7 @@ body {
     border-radius: 2px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     max-width: 100%;
-    box-sizing: border-box;
+    box-sizing: content-box;
     position: relative;
 }
 
@@ -451,7 +538,7 @@ body {
 }
 
 :root {
-    --page-bg: #0f0f1a;
+    --page-bg: var(--bg-primary);
     --layout-gap: clamp(8px, 1.1vw, 18px);
     --layout-padding-x: clamp(10px, 1.5vw, 20px);
     --layout-padding-y: clamp(12px, 1.5vw, 20px);
@@ -487,7 +574,7 @@ body {
 }
 
 /* Dark Theme */
-:root[data-theme="dark"] {
+:root[data-board-theme="dark"] {
     --sq-light: #b0b0b0;
     --sq-dark: #3a3a3a;
     --sq-selected-light: #5271ff;
@@ -499,7 +586,7 @@ body {
 }
 
 /* Green Theme */
-:root[data-theme="green"] {
+:root[data-board-theme="green"] {
     --sq-light: #9dbb94;
     --sq-dark: #2e5a31;
     --sq-selected-light: #c7e89c;
@@ -509,7 +596,7 @@ body {
 }
 
 /* Blue Theme */
-:root[data-theme="blue"] {
+:root[data-board-theme="blue"] {
     --sq-light: #a4b1bd;
     --sq-dark: #2e4a5a;
     --sq-selected-light: #9fd8ff;
@@ -518,7 +605,7 @@ body {
     --sq-last-dark: #4e8fb8;
 }
 /* Pastel Theme */
-   :root[data-theme="pastel"] {
+   :root[data-board-theme="pastel"] {
     --sq-light: #fff0f5;
     --sq-dark: #ffb6c1;
     --sq-selected-light: #e6b8ff;
@@ -539,13 +626,15 @@ body {
 /* Last-move highlight */
 .square.last-move.light { background-color: var(--sq-last-light); }
 .square.last-move.dark  { background-color: var(--sq-last-dark); }
-.custom-highlight.light {
-    background-color: rgba(80, 180, 255, 0.45) !important;
+
+.chessboard .custom-highlight.light {
+    background-color: rgba(80, 180, 255, 0.45);
 }
 
-.custom-highlight.dark {
-    background-color: rgba(40, 120, 220, 0.55) !important;
+.chessboard .custom-highlight.dark {
+    background-color: rgba(40, 120, 220, 0.55);
 }
+
 
 .square.premove {
     outline: 2px dashed #3b82f6 !important;
@@ -611,6 +700,29 @@ body {
 .piece.moving {
     z-index: 100;
 }
+
+.piece-ghost {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(var(--square-size) * 0.92);
+    height: calc(var(--square-size) * 0.92);
+    pointer-events: none;
+    z-index: 99;
+    opacity: 0;
+    animation: ghost-trail 0.28s ease-in-out forwards;
+}
+
+@keyframes ghost-trail {
+    0%   { opacity: 0.35; }
+    100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .piece-ghost { display: none !important; }
+}
+
 .piece.captured {
     opacity: 0;
     transform: scale(0.5);
@@ -634,8 +746,9 @@ body {
     padding: 4px 0;
     width: 100%;
     max-width: calc(var(--square-size) * 8 + var(--board-border) * 2 + var(--rank-label-width) + 8px);
-    box-sizing: border-box;
+    box-sizing: content-box;
 }
+
 .square:focus,
 .square:focus-visible {
     outline: 2px solid #baca2b;
@@ -646,24 +759,24 @@ body {
 }
 
 /* Dark theme */
-:root[data-theme="dark"] .square:focus,
-:root[data-theme="dark"] .square:focus-visible {
+:root[data-board-theme="dark"] .square:focus,
+:root[data-board-theme="dark"] .square:focus-visible {
     outline: 2px solid #000;
     outline-offset: -2px;
     box-shadow: none;
 }
 
 /* Green theme */
-:root[data-theme="green"] .square:focus,
-:root[data-theme="green"] .square:focus-visible {
+:root[data-board-theme="green"] .square:focus,
+:root[data-board-theme="green"] .square:focus-visible {
     outline: 2px solid #1f4d1f;
     outline-offset: -2px;
     box-shadow: none;
 }
 
 /* Blue theme */
-:root[data-theme="blue"] .square:focus,
-:root[data-theme="blue"] .square:focus-visible {
+:root[data-board-theme="blue"] .square:focus,
+:root[data-board-theme="blue"] .square:focus-visible {
     outline: 2px solid #4A90D9;
     outline-offset: -2px;
     box-shadow: none;
@@ -816,7 +929,8 @@ body {
 }
 .btn-gold {
     background: linear-gradient(135deg, #f0c040, #d4a020);
-    color: #1a1a2e;
+    color: #1a1a2e !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 /* Highlight selected game mode button */
 .active-mode {
@@ -935,7 +1049,11 @@ body {
         width: 24px;
         height: 24px;
     }
-
+  
+    .theme-option {
+        flex: 0 0 calc((100% - 12px) / 3);
+        max-width: calc((100% - 12px) / 3);
+    } 
     .keyboard-hints {
         font-size: 0.72rem !important;
         line-height: 1.35;
@@ -943,6 +1061,14 @@ body {
 }
 
 @media (max-width: 860px) {
+    :root {
+    --square-size: clamp(
+        32px,
+        calc((100vw - 2 * var(--layout-padding-x) - var(--board-chrome)) / 8),
+        60px
+    );
+}
+
     .game-layout {
         display: flex;
         flex-direction: column;
@@ -982,6 +1108,7 @@ body {
     .logo-container {
         gap: 6px;
         margin-bottom: 4px;
+        margin-left: 16px;
     }
     
     .logo-text {
@@ -1159,8 +1286,8 @@ body {
     min-width: 0;
     padding: 8px 12px;
     border-radius: 8px;
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1178,33 +1305,15 @@ body {
     white-space: nowrap;
     min-width: 0;
     flex: 1 1 auto;
-}
+    }
 
-.clock .time {
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 1.15rem;
-    font-weight: 700;
-    flex-shrink: 0;
-}
+    .clock .time {
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 1.15rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
 
-/* Active player */
-.clock.active {
-    background: linear-gradient(135deg, #2a2a50, #1a1a35);
-    border-color: #f0c040;
-    box-shadow: 0 0 0 1px rgba(240,192,64,0.3);
-}
-
-/* Low time warning — stage 1: 30s–21s (yellow) */
-.clock.low-1 {
-    background: linear-gradient(135deg, #3d2e00, #2a1f00);
-    border-color: #facc15;
-    color: #fef08a;
-}
-
-/* Low time warning — stage 2: 20s–11s (orange) */
-.clock.low-2 {
-    background: linear-gradient(135deg, #3d1a00, #2a1000);
-    border-color: #f97316;
     color: #fed7aa;
 }
 
@@ -1230,18 +1339,73 @@ body {
 .clock.white .label { color: #ddd; }
 .clock.black .label { color: #aaa; }
 
+/* Thinking dots animation */
+.thinking-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.thinking-dots span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ffffff;
+    opacity: 0.3;
+    animation: thinking-dot-pulse 1.2s infinite;
+}
+
+.thinking-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
 /* ================= THEME SWITCHER ================= */
 
 .theme-switcher {
     display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 4px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 2px;
+    margin-top: 10px;
+    /* The Magic Fix: Pulls the row wider to bypass the card's inner padding */
+    margin-left: -4px;
+    margin-right: -4px;
+    width: calc(100% + 8px);
 }
 
+.theme-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1 ;
+}
+
+.theme-option .theme-btn {
+    flex-shrink: 0;
+    margin: 0;
+    /* Lock the button sizes so they NEVER squish or change shape */
+    width: 18px !important; 
+    height: 18px !important;
+    border-width: 1.5px;
+}
+
+.theme-label {
+    font-size: clamp(6.5px, 2.2vw, 8px);
+    color: rgba(255, 255, 255, 0.75);
+    text-align: center;
+    line-height: 1;
+    /* Pull the letters slightly closer together to save space */
+    letter-spacing: -0.4px;
+    white-space: nowrap;
+}
 .theme-btn {
-    width: 28px;
-    height: 28px;
     border-radius: 50%;
     border: 2px solid #333;
     cursor: pointer;
@@ -1308,6 +1472,240 @@ body {
     text-transform: uppercase;
 }
 
+.promo-overlay .promo-dialog {
+    background: var(--card-bg);
+    border-color: var(--card-border);
+}
+
+.promo-overlay p,
+.promo-overlay .time-control-label,
+.promo-overlay .tc-input-field label,
+.promo-overlay .promo-title,
+.promo-overlay .promo-dialog,
+.promo-overlay .back-btn,
+.promo-overlay .theme-toggle {
+    color: var(--text-primary) !important;
+}
+
+.promo-overlay input,
+.promo-overlay select,
+.promo-overlay .time-control-trigger,
+.promo-overlay .tc-tab-btn,
+.promo-overlay .tc-preset-btn,
+.promo-overlay .tc-custom-inputs input,
+.promo-overlay .fen-input,
+.promo-overlay .btn:not(.btn-gold),
+.promo-overlay #welcomeResumeBtn,
+.promo-overlay #backToModes {
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--input-text) !important;
+}
+
+.promo-overlay input::placeholder,
+.promo-overlay select::placeholder,
+.promo-overlay .tc-input-field label,
+.promo-overlay .time-control-label {
+    color: var(--input-placeholder) !important;
+}
+
+.promo-overlay .time-control-trigger {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 11px 14px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+}
+
+.promo-overlay .time-control-popover {
+    background: var(--card-bg) !important;
+    border-color: var(--input-border) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+}
+
+.promo-overlay .tc-tabs {
+    display: flex !important;
+    gap: 4px !important;
+    border-bottom: 1px solid var(--input-border) !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+}
+
+.promo-overlay .tc-tab-btn {
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-secondary) !important;
+    padding: 6px 12px !important;
+    cursor: pointer !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+.promo-overlay .tc-preset-btn {
+    padding: 8px !important;
+    border-radius: 4px !important;
+    border: 1px solid var(--input-border) !important;
+    background: var(--input-bg) !important;
+    color: var(--input-text) !important;
+    cursor: pointer !important;
+    font-size: 0.85rem !important;
+    transition: all 0.2s ease !important;
+}
+
+.promo-overlay .tc-custom-inputs {
+    display: flex !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+    text-align: left !important;
+}
+
+.promo-overlay .tc-input-field {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+}
+
+.promo-overlay .tc-custom-inputs input {
+    width: 100% !important;
+    font-size: 0.85rem !important;
+}
+
+.promo-overlay .color-choice {
+    background: transparent !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--input-border) !important;
+}
+
+.promo-overlay .color-choice.active {
+    background: rgba(240, 192, 64, 0.1) !important;
+    border-color: #f0c040 !important;
+    color: var(--text-primary) !important;
+}
+
+.promo-overlay #whiteNameInput,
+.promo-overlay #blackNameInput,
+.promo-overlay #manualMoveInput {
+    width: 100% !important;
+    border-radius: 5px !important;
+}
+
+#manualMoveInput {
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--input-text) !important;
+}
+
+#manualMoveInput::placeholder {
+    color: var(--input-placeholder) !important;
+}
+
+#manualMoveError {
+    color: #ff6b6b !important;
+    background: rgba(255, 107, 107, 0.12) !important;
+    border: 1px solid rgba(255, 107, 107, 0.3) !important;
+}
+
+.promo-overlay #nameError,
+.promo-overlay #manualMoveError {
+    color: #ff6b6b !important;
+    font-size: 0.85rem !important;
+    padding: 8px !important;
+    background: rgba(255, 107, 107, 0.12) !important;
+    border: 1px solid rgba(255, 107, 107, 0.3) !important;
+    border-radius: 4px !important;
+}
+
+.promo-overlay .btn:not(.btn-gold) {
+    padding: 12px !important;
+    font-size: 1.05rem !important;
+}
+
+.promo-overlay .back-btn {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    display: inline-flex !important;
+}
+
+.promo-overlay .promo-title {
+    color: var(--text-title) !important;
+}
+
+.promo-overlay .promo-title .logo-white {
+    color: var(--text-title) !important;
+}
+
+.promo-overlay .promo-title .logo-gold {
+    color: #f0c040 !important;
+}
+
+.promo-overlay .theme-toggle {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    transform: translateY(-4px) !important;
+}
+
+.promo-overlay .btn-gold {
+    background: linear-gradient(135deg, #f0c040, #d4a020) !important;
+    color: #1a1a2a !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    border: 1px solid transparent !important;
+}
+
+.promo-overlay .btn:not(.btn-gold) {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.promo-overlay .btn:not(.btn-gold):hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.promo-overlay .btn-gold:hover {
+    background: linear-gradient(135deg, #f5c840, #deb020) !important;
+}
+
+.promo-overlay .fen-input {
+    width: 100% !important;
+}
+
+.promo-overlay .promo-dialog {
+    text-align: center !important;
+}
+
+.promo-overlay .promo-dialog p {
+    color: var(--text-secondary) !important;
+}
+
+.promo-overlay .tc-chevron {
+    font-size: 0.75rem !important;
+    opacity: 0.7 !important;
+}
+
+.promo-overlay .tc-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+.promo-overlay .tc-display-text {
+    display: inline-flex !important;
+}
+
+[data-theme="light"] .promo-overlay .tc-tab-btn.active {
+    color: var(--accent-gold) !important;
+}
+
 .promo-pieces {
     display: flex;
     gap: 12px;
@@ -1338,10 +1736,21 @@ body {
 
 /* Mobile FAB controls  */
 .m-fab {
-  display: none; 
+  display: none;
 }
 
- {
+  .m-fab {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: fixed;
+  top: 14px;
+  right: 12px;
+  z-index: 10000;
+}
+
+
+@media (max-width: 768px) {
   .m-fab {
     display: flex;
     flex-direction: column;
@@ -1351,7 +1760,9 @@ body {
     right: 12px;
     z-index: 10000;
   }
-  .m-fab-btn {
+}
+
+.m-fab-btn {
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -1382,12 +1793,12 @@ body {
     box-shadow: 0 2px 12px rgba(0,0,0,0.55),
                 0 0 0 1px rgba(220,60,50,0.1);
   }
-  
+
   .m-fab:has(~ .promo-overlay.active),
   body:has(.promo-overlay.active) .m-fab {
     display: none;
   }
-}
+
 .promo-logo {
     display: flex;
     align-items: center;
@@ -1395,12 +1806,19 @@ body {
     gap: 12px;
 }
 
-.promo-logo span {
+.promo-logo .logo-text {
     font-family: 'Cinzel', serif;
     font-size: 1.8rem;
     font-weight: 700;
-    color: #f0c040;
     letter-spacing: 2px;
+}
+
+.promo-logo .logo-white {
+  color: var(--text-title);
+}
+
+.promo-logo .logo-gold {
+    color: #f0c040;
 }
 
 .promo-title img {
@@ -1419,7 +1837,10 @@ body {
 
 @media (max-width: 400px) {
     :root {
-        --mobile-board-size: min(calc(100vw - 24px), 360px);
+        --mobile-board-size: min(
+    calc(100vw - var(--rank-label-width) - 12px),
+    360px
+    );
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
         --square-size: var(--mobile-square-size);
     }
@@ -1430,7 +1851,8 @@ body {
         padding: 8px 4px 16px;
         gap: 12px;
         overflow-x: hidden;
-        box-sizing: border-box;
+        box-sizing: content-box;
+
     }
 
     .panel {
@@ -1607,23 +2029,25 @@ body {
 .square.in-check,
 .square.light.in-check,
 .square.dark.in-check {
-    background: radial-gradient(circle, 
-        rgba(220, 38, 38, 0.45) 0%, 
-        rgba(220, 38, 38, 0.2) 50%, 
-        transparent 75%) !important;
-    animation: pulse-check 1.5s ease-in-out infinite !important;
-    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
-                0 0 12px rgba(220, 38, 38, 0.25);
+    background: rgba(220, 38, 38, 0.18) !important;
+    animation: pulse-check 1s ease-in-out infinite !important;
 }
 
 @keyframes pulse-check {
     0%, 100% {
-        box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.35), 
-                    0 0 12px rgba(220, 38, 38, 0.25);
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.85) inset;
+        background: rgba(220, 38, 38, 0.15);
     }
     50% {
-        box-shadow: inset 0 0 14px rgba(220, 38, 38, 0.5), 
-                    0 0 20px rgba(220, 38, 38, 0.4);
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 1) inset;
+        background: rgba(220, 38, 38, 0.3);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .square.in-check,
+    .square.light.in-check,
+    .square.dark.in-check {
+        animation: none !important;
     }
 }
 
@@ -1638,45 +2062,17 @@ body {
     pointer-events: none;
     filter: blur(15px);
 }
-
-
-.chessboard.paused:not(.confirm-open)::after {
-    content: "Resume to Continue";
+.chessboard.paused::before {
+    content: "Press P or click Resume to continue";
     position: absolute;
-    top: 50%;
+    bottom: 20%;
     left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.85);
-    color: #f0c040;
-    padding: 20px 40px;
-    border-radius: 12px;
-    font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    border: 2px solid #f0c040;
-    z-index: 9999;
-    box-shadow: 0 8px 32px rgba(240, 192, 64, 0.4);
-    filter: none;
-    cursor: pointer;
-    pointer-events: auto;
-}
-@media (max-width: 768px) {
-    .chessboard.paused::after {
-        font-size: 1rem;
-        padding: 12px 20px;
-        white-space: normal;
-        text-align: center;
-        width: 70%;
-    }
+    transform: translateX(-50%);
+    font-size: 1rem;   /* smaller than main label */
+    color: #ddd;
 }
 
-#pauseBtn.paused {
-    background: linear-gradient(135deg, #27ae60, #1e8449);
-    color: #fff;
-    border-color: #1a7a3c;
-}
-
+   
 /* ================= INPUT ERROR STATE ================= */
 .input-error {
     border-color: #ff6b6b !important;
@@ -1748,9 +2144,9 @@ body {
 }
 
 .score-box {
-    background: #141638;
+    background: var(--card-bg);
 
-    border: 1px solid #d4af37;
+    border: 1px solid var(--card-border);
 
     border-radius: 10px;
 
@@ -1790,7 +2186,7 @@ body {
     align-items: center;
     gap: 6px;
     font-size: clamp(0.6rem, 0.9vw, 0.75rem);
-    color: #ffffff;
+    color: var(--text-primary);
     flex-shrink: 0;
     white-space: nowrap;
 }
@@ -1800,6 +2196,9 @@ body {
     align-items: center;
     gap: 4px;
     font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+    color: var(--text-primary);
+    flex-shrink: 0;
+    white-space: nowrap;
     color: #ffffff;
     flex-shrink: 0;
     white-space: nowrap;
@@ -1880,12 +2279,33 @@ body.blindfold-mode .capture-ring {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .flash-error {
         animation: none;
         border-color: #ff6b6b;
         box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
     }
+
+    .chessboard.paused::after,
+    .chessboard.paused::before {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .piece {
+        transition: none !important;
+    }
+
+    .piece-ghost {
+        display: none !important;
+    }
+  .chessboard.paused::after,
+  .chessboard.paused::before {
+    animation: none !important;
+    transition: none !important;
+  }
 }
+
 
 /* ============================================================
    Time Control Custom Picker & Tabs
@@ -2476,6 +2896,7 @@ body.blindfold-mode .capture-ring {
         font-size: 0.7rem;
     }
 }
+    
 
 /* Respect user prefers-reduced-motion settings */
 @media (prefers-reduced-motion: reduce) {
@@ -2490,5 +2911,118 @@ body.blindfold-mode .capture-ring {
         animation: none !important;
         transform: none !important;
     }
+}
+
+
+/* Puzzle Hint System */
+
+.hint-source {
+    box-shadow:
+        inset 0 0 0 4px #f0c040,
+        0 0 12px rgba(240, 192, 64, 0.6);
+    border-radius: 4px;
+}
+
+.hint-target {
+    box-shadow:
+        inset 0 0 0 4px #4caf50,
+        0 0 12px rgba(76, 175, 80, 0.6);
+    border-radius: 4px;
+}
+
+@keyframes thinking-dot-pulse {
+    0%, 80%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+
+    40% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .thinking-dots span {
+        animation: none;
+        opacity: 0.7;
+    }
+}
+/* ============================================================
+   Coordinates Visibility Preference
+   ============================================================ */
+.preference-container {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.custom-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    outline: none;
+    background-color: #1a1a2e;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: all 0.2s ease;
+}
+
+.custom-checkbox:hover {
+    border-color: #f0c040;
+}
+
+.custom-checkbox:focus-visible {
+    outline: 2px solid #f0c040;
+    outline-offset: 2px;
+}
+
+.custom-checkbox:checked {
+    background-color: #f0c040;
+    border-color: #f0c040;
+}
+
+.custom-checkbox::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em #1a1a2e;
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.custom-checkbox:checked::before {
+    transform: scale(1);
+}
+
+.preference-label {
+    color: #ccc;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s ease;
+}
+
+.preference-label:hover {
+    color: #f0c040;
+}
+
+/* Hide chessboard coordinate labels when .hide-coordinates is active on the main #board */
+.board-row:has(#board.hide-coordinates) .ranks,
+.board-aligned:has(#board.hide-coordinates) .files {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 

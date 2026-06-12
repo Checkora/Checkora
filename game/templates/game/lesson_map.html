@@ -1,0 +1,361 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Learning Journey</title>
+
+<style>
+body{
+    margin:0;
+    background:
+    linear-gradient(
+    45deg,
+    #111 25%,
+    #0f0f0f 25%,
+    #0f0f0f 50%,
+    #111 50%,
+    #111 75%,
+    #0f0f0f 75%
+    );
+
+background-size:60px 60px;
+    color:white;
+    font-family:Segoe UI,sans-serif;
+}
+
+.header{
+    text-align:center;
+    padding:30px;
+}
+
+.header h1{
+    color:#f0c040;
+}
+
+.map-container{
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
+
+.level-title{
+    text-align:center;
+    margin:80px 0 30px;
+    font-size:34px;
+    color:#f0c040;
+    font-weight:700;
+    text-shadow:0 0 15px rgba(240,192,64,.5);
+}
+
+.lesson-path{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+
+.lesson-row{
+    width:100%;
+    display:flex;
+    margin: 10px 0;
+}
+
+.lesson-row.left{
+    justify-content:flex-start;
+    padding-left:120px;
+}
+
+.lesson-row.right{
+    justify-content:flex-end;
+    padding-right:120px;
+
+}
+
+.node{
+    width:90px;
+    height:90px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-decoration:none;
+    font-size:34px;
+    color:white;
+    font-weight:bold;
+    transition:.3s;
+}
+
+.node:hover{
+    transform:scale(1.08);
+}
+
+.completed{
+    background:#22c55e;
+    box-shadow:0 0 25px #22c55e;
+}
+
+.current{
+    background:#3b82f6;
+    box-shadow:0 0 25px #3b82f6;
+    border:4px solid white;
+    transform:scale(1.12);
+    position:relative;
+}
+
+.current::before{
+    content:"NEXT";
+    position:absolute;
+    top:-12px;
+    background:white;
+    color:black;
+    font-size:10px;
+    font-weight:700;
+    padding:4px 8px;
+    border-radius:12px;
+}
+
+.locked{
+    background:#555;
+    cursor:not-allowed;
+}
+
+.lesson-name{
+    margin-top:12px;
+    text-align:center;
+    width:180px;
+    color:#ddd;
+}
+
+.lesson-card{
+    margin-top:12px;
+    background:#181818;
+    border:1px solid #2d2d2d;
+    border-radius:16px;
+    padding:12px;
+    width:180px;
+    text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);
+}
+
+.lesson-card:hover{
+    border-color:#f0c040;
+    transform:translateY(-3px);
+}
+
+.lesson-card h3{
+    margin:0 0 12px;
+    color:white;
+    font-size:18px;
+}
+
+.badge{
+    display:inline-block;
+    padding:6px 12px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.done{
+    background:#22c55e;
+    color:white;
+}
+
+.active{
+    background:#3b82f6;
+    color:white;
+}
+
+.locked-badge{
+    background:#555;
+    color:white;
+}
+
+.node span{
+    font-size:42px;
+}
+
+.node.current{
+    border:4px solid white;
+    transform:scale(1.15);
+}
+
+.progress-box{
+    max-width:700px;
+    margin:0 auto 60px;
+    background:linear-gradient(
+        135deg,
+        #181818,
+        #242424
+    );
+    padding:25px;
+    border-radius:24px;
+    border:1px solid #2d2d2d;
+}
+
+.progress-track{
+    height:12px;
+    background:#333;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.progress-fill{
+    height:100%;
+    background:linear-gradient(
+        90deg,
+        #22c55e,
+        #36e6c5
+    );
+}
+
+.lesson-wrapper{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+
+.connector{
+    width:120px;
+    height:45px;
+    border:3px solid #36e6c5;
+    border-top:none;
+    border-radius:0 0 60px 60px;
+    margin:-5px auto;
+    opacity:.7;
+}
+
+.back-btn{
+    color:#f0c040;
+    text-decoration:none;
+    font-weight:bold;
+    margin-left:20px;
+}
+
+@media(max-width:768px){
+
+    .lesson-row.left,
+    .lesson-row.right{
+        justify-content:center;
+    }
+
+    .node{
+        width:90px;
+        height:90px;
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+<a href="{% url 'landing' %}" class="back-btn">
+← Back to Home
+</a>
+
+<div class="header">
+    <h1>🗺 Chess Learning Journey</h1>
+    <p>Complete lessons to unlock the next one.</p>
+</div>
+
+<div class="progress-box">
+
+    <h3>Your Journey Progress</h3>
+
+    <div class="progress-track">
+        <div
+            class="progress-fill"
+            style="width:{% widthratio completed_lessons|length 12 100 %}%">
+        </div>
+    </div>
+
+    <p>
+        {{ completed_lessons|length }} / {{ total_lessons }} Lessons Completed
+    </p>
+
+</div>
+
+<div class="map-container">
+
+{% for level in levels %}
+
+    <div class="level-title">
+        Level {{ level.id }} • {{ level.title }}
+    </div>
+
+    <div class="lesson-path">
+
+        {% for lesson in level.lessons %}
+
+            <div class="lesson-row {% cycle 'left' 'right' %}">
+
+                <div class="lesson-wrapper">
+
+                    {% if lesson in completed_lessons %}
+
+                        <a
+                            href="{% url 'lesson_detail' lesson|slugify %}"
+                            class="node completed">
+                            <span>♔</span>
+                        </a>
+
+                    {% elif lesson in unlocked_lessons %}
+
+                        <a
+                            href="{% url 'lesson_detail' lesson|slugify %}"
+                            class="node current">
+                            <span>♕</span>
+                        </a>
+
+                    {% else %}
+
+                        <div class="node locked">
+                            <span>🔒</span>
+                        </div>
+
+                    {% endif %}
+
+                    <div class="lesson-card">
+
+                        <h3>{{ lesson }}</h3>
+
+                        {% if lesson in completed_lessons %}
+                            <span class="badge done">
+                                Completed
+                            </span>
+
+                        {% elif lesson in unlocked_lessons %}
+                            <span class="badge active">
+                                Start Lesson
+                            </span>
+
+                        {% else %}
+                            <span class="badge locked-badge">
+                                Locked
+                            </span>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            {% if not forloop.last %}
+                <div class="connector"></div>
+            {% endif %}
+
+        {% endfor %}
+
+    </div>
+
+{% endfor %}
+
+</div>
+
+</body>
+</html>

@@ -2,6 +2,7 @@
 # Triggers:
 #   • Every push to EVERY branch  → lint + compile + test + migrate-check + security
 #   • Every PR targeting main      → same checks (required to merge)
+#   • PRs with assignee mismatch   → auto-closed + CI skipped (pr-guardian.yml)
 #   • Push/merge to main only      → all checks THEN deploy to Vercel
 # Contributors see test results immediately after any push — no PR needed.
 # -------------------------------------------------------------------
@@ -26,6 +27,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write   # allows posting CI summary comments on PRs
+  issues: read             # PR guardian reads linked issue assignees
   deployments: read      # required for Vercel preview polling
 
 env:
@@ -35,12 +37,110 @@ env:
   PYTHON_VERSION: "3.12"
 
 # ───────────────────────────────────────────────────────────────────
-# JOB 1 — Python Lint (flake8)
+# JOB 0 — PR Guardian (assignee must match linked issue)
 # ───────────────────────────────────────────────────────────────────
 jobs:
+  pr-guardian:
+    name: 🛡️ PR Guardian
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      ci_allowed: ${{ steps.check.outputs.ci_allowed }}
+      reason: ${{ steps.check.outputs.reason }}
+
+    steps:
+      - name: 🛡️ Check PR author is assigned to linked issue(s)
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            const body = pr.body || '';
+            const title = pr.title || '';
+            const prNumber = pr.number;
+
+            function parseIssueNumbers(text) {
+              const nums = new Set();
+              const patterns = [
+                /\b(?:fix(?:e)?s?|close[sd]?|resolve[sd]?)\s+(?:[^\n#]*)?#(\d+)/gi,
+                /fixes\s+#(\d+)/gi,
+                /related issue[^\n]*#(\d+)/gi,
+              ];
+              for (const pattern of patterns) {
+                for (const match of text.matchAll(pattern)) {
+                  nums.add(parseInt(match[1], 10));
+                }
+              }
+              return [...nums].sort((a, b) => a - b);
+            }
+
+            async function evaluatePr() {
+              try {
+                const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner, repo, username: author,
+                });
+                if (perm.permission === 'admin' || perm.permission === 'maintain') {
+                  return { allowed: true, reason: 'maintainer_bypass' };
+                }
+              } catch (e) {
+                core.info(`Permission lookup: ${e.message}`);
+              }
+
+              const { data: files } = await github.rest.pulls.listFiles({
+                owner, repo, pull_number: prNumber, per_page: 100,
+              });
+              if (
+                files.length > 0 &&
+                files.every((f) => f.filename.startsWith('.github/') || f.filename === 'vercel.json')
+              ) {
+                return { allowed: true, reason: 'infra_only' };
+              }
+
+              if (/#\s*\(\s*issue\s+number\s*\)/i.test(body)) {
+                return { allowed: false, reason: 'template_not_filled' };
+              }
+
+              const issueNumbers = parseIssueNumbers(`${title}\n${body}`);
+              if (!issueNumbers.length) {
+                return { allowed: false, reason: 'no_issue_linked' };
+              }
+
+              for (const num of issueNumbers) {
+                const { data: issue } = await github.rest.issues.get({
+                  owner, repo, issue_number: num,
+                });
+                if (issue.pull_request) continue;
+                const assignees = (issue.assignees || []).map((u) => u.login);
+                if (!assignees.length) {
+                  return { allowed: false, reason: `issue_${num}_unassigned` };
+                }
+                if (!assignees.includes(author)) {
+                  return { allowed: false, reason: `issue_${num}_assignee_mismatch` };
+                }
+              }
+
+              return { allowed: true, reason: 'ok' };
+            }
+
+            const { allowed, reason } = await evaluatePr();
+            core.setOutput('ci_allowed', allowed ? 'true' : 'false');
+            core.setOutput('reason', reason);
+            core.info(`ci_allowed=${allowed} reason=${reason}`);
+
+  # ───────────────────────────────────────────────────────────────────
+  # JOB 1 — Python Lint (flake8)
+  # ───────────────────────────────────────────────────────────────────
   lint:
     name: 🔍 Lint (flake8)
     runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
 
     steps:
       - name: 📥 Checkout code
@@ -77,6 +177,13 @@ jobs:
   compile-engine:
     name: ⚙️ Compile C++ Engine
     runs-on: ubuntu-latest
+    outputs:
+     engine_exists: ${{ steps.check_cpp.outputs.exists }}
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
 
     steps:
       - name: 📥 Checkout code
@@ -120,7 +227,13 @@ jobs:
   test:
     name: 🧪 Django Tests
     runs-on: ubuntu-latest
-    needs: [lint, compile-engine]
+    needs: [pr-guardian, lint, compile-engine]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success' &&
+      needs.compile-engine.result == 'success'
 
     steps:
       - name: 📥 Checkout code
@@ -135,31 +248,32 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-test-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-test-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: 📥 Install project dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔧 Compile C++ engine for test environment
-        run: |
-          if [ -f "game/engine/main.cpp" ]; then
-            g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
-            chmod +x game/engine/main
-            echo "✅ Engine compiled for tests"
-          else
-            echo "⚠️ No main.cpp — tests will run without native engine"
-          fi
+      - name: 📥 Download compiled engine binary
+        if: needs.compile-engine.outputs.engine_exists == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e
+        with:
+          name: engine-binary-${{ github.sha }}
+          path: game/engine/
+      
+      - name: 🔧 Mark engine binary as executable
+        if: needs.compile-engine.outputs.engine_exists == 'true'
+        run: chmod +x game/engine/main
 
       - name: 🧪 Run Django test suite
         id: run_tests
         run: |
           # set -o pipefail ensures test failures aren't swallowed by tee
           set -o pipefail
-          python manage.py test game.tests --verbosity=2 2>&1 | tee test_output.txt
+          python manage.py test game.tests --verbosity=2 --parallel 2>&1 | tee test_output.txt
 
       - name: 📋 Print test summary to Actions UI
         if: always()
@@ -197,7 +311,12 @@ jobs:
   migrate-check:
     name: 🗄️ Migration Check
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [pr-guardian, lint]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success'
 
     steps:
       - name: 📥 Checkout code
@@ -235,6 +354,11 @@ jobs:
   security:
     name: 🔒 Security Scan (pip-audit)
     runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
 
     steps:
       - name: 📥 Checkout code
@@ -273,7 +397,12 @@ jobs:
   sast:
     name: SAST (Bandit)
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [pr-guardian, lint]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success'
 
     steps:
       - name: Checkout code
@@ -297,7 +426,7 @@ jobs:
 
       - name: Run Bandit scan (fail on HIGH and MEDIUM)
         run: |
-          bandit -r . -f txt -ll > bandit-report.txt || true
+          bandit -r . --exclude ./.github -f txt -ll > bandit-report.txt || true
       
           echo "## SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -327,7 +456,13 @@ jobs:
   selenium-tests:
     name: 🌐 Selenium E2E Tests
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [pr-guardian, lint, test]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success' &&
+      needs.test.result == 'success'
 
     steps:
       - name: 📥 Checkout code
@@ -342,21 +477,29 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-selenium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-selenium-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: 📥 Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔧 Install Chrome
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+      - name: 🔧 Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: 📦 Cache static files
+        id: static-cache
+        uses: actions/cache@v4
+        with:
+          path: staticfiles/
+          key: static-${{ runner.os }}-${{ hashFiles('game/static/**', 'templates/**') }}
 
       - name: 📦 Collect static files
+        if: steps.static-cache.outputs.cache-hit != 'true'
         run: python manage.py collectstatic --noinput
 
       - name: 🧪 Run Selenium E2E Tests
@@ -392,4 +535,6 @@ jobs:
 # NOTE: Deployment is handled natively by Vercel's GitHub integration.
 # Vercel auto-deploys on every push to main and creates preview
 # deployments for every PR — no separate deploy job needed here.
+# Preview skips for assignee mismatch when GITHUB_TOKEN is set in Vercel
+# (see vercel.json ignoreCommand and .github/scripts/pr_assignee_check.py).
 # ───────────────────────────────────────────────────────────────────

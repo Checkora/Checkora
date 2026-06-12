@@ -1,0 +1,177 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkora</title>
+  <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'game/css/preloading.css' %}" />
+</head>
+<body>
+
+  <!-- Scanline texture overlay -->
+  <div class="ck-scanlines" aria-hidden="true"></div>
+
+  <!-- Corner brackets -->
+  <div class="ck-corner ck-corner--tl" aria-hidden="true"></div>
+  <div class="ck-corner ck-corner--tr" aria-hidden="true"></div>
+  <div class="ck-corner ck-corner--bl" aria-hidden="true"></div>
+  <div class="ck-corner ck-corner--br" aria-hidden="true"></div>
+
+  <!-- Main page -->
+  <div class="ck-page" id="ckPage">
+
+    <!-- Background atmosphere -->
+    <div class="ck-bg" aria-hidden="true"></div>
+
+    <!-- Chess board grid (background) -->
+    <div class="ck-grid" id="ckGrid" aria-hidden="true"></div>
+
+    <!-- Particle field -->
+    <div class="ck-particles" id="ckParticles" aria-hidden="true"></div>
+
+    <!-- Centre content -->
+    <main class="ck-stage" aria-label="Loading Checkora">
+
+      <!-- Orbital logo system -->
+      <div class="ck-orbital" aria-hidden="true">
+        <div class="ck-ring ck-ring-1"></div>
+        <div class="ck-ring ck-ring-2"></div>
+        <div class="ck-ring ck-ring-3"></div>
+        <div class="ck-core-glow"></div>
+
+        <!-- Orbiting chess pieces -->
+        <span class="ck-crown-piece">♛</span>
+        <span class="ck-crown-piece">♞</span>
+        <span class="ck-crown-piece">♝</span>
+
+        <!-- Logo -->
+        <div class="ck-logo-wrap">
+          <img
+            src="{% static 'game/checkora_icon_only.png' %}"
+            alt="Checkora"
+            class="ck-logo"
+          />
+        </div>
+      </div>
+
+      <!-- Title — mirrors .logo-text / .logo-accent from landing.css -->
+      <div class="ck-title-wrap">
+        <span class="ck-title" aria-label="Checkora">CHECK<span class="ck-accent">ORA</span></span>
+      </div>
+
+      <!-- Tagline -->
+      <p class="ck-tagline">Hybrid Intelligence &nbsp;·&nbsp; Chess Engine</p>
+
+      <!-- Progress -->
+      <div class="ck-progress-wrap" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="ckProgressBar">
+        <div class="ck-progress-track">
+          <div class="ck-progress-fill" id="ckFill"></div>
+        </div>
+        <div class="ck-progress-pct">
+          <span id="ckPct">0%</span>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="ck-status" aria-live="polite">
+        <span class="ck-dot"></span>
+        <span class="ck-dot"></span>
+        <span class="ck-dot"></span>
+        <span id="ckStatusText">Initialising engine</span>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    /* ── Chess board random cell flicker ── */
+    const grid = document.getElementById('ckGrid');
+    for (let i = 0; i < 64; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'ck-cell';
+      grid.appendChild(cell);
+    }
+
+    function flickerCell() {
+      const cells = grid.querySelectorAll('.ck-cell');
+      const idx = Math.floor(Math.random() * 64);
+      cells[idx].classList.remove('lit');
+      void cells[idx].offsetWidth;
+      cells[idx].classList.add('lit');
+      setTimeout(flickerCell, 120 + Math.random() * 280);
+    }
+    setTimeout(flickerCell, 600);
+
+    /* ── Particle spawner ── */
+    const pField = document.getElementById('ckParticles');
+    function spawnParticle() {
+      const p = document.createElement('div');
+      p.className = 'ck-particle';
+      const size = 1.5 + Math.random() * 3;
+      p.style.cssText = `
+        width:${size}px; height:${size}px;
+        left:${Math.random() * 100}%;
+        top:${60 + Math.random() * 40}%;
+        --d:${4 + Math.random() * 6}s;
+        --delay:${Math.random() * 2}s;
+        opacity:0;
+        background:${Math.random() > 0.5 ? 'rgba(240,192,64,0.7)' : 'rgba(90,215,255,0.5)'};
+      `;
+      pField.appendChild(p);
+      setTimeout(() => p.remove(), 9000);
+    }
+    for (let i = 0; i < 18; i++) setTimeout(spawnParticle, i * 200);
+    setInterval(spawnParticle, 400);
+
+    /* ── Progress counter ── */
+    const pct = document.getElementById('ckPct');
+    const statusText = document.getElementById('ckStatusText');
+    const stages = [
+      { at: 15,  msg: 'Loading assets' },
+      { at: 38,  msg: 'Connecting engine' },
+      { at: 62,  msg: 'Calibrating C++ core' },
+      { at: 84,  msg: 'Preparing board' },
+      { at: 100, msg: 'Ready' },
+    ];
+    let current = 0;
+    const startTime = performance.now();
+    const duration = 2600;
+
+    function updateCounter() {
+      const elapsed = performance.now() - startTime;
+      const raw = Math.min(100, Math.round((elapsed / duration) * 100));
+      // Ease the number so it slows near 100
+      const eased = Math.round(100 * (1 - Math.pow(1 - raw / 100, 2.2)));
+      pct.textContent = eased + '%';
+      document.getElementById('ckProgressBar').setAttribute('aria-valuenow', eased);
+
+      // Stage messages
+      for (let i = stages.length - 1; i >= 0; i--) {
+        if (eased >= stages[i].at && i > current - 1) {
+          statusText.textContent = stages[i].msg;
+          current = i + 1;
+          break;
+        }
+      }
+
+      if (raw < 100) requestAnimationFrame(updateCounter);
+    }
+    requestAnimationFrame(updateCounter);
+
+    /* ── Exit and redirect ── */
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('ckPage').classList.add('exit');
+        setTimeout(() => {
+          window.location.href = "{% url 'landing' %}";
+        }, 600);
+      }, 2600);
+    });
+  </script>
+</body>
+</html>

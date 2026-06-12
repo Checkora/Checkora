@@ -1,4 +1,25 @@
 /* auth.css - Shared styles for Checkora Authentication Pages */
+:root {
+    --bg-primary: #0b1020;
+    --card-bg: #16162a;
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+    --border-color: rgba(255,255,255,0.1);
+    --accent-gold: #f0c040;
+}
+
+[data-theme="light"] {
+    --bg-primary: #f5f7fb;
+    --card-bg: #ffffff;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --border-color: rgba(0,0,0,0.1);
+    --accent-gold: #d4a017;
+}
+
+
+
+
 .header,
 .auth-card {
     width: 100%;
@@ -12,8 +33,8 @@ html, body {
 }
 
 body {
-    background-color: #0f0f1a;
-    color: #d0d0d0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 
     min-height: 100vh;
@@ -79,8 +100,15 @@ body {
     font-size: 28px;
     font-weight: 700;
     letter-spacing: 3px;
-    color: #f0c040;
     text-transform: uppercase;
+}
+
+.logo-white {
+    color: var(--text-primary);
+}
+
+.logo-gold {
+    color: var(--accent-gold);
 }
 
 /* Responsive logo sizes */
@@ -95,8 +123,8 @@ body {
 
 
 .auth-card {
-    background: #16162a;
-    border: 1px solid #252545;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
 
     width: min(90vw, 520px);
@@ -117,17 +145,17 @@ body {
 .form-group label {
     display: block;
     font-size: 1rem;
-    color: #8a8aaa;
+    color: var(--text-secondary);
     margin-bottom: 8px;
     letter-spacing: 0.5px;
 }
 .form-group input {
     width: 100%;
     padding: 16px 18px;
-    background: #0f0f1a;
-    border: 1px solid #333;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    color: #fff;
+    color: var(--text-primary);
     font-size: 1.1rem;
     transition: all 0.2s ease;
 }
@@ -237,10 +265,10 @@ body {
     margin-top: 16px;
     text-align: center;
     font-size: 0.95rem;
-    color: #8a8aaa;
+    color: var(--text-secondary);
 }
 .auth-footer a {
-    color: #f0c040;
+    color: var(--accent-gold);
     text-decoration: none;
     font-weight: 600;
 }
@@ -481,4 +509,21 @@ body.login-page .helptext {
   border-color: rgba(240, 192, 64, 0.3);
   transform: translateX(-3px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Password Strength Meter ── */
+.password-strength-meter {
+    height: 4px;
+    width: 100%;
+    background: #0f0f1a;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+.strength-bar-fill {
+    height: 100%;
+    width: 0;
+    background: #ef4444;
+    transition: width 0.4s ease, background 0.4s ease;
 }
