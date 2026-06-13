@@ -37,8 +37,10 @@
 
         toast.innerHTML = `
             <span class="toast-icon">${icons[type] || icons.info}</span>
-            <span class="toast-message">${message}</span>
+            <span class="toast-message"></span>
         `;
+
+        toast.querySelector('.toast-message').textContent = message;
 
         container.appendChild(toast);
 

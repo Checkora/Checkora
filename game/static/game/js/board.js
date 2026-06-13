@@ -987,11 +987,24 @@
                     const moveNum = Math.floor(whiteIdx / 2) + 1;
                     const row = document.createElement('div');
                     row.className = 'move-row';
-                    row.innerHTML = `
-                        <span class="move-num">${moveNum}.</span>
-                        <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
-                        ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
-                    `;
+
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'move-num';
+                    numSpan.textContent = `${moveNum}.`;
+                    row.appendChild(numSpan);
+
+                    const whiteSpan = document.createElement('span');
+                    whiteSpan.className = 'move-white';
+                    whiteSpan.textContent = history[whiteIdx]?.notation ?? '';
+                    row.appendChild(whiteSpan);
+
+                    if (history[blackIdx]) {
+                        const blackSpan = document.createElement('span');
+                        blackSpan.className = 'move-black';
+                        blackSpan.textContent = history[blackIdx].notation;
+                        row.appendChild(blackSpan);
+                    }
+
                     movesEl.appendChild(row);
                 }
             }
