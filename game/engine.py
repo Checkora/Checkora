@@ -482,6 +482,8 @@ DP cache is intentionally excluded to save cookie space."""
         promoted = False
         if self._is_promotion(piece, tr):
             choice = (promotion_piece or 'q').lower()
+            if choice not in ('q', 'r', 'b', 'n'):
+                choice = 'q'
             new_board = self._call_engine_promote(fr, fc, tr, tc, choice)
             if new_board:
                 # C++ returned the updated board - apply it directly
