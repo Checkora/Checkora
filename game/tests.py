@@ -1337,23 +1337,23 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td>PvP</td>')
-        self.assertNotContains(response, '<td>AI</td>')
+        self.assertContains(response, '<td style="font-weight: 600;">PvP</td>')
+        self.assertNotContains(response, '<td style="font-weight: 600;">AI</td>')
         self.client.logout()
 
         # Check as User B
         self.client.login(username='userb', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td>AI</td>')
-        self.assertNotContains(response, '<td>PvP</td>')
+        self.assertContains(response, '<td style="font-weight: 600;">AI</td>')
+        self.assertNotContains(response, '<td style="font-weight: 600;">PvP</td>')
 
     def test_empty_stats_page(self):
         """Users with no games should see a clean empty state."""
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No games played yet.')
+        self.assertContains(response, 'No Match Records Found')
         # Summary cards should show 17 cards
         self.assertContains(response, '<div class="num">0</div>', count=17)
         # No <tr> should be present in the tbody
@@ -1397,7 +1397,7 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
-        self.assertContains(response, 'No games played yet.')
+        self.assertContains(response, 'No Match Records Found')
 
 class StaleGameCleanupTest(TestCase):
     def setUp(self):
