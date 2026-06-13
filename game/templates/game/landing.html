@@ -112,6 +112,9 @@
         </div>
       </div>
       <div class="nav-right">
+        <button type="button" id="themeToggle" class="theme-toggle">
+            🌙
+        </button>
         {% if user.is_authenticated %}
         <div class="profile-dropdown">
           <button type="button" class="profile-btn">{{ user.username }} <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
@@ -1168,6 +1171,7 @@
     });
   })();
   </script>
+  <script src="{% static 'game/js/theme.js' %}"></script>
 
   <div id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerModalTitle"
       style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">

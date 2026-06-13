@@ -1,8 +1,49 @@
 # Checkora API Reference Guide
 
-This document outlines the REST API endpoints used by the Checkora frontend to communicate with the Django backend. All requests that modify state require a CSRF token in the headers (`X-CSRFToken`), except for the `@csrf_exempt` pause endpoint.
+This document outlines the REST API endpoints used by the Checkora frontend to communicate with the Django backend. Most requests that modify state require a CSRF token in the headers (`X-CSRFToken`). Exceptions are documented in the Authentication & Security section below.
 
 ---
+
+## Authentication & Security
+
+Most POST endpoints require a valid CSRF token supplied through the `X-CSRFToken` header.
+
+Exceptions:
+
+* `/api/pause/`
+* `/api/analyze-game/`
+* `/api/cron/cleanup-stale-games/`
+
+These endpoints are exempt from CSRF validation.
+
+Administrative endpoints such as `/api/cron/cleanup-stale-games/` require Bearer Token authentication and are intended for internal maintenance operations.
+
+## Endpoint Categories
+
+### Gameplay APIs
+- Get Game State
+- Make a Move
+- Get Valid Moves
+- Start New Game
+- Check Promotion
+- Request AI Move
+- Pause/Resume Game
+- Offer Draw
+- Resume Game
+- Resign Game
+
+### Analysis APIs
+- Analyze Game
+
+### Puzzle APIs
+- Get Puzzle Stats
+- Get Daily Puzzle
+
+### User APIs
+- Check Username Availability
+
+### Maintenance APIs
+- Cleanup Stale Games
 
 ## 1. Get Game State
 Retrieves the current game state from the user's session. It is typically called when the page is loaded or refreshed to restore an ongoing game.
@@ -403,3 +444,115 @@ Returns puzzle streak information for the puzzle interface.
 - Both `streak` and `longest_streak` are hardcoded to `0` until persistent puzzle statistics are wired into this response.
 
 ---
+
+## 15. Get Daily Puzzle
+
+Returns the puzzle assigned for the current day.
+
+* **URL:** `/api/puzzles/daily/`
+
+* **Method:** `GET`
+
+* **Auth Required:** No
+
+* **Request Params:** None
+
+* **Success Response:**
+
+```json
+{
+  "id": 1,
+  "title": "Daily Puzzle",
+  "fen": "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+  "solution": ["g2g4"],
+  "difficulty": "medium"
+}
+```
+
+**Notes:**
+
+* Returns the puzzle selected for the current date.
+* Falls back to a default puzzle when no dated puzzle exists.
+* Used by the Daily Puzzle feature in the frontend.
+
+---
+
+## 16. Cleanup Stale Games
+
+Administrative endpoint used to clean abandoned or inactive games.
+
+* **URL:** `/api/cron/cleanup-stale-games/`
+* **Method:** `POST`
+* **Auth Required:** Yes
+* **Authentication:** Bearer Token
+
+**Required Header**
+
+```http
+Authorization: Bearer <CRON_SECRET>
+```
+
+* **Success Response:**
+
+```json
+{
+  "status": "success",
+  "deleted_games": 12,
+  "resigned_games": 3
+}
+```
+
+* **Unauthorized Response:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Status Code:** `401 Unauthorized`
+
+**Notes:**
+
+* Intended for scheduled maintenance jobs.
+* Automatically cleans stale game sessions.
+* Should not be called directly from the frontend.
+
+---
+
+## 17. Common Error Responses
+
+Different endpoints may return different error payloads depending on the operation being performed. The examples below illustrate common error patterns used throughout the API but do not represent a guaranteed response schema for every endpoint.
+
+### 400 Bad Request
+
+```json
+{
+  "error": "Invalid request data"
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "valid": false,
+  "message": "No saved game found."
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Internal server error"
+}
+```

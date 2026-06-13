@@ -17,6 +17,10 @@ class AnalysisTest(TestCase):
         self.assertEqual(detect_opening(['d4', 'd5', 'c4']), "Queen's Gambit")
         self.assertIsNone(detect_opening(['a3', 'a6']))
         self.assertIsNone(detect_opening([]))
+        self.assertEqual(detect_opening(['e4', 'e5', 'Nf3']), "King's Pawn Game")
+        self.assertEqual(detect_opening(['d4', 'Nf6', 'c4', 'e6']), 'Nimzo-Indian Defense')
+        self.assertEqual(detect_opening(['d4', 'Nf6', 'c4', 'd5']), 'Indian Defense')
+        self.assertEqual(detect_opening(['f4', 'd5']), "Bird's Opening")
 
     def test_count_captures(self):
         self.assertEqual(count_captures(['e4', 'e5', 'exd5']), 1)

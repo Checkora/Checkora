@@ -1,52 +1,35 @@
+import os
+import json
+
+# Load the opening book JSON once on startup
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OPENINGS_JSON_PATH = os.path.join(BASE_DIR, 'openings.json')
+
+try:
+    with open(OPENINGS_JSON_PATH, 'r', encoding='utf-8') as f:
+        OPENINGS = json.load(f)
+except FileNotFoundError:
+    OPENINGS = {}
+    # TODO: replace with project logger
+    print(f"warning: opening book not found at {OPENINGS_JSON_PATH}")
+except json.JSONDecodeError as exc:
+    raise RuntimeError(f"invalid openings.json: {exc}") from exc
+
 def detect_opening(moves: list[str]) -> str | None:
     """
     Detect the opening played based on the move sequence.
     Replicates and enhances the existing frontend logic.
     Returns None if no specific opening is matched.
     """
-    if not moves or len(moves) == 0:
+    if not moves:
         return None
 
-    m1 = moves[0] if len(moves) > 0 else None
-    m2 = moves[1] if len(moves) > 1 else None
-    m3 = moves[2] if len(moves) > 2 else None
-    m4 = moves[3] if len(moves) > 3 else None
-    m5 = moves[4] if len(moves) > 4 else None
+    # Search for the longest matching prefix sequence of moves in the opening dictionary.
+    for i in range(len(moves), 0, -1):
+        prefix_key = " ".join(moves[:i])
+        if prefix_key in OPENINGS:
+            return OPENINGS[prefix_key]
 
-    # Sanitize inputs to remove checks, mates, etc., if needed,
-    # though usually opening moves don't involve checks/captures initially,
-    # it's safe to use exact matches for standard openings.
-    
-    if m1 == 'e4':
-        if m2 == 'c5': return 'Sicilian Defense'
-        if m2 == 'e5':
-            if m3 == 'Nf3':
-                if m4 == 'Nc6':
-                    if m5 == 'Bb5': return 'Ruy Lopez'
-                    if m5 == 'Bc4': return 'Italian Game'
-                    if m5 == 'd4': return 'Scotch Game'
-                if m4 == 'Nf6': return 'Petrov Defense'
-            return "King's Pawn Game"
-        if m2 == 'e6': return 'French Defense'
-        if m2 == 'c6': return 'Caro-Kann Defense'
-        if m2 == 'd6': return 'Pirc Defense'
-        return "King's Pawn Game"
-        
-    if m1 == 'd4':
-        if m2 == 'd5':
-            if m3 == 'c4': return "Queen's Gambit"
-            return "Queen's Pawn Game"
-        if m2 == 'Nf6':
-            if m3 == 'c4':
-                if m4 == 'e6': return 'Nimzo-Indian Defense'
-                if m4 == 'g6': return "King's Indian Defense"
-            return 'Indian Defense'
-        return "Queen's Pawn Game"
-        
-    if m1 == 'Nf3': return 'Réti Opening'
-    if m1 == 'c4': return 'English Opening'
-    if m1 == 'f4': return "Bird's Opening"
-    
     return None
 
 def count_captures(moves: list[str]) -> int:

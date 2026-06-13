@@ -318,3 +318,48 @@ class FeaturedBadge(models.Model):
 
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class ChessPuzzle(models.Model):
+    title = models.CharField(max_length=200)
+    fen = models.CharField(max_length=255)
+    solution = models.JSONField(
+        help_text=(
+            "JSON array of moves representing the solution, "
+            "e.g. ['g2g4']"
+        )
+    )
+    difficulty = models.CharField(
+        max_length=20,
+        choices=[("easy", "Easy"), ("medium", "Medium"), ("hard", "Hard")],
+        blank=True,
+        default=""
+    )
+    date = models.DateField(
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="Date when this puzzle should be served"
+    )
+
+    def clean(self):
+        super().clean()
+        if self.fen:
+            parts = self.fen.split()
+            if len(parts) < 4:
+                raise ValidationError(
+                    "Invalid FEN: must contain at least 4 fields: "
+                    "placement, active color, castling, and en passant."
+                )
+            if len(parts[0].split('/')) != 8:
+                raise ValidationError(
+                    "Invalid FEN: piece placement must have exactly 8 ranks"
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} ({self.difficulty or 'Unknown'})"

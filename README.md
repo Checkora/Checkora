@@ -52,6 +52,23 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 
 ---
 
+## Table of contents 
+
+- [Contributors](#contributors)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [API Reference](#api-reference)
+- [Request/Response JSON Examples](#requestresponse-json-examples)
+- [Tests](#tests)
+- [Troubleshooting Guide](#troubleshooting-guide)
+- [Contributor Support & Feedback](#contributor-support--feedback)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Contributors
 
 <!-- CONTRIBUTORS_START -->
@@ -119,6 +136,14 @@ g++ -O2 game/engine/main.cpp -o game/engine/main.exe
 # macOS / Linux
 g++ -O2 game/engine/main.cpp -o game/engine/main
 ```
+
+## Development Documentation
+
+For detailed local development setup, environment configuration, common development commands, troubleshooting, and contributor workflow guidance, see:
+
+- [Local Development Setup Guide](docs/development.md)
+
+This guide expands on the Quick Start instructions and provides a complete development workflow for contributors.
 
 ## Project Structure
 
@@ -228,6 +253,47 @@ Checkora/
 ├── structure.md                   # Extended architectural blueprint documentation
 └── vercel.json                    # Configuration for serverless Django routing on Vercel
 ```
+
+## Contributor Quick Reference
+
+| Looking For        | Location                        |
+| ------------------ | ------------------------------- |
+| API Endpoints      | `game/views.py`, `game/urls.py` |
+| Frontend Templates | `game/templates/`               |
+| CSS Files          | `game/static/game/css/`         |
+| JavaScript Files   | `game/static/game/js/`          |
+| Images & Sounds    | `game/static/game/`             |
+| Chess Engine       | `game/engine/`                  |
+| Database Models    | `game/models.py`                |
+| Forms              | `game/forms.py`                 |
+| Business Logic     | `game/services.py`              |
+| Unit Tests         | `game/tests.py`                 |
+| Selenium Tests     | `game/selenium_tests/`          |
+| Documentation      | `docs/`                         |
+| Django Settings    | `core/settings.py`              |
+| Root Routing       | `core/urls.py`                  |
+
+## Directory Overview
+
+### `core/`
+
+Contains Django project configuration including settings, root URL routing, and WSGI/ASGI entry points.
+
+### `game/`
+
+Main application module containing gameplay logic, API endpoints, templates, static assets, models, forms, and tests.
+
+### `game/engine/`
+
+Contains the chess engine implementations, including the high-performance C++ engine and Python fallback engine.
+
+### `docs/`
+
+Project documentation covering APIs, architecture, security reviews, and contributor resources.
+
+### `.github/`
+
+Repository workflows, issue templates, pull request templates, and automation configuration.
 
 ## Architecture
 
@@ -631,12 +697,16 @@ If you attempt to launch the Django server without setting up a local configurat
     Open `.env` and verify you have a robust string under `SECRET_KEY`.
     Additionally, ensure `TRUSTED_PROXIES` is configured (defaulting to
     `127.0.0.1,::1` for local development).
+    Similarly, `TRUSTED_PROXY_IPS` must be configured for password reset rate limiting.
 
     > **⚠️ Security Warning for Production:**
     > When deploying behind reverse proxies (Vercel, Cloudflare, AWS ALB,
     > etc.), you must set `TRUSTED_PROXIES` to your platform's upstream
     > proxy IPs. Incorrect configuration allows attackers to spoof their
     > IP address and bypass rate limiting entirely.
+    > Furthermore, `TRUSTED_PROXY_IPS` must be set in production to enforce proxy validation
+    > for password reset rate limiting. If `TRUSTED_PROXY_IPS` is empty in production,
+    > the server will raise an `ImproperlyConfigured` exception and fail to start.
 
 ### 🔌 6. Port Conflicts (Port 8000 Already in Use)
 If you already have another service running on your local port 8000, Django will fail to bind and throw `Error: That port is already in use.`

@@ -367,6 +367,40 @@ class PasswordResetRateLimitTest(TestCase):
         self.assertNotContains(response, '15 minute(s)')
         self.assertEqual(len(mail.outbox), 0)
 
+    @override_settings(TRUSTED_PROXY_IPS=[], IS_PRODUCTION=False)
+    def test_client_ip_untrusted_proxy_ignored(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '127.0.0.1')
+
+    @override_settings(TRUSTED_PROXY_IPS=['127.0.0.1'], IS_PRODUCTION=False)
+    def test_client_ip_trusted_proxy_used(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '203.0.113.195')
+
+    @override_settings(TRUSTED_PROXY_IPS=['10.0.0.1'], IS_PRODUCTION=True)
+    def test_client_ip_production_untrusted_proxy_ignored(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '127.0.0.1')
+
+    @override_settings(TRUSTED_PROXY_IPS=['127.0.0.1'], IS_PRODUCTION=True)
+    def test_client_ip_production_trusted_proxy_used(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '203.0.113.195')
+
+    @override_settings(TRUSTED_PROXY_IPS=['127.0.0.1'], IS_PRODUCTION=True)
+    def test_client_ip_uses_rightmost_untrusted_hop(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(
+            self.reset_url,
+            HTTP_X_FORWARDED_FOR='198.51.100.77, 203.0.113.195',
+            REMOTE_ADDR='127.0.0.1',
+        )
+        self.assertEqual(view._client_ip(request), '203.0.113.195')
+
 
 class MoveValidationTest(TestCase):
     """Test move validation wrapper by mocking validate_move."""
@@ -946,8 +980,7 @@ class DrawRuleTest(SimpleTestCase):
             restored.en_passant_target,
             game.en_passant_target
         )
-        
-        
+
     def test_en_passant_capture_removes_pawn(self):
         game = ChessGame()
 
@@ -966,11 +999,10 @@ class DrawRuleTest(SimpleTestCase):
     # e5xd6 en passant
         success, _, captured, _ = game.make_move(3, 4, 2, 3)
 
-
         self.assertTrue(success)
         self.assertEqual(captured, 'p')
         
-        #self.assertEqual(game.board[3][4])      # e5 empty
+        # self.assertEqual(game.board[3][4])      # e5 empty
         self.assertIsNone(game.board[3][3])     # captured pawn removed
         self.assertEqual(game.board[2][3], 'P') # white pawn moved to d6
         
@@ -1030,7 +1062,6 @@ class AIMoveTest(TestCase):
             '/api/new-game/', data=json.dumps({'mode': 'ai'}),
             content_type='application/json'
         )
-
         r = self.client.post('/api/ai-move/', content_type='application/json')
         data = r.json()
         self.assertTrue(data['valid'])
@@ -1044,10 +1075,8 @@ class AIMoveTest(TestCase):
 
 class OpeningBookTest(SimpleTestCase):
     """Unit tests for the opening-book integration in ChessGame."""
-
-    # ------------------------------------------------------------------
+    
     # FEN key generation
-    # ------------------------------------------------------------------
 
     def test_fen_key_starting_position(self):
         """Starting position must produce the correct standard FEN key."""
@@ -1082,9 +1111,7 @@ class OpeningBookTest(SimpleTestCase):
         # Ranks 3-6 (0-indexed 2-5) are empty at start → four '8' segments
         self.assertIn('/8/', key)
 
-    # ------------------------------------------------------------------
     # Book loading
-    # ------------------------------------------------------------------
 
     def test_book_loads_from_json_file(self):
         """The book file must be loadable and return a non-empty dict."""
@@ -1113,9 +1140,7 @@ class OpeningBookTest(SimpleTestCase):
         # Restore so other tests use the real book
         ChessGame._opening_book = None
 
-    # ------------------------------------------------------------------
     # get_opening_book_move
-    # ------------------------------------------------------------------
 
     def test_starting_position_returns_book_move(self):
         """At the start of the game a valid book move should be returned."""
@@ -1230,9 +1255,7 @@ class OpeningBookTest(SimpleTestCase):
             'Book should produce variety across 60 calls')
         ChessGame._opening_book = None
 
-    # ------------------------------------------------------------------
     # Integration: get_ai_move uses book on first move
-    # ------------------------------------------------------------------
 
     def test_get_ai_move_uses_book_before_engine(self):
         """get_ai_move() must use the book first."""
@@ -1331,8 +1354,8 @@ class StatsCleanupTest(TestCase):
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'No games played yet.')
-        # Summary cards should show 0 (now 4 cards)
-        self.assertContains(response, '<div class="num">0</div>', count=5)
+        # Summary cards should show 17 cards
+        self.assertContains(response, '<div class="num">0</div>', count=17)
         # No <tr> should be present in the tbody
         self.assertNotContains(response, '<tr><td>')
 
@@ -2780,3 +2803,105 @@ class LoginBruteForceProtectionTest(TestCase):
             'Too many login attempts from this IP address. '
             'Try again in 12 minutes.'
         )
+
+
+class ChessPuzzleDailyApiTest(TestCase):
+    """Test suite for ChessPuzzle model and daily puzzle API endpoint."""
+
+    def test_daily_puzzle_api_fallback_when_db_empty(self):
+        """When no puzzles exist in database, API returns default puzzle."""
+        from game.models import ChessPuzzle
+        # Clear out seeded puzzles to test empty db scenario
+        ChessPuzzle.objects.all().delete()
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], 0)
+        self.assertEqual(data['title'], "Default Puzzle")
+        self.assertEqual(data['difficulty'], "medium")
+        self.assertIn("6k1/5ppp/8/8/8/8/5PPP/6KQ", data['fen'])
+
+    def test_daily_puzzle_api_selects_by_date(self):
+        """When a puzzle is assigned to today's date, it is returned."""
+        from game.models import ChessPuzzle
+        from django.utils import timezone
+
+        # Clear out seeded puzzles first to ensure clean test
+        ChessPuzzle.objects.all().delete()
+
+        today = timezone.localdate()
+        expected_puzzle = ChessPuzzle.objects.create(
+            title="Today's Special Puzzle",
+            fen="8/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["e2e4"],
+            difficulty="hard",
+            date=today
+        )
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], expected_puzzle.id)
+        self.assertEqual(data['title'], "Today's Special Puzzle")
+        self.assertEqual(data['difficulty'], "hard")
+        self.assertEqual(data['solution'], ["e2e4"])
+
+    def test_daily_puzzle_api_fallback_to_modulo(self):
+        """Deterministic fallback when no puzzle matches today."""
+        from game.models import ChessPuzzle
+        from django.utils import timezone
+
+        # Clear out seeded puzzles
+        ChessPuzzle.objects.all().delete()
+
+        puzzle1 = ChessPuzzle.objects.create(
+            title="Puzzle One",
+            fen="8/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["a2a4"],
+            difficulty="easy"
+        )
+        puzzle2 = ChessPuzzle.objects.create(
+            title="Puzzle Two",
+            fen="7k/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["b2b4"],
+            difficulty="medium"
+        )
+
+        today = timezone.localdate()
+        # today.toordinal() will either be even or odd, meaning
+        # today.toordinal() % 2 will select either puzzle 1 or 2
+        expected_index = today.toordinal() % 2
+        expected_puzzle = puzzle1 if expected_index == 0 else puzzle2
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], expected_puzzle.id)
+        self.assertEqual(data['title'], expected_puzzle.title)
+
+    def test_chess_puzzle_fen_validation(self):
+        """Invalid FEN format raises ValidationError on save."""
+        from game.models import ChessPuzzle
+        from django.core.exceptions import ValidationError
+
+        # Too few fields
+        puzzle = ChessPuzzle(
+            title="Invalid FEN Puzzle",
+            fen="8/8/8/8/8/8/8/8 w",
+            solution=["e2e4"]
+        )
+        with self.assertRaises(ValidationError):
+            puzzle.save()
+
+        # Invalid number of ranks
+        puzzle2 = ChessPuzzle(
+            title="Invalid FEN Puzzle 2",
+            fen="8/8/8/8/8/8/8 w - - 0 1",
+            solution=["e2e4"]
+        )
+        with self.assertRaises(ValidationError):
+            puzzle2.save()
