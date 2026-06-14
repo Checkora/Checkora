@@ -43,18 +43,20 @@
                 {{ form.non_field_errors }}
             {% endif %}
             
-            {% for field in form %}
-                <div class="form-group">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <span class="helptext">{{ field.help_text}}</span>
-                    {% endif %}
-                    {% if field.errors %}
-                        {{ field.errors }}
-                    {% endif %}
-                </div>
-            {% endfor %}
+            <div class="form-groups-wrapper">
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <span class="helptext">{{ field.help_text}}</span>
+                        {% endif %}
+                        {% if field.errors %}
+                            {{ field.errors }}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
             
             <button type="submit" class="btn btn-gold">Create Account</button>
         </form>

@@ -141,7 +141,14 @@ body {
     overflow-y: auto;
 }
 
-.form-group { margin-bottom: 14px; }
+.form-groups-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+    row-gap: 0;
+}
+
+.form-group { margin-bottom: 12px; }
 .form-group label {
     display: block;
     font-size: 1rem;
@@ -352,12 +359,16 @@ body.login-page .helptext {
     list-style: none;
     padding: 0;
     margin: 8px 0 0 0;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #6a6a8a;
     opacity: 1;
     max-height: 120px;
     overflow: hidden;
     transition: opacity 0.4s ease, max-height 0.4s ease, margin 0.4s ease;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8px;
+    row-gap: 2px;
 }
 .password-checklist li {
     display: flex;
@@ -472,6 +483,10 @@ body.login-page .helptext {
     .header {
         width: 100%;
         max-width: 100%;
+    }
+
+    .form-groups-wrapper, .password-checklist {
+        grid-template-columns: 1fr;
     }
 }
 
