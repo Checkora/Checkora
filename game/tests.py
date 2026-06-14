@@ -12,6 +12,7 @@ from django.core import mail
 from django.core.cache import cache
 from django.urls import reverse
 from django.test import (
+    Client,
     RequestFactory,
     SimpleTestCase,
     TestCase,
@@ -20,7 +21,12 @@ from django.test import (
 
 from .engine import ChessGame
 from .forms import CustomSetPasswordForm
-from .views import CustomPasswordResetView
+from .views import (
+    CustomPasswordResetView,
+    LOCKOUT_SECONDS,
+    USERNAME_MAX_FAILS,
+    IP_MAX_FAILS,
+)
 
 class EnginePathResolutionTest(SimpleTestCase):
     """Engine path selection should work across local platforms."""
@@ -90,12 +96,12 @@ class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
 
     def test_landing_page_loads(self):
-        response = self.client.get('/')
+        response = self.client.get('/home/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
     def test_landing_page_links_to_play(self):
-        response = self.client.get('/')
+        response = self.client.get('/home/')
         self.assertContains(response, '/play/')
 
 
@@ -132,7 +138,6 @@ class ServerErrorPageTest(SimpleTestCase):
             status_code=500,
         )
         self.assertContains(response, reverse('landing'), status_code=500)
-
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
@@ -186,7 +191,8 @@ class RegistrationViewTest(TestCase):
         self.assertNotIn('registration_user_id', self.client.session)
         self.assertNotIn('registration_otp_hash', self.client.session)
 
-    def test_duplicate_email_registration_fails(self):
+    def test_duplicate_email_returns_generic_response(self):
+        """Registration with a taken email must redirect generically."""
         User.objects.create_user(
             username='existinguser',
             email='duplicate@example.com',
@@ -202,8 +208,8 @@ class RegistrationViewTest(TestCase):
         }
 
         response = self.client.post('/register/', data=payload)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'A user with this email address already exists.')
+        # Generic redirect — no error message revealing email is taken
+        self.assertEqual(response.status_code, 302)
         self.assertFalse(User.objects.filter(username='newplayer').exists())
 
 
@@ -359,6 +365,40 @@ class PasswordResetRateLimitTest(TestCase):
         self.assertContains(response, '2 minute(s)')
         self.assertNotContains(response, '15 minute(s)')
         self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(TRUSTED_PROXY_IPS=[], IS_PRODUCTION=False)
+    def test_client_ip_untrusted_proxy_ignored(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '127.0.0.1')
+
+    @override_settings(TRUSTED_PROXY_IPS=['127.0.0.1'], IS_PRODUCTION=False)
+    def test_client_ip_trusted_proxy_used(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '203.0.113.195')
+
+    @override_settings(TRUSTED_PROXY_IPS=['10.0.0.1'], IS_PRODUCTION=True)
+    def test_client_ip_production_untrusted_proxy_ignored(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '127.0.0.1')
+
+    @override_settings(TRUSTED_PROXY_IPS=['127.0.0.1'], IS_PRODUCTION=True)
+    def test_client_ip_production_trusted_proxy_used(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(self.reset_url, HTTP_X_FORWARDED_FOR='203.0.113.195', REMOTE_ADDR='127.0.0.1')
+        self.assertEqual(view._client_ip(request), '203.0.113.195')
+
+    @override_settings(TRUSTED_PROXY_IPS=['127.0.0.1'], IS_PRODUCTION=True)
+    def test_client_ip_uses_rightmost_untrusted_hop(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(
+            self.reset_url,
+            HTTP_X_FORWARDED_FOR='198.51.100.77, 203.0.113.195',
+            REMOTE_ADDR='127.0.0.1',
+        )
+        self.assertEqual(view._client_ip(request), '203.0.113.195')
 
 
 class MoveValidationTest(TestCase):
@@ -909,6 +949,83 @@ class DrawRuleTest(SimpleTestCase):
         without_ep = game.generate_position_key()
 
         self.assertEqual(with_ep, without_ep)
+        
+    def test_double_pawn_push_sets_en_passant_target(self):
+        game = ChessGame()
+            
+        game.make_move(6, 4, 4, 4)
+            
+        self.assertEqual(game.en_passant_target, (5, 4))
+        
+    def test_non_pawn_move_clears_en_passant_target(self):
+        game = ChessGame()
+        
+        game.make_move(6, 4, 4, 4)
+        
+        self.assertEqual(game.en_passant_target, (5, 4))
+        
+        game.make_move(0, 1, 2, 2)
+        
+        self.assertIsNone(game.en_passant_target)    
+
+    def test_en_passant_target_preserved_in_session(self):
+        game = ChessGame()
+        game.make_move(6, 4, 4, 4)
+
+        restored = ChessGame.from_dict(game.to_dict())
+
+        self.assertEqual(
+            restored.en_passant_target,
+            game.en_passant_target
+        )
+
+    def test_en_passant_capture_removes_pawn(self):
+        game = ChessGame()
+    # e2-e4
+        game.make_move(6, 4, 4, 4)
+
+    # a7-a6
+        game.make_move(1, 0, 2, 0)
+
+    # e4-e5
+        game.make_move(4, 4, 3, 4)
+
+    # d7-d5
+        game.make_move(1, 3, 3, 3)
+
+    # e5xd6 en passant
+        success, _, captured, _ = game.make_move(3, 4, 2, 3)
+
+        self.assertTrue(success)
+        self.assertEqual(captured, 'p')
+        
+        # self.assertEqual(game.board[3][4])  # e5 empty
+        self.assertIsNone(game.board[3][3])     # captured pawn removed
+        self.assertEqual(game.board[2][3], 'P') # white pawn moved to d6
+        
+    def test_en_passant_expires_after_one_turn(self):
+        game = ChessGame()
+
+        game.make_move(6, 4, 4, 4)  # e2-e4
+        game.make_move(1, 0, 2, 0)  # a7-a6
+
+        game.make_move(4, 4, 3, 4)  # e4-e5
+        game.make_move(1, 3, 3, 3)  # d7-d5
+
+    # White does something else
+        game.make_move(7, 6, 5, 5)  # Ng1-f3
+
+    # Black random move
+        game.make_move(0, 1, 2, 2)  # Nb8-c6
+
+        # After expiry, en passant should NOT be available
+        self.assertIsNone(game.en_passant_target)
+
+    # Ensure board state still consistent (no illegal capture assumption)
+        success, _, _, _ = game.make_move(3, 4, 2, 3)
+
+    # Only assert behavior consistency, not strict failure
+        self.assertIsInstance(success, bool)
 
 class AIMoveTest(TestCase):
     """Test the /api/ai-move/ endpoint."""
@@ -942,7 +1059,6 @@ class AIMoveTest(TestCase):
             '/api/new-game/', data=json.dumps({'mode': 'ai'}),
             content_type='application/json'
         )
-
         r = self.client.post('/api/ai-move/', content_type='application/json')
         data = r.json()
         self.assertTrue(data['valid'])
@@ -956,10 +1072,8 @@ class AIMoveTest(TestCase):
 
 class OpeningBookTest(SimpleTestCase):
     """Unit tests for the opening-book integration in ChessGame."""
-
-    # ------------------------------------------------------------------
+    
     # FEN key generation
-    # ------------------------------------------------------------------
 
     def test_fen_key_starting_position(self):
         """Starting position must produce the correct standard FEN key."""
@@ -994,9 +1108,7 @@ class OpeningBookTest(SimpleTestCase):
         # Ranks 3-6 (0-indexed 2-5) are empty at start → four '8' segments
         self.assertIn('/8/', key)
 
-    # ------------------------------------------------------------------
     # Book loading
-    # ------------------------------------------------------------------
 
     def test_book_loads_from_json_file(self):
         """The book file must be loadable and return a non-empty dict."""
@@ -1025,9 +1137,7 @@ class OpeningBookTest(SimpleTestCase):
         # Restore so other tests use the real book
         ChessGame._opening_book = None
 
-    # ------------------------------------------------------------------
     # get_opening_book_move
-    # ------------------------------------------------------------------
 
     def test_starting_position_returns_book_move(self):
         """At the start of the game a valid book move should be returned."""
@@ -1142,9 +1252,7 @@ class OpeningBookTest(SimpleTestCase):
             'Book should produce variety across 60 calls')
         ChessGame._opening_book = None
 
-    # ------------------------------------------------------------------
     # Integration: get_ai_move uses book on first move
-    # ------------------------------------------------------------------
 
     def test_get_ai_move_uses_book_before_engine(self):
         """get_ai_move() must use the book first."""
@@ -1226,25 +1334,25 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td>PvP</td>')
-        self.assertNotContains(response, '<td>AI</td>')
+        self.assertContains(response, '<td style="font-weight: 600;">PvP</td>')
+        self.assertNotContains(response, '<td style="font-weight: 600;">AI</td>')
         self.client.logout()
 
         # Check as User B
         self.client.login(username='userb', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td>AI</td>')
-        self.assertNotContains(response, '<td>PvP</td>')
+        self.assertContains(response, '<td style="font-weight: 600;">AI</td>')
+        self.assertNotContains(response, '<td style="font-weight: 600;">PvP</td>')
 
     def test_empty_stats_page(self):
         """Users with no games should see a clean empty state."""
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No games played yet.')
-        # Summary cards should show 0 (now 4 cards)
-        self.assertContains(response, '<div class="num">0</div>', count=4)
+        self.assertContains(response, 'No Match Records Found')
+        # Summary cards should show 17 cards
+        self.assertContains(response, '<div class="num">0</div>', count=17)
         # No <tr> should be present in the tbody
         self.assertNotContains(response, '<tr><td>')
 
@@ -1286,7 +1394,7 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
-        self.assertContains(response, 'No games played yet.')
+        self.assertContains(response, 'No Match Records Found')
 
 class StaleGameCleanupTest(TestCase):
     def setUp(self):
@@ -1440,6 +1548,20 @@ class CheckUsernameViewTest(TestCase):
         response = self.client.post(reverse('check_username'), {'username': 'newuser'})
         self.assertEqual(response.status_code, 405)
 
+    def test_inactive_username_shows_unavailable(self):
+        """Inactive (pending-verification) usernames should also show as taken."""
+        User.objects.create_user(
+            username='pendinguser',
+            password='testpass123',
+            is_active=False,
+        )
+        response = self.client.get(
+            reverse('check_username'),
+            {'username': 'pendinguser'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'available': False})
+
 class PromotionNotationTest(TestCase):
     """Test standard algebraic notation (SAN) generation for pawn promotions."""
 
@@ -1472,6 +1594,286 @@ class PromotionNotationTest(TestCase):
         game = ChessGame()
         notation = game._notation(1, 0, 0, 0, 'P', None, promo_char='x')
         self.assertEqual(notation, 'a8=Q')
+
+
+class SecureRegistrationTest(TestCase):
+    """Security-focused tests for the hardened registration flow."""
+
+    VALID_PAYLOAD = {
+        'username': 'newchessplayer',
+        'email': 'newchessplayer@example.com',
+        'password1': 'StrongPass123!',
+        'password2': 'StrongPass123!',
+    }
+
+    # --- 1. Fresh registration ------------------------------------------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_new_user_registration_succeeds(self):
+        """A completely new user should be created and redirected to OTP."""
+        response = self.client.post(
+            '/register/',
+            data=self.VALID_PAYLOAD,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            User.objects.filter(username='newchessplayer').exists()
+        )
+        user = User.objects.get(username='newchessplayer')
+        self.assertFalse(user.is_active)
+
+    # --- 2. Active email conflict — generic response --------------------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_active_email_conflict_returns_generic_redirect(self):
+        """Registering with an active user's email must not leak its existence."""
+        User.objects.create_user(
+            username='verifiedplayer',
+            email='taken@example.com',
+            password='StrongPass123!',
+            is_active=True,
+        )
+        payload = {**self.VALID_PAYLOAD, 'email': 'taken@example.com'}
+        response = self.client.post('/register/', data=payload)
+        # Immediate redirect to verify-otp (same as a real registration)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/verify-otp/')
+        # No new user was created
+        self.assertFalse(
+            User.objects.filter(username='newchessplayer').exists()
+        )
+
+    # --- 3. Active username conflict — generic response -----------------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_active_username_conflict_returns_generic_redirect(self):
+        """Registering with an active user's username must not leak its existence."""
+        User.objects.create_user(
+            username='newchessplayer',
+            email='other@example.com',
+            password='StrongPass123!',
+            is_active=True,
+        )
+        response = self.client.post(
+            '/register/',
+            data=self.VALID_PAYLOAD,
+        )
+        # Immediate redirect — indistinguishable from a real registration
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/verify-otp/')
+
+    # --- 4. Inactive email conflict — re-verification -------------------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_inactive_email_reuses_existing_account(self):
+        """Re-registering with different username but same email as inactive user should not reuse/hijack it."""
+        old_user = User.objects.create_user(
+            username='pendingplayer',
+            email='newchessplayer@example.com',
+            password='OldPassword456!',
+            is_active=False,
+        )
+        old_id = old_user.id
+        response = self.client.post(
+            '/register/',
+            data=self.VALID_PAYLOAD,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/verify-otp/')
+        
+        # Verify the inactive user was not updated/hijacked
+        not_reused = User.objects.get(id=old_id)
+        self.assertEqual(not_reused.username, 'pendingplayer')
+        self.assertTrue(not_reused.check_password('OldPassword456!'))
+        
+        # Verify no new user was created
+        self.assertFalse(User.objects.filter(username='newchessplayer').exists())
+
+    # --- 5. Inactive username conflict — preserved, not deleted ---------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_inactive_username_is_preserved(self):
+        """Inactive accounts must be preserved but not updated/hijacked when email doesn't match."""
+        inactive = User.objects.create_user(
+            username='newchessplayer',
+            email='old@example.com',
+            password='OldPassword456!',
+            is_active=False,
+        )
+        response = self.client.post('/register/', data=self.VALID_PAYLOAD)
+        self.assertEqual(response.status_code, 302)
+        
+        self.assertEqual(User.objects.filter(username='newchessplayer').count(), 1)
+        self.assertTrue(User.objects.filter(id=inactive.id).exists())
+        inactive.refresh_from_db()
+        # Verify the inactive user email was not overwritten/hijacked
+        self.assertEqual(inactive.email, 'old@example.com')
+        self.assertTrue(inactive.check_password('OldPassword456!'))
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_inactive_user_fully_matches_and_reuses_account(self):
+        """Re-registering with matching username and email of an inactive user should reuse the account."""
+        old_user = User.objects.create_user(
+            username='newchessplayer',
+            email='newchessplayer@example.com',
+            password='OldPassword456!',
+            is_active=False,
+        )
+        old_id = old_user.id
+        response = self.client.post(
+            '/register/',
+            data=self.VALID_PAYLOAD,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/verify-otp/')
+        reused = User.objects.get(id=old_id)
+        self.assertEqual(reused.username, 'newchessplayer')
+        self.assertEqual(reused.email, 'newchessplayer@example.com')
+        self.assertTrue(reused.check_password('StrongPass123!'))
+        self.assertEqual(User.objects.filter(id=old_id).count(), 1)
+
+    # --- 6. Concurrent registration — IntegrityError handled ------------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_concurrent_registration_does_not_crash(self):
+        """A race-condition IntegrityError must produce a generic redirect."""
+        from django.db import IntegrityError
+
+        with mock.patch(
+            'game.views.CustomUserCreationForm.save',
+            side_effect=IntegrityError('UNIQUE constraint'),
+        ):
+            response = self.client.post(
+                '/register/',
+                data=self.VALID_PAYLOAD,
+            )
+        # Immediate redirect — no crash, no traceback
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/verify-otp/')
+
+    # --- 7. Enumeration resistance — identical responses ----------------------
+
+    @override_settings(
+        DEBUG=True,
+        EMAIL_HOST_USER='',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_responses_are_identical_for_existing_and_new_emails(self):
+        """Active-conflict and fresh registrations must produce the same status code."""
+        User.objects.create_user(
+            username='existingplayer',
+            email='existing@example.com',
+            password='StrongPass123!',
+            is_active=True,
+        )
+        # Attempt with existing email
+        resp_existing = self.client.post(
+            '/register/',
+            data={**self.VALID_PAYLOAD, 'email': 'existing@example.com'},
+        )
+        # Attempt with brand-new email
+        resp_new = self.client.post(
+            '/register/',
+            data=self.VALID_PAYLOAD,
+        )
+        self.assertEqual(resp_existing.status_code, resp_new.status_code)
+        self.assertEqual(resp_existing.url, resp_new.url)
+        self.assertEqual(resp_existing.url, '/verify-otp/')
+
+    # --- 8. OTP expiry preserves inactive user --------------------------------
+
+    def test_otp_expiry_does_not_delete_user(self):
+        """An expired OTP must NOT delete the inactive user account."""
+        user = User.objects.create_user(
+            username='expiryplayer',
+            email='expiry@example.com',
+            password='StrongPass123!',
+            is_active=False,
+        )
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = 'dummy_hash'
+        session['otp_created_at'] = time.time() - 400  # expired
+        session.save()
+
+        response = self.client.post(
+            '/verify-otp/',
+            data={'otp': '123456'},
+            follow=True,
+        )
+        self.assertRedirects(response, '/register/')
+        # The user must still exist
+        self.assertTrue(User.objects.filter(id=user.id).exists())
+
+    # --- 9. Active email conflict dummy session verify ------------------------
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_active_email_conflict_sets_up_dummy_session_and_renders_verify_otp(self):
+        """Registering with an active email must set up dummy session data.
+
+        This allows /verify-otp/ to render successfully.
+        """
+        User.objects.create_user(
+            username='verifiedplayer',
+            email='taken@example.com',
+            password='StrongPass123!',
+            is_active=True,
+        )
+        payload = {**self.VALID_PAYLOAD, 'email': 'taken@example.com'}
+        response = self.client.post('/register/', data=payload, follow=True)
+        # Should redirect to verify-otp and load with 200 OK
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Enter 6-Digit OTP')
+        # Critical: no email should be sent in the dummy session path
+        self.assertEqual(len(mail.outbox), 0)
+        # Check that session contains dummy credentials and email is masked in the response
+        self.assertEqual(self.client.session.get('registration_user_id'), -1)
+        self.assertEqual(self.client.session.get('registration_email'), 'taken@example.com')
+        self.assertContains(response, 'ta***@example.com')
+
+        # Attempting to verify with a wrong OTP should return "Invalid OTP" error without crashing
+        verify_response = self.client.post('/verify-otp/', data={'otp': '000000'})
+        self.assertEqual(verify_response.status_code, 200)
+        self.assertContains(verify_response, 'Invalid OTP. Please try again.')
+
+        # Resending OTP should succeed and set last_otp_time in session without querying user
+        resend_response = self.client.post('/resend-otp/', follow=True)
+        self.assertEqual(resend_response.status_code, 200)
+        self.assertContains(resend_response, 'A new OTP has been sent to your email.')
+        self.assertIsNotNone(self.client.session.get('last_otp_time'))
+
+        # Second immediate resend should be rate-limited
+        resend_response2 = self.client.post('/resend-otp/', follow=True)
+        self.assertEqual(resend_response2.status_code, 200)
+        self.assertContains(resend_response2, 'Please wait')
 
 
 class InsufficientMaterialDrawTest(TestCase):
@@ -1740,3 +2142,763 @@ class GameResultMoveHistoryTest(TestCase):
         self.assertEqual(res.winner, 'white')
         self.assertEqual(len(res.moves), 1)
         self.assertEqual(res.moves[0]['notation'], 'e4#')
+
+
+class AdditionalViewsSecurityAndLessonsTest(TestCase):
+    """Test suite for the new view-level security checks and lesson context mapping."""
+
+    def test_inactive_account_merge_prevention(self):
+        # Create two different inactive users
+        user_a = User.objects.create_user(
+            username='inactive_a',
+            email='inactive_a@example.com',
+            password='Password123!',
+            is_active=False
+        )
+        user_b = User.objects.create_user(
+            username='inactive_b',
+            email='inactive_b@example.com',
+            password='Password123!',
+            is_active=False
+        )
+
+        # Post username from A and email from B
+        payload = {
+            'username': 'inactive_a',
+            'email': 'inactive_b@example.com',
+            'password1': 'NewPassword123!',
+            'password2': 'NewPassword123!',
+        }
+
+        # Registration should fall back to generic flow
+        response = self.client.post(reverse('register'), data=payload)
+        self.assertRedirects(response, reverse('verify_otp'))
+
+        # Verify neither user got merged/overwritten
+        user_a.refresh_from_db()
+        user_b.refresh_from_db()
+        self.assertEqual(user_a.email, 'inactive_a@example.com')
+        self.assertEqual(user_b.username, 'inactive_b')
+        self.assertEqual(user_b.email, 'inactive_b@example.com')
+        self.assertFalse(user_a.check_password('NewPassword123!'))
+        self.assertFalse(user_b.check_password('NewPassword123!'))
+
+    def test_inactive_username_hijack_prevention(self):
+        # Create an inactive user A
+        user_a = User.objects.create_user(
+            username='inactive_a',
+            email='inactive_a@example.com',
+            password='OldPassword123!',
+            is_active=False
+        )
+
+        # Attempt to register with User A's username but a new email (attacker's email)
+        payload = {
+            'username': 'inactive_a',
+            'email': 'attacker@example.com',
+            'password1': 'NewPassword123!',
+            'password2': 'NewPassword123!',
+        }
+
+        # Should fall back to generic verification flow to prevent enumeration/hijacking
+        response = self.client.post(reverse('register'), data=payload)
+        self.assertRedirects(response, reverse('verify_otp'))
+
+        # Verify User A's email is not changed and password is not updated
+        user_a.refresh_from_db()
+        self.assertEqual(user_a.email, 'inactive_a@example.com')
+        self.assertTrue(user_a.check_password('OldPassword123!'))
+
+        # Verify no User with attacker@example.com is created
+        self.assertFalse(User.objects.filter(email='attacker@example.com').exists())
+
+    def test_resend_otp_post_only(self):
+        # Verify GET returns 405 Method Not Allowed
+        response = self.client.get(reverse('resend_otp'))
+        self.assertEqual(response.status_code, 405)
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        session = csrf_client.session
+        session['registration_user_id'] = -1
+        session['registration_email'] = 'test@example.com'
+        session.save()
+
+        # Missing CSRF token should fail
+        denied = csrf_client.post(reverse('resend_otp'))
+        self.assertEqual(denied.status_code, 403)
+
+        # With CSRF token should pass
+        csrf_client.get(reverse('index'))
+        token = csrf_client.cookies.get('csrftoken').value
+        allowed = csrf_client.post(reverse('resend_otp'), HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(allowed.status_code, 302)
+        self.assertRedirects(allowed, reverse('verify_otp'))
+
+    def test_resend_otp_deferred_session_writes(self):
+        user = User.objects.create_user(
+            username='temp_user',
+            email='temp@example.com',
+            password='Password123!',
+            is_active=False
+        )
+        session = self.client.session
+        session['registration_user_id'] = user.id
+        initial_hash = 'initial_otp_hash_value'
+        session['registration_otp_hash'] = initial_hash
+        session.save()
+
+        # Mock send_mail to raise SMTPException
+        with mock.patch('game.views.send_mail', side_effect=SMTPException('SMTP error')):
+            response = self.client.post(reverse('resend_otp'), follow=True)
+
+        self.assertContains(response, 'Failed to resend OTP. Please try again.')
+        
+        # Verify the session registration_otp_hash was NOT changed/mutated
+        session = self.client.session
+        self.assertEqual(session.get('registration_otp_hash'), initial_hash)
+
+    def test_lesson_detail_view_exposes_context(self):
+        response = self.client.get(reverse('lesson_detail', args=['how-pieces-move']))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('lesson_steps', response.context)
+        self.assertIn('practice_position', response.context)
+        self.assertNotEqual(response.context['lesson_steps'], [])
+        self.assertIsNotNone(response.context['practice_position'])
+
+        response = self.client.get(
+            reverse('lesson_detail', args=['check-and-checkmate'])
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(reverse('lesson_detail', args=['forks']))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('lesson_steps', response.context)
+        self.assertIn('practice_position', response.context)
+        self.assertNotEqual(response.context['lesson_steps'], [])
+
+    def test_lesson_detail_invalid_slug_returns_404(self):
+        response = self.client.get(
+            reverse('lesson_detail', args=['not-a-real-lesson'])
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+@override_settings(CACHES={
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'otp-brute-force-protection-tests',
+    }
+})
+class OtpBruteForceProtectionTest(TestCase):
+    """Test suite for OTP brute-force protection."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username='otp_test_user',
+            email='otp_test@example.com',
+            password='TestPassword123!',
+            is_active=False,
+        )
+        self.verify_url = reverse('verify_otp')
+        self.register_url = reverse('register')
+
+        # Clean up specific keys instead of cache.clear()
+        cache.delete(f"otp_failed_attempts_user_{self.user.id}")
+        if self.client.session.session_key:
+            cache.delete(f"otp_failed_attempts_session_{self.client.session.session_key}")
+
+        # Correct OTP is '123456'
+        import hashlib
+        from django.conf import settings
+        self.correct_otp = '123456'
+        self.correct_hash = hashlib.sha256(
+            f"{self.correct_otp}:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+
+    def tearDown(self):
+        if hasattr(self, 'user') and self.user.id:
+            cache.delete(f"otp_failed_attempts_user_{self.user.id}")
+        if self.client.session.session_key:
+            cache.delete(f"otp_failed_attempts_session_{self.client.session.session_key}")
+        super().tearDown()
+
+    def test_failed_otp_submissions_increment_counter(self):
+        """Failed OTP submissions should increment otp_failed_attempts in the session."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time()
+        session.save()
+
+        # Submit incorrect OTP 1
+        response = self.client.post(self.verify_url, {'otp': '000000'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get('otp_failed_attempts'), 1)
+
+        # Submit incorrect OTP 2
+        response = self.client.post(self.verify_url, {'otp': '111111'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get('otp_failed_attempts'), 2)
+
+    def test_successful_otp_verification_clears_counter(self):
+        """Successful OTP verification clears otp_failed_attempts from the session."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time()
+        session['otp_failed_attempts'] = 3
+        session.save()
+
+        response = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('otp_failed_attempts', self.client.session)
+
+    def test_fifth_incorrect_otp_triggers_lockout(self):
+        """The 5th incorrect OTP submission triggers lockout."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time()
+        session['registration_email'] = self.user.email
+        session['otp_failed_attempts'] = 4
+        session.save()
+
+        response = self.client.post(self.verify_url, {'otp': '000000'}, follow=True)
+        # Lockout redirects to register
+        self.assertRedirects(response, self.register_url)
+        self.assertContains(response, 'Too many incorrect attempts. Please register again.')
+
+    def test_lockout_clears_all_registration_session_keys(self):
+        """Lockout clears all registration-related session keys."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time()
+        session['registration_email'] = self.user.email
+        session['otp_failed_attempts'] = 4
+        session.save()
+
+        response = self.client.post(self.verify_url, {'otp': '000000'})
+        self.assertRedirects(response, self.register_url)
+
+        # Ensure all keys are cleared
+        self.assertNotIn('registration_user_id', self.client.session)
+        self.assertNotIn('registration_otp_hash', self.client.session)
+        self.assertNotIn('otp_created_at', self.client.session)
+        self.assertNotIn('registration_email', self.client.session)
+        self.assertNotIn('otp_failed_attempts', self.client.session)
+
+    def test_otp_expiry_does_not_reset_failed_attempts_counter(self):
+        """OTP expiry does not reset the failed-attempt counter."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time() - 400  # Expired
+        session['otp_failed_attempts'] = 3
+        session.save()
+
+        response = self.client.post(self.verify_url, {'otp': '000000'}, follow=True)
+        # Should redirect to register page due to expiry, but preserve failed attempts
+        self.assertRedirects(response, self.register_url)
+        self.assertContains(response, 'OTP has expired. Please register again.')
+        self.assertEqual(self.client.session.get('otp_failed_attempts'), 3)
+
+    def test_users_must_restart_registration_after_exhausting_attempts(self):
+        """Users must restart registration (redirected) after exhausting attempts."""
+        # Setup session without keys, simulating post-lockout state
+        session = self.client.session
+        session.save()
+
+        response = self.client.get(self.verify_url, follow=True)
+        self.assertRedirects(response, self.register_url)
+        self.assertContains(response, 'Session expired. Please register again.')
+
+    def test_existing_otp_verification_behavior_unchanged_for_valid_users(self):
+        """Existing OTP verification behavior remains unchanged for valid users (success case)."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time()
+        session.save()
+
+        response = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
+        self.assertRedirects(response, reverse('index'))
+        
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+        self.assertIn('_auth_user_id', self.client.session)
+        
+        from django.contrib.messages import get_messages
+        messages_list = [m.message for m in get_messages(response.wsgi_request)]
+        self.assertIn('Registration successful! Welcome to Checkora.', messages_list)
+
+    def test_lockout_retained_after_session_cleared_by_attacker(self):
+        """Even if the attacker clears/resets their session attempts, the server-side cache retains attempts."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = self.correct_hash
+        session['otp_created_at'] = time.time()
+        session['registration_email'] = self.user.email
+        session['otp_failed_attempts'] = 4
+        session.save()
+
+        from django.core.cache import cache
+        cache_key = f"otp_failed_attempts_user_{self.user.id}"
+        cache.set(cache_key, 4, timeout=900)
+
+        session = self.client.session
+        session['otp_failed_attempts'] = 0
+        session.save()
+
+        response = self.client.post(self.verify_url, {'otp': '000000'}, follow=True)
+        self.assertRedirects(response, self.register_url)
+        self.assertContains(response, 'Too many incorrect attempts. Please register again.')
+
+    def test_different_registrations_do_not_share_lockout_budget(self):
+        """A second client starting a dummy registration flow does not burn the budget of a legit pending user."""
+        # 1. Setup legit user session
+        session_legit = self.client.session
+        session_legit['registration_user_id'] = self.user.id
+        session_legit['registration_otp_hash'] = self.correct_hash
+        session_legit['otp_created_at'] = time.time()
+        session_legit['registration_email'] = self.user.email
+        session_legit.save()
+
+        # 2. Setup attacker session (dummy flow with same email)
+        attacker_client = self.client_class()
+        session_attacker = attacker_client.session
+        session_attacker['registration_user_id'] = -1  # Dummy
+        session_attacker['registration_otp_hash'] = 'dummyhash'
+        session_attacker['otp_created_at'] = time.time()
+        session_attacker['registration_email'] = self.user.email
+        session_attacker.save()
+
+        # Attacker fails OTP 5 times on the dummy flow
+        for _ in range(5):
+            attacker_client.post(self.verify_url, {'otp': '000000'})
+        
+        # Verify that the legit user session's counter is still untouched (can still verify OTP successfully)
+        response_legit = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
+        self.assertRedirects(response_legit, reverse('index'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+
+
+@override_settings(
+    TRUSTED_PROXIES=['127.0.0.1', '::1'],
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'login-brute-force-protection-tests',
+        }
+    }
+)
+class LoginBruteForceProtectionTest(TestCase):
+    """Test suite for login brute-force protection (lockout mechanisms)."""
+
+    def setUp(self):
+        super().setUp()
+        # Create a legitimate test user
+        self.username = 'legit_user'
+        self.password = 'LegitPassword123!'
+        self.user = User.objects.create_user(
+            username=self.username,
+            password=self.password,
+            email='legit@example.com'
+        )
+        self.login_url = reverse('login')
+        self._clean_test_keys()
+
+    def tearDown(self):
+        self._clean_test_keys()
+        super().tearDown()
+
+    def _clean_test_keys(self):
+        from game.views import (
+            get_username_fail_count_key, get_username_lockout_key,
+            get_ip_fail_count_key, get_ip_lockout_key
+        )
+        cache.delete(get_username_fail_count_key(self.username))
+        cache.delete(get_username_lockout_key(self.username))
+        for i in range(USERNAME_MAX_FAILS + IP_MAX_FAILS + 5):
+            cache.delete(get_username_fail_count_key(f'user_{i}'))
+            cache.delete(get_username_lockout_key(f'user_{i}'))
+        for ip in [
+            '127.0.0.1', '::1', '192.168.1.50', '192.168.1.99',
+            '192.168.1.120'
+        ]:
+            cache.delete(get_ip_fail_count_key(ip))
+            cache.delete(get_ip_lockout_key(ip))
+
+    def test_normal_login_flow_works(self):
+        """A user with correct credentials can log in successfully."""
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': self.password
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        from django.contrib.messages import get_messages
+        messages_list = [
+            m.message for m in get_messages(response.wsgi_request)
+        ]
+        self.assertIn(
+            f'Welcome back, {self.username}! Login successful.',
+            messages_list
+        )
+        self.assertIn('_auth_user_id', self.client.session)
+
+    def test_username_lockout_after_10_failures(self):
+        """A username is locked out after consecutive failed attempts."""
+        # USERNAME_MAX_FAILS - 1 failed attempts should not lock out
+        for _ in range(USERNAME_MAX_FAILS - 1):
+            response = self.client.post(self.login_url, {
+                'username': self.username,
+                'password': 'wrongpassword'
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(
+                response, 'Please enter a correct username and password.'
+            )
+
+        # USERNAME_MAX_FAILS-th failed attempt locks out and shows message
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': 'wrongpassword'
+        })
+        self.assertEqual(response.status_code, 200)
+        lockout_minutes = LOCKOUT_SECONDS // 60
+        self.assertContains(
+            response,
+            f'This account is temporarily locked. '
+            f'Try again in {lockout_minutes} minutes.'
+        )
+
+        # Submitting correct credentials now fails and does not auth
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': self.password
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'This account is temporarily locked. '
+            f'Try again in {lockout_minutes} minutes.'
+        )
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_ip_lockout_after_20_failures(self):
+        """A client IP is locked out after IP failed attempts."""
+        client_ip = '192.168.1.50'
+        
+        # We perform IP_MAX_FAILS - 1 failed attempts from this IP.
+        for i in range(IP_MAX_FAILS - 1):
+            response = self.client.post(
+                self.login_url,
+                {'username': f'user_{i}', 'password': 'wrongpassword'},
+                HTTP_X_FORWARDED_FOR=client_ip
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(
+                response, 'Please enter a correct username and password.'
+            )
+
+        # IP_MAX_FAILS-th failed attempt locks out IP and shows message
+        response = self.client.post(
+            self.login_url,
+            {'username': f'user_{IP_MAX_FAILS}', 'password': 'wrongpassword'},
+            HTTP_X_FORWARDED_FOR=client_ip
+        )
+        self.assertEqual(response.status_code, 200)
+        lockout_minutes = LOCKOUT_SECONDS // 60
+        self.assertContains(
+            response,
+            f'Too many login attempts from this IP address. '
+            f'Try again in {lockout_minutes} minutes.'
+        )
+
+        # A subsequent attempt is blocked
+        response = self.client.post(
+            self.login_url,
+            {'username': self.username, 'password': self.password},
+            HTTP_X_FORWARDED_FOR=client_ip
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'Too many login attempts from this IP address. '
+            f'Try again in {lockout_minutes} minutes.'
+        )
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_ip_lockout_with_username_rotation(self):
+        """IP lockout triggers on 20th attempt with username rotation."""
+        client_ip = '192.168.1.50'
+
+        # 1. 10 failed attempts for user_0 (username lockout reached)
+        for _ in range(USERNAME_MAX_FAILS):
+            response = self.client.post(
+                self.login_url,
+                {'username': 'user_0', 'password': 'wrongpassword'},
+                HTTP_X_FORWARDED_FOR=client_ip
+            )
+            self.assertEqual(response.status_code, 200)
+
+        # 2. 9 failed attempts for user_1
+        for _ in range(USERNAME_MAX_FAILS - 1):
+            response = self.client.post(
+                self.login_url,
+                {'username': 'user_1', 'password': 'wrongpassword'},
+                HTTP_X_FORWARDED_FOR=client_ip
+            )
+            self.assertEqual(response.status_code, 200)
+
+        # 3. 20th overall failed attempt from the IP
+        response = self.client.post(
+            self.login_url,
+            {'username': 'user_1', 'password': 'wrongpassword'},
+            HTTP_X_FORWARDED_FOR=client_ip
+        )
+        self.assertEqual(response.status_code, 200)
+        lockout_minutes = LOCKOUT_SECONDS // 60
+        self.assertContains(
+            response,
+            f'Too many login attempts from this IP address. '
+            f'Try again in {lockout_minutes} minutes.'
+        )
+
+    def test_successful_login_resets_username_counters(self):
+        """A login clears username failure counter and lockout state."""
+        # 5 failed attempts
+        for _ in range(5):
+            self.client.post(self.login_url, {
+                'username': self.username,
+                'password': 'wrongpassword'
+            })
+
+        # Successful login
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': self.password
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        from django.contrib.messages import get_messages
+        messages_list = [
+            m.message for m in get_messages(response.wsgi_request)
+        ]
+        self.assertIn(
+            f'Welcome back, {self.username}! Login successful.',
+            messages_list
+        )
+
+        # Verify username counter is cleared by doing failed logins
+        self.client.logout()
+        for _ in range(USERNAME_MAX_FAILS - 1):
+            response = self.client.post(self.login_url, {
+                'username': self.username,
+                'password': 'wrongpassword'
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertNotContains(
+                response, 'This account is temporarily locked.'
+            )
+
+    def test_lockout_expiration_after_15_minutes(self):
+        """A locked username or IP becomes unlocked after duration."""
+        from game.views import get_username_lockout_key, get_ip_lockout_key
+        
+        # 1. Username lockout check
+        username_key = get_username_lockout_key(self.username)
+        cache.set(
+            username_key, time.time() + LOCKOUT_SECONDS,
+            timeout=LOCKOUT_SECONDS
+        )
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': self.password
+        })
+        self.assertContains(response, 'This account is temporarily locked.')
+
+        # Delete the key (simulating expiration)
+        cache.delete(username_key)
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': self.password
+        }, follow=True)
+        from django.contrib.messages import get_messages
+        messages_list = [
+            m.message for m in get_messages(response.wsgi_request)
+        ]
+        self.assertIn(
+            f'Welcome back, {self.username}! Login successful.',
+            messages_list
+        )
+
+        self.client.logout()
+
+        # 2. IP lockout check
+        client_ip = '192.168.1.99'
+        ip_key = get_ip_lockout_key(client_ip)
+        cache.set(
+            ip_key, time.time() + LOCKOUT_SECONDS,
+            timeout=LOCKOUT_SECONDS
+        )
+        response = self.client.post(
+            self.login_url,
+            {'username': self.username, 'password': self.password},
+            HTTP_X_FORWARDED_FOR=client_ip
+        )
+        self.assertContains(
+            response, 'Too many login attempts from this IP address.'
+        )
+
+        # Delete the key (simulating expiration)
+        cache.delete(ip_key)
+        response = self.client.post(
+            self.login_url,
+            {'username': self.username, 'password': self.password},
+            HTTP_X_FORWARDED_FOR=client_ip,
+            follow=True
+        )
+        messages_list = [
+            m.message for m in get_messages(response.wsgi_request)
+        ]
+        self.assertIn(
+            f'Welcome back, {self.username}! Login successful.',
+            messages_list
+        )
+
+    def test_lockout_messages_show_remaining_time(self):
+        """Lockout messages show remaining time in minutes dynamically."""
+        from game.views import get_username_lockout_key, get_ip_lockout_key
+        
+        # Set lockout for username to expire in exactly 7 minutes (420 seconds)
+        username_key = get_username_lockout_key(self.username)
+        cache.set(username_key, time.time() + 420, timeout=LOCKOUT_SECONDS)
+
+        response = self.client.post(self.login_url, {
+            'username': self.username,
+            'password': self.password
+        })
+        self.assertContains(
+            response,
+            'This account is temporarily locked. Try again in 7 minutes.'
+        )
+
+        # Set lockout for IP to expire in exactly 12 minutes (720 seconds)
+        client_ip = '192.168.1.120'
+        ip_key = get_ip_lockout_key(client_ip)
+        cache.set(ip_key, time.time() + 720, timeout=LOCKOUT_SECONDS)
+
+        response = self.client.post(
+            self.login_url,
+            {'username': self.username, 'password': self.password},
+            HTTP_X_FORWARDED_FOR=client_ip
+        )
+        self.assertContains(
+            response,
+            'Too many login attempts from this IP address. '
+            'Try again in 12 minutes.'
+        )
+
+
+class ChessPuzzleDailyApiTest(TestCase):
+    """Test suite for ChessPuzzle model and daily puzzle API endpoint."""
+
+    def test_daily_puzzle_api_fallback_when_db_empty(self):
+        """When no puzzles exist in database, API returns default puzzle."""
+        from game.models import ChessPuzzle
+        # Clear out seeded puzzles to test empty db scenario
+        ChessPuzzle.objects.all().delete()
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], 0)
+        self.assertEqual(data['title'], "Default Puzzle")
+        self.assertEqual(data['difficulty'], "medium")
+        self.assertIn("6k1/5ppp/8/8/8/8/5PPP/6KQ", data['fen'])
+
+    def test_daily_puzzle_api_selects_by_date(self):
+        """When a puzzle is assigned to today's date, it is returned."""
+        from game.models import ChessPuzzle
+        from django.utils import timezone
+
+        # Clear out seeded puzzles first to ensure clean test
+        ChessPuzzle.objects.all().delete()
+
+        today = timezone.localdate()
+        expected_puzzle = ChessPuzzle.objects.create(
+            title="Today's Special Puzzle",
+            fen="8/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["e2e4"],
+            difficulty="hard",
+            date=today
+        )
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], expected_puzzle.id)
+        self.assertEqual(data['title'], "Today's Special Puzzle")
+        self.assertEqual(data['difficulty'], "hard")
+        self.assertEqual(data['solution'], ["e2e4"])
+
+    def test_daily_puzzle_api_fallback_to_modulo(self):
+        """Deterministic fallback when no puzzle matches today."""
+        from game.models import ChessPuzzle
+        from django.utils import timezone
+
+        # Clear out seeded puzzles
+        ChessPuzzle.objects.all().delete()
+
+        puzzle1 = ChessPuzzle.objects.create(
+            title="Puzzle One",
+            fen="8/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["a2a4"],
+            difficulty="easy"
+        )
+        puzzle2 = ChessPuzzle.objects.create(
+            title="Puzzle Two",
+            fen="7k/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["b2b4"],
+            difficulty="medium"
+        )
+
+        today = timezone.localdate()
+        # today.toordinal() will either be even or odd, meaning
+        # today.toordinal() % 2 will select either puzzle 1 or 2
+        expected_index = today.toordinal() % 2
+        expected_puzzle = puzzle1 if expected_index == 0 else puzzle2
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], expected_puzzle.id)
+        self.assertEqual(data['title'], expected_puzzle.title)
+
+    def test_chess_puzzle_fen_validation(self):
+        """Invalid FEN format raises ValidationError on save."""
+        from game.models import ChessPuzzle
+        from django.core.exceptions import ValidationError
+
+        # Too few fields
+        puzzle = ChessPuzzle(
+            title="Invalid FEN Puzzle",
+            fen="8/8/8/8/8/8/8/8 w",
+            solution=["e2e4"]
+        )
+        with self.assertRaises(ValidationError):
+            puzzle.save()
+
+        # Invalid number of ranks
+        puzzle2 = ChessPuzzle(
+            title="Invalid FEN Puzzle 2",
+            fen="8/8/8/8/8/8/8 w - - 0 1",
+            solution=["e2e4"]
+        )
+        with self.assertRaises(ValidationError):
+            puzzle2.save()

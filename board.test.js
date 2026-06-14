@@ -47,9 +47,71 @@ document.body.innerHTML = `
   <div id="whiteCapturedName"></div>
   <div id="blackCapturedName"></div>
   <div id="turnBadgeText"></div>
+  <input type="checkbox" id="showCoordinatesCheckbox">
 `;
+global.SOUND_BASE_URL = '/static/game/sounds/';
 
-const { pColor, getSquareLabel, formatTime } = require("./game/static/game/js/board");
+// Mock Worker for Jest
+global.Worker = class MockWorker {
+  constructor(url) {
+    this.url = url;
+    this.listeners = {};
+  }
+  postMessage(msg) {
+    if (msg.startsWith('position fen ')) {
+      this.currentFen = msg.replace('position fen ', '');
+    } else if (msg.startsWith('go ')) {
+      setTimeout(() => {
+        let lines = ['info depth 10 score cp 0', 'bestmove e2e4'];
+        if (global.mockScores && global.mockScores[this.currentFen]) {
+          const mock = global.mockScores[this.currentFen];
+          lines = [`info depth 10 score ${mock.type} ${mock.value}`, 'bestmove e2e4'];
+        }
+        for (const line of lines) {
+          if (this.listeners['message']) {
+            this.listeners['message']({ data: line });
+          }
+        }
+      }, 0);
+    }
+  }
+  addEventListener(event, callback) {
+    this.listeners[event] = callback;
+  }
+  removeEventListener(event, callback) {
+    if (this.listeners[event] === callback) {
+      delete this.listeners[event];
+    }
+  }
+  terminate() {}
+};
+
+// Mock Chess for Jest
+global.Chess = class MockChess {
+  constructor(fen) {
+    this._fen = fen || 'startpos';
+  }
+  fen() {
+    return this._fen;
+  }
+  move(moveObj) {
+    const moveStr = typeof moveObj === 'string' ? moveObj : `${moveObj.from}${moveObj.to}`;
+    this._fen = `${this._fen}_then_${moveStr}`;
+    return {};
+  }
+};
+
+global.SOUND_BASE_URL = '/static/game/sounds/';
+global.Audio = class MockAudio {
+  constructor(src) {
+    this.src = src;
+  }
+  play() {
+    return Promise.resolve();
+  }
+};
+
+const { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache } = require("./game/static/game/js/board");
 
 describe("pColor", () => {
   test("returns white for uppercase piece", () => {
@@ -90,5 +152,83 @@ describe("formatTime", () => {
 
   test("formats 0 seconds as 0:00", () => {
     expect(formatTime(0)).toBe("0:00");
+  });
+});
+
+describe("getPlayerScore", () => {
+  test("correctly converts cp scores", () => {
+    expect(getPlayerScore({ type: 'cp', value: 100 })).toBe(-100);
+    expect(getPlayerScore({ type: 'cp', value: -350 })).toBe(350);
+    expect(getPlayerScore({ type: 'cp', value: 0 })).toBe(0);
+  });
+
+  test("correctly converts mate scores", () => {
+    expect(getPlayerScore({ type: 'mate', value: 3 })).toBe(-9997);
+    expect(getPlayerScore({ type: 'mate', value: -2 })).toBe(9998);
+  });
+});
+
+describe("validateMoveWithStockfish", () => {
+  beforeEach(() => {
+    global.mockScores = {};
+    clearEvaluationCache();
+  });
+
+  test("returns true for alternative mate move when expected is also mate", async () => {
+    global.mockScores['startpos_then_g2g4'] = { type: 'mate', value: -2 };
+    global.mockScores['played_fen'] = { type: 'mate', value: -3 };
+    const result = await validateMoveWithStockfish("startpos", "played_fen", "g2g4");
+    expect(result).toBe(true);
+  });
+
+  test("returns true for alternative winning move when within 50cp of expected", async () => {
+    global.mockScores['startpos_then_e2e4'] = { type: 'cp', value: -100 };
+    global.mockScores['played_fen'] = { type: 'cp', value: -80 };
+    const result = await validateMoveWithStockfish("startpos", "played_fen", "e2e4");
+    expect(result).toBe(true);
+  });
+
+  test("returns true for alternative winning move when both are highly winning (>= 300)", async () => {
+    global.mockScores['startpos_then_e2e4'] = { type: 'cp', value: -400 };
+    global.mockScores['played_fen'] = { type: 'cp', value: -310 };
+    const result = await validateMoveWithStockfish("startpos", "played_fen", "e2e4");
+    expect(result).toBe(true);
+  });
+
+  test("returns false for alternative move that is significantly worse than expected", async () => {
+    global.mockScores['startpos_then_e2e4'] = { type: 'cp', value: -100 };
+    global.mockScores['played_fen'] = { type: 'cp', value: 0 };
+    const result = await validateMoveWithStockfish("startpos", "played_fen", "e2e4");
+    expect(result).toBe(false);
+  });
+
+  test("returns false for alternative move that is losing", async () => {
+    global.mockScores['startpos_then_e2e4'] = { type: 'cp', value: -100 };
+    global.mockScores['played_fen'] = { type: 'cp', value: 200 };
+    const result = await validateMoveWithStockfish("startpos", "played_fen", "e2e4");
+    expect(result).toBe(false);
+  });
+});
+
+describe("Coordinates visibility toggle", () => {
+  test("toggles .hide-coordinates class on #board when checkbox changes state", () => {
+    const checkbox = document.getElementById("showCoordinatesCheckbox");
+    const board = document.getElementById("board");
+    
+    // Default should be checked (true) and class should not be present
+    expect(checkbox.checked).toBe(true);
+    expect(board.classList.contains("hide-coordinates")).toBe(false);
+    
+    // Simulate unchecking
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event("change"));
+    expect(board.classList.contains("hide-coordinates")).toBe(true);
+    expect(localStorage.getItem("showCoordinates")).toBe("false");
+    
+    // Simulate checking again
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event("change"));
+    expect(board.classList.contains("hide-coordinates")).toBe(false);
+    expect(localStorage.getItem("showCoordinates")).toBe("true");
   });
 });

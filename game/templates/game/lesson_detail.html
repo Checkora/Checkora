@@ -1,0 +1,238 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ lesson.title }} - Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
+</head>
+<body>
+
+<div class="container">
+
+    <a href="{% url 'lessons' %}" class="back-btn">
+        ← Back to Lessons
+    </a>
+
+    <div class="lesson-box">
+
+    <h1>{{ lesson.title }}</h1>
+
+    <p class="description">
+        {{ lesson.description }}
+    </p>
+
+    <h2>📖 Lesson Content</h2>
+
+    {% if lesson.content %}
+    <ul class="lesson-content">
+
+        {% for point in lesson.content %}
+        <li>{{ point }}</li>
+        {% endfor %}
+
+    </ul>
+    {% endif %}
+
+    <div class="coord-toggle-container">
+        <input type="checkbox" id="lessonCoordToggle" class="custom-checkbox" checked>
+        <label for="lessonCoordToggle" class="coord-toggle-label">Show Coordinates</label>
+    </div>
+
+    {% if board_examples %}
+   
+    <div class="board-demo">
+
+        <h2>♟ Interactive Board Example</h2>
+
+        <h3 id="example-title"></h3>
+        
+        <div class="lesson-board-aligned">
+            <div class="lesson-board-row">
+                <div class="lesson-ranks">
+                    <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+                </div>
+                <div id="demo-board"></div>
+            </div>
+            <div class="lesson-files">
+                <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+        </div>
+        <button
+            id="next-example-btn"
+            class="complete-btn"
+        >
+            Next Example
+        </button>
+    </div>
+
+    {{ board_examples|json_script:"board-examples-data" }}
+
+    {% endif %}
+
+    {% if lesson_steps %}
+
+    <div class="lesson-practice">
+
+        <h2>🎯 Practice Position</h2>
+
+        <p id="lesson-instruction"></p>
+
+        <div class="lesson-board-aligned">
+            <div class="lesson-board-row">
+                <div class="lesson-ranks">
+                    <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+                </div>
+                <div class="lesson-board-wrapper">
+                    <div id="practice-board" class="lesson-board"></div>
+                </div>
+            </div>
+            <div class="lesson-files">
+                <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+        </div>
+
+        <p id="lesson-result"></p>
+
+        <button
+            type="button"
+            id="retry-btn"
+            class="complete-btn"
+            style="display:none; margin-top:10px;"
+        >
+            🔄 Retry
+        </button>
+
+    </div>
+
+    {{ lesson_steps|json_script:"lesson-steps-data" }}
+    {{ practice_position|json_script:"practice-position-data" }}
+
+    {% endif %}
+
+    {% if lesson.practice_question %}
+    <div class="coming-soon">
+
+        <h3>📝 Practice Exercise</h3>
+
+        <p><strong>Question:</strong> {{ lesson.practice_question }}</p>
+
+        <details>
+            <summary>Show Answer</summary>
+            <p>{{ lesson.practice_answer }}</p>
+        </details>
+
+    </div>
+    {% endif %}
+
+
+    <div style="margin-top:25px;">
+    
+    {% if is_completed %}
+
+    <button
+        class="complete-btn"
+        disabled
+    >
+        ✓ Completed
+    </button>
+
+    {% else %}
+
+    <form
+        method="post"
+        action="{% url 'complete_lesson' lesson.title|slugify %}"
+    >
+        {% csrf_token %}
+
+        <button
+            type="submit"
+            class="complete-btn"
+        >
+            ✓ Mark Lesson Complete
+        </button>
+    </form>
+
+    {% endif %}
+
+    </div>
+
+    {% if lesson.quiz_question %}
+
+    <div class="coming-soon">
+
+        <h3>🎯 Quick Quiz</h3>
+
+        <p>{{ lesson.quiz_question }}</p>
+
+        {% for option in lesson.quiz_options %}
+
+            <button
+                class="quiz-btn"
+                onclick="checkAnswer('{{ option }}', '{{ lesson.quiz_answer }}')"
+            >
+                {{ option }}
+            </button>
+
+            <br><br>
+
+        {% endfor %}
+
+        <p id="quiz-result"></p>
+
+    </div>
+
+    {% endif %}
+    <div class="lesson-navigation">
+
+        {% if previous_lesson %}
+            <a href="{% url 'lesson_detail' previous_lesson|slugify %}">
+                ← {{ previous_lesson }}
+            </a>
+        {% endif %}
+
+        {% if next_lesson %}
+            <a href="{% url 'lesson_detail' next_lesson|slugify %}">
+                {{ next_lesson }} →
+            </a>
+        {% endif %}
+    </div>
+
+</div>
+
+
+</div>
+
+</div>
+
+<script>
+
+function checkAnswer(selected, correct) {
+
+    const result =
+        document.getElementById("quiz-result");
+
+    if (selected === correct) {
+
+        result.innerHTML =
+            "✅ Correct Answer!";
+
+        result.style.color = "#4caf50";
+
+    } else {
+
+        result.innerHTML =
+            "❌ Incorrect. Try Again.";
+
+        result.style.color = "#ff5252";
+    }
+}
+
+</script>
+<script src="{% static 'game/js/lesson_demo.js' %}"></script>
+<script src="{% static 'game/js/lesson_practice.js' %}"></script>
+<script src="{% static 'game/js/lesson_coordinates.js' %}"></script>
+</body>
+</html>

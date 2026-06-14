@@ -137,6 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     ];
 
+    const strengthMeter = document.createElement("div");
+    strengthMeter.className = "password-strength-meter";
+    strengthMeter.innerHTML = '<div class="strength-bar-fill"></div>';
+
     const checklist = document.createElement("ul");
     checklist.className = "password-checklist";
     checklist.setAttribute("role", "status");
@@ -149,9 +153,10 @@ document.addEventListener("DOMContentLoaded", () => {
       checklist.appendChild(li);
     });
 
-    // Insert checklist after the password input wrapper
+    // Insert strength meter and checklist after the password input wrapper
     const wrapper = passwordInput.closest(".pw-input-wrapper") || passwordInput.parentNode;
     wrapper.parentNode.insertBefore(checklist, wrapper.nextSibling);
+    wrapper.parentNode.insertBefore(strengthMeter, checklist);
 
 // Select the submit button inside the form
     const formBtn = passwordInput.closest("form").querySelector('button[type="submit"]');
@@ -160,13 +165,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const validatePassword = () => {
       const value = passwordInput.value;
       let allMet = true;
+      let score = 0;
 
       rules.forEach((rule) => {
         const li = document.getElementById(rule.id);
         const met = rule.test(value);
         li.classList.toggle("met", met);
-        if (!met) allMet = false;
+        if (met) score++;
+        else allMet = false;
       });
+
+      const fill = strengthMeter.querySelector(".strength-bar-fill");
+      if (fill) {
+        const pct = value.length > 0 ? (score / rules.length) * 100 : 0;
+        fill.style.width = pct + "%";
+        if (score <= 2) {
+          fill.style.background = "#ef4444"; // Red
+        } else if (score <= 4) {
+          fill.style.background = "#f59e0b"; // Orange/Yellow
+        } else {
+          fill.style.background = "#10b981"; // Green
+        }
+      }
 
       const isValid = allMet && value.length > 0;
       checklist.classList.toggle("all-met", isValid);

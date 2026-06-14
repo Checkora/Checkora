@@ -52,10 +52,28 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 
 ---
 
+## Table of contents 
+
+- [Contributors](#contributors)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Testing Guide](#testing-guide)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [API Reference](#api-reference)
+- [Request/Response JSON Examples](#requestresponse-json-examples)
+- [Tests](#tests)
+- [Troubleshooting Guide](#troubleshooting-guide)
+- [Contributor Support & Feedback](#contributor-support--feedback)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Contributors
 
 <!-- CONTRIBUTORS_START -->
-<a href="https://github.com/0rbiT-ai"><img src="https://github.com/0rbiT-ai.png" width="50px" style="border-radius:50%;margin:5px;" alt="0rbiT-ai" /></a><a href="https://github.com/2005rishabh"><img src="https://github.com/2005rishabh.png" width="50px" style="border-radius:50%;margin:5px;" alt="2005rishabh" /></a><a href="https://github.com/ANISHA-RAWAT"><img src="https://github.com/ANISHA-RAWAT.png" width="50px" style="border-radius:50%;margin:5px;" alt="ANISHA-RAWAT" /></a><a href="https://github.com/CodeMaster11000"><img src="https://github.com/CodeMaster11000.png" width="50px" style="border-radius:50%;margin:5px;" alt="CodeMaster11000" /></a><a href="https://github.com/EDWARD-012"><img src="https://github.com/EDWARD-012.png" width="50px" style="border-radius:50%;margin:5px;" alt="EDWARD-012" /></a><a href="https://github.com/EnKruptos"><img src="https://github.com/EnKruptos.png" width="50px" style="border-radius:50%;margin:5px;" alt="EnKruptos" /></a><a href="https://github.com/FTS18"><img src="https://github.com/FTS18.png" width="50px" style="border-radius:50%;margin:5px;" alt="FTS18" /></a><a href="https://github.com/HarshMrigank"><img src="https://github.com/HarshMrigank.png" width="50px" style="border-radius:50%;margin:5px;" alt="HarshMrigank" /></a><a href="https://github.com/KrishKyada"><img src="https://github.com/KrishKyada.png" width="50px" style="border-radius:50%;margin:5px;" alt="KrishKyada" /></a><a href="https://github.com/MahalaxmiKannan"><img src="https://github.com/MahalaxmiKannan.png" width="50px" style="border-radius:50%;margin:5px;" alt="MahalaxmiKannan" /></a><a href="https://github.com/Mouni-Sanaboyina"><img src="https://github.com/Mouni-Sanaboyina.png" width="50px" style="border-radius:50%;margin:5px;" alt="Mouni-Sanaboyina" /></a><a href="https://github.com/NayansiDupare"><img src="https://github.com/NayansiDupare.png" width="50px" style="border-radius:50%;margin:5px;" alt="NayansiDupare" /></a><a href="https://github.com/Pooja-V4"><img src="https://github.com/Pooja-V4.png" width="50px" style="border-radius:50%;margin:5px;" alt="Pooja-V4" /></a><a href="https://github.com/Pranav-0440"><img src="https://github.com/Pranav-0440.png" width="50px" style="border-radius:50%;margin:5px;" alt="Pranav-0440" /></a><a href="https://github.com/Pranava116"><img src="https://github.com/Pranava116.png" width="50px" style="border-radius:50%;margin:5px;" alt="Pranava116" /></a><a href="https://github.com/Rajal-ui"><img src="https://github.com/Rajal-ui.png" width="50px" style="border-radius:50%;margin:5px;" alt="Rajal-ui" /></a><a href="https://github.com/RuchiSheoran"><img src="https://github.com/RuchiSheoran.png" width="50px" style="border-radius:50%;margin:5px;" alt="RuchiSheoran" /></a><a href="https://github.com/RuhanikaChotwani"><img src="https://github.com/RuhanikaChotwani.png" width="50px" style="border-radius:50%;margin:5px;" alt="RuhanikaChotwani" /></a><a href="https://github.com/Sakina-786-vi"><img src="https://github.com/Sakina-786-vi.png" width="50px" style="border-radius:50%;margin:5px;" alt="Sakina-786-vi" /></a><a href="https://github.com/SaptadeepMondal"><img src="https://github.com/SaptadeepMondal.png" width="50px" style="border-radius:50%;margin:5px;" alt="SaptadeepMondal" /></a><a href="https://github.com/Sara-Thakur"><img src="https://github.com/Sara-Thakur.png" width="50px" style="border-radius:50%;margin:5px;" alt="Sara-Thakur" /></a><a href="https://github.com/SecureAditi"><img src="https://github.com/SecureAditi.png" width="50px" style="border-radius:50%;margin:5px;" alt="SecureAditi" /></a><a href="https://github.com/Shashank-8p"><img src="https://github.com/Shashank-8p.png" width="50px" style="border-radius:50%;margin:5px;" alt="Shashank-8p" /></a><a href="https://github.com/Shrishagk"><img src="https://github.com/Shrishagk.png" width="50px" style="border-radius:50%;margin:5px;" alt="Shrishagk" /></a><a href="https://github.com/SiRa111"><img src="https://github.com/SiRa111.png" width="50px" style="border-radius:50%;margin:5px;" alt="SiRa111" /></a><a href="https://github.com/Siddharth-sde"><img src="https://github.com/Siddharth-sde.png" width="50px" style="border-radius:50%;margin:5px;" alt="Siddharth-sde" /></a><a href="https://github.com/SilverMenace"><img src="https://github.com/SilverMenace.png" width="50px" style="border-radius:50%;margin:5px;" alt="SilverMenace" /></a><a href="https://github.com/Soumipal56"><img src="https://github.com/Soumipal56.png" width="50px" style="border-radius:50%;margin:5px;" alt="Soumipal56" /></a><a href="https://github.com/SrashtiChauhan"><img src="https://github.com/SrashtiChauhan.png" width="50px" style="border-radius:50%;margin:5px;" alt="SrashtiChauhan" /></a><a href="https://github.com/Sreekuttan-007"><img src="https://github.com/Sreekuttan-007.png" width="50px" style="border-radius:50%;margin:5px;" alt="Sreekuttan-007" /></a><a href="https://github.com/Steel-roger-moondradev"><img src="https://github.com/Steel-roger-moondradev.png" width="50px" style="border-radius:50%;margin:5px;" alt="Steel-roger-moondradev" /></a><a href="https://github.com/VITianYash42"><img src="https://github.com/VITianYash42.png" width="50px" style="border-radius:50%;margin:5px;" alt="VITianYash42" /></a><a href="https://github.com/Vaishnav-Hub9"><img src="https://github.com/Vaishnav-Hub9.png" width="50px" style="border-radius:50%;margin:5px;" alt="Vaishnav-Hub9" /></a><a href="https://github.com/YASHcode-IIITV"><img src="https://github.com/YASHcode-IIITV.png" width="50px" style="border-radius:50%;margin:5px;" alt="YASHcode-IIITV" /></a><a href="https://github.com/YashKrTripathi"><img src="https://github.com/YashKrTripathi.png" width="50px" style="border-radius:50%;margin:5px;" alt="YashKrTripathi" /></a><a href="https://github.com/aayushbamal"><img src="https://github.com/aayushbamal.png" width="50px" style="border-radius:50%;margin:5px;" alt="aayushbamal" /></a><a href="https://github.com/akash3911"><img src="https://github.com/akash3911.png" width="50px" style="border-radius:50%;margin:5px;" alt="akash3911" /></a><a href="https://github.com/akashgoudsidduluri"><img src="https://github.com/akashgoudsidduluri.png" width="50px" style="border-radius:50%;margin:5px;" alt="akashgoudsidduluri" /></a><a href="https://github.com/akhilmodi29"><img src="https://github.com/akhilmodi29.png" width="50px" style="border-radius:50%;margin:5px;" alt="akhilmodi29" /></a><a href="https://github.com/amarpratapsingh2452"><img src="https://github.com/amarpratapsingh2452.png" width="50px" style="border-radius:50%;margin:5px;" alt="amarpratapsingh2452" /></a><a href="https://github.com/aniketchauhan16"><img src="https://github.com/aniketchauhan16.png" width="50px" style="border-radius:50%;margin:5px;" alt="aniketchauhan16" /></a><a href="https://github.com/anshiikaa001"><img src="https://github.com/anshiikaa001.png" width="50px" style="border-radius:50%;margin:5px;" alt="anshiikaa001" /></a><a href="https://github.com/anwitamishra"><img src="https://github.com/anwitamishra.png" width="50px" style="border-radius:50%;margin:5px;" alt="anwitamishra" /></a><a href="https://github.com/artiverma-00"><img src="https://github.com/artiverma-00.png" width="50px" style="border-radius:50%;margin:5px;" alt="artiverma-00" /></a><a href="https://github.com/ash1shkumar"><img src="https://github.com/ash1shkumar.png" width="50px" style="border-radius:50%;margin:5px;" alt="ash1shkumar" /></a><a href="https://github.com/asnaassalam"><img src="https://github.com/asnaassalam.png" width="50px" style="border-radius:50%;margin:5px;" alt="asnaassalam" /></a><a href="https://github.com/bh462007"><img src="https://github.com/bh462007.png" width="50px" style="border-radius:50%;margin:5px;" alt="bh462007" /></a><a href="https://github.com/chekr-max"><img src="https://github.com/chekr-max.png" width="50px" style="border-radius:50%;margin:5px;" alt="chekr-max" /></a><a href="https://github.com/deepsikha-dash"><img src="https://github.com/deepsikha-dash.png" width="50px" style="border-radius:50%;margin:5px;" alt="deepsikha-dash" /></a><a href="https://github.com/diptipradeep"><img src="https://github.com/diptipradeep.png" width="50px" style="border-radius:50%;margin:5px;" alt="diptipradeep" /></a><a href="https://github.com/divya-d510"><img src="https://github.com/divya-d510.png" width="50px" style="border-radius:50%;margin:5px;" alt="divya-d510" /></a><a href="https://github.com/enoshdev"><img src="https://github.com/enoshdev.png" width="50px" style="border-radius:50%;margin:5px;" alt="enoshdev" /></a><a href="https://github.com/gowthamrdyy"><img src="https://github.com/gowthamrdyy.png" width="50px" style="border-radius:50%;margin:5px;" alt="gowthamrdyy" /></a><a href="https://github.com/harsh-kr9"><img src="https://github.com/harsh-kr9.png" width="50px" style="border-radius:50%;margin:5px;" alt="harsh-kr9" /></a><a href="https://github.com/harshitkr13"><img src="https://github.com/harshitkr13.png" width="50px" style="border-radius:50%;margin:5px;" alt="harshitkr13" /></a><a href="https://github.com/itsdakshjain"><img src="https://github.com/itsdakshjain.png" width="50px" style="border-radius:50%;margin:5px;" alt="itsdakshjain" /></a><a href="https://github.com/itsmeesnehaa"><img src="https://github.com/itsmeesnehaa.png" width="50px" style="border-radius:50%;margin:5px;" alt="itsmeesnehaa" /></a><a href="https://github.com/jancysen"><img src="https://github.com/jancysen.png" width="50px" style="border-radius:50%;margin:5px;" alt="jancysen" /></a><a href="https://github.com/kartik12421"><img src="https://github.com/kartik12421.png" width="50px" style="border-radius:50%;margin:5px;" alt="kartik12421" /></a><a href="https://github.com/khushi-in-tech"><img src="https://github.com/khushi-in-tech.png" width="50px" style="border-radius:50%;margin:5px;" alt="khushi-in-tech" /></a><a href="https://github.com/krishkhinchi"><img src="https://github.com/krishkhinchi.png" width="50px" style="border-radius:50%;margin:5px;" alt="krishkhinchi" /></a><a href="https://github.com/kush-mehra1"><img src="https://github.com/kush-mehra1.png" width="50px" style="border-radius:50%;margin:5px;" alt="kush-mehra1" /></a><a href="https://github.com/manurajgoel"><img src="https://github.com/manurajgoel.png" width="50px" style="border-radius:50%;margin:5px;" alt="manurajgoel" /></a><a href="https://github.com/maria-453"><img src="https://github.com/maria-453.png" width="50px" style="border-radius:50%;margin:5px;" alt="maria-453" /></a><a href="https://github.com/mittalsonal"><img src="https://github.com/mittalsonal.png" width="50px" style="border-radius:50%;margin:5px;" alt="mittalsonal" /></a><a href="https://github.com/nayana888ks"><img src="https://github.com/nayana888ks.png" width="50px" style="border-radius:50%;margin:5px;" alt="nayana888ks" /></a><a href="https://github.com/nipundeept"><img src="https://github.com/nipundeept.png" width="50px" style="border-radius:50%;margin:5px;" alt="nipundeept" /></a><a href="https://github.com/nishtha-agarwal-211"><img src="https://github.com/nishtha-agarwal-211.png" width="50px" style="border-radius:50%;margin:5px;" alt="nishtha-agarwal-211" /></a><a href="https://github.com/nitish06nkc"><img src="https://github.com/nitish06nkc.png" width="50px" style="border-radius:50%;margin:5px;" alt="nitish06nkc" /></a><a href="https://github.com/niy-ati"><img src="https://github.com/niy-ati.png" width="50px" style="border-radius:50%;margin:5px;" alt="niy-ati" /></a><a href="https://github.com/parthc6416"><img src="https://github.com/parthc6416.png" width="50px" style="border-radius:50%;margin:5px;" alt="parthc6416" /></a><a href="https://github.com/parthpatidar03"><img src="https://github.com/parthpatidar03.png" width="50px" style="border-radius:50%;margin:5px;" alt="parthpatidar03" /></a><a href="https://github.com/pratyuxxhh"><img src="https://github.com/pratyuxxhh.png" width="50px" style="border-radius:50%;margin:5px;" alt="pratyuxxhh" /></a><a href="https://github.com/radhikaa188"><img src="https://github.com/radhikaa188.png" width="50px" style="border-radius:50%;margin:5px;" alt="radhikaa188" /></a><a href="https://github.com/rajat552"><img src="https://github.com/rajat552.png" width="50px" style="border-radius:50%;margin:5px;" alt="rajat552" /></a><a href="https://github.com/renganathc"><img src="https://github.com/renganathc.png" width="50px" style="border-radius:50%;margin:5px;" alt="renganathc" /></a><a href="https://github.com/richachauhan15"><img src="https://github.com/richachauhan15.png" width="50px" style="border-radius:50%;margin:5px;" alt="richachauhan15" /></a><a href="https://github.com/rmagdaleena2508-01"><img src="https://github.com/rmagdaleena2508-01.png" width="50px" style="border-radius:50%;margin:5px;" alt="rmagdaleena2508-01" /></a><a href="https://github.com/roneet0916"><img src="https://github.com/roneet0916.png" width="50px" style="border-radius:50%;margin:5px;" alt="roneet0916" /></a><a href="https://github.com/saswatdutta1310"><img src="https://github.com/saswatdutta1310.png" width="50px" style="border-radius:50%;margin:5px;" alt="saswatdutta1310" /></a><a href="https://github.com/shauryaparth1902-blip"><img src="https://github.com/shauryaparth1902-blip.png" width="50px" style="border-radius:50%;margin:5px;" alt="shauryaparth1902-blip" /></a><a href="https://github.com/shreyamahesh07-git"><img src="https://github.com/shreyamahesh07-git.png" width="50px" style="border-radius:50%;margin:5px;" alt="shreyamahesh07-git" /></a><a href="https://github.com/shrutip04"><img src="https://github.com/shrutip04.png" width="50px" style="border-radius:50%;margin:5px;" alt="shrutip04" /></a><a href="https://github.com/shrutisharma-sh"><img src="https://github.com/shrutisharma-sh.png" width="50px" style="border-radius:50%;margin:5px;" alt="shrutisharma-sh" /></a><a href="https://github.com/shubhamjrd4559-sudo"><img src="https://github.com/shubhamjrd4559-sudo.png" width="50px" style="border-radius:50%;margin:5px;" alt="shubhamjrd4559-sudo" /></a><a href="https://github.com/som996"><img src="https://github.com/som996.png" width="50px" style="border-radius:50%;margin:5px;" alt="som996" /></a><a href="https://github.com/sreevyarao"><img src="https://github.com/sreevyarao.png" width="50px" style="border-radius:50%;margin:5px;" alt="sreevyarao" /></a><a href="https://github.com/sricharan-213"><img src="https://github.com/sricharan-213.png" width="50px" style="border-radius:50%;margin:5px;" alt="sricharan-213" /></a><a href="https://github.com/ssuyashhhh"><img src="https://github.com/ssuyashhhh.png" width="50px" style="border-radius:50%;margin:5px;" alt="ssuyashhhh" /></a><a href="https://github.com/sujithputta02"><img src="https://github.com/sujithputta02.png" width="50px" style="border-radius:50%;margin:5px;" alt="sujithputta02" /></a><a href="https://github.com/tazmeen24"><img src="https://github.com/tazmeen24.png" width="50px" style="border-radius:50%;margin:5px;" alt="tazmeen24" /></a><a href="https://github.com/tharunika-19"><img src="https://github.com/tharunika-19.png" width="50px" style="border-radius:50%;margin:5px;" alt="tharunika-19" /></a><a href="https://github.com/the404packet"><img src="https://github.com/the404packet.png" width="50px" style="border-radius:50%;margin:5px;" alt="the404packet" /></a><a href="https://github.com/triemerge"><img src="https://github.com/triemerge.png" width="50px" style="border-radius:50%;margin:5px;" alt="triemerge" /></a><a href="https://github.com/unnati-jaiswal24"><img src="https://github.com/unnati-jaiswal24.png" width="50px" style="border-radius:50%;margin:5px;" alt="unnati-jaiswal24" /></a><a href="https://github.com/vishwassinfinity"><img src="https://github.com/vishwassinfinity.png" width="50px" style="border-radius:50%;margin:5px;" alt="vishwassinfinity" /></a><a href="https://github.com/yuvraj-k-singh"><img src="https://github.com/yuvraj-k-singh.png" width="50px" style="border-radius:50%;margin:5px;" alt="yuvraj-k-singh" /></a><a href="https://github.com/zenowinged"><img src="https://github.com/zenowinged.png" width="50px" style="border-radius:50%;margin:5px;" alt="zenowinged" /></a><a href="https://github.com/zqleslie"><img src="https://github.com/zqleslie.png" width="50px" style="border-radius:50%;margin:5px;" alt="zqleslie" /></a>
+<a href="https://github.com/0rbiT-ai"><img src="https://github.com/0rbiT-ai.png" width="50px" style="border-radius:50%;margin:5px;" alt="0rbiT-ai" /></a><a href="https://github.com/2005rishabh"><img src="https://github.com/2005rishabh.png" width="50px" style="border-radius:50%;margin:5px;" alt="2005rishabh" /></a><a href="https://github.com/ANISHA-RAWAT"><img src="https://github.com/ANISHA-RAWAT.png" width="50px" style="border-radius:50%;margin:5px;" alt="ANISHA-RAWAT" /></a><a href="https://github.com/AdityaM-IITH"><img src="https://github.com/AdityaM-IITH.png" width="50px" style="border-radius:50%;margin:5px;" alt="AdityaM-IITH" /></a><a href="https://github.com/BistNaveenSingh"><img src="https://github.com/BistNaveenSingh.png" width="50px" style="border-radius:50%;margin:5px;" alt="BistNaveenSingh" /></a><a href="https://github.com/CodeMaster11000"><img src="https://github.com/CodeMaster11000.png" width="50px" style="border-radius:50%;margin:5px;" alt="CodeMaster11000" /></a><a href="https://github.com/DebasmitaBose0"><img src="https://github.com/DebasmitaBose0.png" width="50px" style="border-radius:50%;margin:5px;" alt="DebasmitaBose0" /></a><a href="https://github.com/EDWARD-012"><img src="https://github.com/EDWARD-012.png" width="50px" style="border-radius:50%;margin:5px;" alt="EDWARD-012" /></a><a href="https://github.com/EnKruptos"><img src="https://github.com/EnKruptos.png" width="50px" style="border-radius:50%;margin:5px;" alt="EnKruptos" /></a><a href="https://github.com/FTS18"><img src="https://github.com/FTS18.png" width="50px" style="border-radius:50%;margin:5px;" alt="FTS18" /></a><a href="https://github.com/HarshMrigank"><img src="https://github.com/HarshMrigank.png" width="50px" style="border-radius:50%;margin:5px;" alt="HarshMrigank" /></a><a href="https://github.com/KrishKyada"><img src="https://github.com/KrishKyada.png" width="50px" style="border-radius:50%;margin:5px;" alt="KrishKyada" /></a><a href="https://github.com/MahalaxmiKannan"><img src="https://github.com/MahalaxmiKannan.png" width="50px" style="border-radius:50%;margin:5px;" alt="MahalaxmiKannan" /></a><a href="https://github.com/Mouni-Sanaboyina"><img src="https://github.com/Mouni-Sanaboyina.png" width="50px" style="border-radius:50%;margin:5px;" alt="Mouni-Sanaboyina" /></a><a href="https://github.com/NayansiDupare"><img src="https://github.com/NayansiDupare.png" width="50px" style="border-radius:50%;margin:5px;" alt="NayansiDupare" /></a><a href="https://github.com/PRODHOSH"><img src="https://github.com/PRODHOSH.png" width="50px" style="border-radius:50%;margin:5px;" alt="PRODHOSH" /></a><a href="https://github.com/Pooja-V4"><img src="https://github.com/Pooja-V4.png" width="50px" style="border-radius:50%;margin:5px;" alt="Pooja-V4" /></a><a href="https://github.com/Pranav-0440"><img src="https://github.com/Pranav-0440.png" width="50px" style="border-radius:50%;margin:5px;" alt="Pranav-0440" /></a><a href="https://github.com/Pranava116"><img src="https://github.com/Pranava116.png" width="50px" style="border-radius:50%;margin:5px;" alt="Pranava116" /></a><a href="https://github.com/Rajal-ui"><img src="https://github.com/Rajal-ui.png" width="50px" style="border-radius:50%;margin:5px;" alt="Rajal-ui" /></a><a href="https://github.com/RuchiSheoran"><img src="https://github.com/RuchiSheoran.png" width="50px" style="border-radius:50%;margin:5px;" alt="RuchiSheoran" /></a><a href="https://github.com/RuhanikaChotwani"><img src="https://github.com/RuhanikaChotwani.png" width="50px" style="border-radius:50%;margin:5px;" alt="RuhanikaChotwani" /></a><a href="https://github.com/Sakina-786-vi"><img src="https://github.com/Sakina-786-vi.png" width="50px" style="border-radius:50%;margin:5px;" alt="Sakina-786-vi" /></a><a href="https://github.com/SaptadeepMondal"><img src="https://github.com/SaptadeepMondal.png" width="50px" style="border-radius:50%;margin:5px;" alt="SaptadeepMondal" /></a><a href="https://github.com/Sara-Thakur"><img src="https://github.com/Sara-Thakur.png" width="50px" style="border-radius:50%;margin:5px;" alt="Sara-Thakur" /></a><a href="https://github.com/SecureAditi"><img src="https://github.com/SecureAditi.png" width="50px" style="border-radius:50%;margin:5px;" alt="SecureAditi" /></a><a href="https://github.com/Shashank-8p"><img src="https://github.com/Shashank-8p.png" width="50px" style="border-radius:50%;margin:5px;" alt="Shashank-8p" /></a><a href="https://github.com/Shrishagk"><img src="https://github.com/Shrishagk.png" width="50px" style="border-radius:50%;margin:5px;" alt="Shrishagk" /></a><a href="https://github.com/SiRa111"><img src="https://github.com/SiRa111.png" width="50px" style="border-radius:50%;margin:5px;" alt="SiRa111" /></a><a href="https://github.com/Siddharth-sde"><img src="https://github.com/Siddharth-sde.png" width="50px" style="border-radius:50%;margin:5px;" alt="Siddharth-sde" /></a><a href="https://github.com/SilverMenace"><img src="https://github.com/SilverMenace.png" width="50px" style="border-radius:50%;margin:5px;" alt="SilverMenace" /></a><a href="https://github.com/Soumipal56"><img src="https://github.com/Soumipal56.png" width="50px" style="border-radius:50%;margin:5px;" alt="Soumipal56" /></a><a href="https://github.com/SrashtiChauhan"><img src="https://github.com/SrashtiChauhan.png" width="50px" style="border-radius:50%;margin:5px;" alt="SrashtiChauhan" /></a><a href="https://github.com/Sreekuttan-007"><img src="https://github.com/Sreekuttan-007.png" width="50px" style="border-radius:50%;margin:5px;" alt="Sreekuttan-007" /></a><a href="https://github.com/Steel-roger-moondradev"><img src="https://github.com/Steel-roger-moondradev.png" width="50px" style="border-radius:50%;margin:5px;" alt="Steel-roger-moondradev" /></a><a href="https://github.com/VITianYash42"><img src="https://github.com/VITianYash42.png" width="50px" style="border-radius:50%;margin:5px;" alt="VITianYash42" /></a><a href="https://github.com/Vaishnav-Hub9"><img src="https://github.com/Vaishnav-Hub9.png" width="50px" style="border-radius:50%;margin:5px;" alt="Vaishnav-Hub9" /></a><a href="https://github.com/Xenon010101"><img src="https://github.com/Xenon010101.png" width="50px" style="border-radius:50%;margin:5px;" alt="Xenon010101" /></a><a href="https://github.com/YASHcode-IIITV"><img src="https://github.com/YASHcode-IIITV.png" width="50px" style="border-radius:50%;margin:5px;" alt="YASHcode-IIITV" /></a><a href="https://github.com/YashKrTripathi"><img src="https://github.com/YashKrTripathi.png" width="50px" style="border-radius:50%;margin:5px;" alt="YashKrTripathi" /></a><a href="https://github.com/Yogender-verma"><img src="https://github.com/Yogender-verma.png" width="50px" style="border-radius:50%;margin:5px;" alt="Yogender-verma" /></a><a href="https://github.com/aayushbamal"><img src="https://github.com/aayushbamal.png" width="50px" style="border-radius:50%;margin:5px;" alt="aayushbamal" /></a><a href="https://github.com/akash3911"><img src="https://github.com/akash3911.png" width="50px" style="border-radius:50%;margin:5px;" alt="akash3911" /></a><a href="https://github.com/akashgoudsidduluri"><img src="https://github.com/akashgoudsidduluri.png" width="50px" style="border-radius:50%;margin:5px;" alt="akashgoudsidduluri" /></a><a href="https://github.com/akhilmodi29"><img src="https://github.com/akhilmodi29.png" width="50px" style="border-radius:50%;margin:5px;" alt="akhilmodi29" /></a><a href="https://github.com/amarpratapsingh2452"><img src="https://github.com/amarpratapsingh2452.png" width="50px" style="border-radius:50%;margin:5px;" alt="amarpratapsingh2452" /></a><a href="https://github.com/aniketchauhan16"><img src="https://github.com/aniketchauhan16.png" width="50px" style="border-radius:50%;margin:5px;" alt="aniketchauhan16" /></a><a href="https://github.com/ankitasahu83964"><img src="https://github.com/ankitasahu83964.png" width="50px" style="border-radius:50%;margin:5px;" alt="ankitasahu83964" /></a><a href="https://github.com/anshiikaa001"><img src="https://github.com/anshiikaa001.png" width="50px" style="border-radius:50%;margin:5px;" alt="anshiikaa001" /></a><a href="https://github.com/anwitamishra"><img src="https://github.com/anwitamishra.png" width="50px" style="border-radius:50%;margin:5px;" alt="anwitamishra" /></a><a href="https://github.com/artiverma-00"><img src="https://github.com/artiverma-00.png" width="50px" style="border-radius:50%;margin:5px;" alt="artiverma-00" /></a><a href="https://github.com/ash1shkumar"><img src="https://github.com/ash1shkumar.png" width="50px" style="border-radius:50%;margin:5px;" alt="ash1shkumar" /></a><a href="https://github.com/asnaassalam"><img src="https://github.com/asnaassalam.png" width="50px" style="border-radius:50%;margin:5px;" alt="asnaassalam" /></a><a href="https://github.com/bh462007"><img src="https://github.com/bh462007.png" width="50px" style="border-radius:50%;margin:5px;" alt="bh462007" /></a><a href="https://github.com/bhatiakavisha"><img src="https://github.com/bhatiakavisha.png" width="50px" style="border-radius:50%;margin:5px;" alt="bhatiakavisha" /></a><a href="https://github.com/chekr-max"><img src="https://github.com/chekr-max.png" width="50px" style="border-radius:50%;margin:5px;" alt="chekr-max" /></a><a href="https://github.com/debugger1711"><img src="https://github.com/debugger1711.png" width="50px" style="border-radius:50%;margin:5px;" alt="debugger1711" /></a><a href="https://github.com/deepsikha-dash"><img src="https://github.com/deepsikha-dash.png" width="50px" style="border-radius:50%;margin:5px;" alt="deepsikha-dash" /></a><a href="https://github.com/diptipradeep"><img src="https://github.com/diptipradeep.png" width="50px" style="border-radius:50%;margin:5px;" alt="diptipradeep" /></a><a href="https://github.com/divya-d510"><img src="https://github.com/divya-d510.png" width="50px" style="border-radius:50%;margin:5px;" alt="divya-d510" /></a><a href="https://github.com/enoshdev"><img src="https://github.com/enoshdev.png" width="50px" style="border-radius:50%;margin:5px;" alt="enoshdev" /></a><a href="https://github.com/gowthamrdyy"><img src="https://github.com/gowthamrdyy.png" width="50px" style="border-radius:50%;margin:5px;" alt="gowthamrdyy" /></a><a href="https://github.com/harsh-kr9"><img src="https://github.com/harsh-kr9.png" width="50px" style="border-radius:50%;margin:5px;" alt="harsh-kr9" /></a><a href="https://github.com/harshitkr13"><img src="https://github.com/harshitkr13.png" width="50px" style="border-radius:50%;margin:5px;" alt="harshitkr13" /></a><a href="https://github.com/itsdakshjain"><img src="https://github.com/itsdakshjain.png" width="50px" style="border-radius:50%;margin:5px;" alt="itsdakshjain" /></a><a href="https://github.com/itsmeesnehaa"><img src="https://github.com/itsmeesnehaa.png" width="50px" style="border-radius:50%;margin:5px;" alt="itsmeesnehaa" /></a><a href="https://github.com/jancysen"><img src="https://github.com/jancysen.png" width="50px" style="border-radius:50%;margin:5px;" alt="jancysen" /></a><a href="https://github.com/kartik12421"><img src="https://github.com/kartik12421.png" width="50px" style="border-radius:50%;margin:5px;" alt="kartik12421" /></a><a href="https://github.com/khushi-in-tech"><img src="https://github.com/khushi-in-tech.png" width="50px" style="border-radius:50%;margin:5px;" alt="khushi-in-tech" /></a><a href="https://github.com/krishkhinchi"><img src="https://github.com/krishkhinchi.png" width="50px" style="border-radius:50%;margin:5px;" alt="krishkhinchi" /></a><a href="https://github.com/kush-mehra1"><img src="https://github.com/kush-mehra1.png" width="50px" style="border-radius:50%;margin:5px;" alt="kush-mehra1" /></a><a href="https://github.com/manurajgoel"><img src="https://github.com/manurajgoel.png" width="50px" style="border-radius:50%;margin:5px;" alt="manurajgoel" /></a><a href="https://github.com/maria-453"><img src="https://github.com/maria-453.png" width="50px" style="border-radius:50%;margin:5px;" alt="maria-453" /></a><a href="https://github.com/mittalsonal"><img src="https://github.com/mittalsonal.png" width="50px" style="border-radius:50%;margin:5px;" alt="mittalsonal" /></a><a href="https://github.com/nayana888ks"><img src="https://github.com/nayana888ks.png" width="50px" style="border-radius:50%;margin:5px;" alt="nayana888ks" /></a><a href="https://github.com/nipundeept"><img src="https://github.com/nipundeept.png" width="50px" style="border-radius:50%;margin:5px;" alt="nipundeept" /></a><a href="https://github.com/nishtha-agarwal-211"><img src="https://github.com/nishtha-agarwal-211.png" width="50px" style="border-radius:50%;margin:5px;" alt="nishtha-agarwal-211" /></a><a href="https://github.com/nitish06nkc"><img src="https://github.com/nitish06nkc.png" width="50px" style="border-radius:50%;margin:5px;" alt="nitish06nkc" /></a><a href="https://github.com/niy-ati"><img src="https://github.com/niy-ati.png" width="50px" style="border-radius:50%;margin:5px;" alt="niy-ati" /></a><a href="https://github.com/parthc6416"><img src="https://github.com/parthc6416.png" width="50px" style="border-radius:50%;margin:5px;" alt="parthc6416" /></a><a href="https://github.com/parthpatidar03"><img src="https://github.com/parthpatidar03.png" width="50px" style="border-radius:50%;margin:5px;" alt="parthpatidar03" /></a><a href="https://github.com/pratyuxxhh"><img src="https://github.com/pratyuxxhh.png" width="50px" style="border-radius:50%;margin:5px;" alt="pratyuxxhh" /></a><a href="https://github.com/radhikaa188"><img src="https://github.com/radhikaa188.png" width="50px" style="border-radius:50%;margin:5px;" alt="radhikaa188" /></a><a href="https://github.com/rajat552"><img src="https://github.com/rajat552.png" width="50px" style="border-radius:50%;margin:5px;" alt="rajat552" /></a><a href="https://github.com/renganathc"><img src="https://github.com/renganathc.png" width="50px" style="border-radius:50%;margin:5px;" alt="renganathc" /></a><a href="https://github.com/richachauhan15"><img src="https://github.com/richachauhan15.png" width="50px" style="border-radius:50%;margin:5px;" alt="richachauhan15" /></a><a href="https://github.com/rmagdaleena2508-01"><img src="https://github.com/rmagdaleena2508-01.png" width="50px" style="border-radius:50%;margin:5px;" alt="rmagdaleena2508-01" /></a><a href="https://github.com/roneet0916"><img src="https://github.com/roneet0916.png" width="50px" style="border-radius:50%;margin:5px;" alt="roneet0916" /></a><a href="https://github.com/saswatdutta1310"><img src="https://github.com/saswatdutta1310.png" width="50px" style="border-radius:50%;margin:5px;" alt="saswatdutta1310" /></a><a href="https://github.com/shauryaparth1902-blip"><img src="https://github.com/shauryaparth1902-blip.png" width="50px" style="border-radius:50%;margin:5px;" alt="shauryaparth1902-blip" /></a><a href="https://github.com/shreyamahesh07-git"><img src="https://github.com/shreyamahesh07-git.png" width="50px" style="border-radius:50%;margin:5px;" alt="shreyamahesh07-git" /></a><a href="https://github.com/shrutip04"><img src="https://github.com/shrutip04.png" width="50px" style="border-radius:50%;margin:5px;" alt="shrutip04" /></a><a href="https://github.com/shrutisharma-sh"><img src="https://github.com/shrutisharma-sh.png" width="50px" style="border-radius:50%;margin:5px;" alt="shrutisharma-sh" /></a><a href="https://github.com/shubhamjrd4559-sudo"><img src="https://github.com/shubhamjrd4559-sudo.png" width="50px" style="border-radius:50%;margin:5px;" alt="shubhamjrd4559-sudo" /></a><a href="https://github.com/som996"><img src="https://github.com/som996.png" width="50px" style="border-radius:50%;margin:5px;" alt="som996" /></a><a href="https://github.com/somu0571"><img src="https://github.com/somu0571.png" width="50px" style="border-radius:50%;margin:5px;" alt="somu0571" /></a><a href="https://github.com/sreevyarao"><img src="https://github.com/sreevyarao.png" width="50px" style="border-radius:50%;margin:5px;" alt="sreevyarao" /></a><a href="https://github.com/sricharan-213"><img src="https://github.com/sricharan-213.png" width="50px" style="border-radius:50%;margin:5px;" alt="sricharan-213" /></a><a href="https://github.com/ssuyashhhh"><img src="https://github.com/ssuyashhhh.png" width="50px" style="border-radius:50%;margin:5px;" alt="ssuyashhhh" /></a><a href="https://github.com/sujithputta02"><img src="https://github.com/sujithputta02.png" width="50px" style="border-radius:50%;margin:5px;" alt="sujithputta02" /></a><a href="https://github.com/tazmeen24"><img src="https://github.com/tazmeen24.png" width="50px" style="border-radius:50%;margin:5px;" alt="tazmeen24" /></a><a href="https://github.com/tharunika-19"><img src="https://github.com/tharunika-19.png" width="50px" style="border-radius:50%;margin:5px;" alt="tharunika-19" /></a><a href="https://github.com/the404packet"><img src="https://github.com/the404packet.png" width="50px" style="border-radius:50%;margin:5px;" alt="the404packet" /></a><a href="https://github.com/triemerge"><img src="https://github.com/triemerge.png" width="50px" style="border-radius:50%;margin:5px;" alt="triemerge" /></a><a href="https://github.com/unnati-jaiswal24"><img src="https://github.com/unnati-jaiswal24.png" width="50px" style="border-radius:50%;margin:5px;" alt="unnati-jaiswal24" /></a><a href="https://github.com/vikrantkulkarni07"><img src="https://github.com/vikrantkulkarni07.png" width="50px" style="border-radius:50%;margin:5px;" alt="vikrantkulkarni07" /></a><a href="https://github.com/vishwassinfinity"><img src="https://github.com/vishwassinfinity.png" width="50px" style="border-radius:50%;margin:5px;" alt="vishwassinfinity" /></a><a href="https://github.com/yuvraj-k-singh"><img src="https://github.com/yuvraj-k-singh.png" width="50px" style="border-radius:50%;margin:5px;" alt="yuvraj-k-singh" /></a><a href="https://github.com/zenowinged"><img src="https://github.com/zenowinged.png" width="50px" style="border-radius:50%;margin:5px;" alt="zenowinged" /></a><a href="https://github.com/zqleslie"><img src="https://github.com/zqleslie.png" width="50px" style="border-radius:50%;margin:5px;" alt="zqleslie" /></a>
 <!-- CONTRIBUTORS_END -->
 
 ## Features
@@ -64,7 +82,7 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 | -------------------- | --------------------------------------------------------------------------------------------------- |
 | AI Opponent          | Minimax search with alpha-beta pruning for challenging gameplay                                     |
 | Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                                      |
-| Full Move Validation | Legal moves enforced for all pieces including castling and promotion (en passant pending — see #88) |
+| Full Move Validation | Legal moves enforced for all pieces including castling, en passant, and promotion |
 | Game Timer           | Per-player countdown clocks with pause support                                                      |
 | Material Score Panel | Live material advantage tracking that updates dynamically during gameplay                           |
 | REST API             | Clean JSON endpoints powering a decoupled frontend                                                  |
@@ -74,34 +92,51 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 
 ## Quick Start
 
+**1. Clone the repository**
 ```bash
-# 1. Clone the repository
 git clone https://github.com/Checkora/Checkora.git
 cd Checkora
+```
 
-# 2. Set up a virtual environment
+**2. Set up a virtual environment**
+
+> **Note:** Django 6.0 requires Python 3.12 or higher. If you have multiple versions on Windows, use a compatible installed version, for example: `py -3.12 -m venv venv`.
+
+**On Windows:**
+```powershell
 python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # macOS / Linux
+venv\Scripts\Activate.ps1
+```
 
-# Note: Django 6.0 requires Python 3.12 or higher. If you have multiple
-# versions on Windows, use a compatible installed version, e.g.:
-# py -3.12 -m venv venv
+If you see the error *"Script execution is disabled on this system"*, run the following command in PowerShell before activating:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+This temporarily allows script execution for the current session. For more details, see the [Troubleshooting Guide](#troubleshooting-guide).
 
-# 3. Install dependencies
+**On macOS / Linux:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**3. Install dependencies**
+```bash
 pip install -r requirements.txt
+```
 
-# 4. Set up environment variables
-# Copy example env file
-# Windows (PowerShell)
-copy .env.example .env
+**4. Set up environment variables**
 
-# macOS / Linux
-cp .env.example .env
+Copy the example environment file:
+* **Windows (PowerShell):** `copy .env.example .env`
+* **macOS / Linux:** `cp .env.example .env`
 
-# Open `.env` and set SECRET_KEY if needed
-# Configure EMAIL_HOST_USER and EMAIL_HOST_PASSWORD for OTP and password reset emails
-# 5. Run migrations and start the server
+Open `.env` and configure:
+* `SECRET_KEY` if needed.
+* `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` for OTP and password reset emails.
+
+**5. Run migrations and start the server**
+```bash
 python manage.py migrate
 python manage.py runserver
 ```
@@ -119,6 +154,27 @@ g++ -O2 game/engine/main.cpp -o game/engine/main.exe
 # macOS / Linux
 g++ -O2 game/engine/main.cpp -o game/engine/main
 ```
+
+## Development Documentation
+
+For detailed local development setup, environment configuration, common development commands, troubleshooting, and contributor workflow guidance, see:
+
+- [Local Development Setup Guide](docs/development.md)
+
+This guide expands on the Quick Start instructions and provides a complete development workflow for contributors.
+
+## Testing Guide
+
+For detailed testing instructions, see:
+
+- [Testing & QA Guide](docs/testing.md)
+
+This guide covers:
+
+- Running unit tests
+- Running Selenium tests
+- Debugging test failures
+- Contributor testing best practices
 
 ## Project Structure
 
@@ -229,6 +285,47 @@ Checkora/
 └── vercel.json                    # Configuration for serverless Django routing on Vercel
 ```
 
+## Contributor Quick Reference
+
+| Looking For        | Location                        |
+| ------------------ | ------------------------------- |
+| API Endpoints      | `game/views.py`, `game/urls.py` |
+| Frontend Templates | `game/templates/`               |
+| CSS Files          | `game/static/game/css/`         |
+| JavaScript Files   | `game/static/game/js/`          |
+| Images & Sounds    | `game/static/game/`             |
+| Chess Engine       | `game/engine/`                  |
+| Database Models    | `game/models.py`                |
+| Forms              | `game/forms.py`                 |
+| Business Logic     | `game/services.py`              |
+| Unit Tests         | `game/tests.py`                 |
+| Selenium Tests     | `game/selenium_tests/`          |
+| Documentation      | `docs/`                         |
+| Django Settings    | `core/settings.py`              |
+| Root Routing       | `core/urls.py`                  |
+
+## Directory Overview
+
+### `core/`
+
+Contains Django project configuration including settings, root URL routing, and WSGI/ASGI entry points.
+
+### `game/`
+
+Main application module containing gameplay logic, API endpoints, templates, static assets, models, forms, and tests.
+
+### `game/engine/`
+
+Contains the chess engine implementations, including the high-performance C++ engine and Python fallback engine.
+
+### `docs/`
+
+Project documentation covering APIs, architecture, security reviews, and contributor resources.
+
+### `.github/`
+
+Repository workflows, issue templates, pull request templates, and automation configuration.
+
 ## Architecture
 
 Checkora uses a clean three-layer architecture:
@@ -308,6 +405,9 @@ Checkora features a decoupled API layer. Below is the endpoint catalog accompani
 | `POST` | `/api/resign/` | Resign the current game | `/api/resign/` |
 | `POST` | `/api/draw/` | Offer or accept a draw in PvP mode | `/api/draw/` |
 | `GET` | `/api/check-username/` | Check if a username is available | `/api/check-username/?username=player1` |
+| `POST` | `/api/analyze-game/` | Analyze a completed game and return statistics | `/api/analyze-game/` |
+| `GET` | `/api/puzzle-stats/` | Retrieve puzzle streak and statistics | `/api/puzzle-stats/` |
+| `POST` | `/api/cron/cleanup-stale-games/` | Secure cron-triggered cleanup for abandoned games | `/api/cron/cleanup-stale-games/` |
 
 ---
 
@@ -460,6 +560,65 @@ Resets current session variables and starts a fresh match.
 }
 ```
 
+#### 6. Analyze Game (`POST /api/analyze-game/`)
+Analyzes a completed game based on its move history and returns statistics.
+
+**Request Body:**
+
+```json
+{
+  "moves": ["e4", "e5", "Nf3", "Nc6"],
+  "result": "White wins",
+  "reason": "checkmate"
+}
+```
+
+**Response (Success - `200 OK`):**
+
+```json
+{
+  "opening": "Italian Game",
+  "result": "White wins",
+  "total_moves": 2,
+  "captures": 0,
+  "checks": 0,
+  "checkmates": 0,
+  "promotions": 0,
+  "end_reason": "checkmate"
+}
+```
+
+#### 7. Get Puzzle Stats (`GET /api/puzzle-stats/`)
+Returns puzzle streak information for the puzzle interface.
+
+**Response (Success - `200 OK`):**
+
+```json
+{
+  "streak": 0,
+  "longest_streak": 0
+}
+```
+
+#### 8. Cleanup Cron (`POST /api/cron/cleanup-stale-games/`)
+Secure cron-triggered cleanup endpoint for abandoned games.
+
+**Request Headers:**
+
+```http
+Authorization: Bearer <cron_secret>
+```
+
+**Response (Success - `200 OK`):**
+
+```json
+{
+  "status": "success",
+  "deleted_games": 2,
+  "resigned_games": 1
+}
+```
+
 ---
 
 ## Tests
@@ -567,6 +726,18 @@ If you attempt to launch the Django server without setting up a local configurat
     cp .env.example .env
     ```
     Open `.env` and verify you have a robust string under `SECRET_KEY`.
+    Additionally, ensure `TRUSTED_PROXIES` is configured (defaulting to
+    `127.0.0.1,::1` for local development).
+    Similarly, `TRUSTED_PROXY_IPS` must be configured for password reset rate limiting.
+
+    > **⚠️ Security Warning for Production:**
+    > When deploying behind reverse proxies (Vercel, Cloudflare, AWS ALB,
+    > etc.), you must set `TRUSTED_PROXIES` to your platform's upstream
+    > proxy IPs. Incorrect configuration allows attackers to spoof their
+    > IP address and bypass rate limiting entirely.
+    > Furthermore, `TRUSTED_PROXY_IPS` must be set in production to enforce proxy validation
+    > for password reset rate limiting. If `TRUSTED_PROXY_IPS` is empty in production,
+    > the server will raise an `ImproperlyConfigured` exception and fail to start.
 
 ### 🔌 6. Port Conflicts (Port 8000 Already in Use)
 If you already have another service running on your local port 8000, Django will fail to bind and throw `Error: That port is already in use.`
