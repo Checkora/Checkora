@@ -240,13 +240,15 @@ def make_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1-0' if winner == 'white' else '0-1', termination='checkmate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            game_result.replay_record = replay_record
-            game_result.save(update_fields=['replay_record'])
+            if game_result is not None:
+                game_result.replay_record = replay_record
+                game_result.save(update_fields=['replay_record'])
         elif game_status in ('stalemate', 'draw'):
             game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)            
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            game_result.replay_record = replay_record
-            game_result.save(update_fields=['replay_record'])
+            if game_result is not None:
+                game_result.replay_record = replay_record
+                game_result.save(update_fields=['replay_record'])
 
     return JsonResponse({
         'valid': success,
@@ -588,13 +590,15 @@ def ai_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1-0' if winner == 'white' else '0-1', termination='checkmate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            game_result.replay_record = replay_record
-            game_result.save(update_fields=['replay_record'])
+            if game_result is not None:
+                game_result.replay_record = replay_record
+                game_result.save(update_fields=['replay_record'])
         elif game_status in ('stalemate', 'draw'):
             game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            game_result.replay_record = replay_record
-            game_result.save(update_fields=['replay_record'])
+            if game_result is not None:
+                game_result.replay_record = replay_record
+                game_result.save(update_fields=['replay_record'])
 
     return JsonResponse({
         'valid': success,
@@ -685,8 +689,9 @@ def resign_game(request):
         pgn_str = game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black'))
         pgn_result = '1-0' if winner == 'white' else '0-1'
         replay_record = save_game_record(request, pgn=pgn_str, result=pgn_result, termination='resignation', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-        game_result.replay_record = replay_record
-        game_result.save(update_fields=['replay_record'])
+        if game_result is not None:
+            game_result.replay_record = replay_record
+            game_result.save(update_fields=['replay_record'])
     except Exception as e:
         logger.error('Failed to record resign result: %s', e)
 
