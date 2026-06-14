@@ -1744,7 +1744,7 @@ body {
   flex-direction: column;
   gap: 10px;
   position: fixed;
-  top: 14px;
+  top: 80px;
   right: 12px;
   z-index: 10000;
 }
@@ -1756,7 +1756,7 @@ body {
     flex-direction: column;
     gap: 10px;
     position: fixed;
-    top: 14px;
+    top: 90px;
     right: 12px;
     z-index: 10000;
   }
@@ -1901,6 +1901,19 @@ body {
     .clock {
         min-width: 0;
         width: 100%;
+    }
+    .m-fab {
+        top: auto;
+        bottom: 16px;
+        right: 12px;
+
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .m-fab-btn {
+        width: 40px;
+        height: 40px;
     }
 }
 

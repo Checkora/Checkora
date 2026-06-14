@@ -510,3 +510,20 @@ body.login-page .helptext {
   transform: translateX(-3px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
+
+/* ── Password Strength Meter ── */
+.password-strength-meter {
+    height: 4px;
+    width: 100%;
+    background: #0f0f1a;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+.strength-bar-fill {
+    height: 100%;
+    width: 0;
+    background: #ef4444;
+    transition: width 0.4s ease, background 0.4s ease;
+}

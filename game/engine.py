@@ -22,6 +22,7 @@ import subprocess
 import json
 import sys
 import time
+import threading
 from datetime import date
 
 class ChessGame:
@@ -51,6 +52,7 @@ class ChessGame:
 
     # Class-level cache so the file is read only once per process
     _opening_book: dict | None = None
+    _opening_book_lock = threading.Lock()
 
     INITIAL_BOARD = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -844,11 +846,13 @@ DP cache is intentionally excluded to save cookie space."""
     def _load_opening_book(cls) -> dict:
         """Load the opening book JSON from disk (cached after first load)."""
         if cls._opening_book is None:
-            try:
-                with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
-                    cls._opening_book = json.load(fh)
-            except (OSError, json.JSONDecodeError):
-                cls._opening_book = {}  # Graceful fallback: no book
+            with cls._opening_book_lock:
+                if cls._opening_book is None:
+                    try:
+                        with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
+                            cls._opening_book = json.load(fh)
+                    except (OSError, json.JSONDecodeError):
+                        cls._opening_book = {}  # Graceful fallback: no book
         return cls._opening_book
 
     def generate_fen_key(self) -> str:

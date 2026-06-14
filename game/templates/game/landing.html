@@ -1127,6 +1127,155 @@
       });
   })();
   </script>
+  <!-- Keyboard Shortcuts Modal -->
+<div
+  id="shortcutsModal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="shortcutsTitle"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;align-items:center;justify-content:center;">
+
+  <div style="background:#131522;color:white;padding:24px;border-radius:16px;width:90%;max-width:600px;border:1px solid rgba(240,192,64,.3);">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 id="shortcutsTitle" style="color:#f0c040;">
+  Keyboard Shortcuts
+</h2>
+
+      <button
+  type="button"
+  aria-label="Close keyboard shortcuts dialog"
+  title="Close"
+  onclick="closeShortcutsModal()"
+              style="background:none;border:none;color:white;font-size:22px;cursor:pointer;">
+        ✕
+      </button>
+    </div>
+
+    <table style="width:100%;">
+      <tr>
+        <td><strong>Shift + /</strong></td>
+        <td>Open shortcuts help</td>
+      </tr>
+
+      <tr>
+        <td><strong>Esc</strong></td>
+        <td>Close modal</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + h</strong></td>
+        <td>Go to Home</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + p</strong></td>
+        <td>Play Game</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + l</strong></td>
+        <td>Leaderboard</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + s</strong></td>
+        <td>Lessons</td>
+      </tr>
+    </table>
+
+  </div>
+</div>
+<script>
+(function () {
+
+  let gPressed = false;
+
+  const modal = document.getElementById("shortcutsModal");
+
+  window.openShortcutsModal = function () {
+    modal.style.display = "flex";
+  };
+
+  window.closeShortcutsModal = function () {
+    modal.style.display = "none";
+  };
+
+  document.addEventListener("keydown", function (e) {
+
+    const tag = document.activeElement.tagName;
+
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      document.activeElement.isContentEditable
+    ) {
+      return;
+    }
+
+    // Shift + /
+    if (e.shiftKey && e.key === "?") {
+      e.preventDefault();
+      openShortcutsModal();
+      return;
+    }
+
+    // ESC
+    if (e.key === "Escape") {
+      closeShortcutsModal();
+      return;
+    }
+
+    // g shortcuts
+    if (e.key.toLowerCase() === "g") {
+      gPressed = true;
+
+      setTimeout(() => {
+        gPressed = false;
+      }, 1000);
+
+      return;
+    }
+
+        if (modal.style.display === "flex") {
+      return;
+    }
+
+    if (!gPressed) {
+      return;
+    }
+
+    switch (e.key.toLowerCase()) {
+
+      case "h":
+        window.location.href = "{% url 'landing' %}";
+        break;
+
+      case "p":
+        window.location.href = "{% url 'index' %}";
+        break;
+
+      case "l":
+        window.location.href = "{% url 'leaderboard' %}";
+        break;
+
+      case "s":
+        window.location.href = "{% url 'lessons' %}";
+        break;
+    }
+
+    gPressed = false;
+  });
+
+  modal.addEventListener("click", function(e){
+    if(e.target === modal){
+      closeShortcutsModal();
+    }
+  });
+
+})();
+</script>
     <script src="{% static 'game/js/dropdown.js' %}"></script>
   </body>
 </html>

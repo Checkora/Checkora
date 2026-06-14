@@ -39,6 +39,7 @@ background-size:60px 60px;
     max-width:900px;
     margin:auto;
     padding:20px;
+    position: relative;
 }
 
 .level-title{
@@ -74,17 +75,20 @@ background-size:60px 60px;
 }
 
 .node{
-    width:90px;
-    height:90px;
+    width: 60px;
+    height: 60px;
+    background: #2a2a35;
     border-radius:50%;
     display:flex;
     align-items:center;
     justify-content:center;
+    font-size:24px;
+    border: 2px solid #444;
+    transition: transform 0.3s, box-shadow 0.3s;
     text-decoration:none;
-    font-size:34px;
     color:white;
-    font-weight:bold;
-    transition:.3s;
+    position: relative;
+    z-index: 1;
 }
 
 .node:hover{
@@ -215,16 +219,8 @@ background-size:60px 60px;
     display:flex;
     flex-direction:column;
     align-items:center;
-}
-
-.connector{
-    width:120px;
-    height:45px;
-    border:3px solid #36e6c5;
-    border-top:none;
-    border-radius:0 0 60px 60px;
-    margin:-5px auto;
-    opacity:.7;
+    position: relative; 
+    z-index: 2;
 }
 
 .back-btn{
@@ -252,7 +248,7 @@ background-size:60px 60px;
 
 <body>
 
-<a href="/" class="back-btn">
+<a href="{% url 'landing' %}" class="back-btn">
 ← Back to Home
 </a>
 
@@ -279,8 +275,9 @@ background-size:60px 60px;
 </div>
 
 <div class="map-container">
+    <svg id="roadmap-connectors" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;"></svg>
 
-{% for level in levels %}
+    {% for level in levels %}
 
     <div class="level-title">
         Level {{ level.id }} • {{ level.title }}
@@ -298,7 +295,7 @@ background-size:60px 60px;
 
                         <a
                             href="{% url 'lesson_detail' lesson|slugify %}"
-                            class="node completed">
+                            class="node completed roadmap-node">
                             <span>♔</span>
                         </a>
 
@@ -306,13 +303,13 @@ background-size:60px 60px;
 
                         <a
                             href="{% url 'lesson_detail' lesson|slugify %}"
-                            class="node current">
+                            class="node current roadmap-node">
                             <span>♕</span>
                         </a>
 
                     {% else %}
 
-                        <div class="node locked">
+                        <div class="node locked roadmap-node">
                             <span>🔒</span>
                         </div>
 
@@ -345,9 +342,7 @@ background-size:60px 60px;
 
             </div>
 
-            {% if not forloop.last %}
-                <div class="connector"></div>
-            {% endif %}
+           
 
         {% endfor %}
 
@@ -356,6 +351,7 @@ background-size:60px 60px;
 {% endfor %}
 
 </div>
-
-</body>
-</html>
+<script src="{% static 'game/js/roadmap_connectors.js' %}"></script>
+    
+    </body>
+    </html>

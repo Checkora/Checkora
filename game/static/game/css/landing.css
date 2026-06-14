@@ -446,8 +446,24 @@ body {
   position: relative;
   box-sizing: border-box;
 }
-.csq.dark  { background: #1e1606; border: 1px solid rgba(240,192,64,0.07); }
-.csq.light { background: #2a1f04; border: 1px solid rgba(0,0,0,0.35); }
+.csq.dark  {
+  background: #1e1606;
+  border: 1px solid rgba(240,192,64,0.07);
+}
+
+.csq.light {
+  background: #2a1f04;
+  border: 1px solid rgba(0,0,0,0.35);
+}
+[data-theme="light"] .csq.dark {
+    background: #d6c9a3;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .csq.light {
+    background: #ece4c7;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+} 
 
 .sq-glow {
   position: absolute; inset: 0; pointer-events: none;
@@ -465,6 +481,13 @@ body {
 .sq-piece.bright { font-size: 52px; color: #f0c040; animation-name: piece-bright; }
 .sq-piece.dim    { font-size: 42px; color: rgba(240,192,64,0.45); animation-name: piece-dim; }
 
+[data-theme="light"] .sq-piece.bright {
+    color: #b8860b; /* darker gold */
+}
+
+[data-theme="light"] .sq-piece.dim {
+    color: rgba(184, 134, 11, 0.75);
+}
 @keyframes glow-bright {
   0%   { opacity:0; box-shadow: none; }
   30%  { opacity:1; box-shadow: inset 0 0 40px 12px rgba(240,192,64,0.75), 
@@ -514,7 +537,11 @@ body {
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
-
+[data-theme="light"] .architecture-badge {
+    background-color: rgba(148, 163, 184, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: #475569;
+}
 .live-pulse {
     width: 6px;
     height: 6px;
@@ -1382,7 +1409,7 @@ body {
 
 [data-theme="light"] .faq-answer-content {
     color: #374151;
-
+}
 .modal-scroll-content {
     scrollbar-width: thin;
     scrollbar-color: var(--accent-gold) #131522;
