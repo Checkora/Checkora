@@ -11,7 +11,7 @@
   "rewrites": [
     { 
       "source": "/(.*)", 
-      "destination": "/checkora/api/wsgi.py" 
+      "destination": "/checkora/wsgi" 
     }
   ]
 }
