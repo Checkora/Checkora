@@ -20,14 +20,14 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| AI Opponent | Minimax search with alpha-beta pruning for challenging gameplay |
-| Hybrid Engine | C++ binary for maximum speed with an automatic Python fallback |
+| Feature              | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| AI Opponent          | Minimax search with alpha-beta pruning for challenging gameplay                   |
+| Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                    |
 | Full Move Validation | Legal moves enforced for all pieces including castling, en passant, and promotion |
-| Game Timer | Per-player countdown clocks with pause support |
-| REST API | Clean JSON endpoints powering a decoupled frontend |
-| PvP & PvE Modes | Play against a friend or challenge the AI |
+| Game Timer           | Per-player countdown clocks with pause support                                    |
+| REST API             | Clean JSON endpoints powering a decoupled frontend                                |
+| PvP & PvE Modes      | Play against a friend or challenge the AI                                         |
 
 ---
 
@@ -53,7 +53,7 @@ python manage.py runserver
 
 Open `http://127.0.0.1:8000/` in your browser and start playing.
 
-### Compile the C++ Engine *(optional but recommended)*
+### Compile the C++ Engine _(optional but recommended)_
 
 The compiled binary is not committed to the repository. Each contributor compiles for their own platform. If the binary is absent, Checkora automatically falls back to the Python engine.
 
@@ -71,7 +71,7 @@ g++ -O2 game/engine/main.cpp -o game/engine/main
 
 Checkora uses a clean three-layer architecture:
 
-```
+```text
 Browser (JS/HTML/CSS)
        |
        v
@@ -84,12 +84,22 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
        +---> Python Script (main.py)        <- Fallback: identical logic in Python
 ```
 
-| Layer | Technology | Path |
-|-------|-----------|------|
-| Frontend | HTML, CSS, JavaScript | `game/templates/game/board.html` |
-| Backend | Django 5.x | `game/views.py`, `game/engine.py` |
-| Engine (Primary) | C++17 | `game/engine/main.cpp` |
-| Engine (Fallback) | Python 3.10+ | `game/engine/main.py` |
+Here is a high-level visual overview of the component pipeline:
+
+```mermaid
+flowchart TD
+    Browser[Browser JS/HTML] --> Django[Django Views]
+    Django --> Wrapper[ChessGame Wrapper]
+    Wrapper --> Cpp[C++ Engine Primary]
+    Wrapper -.-> Python[Python Fallback]
+```
+
+| Layer             | Technology            | Path                              |
+| ----------------- | --------------------- | --------------------------------- |
+| Frontend          | HTML, CSS, JavaScript | `game/templates/game/board.html`  |
+| Backend           | Django 5.x            | `game/views.py`, `game/engine.py` |
+| Engine (Primary)  | C++17                 | `game/engine/main.cpp`            |
+| Engine (Fallback) | Python 3.10+          | `game/engine/main.py`             |
 
 > For a full deep-dive into the backend components, execution flow, and AI internals, see the [Architecture Guide](structure.md).
 
@@ -97,16 +107,16 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
 
 ## API Reference
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Render the board UI |
-| `POST` | `/api/move/` | Execute a player move |
-| `GET` | `/api/valid-moves/` | Get legal moves for a piece |
-| `POST` | `/api/new-game/` | Start a new game (PvP or PvE) |
-| `GET` | `/api/check-promotion/` | Check if a move triggers pawn promotion |
-| `GET` | `/api/state/` | Retrieve the full current game state |
-| `POST` | `/api/pause/` | Pause or resume the game clock |
-| `POST` | `/api/ai-move/` | Request and execute an AI move |
+| Method | Endpoint                | Description                             |
+| ------ | ----------------------- | --------------------------------------- |
+| `GET`  | `/`                     | Render the board UI                     |
+| `POST` | `/api/move/`            | Execute a player move                   |
+| `GET`  | `/api/valid-moves/`     | Get legal moves for a piece             |
+| `POST` | `/api/new-game/`        | Start a new game (PvP or PvE)           |
+| `GET`  | `/api/check-promotion/` | Check if a move triggers pawn promotion |
+| `GET`  | `/api/state/`           | Retrieve the full current game state    |
+| `POST` | `/api/pause/`           | Pause or resume the game clock          |
+| `POST` | `/api/ai-move/`         | Request and execute an AI move          |
 
 ---
 
