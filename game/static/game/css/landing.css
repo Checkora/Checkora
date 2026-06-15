@@ -622,7 +622,7 @@ body {
     text-decoration: none;
     background-color: transparent;
     color: var(--text-primary);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--border-color);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -799,8 +799,8 @@ body {
 
 /* Subtle accent focus on the primary technical engine feature */
 .about-bento-card.highlight-accent {
-    background: linear-gradient(145deg, var(--card-bg), #1a1a32);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: linear-gradient(145deg, var(--card-bg), var(--bg-primary));
+    border-color: var(--border-color);
 }
 
 .about-bento-card.highlight-accent:hover {

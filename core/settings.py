@@ -207,6 +207,12 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER
 
+if not DEFAULT_FROM_EMAIL:
+    raise ImproperlyConfigured(
+        "Neither DEFAULT_FROM_EMAIL nor EMAIL_HOST_USER is set. "
+        "At least one must be configured to send outgoing emails."
+    )
+
 
 # Redirect after login
 LOGIN_URL = 'login'
@@ -228,6 +234,20 @@ CRON_SECRET = os.environ.get('CRON_SECRET')
 # Trusted proxies for client IP extraction from X-Forwarded-For header
 TRUSTED_PROXIES = os.environ.get('TRUSTED_PROXIES', '127.0.0.1,::1').split(',')
 TRUSTED_PROXIES = [ip.strip() for ip in TRUSTED_PROXIES if ip.strip()]
+_invalid_trusted_proxies = []
+for _entry in TRUSTED_PROXIES:
+    try:
+        ipaddress.ip_address(_entry)
+    except ValueError:
+        try:
+            ipaddress.ip_network(_entry, strict=False)
+        except ValueError:
+            _invalid_trusted_proxies.append(_entry)
+if _invalid_trusted_proxies:
+    raise ImproperlyConfigured(
+        "TRUSTED_PROXIES contains invalid IP/CIDR values: "
+        + ", ".join(_invalid_trusted_proxies)
+    )
 
 # Trusted proxies for password reset rate limiting client IP extraction
 _trusted_proxy_ips_raw = [
