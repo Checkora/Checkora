@@ -3326,6 +3326,13 @@ def lesson_map_view(request):
             )
         )
 
+    completed_count = len(completed_lessons)
+
+    total_lessons = sum(
+        len(level["lessons"])
+        for level in LESSON_LEVELS
+    )
+
     unlocked_lessons = get_unlocked_lessons(
         completed_lessons
     )
@@ -3336,10 +3343,11 @@ def lesson_map_view(request):
         {
             "levels": LESSON_LEVELS,
             "completed_lessons": completed_lessons,
+            "completed_count": completed_count,
+            "total_lessons": total_lessons,
             "unlocked_lessons": unlocked_lessons,
         }
     )
-
 
 @login_required
 def achievements_view(request):
