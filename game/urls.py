@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from game.views import preferences
 
 urlpatterns = [
     path('', views.preloader, name='preloader'),
@@ -20,6 +21,7 @@ urlpatterns = [
     path('stats/', views.stats_view, name='stats'),
     path('api/analyze-game/', views.analyze_game_view, name='analyze_game'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
+    path("game/preferences/", preferences, name="preferences"),
 
     # Authentication
     path('api/check-username/', views.check_username, name='check_username'),

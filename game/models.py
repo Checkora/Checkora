@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.db.models import Q
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
 
 class GameResult(models.Model):
     user = models.ForeignKey(
@@ -363,3 +364,37 @@ class ChessPuzzle(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.difficulty or 'Unknown'})"
+
+BOARD_THEME_CHOICES = [
+    ('classic', 'Classic'),
+    ('green',   'Green'),
+    ('blue',    'Blue'),
+    ('midnight','Midnight'),
+]
+ 
+PIECE_SET_CHOICES = [
+    ('classic', 'Classic'),
+    ('neo',     'Neo'),
+    ('minimal', 'Minimal'),
+]
+ 
+ 
+class UserPreferences(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='preferences',
+    )
+    board_theme = models.CharField(
+        max_length=20,
+        choices=BOARD_THEME_CHOICES,
+        default='classic',
+    )
+    piece_set = models.CharField(
+        max_length=20,
+        choices=PIECE_SET_CHOICES,
+        default='classic',
+    )
+ 
+    def __str__(self):
+        return f"{self.user.username} preferences"

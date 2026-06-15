@@ -10,6 +10,7 @@
     <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/themes.css' %}">
 
     <!-- Vercel Speed Insights -->
     <script>
@@ -895,6 +896,12 @@ ${message}
 });
 </script>
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+
+<script>
+  window.CHECKORA_USER_AUTHENTICATED = {{ request.user.is_authenticated|yesno:"true,false" }};
+</script>
+<script src="{% static 'game/js/customisation.js' %}"></script>
+
 </body>
 
 

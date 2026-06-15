@@ -45,7 +45,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib.auth.decorators import login_required
 
 from django.db.models import Avg, Max, Min, Sum
@@ -64,7 +64,7 @@ from .models import (
     PlayerRating,
     RatingHistory,
 )
-
+from game.models import UserPreferences
 from .rating_service import calculate_rating_change
 
 logger = logging.getLogger(__name__)
@@ -3453,3 +3453,46 @@ def download_badge(request, achievement_id):
         return HttpResponseServerError(
             "Badge generation failed."
         )
+
+VALID_BOARD_THEMES = {'classic', 'green', 'blue', 'midnight'}
+VALID_PIECE_SETS   = {'classic', 'neo', 'minimal'}
+ 
+@login_required
+@require_http_methods(["GET", "POST"])
+def preferences(request):
+    """
+    GET  /api/preferences/  -> return current preferences
+    POST /api/preferences/  -> update preferences, return updated values
+    """
+    prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+ 
+    if request.method == "GET":
+        return JsonResponse({
+            "board_theme": prefs.board_theme,
+            "piece_set":   prefs.piece_set,
+        })
+ 
+    # POST: update one or both fields
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+ 
+    board_theme = data.get("board_theme")
+    piece_set   = data.get("piece_set")
+ 
+    if board_theme is not None:
+        if board_theme not in VALID_BOARD_THEMES:
+            return JsonResponse({"error": f"Invalid board_theme: {board_theme}"}, status=400)
+        prefs.board_theme = board_theme
+ 
+    if piece_set is not None:
+        if piece_set not in VALID_PIECE_SETS:
+            return JsonResponse({"error": f"Invalid piece_set: {piece_set}"}, status=400)
+        prefs.piece_set = piece_set
+ 
+    prefs.save()
+    return JsonResponse({
+        "board_theme": prefs.board_theme,
+        "piece_set":   prefs.piece_set,
+    })

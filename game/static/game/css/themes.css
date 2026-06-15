@@ -1,0 +1,112 @@
+/* ================================================================
+   themes.css  –  Board colour themes & piece-set support
+   Place this file in:  static/game/css/themes.css
+   Load it AFTER your main board.css in board.html
+   ================================================================ */
+
+/* ── Default (Classic) ── */
+:root {
+  --sq-light: #f0d9b5;
+  --sq-dark:  #b58863;
+}
+
+/* ── Green ── */
+[data-board-theme="green"] {
+  --sq-light: #ffffdd;
+  --sq-dark:  #86a666;
+}
+
+/* ── Blue ── */
+[data-board-theme="blue"] {
+  --sq-light: #dee3e6;
+  --sq-dark:  #8ca2ad;
+}
+
+/* ── Midnight ── */
+[data-board-theme="midnight"] {
+  --sq-light: #d1d1c9;
+  --sq-dark:  #4b4b4b;
+}
+
+/* ── Apply colours to squares ── */
+/* Adjust selectors to match the actual class names used in board.html */
+.square.light,
+.light-square {
+  background-color: var(--sq-light);
+}
+
+.square.dark,
+.dark-square {
+  background-color: var(--sq-dark);
+}
+
+/* ================================================================
+   Customisation Panel
+   ================================================================ */
+#customisation-panel {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  background: #1e1e1e;
+  color: #f0f0f0;
+  padding: 16px 20px;
+  border-radius: 8px 0 0 8px;
+  z-index: 1000;
+  min-width: 220px;
+  box-shadow: -4px 0 16px rgba(0,0,0,0.4);
+  font-family: sans-serif;
+  font-size: 14px;
+}
+
+#customisation-panel h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: #ccc;
+}
+
+#customisation-panel label {
+  display: block;
+  margin-bottom: 4px;
+  color: #aaa;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+#customisation-panel select {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 14px;
+  background: #2d2d2d;
+  color: #f0f0f0;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#customisation-panel select:focus {
+  outline: none;
+  border-color: #888;
+}
+
+/* Toggle button (tab on the side of the panel) */
+#customisation-toggle {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  background: #333;
+  color: #f0f0f0;
+  border: none;
+  padding: 12px 6px;
+  cursor: pointer;
+  border-radius: 6px 0 0 6px;
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  letter-spacing: 1px;
+  z-index: 999;
+  display: none; /* shown by JS after panel hides */
+}
