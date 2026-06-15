@@ -1410,6 +1410,22 @@ body {
 [data-theme="light"] .faq-answer-content {
     color: #374151;
 }
+
+/* --- light-mode overrides for dark-only components --- */
+
+[data-theme="light"] .about-bento-card.highlight-accent {
+    background: linear-gradient(145deg, var(--card-bg), rgba(0, 0, 0, 0.03));
+    border-color: var(--card-border);
+}
+
+[data-theme="light"] .btn-secondary-ghost {
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .btn-secondary-ghost:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
 .modal-scroll-content {
     scrollbar-width: thin;
     scrollbar-color: var(--accent-gold) #131522;
