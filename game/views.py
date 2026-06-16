@@ -6,6 +6,7 @@ import hashlib
 import math
 import ipaddress
 import secrets
+import re
 import secrets as secrets_module
 from django.http import HttpResponseServerError
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -88,6 +89,21 @@ from game.services import (
 from django.http import FileResponse
 
 from .analysis import build_summary
+
+_SAFE_NOTATION = re.compile(
+    r'^([KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](=[QRBN])?[+#]?'  # standard moves
+    r'|O-O(-O)?[+#]?)$' # castling
+)
+
+def _sanitize_notation(notation):
+    if not isinstance(notation, str):
+        return ''
+    return notation if _SAFE_NOTATION.match(notation) else ''
+
+def _sanitize_move_history(move_history):
+    for move in move_history:
+        move['notation'] = _sanitize_notation(move.get('notation', ''))
+    return move_history
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -232,6 +248,8 @@ def make_move(request):
     )
 
     if success:
+        for move in game.move_history:
+            move['notation'] = _sanitize_notation(move.get('notation', ''))
         request.session['game'] = game.to_dict()
         request.session.modified = True
         if game_status == 'checkmate':
@@ -396,6 +414,7 @@ def resume_game(request):
     game.last_ts = time.time()
     request.session['game'] = game.to_dict()
     request.session.modified = True
+    _sanitize_move_history(game.move_history)
 
     return JsonResponse({
         'valid': True,
@@ -459,6 +478,7 @@ def get_state(request):
         else:
             game.update_clock()
 
+    _sanitize_move_history(game.move_history)
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
@@ -573,6 +593,8 @@ def ai_move(request):
     )
 
     if success:
+        for move in game.move_history:
+            move['notation'] = _sanitize_notation(move.get('notation', ''))
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
