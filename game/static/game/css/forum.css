@@ -451,3 +451,135 @@
         align-items: stretch;
     }
 }
+
+.forum-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+}
+
+.forum-tab {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    padding: 0.7rem 1.1rem;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.forum-tab:hover {
+    color: var(--accent-gold);
+    border-color: rgba(240, 192, 64, 0.28);
+}
+
+.forum-tab.active {
+    background: rgba(240, 192, 64, 0.1);
+    border-color: rgba(240, 192, 64, 0.35);
+    color: var(--accent-gold);
+}
+
+.forum-tab-panel {
+    display: none;
+}
+
+.forum-tab-panel.active {
+    display: block;
+}
+
+.forum-card-wrap {
+    position: relative;
+}
+
+.forum-topic-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.forum-topic-row .forum-card-title {
+    margin-bottom: 0.35rem;
+}
+
+.forum-bookmark-form {
+    flex-shrink: 0;
+}
+
+.forum-bookmark-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: 2.35rem;
+    overflow: hidden;
+
+    background: rgba(240, 192, 64, 0.07);
+    border: 1px solid rgba(240, 192, 64, 0.18);
+    color: var(--accent-gold);
+
+    border-radius: 999px;
+    padding: 0.35rem 0.55rem;
+
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+
+    cursor: pointer;
+    white-space: nowrap;
+
+    transition:
+        width 0.25s ease,
+        background 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.forum-bookmark-btn:hover {
+    width: 7.2rem;
+    background: rgba(240, 192, 64, 0.11);
+    border-color: rgba(240, 192, 64, 0.35);
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.08);
+}
+
+.forum-bookmark-btn.bookmarked {
+    width: 8.2rem;
+    background: rgba(240, 192, 64, 0.12);
+    border-color: rgba(240, 192, 64, 0.32);
+}
+
+.bookmark-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.bookmark-text {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.forum-bookmark-btn:hover .bookmark-text,
+.forum-bookmark-btn.bookmarked .bookmark-text {
+    opacity: 1;
+}
+
+@media (max-width: 600px) {
+    .forum-topic-row {
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .forum-bookmark-btn,
+    .forum-bookmark-btn:hover,
+    .forum-bookmark-btn.bookmarked {
+        width: auto;
+    }
+
+    .bookmark-text {
+        opacity: 1;
+    }
+}

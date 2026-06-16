@@ -57,42 +57,90 @@
 
     <div class="forum-container">
         <div class="forum-header">
-            <a href="{% url 'landing' %}" class="forum-home-btn"> ← Back to Home </a>
+            <a href="{% url 'landing' %}" class="forum-home-btn">← Back to Home</a>
+
             <h1 class="forum-title">Community <span class="gold">Forum</span></h1>
-            <p class="forum-subtitle">Discuss strategies, ask questions, and connect with fellow players.</p>
+
+            <p class="forum-subtitle">
+                Discuss strategies, ask questions, and connect with fellow players.
+            </p>
         </div>
 
-        <div class="forum-list">
-            {% for discussion in discussions %}
-            <a href="{% url 'forum_detail' discussion.id %}" class="forum-card">
-                <div class="forum-card-main">
-                    <h3 class="forum-card-title"><span class="forum-topic-label">Topic:</span> {{ discussion.title }}</h3>
-                    <p class="forum-card-excerpt">{{ discussion.content|truncatewords:40 }}</p>
-                    <div class="forum-card-meta">
-                        <span class="forum-meta-label">Started by</span>
-                        <span class="forum-author">{{ discussion.user.username }}</span>
+        <div class="forum-tabs">
+            <button type="button" class="forum-tab active" data-tab="all">
+                All Discussions
+            </button>
 
-                        <span class="forum-dot">•</span>
+            {% if user.is_authenticated %}
+            <button type="button" class="forum-tab" data-tab="your">
+                Your Discussions
+            </button>
 
-                        <span class="forum-meta-label">On</span>
-                        <span class="forum-date">{{ discussion.created_at|date:"M d, Y" }}</span>
-                    </div>
+            <button type="button" class="forum-tab" data-tab="bookmarked">
+                Bookmarked
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="forum-tab-panel active" id="tab-all">
+            <div class="forum-list">
+                {% for discussion in discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>No discussions yet. Be the first to start one!</p>
                 </div>
-                <div class="forum-card-stats">
-                    <span class="forum-reply-count">{{ discussion.replies.count }}</span>
-                    <span class="forum-reply-label">Replies</span>
-                </div>
-            </a>
-            {% empty %}
-            <div class="forum-empty">
-                <p>No discussions yet. Be the first to start one!</p>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
+
+        {% if user.is_authenticated %}
+        <div class="forum-tab-panel" id="tab-your">
+            <div class="forum-list">
+                {% for discussion in user_discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>You have not started or participated in any discussions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="forum-tab-panel" id="tab-bookmarked">
+            <div class="forum-list">
+                {% for discussion in bookmarked_discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>No bookmarked discussions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         {% if user.is_authenticated %}
         <a href="{% url 'forum_new' %}" class="forum-fab-new">+ New Discussion</a>
         {% endif %}
     </div>
+    <script>
+        document.querySelectorAll(".forum-tab").forEach((tab) => {
+            tab.addEventListener("click", () => {
+                const target = tab.dataset.tab;
+
+                document.querySelectorAll(".forum-tab").forEach((item) => {
+                    item.classList.remove("active");
+                });
+
+                document.querySelectorAll(".forum-tab-panel").forEach((panel) => {
+                    panel.classList.remove("active");
+                });
+
+                tab.classList.add("active");
+                document.getElementById(`tab-${target}`).classList.add("active");
+            });
+        });
+    </script>
 </body>
 </html>

@@ -47,6 +47,7 @@ from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
+from django.db import models
 
 from django.db.models import Avg, Max, Min, Sum
 from datetime import timedelta
