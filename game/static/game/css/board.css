@@ -119,10 +119,7 @@ body {
 }
 
 .theme-toggle {
-    position: absolute;
-    top: 0;
     right: 0;
-    transform: translateY(-4px);
     background: transparent;
     border: 1px solid var(--card-border);
     color: var(--text-primary);
@@ -975,9 +972,7 @@ body {
     font-weight: bold;
     margin-bottom: 2rem;
     text-decoration: none;
-    display: flex; 
-    justify-content: flex-start;
-    
+    margin-top: 25px;
 }
 
 .back-btn:hover {
@@ -1313,8 +1308,7 @@ body {
         flex-shrink: 0;
     }
 
-    color: #fed7aa;
-}
+
 
 /* Low time warning — stage 3: 10s–1s (red + scale pulse animation) */
 @keyframes low-time-pulse {
@@ -1630,8 +1624,6 @@ body {
 
 .promo-overlay .back-btn {
     position: relative !important;
-    top: auto !important;
-    right: auto !important;
     display: inline-flex !important;
 }
 
@@ -1651,7 +1643,7 @@ body {
     position: absolute !important;
     top: 0 !important;
     right: 0 !important;
-    transform: translateY(-4px) !important;
+    margin: 12px !important;
 }
 
 .promo-overlay .btn-gold {
