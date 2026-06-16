@@ -83,7 +83,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 1000;
-    margin: 14px 22px;
+    margin: 8px 22px;
     border-radius: 18px;
     background: rgba(15, 15, 25, 0.55);
     backdrop-filter: blur(18px);
