@@ -121,17 +121,5 @@
         <a href="{% url 'login' %}">Login</a> to join the discussion.
     </div>
     {% endif %}
-
-    {% if user.is_authenticated %}
-    <form method="post" action="{% url 'forum_reply' discussion.id %}" class="forum-reply-bar">
-        {% csrf_token %}
-        {{ form.content }}
-        <button type="submit" class="forum-btn-submit">Post</button>
-    </form>
-    {% else %}
-    <div class="forum-login-prompt">
-        <a href="{% url 'login' %}">Login</a> to join the discussion.
-    </div>
-    {% endif %}
 </body>
 </html>

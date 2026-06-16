@@ -93,20 +93,6 @@
     color: var(--text-secondary);
 }
 
-.forum-card-meta {
-    margin-top: 0.9rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(255,255,255,0.08);
-
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    flex-wrap: wrap;
-
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
 .forum-home-btn {
     display: inline-block;
 
