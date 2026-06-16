@@ -1946,10 +1946,80 @@ if (timeEl) {
             }
 
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initThemeSwitcher);
-            } else {
-                initThemeSwitcher();
-            }
+    document.addEventListener('DOMContentLoaded', () => {
+
+        initThemeSwitcher();
+
+        const savedTheme =
+            localStorage.getItem('uiTheme') || 'dark';
+
+        applyUiTheme(savedTheme);
+
+        const themeBtn =
+            document.getElementById('theme-toggle');
+
+        if (themeBtn) {
+            themeBtn.addEventListener('click', () => {
+
+                const nextTheme =
+                    document.body.classList.contains('light-mode')
+                        ? 'dark'
+                        : 'light';
+
+                localStorage.setItem(
+                    'uiTheme',
+                    nextTheme
+                );
+
+                applyUiTheme(nextTheme);
+            });
+        }
+
+    });
+} else {
+
+    initThemeSwitcher();
+
+    const savedTheme =
+        localStorage.getItem('uiTheme') || 'dark';
+
+    applyUiTheme(savedTheme);
+
+    const themeBtn =
+        document.getElementById('theme-toggle');
+
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+
+            const nextTheme =
+                document.body.classList.contains('light-mode')
+                    ? 'dark'
+                    : 'light';
+
+            localStorage.setItem(
+                'uiTheme',
+                nextTheme
+            );
+
+            applyUiTheme(nextTheme);
+        });
+    }
+}
+
+
+            function applyUiTheme(theme) {
+    document.body.classList.toggle(
+        'light-mode',
+        theme === 'light'
+    );
+
+    const btn = document.getElementById('theme-toggle');
+
+    if (btn) {
+        btn.textContent =
+            theme === 'light' ? '☀️' : '🌙';
+    }
+}
 
     document.addEventListener('visibilitychange', async() => {
         if (document.hidden) {
