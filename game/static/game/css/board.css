@@ -196,7 +196,7 @@ body {
     top: 100%;
     margin-top: -2px;
     min-width: 220px;
-    background: #111827;
+    background: var(--card-bg);
     border-radius: 14px;
     border: 1px solid rgba(255,255,255,0.08);
     overflow: hidden;
@@ -208,12 +208,14 @@ body {
     display: block;
 }
 
-.dropdown-content a,
-.logout-option{
+.profile-dropdown:focus-within .dropdown-content {
+    display:block;
+}
+.dropdown-content a .logout-option{
     display: block;
     width: 100%;
     padding: 14px 18px;
-    color: white;
+    color: var(--text-color);
     text-decoration: none;
     background: transparent;
     border: none;
@@ -1532,7 +1534,10 @@ body.light-mode {
 
 @media (max-width: 400px) {
     :root {
-        --mobile-board-size: min(calc(100vw - 24px), 360px);
+        --mobile-board-size: min(
+           calc(100vw - var(--rank-label-width) - 12px),
+           360px
+    );
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
         --square-size: var(--mobile-square-size);
     }
