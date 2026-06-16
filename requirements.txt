@@ -6,3 +6,4 @@ whitenoise>=6.6.0
 flake8>=7.0.0
 selenium==4.15.0
 webdriver-manager==4.0.1
+Pillow==12.2.0

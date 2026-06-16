@@ -27,11 +27,41 @@
     <script defer src="/_vercel/insights/script.js"></script>
     <script>
         (function () {
-            const VALID_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
-            let saved = 'classic';
-            try { saved = localStorage.getItem('chessBoardTheme') || 'classic'; } catch (e) { }
-            if (!VALID_THEMES.includes(saved)) saved = 'classic';
-            document.documentElement.setAttribute('data-theme', saved);
+            const safeLocalStorage = {
+                get(key) {
+                    try {
+                        return window.localStorage.getItem(key);
+                    } catch (error) {
+                        return null;
+                    }
+                }
+            };
+
+            const VALID_APP_THEMES = ['light', 'dark'];
+            const VALID_BOARD_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
+
+            let savedAppTheme = safeLocalStorage.get('theme');
+            if (!VALID_APP_THEMES.includes(savedAppTheme)) {
+                const legacyAppTheme = safeLocalStorage.get('chessBoardTheme');
+                savedAppTheme = VALID_APP_THEMES.includes(legacyAppTheme) ? legacyAppTheme : null;
+            }
+            if (!savedAppTheme) {
+                savedAppTheme = 'dark';
+            }
+            document.documentElement.setAttribute('data-theme', savedAppTheme);
+
+            let savedBoardTheme = safeLocalStorage.get('boardTheme') || safeLocalStorage.get('chessBoardTheme');
+            if (!savedBoardTheme) {
+                const legacyTheme = safeLocalStorage.get('theme');
+                if (!VALID_APP_THEMES.includes(legacyTheme) && VALID_BOARD_THEMES.includes(legacyTheme)) {
+                    savedBoardTheme = legacyTheme;
+                }
+            }
+            if (!VALID_BOARD_THEMES.includes(savedBoardTheme)) {
+                savedBoardTheme = 'classic';
+            }
+            document.documentElement.setAttribute('data-board-theme', savedBoardTheme);
+
         })();
     </script>
 
@@ -43,13 +73,28 @@
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
-  <button class="m-fab-btn" title="Pause"
-    onclick="document.getElementById('pauseBtn').click()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="5" y="3" width="4" height="18" rx="1.5"/>
-      <rect x="15" y="3" width="4" height="18" rx="1.5"/>
-    </svg>
-  </button>
+  <button
+  type="button"
+  class="m-fab-btn"
+  id="pauseFab"
+  title="Pause"
+  onclick="document.getElementById('pauseBtn').click()">
+
+  <svg id="pauseFabIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="5" y="3" width="4" height="18" rx="1.5"/>
+    <rect x="15" y="3" width="4" height="18" rx="1.5"/>
+  </svg>
+
+  <svg id="playFabIcon"
+       width="16"
+       height="16"
+       viewBox="0 0 24 24"
+       fill="currentColor"
+       style="display:none;">
+    <path d="M8 5v14l11-7z"/>
+  </svg>
+
+</button>
   <button class="m-fab-btn m-fab-resign" title="Resign"
     onclick="document.getElementById('resignBtn').click()">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -63,8 +108,9 @@
 
     <div class="promo-overlay active" id="welcomeOverlay" style="background: var(--page-bg); z-index: 10000;">
         <div class="promo-dialog">
-            <div style="margin-bottom: 20px; color:#f0c040;">
+            <div style="margin-bottom: 20px; color:#f0c040; position: relative;">
                 <a href="/" class="back-btn">← Back to Home</a>
+                <button type="button" id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -82,11 +128,11 @@
             <p style="color: #aaa; margin-bottom: 30px; font-size: 0.95rem;">Enter names and select a game mode.</p>
 
             <div id="nameInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-                <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17" required
+                <input type="text" id="whiteNameInput" placeholder="White Player Name" aria-label="White Player Name" maxlength="17" required
                     minlength="1"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
 
-                <input type="text" id="blackNameInput" placeholder="Black Player Name" maxlength="17" required
+                <input type="text" id="blackNameInput" placeholder="Black Player Name" aria-label="Black Player Name" maxlength="17" required
                     minlength="1"
                     style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; transition: all 0.3s ease;">
 
@@ -264,11 +310,11 @@
                         Stats
                     </a>
 
-                    <a href="#">
+                    <a href="{% url 'leaderboard' %}">
                         Leaderboard
                     </a>
 
-                    <a href="#">
+                    <a href="{% url 'achievements' %}">
                         Achievements
                     </a>
 
@@ -322,11 +368,11 @@
             <div class="card" id="emotePanel" style="display: none;">
                 <div class="card-title">React</div>
                 <div style="display: flex; gap: 8px; justify-content: space-around; font-size: 1.5rem; flex-wrap: wrap;">
-                    <button class="emote-btn" data-emote="👍" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
-                    <button class="emote-btn" data-emote="🤝" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
-                    <button class="emote-btn" data-emote="😂" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
-                    <button class="emote-btn" data-emote="😮" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
-                    <button class="emote-btn" data-emote="🏳️" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
+                    <button class="emote-btn" data-emote="👍" aria-label="React with Thumbs Up" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
+                    <button class="emote-btn" data-emote="🤝" aria-label="React with Shake Hands" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
+                    <button class="emote-btn" data-emote="😂" aria-label="React with Laughing" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
+                    <button class="emote-btn" data-emote="😮" aria-label="React with Surprised" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
+                    <button class="emote-btn" data-emote="🏳️" aria-label="Offer Resignation Emote" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
                 </div>
             </div>
         </div>
@@ -383,12 +429,12 @@
             </div>
 
             <div class="status-bar" id="statusBar">
-                <div id="replayControls" class="replay-controls hidden">
-                    <button id="firstReplayBtn">⏮</button>
-                    <button id="prevReplayBtn">◀</button>
-                    <button id="playReplayBtn">▶</button>
-                    <button id="nextReplayBtn">▶▶</button>
-                    <button id="lastReplayBtn">⏭</button>
+                <div id="replayControls" class="replay-controls hidden" aria-label="Game Replay Controls" role="group">
+                    <button id="firstReplayBtn" aria-label="Go to first move">⏮</button>
+                    <button id="prevReplayBtn" aria-label="Go to previous move">◀</button>
+                    <button id="playReplayBtn" aria-label="Play/Pause automatic replay">▶</button>
+                    <button id="nextReplayBtn" aria-label="Go to next move">▶▶</button>
+                    <button id="lastReplayBtn" aria-label="Go to last move">⏭</button>
                 </div>
                 <!--Score bar-->
                   <div id="game-status">Game started</div>
@@ -447,7 +493,7 @@
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
-                    <a href="#" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
+                    <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
                     <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
                     <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
@@ -775,6 +821,12 @@
                 <button type="button" id="copyLinkBtn" class="btn btn-gold" style="padding:10px; flex:1;">🔗 Copy Link</button>
             </div>
             <button type="button" id="whatsappBtn" style="padding:10px; border-radius:8px; background:#25D366; color:#fff; border:none; font-size:0.95rem; cursor:pointer; font-weight:bold;">💬 Share on WhatsApp</button>
+            <button type="button" id="twitterBtn" style="padding:10px; border-radius:8px; background:#1DA1F2; color:#fff; border:none; font-size:0.95rem; cursor:pointer; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:middle;">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                Share on X (Twitter)
+            </button>
             <button type="button" id="closeShareBtn" class="btn" style="padding:10px; background:#333; color:#fff;">Close</button>
         </div>
     </div>
@@ -840,12 +892,17 @@ ${message}
         window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
     };
 
+    document.getElementById('twitterBtn').onclick = function () {
+        const encoded = encodeURIComponent(shareText);
+        window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank', 'noopener,noreferrer');
+    };
+
     document.getElementById('closeShareBtn').onclick = function () {
         modal.style.display = 'none';
     };
 });
 </script>
-
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 
 
