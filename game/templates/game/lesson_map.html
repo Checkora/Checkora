@@ -223,11 +223,39 @@ background-size:60px 60px;
     z-index: 2;
 }
 
-.back-btn{
-    color:#f0c040;
-    text-decoration:none;
-    font-weight:bold;
-    margin-left:20px;
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    margin: 20px 0 0 20px;
+    padding: 0.6rem 1.2rem;
+
+    background: rgba(22, 22, 42, 0.6);
+    color: #ffffff;
+
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 30px;
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.back-btn:hover {
+    color: #f0c040;
+    border-color: rgba(240, 192, 64, 0.3);
+
+    transform: translateX(-3px);
+
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
 @media(max-width:768px){
