@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Discussion | Checkora Forum</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
+</head>
+<body>
+    <nav class="forum-navbar">
+        <div class="nav-left">
+            <a href="{% url 'landing' %}" class="logo-link">
+                <img src="{% static 'game/checkora_icon_only.png' %}"
+                    alt="Checkora Logo"
+                    class="logo-img">
+
+                <span class="logo-text">
+                    CHECK<span class="logo-accent">ORA</span>
+                </span>
+            </a>
+        </div>
+
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+            <div class="profile-dropdown">
+                <button type="button" class="profile-btn">
+                    {{ user.username }} ⌄
+                </button>
+
+                <div class="dropdown-content">
+                    <a href="/play/">Dashboard</a>
+                    <a href="/stats/">Stats</a>
+                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
+                    <a href="{% url 'achievements' %}">Achievements</a>
+
+                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-option">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="forum-container">
+        <a href="{% url 'forum' %}" class="forum-back-link">← Back to Forum</a>
+
+        <div class="forum-new-card">
+            <h1 class="forum-detail-title">Start a New Discussion</h1>
+
+            <form method="post" class="forum-new-form">
+                {% csrf_token %}
+                <div class="forum-form-group">
+                    <label for="{{ form.title.id_for_label }}">Title</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                        <p class="forum-error">{{ form.title.errors|first }}</p>
+                    {% endif %}
+                </div>
+                <div class="forum-form-group">
+                    <label for="{{ form.content.id_for_label }}">Content</label>
+                    {{ form.content }}
+                    {% if form.content.errors %}
+                        <p class="forum-error">{{ form.content.errors|first }}</p>
+                    {% endif %}
+                </div>
+                <button type="submit" class="forum-btn-submit">Create Discussion</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -66,6 +66,8 @@ from .models import (
 )
 
 from .rating_service import calculate_rating_change
+from .models import Discussion, Reply
+from .forms import DiscussionForm, ReplyForm
 
 logger = logging.getLogger(__name__)
 
@@ -3388,7 +3390,6 @@ def achievements_view(request):
         }
     )
 
-
 @login_required
 def feature_badge(request, achievement_id):
     achievement = get_object_or_404(
@@ -3429,7 +3430,6 @@ def feature_badge(request, achievement_id):
 
     return redirect("achievements")
 
-
 @login_required
 def remove_featured_badge(request, badge_id):
     FeaturedBadge.objects.filter(
@@ -3443,7 +3443,6 @@ def remove_featured_badge(request, badge_id):
     )
 
     return redirect("achievements")
-
 
 @login_required
 def download_badge(request, achievement_id):
@@ -3479,3 +3478,69 @@ def download_badge(request, achievement_id):
         return HttpResponseServerError(
             "Badge generation failed."
         )
+
+def forum_list(request):
+    discussions = Discussion.objects.select_related("user").prefetch_related("replies")
+
+    return render(
+        request,
+        "game/forum_list.html",
+        {
+            "discussions": discussions,
+        }
+    )
+
+def forum_detail(request, discussion_id):
+    discussion = get_object_or_404(Discussion, id=discussion_id)
+    replies = discussion.replies.select_related("user")
+    form = ReplyForm()
+
+    return render(
+        request,
+        "game/forum_detail.html",
+        {
+            "discussion": discussion,
+            "replies": replies,
+            "form": form,
+        }
+    )
+
+@login_required
+def forum_new(request):
+    if request.method == "POST":
+        form = DiscussionForm(request.POST)
+        if form.is_valid():
+            discussion = form.save(commit=False)
+            discussion.user = request.user
+            discussion.save()
+
+            messages.success(request, "Discussion created successfully.")
+            return redirect("forum_detail", discussion_id=discussion.id)
+    else:
+        form = DiscussionForm()
+
+    return render(
+        request,
+        "game/forum_new.html",
+        {
+            "form": form,
+        }
+    )
+
+@login_required
+@require_POST
+def forum_reply(request, discussion_id):
+    discussion = get_object_or_404(Discussion, id=discussion_id)
+    form = ReplyForm(request.POST)
+
+    if form.is_valid():
+        reply = form.save(commit=False)
+        reply.discussion = discussion
+        reply.user = request.user
+        reply.save()
+
+        messages.success(request, "Reply posted successfully.")
+    else:
+        messages.error(request, "Reply could not be posted.")
+
+    return redirect("forum_detail", discussion_id=discussion.id)
