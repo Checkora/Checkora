@@ -207,6 +207,12 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER
 
+if not DEFAULT_FROM_EMAIL:
+    raise ImproperlyConfigured(
+        "DEFAULT_FROM_EMAIL is not configured. Set EMAIL_HOST_USER "
+        "or DEFAULT_FROM_EMAIL in your .env file."
+    )
+
 
 # Redirect after login
 LOGIN_URL = 'login'
