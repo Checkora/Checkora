@@ -241,9 +241,26 @@
             
             // post() uses csrf()
             function csrf() {
-                const m = document.cookie.match(/csrftoken=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : '';  // ← returns empty on Vercel
-            }
+
+    const renderedToken =
+        document.querySelector(
+            '[name=csrfmiddlewaretoken]'
+        )?.value;
+
+    if (renderedToken) {
+        return renderedToken;
+    }
+
+    const m =
+        document.cookie.match(
+            /csrftoken=([^;]+)/
+        );
+
+    return m
+        ? decodeURIComponent(m[1])
+        : '';
+}
+               
 
             async function get(url) {
                 return (await fetch(url)).json();
@@ -1899,27 +1916,39 @@ if (timeEl) {
                 resumeGame();
             };
 
-            if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
-                const mode = document.querySelector('input[name="go_mode"]:checked').value;
-                const diff = document.getElementById('goDifficultySelect').value;
-                const timeLimitMins = parseInt(document.getElementById('goTimerSelect').value, 10);
-                gameOverOverlay.classList.remove('active');
-                gameOverOverlay.classList.remove('game-over-celebration');
+            if (gameOverStartBtn) {
+    gameOverStartBtn.onclick = () => {
 
-                const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
-                if (confettiContainer) {
-                    confettiContainer.remove();
-                }
+        gameOverOverlay.classList.remove('active');
+        gameOverOverlay.classList.remove('game-over-celebration');
 
-                const swappedColor = playerColor === 'white' ? 'black' : 'white';
-                if (mode === 'ai') {
-                    showSideSelectionModal(side => startNewGame(mode, side, diff, null, timeLimitMins));
-                } else {
-                    startNewGame(mode, swappedColor, diff, null, timeLimitMins,
-                        { white: currentBlackName, black: currentWhiteName });
-                }
-            };
+        const confettiContainer =
+            gameOverOverlay.querySelector(
+                '.confetti-container'
+            );
 
+        if (confettiContainer) {
+            confettiContainer.remove();
+        }
+
+        const swappedColor =
+            playerColor === 'white'
+                ? 'black'
+                : 'white';
+
+        startNewGame(
+            gameMode,
+            swappedColor,
+            aiDifficulty,
+            null,
+            timeLimit,
+            {
+                white: currentBlackName,
+                black: currentWhiteName
+            }
+        );
+    };
+}
             // Theme Switcher
             function initThemeSwitcher() {
                 const themeBtns = document.querySelectorAll('.theme-btn');
@@ -1934,7 +1963,14 @@ if (timeEl) {
                     btn.onclick = () => {
                         const theme = btn.dataset.theme;
                         document.documentElement.setAttribute('data-theme', theme);
-                        localStorage.setItem('chessBoardTheme', theme);
+                        try {
+        localStorage.setItem('chessBoardTheme', theme);
+    } catch (e) {
+        console.warn(
+            'Unable to save chessBoardTheme',
+            e
+        );
+    }
                         themeBtns.forEach(b => {
                             b.classList.remove('active');
                             b.setAttribute('aria-pressed', 'false');
@@ -1950,8 +1986,17 @@ if (timeEl) {
 
         initThemeSwitcher();
 
-        const savedTheme =
-            localStorage.getItem('uiTheme') || 'dark';
+        let savedTheme = 'dark';
+
+try {
+    savedTheme =
+        localStorage.getItem('uiTheme') || 'dark';
+} catch (e) {
+    console.warn(
+        'Unable to access localStorage for uiTheme',
+        e
+    );
+}
 
         applyUiTheme(savedTheme);
 
@@ -1966,10 +2011,17 @@ if (timeEl) {
                         ? 'dark'
                         : 'light';
 
-                localStorage.setItem(
-                    'uiTheme',
-                    nextTheme
-                );
+                try {
+    localStorage.setItem(
+        'uiTheme',
+        nextTheme
+    );
+} catch (e) {
+    console.warn(
+        'Unable to save uiTheme',
+        e
+    );
+}
 
                 applyUiTheme(nextTheme);
             });
@@ -1980,8 +2032,18 @@ if (timeEl) {
 
     initThemeSwitcher();
 
-    const savedTheme =
+        let savedTheme = 'dark';
+
+try {
+    savedTheme =
         localStorage.getItem('uiTheme') || 'dark';
+} catch (e) {
+    console.warn(
+        'Unable to access localStorage for uiTheme',
+        e
+    );
+}
+
 
     applyUiTheme(savedTheme);
 
@@ -1992,20 +2054,27 @@ if (timeEl) {
         themeBtn.addEventListener('click', () => {
 
             const nextTheme =
-                document.body.classList.contains('light-mode')
-                    ? 'dark'
-                    : 'light';
+    document.body.classList.contains('light-mode')
+        ? 'dark'
+        : 'light';
 
-            localStorage.setItem(
-                'uiTheme',
-                nextTheme
-            );
+try {
+    localStorage.setItem(
+        'uiTheme',
+        nextTheme
+    );
+} catch (e) {
+    console.warn(
+        'Unable to save uiTheme',
+        e
+    );
+}
 
-            applyUiTheme(nextTheme);
+applyUiTheme(nextTheme);
+
         });
     }
 }
-
 
             function applyUiTheme(theme) {
     document.body.classList.toggle(
