@@ -332,7 +332,68 @@ background-size:60px 60px;
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
-</style>
+
+#backToTopWrapper {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+    transform: translateY(10px);
+}
+
+#backToTopWrapper.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+#backToTopTooltip {
+    background: rgba(22, 22, 42, 0.9);
+    color: #f0c040;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    white-space: nowrap;
+}
+
+#backToTopBtn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(240, 192, 64, 0.3);
+    background: rgba(22, 22, 42, 0.85);
+    color: #f0c040;
+    font-size: 20px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#backToTopBtn:hover {
+    background: #f0c040;
+    color: #0f0f1a;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(240, 192, 64, 0.35);
+}
+
+.btn-arrow {
+    line-height: 1;
+}</style>
 
 </head>
 
@@ -476,6 +537,22 @@ background-size:60px 60px;
             }, 300);
         }
     }
+</script>
+
+<div id="backToTopWrapper">
+    <span id="backToTopTooltip">Back to Top</span>
+    <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <span class="btn-arrow">^</span>
+    </button>
+</div>
+
+<script>
+    (function() {
+        var wrapper = document.getElementById('backToTopWrapper');
+        window.addEventListener('scroll', function() {
+            wrapper.classList.toggle('visible', window.scrollY > 300);
+        });
+    })();
 </script>
 </body>
 </html>
