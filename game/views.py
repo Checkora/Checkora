@@ -3547,6 +3547,9 @@ def forum_reply(request, discussion_id):
             discussion=discussion,
             is_deleted=False
         ).first()
+        if parent_reply is None:
+            messages.error(request, "selected parent reply is unavailable.")
+            return redirect("forum_detail", discussion_id=discussion.id)
 
     if form.is_valid():
         reply = form.save(commit=False)
@@ -3577,9 +3580,18 @@ def forum_reply_edit(request, reply_id):
         messages.error(request, "Reply cannot be empty.")
         return redirect("forum_detail", discussion_id=reply.discussion.id)
 
-    reply.content = content
-    reply.is_edited = True
-    reply.save(update_fields=["content", "is_edited", "updated_at"])
+    updated = Reply.objects.filter(
+        id=reply.id,
+        user=request.user,
+        is_deleted=False,
+    ).update(
+        content=content,
+        is_edited=True,
+        updated_at=timezone.now(),
+    )
+    if not updated:
+        messages.error(request, "reply is no longer editable.")
+        return redirect("forum_detail", discussion_id=reply.discussion.id)
 
     messages.success(request, "Reply updated successfully.")
     return redirect("forum_detail", discussion_id=reply.discussion.id)
@@ -3595,9 +3607,18 @@ def forum_reply_delete(request, reply_id):
         is_deleted=False
     )
 
-    reply.content = ""
-    reply.is_deleted = True
-    reply.save(update_fields=["content", "is_deleted", "updated_at"])
+    deleted = Reply.objects.filter(
+        id=reply.id,
+        user=request.user,
+        is_deleted=False,
+    ).update(
+        content="",
+        is_deleted=True,
+        updated_at=timezone.now(),
+    )
+    if not deleted:
+        messages.error(request, "reply is already deleted.")
+        return redirect("forum_detail", discussion_id=reply.discussion.id)
 
     messages.success(request, "Reply deleted successfully.")
     return redirect("forum_detail", discussion_id=reply.discussion.id)

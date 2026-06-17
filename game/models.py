@@ -415,5 +415,21 @@ class Reply(models.Model):
     class Meta:
         ordering = ["created_at"]
 
+    def clean(self):
+        super().clean()
+        if self.reply_to_id:
+            if self.reply_to_id == self.pk:
+                raise ValidationError({"reply_to": "a reply cannot reference itself."})
+            if self.reply_to and self.reply_to.discussion_id != self.discussion_id:
+                raise ValidationError({"reply_to": "reply_to must belong to the same discussion."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.user.username} - {self.discussion.title}"
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

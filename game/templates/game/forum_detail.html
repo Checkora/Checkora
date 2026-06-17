@@ -248,7 +248,11 @@
                 return;
             }
 
-            const reply = document.querySelector(window.location.hash);
+            const targetId = window.location.hash.slice(1);
+            if (!/^reply-\d$/.test(targetId)) {
+                return;
+            }
+            const reply = document.getElementById(targetId);
 
             if (reply) {
                 reply.classList.add("reply-highlight");
