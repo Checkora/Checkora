@@ -52,6 +52,34 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 
 ---
 
+## 📚 Documentation Hub
+
+| Resource | Description |
+|---|---|
+| [**Getting Started Guide**](#quick-start) | Setup, installation, and running the project locally |
+| [**Architecture Guide**](structure.md) | Deep-dive into system design, engine layers, and request flow |
+| [**API Reference**](docs/API.md) | Full endpoint catalog with request/response examples |
+| [**Contributing Guidelines**](CONTRIBUTING.md) | Branch naming, commit format, PR workflow |
+| [**Troubleshooting**](docs/development.md) | Common setup issues, environment configs, and fixes |
+| [**Testing Guide**](docs/testing.md) | How to run tests and write new ones |
+| [**Security Audit**](docs/SECURITY_HEADERS_AUDIT.md) | Security headers analysis and vulnerability report |
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [API Reference](#api-reference)
+- [Tests](#tests)
+- [Troubleshooting](#troubleshooting-guide)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Contributors
 
 <!-- CONTRIBUTORS_START -->
@@ -124,110 +152,20 @@ g++ -O2 game/engine/main.cpp -o game/engine/main
 
 Checkora follows a modular project structure to separate the frontend, backend, engine logic, and documentation clearly.
 
-An exhaustive file-level overview of the entire repository is detailed below:
-
-```text
-Checkora/
-├── .github/                       # GitHub configurations
-│   ├── ISSUE_TEMPLATE/            # Issue blueprints for contributors
-│   │   ├── bug_report.md          # Form for reporting software bugs
-│   │   └── feature_request.md     # Form for proposing feature improvements
-│   ├── workflows/                 # CI/CD automation pipelines
-│   │   ├── ci.yml                 # Main test and lint automation workflow
-│   │   ├── contributors.yml       # Automatically maintains the contributor catalog in README
-│   │   └── label-gssoc.yml        # Automatically labels issues for GSSoC contributors
-│   └── PULL_REQUEST_TEMPLATE.md   # PR template establishing code quality requirements
-├── api/                           # Serverless API configurations
-│   └── wsgi.py                    # Vercel-specific WSGI application configuration
-├── core/                          # Django project core configuration
-│   ├── __init__.py                # Package initialization marker
-│   ├── asgi.py                    # Entry point for ASGI-compatible web servers
-│   ├── settings.py                # Global settings (DB config, middleware, security headers)
-│   ├── urls.py                    # Root URL router mapping to views
-│   └── wsgi.py                    # Entry point for WSGI-compatible web servers
-├── docs/                          # Detailed architecture guides
-│   ├── API.md                     # Raw technical spec for REST API endpoints
-│   ├── SECURITY_HEADERS_AUDIT.md  # Deep security analysis and policy audit reports
-│   └── engine_architecture.md     # Detailed minimax and communication workflow analysis
-├── game/                          # Core Chess application module
-│   ├── engine/                    # The AI Chess engine directory
-│   │   ├── main.cpp               # High-performance C++17 Minimax + Alpha-Beta pruning engine
-│   │   ├── main.py                # Pure Python 3.12 fallback replica of the C++ engine
-│   │   └── opening_book.json      # Structured dictionary mapping classic opening moves
-│   ├── migrations/                # Database schema version histories
-│   │   ├── 0001_initial.py        # Relational schema for GameResult and Profiles
-│   │   ├── 0002_add_missing...   # Database schema patch adding draw reason records
-│   │   ├── 0003_alter_game...     # Migration establishing foreign key user associations
-│   │   ├── 0004_gameresult...     # Migration adding active game player color records
-│   │   └── __init__.py            # Package initialization marker
-│   ├── selenium_tests/            # UI browser integration tests
-│   │   ├── __init__.py            # Package initialization marker
-│   │   ├── base.py                # Setup, teardown, and WebDriver helpers for integration runs
-│   │   ├── test_boards.py         # Automated UI click-and-drag gameplay flow tests
-│   │   └── test_navigation.py     # Automated browser routing and navigation validation tests
-│   ├── static/                    # Frontend client-side resources
-│   │   └── game/                  # Main namespace directory
-│   │       ├── css/               # Modular stylesheet templates
-│   │       │   ├── 404.css        # Clean layout styles for page not found errors
-│   │       │   ├── auth.css       # Forms and secure login layouts
-│   │       │   ├── board.css      # Chessboard alignments, active highlights, and action panels
-│   │       │   ├── landing.css    # Interactive hero screens and mode selectors
-│   │       │   └── toast.css      # Custom popup and notification toaster styles
-│   │       ├── js/                # Client-side dynamic scripts
-│   │       │   ├── auth.js        # Validates dynamic auth form submissions
-│   │       │   ├── board.js       # Chess grid events, capture drawers, API calls, clock tickers
-│   │       │   └── toast.js       # Manages toast alert popups and life-cycles
-│   │       ├── sounds/            # Gameplay sound effects
-│   │       │   ├── capture.mp3    # Capture sound alert
-│   │       │   ├── check.wav      # Check sound warning
-│   │       │   ├── draw.mp3       # Game draw chime
-│   │       │   └── move.wav       # Chess piece move tick
-│   │       ├── checkora_icon_only.png # Project brand mark
-│   │       └── favicon.jpeg       # Small browser favicon
-│   ├── templates/                 # Server-side HTML render blueprints
-│   │   ├── 404.html               # Custom 404 error page template
-│   │   ├── robots.txt             # Web crawler configuration instructions
-│   │   ├── sitemap.xml            # SEO indexing guide
-│   │   └── game/                  # Namespace folder matching Django conventions
-│   │       ├── includes/          # Reusable UI partial layout blocks
-│   │       │   └── messages.html  # Banner rendering Django alert notifications
-│   │       ├── board.html         # Interactive gameplay chessboard and player cards
-│   │       ├── landing.html       # Mode lobby selection screen
-│   │       ├── login.html         # Sign-in form interface
-│   │       ├── register.html      # Create account interface
-│   │       ├── verify_otp.html    # Two-factor verification panel
-│   │       ├── rules.html         # Gameplay and chess educational rules guide
-│   │       ├── stats.html         # User match metrics, profiles, and scoreboards
-│   │       ├── welcome_email.html # HTML email template sent to users after successful registration
-│   │       ├── password_reset.html # Password reset trigger page
-│   │       ├── password_reset_complete.html # Confirmation of successful reset
-│   │       ├── password_reset_confirm.html  # Verification form link target
-│   │       ├── password_reset_done.html     # Outlines password email delivery status
-│   │       ├── password_reset_email.html    # HTML layout for reset emails
-│   │       └── password_reset_subject.txt   # Email subject text file
-│   ├── __init__.py                # Package initialization marker
-│   ├── apps.py                    # Django configuration class definition
-│   ├── engine.py                  # Translates Python arrays to C++/Python subprocess stdin/stdout
-│   ├── forms.py                   # Form validation classes for User registration and session keys
-│   ├── icon.jpeg                  # Main project thumbnail graphic
-│   ├── models.py                  # Database schemas mapping matches and profiles
-│   ├── services.py                # Standalone functions managing core business logic
-│   ├── tests.py                   # 80+ unit and integration test assertions
-│   ├── urls.py                    # Application level router mapping endpoints
-│   └── views.py                   # Django controller layer dispatching API and HTML requests
-├── .env.example                   # Baseline local configuration variables blueprint
-├── .gitignore                     # Configures Git to ignore builds, caches, and database logs
-├── CODE_OF_CONDUCT.md             # Contributor environment code of conduct guidelines
-├── CONTRIBUTING.md                # Guide detailing branch formats and pull request rules
-├── LICENSE                        # Open-source MIT license deed
-├── README.md                      # Primary project overview
-├── requirements.txt               # Required Python packages
-├── manage.py                      # Django CLI control center script
-├── package.json                   # Specifies frontend tooling scripts
-├── package-lock.json              # Locked frontend dependency version tree
-├── structure.md                   # Extended architectural blueprint documentation
-└── vercel.json                    # Configuration for serverless Django routing on Vercel
 ```
+Checkora/
+├── core/             # Django project config (settings, root URLs)
+├── game/             # Core chess app (views, engine, templates, static files, tests)
+│   ├── engine/       # C++17 AI engine + Python fallback
+│   ├── static/game/  # CSS, JS, sounds
+│   └── templates/    # Django HTML templates
+├── docs/             # Architecture, API, and security docs
+├── api/              # Vercel serverless WSGI entry
+├── .github/          # CI/CD workflows, issue templates
+└── [config files]    # .env.example, requirements.txt, vercel.json, etc.
+```
+
+> For a full file-level breakdown, see [`structure.md`](structure.md).
 
 ## Architecture
 
@@ -314,213 +252,7 @@ Checkora features a decoupled API layer. Below is the endpoint catalog accompani
 
 ---
 
-### Request/Response JSON Examples
-
-#### 1. Retrieve Game State (`GET /api/state/`)
-Called on board load to restore ongoing match positions and clocks.
-
-**Response (Success - `200 OK`):**
-
-```json
-{
-  "board": [
-    ["r", "n", "b", "q", "k", "b", "n", "r"],
-    ["p", "p", "p", "p", "p", "p", "p", "p"],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    ["P", "P", "P", "P", "P", "P", "P", "P"],
-    ["R", "N", "B", "Q", "K", "B", "N", "R"]
-  ],
-  "current_turn": "white",
-  "white_time": 600,
-  "black_time": 600,
-  "paused": true,
-  "move_history": [
-    {"notation": "e4", "piece": "P", "from": [6, 4], "to": [4, 4], "color": "white"}
-  ],
-  "captured_pieces": {"white": [], "black": []},
-  "mode": "pvp"
-}
-```
-
-#### 2. Execute a Move (`POST /api/move/`)
-Triggered when a player releases a piece onto a destination square.
-
-**Request Body:**
-
-*Note: `promotion_piece` is optional ("q", "r", "b", "n") and required only if `check-promotion` is true.*
-
-```json
-{
-  "from_row": 6,
-  "from_col": 4,
-  "to_row": 4,
-  "to_col": 4,
-  "promotion_piece": "q"
-}
-```
-
-**Response (Success - `200 OK`):**
-
-*Note: `board` is an 8x8 array reflecting the updated state. `game_status` can be "active", "check", "checkmate", "stalemate", or "draw".*
-
-```json
-{
-  "valid": true,
-  "message": "Move successful",
-  "captured": null,
-  "board": [],
-  "current_turn": "black",
-  "white_time": 595,
-  "black_time": 600,
-  "move_history": [
-    {"notation": "e4", "piece": "P", "from": [6, 4], "to": [4, 4], "color": "white"}
-  ],
-  "captured_pieces": {"white": [], "black": []},
-  "game_status": "active"
-}
-```
-
-**Response (Error - `400 Bad Request` / `200 OK` with invalid):**
-
-```json
-{
-  "valid": false,
-  "message": "Invalid move: King would be in check"
-}
-```
-
-#### 3. Get Valid Moves (`GET /api/valid-moves/`)
-Instructs the frontend UI where the selected piece can legally go.
-
-**Request Parameters:** `?row=6&col=4`
-
-**Response (Success - `200 OK`):**
-
-```json
-{
-  "valid_moves": [
-    {"row": 5, "col": 4, "is_capture": false},
-    {"row": 4, "col": 4, "is_capture": false}
-  ]
-}
-```
-
-#### 4. Request AI Move (`POST /api/ai-move/`)
-Triggers background minimax engine search. Returns the move calculated by the C++/Python engine.
-
-**Response (Success - `200 OK`):**
-
-*Note: `board` is an 8x8 array reflecting the updated state. `move_history` contains the list of moves.*
-
-```json
-{
-  "valid": true,
-  "message": "Move successful",
-  "captured": "p",
-  "board": [],
-  "current_turn": "white",
-  "white_time": 600,
-  "black_time": 598,
-  "move_history": [],
-  "captured_pieces": {"white": ["p"], "black": []},
-  "ai_move": {
-    "from_row": 1,
-    "from_col": 3,
-    "to_row": 3,
-    "to_col": 3
-  },
-  "game_status": "active"
-}
-```
-
-#### 5. Start New Game (`POST /api/new-game/`)
-Resets current session variables and starts a fresh match.
-
-**Request Body:**
-
-*Note: `mode` can be "pvp" or "ai".*
-
-```json
-{
-  "mode": "ai"
-}
-```
-
-**Response (Success - `200 OK`):**
-
-*Note: `board` is an 8x8 array containing the clean initial board configuration.*
-
-```json
-{
-  "board": [],
-  "current_turn": "white",
-  "move_history": [],
-  "captured_pieces": {"white": [], "black": []},
-  "mode": "ai"
-}
-```
-
-#### 6. Analyze Game (`POST /api/analyze-game/`)
-Analyzes a completed game based on its move history and returns statistics.
-
-**Request Body:**
-
-```json
-{
-  "moves": ["e4", "e5", "Nf3", "Nc6"],
-  "result": "White wins",
-  "reason": "checkmate"
-}
-```
-
-**Response (Success - `200 OK`):**
-
-```json
-{
-  "opening": "Italian Game",
-  "result": "White wins",
-  "total_moves": 2,
-  "captures": 0,
-  "checks": 0,
-  "checkmates": 0,
-  "promotions": 0,
-  "end_reason": "checkmate"
-}
-```
-
-#### 7. Get Puzzle Stats (`GET /api/puzzle-stats/`)
-Returns puzzle streak information for the puzzle interface.
-
-**Response (Success - `200 OK`):**
-
-```json
-{
-  "streak": 0,
-  "longest_streak": 0
-}
-```
-
-#### 8. Cleanup Cron (`POST /api/cron/cleanup-stale-games/`)
-Secure cron-triggered cleanup endpoint for abandoned games.
-
-**Request Headers:**
-
-```http
-Authorization: Bearer <cron_secret>
-```
-
-**Response (Success - `200 OK`):**
-
-```json
-{
-  "status": "success",
-  "deleted_games": 2,
-  "resigned_games": 1
-}
-```
+> Full request/response JSON examples for every endpoint are available in the [API Reference](docs/API.md).
 
 ---
 
@@ -538,125 +270,15 @@ python manage.py test game
 
 ## Troubleshooting Guide
 
-Below are solutions to common setup, installation, and environment issues contributors encounter when getting Checkora running locally.
+If you run into issues setting up or running Checkora, see the [Development Guide](docs/development.md) which covers:
 
-### 🐍 1. Python Version Mismatch
-Django 6.x is built on modern Python paradigms and strictly requires **Python 3.12 or higher**. If you run an older version, dependencies in `requirements.txt` will fail to resolve or throw syntax errors during server boot.
-
-*   **Check version:**
-    ```bash
-    python --version
-    ```
-*   **Resolution (Windows multiple installations):**
-    Use the Python Launcher to explicitly target 3.12+ when creating your virtual environment:
-    ```bash
-    py -3.12 -m venv venv
-    ```
-*   **Resolution (macOS/Linux):**
-    Ensure `python3` points to a 3.12+ installation (e.g., via Homebrew: `brew install python@3.12`).
-
-### 📦 2. Virtual Environment Activation Issues
-Depending on your terminal shell or system policies, activating the virtual environment might throw permission or script execution errors.
-
-*   **Windows PowerShell execution restriction error:**
-    If you see an error like `Script execution is disabled on this system`, bypass the policy for the active process:
-    ```powershell
-    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-    venv\Scripts\Activate.ps1
-    ```
-*   **Activation commands for different shells:**
-
-    | Shell | Command |
-    | :--- | :--- |
-    | **Windows Cmd** | `venv\Scripts\activate.bat` |
-    | **Windows PowerShell** | `venv\Scripts\Activate.ps1` |
-    | **Git Bash / WSL / Linux / macOS** | `source venv/bin/activate` |
-    | **Fish Shell** | `source venv/bin/activate.fish` |
-
-### 🛠️ 3. g++ Compiler Installation & Configuration Problems
-Checkora attempts to compile the C++ chess engine locally to maximize Minimax performance. If `g++` is missing or not configured correctly, it will throw compilation errors. 
-
-> [!TIP]
-> If `g++` setup is too tricky for your system, you can skip compiling it! Checkora will automatically detect the absence of the binary and fall back to the Python engine in `game/engine/main.py`.
-
-*   **Check compiler availability:**
-
-    ```bash
-    g++ --version
-    ```
-*   **Resolution (Windows):**
-    1. Download the MinGW-w64 compiler suite (we recommend the simple, portable [w64-devkit](https://github.com/skeeto/w64-devkit)).
-    2. Add the `bin` directory (containing `g++.exe`) to your system's **Environment Variables** -> **PATH** list.
-    3. Restart your terminal so the new path takes effect.
-*   **Resolution (macOS):**
-    Install the Xcode Command Line Tools:
-
-    ```bash
-    xcode-select --install
-    ```
-*   **Resolution (Ubuntu/Debian Linux):**
-
-    ```bash
-    sudo apt update && sudo apt install build-essential
-    ```
-
-### 💾 4. Database Migration Errors
-If migrations fail to run, or database models get out of sync, you may encounter relational database exceptions.
-
-*   **Resolution:**
-    Reset your local SQLite database structure by running:
-
-    ```bash
-    # 1. Generate any missing database schema blueprints
-    python manage.py makemigrations game
-    
-    # 2. Safely apply schema blueprints
-    python manage.py migrate
-    ```
-    *If conflicts persist, delete the local `db.sqlite3` file and re-run the commands above to construct a clean database.*
-
-### 🔑 5. Missing `.env` Configuration File
-If you attempt to launch the Django server without setting up a local configuration file, Django will throw `KeyError` or configuration load failures for crucial settings.
-
-*   **Resolution:**
-    Ensure you clone the template configuration into a new active `.env` file in the root directory:
-
-    ```bash
-    # Windows PowerShell
-    copy .env.example .env
-    
-    # macOS / Linux
-    cp .env.example .env
-    ```
-    Open `.env` and verify you have a robust string under `SECRET_KEY`.
-    Additionally, ensure `TRUSTED_PROXIES` is configured (defaulting to
-    `127.0.0.1,::1` for local development).
-
-    > **⚠️ Security Warning for Production:**
-    > When deploying behind reverse proxies (Vercel, Cloudflare, AWS ALB,
-    > etc.), you must set `TRUSTED_PROXIES` to your platform's upstream
-    > proxy IPs. Incorrect configuration allows attackers to spoof their
-    > IP address and bypass rate limiting entirely.
-
-### 🔌 6. Port Conflicts (Port 8000 Already in Use)
-If you already have another service running on your local port 8000, Django will fail to bind and throw `Error: That port is already in use.`
-
-*   **Resolution:**
-    Instruct Django to boot the local server on an alternative unoccupied port, for example, `8080` or `8001`:
-
-    ```bash
-    python manage.py runserver 8080
-    ```
-
-### 🔒 7. Local SSL Error (`ERR_SSL_PROTOCOL_ERROR`)
-
-If the browser shows `ERR_SSL_PROTOCOL_ERROR` or the terminal prints *"You're accessing the development server over HTTPS, but it only supports HTTP"*, the browser is using HTTPS against the local HTTP dev server.
-
-*   **Resolution:**
-    1. Copy the example env file if you have not already: `copy .env.example .env` (Windows) or `cp .env.example .env` (macOS/Linux).
-    2. Copy the exact URL from the terminal, for example **`http://127.0.0.1:8000/`** — include `http://` and do not let the browser change it to `https://`.
-    3. Disable your browser's HTTPS-upgrade setting for local development (for example, Chrome/Brave: "Always use secure connections" / "Upgrade connections to HTTPS").
-    4. Clear cached HSTS for `127.0.0.1` if the browser keeps forcing HTTPS (Chrome/Brave: `chrome://net-internals/#hsts`; steps vary by browser).
+- Python version mismatches
+- Virtual environment activation
+- C++ compiler installation
+- Database migration errors
+- Missing `.env` configuration
+- Port conflicts
+- Local SSL errors
 
 ## Contributor Support & Feedback
 
