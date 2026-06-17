@@ -192,6 +192,23 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
         check_game_achievements(user)
 
 
+LOCK_TIMEOUT = 5
+
+def _acquire_game_lock(session_key):
+    """Acquire a per-session advisory lock to prevent TOCTOU race conditions.
+
+    Uses the cache backend as a distributed lock. Returns True if the lock was
+    acquired, False otherwise (caller should return 429).
+    """
+    lock_key = f"game_lock:{session_key}"
+    return cache.add(lock_key, "locked", timeout=LOCK_TIMEOUT)
+
+
+def _release_game_lock(session_key):
+    """Release the per-session game lock."""
+    cache.delete(f"game_lock:{session_key}")
+
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -226,21 +243,30 @@ def make_move(request):
             status=400,
         )
 
-    game_data = request.session.get('game')
-    game = ChessGame.from_dict(game_data) if game_data else ChessGame()
+    if not _acquire_game_lock(request.session.session_key):
+        return JsonResponse(
+            {"error": "Another request is in progress. Please wait."},
+            status=429,
+        )
 
-    success, message, captured, game_status = game.make_move(
-        from_row, from_col, to_row, to_col, promotion_piece,
-    )
+    try:
+        game_data = request.session.get('game')
+        game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
-    if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
-        if game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
-        elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
+        success, message, captured, game_status = game.make_move(
+            from_row, from_col, to_row, to_col, promotion_piece,
+        )
+
+        if success:
+            request.session['game'] = game.to_dict()
+            request.session.modified = True
+            if game_status == 'checkmate':
+                winner = 'black' if game.current_turn == 'white' else 'white'
+                record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+            elif game_status in ('stalemate', 'draw'):
+                record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
+    finally:
+        _release_game_lock(request.session.session_key)
 
     return JsonResponse({
         'valid': success,
@@ -522,163 +548,189 @@ def set_pause(request):
 @require_POST
 def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
-    game_data = request.session.get('game')
-    if not game_data:
-        err_msg = 'No active game.'
+    if not _acquire_game_lock(request.session.session_key):
         return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
+            {"error": "Another request is in progress. Please wait."},
+            status=429,
         )
 
-    game = ChessGame.from_dict(game_data)
+    try:
+        game_data = request.session.get('game')
+        if not game_data:
+            err_msg = 'No active game.'
+            return JsonResponse(
+                {'valid': False, 'message': err_msg}, status=400
+            )
 
-    if game.mode != 'ai':
-        err_msg = 'Not in AI mode.'
-        return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
+        game = ChessGame.from_dict(game_data)
+
+        if game.mode != 'ai':
+            err_msg = 'Not in AI mode.'
+            return JsonResponse(
+                {'valid': False, 'message': err_msg}, status=400
+            )
+
+        difficulty = request.session.get('difficulty', 'medium')
+        depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
+        depth = depth_map.get(difficulty, 2)
+
+        best = game.get_ai_move(depth=depth)
+
+        if not best:
+            if game.game_status == 'checkmate':
+                winner = 'black' if game.current_turn == 'white' else 'white'
+                record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+                game_status = 'checkmate'
+            else:
+                record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
+                game_status = 'stalemate'
+
+            game.game_status = game_status
+            request.session['game'] = game.to_dict()
+            request.session.modified = True
+
+            return JsonResponse({
+                'valid': True,
+                'game_status': game_status,
+                'board': game.board,
+                'current_turn': game.current_turn,
+                'white_time': game.white_time,
+                'black_time': game.black_time,
+                'move_history': game.move_history,
+                'captured_pieces': game.captured,
+                'message': '',
+            })
+
+        success, message, captured, game_status = game.make_move(
+            best['from_row'], best['from_col'],
+            best['to_row'],   best['to_col'],
         )
 
-    # Depth Mapping — lower depth = faster response
-    difficulty = request.session.get('difficulty', 'medium')
-    depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
-    depth = depth_map.get(difficulty, 2)
+        if success:
+            request.session['game'] = game.to_dict()
+            request.session.modified = True
 
-    best = game.get_ai_move(depth=depth)
+            if game_status == 'checkmate':
+                winner = 'black' if game.current_turn == 'white' else 'white'
+                record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+            elif game_status in ('stalemate', 'draw'):
+                record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
 
-    if not best:
-        if game.game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
-            game_status = 'checkmate'
-        else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
-            game_status = 'stalemate'
+        return JsonResponse({
+            'valid': success,
+            'message': message,
+            'captured': captured,
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+            'time_limit': getattr(game, 'time_limit', 600),
+            'increment': getattr(game, 'increment', 0),
+            'move_history': game.move_history,
+            'captured_pieces': game.captured,
+            'ai_move': best,
+            'game_status': game_status,
+            'draw_reason': game.draw_reason,
+            'threefold_warning': game.threefold_warning,
+            'fen': game.generate_fen_key(),
+            'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
+            'white_name': request.session.get('white_name', 'White'),
+            'black_name': request.session.get('black_name', 'Black'),
+        })
+    finally:
+        _release_game_lock(request.session.session_key)
+
+@require_POST
+def offer_draw(request):
+    """Handle draw offers and agreements."""
+    if not _acquire_game_lock(request.session.session_key):
+        return JsonResponse(
+            {"error": "Another request is in progress. Please wait."},
+            status=429,
+        )
+
+    try:
+        game_data = request.session.get('game')
+        if not game_data:
+            return JsonResponse(
+                {'success': False, 'message': 'No active game.'}, status=400
+            )
+
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {'valid': False, 'message': 'Invalid request data.'}, status=400
+            )
+
+        action = data.get('action')
+
+        if action not in ('offer', 'accept', 'decline'):
+            return JsonResponse(
+                {'success': False, 'message': 'Invalid action.'}, status=400
+            )
+
+        if action == 'accept':
+            game = ChessGame.from_dict(game_data)
+            if game.game_status != 'active':
+                return JsonResponse(
+                    {'success': False, 'message': 'Game is not active.'}, status=400
+                )
+            game.game_status = 'draw'
+            game.draw_reason = 'agreement'
+            request.session['game'] = game.to_dict()
+            request.session.modified = True
+            record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
+            return JsonResponse({
+                'success': True,
+                'game_status': game.game_status,
+                'draw_reason': game.draw_reason,
+            })
+
+        return JsonResponse({'success': True})
+    finally:
+        _release_game_lock(request.session.session_key)
+
+@require_POST
+def resign_game(request):
+    """Handle a player resigning the game."""
+    if not _acquire_game_lock(request.session.session_key):
+        return JsonResponse(
+            {"error": "Another request is in progress. Please wait."},
+            status=429,
+        )
+
+    try:
+        game_data = request.session.get('game')
+        if not game_data:
+            return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+        game = ChessGame.from_dict(game_data)
+
+        if game.game_status != 'active':
+            return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
+
+        resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
+        winner = 'black' if resigning_player == 'white' else 'white'
+        game_status = 'resignation'
 
         game.game_status = game_status
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
+        try:
+            record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
+        except Exception as e:
+            logger.error('Failed to record resign result: %s', e)
+
         return JsonResponse({
             'valid': True,
-            'game_status': game_status,
-            'board': game.board,
-            'current_turn': game.current_turn,
-            'white_time': game.white_time,
-            'black_time': game.black_time,
-            'move_history': game.move_history,
-            'captured_pieces': game.captured,
-            'message': '',
+            'message': f'{resigning_player.capitalize()} resigned.',
+            'winner': winner,
+            'game_status': game_status
         })
-
-    success, message, captured, game_status = game.make_move(
-        best['from_row'], best['from_col'],
-        best['to_row'],   best['to_col'],
-    )
-
-    if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
-
-        if game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
-        elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
-
-    return JsonResponse({
-        'valid': success,
-        'message': message,
-        'captured': captured,
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'white_time': game.white_time,
-        'black_time': game.black_time,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'move_history': game.move_history,
-        'captured_pieces': game.captured,
-        'ai_move': best,
-        'game_status': game_status,
-        'draw_reason': game.draw_reason,
-        'threefold_warning': game.threefold_warning,
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'white_name': request.session.get('white_name', 'White'),
-        'black_name': request.session.get('black_name', 'Black'),
-    })
-
-@require_POST
-def offer_draw(request):
-    """Handle draw offers and agreements."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse(
-            {'success': False, 'message': 'No active game.'}, status=400
-        )
-
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
-        return JsonResponse(
-            {'valid': False, 'message': 'Invalid request data.'}, status=400
-        )
-
-    action = data.get('action')
-
-    if action not in ('offer', 'accept', 'decline'):
-        return JsonResponse(
-            {'success': False, 'message': 'Invalid action.'}, status=400
-        )
-
-    if action == 'accept':
-        game = ChessGame.from_dict(game_data)
-        if game.game_status != 'active':
-            return JsonResponse(
-                {'success': False, 'message': 'Game is not active.'}, status=400
-            )
-        game.game_status = 'draw'
-        game.draw_reason = 'agreement'
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
-        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
-        return JsonResponse({
-            'success': True,
-            'game_status': game.game_status,
-            'draw_reason': game.draw_reason,
-        })
-
-    return JsonResponse({'success': True})
-
-@require_POST
-def resign_game(request):
-    """Handle a player resigning the game."""
-    game_data = request.session.get('game')
-    if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
-
-    game = ChessGame.from_dict(game_data)
-
-    if game.game_status != 'active':
-        return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
-
-    resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
-    winner = 'black' if resigning_player == 'white' else 'white'
-    game_status = 'resignation'
-
-    game.game_status = game_status
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
-
-    try:
-        record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
-    except Exception as e:
-        logger.error('Failed to record resign result: %s', e)
-
-    return JsonResponse({
-        'valid': True,
-        'message': f'{resigning_player.capitalize()} resigned.',
-        'winner': winner,
-        'game_status': game_status
-    })
+    finally:
+        _release_game_lock(request.session.session_key)
 
 @require_GET
 def check_username(request):
