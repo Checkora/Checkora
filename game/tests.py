@@ -2962,3 +2962,20 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertTemplateUsed(response, 'game/achievements.html')
         self.assertContains(response, "Achievements Unlocked")
         self.assertContains(response, "No featured badges selected yet.")
+
+
+class CustomErrorHandlerTests(TestCase):
+    """Custom 404 and 500 error handlers render the correct templates."""
+
+    @override_settings(DEBUG=False)
+    def test_custom_404_renders_correct_template(self):
+        response = self.client.get('/this-page-does-not-exist/')
+        self.assertEqual(response.status_code, 404)
+        self.assertTemplateUsed(response, '404.html')
+
+    @override_settings(DEBUG=False)
+    def test_custom_500_renders_correct_template(self):
+        client = Client(raise_request_exception=False)
+        response = client.get('/api/move/')
+        self.assertEqual(response.status_code, 500)
+        self.assertTemplateUsed(response, '500.html')
