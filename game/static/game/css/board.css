@@ -555,13 +555,10 @@ body {
     --board-chrome: calc(var(--rank-label-width) + var(--board-border) * 2 + 12px);
     /* Fit board + 3 side panels within the viewport */
     --square-size: clamp(
-        26px,
-        calc(
-            (100vw - 3 * var(--panel-width) - 3 * var(--layout-gap)
-                - 2 * var(--layout-padding-x) - var(--board-chrome)) / 8
-        ),
-        60px
-    );
+    26px,
+    calc((100vw - 3 * var(--panel-width) - 3 * var(--layout-gap) - 2 * var(--layout-padding-x) - var(--board-chrome)) / 8),
+    60px
+);
 
     /* Classic */
     --sq-light: #FFF6D5;

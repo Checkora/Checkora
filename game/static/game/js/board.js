@@ -3122,6 +3122,7 @@ if (timeEl) {
         );
     }
 
+<<<<<<< HEAD
     async function offerDraw() {
         if (paused || gameOver || gameMode !== 'pvp') return;
         const offeringPlayer = turn === 'white' ? 'White' : 'Black';
@@ -3149,6 +3150,42 @@ if (timeEl) {
             if (stockfishWorker) {
                 stockfishWorker.terminate();
                 stockfishWorker = null;
+=======
+                showConfirm(
+                    "Abandon Game?",
+                    "Your current progress will be lost.<br>Are you sure you want to start a new game?",
+                    () => {
+                        const diff = document.getElementById('confirmDifficultySelect').value;
+                        const mins =
+    parseInt(
+        document.getElementById('customMinsInput').value,
+        10
+    ) || 0;
+
+const secs =
+    parseInt(
+        document.getElementById('customSecsInput').value,
+        10
+    ) || 0;
+
+const increment =
+    parseInt(
+        document.getElementById('customIncInput').value,
+        10
+    ) || 0;
+
+const timeLimitMins =
+    mins + (secs / 60);
+
+                        if (mode === 'ai') {
+                            showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeLimitMins));
+                        } else {
+                            startNewGame('pvp', 'white', diff, null, timeLimitMins);
+                        }
+                    },
+                    '#ff6b6b'
+                );
+>>>>>>> 44c7df59 (Address remaining CodeRabbit review comments)
             }
         }
         replayMode = false;
@@ -3387,8 +3424,59 @@ if (timeEl) {
         };
     }
 
+<<<<<<< HEAD
     if (playReplayBtn) {
         playReplayBtn.onclick = () => {
+=======
+            if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
+            if (muteBtn) muteBtn.onclick = toggleMute;
+            if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+            
+            const welcomeDailyPuzzleBtn =
+    document.getElementById('welcomeDailyPuzzleBtn');
+
+if (welcomeDailyPuzzleBtn) {
+    welcomeDailyPuzzleBtn.onclick = () => {
+        showStatus('Daily Puzzle coming soon', false);
+    };
+}
+
+const dailyPuzzleBtn =
+    document.getElementById('dailyPuzzleBtn');
+
+if (dailyPuzzleBtn) {
+    dailyPuzzleBtn.onclick = () => {
+        showStatus('Daily Puzzle coming soon', false);
+    };
+}
+
+const restartPuzzleBtn =
+    document.getElementById('restartPuzzleBtn');
+
+if (restartPuzzleBtn) {
+    restartPuzzleBtn.onclick = () => {
+        showStatus('Restart Puzzle coming soon', false);
+    };
+}
+
+const hintPuzzleBtn =
+    document.getElementById('hintPuzzleBtn');
+
+if (hintPuzzleBtn) {
+    hintPuzzleBtn.onclick = () => {
+        showStatus('Hint feature coming soon', false);
+    };
+}
+
+const blindfoldBtn =
+    document.getElementById('blindfoldBtn');
+
+if (blindfoldBtn) {
+    blindfoldBtn.onclick = () => {
+        showStatus('Blindfold mode coming soon', false);
+    };
+}
+>>>>>>> 44c7df59 (Address remaining CodeRabbit review comments)
 
             if (autoReplayInterval) {
                 isAutoReplaying = false;
