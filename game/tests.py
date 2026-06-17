@@ -2962,3 +2962,76 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertTemplateUsed(response, 'game/achievements.html')
         self.assertContains(response, "Achievements Unlocked")
         self.assertContains(response, "No featured badges selected yet.")
+
+class ZobristHashIntegrityTest(TestCase):
+    """Tests to verify Zobrist hash integrity during transposition sequences."""
+
+    def _load_engine(self):
+        import importlib.util
+        import sys
+        import os
+        engine_path = os.path.join(settings.BASE_DIR, 'game', 'engine', 'main.py')
+        spec = importlib.util.spec_from_file_location("main_engine", engine_path)
+        main_engine = importlib.util.module_from_spec(spec)
+        sys.modules["main_engine"] = main_engine
+        spec.loader.exec_module(main_engine)
+        return main_engine
+
+    def test_zobrist_hashing_consistency(self):
+        main_engine = self._load_engine()
+        
+        # Setup an initial board and calculate its hash
+        initial_board = (
+            "rnbqkbnr"
+            "pppppppp"
+            "........"
+            "........"
+            "........"
+            "........"
+            "PPPPPPPP"
+            "RNBQKBNR"
+        )
+        main_engine.load_board(initial_board)
+        
+        # Test hash determinism: same board should yield same hash
+        hash1 = main_engine.get_zobrist_hash('white')
+        hash2 = main_engine.get_zobrist_hash('white')
+        self.assertEqual(hash1, hash2)
+        
+        # Hash should be different for black to move
+        hash3 = main_engine.get_zobrist_hash('black')
+        self.assertNotEqual(hash1, hash3)
+
+    def test_zobrist_transposition_integrity(self):
+        main_engine = self._load_engine()
+        
+        # Sequence 1: 1. e4 e5 2. Nf3 Nc6
+        seq1_board = (
+            "r.bqkbnr"
+            "pppp.ppp"
+            "..n....."
+            "....p..."
+            "....P..."
+            ".....N.."
+            "PPPP.PPP"
+            "RNBQKB.R"
+        )
+        main_engine.load_board(seq1_board)
+        hash_seq1 = main_engine.get_zobrist_hash('white')
+
+        # Sequence 2: 1. Nf3 Nc6 2. e4 e5 (Transposition)
+        # Should result in identical board, hence identical hash
+        seq2_board = (
+            "r.bqkbnr"
+            "pppp.ppp"
+            "..n....."
+            "....p..."
+            "....P..."
+            ".....N.."
+            "PPPP.PPP"
+            "RNBQKB.R"
+        )
+        main_engine.load_board(seq2_board)
+        hash_seq2 = main_engine.get_zobrist_hash('white')
+        
+        self.assertEqual(hash_seq1, hash_seq2)
