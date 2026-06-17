@@ -170,6 +170,9 @@ background-size:60px 60px;
 .active{
     background:#3b82f6;
     color:white;
+    cursor:pointer;
+    text-decoration:none;
+    user-select:none;
 }
 
 .locked-badge{
@@ -325,9 +328,9 @@ background-size:60px 60px;
                             </span>
 
                         {% elif lesson in unlocked_lessons %}
-                            <span class="badge active">
+                            <a href="{% url 'lesson_detail' lesson|slugify %}" class="badge active">
                                 Start Lesson
-                            </span>
+                            </a>
 
                         {% else %}
                             <span class="badge locked-badge">
