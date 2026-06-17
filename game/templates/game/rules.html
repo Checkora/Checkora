@@ -156,7 +156,7 @@
             color: var(--muted);
             font-size: 0.9rem;
             font-weight: 400;
-            transition: all 0.15s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             border-left: 3px solid transparent;
             width: 100%;
             text-align: left;
@@ -168,21 +168,26 @@
             font: inherit;
         }
 
-        .rule-nav-item:hover {
-            background: var(--surface2);
-            color: var(--text);
+        .rule-nav-item:hover,
+        .rule-nav-item:focus-visible,
+        .rule-nav-item:active {
+            background: linear-gradient(90deg, rgba(244, 196, 48, 0.12), transparent);
+            color: var(--gold);
+            border-left-color: var(--gold-dim);
+            transform: translateX(6px);
+            outline: none;
         }
 
         .rule-nav-item.active {
-            background: var(--surface2);
+            background: linear-gradient(90deg, rgba(244, 196, 48, 0.18), rgba(244, 196, 48, 0.02));
             color: var(--gold);
             border-left-color: var(--gold);
             font-weight: 500;
         }
 
-        .rule-nav-item:focus-visible {
-            outline: 2px solid var(--gold);
-            outline-offset: -2px;
+        .rule-nav-item.active:hover {
+            transform: translateX(6px);
+            background: linear-gradient(90deg, rgba(244, 196, 48, 0.22), rgba(244, 196, 48, 0.04));
         }
 
         .rule-nav-item .icon { font-size: 1.1rem; width: 22px; text-align: center; }
@@ -580,14 +585,17 @@
         }
 
         .sidebar-overlay {
-            display: none;
             position: fixed;
             inset: 0;
             background: rgba(0,0,0,0.6);
             z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
         }
         .sidebar-overlay.open {
-            display: block;
+            opacity: 1;
+            pointer-events: auto;
         }
 
         @media (max-width: 768px) {
@@ -596,7 +604,7 @@
             .layout { grid-template-columns: 1fr; }
 
             .sidebar {
-                display: none;
+                display: block;
                 position: fixed;
                 top: var(--header-height);
                 left: 0;
@@ -607,9 +615,13 @@
                 padding-top: 1rem;
                 background: var(--surface);
                 border-right: 1px solid var(--border);
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            .sidebar.open { display: block; }
+            .sidebar.open {
+                transform: translateX(0);
+            }
 
             main { padding: 1.5rem 1rem; }
 

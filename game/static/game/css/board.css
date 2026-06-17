@@ -191,12 +191,27 @@ body {
     padding: 5px 10px;
     border-radius: 4px;
     background: rgba(255, 107, 107, 0.1);
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+.btn-logout:hover {
+    background: rgba(255, 107, 107, 0.25);
+    color: #ff4f4f;
 }
 .btn-signin {
     color: #f0c040;
     text-decoration: none;
     font-size: 0.9rem;
     font-weight: 600;
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+.btn-signin:hover {
+    background: rgba(240, 192, 64, 0.12);
+    color: #ffd700;
+    box-shadow: 0 0 12px rgba(240, 192, 64, 0.2);
 }
 .btn-register {
     background: #f0c040;
@@ -206,7 +221,14 @@ body {
     border-radius: 6px;
     font-size: 0.9rem;
     font-weight: 600;
+    display: inline-block;
+    transition: all 0.3s ease;
 }
+.btn-register:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(240, 192, 64, 0.4);
+}
+
 
 .profile-dropdown{
     position: relative;
