@@ -31,12 +31,77 @@ from dataclasses import dataclass
 
 BOARD = [['.'] * 8 for _ in range(8)]
 NO_PROMOTION = '\0'
+import random
+
 W_K_CASTLE = False
 W_Q_CASTLE = False
 B_K_CASTLE = False
 B_Q_CASTLE = False
 EN_PASSANT_R = -1
 EN_PASSANT_C = -1
+
+# ============================================================
+#  Zobrist Hashing & Transposition Table
+# ============================================================
+def _init_zobrist():
+    rng = random.Random(12345)
+    pieces = [[rng.getrandbits(64) for _ in range(64)] for _ in range(12)]
+    castling = [rng.getrandbits(64) for _ in range(16)]
+    ep = [rng.getrandbits(64) for _ in range(8)]
+    turn = rng.getrandbits(64)
+    return pieces, castling, ep, turn
+
+ZOBRIST_PIECES, ZOBRIST_CASTLING, ZOBRIST_EP, ZOBRIST_TURN = _init_zobrist()
+
+TT_SIZE = 1000003
+TT_EXACT = 0
+TT_ALPHA = 1
+TT_BETA = 2
+TT = {}
+
+def _piece_to_index(p):
+    mapping = {'P':0, 'N':1, 'B':2, 'R':3, 'Q':4, 'K':5, 'p':6, 'n':7, 'b':8, 'r':9, 'q':10, 'k':11}
+    return mapping.get(p, -1)
+
+def get_zobrist_hash(turn):
+    h = 0
+    for r in range(8):
+        for c in range(8):
+            p = BOARD[r][c]
+            if p != '.':
+                h ^= ZOBRIST_PIECES[_piece_to_index(p)][r * 8 + c]
+    
+    castling = 0
+    if W_K_CASTLE: castling |= 1
+    if W_Q_CASTLE: castling |= 2
+    if B_K_CASTLE: castling |= 4
+    if B_Q_CASTLE: castling |= 8
+    h ^= ZOBRIST_CASTLING[castling]
+    
+    if EN_PASSANT_C != -1:
+        h ^= ZOBRIST_EP[EN_PASSANT_C]
+        
+    if turn == 'black':
+        h ^= ZOBRIST_TURN
+        
+    return h
+
+def store_tt(hash_val, depth, score, flag, best_move):
+    TT[hash_val % TT_SIZE] = (hash_val, depth, score, flag, best_move)
+
+def probe_tt(hash_val, depth, alpha, beta):
+    entry = TT.get(hash_val % TT_SIZE)
+    if entry and entry[0] == hash_val:
+        _, entry_depth, score, flag, best_move = entry
+        if entry_depth >= depth:
+            if flag == TT_EXACT:
+                return score, best_move
+            if flag == TT_ALPHA and score <= alpha:
+                return alpha, best_move
+            if flag == TT_BETA and score >= beta:
+                return beta, best_move
+        return None, best_move
+    return None, None
 
 
 def load_board(board64):
@@ -522,8 +587,21 @@ def minimax(depth, alpha, beta, maximizing):
         return evaluate()
 
     side = 'white' if maximizing else 'black'
+    
+    hash_val = get_zobrist_hash(side)
+    tt_score, tt_move = probe_tt(hash_val, depth, alpha, beta)
+    if tt_score is not None:
+        return tt_score
+
     moves = generate_moves(side)
     order_moves(moves)
+    
+    if tt_move:
+        for i, m in enumerate(moves):
+            if m.fr == tt_move.fr and m.fc == tt_move.fc and m.tr == tt_move.tr and m.tc == tt_move.tc:
+                moves.insert(0, moves.pop(i))
+                break
+
     legal_moves = [move for move in moves if not leaves_king_in_check(move, side)]
 
     if not legal_moves:
@@ -532,6 +610,10 @@ def minimax(depth, alpha, beta, maximizing):
         if king_row >= 0 and is_square_attacked(king_row, king_col, opponent):
             return -99999 + (100 - depth) if maximizing else 99999 - (100 - depth)
         return 0
+
+    orig_alpha = alpha
+    orig_beta = beta
+    best_move_this_node = None
 
     if maximizing:
         best_value = -(10 ** 9)
@@ -589,72 +671,89 @@ def minimax(depth, alpha, beta, maximizing):
                 BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
                 BOARD[rook_tr][rook_tc] = '.'
 
-            best_value = max(best_value, value)
+            if value > best_value:
+                best_value = value
+                best_move_this_node = move
             alpha = max(alpha, value)
             if beta <= alpha:
                 break
+
+        flag = TT_EXACT
+        if best_value <= orig_alpha: flag = TT_ALPHA
+        elif best_value >= beta: flag = TT_BETA
+        store_tt(hash_val, depth, best_value, flag, best_move_this_node)
+        
         return best_value
 
-    best_value = 10 ** 9
-    for move in legal_moves:
-        src_piece = BOARD[move.fr][move.fc]
-        dst_piece = BOARD[move.tr][move.tc]
-        BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-        BOARD[move.fr][move.fc] = '.'
+    else:
+        best_value = 10 ** 9
+        for move in legal_moves:
+            src_piece = BOARD[move.fr][move.fc]
+            dst_piece = BOARD[move.tr][move.tc]
+            BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
+            BOARD[move.fr][move.fc] = '.'
 
-        ep_r, ep_c, ep_cap = -1, -1, '.'
-        if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
-            ep_r, ep_c = move.fr, move.tc
-            ep_cap = BOARD[ep_r][ep_c]
-            BOARD[ep_r][ep_c] = '.'
+            ep_r, ep_c, ep_cap = -1, -1, '.'
+            if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
+                ep_r, ep_c = move.fr, move.tc
+                ep_cap = BOARD[ep_r][ep_c]
+                BOARD[ep_r][ep_c] = '.'
 
-        rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-        if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-            if move.tc == 6:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-            elif move.tc == 2:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
+            rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
+            if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
+                if move.tc == 6:
+                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
+                elif move.tc == 2:
+                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
+                if rook_fr != -1:
+                    BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
+                    BOARD[rook_fr][rook_fc] = '.'
+
+            old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
+            old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
+
+            if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
+            if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
+            if src_piece == 'R':
+                if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
+                if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
+            if src_piece == 'r':
+                if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
+                if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
+            if dst_piece == 'R':
+                if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
+                if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
+            if dst_piece == 'r':
+                if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
+                if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
+
+            value = minimax(depth - 1, alpha, beta, True)
+
+            W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
+            B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
+
+            if ep_r != -1:
+                BOARD[ep_r][ep_c] = ep_cap
+
+            BOARD[move.fr][move.fc] = src_piece
+            BOARD[move.tr][move.tc] = dst_piece
             if rook_fr != -1:
-                BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                BOARD[rook_fr][rook_fc] = '.'
+                BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
+                BOARD[rook_tr][rook_tc] = '.'
 
-        old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-        old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-
-        if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-        if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-        if src_piece == 'R':
-            if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-            if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-        if src_piece == 'r':
-            if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-            if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-        if dst_piece == 'R':
-            if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-            if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-        if dst_piece == 'r':
-            if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-            if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-
-        value = minimax(depth - 1, alpha, beta, True)
-
-        W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-        B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-
-        if ep_r != -1:
-            BOARD[ep_r][ep_c] = ep_cap
-
-        BOARD[move.fr][move.fc] = src_piece
-        BOARD[move.tr][move.tc] = dst_piece
-        if rook_fr != -1:
-            BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-            BOARD[rook_tr][rook_tc] = '.'
-
-        best_value = min(best_value, value)
-        beta = min(beta, value)
-        if beta <= alpha:
-            break
-    return best_value
+            if value < best_value:
+                best_value = value
+                best_move_this_node = move
+            beta = min(beta, value)
+            if beta <= alpha:
+                break
+                
+        flag = TT_EXACT
+        if best_value <= alpha: flag = TT_ALPHA
+        elif best_value >= orig_beta: flag = TT_BETA
+        store_tt(hash_val, depth, best_value, flag, best_move_this_node)
+        
+        return best_value
 
 
 def is_insufficient_material():
@@ -701,7 +800,7 @@ def handle_status(turn):
         print('STATUS OK')
 
 
-def handle_bestmove(turn, depth):
+def handle_bestmove(turn, max_depth):
     global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
     maximizing = turn == 'white'
     moves = generate_moves(turn)
@@ -712,71 +811,88 @@ def handle_bestmove(turn, depth):
         print('BESTMOVE NONE')
         return
 
-    best_move = legal_moves[0]
-    best_value = -(10 ** 9) if maximizing else 10 ** 9
+    absolute_best = legal_moves[0]
 
-    for move in legal_moves:
-        src_piece = BOARD[move.fr][move.fc]
-        dst_piece = BOARD[move.tr][move.tc]
-        BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-        BOARD[move.fr][move.fc] = '.'
+    for d in range(1, max_depth + 1):
+        if d > 1 and absolute_best:
+            for i, m in enumerate(legal_moves):
+                if m.fr == absolute_best.fr and m.fc == absolute_best.fc and m.tr == absolute_best.tr and m.tc == absolute_best.tc:
+                    legal_moves.insert(0, legal_moves.pop(i))
+                    break
 
-        ep_r, ep_c, ep_cap = -1, -1, '.'
-        if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
-            ep_r, ep_c = move.fr, move.tc
-            ep_cap = BOARD[ep_r][ep_c]
-            BOARD[ep_r][ep_c] = '.'
+        alpha = -(10 ** 9)
+        beta = 10 ** 9
+        best_value = -(10 ** 9) if maximizing else 10 ** 9
+        best_move_iter = legal_moves[0]
 
-        rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-        if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-            if move.tc == 6:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-            elif move.tc == 2:
-                rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
+        for move in legal_moves:
+            src_piece = BOARD[move.fr][move.fc]
+            dst_piece = BOARD[move.tr][move.tc]
+            BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
+            BOARD[move.fr][move.fc] = '.'
+
+            ep_r, ep_c, ep_cap = -1, -1, '.'
+            if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
+                ep_r, ep_c = move.fr, move.tc
+                ep_cap = BOARD[ep_r][ep_c]
+                BOARD[ep_r][ep_c] = '.'
+
+            rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
+            if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
+                if move.tc == 6:
+                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
+                elif move.tc == 2:
+                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
+                if rook_fr != -1:
+                    BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
+                    BOARD[rook_fr][rook_fc] = '.'
+
+            old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
+            old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
+
+            if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
+            if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
+            if src_piece == 'R':
+                if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
+                if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
+            if src_piece == 'r':
+                if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
+                if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
+            if dst_piece == 'R':
+                if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
+                if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
+            if dst_piece == 'r':
+                if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
+                if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
+
+            value = minimax(d - 1, alpha, beta, not maximizing)
+
+            W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
+            B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
+
+            if ep_r != -1:
+                BOARD[ep_r][ep_c] = ep_cap
+
+            BOARD[move.fr][move.fc] = src_piece
+            BOARD[move.tr][move.tc] = dst_piece
             if rook_fr != -1:
-                BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                BOARD[rook_fr][rook_fc] = '.'
+                BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
+                BOARD[rook_tr][rook_tc] = '.'
 
-        old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-        old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
+            if maximizing:
+                if value > best_value:
+                    best_value = value
+                    best_move_iter = move
+                alpha = max(alpha, value)
+            else:
+                if value < best_value:
+                    best_value = value
+                    best_move_iter = move
+                beta = min(beta, value)
 
-        if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-        if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-        if src_piece == 'R':
-            if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-            if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-        if src_piece == 'r':
-            if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-            if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-        if dst_piece == 'R':
-            if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-            if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-        if dst_piece == 'r':
-            if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-            if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
+        absolute_best = best_move_iter
 
-        value = minimax(depth - 1, -(10 ** 9), 10 ** 9, not maximizing)
-
-        W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-        B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-
-        if ep_r != -1:
-            BOARD[ep_r][ep_c] = ep_cap
-
-        BOARD[move.fr][move.fc] = src_piece
-        BOARD[move.tr][move.tc] = dst_piece
-        if rook_fr != -1:
-            BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-            BOARD[rook_tr][rook_tc] = '.'
-
-        if maximizing and value > best_value:
-            best_value = value
-            best_move = move
-        if not maximizing and value < best_value:
-            best_value = value
-            best_move = move
-
-    print(f'BESTMOVE {best_move.fr} {best_move.fc} {best_move.tr} {best_move.tc}')
+    print(f'BESTMOVE {absolute_best.fr} {absolute_best.fc} {absolute_best.tr} {absolute_best.tc}')
 
 
 def handle_notation(turn, fr, fc, tr, tc, promo='\0'):

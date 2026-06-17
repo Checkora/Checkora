@@ -28,8 +28,56 @@
 #include <vector>
 #include <climits>
 #include <algorithm>
+#include <random>
 
 using namespace std;
+
+// ============================================================
+//  Zobrist Hashing & Transposition Table
+// ============================================================
+
+uint64_t ZobristPieces[12][64];
+uint64_t ZobristCastling[16];
+uint64_t ZobristEP[8];
+uint64_t ZobristTurn;
+
+const int TT_SIZE = 1000003; 
+const int TT_EXACT = 0;
+const int TT_ALPHA = 1;
+const int TT_BETA = 2;
+
+struct Move {
+    int fr, fc, tr, tc;
+    char promoPiece;  // '\0' if not a promotion
+};
+
+struct TTEntry {
+    uint64_t hash;
+    int depth;
+    int score;
+    int flag;
+    Move bestMove;
+    bool valid;
+};
+TTEntry TT[TT_SIZE];
+
+void initZobrist() {
+    mt19937_64 rng(12345);
+    for(int i=0; i<12; i++)
+        for(int j=0; j<64; j++)
+            ZobristPieces[i][j] = rng();
+    for(int i=0; i<16; i++) ZobristCastling[i] = rng();
+    for(int i=0; i<8; i++) ZobristEP[i] = rng();
+    ZobristTurn = rng();
+}
+
+int pieceToIndex(char p) {
+    switch(p) {
+        case 'P': return 0; case 'N': return 1; case 'B': return 2; case 'R': return 3; case 'Q': return 4; case 'K': return 5;
+        case 'p': return 6; case 'n': return 7; case 'b': return 8; case 'r': return 9; case 'q': return 10; case 'k': return 11;
+    }
+    return -1;
+}
 
 // ============================================================
 //  Board representation
@@ -66,6 +114,53 @@ string serializeBoard() {
         for (int c = 0; c < 8; c++)
             s += board[r][c];
     return s;
+}
+
+uint64_t getZobristHash(const string& turn) {
+    uint64_t h = 0;
+    for(int r=0; r<8; r++) {
+        for(int c=0; c<8; c++) {
+            if(board[r][c] != '.') {
+                h ^= ZobristPieces[pieceToIndex(board[r][c])][r*8 + c];
+            }
+        }
+    }
+    int castling = 0;
+    if(W_K_CASTLE) castling |= 1;
+    if(W_Q_CASTLE) castling |= 2;
+    if(B_K_CASTLE) castling |= 4;
+    if(B_Q_CASTLE) castling |= 8;
+    h ^= ZobristCastling[castling];
+    if(EN_PASSANT_C != -1) h ^= ZobristEP[EN_PASSANT_C];
+    if(turn == "black") h ^= ZobristTurn;
+    return h;
+}
+
+void storeTT(uint64_t hash, int depth, int score, int flag, Move bestMove) {
+    int index = hash % TT_SIZE;
+    TT[index] = {hash, depth, score, flag, bestMove, true};
+}
+
+bool probeTT(uint64_t hash, int depth, int alpha, int beta, int &score, Move &bestMove) {
+    int index = hash % TT_SIZE;
+    if(TT[index].valid && TT[index].hash == hash) {
+        bestMove = TT[index].bestMove;
+        if(TT[index].depth >= depth) {
+            if(TT[index].flag == TT_EXACT) {
+                score = TT[index].score;
+                return true;
+            }
+            if(TT[index].flag == TT_ALPHA && TT[index].score <= alpha) {
+                score = alpha;
+                return true;
+            }
+            if(TT[index].flag == TT_BETA && TT[index].score >= beta) {
+                score = beta;
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 // ============================================================
@@ -285,13 +380,8 @@ bool validateMove(const string &turn, int fr, int fc, int tr, int tc, bool silen
 }
 
 // ============================================================
-//  Move struct & legality filter (forward declarations)
+//  Legality filter (forward declarations)
 // ============================================================
-
-struct Move {
-    int fr, fc, tr, tc;
-    char promoPiece;  // '\0' if not a promotion
-};
 
 pair<int,int> findKing(const string &color);
 bool leavesKingInCheck(const Move &m, const string &side);
@@ -666,8 +756,25 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
     if (depth == 0) return evaluate();
 
     string side = maximizing ? "white" : "black";
+    uint64_t hash = getZobristHash(side);
+
+    int ttScore;
+    Move ttMove = {-1, -1, -1, -1, '\0'};
+    if (probeTT(hash, depth, alpha, beta, ttScore, ttMove)) {
+        return ttScore;
+    }
+
     vector<Move> moves = generateMoves(side);
     orderMoves(moves);
+
+    if (ttMove.fr != -1) {
+        for (size_t i = 0; i < moves.size(); i++) {
+            if (moves[i].fr == ttMove.fr && moves[i].fc == ttMove.fc && moves[i].tr == ttMove.tr && moves[i].tc == ttMove.tc) {
+                swap(moves[0], moves[i]);
+                break;
+            }
+        }
+    }
 
     // Filter out moves that leave own king in check
     vector<Move> legal;
@@ -686,6 +793,10 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
                               : ( 99999 - (100 - depth));
         return 0;  // stalemate
     }
+
+    int origAlpha = alpha;
+    int origBeta = beta;
+    Move bestMoveThisNode = {-1, -1, -1, -1, '\0'};
 
     if (maximizing) {
         int maxEval = INT_MIN;
@@ -733,10 +844,19 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
                 board[rook_tr][rook_tc] = '.';
             }
 
-            maxEval = max(maxEval, eval);
+            if (eval > maxEval) {
+                maxEval = eval;
+                bestMoveThisNode = m;
+            }
             alpha = max(alpha, eval);
             if (beta <= alpha) break;
         }
+
+        int flag = TT_EXACT;
+        if (maxEval <= origAlpha) flag = TT_ALPHA;
+        else if (maxEval >= beta) flag = TT_BETA;
+        storeTT(hash, depth, maxEval, flag, bestMoveThisNode);
+
         return maxEval;
     } else {
         int minEval = INT_MAX;
@@ -784,10 +904,19 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
                 board[rook_tr][rook_tc] = '.';
             }
 
-            minEval = min(minEval, eval);
+            if (eval < minEval) {
+                minEval = eval;
+                bestMoveThisNode = m;
+            }
             beta = min(beta, eval);
             if (beta <= alpha) break;
         }
+
+        int flag = TT_EXACT;
+        if (minEval <= alpha) flag = TT_ALPHA;
+        else if (minEval >= origBeta) flag = TT_BETA;
+        storeTT(hash, depth, minEval, flag, bestMoveThisNode);
+
         return minEval;
     }
 }
@@ -967,8 +1096,10 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc, char pro
  * Runs minimax to the requested depth and returns the best move
  * for the given side.
  */
-void handleBestMove(const string &turn, int depth) {
+void handleBestMove(const string &turn, int max_depth) {
     bool maximizing = (turn == "white");
+    Move absoluteBest;
+
     vector<Move> moves = generateMoves(turn);
     orderMoves(moves);
 
@@ -984,65 +1115,85 @@ void handleBestMove(const string &turn, int depth) {
         return;
     }
 
-    Move best = legal[0];
-    int bestVal = maximizing ? INT_MIN : INT_MAX;
+    absoluteBest = legal[0];
 
-    for (auto &m : legal) {
-        char src = board[m.fr][m.fc];
-        char dst = board[m.tr][m.tc];
-        board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
-        board[m.fr][m.fc] = '.';
-
-        int ep_r = -1, ep_c = -1;
-        char ep_captured = '.';
-        if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
-            ep_r = m.fr; ep_c = m.tc;
-            ep_captured = board[ep_r][ep_c];
-            board[ep_r][ep_c] = '.';
-        }
-
-        int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
-        if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
-            if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
-            else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
-            if (rook_fr != -1) {
-                board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
-                board[rook_fr][rook_fc] = '.';
+    for(int d=1; d<=max_depth; d++) {
+        if (d > 1 && absoluteBest.fr != -1) {
+            for(size_t i=0; i<legal.size(); i++) {
+                if(legal[i].fr == absoluteBest.fr && legal[i].fc == absoluteBest.fc && 
+                   legal[i].tr == absoluteBest.tr && legal[i].tc == absoluteBest.tc) {
+                    swap(legal[0], legal[i]);
+                    break;
+                }
             }
         }
 
-        bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
-        if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
-        if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
-        if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
-        if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
-        if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
-        if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
+        int alpha = INT_MIN;
+        int beta = INT_MAX;
+        int bestVal = maximizing ? INT_MIN : INT_MAX;
+        Move bestMoveIter = legal[0];
 
-        int eval = minimax(depth - 1, INT_MIN, INT_MAX, !maximizing);
+        for (auto &m : legal) {
+            char src = board[m.fr][m.fc];
+            char dst = board[m.tr][m.tc];
+            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
+            board[m.fr][m.fc] = '.';
 
-        W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
+            int ep_r = -1, ep_c = -1;
+            char ep_captured = '.';
+            if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
+                ep_r = m.fr; ep_c = m.tc;
+                ep_captured = board[ep_r][ep_c];
+                board[ep_r][ep_c] = '.';
+            }
 
-        if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
-        board[m.fr][m.fc] = src;
-        board[m.tr][m.tc] = dst;
-        if (rook_fr != -1) {
-            board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
-            board[rook_tr][rook_tc] = '.';
+            int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
+            if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
+                if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
+                else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
+                if (rook_fr != -1) {
+                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
+                    board[rook_fr][rook_fc] = '.';
+                }
+            }
+
+            bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
+            if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
+            if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
+            if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
+            if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
+            if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
+            if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
+
+            int eval = minimax(d - 1, alpha, beta, !maximizing);
+
+            W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
+
+            if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
+            board[m.fr][m.fc] = src;
+            board[m.tr][m.tc] = dst;
+            if (rook_fr != -1) {
+                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
+                board[rook_tr][rook_tc] = '.';
+            }
+
+            if (maximizing) {
+                if (eval > bestVal) { bestVal = eval; bestMoveIter = m; }
+                alpha = max(alpha, eval);
+            } else {
+                if (eval < bestVal) { bestVal = eval; bestMoveIter = m; }
+                beta = min(beta, eval);
+            }
         }
-
-        if (maximizing) {
-            if (eval > bestVal) { bestVal = eval; best = m; }
-        } else {
-            if (eval < bestVal) { bestVal = eval; best = m; }
-        }
+        absoluteBest = bestMoveIter;
     }
 
-    cout << "BESTMOVE " << best.fr << " " << best.fc
-         << " " << best.tr << " " << best.tc << endl;
+    cout << "BESTMOVE " << absoluteBest.fr << " " << absoluteBest.fc
+         << " " << absoluteBest.tr << " " << absoluteBest.tc << endl;
 }
 
 int main() {
+    initZobrist();
     string command;
     while (cin >> command) {
         if (command == "VALIDATE") {
