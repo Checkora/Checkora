@@ -1,7 +1,21 @@
 {% load static %}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- ──preloader on loading page reload ── -->
+    <script>
+        (function () {
+        var nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') {
+          window.location.replace("{% url 'preloader' %}");
+        }
+        })();
+    </script>
+    <script>
+      if (navigator.webdriver) {
+        document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+      }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Checkora | Play AI Chess Online with Hybrid Engine</title>
@@ -18,7 +32,6 @@
       content="Checkora, Chess, AI Chess, Hybrid Chess Engine, Play Chess Online, Minimax Chess, Django Chess"
     />
 
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://checkora.vercel.app/" />
     <meta property="og:title" content="Checkora | Play AI Chess Online" />
@@ -31,7 +44,6 @@
       content="{% static 'game/checkora_icon_only.png' %}"
     />
 
-    <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://checkora.vercel.app/" />
     <meta property="twitter:title" content="Checkora | Play AI Chess Online" />
@@ -44,7 +56,6 @@
       content="{% static 'game/checkora_icon_only.png' %}"
     />
 
-    <!-- JSON-LD Schema Markup -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -71,13 +82,16 @@
       href="{% static 'game/favicon.jpeg' %}"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap"
       rel="stylesheet"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
   </head>
 
@@ -95,17 +109,55 @@
           >
         </a>
         <div class="nav-links">
-          <a href="#about">About</a>
+          <a href="#about">About Us</a>
           <a href="#features">Features</a>
+          <a href="#faq">FAQ</a>
+          <a href="{% url 'forum' %}">Forum</a>
         </div>
       </div>
       <div class="nav-right">
+        <button type="button" id="themeToggle" class="theme-toggle">
+            🌙
+        </button>
         {% if user.is_authenticated %}
-        <a href="{% url 'index' %}" class="btn-signin">Dashboard</a>
-        <form method="post" action="{% url 'logout' %}" style="display: inline">
-          {% csrf_token %}
-          <button type="submit" class="btn-register">Log Out</button>
-        </form>
+        <div class="profile-dropdown">
+          <button type="button" class="profile-btn">{{ user.username }} <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+          <div class="dropdown-content">
+            <a href="/play/"> Dashboard </a>
+
+            <a href="/stats/"> Stats </a>
+
+            <a href="{% url 'leaderboard' %}"> Leaderboard </a>
+
+            <a href="{% url 'achievements' %}"> Achievements </a>
+
+            <a
+              href="{% url 'delete_account' %}"
+              class="delete-option"
+            >
+              Delete Account
+            </a>
+
+            <form
+              method="post"
+              action="{% url 'logout' %}"
+              style="margin:0;"
+            >
+              {% csrf_token %}
+
+              <button
+                type="submit"
+                class="logout-option"
+              >
+                Logout
+              </button>
+
+            </form>
+
+          </div>
+
+        </div>
+
         {% else %}
         <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
         <a href="{% url 'register' %}" class="btn-register">Register</a>
@@ -114,122 +166,586 @@
     </nav>
 
     <main class="hero" id="hero">
-      <h1 class="hero-title">
-        Master Chess with Checkora's Hybrid Intelligence
-      </h1>
-      <p class="hero-subtitle">
-        A lightweight Django frontend orchestrating Python logic with a
-        high-performance C++ minimax engine.
-      </p>
-      <div class="hero-actions">
-        <a href="{% url 'index' %}" class="btn-primary">Start Game</a>
-        <a href="#about" class="btn-secondary">Learn More</a>
+      <div class="ambient-glow glow-gold"></div>
+      <div class="ambient-glow glow-blue"></div>
+
+      <div id="chess-board-bg"></div>
+      <div class="hero-board-vignette"></div>
+
+      <div class="hero-inner-wrapper">
+
+        <h1 class="hero-title">
+          Master Chess with Checkora's<br />
+          <span class="gradient-text-gold">Hybrid Intelligence</span>
+        </h1>
+
+        <p class="hero-tagline">
+          Play. Learn. <span class="cycle-word" id="cycleWord">Compete</span>
+        </p>
+
+        <div class="hero-actions">
+          <a href="{% url 'index' %}" class="btn-primary-gold">Start Game</a>
+          <a href="{% url 'lessons' %}" class="btn-primary-gold" aria-label="Chess Lessons">📚 Lessons</a>
+          <a href="#about" class="btn-secondary-ghost">Learn More</a>
+        </div>
       </div>
+
+      <script>
+        const board = document.getElementById('chess-board-bg');
+        const pieces = ['♛','♚','♞','♝','♜','♟'];
+        const darkSquares = [];
+
+        for(let r=0;r<20;r++){
+          for(let c=0;c<20;c++){
+            const sq = document.createElement('div');
+            sq.className = (r+c)%2===1 ? 'csq dark' : 'csq light';
+            sq.dataset.r = r; sq.dataset.c = c;
+            board.appendChild(sq);
+            if((r+c)%2===1) darkSquares.push({el:sq,r,c});
+          }
+        }
+
+        function isBehindText(r,c){ return r>=7&&r<=13&&c>=7&&c<=13; }
+
+        function triggerPiece(zone){
+          let pool;
+          if(zone==='right') pool = darkSquares.filter(s=>s.c>=5&&!s.el.dataset.busy);
+          else if(zone==='left') pool = darkSquares.filter(s=>s.c<=2&&!s.el.dataset.busy);
+          else pool = darkSquares.filter(s=>!s.el.dataset.busy);
+          if(!pool.length) return;
+          const chosen = pool[Math.floor(Math.random()*pool.length)];
+          const sq = chosen.el;
+          const behind = isBehindText(chosen.r, chosen.c);
+          sq.dataset.busy='1';
+          const dur = 2000+Math.random()*900;
+          const glow = document.createElement('div');
+          glow.className = behind ? 'sq-glow dim' : 'sq-glow bright';
+          glow.style.animationDuration = dur+'ms';
+          sq.appendChild(glow);
+          const icon = document.createElement('div');
+          icon.textContent = pieces[Math.floor(Math.random()*pieces.length)];
+          icon.className = behind ? 'sq-piece dim' : 'sq-piece bright';
+          icon.style.animationDuration = dur+'ms';
+          sq.appendChild(icon);
+          setTimeout(()=>{
+            glow.remove(); icon.remove(); delete sq.dataset.busy;
+          }, dur+50);
+        }
+
+      const intervals = [];
+      intervals.push(setInterval(()=>triggerPiece('right'), 450));
+      intervals.push(setInterval(()=>triggerPiece('left'), 550));
+      intervals.push(setInterval(()=>triggerPiece(null), 250));
+      intervals.push(setInterval(()=>triggerPiece(null), 380));
+      
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          intervals.forEach(id => clearInterval(id));
+          intervals.length = 0;
+        } else {
+          intervals.push(setInterval(()=>triggerPiece('right'), 450));
+          intervals.push(setInterval(()=>triggerPiece('left'), 550));
+          intervals.push(setInterval(()=>triggerPiece(null), 250));
+          intervals.push(setInterval(()=>triggerPiece(null), 380));
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        intervals.forEach(id => clearInterval(id));
+      });
+      </script>
     </main>
 
-    <section id="about" class="about">
-    <div class="section-container">
-        <h2 class="section-title">About Checkora</h2>
-        <div class="about-content">
-            <p>
-                Checkora is a modern interactive chess platform built to help players practice, compete, and improve through an engaging digital chess experience.
-            </p>
-            <p>
-                The platform follows a hybrid architecture where Django and Python handle application flow, authentication, and game orchestration, while a high-performance C++ minimax engine powers intelligent AI gameplay.
-            </p>
-            <p>
-                With responsive gameplay, statistics tracking, rulebook access, and AI-driven interactions, Checkora provides both a practical learning environment and a smooth competitive chess experience for players across skill levels.
-            </p>
-        </div>
-    </div>
-</section>
-
-    <section id="features" class="features">
-      <h2 class="section-title">Why Checkora</h2>
-      <div class="feature-cards">
-        <div class="card">
-          <div class="card-inner">
-            <div class="card-front">
-              <div class="card-icon">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ccc"
-                  stroke-width="1.5"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path
-                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                  />
-                </svg>
+    <section id="features" class="features-capabilities">
+      <div class="bento-container">
+        <h2 class="section-title">Platform Capabilities</h2>
+        <p class="section-subtitle">A premium suite of tools built for players of all skill levels.</p>
+        <div class="bento-grid">
+          
+          <!-- AI Opponent -->
+          <div class="bento-card bento-wide">
+            <div class="bento-visual ai-visual">
+              <div class="ai-brain-container">
+                 <div class="ai-node n1"></div>
+                 <div class="ai-node n2"></div>
+                 <div class="ai-node n3"></div>
+                 <div class="ai-node n4"></div>
+                 <div class="ai-node n5"></div>
+                 <svg class="ai-edges" viewBox="0 0 200 100">
+                    <line x1="100" y1="20" x2="50" y2="80" class="ai-edge" />
+                    <line x1="100" y1="20" x2="150" y2="80" class="ai-edge" />
+                    <line x1="50" y1="80" x2="20" y2="150" class="ai-edge" />
+                    <line x1="150" y1="80" x2="180" y2="150" class="ai-edge" />
+                 </svg>
               </div>
-              <h3 class="card-title">Web & UX</h3>
+              <div class="ai-hud">
+                 <span class="hud-dot"></span> Alpha-Beta Pruning: Active<br>
+                 <span class="hud-dot"></span> Depth: 12
+              </div>
             </div>
-            <div class="card-back">
-              <p>
-                Secure authentication, game state, and responsive UI are handled
-                by Django and JavaScript for a seamless player experience.
-              </p>
+            <div class="bento-content">
+              <div class="bento-title-row">
+                <div class="bento-icon-small">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3c0 .8.3 1.5.8 2H8a3 3 0 0 0-3 3v2h14v-2a3 3 0 0 0-3-3h-1.2c.5-.5.8-1.2.8-2a3 3 0 0 0-3-3z"/>
+                    <path d="M19 21H5a1 1 0 0 1-1-1v-2c0-1.7 1.3-3 3-3h10c1.7 0 3 1.3 3 3v2a1 1 0 0 1-1 1z"/>
+                    <line x1="6" y1="18" x2="18" y2="18"/>
+                  </svg>
+                </div>
+                <h3 class="bento-title">AI Opponent</h3>
+              </div>
+              <p class="bento-desc">Challenge an advanced AI opponent utilizing minimax search with alpha-beta pruning optimization.</p>
             </div>
           </div>
-        </div>
 
-        <div class="card">
-          <div class="card-inner">
-            <div class="card-front">
-              <div class="card-icon">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ccc"
-                  stroke-width="1.5"
-                >
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                  ></path>
-                </svg>
-              </div>
-              <h3 class="card-title">Engine (C++)</h3>
+          <!-- Game Timer -->
+          <div class="bento-card">
+            <div class="bento-visual timer-visual">
+               <div class="digital-clock">05<span class="blink">:</span>00</div>
+               <div class="timer-controls">
+                  <button class="t-btn">⏸</button>
+                  <button class="t-btn active">▶</button>
+               </div>
             </div>
-            <div class="card-back">
-              <p>
-                Compute-intensive minimax and evaluation run in optimized C++
-                modules to deliver fast, strong play.
-              </p>
+            <div class="bento-content">
+              <div class="bento-title-row">
+                <div class="bento-icon-small">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 15 14"></polyline>
+                  </svg>
+                </div>
+                <h3 class="bento-title">Game Timer</h3>
+              </div>
+              <p class="bento-desc">Configure Bullet, Blitz, or Rapid timers featuring real-time synchronization.</p>
             </div>
           </div>
-        </div>
 
-        <div class="card">
-          <div class="card-inner">
-            <div class="card-front">
-              <div class="card-icon">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ccc"
-                  stroke-width="1.5"
-                >
-                  <path
-                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                  />
-                </svg>
-              </div>
-              <h3 class="card-title">Hybrid Architecture</h3>
+          <!-- Live Material Score -->
+          <div class="bento-card">
+            <div class="bento-visual score-visual">
+               <div class="material-row white-mat">
+                  <span class="mat-pieces">♙ ♙ ♘</span>
+                  <span class="mat-score">+3</span>
+               </div>
+               <div class="material-row black-mat">
+                  <span class="mat-pieces">♟</span>
+                  <span class="mat-score">-</span>
+               </div>
             </div>
-            <div class="card-back">
-              <p>
-                Python orchestrates the app while C++ handles heavy computation
-                — connected via bindings or subprocess calls.
-              </p>
+            <div class="bento-content">
+              <div class="bento-title-row">
+                <div class="bento-icon-small">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                  </svg>
+                </div>
+                <h3 class="bento-title">Live Material Score</h3>
+              </div>
+              <p class="bento-desc">Monitor point differentials and track captured pieces dynamically.</p>
+            </div>
+          </div>
+
+          <!-- PvP & PvE -->
+          <div class="bento-card mode-interactive-card">
+            <div class="bento-visual modes-visual">
+               <div class="mode-switch-container">
+                  <div class="mode-switch">
+                     <div class="m-option opt-pvp active">PvP</div>
+                     <div class="m-option opt-pve">PvE</div>
+                  </div>
+               </div>
+               <div class="mode-avatars-wrap">
+                  <div class="mode-avatars pvp-mode">
+                     <div class="m-avatar player1">🧑</div>
+                     <div class="m-vs">VS</div>
+                     <div class="m-avatar player2">🧑</div>
+                  </div>
+                  <div class="mode-avatars pve-mode">
+                     <div class="m-avatar player1">🧑</div>
+                     <div class="m-vs">VS</div>
+                     <div class="m-avatar player2">🤖</div>
+                  </div>
+               </div>
+            </div>
+            <div class="bento-content">
+              <div class="bento-title-row">
+                <div class="bento-icon-small">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <h3 class="bento-title">PvP & PvE Modes</h3>
+              </div>
+              <p class="bento-desc">Compete locally against friends in Pass & Play mode, or test your skills against the engine.</p>
+            </div>
+          </div>
+
+          <!-- Full Move Validation -->
+          <div class="bento-card">
+            <div class="bento-visual valid-visual">
+               <div class="chess-grid-mini">
+                  <div class="cg-sq light"></div><div class="cg-sq dark"><span class="cg-piece">♞</span></div><div class="cg-sq light"></div>
+                  <div class="cg-sq dark"></div><div class="cg-sq light"></div><div class="cg-sq dark"></div>
+                  <div class="cg-sq light valid-target"></div><div class="cg-sq dark"></div><div class="cg-sq light"></div>
+                  <svg class="cg-arrow" viewBox="0 0 100 100" preserveAspectRatio="none">
+                     <path d="M 50 15 L 50 85 L 15 85" fill="none" stroke="var(--accent-gold)" stroke-width="4" stroke-linejoin="round" marker-end="url(#arrowhead)"/>
+                     <defs>
+                        <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent-gold)" />
+                        </marker>
+                      </defs>
+                  </svg>
+               </div>
+            </div>
+            <div class="bento-content">
+              <div class="bento-title-row">
+                <div class="bento-icon-small">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <polyline points="9 11 11 13 15 9"/>
+                  </svg>
+                </div>
+                <h3 class="bento-title">Full Move Validation</h3>
+              </div>
+              <p class="bento-desc">Rigorous real-time move validation covering castling, en passant, and promotions.</p>
+            </div>
+          </div>
+
+          <!-- Interactive Lessons — full width (bento-full, moved above PvP row) -->
+          <div class="bento-card bento-full">
+            <div class="lessons-inner">
+
+              <!-- LEFT: existing lesson mockup + text -->
+              <div class="lessons-left">
+                <div class="bento-visual lessons-visual" style="flex:1; margin-bottom:1rem;">
+                  <div class="lesson-mockup">
+                    <div class="lm-video">
+                      <div class="lm-play-btn">▶</div>
+                    </div>
+                    <div class="lm-details">
+                      <span class="lm-badge">Chapter 4</span>
+                      <div class="lm-title">Mastering the Sicilian Defense</div>
+                      <div class="lm-progress-bg"><div class="lm-progress-fill"></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="bento-content">
+                  <div class="bento-title-row">
+                    <div class="bento-icon-small">
+                      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+                      </svg>
+                    </div>
+                    <h3 class="bento-title">Interactive Lessons</h3>
+                  </div>
+                  <p class="bento-desc">Learn openings, endgames, and tactics through step-by-step tutorials — then test yourself with end-of-lesson quizzes.</p>
+                </div>
+              </div>
+
+              <!-- DIVIDER -->
+              <div class="lessons-divider"></div>
+
+              <!-- RIGHT: quiz preview diagram -->
+              <div class="lessons-right">
+                <div class="quiz-preview-badge">Quiz · End of Chapter</div>
+                <div class="quiz-preview-question">Which move opens the Sicilian Defence?</div>
+                <div class="quiz-preview-opts">
+                  <div class="qpo">a) &nbsp;1. d4</div>
+                  <div class="qpo qpo-correct">b) &nbsp;1. e4 c5 ✓</div>
+                  <div class="qpo">c) &nbsp;1. Nf3</div>
+                  <div class="qpo">d) &nbsp;1. c4</div>
+                </div>
+                <div class="quiz-preview-footer">
+                  <span class="qpf-dot qpf-done"></span>
+                  <span class="qpf-dot qpf-done"></span>
+                  <span class="qpf-dot qpf-active"></span>
+                  <span class="qpf-dot"></span>
+                  <span class="qpf-label">Q 3 of 4</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="about-pin-section">
+        <div class="about-pin-sticky">
+
+          <h2 class="section-title">About Us</h2>
+
+          <div class="about-box">
+
+            <!-- Pause/Play Button -->
+            <button id="aboutPausePlayBtn" class="about-pause-play-btn" aria-label="Pause Auto-Slide">
+                <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </button>
+
+            <!-- Progress Bar -->
+            <div class="about-progress-bar">
+                <div class="about-progress-fill" id="aboutProgressFill"></div>
+            </div>
+
+            <!-- Card Counter -->
+            <div class="about-counter">
+                <span id="aboutCurrentCard">1</span>
+                <span class="about-counter-sep">/</span>
+                <span>4</span>
+            </div>
+
+
+            <!-- Track -->
+            <div class="about-track-wrapper">
+                <div class="about-track" id="aboutTrack">
+
+                    <!-- Card 1 — Mission & Vision -->
+                    <div class="about-card">
+                        <div class="about-card-visual">
+                            <div class="mv-icon-wrap">
+                                <span class="mv-piece">♚</span>
+                                <div class="mv-ring ring1"></div>
+                                <div class="mv-ring ring2"></div>
+                                <div class="mv-ring ring3"></div>
+                            </div>
+                            <div class="mv-path">
+                                <div class="mv-path-dot"></div>
+                                <div class="mv-path-line"></div>
+                                <div class="mv-path-dot"></div>
+                                <div class="mv-path-line"></div>
+                                <div class="mv-path-dot active"></div>
+                            </div>
+                        </div>
+                        <div class="about-card-content">
+                            <span class="about-card-tag">Mission & Vision</span>
+                            <h3 class="about-card-title">Play Smarter. Grow Further.</h3>
+                            <p class="about-card-desc">Checkora was built with a single mission — to make high-performance chess accessible to everyone. Our vision is a platform where every player, from beginner to expert, can challenge themselves, track real growth, and experience chess the way it was meant to be played.</p>
+                            <div class="about-stats-row">
+                                <div class="about-stat">
+                                    <span class="about-stat-num" data-target="3">0</span>
+                                    <span class="about-stat-label">Game Modes</span>
+                                </div>
+                                <div class="about-stat">
+                                    <div style="display: flex; align-items: baseline;"><span class="about-stat-num" data-target="50">0</span><span style="color:var(--accent-gold);font-weight:800;font-size:2.2rem;font-family:'Exo 2', sans-serif;">+</span></div>
+                                    <span class="about-stat-label">Achievements</span>
+                                </div>
+                                <div class="about-stat">
+                                    <div style="display: flex; align-items: baseline;"><span class="about-stat-num" data-target="100">0</span><span style="color:var(--accent-gold);font-weight:800;font-size:2.2rem;font-family:'Exo 2', sans-serif;">%</span></div>
+                                    <span class="about-stat-label">Free to Play</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2 — Open Source -->
+                    <div class="about-card">
+                        <div class="about-card-visual">
+                            <div class="os-graph">
+                                <div class="os-graph-title">Contribution Activity</div>
+                                <div class="os-grid" id="osGrid"></div>
+                                <div class="os-graph-footer">
+                                    <span>Open Source on GitHub</span>
+                                    <span class="os-badge">MIT License</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="about-card-content">
+                            <span class="about-card-tag">Open Source & Community</span>
+                            <h3 class="about-card-title">Built in the Open. Grown Together.</h3>
+                            <p class="about-card-desc">Checkora is fully open source under the MIT License. Every feature, every fix, every improvement is a community effort. Join developers worldwide contributing to the engine, the interface, and the future of the platform.</p>
+                            <div class="os-links">
+                                <a href="https://github.com/Checkora" target="_blank" class="os-link-btn">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                                    GitHub
+                                </a>
+                                <a href="https://discord.gg/WfrpMuNZn" target="_blank" class="os-link-btn discord">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09c-.01-.02-.04-.03-.07-.03c-1.5.26-2.93.71-4.27 1.33c-.01 0-.02.01-.03.02c-2.72 4.07-3.47 8.03-3.1 11.95c0 .02.02.04.03.05c1.8 1.32 3.53 2.12 5.24 2.65c.03.01.06 0 .07-.02c.4-.55.76-1.13 1.07-1.74c.02-.04 0-.08-.04-.09c-.57-.22-1.11-.48-1.64-.78c-.04-.02-.04-.08-.01-.11c.11-.08.22-.17.33-.25c.02-.02.05-.02.07-.01c3.44 1.57 7.15 1.57 10.55 0c.02-.01.05-.01.07.01c.11.09.22.17.33.26c.04.03.04.09-.01.11c-.52.31-1.07.56-1.64.78c-.04.01-.05.06-.04.09c.32.61.68 1.19 1.07 1.74c.03.01.06 0 .09.01c1.72-.53 3.45-1.33 5.25-2.65c.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95c-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.83 2.12-1.89 2.12z"/></svg>
+                                    Discord
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3 — Technical Architecture -->
+                      <div class="about-card">
+                        <div class="about-card-visual">
+                            <div class="perf-meter">
+                                <div class="perf-gauge-wrap">
+                                  <svg class="perf-svg" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+                                      <!-- Track arc -->
+                                      <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>
+                                      <!-- Gold fill arc -->
+                                      <path class="perf-arc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#goldGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251"/>
+                                      <!-- Needle -->
+                                      <line class="perf-needle" x1="100" y1="100" x2="100" y2="30" stroke="#f0c040" stroke-width="2.5" stroke-linecap="round" transform-origin="100 100"/>
+                                      <!-- Center dot -->
+                                      <circle cx="100" cy="100" r="6" fill="#f0c040" filter="url(#glow)"/>
+                                      <defs>
+                                          <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                              <stop offset="0%" stop-color="#d4a020"/>
+                                              <stop offset="100%" stop-color="#ffeaa7"/>
+                                          </linearGradient>
+                                          <filter id="glow">
+                                              <feGaussianBlur stdDeviation="2" result="blur"/>
+                                              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                          </filter>
+                                      </defs>
+                                  </svg>
+                                  <div class="perf-value-wrap">
+                                      <span class="perf-value" id="perfValue">0</span>
+                                      <span class="perf-unit">k nodes/s</span>
+                                  </div>
+                              </div>
+                              <div class="perf-chips">
+                                  <div class="perf-chip">
+                                      <span class="perf-chip-dot"></span>
+                                      <span class="perf-chip-label">Depth</span>
+                                      <span class="perf-chip-val" id="depthVal">0</span>
+                                  </div>
+                                  <div class="perf-chip">
+                                      <span class="perf-chip-dot green"></span>
+                                      <span class="perf-chip-label">Alpha-Beta</span>
+                                      <span class="perf-chip-val">ON</span>
+                                  </div>
+                                  <div class="perf-chip">
+                                      <span class="perf-chip-dot blue"></span>
+                                      <span class="perf-chip-label">Engine</span>
+                                      <span class="perf-chip-val">C++17</span>
+                                  </div>
+                              </div>
+                            </div>
+                          </div>
+                        <div class="about-card-content">
+                            <span class="about-card-tag">Technical Architecture</span>
+                            <h3 class="about-card-title">Fast by Design. Powerful by Nature.</h3>
+                            <p class="about-card-desc">Under the hood, Checkora runs a high-performance C++17 minimax engine with alpha-beta pruning for lightning-fast move calculations. Python orchestrates game logic while Django handles routing and authentication — a true hybrid stack built for performance.</p>
+                            <div class="tech-pills">
+                                <span class="tech-pill">Alpha-Beta Pruning</span>
+                                <span class="tech-pill">Minimax Search</span>
+                                <span class="tech-pill">REST API</span>
+                                <span class="tech-pill">Django Auth</span>
+                                <span class="tech-pill">C++17</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4 — Built for Chess Players -->
+                    <div class="about-card">
+                        <div class="about-card-visual">
+                            <div class="chess-visual-wrap">
+                                <div class="mini-board-inner" id="miniBoard"></div>
+                                <div class="mini-board-label">Sicilian Defence</div>
+                            </div>
+                        </div>
+                        <div class="about-card-content">
+                            <span class="about-card-tag">Built for Chess Players</span>
+                            <h3 class="about-card-title">Every Move. Every Player.</h3>
+                            <p class="about-card-desc">Whether you are learning your first opening or grinding ranked games, Checkora is built for you. Full FIDE rule support, multiple time controls, live material tracking, achievements, leaderboards, and interactive lessons — everything a chess player needs in one place.</p>
+                            <div class="chess-features-list">
+                                <div class="chess-feature-item">
+                                    <span class="chess-feature-icon">♟</span>
+                                    <span>Full FIDE Rules — castling, en passant, promotion</span>
+                                </div>
+                                <div class="chess-feature-item">
+                                    <span class="chess-feature-icon">⏱</span>
+                                    <span>Bullet, Blitz & Rapid time controls</span>
+                                </div>
+                                <div class="chess-feature-item">
+                                    <span class="chess-feature-icon">📊</span>
+                                    <span>Live material tracking & game stats</span>
+                                </div>
+                                <div class="chess-feature-item">
+                                    <span class="chess-feature-icon">🏆</span>
+                                    <span>Leaderboards & achievement system</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Dot Indicators -->
+            <div class="about-dots" id="aboutDots">
+                <button type="button" class="about-dot active" data-index="0" aria-label="Go to slide 1" aria-pressed="true"></button>
+                <button type="button" class="about-dot" data-index="1" aria-label="Go to slide 2" aria-pressed="false"></button>
+                <button type="button" class="about-dot" data-index="2" aria-label="Go to slide 3" aria-pressed="false"></button>
+                <button type="button" class="about-dot" data-index="3" aria-label="Go to slide 4" aria-pressed="false"></button>
+            </div>
+          </div>
+
+        </div>
+    </section>
+
+    <section id="faq" class="faq-section">
+      <div class="faq-container">
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <p class="faq-subtitle">Everything you need to know about the Checkora chess platform architecture and functionality.</p>
+        
+        <div class="faq-wrapper">
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What makes Checkora a "Hybrid Intelligence" engine?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Checkora offloads complex, compute-intensive tactical configurations and minimax analytics natively to a super-fast, highly optimized C++17 core. Meanwhile, a flexible Python and Django application framework manages sessions, game data validation routing, and smooth presentation handling seamlessly.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I customize the game timing modes?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Yes! The platform natively supports configuration profiles optimized for Bullet, Blitz, and Rapid variants. Match setups are backed up by accurate real-time validation layers that support timing pause-and-resume cycles on active connections.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Does the platform support official FIDE rules?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                Absolutely. Checkora's structural architecture natively features rigorous full move validation processes checking rulesets for castling permissions, en passant states, standard checking conditions, stalemates, and dynamic pawn promotion updates.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is my gameplay history and analytical tracking private?</span>
+              <span class="faq-icon-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </button>
+            <div class="faq-answer">
+              <div class="faq-answer-content">
+                All metrics are securely tied inside Django application instances. Users gain standalone access controls over structural game analytics, tracking dashboard components, and full options to wipe historical records cleanly via account deletion pathways.
+              </div>
             </div>
           </div>
         </div>
@@ -238,102 +754,1032 @@
 
     <footer class="footer">
       <div class="footer-container">
-        <div class="footer-col">
+        <div class="footer-col brand-column">
           <a href="{% url 'landing' %}" class="logo-link">
             <img
               src="{% static 'game/checkora_icon_only.png' %}"
               alt="Checkora Logo"
               class="logo-img"
             />
-            <span class="logo-text"
-              >CHECK<span class="logo-accent">ORA</span></span
-            >
+            <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
           </a>
-          <p>
+          <p class="brand-desc">
             Experience high-performance chess with Checkora's hybrid C++ engine.
             Challenge the AI, track your stats, and master the board.
           </p>
         </div>
+
         <div class="footer-col">
-          <h4>PLATFORM</h4>
-          <a href="{% url 'rules' %}" class="footer-link">Rulebook</a>
-          <a href="{% url 'stats' %}" class="footer-link">Statistics</a>
-          <a href="{% url 'index' %}" class="footer-link">Play Game</a>
+          <h4>Platform</h4>
+          <ul class="footer-nav-list">
+            <li><a href="{% url 'index' %}" class="footer-link">Play Game</a></li>
+            <li><a href="{% url 'leaderboard' %}" class="footer-link">Leaderboard</a></li>
+            <li><a href="{% url 'achievements' %}" class="footer-link">Achievements</a></li>
+            <li><a href="{% url 'stats' %}" class="footer-link">Statistics</a></li>
+            <li><a href="{% url 'rules' %}" class="footer-link">Rulebook</a></li>
+            <li><a href="{% url 'lessons' %}" class="footer-link">Lessons</a></li>
+          </ul>
         </div>
+
         <div class="footer-col">
-          <h4>COMMUNITY</h4>
-          <a
-            href="https://github.com/Checkora"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="footer-link"
-            >GitHub Organization</a
-          >
-          <div
-            style="
-              color: var(--text-secondary);
-              font-size: 0.95rem;
-              font-weight: 500;
-            "
-          >
-            Maintainers:
-            <a
-              href="https://github.com/triemerge"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="footer-link"
-              >@triemerge</a
-            >
-            &amp;
-            <a
-              href="https://github.com/EDWARD-012"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="footer-link"
-              >@EDWARD-012</a
-            >
-          </div>
-          <a
-            href="https://discord.gg/WfrpMuNZn"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="footer-link"
-            >Discord Community</a
-          >
+          <h4>Community</h4>
+          <ul class="footer-nav-list">
+            <li>
+              <a href="https://github.com/Checkora" target="_blank" rel="noopener noreferrer" class="footer-link">
+                GitHub Organization
+              </a>
+            </li>
+            <li>
+              <a href="https://discord.gg/WfrpMuNZn" target="_blank" rel="noopener noreferrer" class="footer-link">
+                Discord Community
+              </a>
+            </li>
+            <li class="maintainer-item">
+              <span class="footer-meta-text">
+                Maintainers: 
+                <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">@triemerge</a> &amp; 
+                <a href="https://github.com/EDWARD-012" target="_blank" rel="noopener noreferrer">@EDWARD-012</a>
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <ul class="footer-nav-list">
+            <li><a href="#" class="footer-link" data-modal-trigger="privacyModal">Privacy Policy</a></li>
+            <li><a href="#" class="footer-link" onclick="openTermsModal(); return false;">Terms & Conditions</a></li>     
+            <li><a href="#" class="footer-link" onclick="openDisclaimerModal(); return false;">Disclaimer</a></li>
+            <li><a href="#" class="footer-link" onclick="openContactModal(); return false;">Contact Us</a></li>
+          </ul>
         </div>
       </div>
+
       <div class="footer-bottom">
-        <span class="footer-copy"
-          >&copy; {% now "Y" %} Checkora Hybrid Engine. All rights
-          reserved.</span
-        >
+        <span class="footer-copy">
+          &copy; {% now "Y" %} Checkora Hybrid Engine. All rights reserved.
+        </span>
         <div class="footer-socials">
-          <a
-            href="https://github.com/Checkora"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24">
-              <path
-                d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
-                fill="currentColor"
-              />
+          <a href="https://github.com/Checkora" target="_blank" rel="noopener noreferrer" aria-label="GitHub Link">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" fill="currentColor"/>
             </svg>
           </a>
-          <a
-            href="https://discord.gg/WfrpMuNZn"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24">
-              <path
-                d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09c-.01-.02-.04-.03-.07-.03c-1.5.26-2.93.71-4.27 1.33c-.01 0-.02.01-.03.02c-2.72 4.07-3.47 8.03-3.1 11.95c0 .02.02.04.03.05c1.8 1.32 3.53 2.12 5.24 2.65c.03.01.06 0 .07-.02c.4-.55.76-1.13 1.07-1.74c.02-.04 0-.08-.04-.09c-.57-.22-1.11-.48-1.64-.78c-.04-.02-.04-.08-.01-.11c.11-.08.22-.17.33-.25c.02-.02.05-.02.07-.01c3.44 1.57 7.15 1.57 10.55 0c.02-.01.05-.01.07.01c.11.09.22.17.33.26c.04.03.04.09-.01.11c-.52.31-1.07.56-1.64.78c-.04.01-.05.06-.04.09c.32.61.68 1.19 1.07 1.74c.03.01.06.02.09.01c1.72-.53 3.45-1.33 5.25-2.65c.02-.01.03-.03.03-.05c.44-4.53-.73-8.46-3.1-11.95c-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.83 2.12-1.89 2.12z"
-                fill="currentColor"
-              />
+          <a href="https://discord.gg/WfrpMuNZn" target="_blank" rel="noopener noreferrer" aria-label="Discord Link">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09c-.01-.02-.04-.03-.07-.03c-1.5.26-2.93.71-4.27 1.33c-.01 0-.02.01-.03.02c-2.72 4.07-3.47 8.03-3.1 11.95c0 .02.02.04.03.05c1.8 1.32 3.53 2.12 5.24 2.65c.03.01.06 0 .07-.02c.4-.55.76-1.13 1.07-1.74c.02-.04 0-.08-.04-.09c-.57-.22-1.11-.48-1.64-.78c-.04-.02-.04-.08-.01-.11c.11-.08.22-.17.33-.25c.02-.02.05-.02.07-.01c3.44 1.57 7.15 1.57 10.55 0c.02-.01.05-.01.07.01c.11.09.22.17.33.26c.04.03.04.09-.01.11c-.52.31-1.07.56-1.64.78c-.04.01-.05.06-.04.09c.32.61.68 1.19 1.07 1.74c.03.01.06 0 .09.01c1.72-.53 3.45-1.33 5.25-2.65c.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95c-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.83 2.12-1.89 2.12z" fill="currentColor"/>
             </svg>
           </a>
         </div>
       </div>
-    </footer>
+    </section>
+
+    <div id="backToTopWrapper">
+      <span id="backToTopTooltip">Back to Top</span>
+      <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <span class="btn-arrow">^</span>
+      </button>
+    </div>
+  
+    <script>
+      const backToTopWrapper = document.getElementById('backToTopWrapper');
+      window.addEventListener('scroll', () => {
+        backToTopWrapper.classList.toggle('visible', window.scrollY > 300);
+      });
+    
+      document.querySelectorAll('.faq-question').forEach(button => {
+        button.addEventListener('click', () => {
+          const faqItem = button.parentElement;
+          const answer = button.nextElementSibling;
+          document.querySelectorAll('.faq-item').forEach(item => {
+            if (item !== faqItem && item.classList.contains('active')) {
+              item.classList.remove('active');
+              item.querySelector('.faq-answer').style.maxHeight = null;
+            }
+          });
+          faqItem.classList.toggle('active');
+          if (faqItem.classList.contains('active')) {
+            answer.style.maxHeight = answer.scrollHeight + "px";
+          } else {
+            answer.style.maxHeight = null;
+          }
+        });
+      });
+    
+      document.addEventListener('DOMContentLoaded', function() {
+        const privacyModal = document.getElementById('privacyModal');
+        if (!privacyModal) return;
+        const privacyInner = privacyModal.querySelector('[tabindex="-1"]');
+        if (!privacyInner) return;
+        let lastFocused;
+    
+        window.openPrivacyModal = function(e) {
+          lastFocused = e ? e.target : document.activeElement;
+          privacyModal.style.display = 'flex';
+          privacyInner.focus();
+        };
+    
+        window.closePrivacyModal = function() {
+          privacyModal.style.display = 'none';
+          if (lastFocused) lastFocused.focus();
+        };
+    
+        document.querySelector('[data-modal-trigger="privacyModal"]').addEventListener('click', function(e) {
+          e.preventDefault();
+          openPrivacyModal(e);
+        });
+    
+        privacyModal.addEventListener('click', function(e) {
+          if (e.target === privacyModal) closePrivacyModal();
+        });
+    
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && privacyModal.style.display === 'flex') closePrivacyModal();
+        });
+    
+        privacyModal.addEventListener('keydown', function(e) {
+          if (e.key === 'Tab') {
+            const focusable = privacyModal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault(); last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault(); first.focus();
+            }
+          }
+        });
+      });
+    </script>
+    <div id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <h1 id="privacyModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Privacy Policy</h1>
+          <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Information We Collect</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Checkora only collects basic information necessary to manage user authentication and orchestrate your chess matches:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;"><strong style="color:#f0c040;">Account Data:</strong> Username, email address, and encrypted password profiles when you register.</li>
+                  <li style="margin-bottom:6px;"><strong style="color:#f0c040;">Gameplay Metrics:</strong> Move history, win/loss stats, match durations, and time preferences for leaderboard rankings.</li>
+                  <li><strong style="color:#f0c040;">Technical Logs:</strong> Minimal session tokens to keep you securely logged in across page reloads.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">How Your Data is Used</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Your data remains dedicated exclusively to powering your active application experiences:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;">Maintain your personalized player profile dashboard and performance metrics.</li>
+                  <li style="margin-bottom:6px;">Calculate real-time material scores and process live move-validation checks.</li>
+                  <li>Optimize the sync pipeline between backend systems and computation services.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Cookies and Session Storage</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">We use essential cookies and local storage tokens to manage authentication states and secure form submissions against CSRF. No tracking cookies or behavioral profile monitors are embedded inside the platform.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Data Retention & Security</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">We retain your profile credentials and match logs for as long as your account remains active. Passwords are securely stored using Django authentication hashing mechanisms.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Open Source Transparency & User Rights</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">In alignment with our open-source framework and GSSoC community policies, users maintain full authority over their data and may request account deletion or data removal at any time.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">6</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Contact & Community Channels</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">If you have questions or feedback regarding this Privacy Policy, please open an issue on our GitHub repository or contact the project maintainers directly.</p>
+              </div>
+            </div>
+            <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">Last updated: May 2026</p>
+          </div>
+        </div>
+        <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; background:#131522;">
+          <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; font-size:0.95rem; cursor:pointer; box-shadow:0 4px 16px rgba(240,192,64,0.3);">I Agree</button>
+        </div>
+      </div>
+    </div>
+    <div id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+      <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <h1 id="termsModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Terms and Conditions</h1>
+          <button type="button" aria-label="Close terms and conditions" onclick="closeTermsModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Acceptance of Terms</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">By accessing, registering for, or interacting with the Checkora Chess Platform, you agree to comply with and be bound by these Terms and Conditions. If you do not accept these parameters, you are advised to discontinue platform interaction.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Fair Play and Anti-Cheat Policy</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">Checkora runs a native high-performance C++ minimax engine designed to provide competitive gameplay. To safeguard integrity:</p>
+                <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                  <li style="margin-bottom:6px;">Use of third-party engine assistance, browser modifications, or state-manipulation scripts is strictly prohibited.</li>
+                  <li>Intentionally stalling game clocks or throwing matches to manipulate metrics violates our guidelines.</li>
+                </ul>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Account Management and Security</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">When creating profile credentials and completing OTP verification, you are fully accountable for preserving credential confidentiality. Checkora reserves authority to clean up idle ghost accounts that remain abandoned to free system namespaces.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Open Source and Modifications</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">Checkora operates openly under the MIT License. While customization of backend logic modules is encouraged for developer variants, users are requested to interact fairly and maintain the software's style parameters.</p>
+              </div>
+            </div>
+            <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+              <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+              <div>
+                <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">Disclaimer of Liability</h2>
+                <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">The platform services and integrated AI engines are offered on an "as-is" operational basis. The maintenance team assumes no liability for match state disruptions, profile cache rollbacks during server updates, or local dependency failures in client-side setups.</p>
+              </div>
+            </div>
+            <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">Last updated: May 2026</p>
+          </div>
+        </div>
+        <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; background:#131522;">
+          <button type="button" onclick="closeTermsModal()" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; font-size:0.95rem; cursor:pointer; transition:all 0.2s ease; box-shadow:0 4px 16px rgba(240,192,64,0.3);">I Agree</button>        </div>
+      </div>
+  </div>
+  <script>
+    (function() {
+      const modal = document.getElementById('termsModal');
+      const modalInner = modal.querySelector('[tabindex="-1"]');
+      let lastFocused;
+  
+      function openTermsModal() {
+        lastFocused = document.activeElement;
+        modal.style.display = 'flex';
+        modalInner.focus();
+      }
+  
+      function closeTermsModal() {
+        modal.style.display = 'none';
+        if (lastFocused) lastFocused.focus();
+      }
+  
+      window.openTermsModal = openTermsModal;
+      window.closeTermsModal = closeTermsModal;
+  
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+          closeTermsModal();
+        }
+      });
+  
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeTermsModal();
+      });
+      modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+          const focusable = modal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      });
+    })();
+  </script>
+
+  <div id="contactModal" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+    <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+      <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+        <h1 id="contactModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700; letter-spacing:-0.3px;">Contact Us</h1>
+        <button type="button" aria-label="Close contact form" onclick="closeContactModal()" style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+      </div>
+      <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
+        <p style="color:rgba(255,255,255,0.6); font-size:0.93rem; margin-bottom:28px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:20px;">Have questions about the C++ platform integration or found a glitch? Reach out to the maintainers.</p>
+        <div style="display:grid; grid-template-columns:0.8fr 1.5fr; gap:40px;">
+
+          <div style="display:flex; flex-direction:column; gap:28px;">
+            <div>
+              <h3 style="color:#fff; font-size:1rem; font-weight:600; margin-bottom:8px;">Community Support</h3>
+              <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.6;">For instant technical coordination, join our active development spaces on the <a href="https://discord.gg/WfrpMuNZn" target="_blank" rel="noopener noreferrer" style="color:#f0c040; text-decoration:none; font-weight:500;">Discord Server</a>.</p>
+            </div>
+            <div>
+              <h3 style="color:#fff; font-size:1rem; font-weight:600; margin-bottom:8px;">Open Source &amp; Bugs</h3>
+              <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.6;">Found a bug? Open a thread on our <a href="https://github.com/Checkora" target="_blank" rel="noopener noreferrer" style="color:#f0c040; text-decoration:none; font-weight:500;">GitHub Issue Tracker</a>.</p>
+            </div>
+            <div>
+              <h3 style="color:#fff; font-size:1rem; font-weight:600; margin-bottom:8px;">Maintainer Reach</h3>
+              <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.6;">Email: <a href="mailto:support@checkora.example.com" style="color:#f0c040; text-decoration:none; font-weight:500;">support@checkora.example.com</a></p>
+            </div>
+          </div>
+
+          <form id="contactForm" style="display:flex; flex-direction:column; gap:20px;" onsubmit="handleContactSubmit(event)">
+            {% csrf_token %}
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label for="contact-name" style="color:#fff; font-size:0.85rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; opacity:0.9;">Name</label>
+              <input type="text" id="contact-name" name="name" placeholder="Your name" required style="background:#1a1d30; border:1px solid #2b2f4a; border-radius:8px; padding:13px 16px; color:#fff; font-size:0.95rem; font-family:inherit; transition:border-color 0.25s,box-shadow 0.25s; width:100%;" onfocus="this.style.borderColor='#f0c040';this.style.boxShadow='0 0 0 4px rgba(240,192,64,0.12)'" onblur="this.style.borderColor='#2b2f4a';this.style.boxShadow='none'" />
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label for="contact-email" style="color:#fff; font-size:0.85rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; opacity:0.9;">Email Address</label>
+              <input type="email" id="contact-email" name="email" placeholder="username@example.com" required style="background:#1a1d30; border:1px solid #2b2f4a; border-radius:8px; padding:13px 16px; color:#fff; font-size:0.95rem; font-family:inherit; transition:border-color 0.25s,box-shadow 0.25s; width:100%;" onfocus="this.style.borderColor='#f0c040';this.style.boxShadow='0 0 0 4px rgba(240,192,64,0.12)'" onblur="this.style.borderColor='#2b2f4a';this.style.boxShadow='none'" />
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label for="contact-message" style="color:#fff; font-size:0.85rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; opacity:0.9;">Message</label>
+              <textarea id="contact-message" name="message" placeholder="Type your query regarding engine or interface states..." required rows="5" style="background:#1a1d30; border:1px solid #2b2f4a; border-radius:8px; padding:13px 16px; color:#fff; font-size:0.95rem; font-family:inherit; resize:vertical; min-height:130px; transition:border-color 0.25s,box-shadow 0.25s; width:100%;" onfocus="this.style.borderColor='#f0c040';this.style.boxShadow='0 0 0 4px rgba(240,192,64,0.12)'" onblur="this.style.borderColor='#2b2f4a';this.style.boxShadow='none'"></textarea>
+            </div>
+            <button type="submit" style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#1a1a2e; border:none; padding:14px 28px; font-size:1rem; font-weight:700; border-radius:8px; cursor:pointer; align-self:flex-start; box-shadow:0 4px 15px rgba(240,192,64,0.2); transition:all 0.25s ease;">Send Message</button>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const modal = document.getElementById('contactModal');
+    const modalInner = modal.querySelector('[tabindex="-1"]');
+    let lastFocused;
+
+    function openContactModal() {
+      lastFocused = document.activeElement;
+      modal.style.display = 'flex';
+      modalInner.focus();
+    }
+
+    function closeContactModal() {
+      modal.style.display = 'none';
+      if (lastFocused) lastFocused.focus();
+    }
+
+    window.openContactModal = openContactModal;
+    window.closeContactModal = closeContactModal;
+
+    window.handleContactSubmit = function(e) {
+      e.preventDefault();
+      alert('Message logged locally inside development environment container loop.');
+      closeContactModal();
+      document.getElementById('contactForm').reset();
+    };
+
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeContactModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.style.display === 'flex') closeContactModal();
+    });
+
+    modal.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        const focusable = modal.querySelectorAll('button, input, textarea, [href], [tabindex]:not([tabindex="-1"])');
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    });
+  })();
+  </script>
+  <script src="{% static 'game/js/theme.js' %}"></script>
+
+  <div id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerModalTitle"
+      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+
+    <div tabindex="-1" style="position:relative; background:#131522; border:1px solid rgba(240,192,64,0.2); border-radius:16px; width:90%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+
+      <div style="padding:24px 28px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center;">
+        <h1 id="disclaimerModalTitle" style="color:#f0c040; font-size:1.6rem; font-weight:700;">Disclaimer</h1>
+
+        <button type="button" aria-label="Close disclaimer" onclick="closeDisclaimerModal()"
+                style="background:rgba(255,255,255,0.08); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer;">
+          ✕
+        </button>
+      </div>
+
+      <div class="modal-scroll-content" style="overflow-y:auto; padding:24px 28px; flex:1;">
+        <div style="display:flex; flex-direction:column; gap:14px;">
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">1</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                General Information
+              </h2>
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                The information, services, and structural match simulation environments provided on the Checkora chess platform are intended solely for general informational, educational, and recreational entertainment purposes.
+              </p>
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0;">
+                All modules are interactive and provided on an "as-is" and "as-available" execution model without absolute performance assertions of any kind.
+              </p>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">2</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                Limitation of Liability
+              </h2>
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                To the fullest extent permitted by applicable law, Checkora, its core architects, and open-source contribution members shall assume no accountability for any direct, indirect, accidental, or consequential operational data disruptions.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">Server connection synchronization issues.</li>
+                <li style="margin-bottom:6px;">Temporary match-state profile resets.</li>
+                <li style="margin-bottom:6px;">Algorithmic parsing variances.</li>
+                <li>System downtime occurrences.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">3</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                Accuracy of Information
+              </h2>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                While our platform utilizes a custom C++ Minimax engine alongside Python web orchestration, we make no absolute guarantees regarding analytical precision.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">Position evaluations are algorithmic estimates.</li>
+                <li style="margin-bottom:6px;">Material calculations may vary.</li>
+                <li>Strategic suggestions are not official chess arbitration metrics.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">4</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                External Links
+              </h2>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                Checkora may reference external resources and community platforms.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">GitHub repositories.</li>
+                <li style="margin-bottom:6px;">Discord community servers.</li>
+                <li>Official chess federation resources.</li>
+              </ul>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin-top:10px;">
+                We do not control or guarantee the content, policies, or privacy practices of third-party services.
+              </p>
+            </div>
+          </div>
+
+          <div style="background:#1a1c2e; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px 22px; display:flex; gap:16px; align-items:flex-start;">
+            <span style="background:rgba(240,192,64,0.15); color:#f0c040; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;">5</span>
+            <div>
+              <h2 style="color:#fff; font-size:1.05rem; font-weight:600; margin-bottom:8px;">
+                User Responsibility Statement
+              </h2>
+
+              <p style="color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7; margin:0 0 10px 0;">
+                By using Checkora, you acknowledge responsibility for maintaining fair and secure usage of the platform.
+              </p>
+
+              <ul style="margin-left:18px; color:rgba(255,255,255,0.7); font-size:0.92rem; line-height:1.7;">
+                <li style="margin-bottom:6px;">Maintain secure account credentials.</li>
+                <li style="margin-bottom:6px;">Follow fair-play policies.</li>
+                <li style="margin-bottom:6px;">Ensure client-side system reliability.</li>
+                <li>Accept timer synchronization limitations inherent to online systems.</li>
+              </ul>
+            </div>
+          </div>
+
+          <p style="color:#64748b; font-size:0.82rem; margin-top:6px;">
+            Last updated: June 2026
+          </p>
+
+        </div>
+      </div>
+
+      <div style="padding:16px 28px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end;">
+        <button type="button"
+                onclick="closeDisclaimerModal()"
+                style="background:linear-gradient(135deg,#f0c040,#d4a020); color:#0f0f1a; border:none; padding:10px 28px; border-radius:8px; font-weight:700; cursor:pointer;">
+          I Understand
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  (function () {
+      const modal = document.getElementById('disclaimerModal');
+      const modalInner = modal.querySelector('[tabindex="-1"]');
+      let lastFocused;
+
+      function openDisclaimerModal() {
+          lastFocused = document.activeElement;
+          modal.style.display = 'flex';
+          modalInner.focus();
+      }
+
+      function closeDisclaimerModal() {
+          modal.style.display = 'none';
+          if (lastFocused) lastFocused.focus();
+      }
+
+      window.openDisclaimerModal = openDisclaimerModal;
+      window.closeDisclaimerModal = closeDisclaimerModal;
+
+      document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && modal.style.display === 'flex') {
+              closeDisclaimerModal();
+          }
+      });
+
+      modal.addEventListener('click', function (e) {
+          if (e.target === modal) closeDisclaimerModal();
+      });
+
+      modal.addEventListener('keydown', function (e) {
+          if (e.key === 'Tab') {
+              const focusable = modal.querySelectorAll(
+                  'button,[href],[tabindex]:not([tabindex="-1"])'
+              );
+
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+
+              if (e.shiftKey && document.activeElement === first) {
+                  e.preventDefault();
+                  last.focus();
+              } else if (!e.shiftKey && document.activeElement === last) {
+                  e.preventDefault();
+                  first.focus();
+              }
+          }
+      });
+  })();
+  </script>
+  
+  <script>
+    const words = ["Compete.", "Improve.", "Dominate.", "Achieve."];
+    let wordIndex = 0;
+    let charIndex = 0;
+    let isDeleting = false;
+    const cycleWord = document.getElementById("cycleWord");
+
+    function typeWriter() {
+        const current = words[wordIndex];
+
+        if (isDeleting) {
+            cycleWord.textContent = current.substring(0, charIndex - 1);
+            charIndex--;
+        } else {
+            cycleWord.textContent = current.substring(0, charIndex + 1);
+            charIndex++;
+        }
+
+        let speed = isDeleting ? 60 : 100;
+
+        if (!isDeleting && charIndex === current.length) {
+            speed = 1500; // pause at end
+            isDeleting = true;
+        } else if (isDeleting && charIndex === 0) {
+            isDeleting = false;
+            wordIndex = (wordIndex + 1) % words.length;
+            speed = 400; // pause before next word
+        }
+
+        setTimeout(typeWriter, speed);
+    }
+
+    typeWriter();
+  </script>
+  <script>
+        // ── Contribution Graph ──
+    const osGrid = document.getElementById('osGrid');
+    if (osGrid) {
+        for (let i = 0; i < 140; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'os-cell';
+            const rand = Math.random();
+            if      (rand > 0.85) cell.classList.add('active-4');
+            else if (rand > 0.65) cell.classList.add('active-3');
+            else if (rand > 0.45) cell.classList.add('active-2');
+            else if (rand > 0.25) cell.classList.add('active-1');
+            osGrid.appendChild(cell);
+        }
+    }
+
+    // ── Mini Chessboard ──
+    const sicilian = [
+        ['♜','♞','♝','♛','♚','♝','♞','♜'],
+        ['♟','♟','♟','','♟','♟','♟','♟'],
+        ['','','','','','','',''],
+        ['','','','♟','','','',''],
+        ['','','','','♙','','',''],
+        ['','','♘','','','','',''],
+        ['♙','♙','♙','♙','','♙','♙','♙'],
+        ['♖','','♗','♕','♔','♗','♘','♖']
+    ];
+
+    const highlighted = [[3,3],[4,4]];
+    const miniBoard = document.getElementById('miniBoard');
+    if (miniBoard) {
+        sicilian.forEach((row, r) => {
+            row.forEach((piece, c) => {
+                const sq = document.createElement('div');
+                sq.className = `mini-sq ${(r+c)%2===1 ? 'dark' : 'light'}`;
+                if (highlighted.some(([hr,hc]) => hr===r && hc===c)) sq.classList.add('highlighted');
+                sq.textContent = piece;
+                miniBoard.appendChild(sq);
+            });
+        });
+    }
+
+    // ── Stat Counters ──
+    let statsAnimated = false;
+    function animateStats() {
+        if (statsAnimated) return;
+        statsAnimated = true;
+        document.querySelectorAll('.about-stat-num').forEach(el => {
+            const target = parseInt(el.dataset.target);
+            let count = 0;
+            const step = Math.ceil(target / 40);
+            const interval = setInterval(() => {
+                count = Math.min(count + step, target);
+                el.textContent = count;
+                if (count >= target) clearInterval(interval);
+            }, 40);
+        });
+    }
+
+    // ── Automatic Carousel ──
+    const track       = document.getElementById('aboutTrack');
+    const progressFill = document.getElementById('aboutProgressFill');
+    const currentCardEl = document.getElementById('aboutCurrentCard');
+    const dots        = document.querySelectorAll('.about-dot');
+    const CARD_COUNT  = 4;
+    let currentCardIndex = 0;
+    let carouselInterval;
+    let isPausedManually = false;
+
+    const pausePlayBtn = document.getElementById('aboutPausePlayBtn');
+    const iconPause = document.getElementById('icon-pause');
+    const iconPlay = document.getElementById('icon-play');
+
+    function goToCard(index) {
+        currentCardIndex = index;
+        if (track) track.style.transform = `translateX(-${currentCardIndex * 25}%)`;
+        const progress = (currentCardIndex / (CARD_COUNT - 1)) * 100;
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        if (currentCardEl) currentCardEl.textContent = currentCardIndex + 1;
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentCardIndex);
+            dot.setAttribute('aria-pressed', i === currentCardIndex ? 'true' : 'false');
+        });
+    }
+
+    function nextCard() {
+        let nextIndex = (currentCardIndex + 1) % CARD_COUNT;
+        goToCard(nextIndex);
+    }
+
+    function startCarousel() {
+        if (!carouselInterval && !isPausedManually) {
+            carouselInterval = setInterval(nextCard, 5000);
+        }
+    }
+
+    function stopCarousel() {
+        if (carouselInterval) {
+            clearInterval(carouselInterval);
+            carouselInterval = null;
+        }
+    }
+
+    // dot click — go to that card
+    dots.forEach((dot, i) => {
+        dot.addEventListener('click', () => {
+            goToCard(i);
+            stopCarousel();
+            startCarousel(); // reset timer
+        });
+    });
+
+    if (pausePlayBtn) {
+        pausePlayBtn.addEventListener('click', () => {
+            if (isPausedManually) {
+                isPausedManually = false;
+                if (iconPlay) iconPlay.style.display = 'none';
+                if (iconPause) iconPause.style.display = 'block';
+                startCarousel();
+            } else {
+                isPausedManually = true;
+                stopCarousel();
+                if (iconPause) iconPause.style.display = 'none';
+                if (iconPlay) iconPlay.style.display = 'block';
+            }
+        });
+    }
+
+    if (track) {
+        goToCard(0);
+        startCarousel();
+
+        // Pause on hover
+        const aboutBox = document.querySelector('.about-box');
+        if (aboutBox) {
+            aboutBox.addEventListener('mouseenter', () => {
+                if (!isPausedManually) stopCarousel();
+            });
+            aboutBox.addEventListener('mouseleave', () => {
+                if (!isPausedManually) startCarousel();
+            });
+        }
+    }
+
+    // trigger stat counters when about section is visible
+    const aboutObserver = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+            if (e.isIntersecting) {
+                animateStats();
+                aboutObserver.disconnect();
+            }
+        });
+    }, { threshold: 0.3 });
+
+    const aboutSection = document.querySelector('.about-pin-section');
+    if (aboutSection) {
+        aboutObserver.observe(aboutSection);
+    }
+
+    // ── Smooth Scrolling for Anchor Links ──
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            const targetId = this.getAttribute('href');
+            if (targetId === '#') return;
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+                e.preventDefault();
+                targetElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+  </script>
+  <script>
+    // ── Performance Meter Animation ──
+    (function() {
+        const perfValue = document.getElementById('perfValue');
+        const depthVal  = document.getElementById('depthVal');
+        const arc       = document.querySelector('.perf-arc');
+        const needle    = document.querySelector('.perf-needle');
+
+        if (!perfValue || !arc || !needle) return;
+
+        const maxNodes  = 850;
+        const maxDepth  = 12;
+        const arcLength = 251;
+
+        let current = 0;
+        let direction = 1;
+        let frame;
+
+        function animate() {
+            current += direction * (Math.random() * 18 + 6);
+
+            if (current >= maxNodes) { current = maxNodes; direction = -1; }
+            if (current <= 80)       { current = 80;       direction =  1; }
+
+            const pct    = current / maxNodes;
+            const offset = arcLength - pct * arcLength;
+            const angle  = -90 + pct * 180;
+            const depth  = Math.round(pct * maxDepth);
+
+            arc.style.strokeDashoffset    = offset;
+            needle.style.transform        = `rotate(${angle}deg)`;
+            perfValue.textContent         = Math.round(current);
+            if (depthVal) depthVal.textContent = depth;
+
+            frame = setTimeout(animate, 120);
+        }
+
+        // start when card 3 is visible
+        const perfObserver = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) animate();
+                else clearTimeout(frame);
+            });
+        }, { threshold: 0.3 });
+
+        const card3 = document.querySelectorAll('.about-card')[2];
+        if (card3) perfObserver.observe(card3);
+    })();
+  </script>  
+  <script>
+    function selectQuizOpt(el, isCorrect) {
+        const opts = el.parentElement.querySelectorAll('.quiz-opt');
+        opts.forEach(o => { o.onclick = null; o.style.pointerEvents = 'none'; });
+        el.classList.add(isCorrect ? 'selected-right' : 'selected-wrong');
+        if (! isCorrect) {
+            el.parentElement.querySelector('.quiz-correct').classList.add('selected-right');
+        }
+        const fb = document.getElementById('quizFeedback');
+        fb.style.display = 'block';
+        if (!isCorrect) { fb.style.color = '#ef4444'; fb.textContent = '✗ Not quite — 2.Nf3 is the key move.'; }
+    }
+  </script>
+      <script src="{% static 'game/js/dropdown.js' %}"></script>
+  <!-- Keyboard Shortcuts Modal -->
+<div
+  id="shortcutsModal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="shortcutsTitle"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;align-items:center;justify-content:center;">
+
+  <div style="background:#131522;color:white;padding:24px;border-radius:16px;width:90%;max-width:600px;border:1px solid rgba(240,192,64,.3);">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 id="shortcutsTitle" style="color:#f0c040;">
+  Keyboard Shortcuts
+</h2>
+
+      <button
+  type="button"
+  aria-label="Close keyboard shortcuts dialog"
+  title="Close"
+  onclick="closeShortcutsModal()"
+              style="background:none;border:none;color:white;font-size:22px;cursor:pointer;">
+        ✕
+      </button>
+    </div>
+
+    <table style="width:100%;">
+      <tr>
+        <td><strong>Shift + /</strong></td>
+        <td>Open shortcuts help</td>
+      </tr>
+
+      <tr>
+        <td><strong>Esc</strong></td>
+        <td>Close modal</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + h</strong></td>
+        <td>Go to Home</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + p</strong></td>
+        <td>Play Game</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + l</strong></td>
+        <td>Leaderboard</td>
+      </tr>
+
+      <tr>
+        <td><strong>g + s</strong></td>
+        <td>Lessons</td>
+      </tr>
+    </table>
+
+  </div>
+</div>
+<script>
+(function () {
+
+  let gPressed = false;
+
+  const modal = document.getElementById("shortcutsModal");
+
+  window.openShortcutsModal = function () {
+    modal.style.display = "flex";
+  };
+
+  window.closeShortcutsModal = function () {
+    modal.style.display = "none";
+  };
+
+  document.addEventListener("keydown", function (e) {
+
+    const tag = document.activeElement.tagName;
+
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      document.activeElement.isContentEditable
+    ) {
+      return;
+    }
+
+    // Shift + /
+    if (e.shiftKey && e.key === "?") {
+      e.preventDefault();
+      openShortcutsModal();
+      return;
+    }
+
+    // ESC
+    if (e.key === "Escape") {
+      closeShortcutsModal();
+      return;
+    }
+
+    // g shortcuts
+    if (e.key.toLowerCase() === "g") {
+      gPressed = true;
+
+      setTimeout(() => {
+        gPressed = false;
+      }, 1000);
+
+      return;
+    }
+
+        if (modal.style.display === "flex") {
+      return;
+    }
+
+    if (!gPressed) {
+      return;
+    }
+
+    switch (e.key.toLowerCase()) {
+
+      case "h":
+        window.location.href = "{% url 'landing' %}";
+        break;
+
+      case "p":
+        window.location.href = "{% url 'index' %}";
+        break;
+
+      case "l":
+        window.location.href = "{% url 'leaderboard' %}";
+        break;
+
+      case "s":
+        window.location.href = "{% url 'lessons' %}";
+        break;
+    }
+
+    gPressed = false;
+  });
+
+  modal.addEventListener("click", function(e){
+    if(e.target === modal){
+      closeShortcutsModal();
+    }
+  });
+
+})();
+</script>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
   </body>
 </html>

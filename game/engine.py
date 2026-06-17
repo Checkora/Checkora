@@ -22,6 +22,7 @@ import subprocess
 import json
 import sys
 import time
+import threading
 from datetime import date
 
 class ChessGame:
@@ -51,6 +52,7 @@ class ChessGame:
 
     # Class-level cache so the file is read only once per process
     _opening_book: dict | None = None
+    _opening_book_lock = threading.Lock()
 
     INITIAL_BOARD = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -67,7 +69,7 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600):
+    def __init__(self, time_limit=600, increment=0):
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -76,6 +78,8 @@ class ChessGame:
         self.valid_moves_cache = {}
         self.white_time = time_limit
         self.black_time = time_limit
+        self.time_limit = time_limit
+        self.increment = increment
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -91,6 +95,7 @@ class ChessGame:
         self.repetition_counts = {self.repetition_history[0]: 1}
         self.game_status = 'active'
         self.draw_reason = None
+        self.threefold_warning = False
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -141,6 +146,8 @@ DP cache is intentionally excluded to save cookie space."""
             'captured': self.captured,
             'white_time': self.white_time,
             'black_time': self.black_time,
+            'time_limit': self.time_limit,
+            'increment': self.increment,
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
@@ -151,6 +158,7 @@ DP cache is intentionally excluded to save cookie space."""
             'repetition_history': self.repetition_history,
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
+            'threefold_warning': self.threefold_warning,
         }
 
     @classmethod
@@ -164,6 +172,8 @@ DP cache is intentionally excluded to save cookie space."""
         game.paused = data.get('paused', False)
         game.white_time = data['white_time']
         game.black_time = data['black_time']
+        game.time_limit = data.get('time_limit', 600)
+        game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
         game.player_color = data.get('player_color', 'white')
@@ -174,7 +184,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.halfmove_clock = data.get('halfmove_clock', 0)
         game.game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
-
+        game.threefold_warning = data.get('threefold_warning', False)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -187,7 +197,7 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str, time_limit=600):
+    def from_fen(cls, fen: str, time_limit=600, increment=0):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -214,7 +224,7 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls(time_limit=time_limit)
+        game = cls(time_limit=time_limit, increment=increment)
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
@@ -227,6 +237,7 @@ DP cache is intentionally excluded to save cookie space."""
         game._rebuild_repetition_counts()
         game.game_status = 'active'
         game.draw_reason = None
+        game.threefold_warning = False
         game.last_ts = time.time()
         return game
 
@@ -540,8 +551,15 @@ DP cache is intentionally excluded to save cookie space."""
         # Save who made this move before switching
         moved_by = self.current_turn
 
-        # Switch turn
+        # Apply increment to the player who just made the move
         is_white = self.current_turn == 'white'
+        if self.increment > 0:
+            if is_white:
+                self.white_time += self.increment
+            else:
+                self.black_time += self.increment
+
+        # Switch turn
         self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()
@@ -588,6 +606,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         repetition_count = self.repetition_counts.get(
             self.generate_position_key(), 1)
+        
+        # Warning on second occurrence
+        self.threefold_warning = (repetition_count == 2)
+
         if repetition_count >= 3:
             self.game_status = 'draw'
             self.draw_reason = 'threefold_repetition'
@@ -600,6 +622,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         self.game_status = 'active'
         self.draw_reason = None
+        
+        if repetition_count != 2:
+            self.threefold_warning = False
+    
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
@@ -819,11 +845,13 @@ DP cache is intentionally excluded to save cookie space."""
     def _load_opening_book(cls) -> dict:
         """Load the opening book JSON from disk (cached after first load)."""
         if cls._opening_book is None:
-            try:
-                with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
-                    cls._opening_book = json.load(fh)
-            except (OSError, json.JSONDecodeError):
-                cls._opening_book = {}  # Graceful fallback: no book
+            with cls._opening_book_lock:
+                if cls._opening_book is None:
+                    try:
+                        with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
+                            cls._opening_book = json.load(fh)
+                    except (OSError, json.JSONDecodeError):
+                        cls._opening_book = {}  # Graceful fallback: no book
         return cls._opening_book
 
     def generate_fen_key(self) -> str:

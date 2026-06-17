@@ -82,15 +82,64 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* ── Password validation checklist (register page only) ── */
+ /* ── Password validation checklist (register page only) ── */
   const passwordInput = document.querySelector('input[name="password1"]');
+  const emailInput = document.querySelector('input[name="email"]');
+  const usernameInput = document.querySelector('input[name="username"]');
+
   if (passwordInput) {
+    // Suppress Django's static help_text for the password field to fix fragmented UI
+    const formGroup = passwordInput.closest(".form-group");
+    if (formGroup) {
+      const staticHelpText = formGroup.querySelector(".helptext");
+      if (staticHelpText) staticHelpText.style.display = "none";
+    }
+
+    // Helper to detect substring similarity (ignoring very short strings)
+    // Helper to detect substring similarity (mimicking Django's backend SequenceMatcher)
+    const checkSimilarity = (pwd, compareVal) => {
+      if (!compareVal || !pwd) return false;
+      const lowerPwd = pwd.toLowerCase();
+      const lowerComp = compareVal.toLowerCase();
+
+      // 1. One-way strict match (e.g., password contains the whole username)
+      if (lowerComp.length >= 3 && lowerPwd.includes(lowerComp)) return true;
+
+      // 2. Tokenized checking: Split email/username by special characters and numbers
+      const parts = lowerComp.split(/[^a-z0-9]+/);
+      for (const part of parts) {
+          // If a chunk of the email is at least 4 chars and exists in the password
+          if (part.length >= 4 && lowerPwd.includes(part)) return true;
+      }
+
+      // 3. Reverse substring: Strip special chars from password and check if it's in the email
+      const cleanPwd = lowerPwd.replace(/[^a-z0-9]/g, '');
+      if (cleanPwd.length >= 4 && lowerComp.includes(cleanPwd)) return true;
+
+      return false;
+    };
+
     const rules = [
       { id: "rule-length", text: "Minimum 8 characters", test: (v) => v.length >= 8 },
       { id: "rule-upper", text: "At least 1 uppercase letter", test: (v) => /[A-Z]/.test(v) },
       { id: "rule-number", text: "At least 1 number", test: (v) => /[0-9]/.test(v) },
       { id: "rule-special", text: "At least 1 special character", test: (v) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/`~]/.test(v) },
+      { 
+        id: "rule-similarity", 
+        text: "Cannot be too similar to email or username", 
+        test: (v) => {
+            if (!v) return false;
+            // Extract the prefix before the '@' for email comparison
+            const emailPart = emailInput && emailInput.value ? emailInput.value.split('@')[0] : '';
+            const userVal = usernameInput ? usernameInput.value : '';
+            return !checkSimilarity(v, emailPart) && !checkSimilarity(v, userVal);
+        }
+      }
     ];
+
+    const strengthMeter = document.createElement("div");
+    strengthMeter.className = "password-strength-meter";
+    strengthMeter.innerHTML = '<div class="strength-bar-fill"></div>';
 
     const checklist = document.createElement("ul");
     checklist.className = "password-checklist";
@@ -104,26 +153,58 @@ document.addEventListener("DOMContentLoaded", () => {
       checklist.appendChild(li);
     });
 
-    // Insert checklist after the password input wrapper
+    // Insert strength meter and checklist after the password input wrapper
     const wrapper = passwordInput.closest(".pw-input-wrapper") || passwordInput.parentNode;
     wrapper.parentNode.insertBefore(checklist, wrapper.nextSibling);
+    wrapper.parentNode.insertBefore(strengthMeter, checklist);
 
-    // Real-time validation
+// Select the submit button inside the form
+    const formBtn = passwordInput.closest("form").querySelector('button[type="submit"]');
+
+    // Real-time validation evaluation
     const validatePassword = () => {
       const value = passwordInput.value;
       let allMet = true;
+      let score = 0;
 
       rules.forEach((rule) => {
         const li = document.getElementById(rule.id);
         const met = rule.test(value);
         li.classList.toggle("met", met);
-        if (!met) allMet = false;
+        if (met) score++;
+        else allMet = false;
       });
 
-      checklist.classList.toggle("all-met", allMet && value.length > 0);
+      const fill = strengthMeter.querySelector(".strength-bar-fill");
+      if (fill) {
+        const pct = value.length > 0 ? (score / rules.length) * 100 : 0;
+        fill.style.width = pct + "%";
+        if (score <= 2) {
+          fill.style.background = "#ef4444"; // Red
+        } else if (score <= 4) {
+          fill.style.background = "#f59e0b"; // Orange/Yellow
+        } else {
+          fill.style.background = "#10b981"; // Green
+        }
+      }
+
+      const isValid = allMet && value.length > 0;
+      checklist.classList.toggle("all-met", isValid);
+      
+      // CRITICAL PATCH: Disable the submit button if rules are not met
+      if (formBtn) {
+          formBtn.disabled = !isValid;
+          formBtn.style.opacity = isValid ? "1" : "0.5";
+          formBtn.style.cursor = isValid ? "pointer" : "not-allowed";
+      }
     };
 
     passwordInput.addEventListener("input", validatePassword);
+    
+    // Cross-bind to email and username so the rule evaluates correctly if filled out of order
+    if (emailInput) emailInput.addEventListener("input", validatePassword);
+    if (usernameInput) usernameInput.addEventListener("input", validatePassword);
+
     validatePassword(); // Run on initial load (handles autofill/form restoration)
   }
 
