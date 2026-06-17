@@ -1,0 +1,331 @@
+/* ==========================================================================
+   theme.css (GLOBAL VARIABLES AND FIXES)
+   ========================================================================== */
+
+:root {
+    /* Your Default Dark Theme Colors */
+    --bg-primary: #0b1020;
+    --bg-dark: #0f0f1a;
+    --nav-bg: #12121f;
+    --card-bg: #16162a;
+    --card-border: #252545;
+    --card-hover: #1a1a35;
+    --text-primary: #d0d0d0;
+    --text-title: #ffffff;
+    --text-secondary: #aaaaaa;
+    --accent-gold: #f0c040;
+    --border-color: rgba(255,255,255,0.1);
+    --danger-red: #ff6b6b;
+    --input-bg: #1a1a2e;
+    --input-border: #444;
+    --input-text: #ffffff;
+    --input-placeholder: #8a8aaa;
+}
+
+[data-theme="light"] {
+    /* Your Light Theme Colors */
+    --bg-primary: #f5f7fb;
+    --bg-dark: #f5f7fb;
+    --nav-bg: #ffffff;
+    --card-bg: #ffffff;
+    --card-border: #d1d5db;
+    --card-hover: #f3f4f6;
+    --text-primary: #111827;
+    --text-title: #000000;
+    --text-secondary: #4b5563;
+    --accent-gold: #b47505;
+    --border-color: rgba(0,0,0,0.1);
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+    --input-text: #111827;
+    --input-placeholder: #6b7280;
+}
+
+/* ==========================================================================
+   GLOBAL LIGHT THEME FIXES
+   ========================================================================== */
+
+/* Match History Page Badges */
+[data-theme="light"] .result-badge.win,
+[data-theme="light"] .replay-result-tag.win {
+    background-color: #d1fae5 !important;
+    color: #059669 !important;
+}
+
+[data-theme="light"] .result-badge.loss,
+[data-theme="light"] .replay-result-tag.loss {
+    background-color: #fee2e2 !important;
+    color: #dc2626 !important;
+}
+
+[data-theme="light"] .result-badge.draw,
+[data-theme="light"] .replay-result-tag.draw {
+    background-color: #f3f4f6 !important;
+    color: #4b5563 !important;
+}
+
+/* 1. Fix the Navbar (Frosted glass effect) */
+[data-theme="light"] .navbar {
+    background: rgba(253, 251, 247, 0.9) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 2. Fix standard Buttons (Better contrast) */
+[data-theme="light"] .btn-primary-gold,
+[data-theme="light"] .btn-register {
+    background: linear-gradient(135deg, #fbbf24, #d97706) !important;
+    color: #111827 !important; 
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 6px 15px rgba(217, 119, 6, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .btn-primary-gold:hover,
+[data-theme="light"] .btn-register:hover {
+    background: linear-gradient(135deg, #f59e0b, #b45309) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(217, 119, 6, 0.4), 0 3px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 3. Fix the Sign In button outline */
+[data-theme="light"] .btn-signin {
+    color: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+}
+
+[data-theme="light"] .btn-signin:hover {
+    background: rgba(212, 160, 23, 0.1) !important;
+    color: #b8860b !important;
+}
+
+/* 4. Fix Nav Links hover state */
+[data-theme="light"] .nav-links a:hover,
+[data-theme="light"] .nav-links a.active {
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="light"] .nav-links a::after {
+    background: linear-gradient(90deg, var(--accent-gold), #b8860b) !important;
+}
+
+/* ==========================================================================
+   LANDING PAGE LIGHT THEME OVERRIDES
+   ========================================================================== */
+
+/* 1. Hero Vignette Bleed (Replaces hardcoded dark hex with your light bg var) */
+[data-theme="light"] .hero-board-vignette {
+    background: linear-gradient(to bottom, var(--bg-primary) 0%, transparent 15%, transparent 85%, var(--bg-primary) 100%) !important;
+}
+
+/* 2. Hybrid Intelligence Text (Darkens the gradient for contrast) */
+[data-theme="light"] .gradient-text-gold {
+    background: linear-gradient(135deg, #b47505 0%, #78350f 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* 3. "Learn More" Ghost Button (Adds visible border and dark text) */
+[data-theme="light"] .btn-secondary-ghost {
+    border-color: rgba(0, 0, 0, 0.2) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .btn-secondary-ghost:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    border-color: var(--accent-gold) !important;
+    color: var(--text-title) !important;
+}
+
+/* 4. About Section Cards (Overrides hardcoded dark gradients/backgrounds) */
+[data-theme="light"] .about-bento-card {
+    background: var(--card-bg) !important;
+}
+
+[data-theme="light"] .about-bento-card.highlight-accent {
+    background: linear-gradient(145deg, var(--card-bg), var(--card-hover)) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* Fix for any flipping cards using hardcoded backgrounds */
+[data-theme="light"] .card-back {
+    background-color: var(--card-hover) !important;
+}
+
+/* 5. FAQ Section (Replaces transparent white borders/bg with card variables) */
+[data-theme="light"] .faq-item {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+}
+
+[data-theme="light"] .faq-item.active,
+[data-theme="light"] .faq-item:hover {
+    background: var(--card-hover) !important;
+    border-color: var(--accent-gold) !important;
+}
+
+/* ==========================================================================
+   GAME BOARD LIGHT THEME OVERRIDES
+   ========================================================================== */
+
+/* 1. Add depth to all the side panels so they pop off the background */
+/* (Replace .panel-box with whatever class your side boxes use!) */
+[data-theme="light"] .captured-box, 
+[data-theme="light"] .controls-container, 
+[data-theme="light"] .history-box,
+[data-theme="light"] .theme-selector-box {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important; /* Subtle drop shadow */
+    border-radius: 8px !important;
+}
+
+/* 2. Fix the top player info/timer bar */
+[data-theme="light"] .player-info-bar,
+[data-theme="light"] .timer-box {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* 3. Fix the floating circular buttons (Pause/Flag) on the top right */
+[data-theme="light"] .floating-action-btn {
+    background-color: #ffffff !important; /* White background */
+    border: 1px solid var(--card-border) !important;
+    color: #111827 !important; /* Dark icon */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .floating-action-btn:hover {
+    background-color: #f3f4f6 !important;
+    border-color: var(--accent-gold) !important;
+}
+
+/* 4. Soften the harsh dark red "Resign" and "Exit" buttons */
+[data-theme="light"] .btn-danger,
+[data-theme="light"] .btn-exit {
+    background-color: #ef4444 !important; /* Brighter, modern red */
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2) !important;
+}
+
+[data-theme="light"] .btn-danger:hover,
+[data-theme="light"] .btn-exit:hover {
+    background-color: #dc2626 !important;
+}
+
+/* ==========================================================================
+   FLOATING ACTION BUTTONS (PAUSE/FLAG) FIX
+   ========================================================================== */
+
+/* 1. Base style for the circular buttons */
+[data-theme="light"] .m-fab-btn {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important; /* Makes the SVG icon dark */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .m-fab-btn:hover {
+    background-color: var(--card-hover) !important;
+    border-color: var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+}
+
+/* 2. Specific style for the Flag (Resign) button to make it a soft red */
+[data-theme="light"] .m-fab-btn.m-fab-resign {
+    background-color: #fee2e2 !important; 
+    color: #dc2626 !important; 
+    border: 1px solid #fca5a5 !important;
+}
+
+[data-theme="light"] .m-fab-btn.m-fab-resign:hover {
+    background-color: #fecaca !important; 
+}
+
+/* 3. Desktop Game Controls (Pause & Resign) */
+[data-theme="light"] .btn-pause {
+    background: linear-gradient(135deg, #fbbf24, #d97706) !important;
+    color: #111827 !important;
+    border: 1px solid #b45309 !important;
+}
+
+[data-theme="light"] .btn-pause:hover {
+    background: linear-gradient(135deg, #f59e0b, #b45309) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="light"] .btn-danger {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fca5a5 !important;
+}
+
+[data-theme="light"] .btn-danger:hover {
+    background: #fecaca !important;
+    border-color: #f87171 !important;
+}
+
+/* ==========================================================================
+   PROFILE DROPDOWN LIGHT THEME FIX
+   ========================================================================== */
+
+/* Fix the main profile button ("zenowing") */
+[data-theme="light"] .profile-btn {
+    background-color: #ffffff !important; /* Clean white background */
+    border: 1px solid var(--card-border) !important; /* Soft grey border */
+    color: var(--text-primary) !important; /* Dark grey/black text */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .profile-btn:hover {
+    background-color: #f3f4f6 !important; /* Slight grey on hover */
+    border-color: var(--accent-gold) !important; /* Gold border on hover */
+}
+
+/* Fix the dropdown menu that appears when clicked */
+[data-theme="light"] .profile-dropdown .dropdown-content {
+    background-color: #ffffff !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Fix the links inside the dropdown */
+[data-theme="light"] .profile-dropdown .dropdown-content a {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .profile-dropdown .dropdown-content a:hover {
+    background-color: #f3f4f6 !important;
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="light"] .profile-dropdown .dropdown-content a.delete-option {
+    color: #ef4444 !important;
+}
+
+[data-theme="light"] .profile-dropdown .dropdown-content a.delete-option:hover {
+    background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+[data-theme="light"] .profile-dropdown .dropdown-content .logout-option {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .profile-dropdown .dropdown-content .logout-option:hover {
+    background-color: #f3f4f6 !important;
+    color: var(--accent-gold) !important;
+}
+
+/* ==========================================================================
+   PLAYER NAMES CONTRAST FIX
+   ========================================================================== */
+
+/* Target the specific labels and IDs inside the clocks */
+[data-theme="light"] .clock .label,
+[data-theme="light"] #whiteNameLabel,
+[data-theme="light"] #blackNameLabel {
+    color: var(--text-secondary) !important; 
+    font-weight: 700 !important; /* Makes it slightly bolder so it reads better */
+}

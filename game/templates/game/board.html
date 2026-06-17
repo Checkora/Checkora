@@ -19,6 +19,7 @@
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
 
     <!-- Vercel Web Analytics -->
     <script>
@@ -496,7 +497,7 @@
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
                     <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
-                    <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
+                    <button type="button" class="btn btn-pause" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
                     <button class="btn btn-gold" style="width: 100%;"
                         onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>

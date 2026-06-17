@@ -309,3 +309,46 @@ h1 {
     pointer-events: none;
     transition: opacity 0.2s ease;
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] body {
+    background: #f5f7fb;
+    color: #111827;
+}
+
+[data-theme="light"] .lesson-box,
+[data-theme="light"] .coord-toggle-container {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] h1,
+[data-theme="light"] #lesson-instruction {
+    color: #d4a017;
+}
+
+[data-theme="light"] .description,
+[data-theme="light"] .lesson-content li,
+[data-theme="light"] .coord-toggle-label {
+    color: #4b5563;
+}
+
+[data-theme="light"] .coming-soon {
+    background: rgba(212, 160, 23, 0.1);
+    border-left-color: #d4a017;
+}
+
+[data-theme="light"] .board-placeholder {
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+[data-theme="light"] h2 {
+    color: #111827;
+}
+
+[data-theme="light"] .lesson-board,
+[data-theme="light"] #demo-board {
+    border-color: #d4a017;
+}

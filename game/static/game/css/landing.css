@@ -305,7 +305,7 @@ body {
     display: block;
     width: 100%;
     padding: 14px 18px;
-    color: white;
+    color: var(--text-title);
     text-decoration: none;
     background: transparent;
     border: none;
@@ -799,8 +799,8 @@ body {
 
 /* Subtle accent focus on the primary technical engine feature */
 .about-bento-card.highlight-accent {
-    background: linear-gradient(145deg, var(--card-bg), #1a1a32);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: linear-gradient(145deg, var(--card-bg), var(--card-hover));
+    border-color: var(--card-border);
 }
 
 .about-bento-card.highlight-accent:hover {

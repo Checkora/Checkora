@@ -246,6 +246,82 @@
             }
         }
 
+        /* Light Theme Overrides */
+        [data-theme="light"] body {
+            background: #f5f7fb;
+            color: #111827;
+        }
+
+        [data-theme="light"] .hero h1 {
+            color: #d4a017;
+        }
+
+        [data-theme="light"] .hero p {
+            color: #4b5563;
+        }
+
+        [data-theme="light"] .progress-box, 
+        [data-theme="light"] .continue-learning {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="light"] .progress-header h2,
+        [data-theme="light"] .continue-learning h2 {
+            color: #111827;
+        }
+
+        [data-theme="light"] .progress-bar {
+            background: #e5e7eb;
+        }
+
+        [data-theme="light"] .progress-fill {
+            background: linear-gradient(90deg, #d4a017, #fcd34d);
+        }
+
+        [data-theme="light"] .progress-text,
+        [data-theme="light"] .continue-learning p {
+            color: #64748b;
+        }
+
+        [data-theme="light"] .category-header h2 {
+            color: #111827;
+        }
+
+        [data-theme="light"] .lesson-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="light"] .lesson-card:hover {
+            border-color: #d4a017;
+            box-shadow: 0 10px 25px rgba(212, 160, 23, 0.2);
+        }
+
+        [data-theme="light"] .lesson-card h3 {
+            color: #111827;
+        }
+
+        [data-theme="light"] .lesson-meta {
+            color: #64748b;
+        }
+
+        [data-theme="light"] .learning-stats span {
+            background: rgba(212, 160, 23, 0.1);
+            color: #b45309;
+        }
+
+        [data-theme="light"] .lesson-count {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        [data-theme="light"] .pending {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
     </style>
 </head>
 
@@ -270,10 +346,8 @@
         aria-valuemax="100"
         aria-label="Lesson completion progress">
 
-        <div
-            class="progress-fill"
-            style="width:{% widthratio completed_count total_lessons 100 %}%">
-        </div>
+        <div class="progress-fill" id="lesson-progress-fill" data-progress="{% widthratio completed_count total_lessons 100 %}"></div>
+        <script>document.getElementById('lesson-progress-fill').style.width = document.getElementById('lesson-progress-fill').dataset.progress + '%';</script>
 
     </div>
 
@@ -348,12 +422,10 @@
         </a>
 
         {% endfor %}
-
     </div>
-
 </div>
-
 {% endfor %}
 
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 </html>

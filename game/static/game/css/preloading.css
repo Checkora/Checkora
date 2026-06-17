@@ -384,3 +384,40 @@ html, body {
   }
   .ck-progress-fill { width: 100% !important; }
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] body,
+[data-theme="light"] .ck-page {
+  background: #f5f7fb;
+}
+
+[data-theme="light"] .ck-title {
+  color: #111827;
+}
+
+[data-theme="light"] .ck-tagline {
+  color: #64748b;
+}
+
+[data-theme="light"] .ck-status {
+  color: #4b5563;
+}
+
+[data-theme="light"] .ck-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(212,160,23,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 20% 80%, rgba(0,0,0,0.02) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 80% 20%, rgba(212,160,23,0.04) 0%, transparent 50%);
+}
+
+[data-theme="light"] .ck-ring-2 {
+  border-top-color: rgba(90,215,255,0.7);
+}
+
+[data-theme="light"] .ck-cell {
+  border-color: rgba(0,0,0,0.03);
+}
+
+[data-theme="light"] .ck-scanlines {
+  opacity: 0.3;
+}

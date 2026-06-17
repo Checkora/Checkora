@@ -242,6 +242,67 @@ background-size:60px 60px;
         height:90px;
     }
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] body {
+    background: #f5f7fb;
+    color: #111827;
+}
+
+[data-theme="light"] .header h1,
+[data-theme="light"] .level-title {
+    color: #d4a017;
+    text-shadow: none;
+}
+
+[data-theme="light"] .progress-box {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .progress-box h3,
+[data-theme="light"] .progress-box p {
+    color: #111827;
+}
+
+[data-theme="light"] .progress-track {
+    background: #e5e7eb;
+}
+
+[data-theme="light"] .progress-fill {
+    background: linear-gradient(90deg, #d4a017, #fcd34d);
+}
+
+[data-theme="light"] .lesson-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .lesson-card:hover {
+    border-color: #d4a017;
+    box-shadow: 0 10px 25px rgba(212, 160, 23, 0.2);
+}
+
+[data-theme="light"] .lesson-card h3 {
+    color: #111827;
+}
+
+[data-theme="light"] .node {
+    background: #f3f4f6;
+    border: 2px solid #cbd5e1;
+    color: #4b5563;
+}
+
+[data-theme="light"] .locked-badge {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+[data-theme="light"] .lesson-name {
+    color: #4b5563;
+}
 </style>
 
 </head>
@@ -262,10 +323,8 @@ background-size:60px 60px;
     <h3>Your Journey Progress</h3>
 
     <div class="progress-track">
-        <div
-            class="progress-fill"
-            style="width:{% widthratio completed_lessons|length 12 100 %}%">
-        </div>
+        <div class="progress-fill" id="map-progress-fill" data-progress="{% widthratio completed_lessons|length 12 100 %}"></div>
+        <script>document.getElementById('map-progress-fill').style.width = document.getElementById('map-progress-fill').dataset.progress + '%';</script>
     </div>
 
     <p>
@@ -352,6 +411,7 @@ background-size:60px 60px;
 
 </div>
 <script src="{% static 'game/js/roadmap_connectors.js' %}"></script>
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
     
     </body>
     </html>
