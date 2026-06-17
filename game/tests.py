@@ -2962,3 +2962,22 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertTemplateUsed(response, 'game/achievements.html')
         self.assertContains(response, "Achievements Unlocked")
         self.assertContains(response, "No featured badges selected yet.")
+        
+    def test_opening_trainer_page(self):
+        response = self.client.get(
+            reverse("opening_trainer")
+        )
+
+        self.assertEqual(response.status_code, 200)
+    
+    def test_opening_detail_page(self):
+        response = self.client.get(
+            reverse(
+                "opening_detail",
+                kwargs={
+                    "slug": "italian-game"
+                }
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)

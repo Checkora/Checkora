@@ -78,6 +78,11 @@
     let currentDifficulty = 'medium';
     let currentWhiteName = 'White';
     let currentBlackName = 'Black';
+
+    let openingTrainerMode = false;
+    let openingTrainerSteps = [];
+    let currentTrainerStep = 0;
+    
     // Updates UI to highlight selected game mode button
     function updateModeButtonsUI(mode) {
         const pvpBtn = document.getElementById("newPvPBtn");
@@ -1546,6 +1551,31 @@
             if (promotionPiece) body.promotion_piece = promotionPiece;
 
             const data = await post('/api/move/', body);
+
+            // Opening Trainer validation
+            if (openingTrainerMode) {
+                const expectedMove =
+                    openingTrainerSteps[currentTrainerStep]?.expected_move;
+
+                const playedMove =
+                    `${toSquare(fr, fc)}-${toSquare(tr, tc)}`;
+
+                if (
+                    expectedMove &&
+                    playedMove.toLowerCase() !== expectedMove.toLowerCase()
+                ) {
+                    showStatus(
+                        `Incorrect move. Expected: ${expectedMove}`,
+                        true
+                    );
+
+                    deselect();
+                    return;
+                }
+
+                currentTrainerStep++;
+            }
+
             if (data.valid) {
                 illegalMoveCount = 0;
                 playSound(data);

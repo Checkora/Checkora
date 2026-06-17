@@ -51,6 +51,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Max, Min, Sum
 from datetime import timedelta
 
+from .opening_trainer_data import OPENINGS
+
 from .engine import ChessGame
 from .models import (
     GameResult,
@@ -3351,6 +3353,37 @@ def lesson_map_view(request):
         }
     )
 
+def opening_trainer(request):
+    return render(
+        request,
+        "game/opening_trainer.html",
+        {
+            "openings": OPENINGS,
+        }
+    )
+
+
+def opening_detail(request, slug):
+    opening = next(
+        (
+            opening
+            for opening in OPENINGS
+            if opening["slug"] == slug
+        ),
+        None,
+    )
+
+    if opening is None:
+        raise Http404("Opening not found")
+
+    return render(
+        request,
+        "game/opening_detail.html",
+        {
+            "opening": opening,
+        }
+    )
+    
 @login_required
 def achievements_view(request):
     try:
