@@ -25,9 +25,9 @@
     {% for name, status in health_status.items %}
         <div style="padding:8px 0; font-size:16px;">
             {% if status %}
-                🟢 {{ name }}
+                🟢 {{ name }} (Healthy)
             {% else %}
-                🔴 {{ name }}
+                🔴 {{ name }} (Unhealthy)
             {% endif %}
         </div>
     {% endfor %}

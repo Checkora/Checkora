@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import ChessPuzzle
 from django.contrib.auth.models import User
+from django.db import DatabaseError
 from .health_checks import (
     check_database,
     check_puzzles,
@@ -32,9 +33,17 @@ def custom_each_context(request):
     }
 
     context["stats"] = {
-        "users": User.objects.count(),
-        "puzzles": ChessPuzzle.objects.count(),
+        "users": 0,
+        "puzzles": 0,
     }
+
+    try:
+        context["stats"] = {
+            "users": User.objects.count(),
+            "puzzles": ChessPuzzle.objects.count(),
+        }
+    except DatabaseError:
+        pass
 
     return context
 

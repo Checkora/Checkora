@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 
 from .base import BaseE2ETest, log_ok, log_info
 
@@ -41,6 +42,13 @@ class AdminHealthDashboardTests(BaseE2ETest):
             '//input[@type="submit"]'
         ).click()
 
+        self.wait.until(
+            EC.text_to_be_present_in_element(
+                (By.TAG_NAME, "body"),
+                "System Health Dashboard"
+            )
+        )
+                
         page = self.driver.page_source
 
         self.assertIn(
@@ -70,6 +78,16 @@ class AdminHealthDashboardTests(BaseE2ETest):
 
         self.assertIn(
             "Opening Trainer",
+            page
+        )
+        
+        self.assertIn(
+            "Total Users",
+            page
+        )
+
+        self.assertIn(
+            "Total Puzzles",
             page
         )
 
