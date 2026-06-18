@@ -2981,3 +2981,117 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+
+
+class UpdatePuzzleStatsViewTest(TestCase):
+    """Test the update_puzzle_stats view function."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='puzzler',
+            password='Password123!',
+            email='puzzler@example.com'
+        )
+        self.factory = RequestFactory()
+
+    def test_anonymous_user_is_redirected(self):
+        from . import views
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps({}), content_type='application/json')
+        from django.contrib.auth.models import AnonymousUser
+        request.user = AnonymousUser()
+        
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 302)
+
+    def test_non_post_request_returns_405(self):
+        from . import views
+        request = self.factory.get('/api/puzzle-stats/update/')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 405)
+
+    def test_invalid_json_returns_400(self):
+        from . import views
+        request = self.factory.post('/api/puzzle-stats/update/', data="invalid-json", content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content), {'error': 'invalid json'})
+
+    def test_valid_json_updates_stats(self):
+        from . import views
+        payload = {
+            'puzzles_solved': 5,
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content), {'success': True})
+        
+        from game.models import PuzzleStats
+        stats = PuzzleStats.objects.get(user=self.user)
+        self.assertEqual(stats.puzzles_solved, 5)
+        self.assertEqual(stats.current_streak, 3)
+        self.assertEqual(stats.best_streak, 5)
+        self.assertEqual(stats.daily_completions, 1)
+
+    def test_negative_values_return_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': -1,
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_non_integer_values_return_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': "five",
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_boolean_values_return_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': True,
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_streak_constraint_failure_returns_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': 5,
+            'current_streak': 5,
+            'best_streak': 3,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content), {'error': 'best_streak must be greater than or equal to current_streak'})
+
