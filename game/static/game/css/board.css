@@ -1,3 +1,14 @@
+img, 
+.piece, 
+.square, 
+.chessboard, 
+.board-container {
+    color-scheme: only light dark;
+}
+.piece {
+    filter: none !important;
+}
+
 :root {
     --bg-primary: #0f0f1a;
     --card-bg: #16162a;
