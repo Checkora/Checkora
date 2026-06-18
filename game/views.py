@@ -1835,9 +1835,12 @@ def update_puzzle_stats(request):
 
 
 def puzzle_stats_view(request):
+    stats, _ = PuzzleStats.objects.get_or_create(user=request.user)
     return JsonResponse({
-        "streak": 0,
-        "longest_streak": 0
+        "streak": stats.current_streak,
+        "longest_streak": stats.longest_streak,
+        "total_solved": stats.total_solved,
+        "puzzles_today": stats.puzzles_today,
     })
 
 
