@@ -1813,7 +1813,10 @@ def leaderboard_view(request):
 @login_required
 @require_POST
 def update_puzzle_stats(request):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     stats, _ = PuzzleStats.objects.get_or_create(
         user=request.user
