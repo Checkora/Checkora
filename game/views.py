@@ -3430,6 +3430,7 @@ def achievements_view(request):
     )
 
 @login_required
+@require_POST
 def feature_badge(request, achievement_id):
     achievement = get_object_or_404(
         Achievement,
@@ -3470,6 +3471,7 @@ def feature_badge(request, achievement_id):
     return redirect("achievements")
 
 @login_required
+@require_POST
 def remove_featured_badge(request, badge_id):
     FeaturedBadge.objects.filter(
         id=badge_id,
