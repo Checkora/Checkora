@@ -26,6 +26,7 @@ That's the only change needed in views.py.
 import json
 from datetime import timedelta
 
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -118,12 +119,14 @@ def api_history(request):
         ]
     }
     """
-    if not request.session.session_key:
-        return JsonResponse({"games": []})
+    if request.user.is_authenticated:
+        query = Q(user=request.user) | Q(session_key=request.session.session_key)
+    else:
+        query = Q(session_key=request.session.session_key)
 
     now = timezone.now()
     records = GameRecord.objects.filter(
-        session_key=request.session.session_key,
+        query,
         expires_at__gt=now,
     )[:20]
 
@@ -161,20 +164,25 @@ def api_replay_pgn(request, game_id: int):
     ---------------------------------
     { "error": "Game not found or has expired." }
     """
-    if not request.session.session_key:
-        return JsonResponse({"error": "Game not found or has expired."}, status=404)
+    if request.user.is_authenticated:
+        query = Q(user=request.user) | Q(session_key=request.session.session_key)
+    else:
+        if not request.session.session_key:
+            return JsonResponse({"error": "Game not found or has expired."}, status=404)
+        query = Q(session_key=request.session.session_key)
 
     now = timezone.now()
     try:
         record = GameRecord.objects.get(
+            query,
             pk=game_id,
-            session_key=request.session.session_key,
             expires_at__gt=now,
         )
     except GameRecord.DoesNotExist:
         return JsonResponse({"error": "Game not found or has expired."}, status=404)
 
-    return JsonResponse({"pgn": record.pgn})
+    pgn = record.pgn.replace('++', '+').replace('##', '#').replace('+#', '#').replace('#+', '#')
+    return JsonResponse({"pgn": pgn})
 
 
 # ---------------------------------------------------------------------------
@@ -189,14 +197,18 @@ def api_download_pgn(request, game_id: int):
     Streams the game's PGN as a downloadable .pgn file.
     Returns 404 if the game doesn't belong to this session or has expired.
     """
-    if not request.session.session_key:
-        return HttpResponse("Game not found or has expired.", status=404)
+    if request.user.is_authenticated:
+        query = Q(user=request.user) | Q(session_key=request.session.session_key)
+    else:
+        if not request.session.session_key:
+            return HttpResponse("Game not found or has expired.", status=404)
+        query = Q(session_key=request.session.session_key)
 
     now = timezone.now()
     try:
         record = GameRecord.objects.get(
+            query,
             pk=game_id,
-            session_key=request.session.session_key,
             expires_at__gt=now,
         )
     except GameRecord.DoesNotExist:
@@ -206,6 +218,7 @@ def api_download_pgn(request, game_id: int):
         f"checkora_{record.created_at.strftime('%Y%m%d_%H%M%S')}"
         f"_{record.result.replace('/', '-')}.pgn"
     )
-    response = HttpResponse(record.pgn, content_type="application/x-chess-pgn")
+    pgn = record.pgn.replace('++', '+').replace('##', '#').replace('+#', '#').replace('#+', '#')
+    response = HttpResponse(pgn, content_type="application/x-chess-pgn")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response

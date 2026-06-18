@@ -579,10 +579,12 @@ DP cache is intentionally excluded to save cookie space."""
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
         if game_status == 'checkmate':
-            notation += '#'
+            if not notation.endswith('#'):
+                notation += '#'
 
         elif game_status == 'check':
-            notation += '+'
+            if not notation.endswith('+') and not notation.endswith('#'):
+                notation += '+'
         self.move_history.append({
             'notation': notation,
             'piece': piece,

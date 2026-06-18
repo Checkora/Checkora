@@ -408,7 +408,12 @@
 
         <!-- ── Sidebar: game list ──────────────────────────────────────── -->
         <aside class="sidebar">
-            <div class="sidebar-header">Recent games &nbsp;·&nbsp; last 48 hours</div>
+            <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Recent games &nbsp;·&nbsp; last 48 hours</span>
+                <button class="btn-icon" style="width:auto; padding:4px 8px; font-size:0.75rem; border:none;" onclick="importPgn()" title="Import PGN">
+                    <i class="fa-solid fa-file-import"></i> Import
+                </button>
+            </div>
 
             <!-- Loading state -->
             <div id="list-loading" class="state-msg" style="display:flex;">
@@ -634,6 +639,59 @@
                 alert('Failed to load game PGN.');
                 console.error(err);
             }
+        }
+
+        function importPgn() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pgn';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = event => {
+                    let pgn = event.target.result;
+                    
+                    // Sanitize old Checkora files (strip BOM and fix double checks/mates)
+                    pgn = pgn.trim().replace(/^\uFEFF/, '');
+                    pgn = pgn.replace(/\+\+/g, '+').replace(/##/g, '#').replace(/\+#/g, '#').replace(/#\+/g, '#');
+
+                    const tempChess = new Chess();
+                    if (!tempChess.load_pgn(pgn, { sloppy: true })) {
+                        alert("please enter valid pgn file");
+                        return;
+                    }
+
+                    stopAutoPlay();
+                    activeGameId = null;
+
+                    document.querySelectorAll('.game-item').forEach(el => el.classList.remove('active'));
+
+                    placeholder.style.display = 'none';
+                    replayActive.style.display = 'flex';
+
+                    replayTitle.textContent = "Imported PGN Game";
+                    replayResultTag.textContent = "—";
+                    replayResultTag.className = "replay-result-tag draw";
+                    replayTerm.textContent = "Imported";
+                    footerExpires.textContent = "Local Import";
+
+                    btnDownload.onclick = () => {
+                        const blob = new Blob([pgn], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = file.name || 'imported_game.pgn';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    };
+
+                    initViewer(pgn);
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         // ─── Viewer initialisation ────────────────────────────────────────────────
