@@ -52,14 +52,12 @@ urlpatterns = [
     path("achievement/<int:achievement_id>/download/", views.download_badge, name="download_badge",),
     path("feature-badge/<int:achievement_id>/", views.feature_badge, name="feature_badge"),
     path("remove-featured-badge/<int:badge_id>/", views.remove_featured_badge, name="remove_featured_badge"),
-]
-
-from game.urls_history import history_urlpatterns
-urlpatterns += history_urlpatterns
-
     # Community Forum
     path("forum/", views.forum_list, name="forum"),
     path("forum/new/", views.forum_new, name="forum_new"),
     path("forum/<int:discussion_id>/", views.forum_detail, name="forum_detail"),
     path("forum/<int:discussion_id>/reply/", views.forum_reply, name="forum_reply"),
 ]
+
+from game.urls_history import history_urlpatterns
+urlpatterns += history_urlpatterns
