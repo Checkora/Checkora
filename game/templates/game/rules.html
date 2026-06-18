@@ -588,12 +588,15 @@
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             z-index: 200;
         }
+
         .sidebar-overlay.open {
             display: block;
-        }
+}
 
         @media (max-width: 768px) {
             #menuToggle { display: block; }
@@ -653,6 +656,38 @@
             .sidebar .rule-nav-item.is-hovered .icon {
                 transform: translateX(2px);
             }
+        @media (max-width: 400px) {
+    .sidebar {
+        display: none;
+
+        position: fixed;
+
+        top: calc(var(--header-height) + 8px);
+
+        right: 12px;
+        left: auto !important;
+
+        width: 260px;
+
+        /* Full available screen height */
+        height: calc(100vh - var(--header-height) - 20px);
+
+        overflow-y: auto;
+        overflow-x: hidden;
+
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+        z-index: 300;
+    }
+
+    .sidebar.open {
+        display: block;
+    }
+}
         }
     </style>
 </head>
@@ -1327,16 +1362,25 @@ function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const isOpen = sidebar.classList.toggle('open');
-    overlay.classList.toggle('open', isOpen);
-    document.getElementById('menuToggle').setAttribute('aria-expanded', String(isOpen));
-    overlay.setAttribute('aria-hidden', String(!isOpen));
+
+    if (window.innerWidth > 400) {
+        overlay.classList.toggle('open', isOpen);
+        overlay.setAttribute('aria-hidden', String(!isOpen));
+    }
+
+    document.getElementById('menuToggle')
+        .setAttribute('aria-expanded', String(isOpen));
 }
 
 function closeSidebar() {
     document.querySelector('.sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('open');
+
+    if (window.innerWidth > 400) {
+        document.getElementById('sidebarOverlay').classList.remove('open');
+        document.getElementById('sidebarOverlay').setAttribute('aria-hidden', 'true');
+    }
+
     document.getElementById('menuToggle').setAttribute('aria-expanded', 'false');
-    document.getElementById('sidebarOverlay').setAttribute('aria-hidden', 'true');
 }
 
 document.addEventListener('keydown', (e) => {
