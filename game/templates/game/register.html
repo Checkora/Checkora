@@ -1,10 +1,33 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register | Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=6">
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <style>
+        .suggestions-container { margin-top: 8px; font-size: 12px; }
+        .suggestion { display: inline-block; background: #2a2a2a; padding: 4px 10px; margin: 0 6px 6px 0; border-radius: 15px; cursor: pointer; border: none; color: #d0d0d0; }
+        .suggestion:hover { background: #3a3a3a; }
+        .suggestion:focus { outline: 2px solid #f0c040; }
+        .validation-error { color: #ff4d4d; font-size: 13px; margin-top: 5px; }
+        .validation-success { color: #4CAF50; font-size: 13px; margin-top: 5px; }
+        .validation-info { color: #cccccc; font-size: 13px; margin-top: 5px; }
+        .char-counter { font-size: 12px; margin-top: 4px; color: #888; }
+        .char-counter.warning { color: #ffaa00; }
+        .char-counter.danger { color: #ff4d4d; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'landing' %}" class="back-home" aria-label="Back to home">&larr; Home</a>
+    <div class="header">
+        <div class="logo-container">
+            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
+            <span class="logo-text">Checkora</span>
+        </div>
+        <p>Create an account to track your stats</p>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7" />
     <link
       rel="icon"
@@ -32,10 +55,16 @@
            </div>
       <p>Create an account to track your stats</p>
     </div>
-
     <div class="auth-card">
-        <form method="POST">
+        <form method="POST" id="register-form">
             {% csrf_token %}
+            {% if messages %}
+                <div class="message-list" role="alert">
+                    {% for message in messages %}
+                        <div class="message message-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
 
             {% include 'game/includes/messages.html' %}
 
@@ -47,22 +76,152 @@
                 <div class="form-group">
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                     {{ field }}
+                    {% if field.name == "username" %}
+                        <div id="username-feedback" style="margin-top: 6px; font-size: 14px;"></div>
+                        <div id="char-counter" class="char-counter">0/150 characters</div>
+                        {% if field.help_text %}<span class="helptext" style="display: none;">{{ field.help_text|safe }}</span>{% endif %}
                     {% if field.help_text %}
                         <span class="helptext">{{ field.help_text}}</span>
                     {% endif %}
                     {% if field.errors %}
                         {{ field.errors }}
                     {% endif %}
+                    {% if field.errors %}{{ field.errors }}{% endif %}
                 </div>
             {% endfor %}
-            
-            <button type="submit" class="btn btn-gold">Create Account</button>
+            <button type="submit" class="btn btn-gold" id="submit-btn">Create Account</button>
         </form>
-        
-        <div class="auth-footer">
-            Already have an account? <a href="{% url 'login' %}">Sign In</a>
-        </div>
+        <div class="auth-footer">Already have an account? <a href="{% url 'login' %}">Sign In</a></div>
     </div>
+    <script>
+        (function() {
+            const usernameInput = document.querySelector('input[name="username"]');
+            const feedback = document.getElementById('username-feedback');
+            const submitBtn = document.getElementById('submit-btn');
+            const charCounter = document.getElementById('char-counter');
+            if (!usernameInput || !feedback || !submitBtn) return;
+            
+            let timeout = null, isUsernameValid = false, latestRequestId = 0;
+            
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;');
+                });
+            }
+            
+            function updateCharCounter() {
+                if (charCounter) {
+                    const len = usernameInput.value.length;
+                    charCounter.textContent = len + '/150 characters';
+                    charCounter.className = 'char-counter' + (len > 150 ? ' danger' : (len > 140 ? ' warning' : ''));
+                }
+            }
+            
+            function updateSubmit() { submitBtn.disabled = !isUsernameValid; }
+            
+            usernameInput.addEventListener('input', function() {
+                clearTimeout(timeout);
+                const username = usernameInput.value.trim();
+                updateCharCounter();
+                
+                if (username.length === 0) {
+                    feedback.textContent = '';
+                    feedback.className = '';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                if (username.length < 3) {
+                    feedback.textContent = '❌ Username must be at least 3 characters.';
+                    feedback.className = 'validation-error';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                if (usernameInput.value.length > 150) {
+                    feedback.textContent = '❌ Username must be 150 characters or fewer.';
+                    feedback.className = 'validation-error';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                if (!/^[\w.@+-]+$/.test(username)) {
+                    feedback.textContent = '❌ Only letters, digits, and @/./+/-/_ are allowed.';
+                    feedback.className = 'validation-error';
+                    isUsernameValid = false;
+                    updateSubmit();
+                    return;
+                }
+                
+                feedback.textContent = '⏳ Checking username...';
+                feedback.className = 'validation-info';
+                
+                const requestId = ++latestRequestId;
+                timeout = setTimeout(function() {
+                    fetch('/register/check-username/?username=' + encodeURIComponent(username))
+                        .then(function(response) { return response.ok ? response.json() : Promise.reject(); })
+                        .then(function(data) {
+                            if (requestId !== latestRequestId) return;
+                            feedback.textContent = data.message;
+                            if (data.available) {
+                                feedback.className = 'validation-success';
+                                isUsernameValid = true;
+                                var old = document.querySelector('.suggestions-container');
+                                if (old) old.remove();
+                            } else {
+                                feedback.className = 'validation-error';
+                                isUsernameValid = false;
+                                if (data.suggestions && data.suggestions.length) {
+                                    var old = document.querySelector('.suggestions-container');
+                                    if (old) old.remove();
+                                    var html = '<div class="suggestions-container"><span style="color:#ccc;">💡 Suggestions: </span>';
+                                    for (var i = 0; i < data.suggestions.length; i++) {
+                                        html += '<button type="button" class="suggestion" data-username="' + escapeHtml(data.suggestions[i]) + '">' + escapeHtml(data.suggestions[i]) + '</button>';
+                                    }
+                                    html += '</div>';
+                                    feedback.insertAdjacentHTML('afterend', html);
+                                    document.querySelectorAll('.suggestion').forEach(function(el) {
+                                        el.addEventListener('click', function() {
+                                            usernameInput.value = this.getAttribute('data-username');
+                                            updateCharCounter();
+                                            usernameInput.dispatchEvent(new Event('input'));
+                                        });
+                                        el.addEventListener('keydown', function(e) {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                this.click();
+                                            }
+                                        });
+                                    });
+                                }
+                            }
+                            updateSubmit();
+                        })
+                        .catch(function() {
+                            if (requestId !== latestRequestId) return;
+                            feedback.textContent = '❌ Unable to check username. Please try again.';
+                            feedback.className = 'validation-error';
+                            isUsernameValid = false;
+                            updateSubmit();
+                        });
+                }, 500);
+            });
+            
+            updateCharCounter();
+            document.getElementById('register-form').addEventListener('submit', function(e) {
+                if (!isUsernameValid) {
+                    e.preventDefault();
+                    feedback.textContent = '❌ Please enter a valid username';
+                    feedback.className = 'validation-error';
+                    feedback.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        })();
+    </script>
+    <script src="{% static 'game/js/auth.js' %}?v=6"></script>
+</body>
+</html>
 
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>

@@ -1,4 +1,5 @@
 """Game views for the Checkora chess platform."""
+from game.services import cleanup_stale_games
 import logging
 import json
 import time
@@ -6,6 +7,7 @@ import hashlib
 import math
 import ipaddress
 import secrets
+import re
 import secrets as secrets_module
 from django.http import HttpResponseServerError
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -43,6 +45,7 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import F, Q
+
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -116,6 +119,13 @@ def index(request):
     return render(request, 'game/board.html')
 
 
+def record_game_result(
+        request,
+        mode,
+        winner,
+        reason,
+        player_color='white',
+        moves=None):
 def update_player_rating(user, winner, player_color):
     rating, _ = PlayerRating.objects.get_or_create(
         user=user
@@ -181,6 +191,7 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
         winner=winner,
         end_reason=reason,
         player_color=player_color,
+        player_color=player_color,
         moves=moves
     )
     result.full_clean()
@@ -242,10 +253,71 @@ def make_move(request):
         request.session.modified = True
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                game.draw_reason or 'stalemate',
+                game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color,
+                moves=game.move_history)
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                game.draw_reason or 'stalemate',
+                game.player_color,
+                moves=game.move_history)
 
+    return JsonResponse(
+        {
+            'valid': success,
+            'message': message,
+            'captured': captured,
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+            'time_limit': getattr(
+                game,
+                'time_limit',
+                600),
+            'increment': getattr(
+                game,
+                'increment',
+                0),
+            'move_history': game.move_history,
+            'captured_pieces': game.captured,
+            'game_status': game_status,
+            'draw_reason': game.draw_reason,
+            'fen': game.generate_fen_key(),
+            'pgn': game.generate_pgn(
+                request.session.get(
+                    'white_name',
+                    'White'),
+                request.session.get(
+                    'black_name',
+                    'Black')),
+            'white_name': request.session.get(
+                'white_name',
+                'White'),
+            'black_name': request.session.get(
+                'black_name',
+                'Black'),
+        })
     return JsonResponse({
         'valid': success,
         'message': message,
@@ -295,6 +367,8 @@ def new_game(request):
     try:
         data = json.loads(request.body or '{}')
     except json.JSONDecodeError:
+        return JsonResponse(
+            {'valid': False, 'message': 'Invalid request data.'}, status=400)
         return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
 
     mode = data.get('mode', 'pvp')
@@ -350,7 +424,8 @@ def new_game(request):
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
-            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment)
+            game = ChessGame.from_fen(
+                fen, time_limit=time_limit, increment=increment)
         except ValueError as exc:
             return JsonResponse(
                 {'valid': False, 'message': f'Invalid FEN: {exc}'},
@@ -366,24 +441,39 @@ def new_game(request):
     request.session.modified = True
     request.session.save()
 
-    return JsonResponse({
-        'valid': True,
-        'board': game.board,
-        'current_turn': game.current_turn,
-        'move_history': [],
-        'captured_pieces': {'white': [], 'black': []},
-        'mode': game.mode,
-        'player_color': game.player_color,
-        'white_name': request.session['white_name'],
-        'black_name': request.session['black_name'],
-        'difficulty': difficulty,
-        'time_limit': getattr(game, 'time_limit', 600),
-        'increment': getattr(game, 'increment', 0),
-        'fen': game.generate_fen_key(),
-        'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
-        'game_status': game.game_status,
-        'draw_reason': game.draw_reason,
-    })
+    return JsonResponse(
+        {
+            'valid': True,
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'move_history': [],
+            'captured_pieces': {
+                'white': [],
+                'black': []},
+            'mode': game.mode,
+            'player_color': game.player_color,
+            'white_name': request.session['white_name'],
+            'black_name': request.session['black_name'],
+            'difficulty': difficulty,
+            'time_limit': getattr(
+                game,
+                'time_limit',
+                600),
+            'increment': getattr(
+                game,
+                'increment',
+                0),
+            'fen': game.generate_fen_key(),
+            'pgn': game.generate_pgn(
+                request.session.get(
+                    'white_name',
+                    'White'),
+                request.session.get(
+                    'black_name',
+                    'Black')),
+            'game_status': game.game_status,
+            'draw_reason': game.draw_reason,
+        })
 
 
 @require_POST
@@ -391,18 +481,59 @@ def resume_game(request):
     """Resume the existing session game without resetting it."""
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
+        return JsonResponse(
+            {'valid': False, 'message': 'No saved game found.'}, status=404)
 
     game = ChessGame.from_dict(game_data)
 
     if game.game_status != 'active':
-        return JsonResponse({'valid': False, 'message': 'No active game to resume.'}, status=404)
+        return JsonResponse(
+            {'valid': False, 'message': 'No active game to resume.'}, status=404)
 
     game.paused = False
     game.last_ts = time.time()
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+    return JsonResponse(
+        {
+            'valid': True,
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+            'time_limit': getattr(
+                game,
+                'time_limit',
+                600),
+            'increment': getattr(
+                game,
+                'increment',
+                0),
+            'move_history': game.move_history,
+            'captured_pieces': game.captured,
+            'mode': game.mode,
+            'player_color': game.player_color,
+            'white_name': request.session.get(
+                'white_name',
+                'White'),
+            'black_name': request.session.get(
+                'black_name',
+                'Black'),
+            'game_status': game.game_status,
+            'draw_reason': game.draw_reason,
+            'fen': game.generate_fen_key(),
+            'pgn': game.generate_pgn(
+                request.session.get(
+                    'white_name',
+                    'White'),
+                request.session.get(
+                    'black_name',
+                    'Black')),
+            'difficulty': request.session.get(
+                'difficulty',
+                'medium'),
+        })
     return JsonResponse({
         'valid': True,
         'board': game.board,
@@ -468,6 +599,45 @@ def get_state(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+    return JsonResponse(
+        {
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+            'time_limit': getattr(
+                game,
+                'time_limit',
+                600),
+            'increment': getattr(
+                game,
+                'increment',
+                0),
+            'paused': game.paused,
+            'move_history': game.move_history,
+            'captured_pieces': game.captured,
+            'mode': game.mode,
+            'player_color': game.player_color,
+            'difficulty': request.session.get(
+                'difficulty',
+                'medium'),
+            'white_name': request.session.get(
+                'white_name',
+                'White'),
+            'black_name': request.session.get(
+                'black_name',
+                'Black'),
+            'fen': game.generate_fen_key(),
+            'pgn': game.generate_pgn(
+                request.session.get(
+                    'white_name',
+                    'White'),
+                request.session.get(
+                    'black_name',
+                    'Black')),
+            'game_status': game.game_status,
+            'draw_reason': game.draw_reason,
+        })
     return JsonResponse({
         'board': game.board,
         'current_turn': game.current_turn,
@@ -501,7 +671,8 @@ def set_pause(request):
     try:
         data = json.loads(request.body or '{}')
     except json.JSONDecodeError:
-        return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
+        return JsonResponse(
+            {'valid': False, 'message': 'Invalid request data.'}, status=400)
 
     pause = data.get('pause', True)
 
@@ -547,16 +718,33 @@ def ai_move(request):
     depth = depth_map.get(difficulty, 2)
 
     best = game.get_ai_move(depth=depth)
+    best = game.get_ai_move(depth=depth)
 
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color)
             game_status = 'checkmate'
         else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
-            game_status = 'stalemate'
-
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                'stalemate',
+                game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color,
+                moves=game.move_history)
+            game_status = 'checkmate'
         game.game_status = game_status
         request.session['game'] = game.to_dict()
         request.session.modified = True
@@ -575,7 +763,7 @@ def ai_move(request):
 
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
-        best['to_row'],   best['to_col'],
+        best['to_row'], best['to_col'],
     )
 
     if success:
@@ -584,9 +772,72 @@ def ai_move(request):
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color)
         elif game_status in ('stalemate', 'draw'):
-            record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                game.draw_reason or 'stalemate',
+                game.player_color)
+            record_game_result(
+                request,
+                game.mode,
+                winner,
+                'checkmate',
+                game.player_color,
+                moves=game.move_history)
+        elif game_status in ('stalemate', 'draw'):
+            record_game_result(
+                request,
+                game.mode,
+                'draw',
+                game.draw_reason or 'stalemate',
+                game.player_color,
+                moves=game.move_history)
+
+    return JsonResponse(
+        {
+            'valid': success,
+            'message': message,
+            'captured': captured,
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+            'time_limit': getattr(
+                game,
+                'time_limit',
+                600),
+            'increment': getattr(
+                game,
+                'increment',
+                0),
+            'move_history': game.move_history,
+            'captured_pieces': game.captured,
+            'ai_move': best,
+            'game_status': game_status,
+            'draw_reason': game.draw_reason,
+            'fen': game.generate_fen_key(),
+            'pgn': game.generate_pgn(
+                request.session.get(
+                    'white_name',
+                    'White'),
+                request.session.get(
+                    'black_name',
+                    'Black')),
+            'white_name': request.session.get(
+                'white_name',
+                'White'),
+            'black_name': request.session.get(
+                'black_name',
+                'Black'),
+        })
 
     return JsonResponse({
         'valid': success,
@@ -615,6 +866,7 @@ def offer_draw(request):
     """Handle draw offers and agreements."""
     game_data = request.session.get('game')
     if not game_data:
+        err_msg = 'No active game.'
         return JsonResponse(
             {'success': False, 'message': 'No active game.'}, status=400
         )
@@ -643,7 +895,19 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
+        record_game_result(
+            request,
+            game.mode,
+            'draw',
+            'agreement',
+            game.player_color)
+        record_game_result(
+            request,
+            game.mode,
+            'draw',
+            'agreement',
+            game.player_color,
+            moves=game.move_history)
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -652,12 +916,14 @@ def offer_draw(request):
 
     return JsonResponse({'success': True})
 
+
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
     game_data = request.session.get('game')
     if not game_data:
-        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+        return JsonResponse(
+            {'valid': False, 'message': 'No active game.'}, status=400)
 
     game = ChessGame.from_dict(game_data)
 
@@ -666,6 +932,7 @@ def resign_game(request):
 
     resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
+
     game_status = 'resignation'
 
     game.game_status = game_status
@@ -673,7 +940,13 @@ def resign_game(request):
     request.session.modified = True
 
     try:
-        record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
+        record_game_result(
+            request,
+            game.mode,
+            winner,
+            'resign',
+            game.player_color,
+            moves=game.move_history)
     except Exception as e:
         logger.error('Failed to record resign result: %s', e)
 
@@ -684,6 +957,7 @@ def resign_game(request):
         'game_status': game_status
     })
 
+
 @require_GET
 def check_username(request):
     """Check if a username is already taken.
@@ -693,7 +967,8 @@ def check_username(request):
     """
     username = request.GET.get('username', '').strip()
     if not username:
-        return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
+        return JsonResponse(
+            {'available': False, 'error': 'No username provided'}, status=400)
     exists = User.objects.filter(username__iexact=username).exists()
     return JsonResponse({'available': not exists})
 
@@ -726,6 +1001,71 @@ def register_view(request):
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
+        is_valid = form.is_valid()
+
+        # Ghost Account Cleanup: Only run if form is perfectly valid except for
+        # username/email conflicts
+        if not is_valid and set(form.errors.keys()).issubset(
+                {'username', 'email'}):
+            username = request.POST.get('username')
+            email = request.POST.get('email')
+
+            if username and email:
+                deleted = False
+                # 1. Exact match (User retrying with the exact same details)
+                if User.objects.filter(
+                        username=username,
+                        email=email,
+                        is_active=False).exists():
+                    User.objects.filter(
+                        username=username,
+                        email=email,
+                        is_active=False).delete()
+                    deleted = True
+                else:
+                    # 2. Username conflict (Free up unverified, abandoned
+                    # usernames)
+                    if User.objects.filter(
+                            username=username, is_active=False).exists():
+                        User.objects.filter(
+                            username=username, is_active=False).delete()
+                        deleted = True
+                    # 3. Email conflict (Free up unverified, abandoned emails)
+                    if User.objects.filter(
+                            email=email, is_active=False).exists():
+                        User.objects.filter(
+                            email=email, is_active=False).delete()
+                        deleted = True
+
+                if deleted:
+                    # Re-validate the form now that conflicts are cleared
+                    form = CustomUserCreationForm(request.POST)
+                    is_valid = form.is_valid()
+
+        if is_valid:
+            user = form.save(commit=False)
+            user.is_active = False  # Deactivate account till OTP is verified
+            user.save()
+
+            # Generate 6-digit OTP
+            otp = str(secrets.randbelow(900000) + 100000)
+            request.session['registration_user_id'] = user.id
+            # Hash OTP with SECRET_KEY as salt to prevent reading from signed
+            # cookies
+            otp_hash = hashlib.sha256(
+                f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+            request.session['registration_otp_hash'] = otp_hash
+            request.session['otp_created_at'] = time.time()
+
+            missing_email_credentials = (
+                not settings.EMAIL_HOST_USER or
+                not settings.EMAIL_HOST_PASSWORD
+            )
+
+            if settings.DEBUG and missing_email_credentials:
+                print(
+                    f"[Checkora] Development registration OTP for {
+                        user.email}: {otp}")
         if form.is_valid():
             username = form.cleaned_data['username']
             email = form.cleaned_data['email']
@@ -942,6 +1282,86 @@ def register_view(request):
 
     return render(request, 'game/register.html', {'form': form})
 
+    """Check username availability and provide suggestions."""
+    username = request.GET.get("username", "").strip()
+
+    if not username:
+        return JsonResponse({
+            "available": False,
+            "message": "Username is required."
+        })
+
+    # Check length
+    if len(username) < 3:
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Username must be at least 3 characters."
+        })
+
+    if len(username) > 150:
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Username must be 150 characters or fewer."
+        })
+
+    # Check valid characters (letters, digits, @/./+/-/_)
+    pattern = r'^[\w.@+-]+$'
+    if not re.match(pattern, username):
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Only letters, digits, and @/./+/-/_ are allowed."
+        })
+
+    # Check if username exists (case insensitive)
+    exists = User.objects.filter(username__iexact=username).exists()
+
+    if exists:
+        # Generate suggestions
+        suggestions = []
+        # Clean the base username (remove special chars for suggestions)
+        base_username = re.sub(r'[^a-zA-Z0-9]', '', username)[:20]
+
+        if base_username:
+            for i in range(1, 5):
+                suggestion = f"{base_username}{i}"
+                if not User.objects.filter(
+                        username__iexact=suggestion).exists():
+                    suggestions.append(suggestion)
+                    if len(suggestions) >= 3:
+                        break
+
+        # Add underscore suggestions if needed - with loop protection
+        if len(suggestions) < 3:
+            import random
+            max_attempts = 30  # Prevent infinite loop
+            attempts = 0
+            while len(suggestions) < 3 and attempts < max_attempts:
+                suffix = random.randint(10, 999)
+                suggestion = (
+                    f"{base_username}_{suffix}"
+                    if base_username
+                    else f"user_{suffix}"
+                )
+                username_exists = User.objects.filter(
+                    username__iexact=suggestion
+                ).exists()
+
+                if suggestion not in suggestions and not username_exists:
+                    suggestions.append(suggestion)
+                attempts += 1
+
+        return JsonResponse({
+            "available": False,
+            "message": "❌ Username already taken.",
+            "suggestions": suggestions
+        })
+
+    return JsonResponse({
+        "available": True,
+        "message": "✅ Username is available!",
+        "suggestions": []
+    })
+
 
 def verify_otp(request):
     if request.user.is_authenticated:
@@ -962,6 +1382,11 @@ def verify_otp(request):
         cache_key = f"otp_failed_attempts_session_{request.session.session_key}"
 
     if request.method == 'POST':
+        entered_otp = request.POST.get('otp', '').strip()
+        # Verify hash
+        entered_otp_hash = hashlib.sha256(
+            f"{entered_otp}:{
+                settings.SECRET_KEY}".encode()).hexdigest()
         # Check expiration first
         otp_created_at = request.session.get('otp_created_at')
         if otp_created_at and time.time() - otp_created_at > 300:
@@ -1097,6 +1522,7 @@ def verify_otp(request):
         }
     )
 
+
 @require_POST
 def resend_otp(request):
     user_id = request.session.get('registration_user_id')
@@ -1130,7 +1556,9 @@ def resend_otp(request):
     last_otp_time = request.session.get('last_otp_time')
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))
-        messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
+        messages.error(
+            request,
+            f'Please wait {remaining} seconds before requesting a new OTP.')
         return redirect('verify_otp')
 
     otp = str(secrets.randbelow(900000) + 100000)
@@ -1163,6 +1591,7 @@ def resend_otp(request):
         )
 
     return redirect('verify_otp')
+
 
 class CustomPasswordResetView(PasswordResetView):
     """Password reset view with email cooldown and IP-level throttling."""
@@ -1234,7 +1663,8 @@ class CustomPasswordResetView(PasswordResetView):
         if ip_attempts >= max_attempts:
             remaining = self._cooldown_remaining(self._ip_expires_key(ip_key))
             if not remaining:
-                remaining = getattr(settings, 'PASSWORD_RESET_IP_WINDOW_SECONDS', 900)
+                remaining = getattr(
+                    settings, 'PASSWORD_RESET_IP_WINDOW_SECONDS', 900)
             messages.error(
                 request,
                 self.ip_throttle_message.format(
@@ -1261,12 +1691,21 @@ class CustomPasswordResetView(PasswordResetView):
 
         ip_timeout = getattr(settings, 'PASSWORD_RESET_IP_WINDOW_SECONDS', 900)
         ip_expires_key = self._ip_expires_key(request._password_reset_ip_key)
-        if not cache.add(request._password_reset_ip_key, 1, timeout=ip_timeout):
+        if not cache.add(
+                request._password_reset_ip_key,
+                1,
+                timeout=ip_timeout):
             cache.incr(request._password_reset_ip_key)
             if not cache.get(ip_expires_key):
-                cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
+                cache.set(
+                    ip_expires_key,
+                    time.time() + ip_timeout,
+                    timeout=ip_timeout)
         else:
-            cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
+            cache.set(
+                ip_expires_key,
+                time.time() + ip_timeout,
+                timeout=ip_timeout)
 
     def _single_user_form(self, selected_user):
         base_form = self.get_form_class()
@@ -1522,12 +1961,16 @@ def login_view(request):
             request.session.cycle_key()  # Prevent session fixation
 
             remember_me = request.POST.get('remember_me')
+
             if remember_me:
                 request.session.set_expiry(1209600)  # 2 weeks
             else:
                 request.session.set_expiry(0)  # Browser close
 
             messages.success(
+                request, f'Welcome back, {
+                    user.username}! Login successful.')
+            return redirect('index')
                 request,
                 f'Welcome back, {user.username}! Login successful.'
             )
@@ -1936,6 +2379,8 @@ def cleanup_cron(request):
     expected = f"Bearer {cron_secret}" if cron_secret else ""
     provided = auth_header or ""
 
+    if not cron_secret or not secrets_module.compare_digest(
+            expected, provided):
     if not cron_secret or not secrets_module.compare_digest(expected, provided):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
@@ -1951,6 +2396,7 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
 
 def password_reset_account_selection(request):
 
