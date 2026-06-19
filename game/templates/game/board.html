@@ -839,65 +839,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
-    <script>
-document.getElementById('shareResultBtn').addEventListener('click', function () {
-    const title = document.getElementById('gameOverTitle').innerText.trim();
-    const message = document.getElementById('gameOverMessage').innerText.trim();
-    const whiteName = document.getElementById('whiteNameLabel').innerText.trim();
-    const blackName = document.getElementById('blackNameLabel').innerText.trim();
-    const movesList = document.getElementById('movesList');
-    const moveCount = movesList.querySelectorAll('span:not(.placeholder)').length ||
-                      movesList.innerText.split('\n').filter(x => x.trim()).length;
-
-    document.getElementById('cardTitle').innerText = title;
-    document.getElementById('cardMessage').innerText = message;
-    document.getElementById('cardWhite').innerText = whiteName;
-    document.getElementById('cardBlack').innerText = blackName;
-    document.getElementById('cardMoves').innerText = moveCount;
-
-    const shareText =
-`♟️ Checkora Chess
-─────────────────
-${title}
-${message}
-
-⚪ ${whiteName} vs ⚫ ${blackName}
-🔢 Moves played: ${moveCount}
-─────────────────
-🎮 Play at: https://checkora.vercel.app`;
-
-    const modal = document.getElementById('shareModal');
-    modal.style.display = 'flex';
-
-    document.getElementById('copyTextBtn').onclick = function () {
-        navigator.clipboard.writeText(shareText).then(() => {
-            this.innerText = '✅ Copied!';
-            setTimeout(() => this.innerText = '📋 Copy Text', 2000);
-        });
-    };
-
-    document.getElementById('copyLinkBtn').onclick = function () {
-        navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
-            this.innerText = '✅ Link Copied!';
-            setTimeout(() => this.innerText = '🔗 Copy Link', 2000);
-        });
-    };
-
-    document.getElementById('whatsappBtn').onclick = function () {
-        const encoded = encodeURIComponent(shareText);
-        window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    };
-
-    document.getElementById('twitterBtn').onclick = function () {
-        const encoded = encodeURIComponent(shareText);
-        window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    };
-
-    document.getElementById('closeShareBtn').onclick = function () {
-        modal.style.display = 'none';
-    };
-});
-</script>
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 

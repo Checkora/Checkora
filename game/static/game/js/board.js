@@ -1758,6 +1758,7 @@
                 }
             }
         } catch (e) {
+            console.error("EXECUTE MOVE TRY BLOCK FAILED:", e);
             await handleReconnect();
         }
     }
@@ -4320,8 +4321,68 @@
             setOnlineStatus();
         }
     });
+    function getBoard() { return board; }
+    function setBoard(val) { board = val; }
+    function getTurn() { return turn; }
+    function setTurn(val) { turn = val; }
+    function getSelected() { return selected; }
+    function setSelected(val) { selected = val; }
+    function getHints() { return hints; }
+    function setHints(val) { hints = val; }
+    function getHighlightedSquare() { return highlightedSquare; }
+    function setHighlightedSquare(val) { highlightedSquare = val; }
+    function getGameMode() { return gameMode; }
+    function setGameMode(val) { gameMode = val; }
+    function getPlayerColor() { return playerColor; }
+    function setPlayerColor(val) { playerColor = val; }
+    function getPaused() { return paused; }
+    function setPaused(val) { paused = val; }
+    function getGameOver() { return gameOver; }
+    function setGameOver(val) { gameOver = val; }
+    function getPendingPromo() { return pendingPromo; }
+    function setPendingPromo(val) { pendingPromo = val; }
+
     if (typeof module !== "undefined" && module.exports) {
-        module.exports = { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache };
+        module.exports = {
+            pColor,
+            getSquareLabel,
+            formatTime,
+            getPlayerScore,
+            validateMoveWithStockfish,
+            clearEvaluationCache,
+            selectPiece,
+            deselect,
+            refreshHighlights,
+            onClick,
+            onDrop,
+            tryMove,
+            isPromotionMove,
+            showPromoModal,
+            hidePromoModal,
+            toggleSquareHighlight,
+            buildBoard,
+            syncPieces,
+            getBoard,
+            setBoard,
+            getTurn,
+            setTurn,
+            getSelected,
+            setSelected,
+            getHints,
+            setHints,
+            getHighlightedSquare,
+            setHighlightedSquare,
+            getGameMode,
+            setGameMode,
+            getPlayerColor,
+            setPlayerColor,
+            getPaused,
+            setPaused,
+            getGameOver,
+            setGameOver,
+            getPendingPromo,
+            setPendingPromo
+        };
     } else {
         loadGame();
     }
@@ -4631,6 +4692,88 @@
         if (gameOverOverlay.classList.contains('active')) return;
         await resumeGame();
     });
+
+    const shareResultBtn = document.getElementById('shareResultBtn');
+    if (shareResultBtn) {
+        shareResultBtn.addEventListener('click', function () {
+            const title = document.getElementById('gameOverTitle').innerText.trim();
+            const message = document.getElementById('gameOverMessage').innerText.trim();
+            const whiteName = document.getElementById('whiteNameLabel').innerText.trim();
+            const blackName = document.getElementById('blackNameLabel').innerText.trim();
+            const movesList = document.getElementById('movesList');
+            const moveCount = movesList.querySelectorAll('span:not(.placeholder)').length ||
+                              movesList.innerText.split('\n').filter(x => x.trim()).length;
+
+            const cardTitle = document.getElementById('cardTitle');
+            const cardMessage = document.getElementById('cardMessage');
+            const cardWhite = document.getElementById('cardWhite');
+            const cardBlack = document.getElementById('cardBlack');
+            const cardMoves = document.getElementById('cardMoves');
+
+            if (cardTitle) cardTitle.innerText = title;
+            if (cardMessage) cardMessage.innerText = message;
+            if (cardWhite) cardWhite.innerText = whiteName;
+            if (cardBlack) cardBlack.innerText = blackName;
+            if (cardMoves) cardMoves.innerText = moveCount;
+
+            const shareText =
+`♟️ Checkora Chess
+─────────────────
+${title}
+${message}
+
+⚪ ${whiteName} vs ⚫ ${blackName}
+🔢 Moves played: ${moveCount}
+─────────────────
+🎮 Play at: https://checkora.vercel.app`;
+
+            const modal = document.getElementById('shareModal');
+            if (modal) modal.style.display = 'flex';
+
+            const copyTextBtn = document.getElementById('copyTextBtn');
+            if (copyTextBtn) {
+                copyTextBtn.onclick = function () {
+                    navigator.clipboard.writeText(shareText).then(() => {
+                        this.innerText = '✅ Copied!';
+                        setTimeout(() => this.innerText = '📋 Copy Text', 2000);
+                    });
+                };
+            }
+
+            const copyLinkBtn = document.getElementById('copyLinkBtn');
+            if (copyLinkBtn) {
+                copyLinkBtn.onclick = function () {
+                    navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
+                        this.innerText = '✅ Link Copied!';
+                        setTimeout(() => this.innerText = '🔗 Copy Link', 2000);
+                    });
+                };
+            }
+
+            const whatsappBtn = document.getElementById('whatsappBtn');
+            if (whatsappBtn) {
+                whatsappBtn.onclick = function () {
+                    const encoded = encodeURIComponent(shareText);
+                    window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
+                };
+            }
+
+            const twitterBtn = document.getElementById('twitterBtn');
+            if (twitterBtn) {
+                twitterBtn.onclick = function () {
+                    const encoded = encodeURIComponent(shareText);
+                    window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank', 'noopener,noreferrer');
+                };
+            }
+
+            const closeShareBtn = document.getElementById('closeShareBtn');
+            if (closeShareBtn) {
+                closeShareBtn.onclick = function () {
+                    if (modal) modal.style.display = 'none';
+                };
+            }
+        });
+    }
 
     let resizeTimeout;
     window.addEventListener('resize', () => {

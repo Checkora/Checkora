@@ -172,6 +172,34 @@ jobs:
             --statistics
 
 # ───────────────────────────────────────────────────────────────────
+# JOB 1.5 — Client JS Unit Tests
+# ───────────────────────────────────────────────────────────────────
+  js-tests:
+    name: 🧪 Client JS Unit Tests
+    runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run JS Unit Tests
+        run: npm test
+
+# ───────────────────────────────────────────────────────────────────
 # JOB 2 — Compile C++ Engine
 # ───────────────────────────────────────────────────────────────────
   compile-engine:
@@ -456,13 +484,14 @@ jobs:
   selenium-tests:
     name: 🌐 Selenium E2E Tests
     runs-on: ubuntu-latest
-    needs: [pr-guardian, lint, test]
+    needs: [pr-guardian, lint, test, js-tests]
     if: |
       (github.event_name != 'pull_request' ||
        needs.pr-guardian.result == 'skipped' ||
        needs.pr-guardian.outputs.ci_allowed == 'true') &&
       needs.lint.result == 'success' &&
-      needs.test.result == 'success'
+      needs.test.result == 'success' &&
+      needs.js-tests.result == 'success'
 
     steps:
       - name: 📥 Checkout code
