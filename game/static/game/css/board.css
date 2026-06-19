@@ -1706,9 +1706,9 @@ body {
 
 .promo-overlay .theme-toggle {
     position: absolute !important;
-    top: 0 !important;
+    top: 37px !important;
     right: 0 !important;
-    transform: translateY(-4px) !important;
+     !important;
 }
 
 .promo-overlay .btn-gold {
