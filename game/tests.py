@@ -139,7 +139,6 @@ class ServerErrorPageTest(SimpleTestCase):
         )
         self.assertContains(response, reverse('landing'), status_code=500)
 
-
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
 
@@ -971,7 +970,6 @@ class DrawRuleTest(SimpleTestCase):
 
     def test_en_passant_target_preserved_in_session(self):
         game = ChessGame()
-            
         game.make_move(6, 4, 4, 4)
 
         restored = ChessGame.from_dict(game.to_dict())
@@ -983,7 +981,6 @@ class DrawRuleTest(SimpleTestCase):
 
     def test_en_passant_capture_removes_pawn(self):
         game = ChessGame()
-
     # e2-e4
         game.make_move(6, 4, 4, 4)
 
@@ -1002,7 +999,7 @@ class DrawRuleTest(SimpleTestCase):
         self.assertTrue(success)
         self.assertEqual(captured, 'p')
         
-        # self.assertEqual(game.board[3][4])      # e5 empty
+        # self.assertEqual(game.board[3][4])  # e5 empty
         self.assertIsNone(game.board[3][3])     # captured pawn removed
         self.assertEqual(game.board[2][3], 'P') # white pawn moved to d6
         
@@ -1337,23 +1334,23 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td>PvP</td>')
-        self.assertNotContains(response, '<td>AI</td>')
+        self.assertContains(response, '<td style="font-weight: 600;">PvP</td>')
+        self.assertNotContains(response, '<td style="font-weight: 600;">AI</td>')
         self.client.logout()
 
         # Check as User B
         self.client.login(username='userb', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td>AI</td>')
-        self.assertNotContains(response, '<td>PvP</td>')
+        self.assertContains(response, '<td style="font-weight: 600;">AI</td>')
+        self.assertNotContains(response, '<td style="font-weight: 600;">PvP</td>')
 
     def test_empty_stats_page(self):
         """Users with no games should see a clean empty state."""
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No games played yet.')
+        self.assertContains(response, 'No Match Records Found')
         # Summary cards should show 17 cards
         self.assertContains(response, '<div class="num">0</div>', count=17)
         # No <tr> should be present in the tbody
@@ -1397,7 +1394,7 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
-        self.assertContains(response, 'No games played yet.')
+        self.assertContains(response, 'No Match Records Found')
 
 class StaleGameCleanupTest(TestCase):
     def setUp(self):
@@ -2285,6 +2282,26 @@ class AdditionalViewsSecurityAndLessonsTest(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_lessons_map_guest_user_shows_alert(self):
+        """Guest users should see the sign-in alert banner on the lessons map page."""
+        response = self.client.get(reverse('lessons'))
+        self.assertEqual(response.status_code, 200)
+        # Check that the alert is rendered
+        self.assertContains(response, 'id="guest-alert"')
+        self.assertContains(response, 'Sign in')
+        self.assertContains(response, 'create a free account')
+        self.assertContains(response, 'to save your lesson progress.')
+
+    def test_lessons_map_authenticated_user_hides_alert(self):
+        """Authenticated users should not see the sign-in alert banner on the lessons map page."""
+        User.objects.create_user(username='lesson_player', password='password123')
+        self.client.login(username='lesson_player', password='password123')
+        response = self.client.get(reverse('lessons'))
+        self.assertEqual(response.status_code, 200)
+        # Check that the alert is NOT rendered
+        self.assertNotContains(response, 'id="guest-alert"')
+        self.assertNotContains(response, 'to save your lesson progress.')
+
 
 @override_settings(CACHES={
     'default': {
@@ -2905,3 +2922,228 @@ class ChessPuzzleDailyApiTest(TestCase):
         )
         with self.assertRaises(ValidationError):
             puzzle2.save()
+
+
+class LeaderboardAndAchievementsViewOriginalTest(TestCase):
+    """Test leaderboard and achievements views with original templates."""
+
+    def test_leaderboard_anonymous(self):
+        response = self.client.get(reverse('leaderboard'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_achievements_anonymous(self):
+        response = self.client.get(reverse('achievements'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_leaderboard_authenticated(self):
+        password = 'Password123!'
+        User.objects.create_user(
+            username='testuser',
+            password=password,
+            email='testuser@example.com'
+        )
+        self.client.login(username='testuser', password=password)
+        response = self.client.get(reverse('leaderboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/leaderboard.html')
+        self.assertContains(response, "No leaderboard data available.")
+        self.assertContains(response, "No chess rating data available.")
+
+    def test_achievements_authenticated(self):
+        password = 'Password123!'
+        User.objects.create_user(
+            username='testuser',
+            password=password,
+            email='testuser@example.com'
+        )
+        self.client.login(username='testuser', password=password)
+        response = self.client.get(reverse('achievements'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/achievements.html')
+        self.assertContains(response, "Achievements Unlocked")
+        self.assertContains(response, "No featured badges selected yet.")
+        
+    def test_opening_trainer_page(self):
+        response = self.client.get(
+            reverse("opening_trainer")
+        )
+
+        self.assertEqual(response.status_code, 200)
+    
+    def test_opening_detail_page(self):
+        response = self.client.get(
+            reverse(
+                "opening_detail",
+                kwargs={
+                    "slug": "italian-game"
+                }
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+
+class UpdatePuzzleStatsViewTest(TestCase):
+    """Test the update_puzzle_stats view function."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='puzzler',
+            password='Password123!',
+            email='puzzler@example.com'
+        )
+        self.factory = RequestFactory()
+
+    def test_anonymous_user_is_redirected(self):
+        from . import views
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps({}), content_type='application/json')
+        from django.contrib.auth.models import AnonymousUser
+        request.user = AnonymousUser()
+        
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 302)
+
+    def test_non_post_request_returns_405(self):
+        from . import views
+        request = self.factory.get('/api/puzzle-stats/update/')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 405)
+
+    def test_invalid_json_returns_400(self):
+        from . import views
+        request = self.factory.post('/api/puzzle-stats/update/', data="invalid-json", content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content), {'error': 'invalid json'})
+
+    def test_non_object_json_returns_400(self):
+        from . import views
+        request = self.factory.post(
+            '/api/puzzle-stats/update/',
+            data=json.dumps([]),
+            content_type='application/json'
+        )
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_valid_json_updates_stats(self):
+        from . import views
+        payload = {
+            'puzzles_solved': 5,
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content), {'success': True})
+        
+        from game.models import PuzzleStats
+        stats = PuzzleStats.objects.get(user=self.user)
+        self.assertEqual(stats.puzzles_solved, 5)
+        self.assertEqual(stats.current_streak, 3)
+        self.assertEqual(stats.best_streak, 5)
+        self.assertEqual(stats.daily_completions, 1)
+
+    def test_partial_json_payload_uses_existing_stats(self):
+        from . import views
+        from game.models import PuzzleStats
+        PuzzleStats.objects.create(
+            user=self.user,
+            puzzles_solved=10,
+            current_streak=4,
+            best_streak=10,
+            daily_completions=2
+        )
+        
+        payload = {
+            'current_streak': 5,
+            'best_streak': 12
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content), {'success': True})
+        
+        stats = PuzzleStats.objects.get(user=self.user)
+        self.assertEqual(stats.current_streak, 5)
+        self.assertEqual(stats.best_streak, 12)
+        self.assertEqual(stats.puzzles_solved, 10)
+        self.assertEqual(stats.daily_completions, 2)
+
+    def test_negative_values_return_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': -1,
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_non_integer_values_return_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': "five",
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_boolean_values_return_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': True,
+            'current_streak': 3,
+            'best_streak': 5,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', json.loads(response.content))
+
+    def test_streak_constraint_failure_returns_400(self):
+        from . import views
+        payload = {
+            'puzzles_solved': 5,
+            'current_streak': 5,
+            'best_streak': 3,
+            'daily_completions': 1
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content), {'error': 'best_streak must be greater than or equal to current_streak'})
+
+    def test_invalid_validation_does_not_create_db_record(self):
+        from . import views
+        from game.models import PuzzleStats
+        self.assertFalse(PuzzleStats.objects.filter(user=self.user).exists())
+        payload = {
+            'puzzles_solved': -5,
+        }
+        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
+        request.user = self.user
+        response = views.update_puzzle_stats(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(PuzzleStats.objects.filter(user=self.user).exists())
+

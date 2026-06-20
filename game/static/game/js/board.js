@@ -399,7 +399,7 @@
         clearPuzzleHints();
 
         await startNewGame(
-            "pvp",
+            "ai",
             "white",
             "medium",
             currentPuzzle.fen,
@@ -437,6 +437,14 @@
     };
 
     let soundEnabled = true;
+    try {
+        const savedSound = localStorage.getItem('chessSoundEnabled');
+        if (savedSound !== null) {
+            soundEnabled = (savedSound === 'true');
+        }
+    } catch (e) {
+        console.error("Failed to load sound settings", e);
+    }
 
     function validatePlayerNames() {
         const wNameInput = document.getElementById('whiteNameInput');
@@ -482,6 +490,11 @@
 
     function toggleMute() {
         soundEnabled = !soundEnabled;
+        try {
+            localStorage.setItem('chessSoundEnabled', String(soundEnabled));
+        } catch (e) {
+            console.error("Failed to save sound settings", e);
+        }
         if (muteBtn) {
             muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
             muteBtn.setAttribute('aria-pressed', String(soundEnabled));
@@ -1533,6 +1546,41 @@
             if (promotionPiece) body.promotion_piece = promotionPiece;
 
             const data = await post('/api/move/', body);
+
+            // Opening Trainer validation
+            if (openingTrainerMode) {
+                const expectedMove =
+                    openingTrainerSteps[currentTrainerStep]?.expected_move;
+
+                const playedMove =
+                    `${toSquare(fr, fc)}-${toSquare(tr, tc)}`;
+
+                if (
+                    playedMove.toLowerCase() !== expectedMove.toLowerCase()
+                ) {
+                    showStatus(
+                        `Incorrect move. Expected: ${expectedMove}`,
+                        true
+                    );
+
+                    deselect();
+                    return;
+                }
+
+                currentTrainerStep++;
+                if (
+                    currentTrainerStep >=
+                    openingTrainerSteps.length
+                ) {
+                    openingTrainerMode = false;
+
+                    showStatus(
+                        "Opening sequence completed!",
+                        false
+                    );
+                }
+            }
+
             if (data.valid) {
                 illegalMoveCount = 0;
                 playSound(data);
@@ -1720,14 +1768,7 @@
         const seq = ++aiRequestSeq;
         aiThinking = true;
 
-        // fix: animated thinking dots
-        let dots = 1;
-        const thinkingInterval = setInterval(() => {
-            if (!aiThinking) { clearInterval(thinkingInterval); return; }
-            showStatus('AI is thinking' + '.'.repeat(dots), false);
-            dots = (dots % 3) + 1;
-        }, 400);
-
+       
         try {
             let piecesOnBoard = 0;
             for (let r = 0; r < 8; r++) {
@@ -1744,19 +1785,13 @@
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Abort if a new game started, reconnect happened, or another request took over during delay
-            if (seq !== aiRequestSeq) {
-                clearInterval(thinkingInterval);
-                return;
-            }
+            if (seq !== aiRequestSeq) return;
 
             // fix: abort if game ended during delay
-            if (gameOver) {
-                clearInterval(thinkingInterval);
-                return;
-            }
+            if (gameOver) return;
 
             const data = await post('/api/ai-move/', {});
-            clearInterval(thinkingInterval); // fix: clear after API call completes, not before
+            
 
             // Abort if sequence is no longer current after API call completes
             if (seq !== aiRequestSeq) {
@@ -1842,10 +1877,9 @@
             } else {
                 showStatus(data.message, true);
             }
-        } catch (e) {
-            clearInterval(thinkingInterval);
-            await handleReconnect();
-        } finally {
+            } catch (e) {
+                await handleReconnect();
+            } finally {
             // always reset aiThinking... a stale sequence means a newer request owns it, but it will set its own flag
             aiThinking = false;
         }
@@ -2087,6 +2121,7 @@
                             `;
             movesEl.appendChild(row);
         }
+        movesEl.scrollTop = 0;
     }
 
     function updateCaptured(cap) {
@@ -3173,8 +3208,10 @@
         blackAlertFired = false;
 
         gameStartTime = Date.now();
-
-        gameMode = d.mode;
+        
+        if (!isPuzzle) {
+            gameMode = d.mode;
+        }
         playerColor = d.player_color || 'white';
         currentDifficulty = d.difficulty || difficulty;
         if (resignBtn) {
@@ -3193,7 +3230,14 @@
             flipped = false;
         }
 
-        if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+        if (modeBadge) {
+            if (isPuzzle) {
+                modeBadge.textContent = 'DAILY PUZZLE';
+            } else {
+                modeBadge.textContent =
+                    gameMode === 'ai' ? 'VS AI' : 'PVP';
+                }
+            }
 
         const emotePanel = document.getElementById('emotePanel');
         if (emotePanel) {
@@ -3207,12 +3251,14 @@
         hints = [];
         await loadGame();
         // Apply active state after UI reload
-        updateModeButtonsUI(gameMode);
+        if (!isPuzzle) {
+            updateModeButtonsUI(gameMode);
+        }
         paused = false;
         updatePauseUI();
 
         // Auto-trigger AI if it's their turn
-        if (gameMode === 'ai' && turn !== playerColor) {
+        if (!isPuzzle && gameMode === 'ai' && turn !== playerColor) {
             queueAIMoveIfNeeded();
         }
 
@@ -3864,6 +3910,13 @@
         });
     }
 
+    function initSoundButtonState() {
+        if (muteBtn) {
+            muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
+            muteBtn.setAttribute('aria-pressed', String(soundEnabled));
+        }
+    }
+
     // Coordinates Visibility Preference
     function initCoordinatesToggle() {
         const showCoordsBtn = document.getElementById('showCoordinatesCheckbox');
@@ -3890,10 +3943,12 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             initThemeSwitcher();
+            initSoundButtonState();
             initCoordinatesToggle();
         });
     } else {
         initThemeSwitcher();
+        initSoundButtonState();
         initCoordinatesToggle();
     }
 

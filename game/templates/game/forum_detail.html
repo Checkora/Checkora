@@ -1,0 +1,320 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ discussion.title }} | Checkora Forum</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
+</head>
+<body>
+    <nav class="forum-navbar">
+        <div class="nav-left">
+            <a href="{% url 'landing' %}" class="logo-link">
+                <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
+                <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
+            </a>
+        </div>
+
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+            <div class="profile-dropdown">
+                <button type="button" class="profile-btn">{{ user.username }} ⌄</button>
+
+                <div class="dropdown-content">
+                    <a href="/play/">Dashboard</a>
+                    <a href="{% url 'opening_trainer' %}">Opening Trainer</a>
+                    <a href="/stats/">Stats</a>
+                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
+                    <a href="{% url 'achievements' %}">Achievements</a>
+
+                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-option">Logout</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="forum-container">
+        <a href="{% url 'forum' %}" class="forum-back-link">← Back to Forum</a>
+
+        <div class="forum-discussion-card">
+            <div class="forum-discussion-meta">
+                <span class="forum-meta-label">Started by</span>
+                <span class="forum-author">{{ discussion.user.username }}</span>
+                <span class="forum-dot">•</span>
+                <span class="forum-meta-label">On</span>
+                <span class="forum-date">{{ discussion.created_at|date:"M d, Y H:i" }}</span>
+            </div>
+
+            <h1 class="forum-detail-title">{{ discussion.title }}</h1>
+
+            <div class="forum-detail-content">
+                {{ discussion.content|linebreaks }}
+            </div>
+        </div>
+
+        <div class="forum-replies-section">
+            <h2 class="forum-replies-title">
+                Discussion Replies ({{ replies.count }})
+            </h2>
+
+            {% for reply in replies %}
+            <div class="forum-reply-card" id="reply-{{ reply.id }}">
+                <div class="forum-reply-top">
+                    <div class="forum-discussion-meta">
+                        <span class="forum-meta-label">Posted by</span>
+                        <span class="forum-author">{{ reply.user.username }}</span>
+
+                        {% if reply.reply_to %}
+                        <span class="forum-dot">•</span>
+                        <span class="forum-meta-label">Replying to</span>
+                        <a href="#reply-{{ reply.reply_to.id }}" class="forum-reply-reference">
+                            {{ reply.reply_to.user.username }}
+                        </a>
+                        {% endif %}
+
+                        <span class="forum-dot">•</span>
+
+                        <span class="forum-date">
+                            {{ reply.created_at|date:"M d, Y H:i" }}
+                        </span>
+
+                        {% if reply.is_edited and not reply.is_deleted %}
+                        <span class="forum-edited-label">Edited</span>
+                        {% endif %}
+                    </div>
+
+                    {% if user.is_authenticated and reply.user == user and not reply.is_deleted %}
+                    <div class="reply-actions">
+                        <button type="button" class="reply-menu-btn" onclick="toggleReplyMenu('{{ reply.id }}')">
+                            ⋮
+                        </button>
+
+                        <div class="reply-menu" id="reply-menu-{{ reply.id }}">
+                            <button type="button" onclick="showEditForm('{{ reply.id }}')">
+                                Edit
+                            </button>
+
+                            <form method="post" action="{% url 'forum_reply_delete' reply.id %}">
+                                {% csrf_token %}
+                                <button type="button"
+                                        onclick="openDeleteModal('{% url 'forum_reply_delete' reply.id %}')">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if reply.is_deleted %}
+                <div class="forum-deleted-reply">
+                    This comment was deleted by {{ reply.user.username }}
+                </div>
+                {% else %}
+                <div class="forum-reply-content" id="reply-content-{{ reply.id }}">
+                    {{ reply.content|linebreaks }}
+                </div>
+
+                <form method="post"
+                      action="{% url 'forum_reply_edit' reply.id %}"
+                      class="forum-edit-form"
+                      id="edit-form-{{ reply.id }}">
+                    {% csrf_token %}
+                    <textarea name="content" required>{{ reply.content }}</textarea>
+
+                    <div class="forum-edit-actions">
+                        <button type="submit" class="forum-btn-small">Save</button>
+                        <button type="button" class="forum-btn-small secondary" onclick="hideEditForm('{{ reply.id }}')">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+
+                {% if user.is_authenticated %}
+                <button type="button"
+                        class="forum-reply-to-btn"
+                        onclick="setReplyTo('{{ reply.id }}', '{{ reply.user.username|escapejs }}')">
+                    ↪ Reply
+                </button>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="forum-empty">
+                No replies yet. Be the first to contribute!
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'forum_reply' discussion.id %}" class="forum-reply-bar">
+        {% csrf_token %}
+
+        <input type="hidden" name="reply_to" id="reply-to-input">
+
+        <div class="forum-reply-compose">
+            <div class="forum-replying-banner" id="replying-banner">
+                <span>
+                    Replying to <span id="replying-to-name"></span>
+                </span>
+                <button type="button" onclick="clearReplyTo()">×</button>
+            </div>
+
+            {{ form.content }}
+        </div>
+
+        <button type="submit" class="forum-btn-submit">
+            Post
+        </button>
+    </form>
+    {% else %}
+    <div class="forum-login-prompt">
+        <a href="{% url 'login' %}">Login</a> to join the discussion.
+    </div>
+    {% endif %}
+
+    <script>
+        function toggleReplyMenu(replyId) {
+            const menu = document.getElementById(`reply-menu-${replyId}`);
+
+            document.querySelectorAll(".reply-menu").forEach((item) => {
+                if (item !== menu) {
+                    item.classList.remove("active");
+                }
+            });
+
+            menu.classList.toggle("active");
+        }
+
+        function showEditForm(replyId) {
+            document.getElementById(`reply-content-${replyId}`).style.display = "none";
+            document.getElementById(`edit-form-${replyId}`).style.display = "block";
+
+            const menu = document.getElementById(`reply-menu-${replyId}`);
+            if (menu) {
+                menu.classList.remove("active");
+            }
+        }
+
+        function hideEditForm(replyId) {
+            document.getElementById(`reply-content-${replyId}`).style.display = "block";
+            document.getElementById(`edit-form-${replyId}`).style.display = "none";
+        }
+
+        function setReplyTo(replyId, username) {
+            document.getElementById("reply-to-input").value = replyId;
+            document.getElementById("replying-to-name").textContent = username;
+            document.getElementById("replying-banner").classList.add("active");
+
+            const textarea = document.querySelector(".forum-reply-bar textarea");
+            if (textarea) {
+                textarea.focus();
+            }
+        }
+
+        function clearReplyTo() {
+            document.getElementById("reply-to-input").value = "";
+            document.getElementById("replying-to-name").textContent = "";
+            document.getElementById("replying-banner").classList.remove("active");
+        }
+
+        document.addEventListener("click", function(event) {
+            if (!event.target.closest(".reply-actions")) {
+                document.querySelectorAll(".reply-menu").forEach((menu) => {
+                    menu.classList.remove("active");
+                });
+            }
+        });
+
+        window.addEventListener("hashchange", highlightReply);
+        window.addEventListener("load", highlightReply);
+
+        function highlightReply() {
+            if (!window.location.hash.startsWith("#reply-")) {
+                return;
+            }
+
+            const targetId = window.location.hash.slice(1);
+            if (!/^reply-\d$/.test(targetId)) {
+                return;
+            }
+            const reply = document.getElementById(targetId);
+
+            if (reply) {
+                reply.classList.add("reply-highlight");
+
+                setTimeout(() => {
+                    reply.classList.remove("reply-highlight");
+                }, 1500);
+            }
+        }
+
+        function openDeleteModal(deleteUrl) {
+            const modal = document.getElementById("delete-modal");
+            const form = document.getElementById("delete-form");
+
+            form.action = deleteUrl;
+            modal.classList.add("active");
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById("delete-modal");
+            const form = document.getElementById("delete-form");
+
+            form.action = "";
+            modal.classList.remove("active");
+        }
+
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "Escape") {
+                closeDeleteModal();
+            }
+        });
+
+        document.getElementById("delete-modal").addEventListener("click", function(event) {
+            if (event.target === this) {
+                closeDeleteModal();
+            }
+        });
+    </script>
+    <div class="forum-delete-modal" id="delete-modal">
+        <div class="forum-delete-box">
+            <h3>Delete reply?</h3>
+
+            <p>
+                This reply will be removed from the discussion content, but a deleted comment placeholder will remain.
+            </p>
+
+            <div class="forum-delete-actions">
+                <button type="button"
+                        class="forum-delete-cancel"
+                        onclick="closeDeleteModal()">
+                    Cancel
+                </button>
+
+                <form method="post" id="delete-form">
+                    {% csrf_token %}
+                    <button type="submit" class="forum-delete-confirm">
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

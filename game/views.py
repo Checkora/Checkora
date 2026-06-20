@@ -51,6 +51,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Max, Min, Sum
 from datetime import timedelta
 
+from .opening_trainer_data import OPENINGS
+
 from .engine import ChessGame
 from .models import (
     GameResult,
@@ -63,9 +65,12 @@ from .models import (
     ChessPuzzle,
     PlayerRating,
     RatingHistory,
+    OpeningProgress,
 )
 
 from .rating_service import calculate_rating_change
+from .models import Discussion, Reply
+from .forms import DiscussionForm, ReplyForm
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +88,7 @@ from game.services import (
     check_game_achievements,
     check_puzzle_achievements,
     generate_badge,
+    update_opening_progress,
 )
 
 from django.http import FileResponse
@@ -1739,6 +1745,25 @@ def stats_view(request):
         user=request.user
     )
     
+    opening_stats = OpeningProgress.objects.filter(
+        user=request.user
+    )
+
+    completed_openings = opening_stats.filter(
+        openings_completed__gt=0
+    ).count()
+
+    average_accuracy = (
+        opening_stats.aggregate(
+            Avg("accuracy_percentage")
+        )["accuracy_percentage__avg"]
+        or 0
+    )
+
+    most_practiced = opening_stats.order_by(
+        "-openings_started"
+    ).first()
+
     return render(request, 'game/stats.html', {
         'recent': recent,
         'ai_total': ai_total,
@@ -1772,22 +1797,40 @@ def stats_view(request):
         "lesson_completion_percentage": lesson_completion_percentage,
 
         "puzzle_stats": puzzle_stats,
+        
+        "completed_openings": completed_openings,
+        "average_opening_accuracy": round(
+            average_accuracy,
+            2
+        ),
+        "most_practiced_opening": (
+            most_practiced.opening_name
+            if most_practiced
+            else "None"
+        ),
     })
+
 
 @login_required
 def leaderboard_view(request):
-    leaderboard = PuzzleStats.objects.select_related(
-        "user"
-    ).order_by(
-        "-puzzles_solved",
-        "-best_streak"
-    )
+    try:
+        leaderboard = PuzzleStats.objects.select_related(
+            "user"
+        ).order_by(
+            "-puzzles_solved",
+            "-best_streak"
+        )
+    except Exception:
+        leaderboard = PuzzleStats.objects.none()
 
-    chess_leaderboard = PlayerRating.objects.select_related(
-        "user"
-    ).order_by(
-        "-rating"
-    )[:50]
+    try:
+        chess_leaderboard = PlayerRating.objects.select_related(
+            "user"
+        ).order_by(
+            "-rating"
+        )[:50]
+    except Exception:
+        chess_leaderboard = PlayerRating.objects.none()
 
     return render(
         request,
@@ -1798,21 +1841,45 @@ def leaderboard_view(request):
         }
     )
 
+
 @login_required
 @require_POST
 def update_puzzle_stats(request):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'invalid json'}, status=400)
 
-    stats, _ = PuzzleStats.objects.get_or_create(
+    if not isinstance(data, dict):
+        return JsonResponse({'error': 'invalid json'}, status=400)
+
+    stats = PuzzleStats.objects.filter(
         user=request.user
-    )
+    ).first()
 
-    stats.puzzles_solved = data.get("puzzles_solved", 0)
-    stats.current_streak = data.get("current_streak", 0)
-    stats.best_streak = data.get("best_streak", 0)
-    stats.daily_completions = data.get("daily_completions", 0)
+    fields = ["puzzles_solved", "current_streak", "best_streak", "daily_completions"]
+    validated_data = {}
+    for field in fields:
+        val = data.get(field, getattr(stats, field) if stats is not None else 0)
+        if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+            return JsonResponse({'error': f'{field} must be a non-negative integer'}, status=400)
+        validated_data[field] = val
 
-    stats.save()
+    if validated_data["best_streak"] < validated_data["current_streak"]:
+        return JsonResponse({'error': 'best_streak must be greater than or equal to current_streak'}, status=400)
+
+    if stats is None:
+        stats = PuzzleStats(user=request.user)
+
+    stats.puzzles_solved = validated_data["puzzles_solved"]
+    stats.current_streak = validated_data["current_streak"]
+    stats.best_streak = validated_data["best_streak"]
+    stats.daily_completions = validated_data["daily_completions"]
+
+    try:
+        stats.save()
+    except IntegrityError:
+        return JsonResponse({'error': 'Integrity validation failed.'}, status=400)
 
     check_puzzle_achievements(
         request.user,
@@ -1820,6 +1887,7 @@ def update_puzzle_stats(request):
     )
 
     return JsonResponse({"success": True})
+
 
 def puzzle_stats_view(request):
     return JsonResponse({
@@ -3317,6 +3385,13 @@ def lesson_map_view(request):
             )
         )
 
+    completed_count = len(completed_lessons)
+
+    total_lessons = sum(
+        len(level["lessons"])
+        for level in LESSON_LEVELS
+    )
+
     unlocked_lessons = get_unlocked_lessons(
         completed_lessons
     )
@@ -3327,30 +3402,107 @@ def lesson_map_view(request):
         {
             "levels": LESSON_LEVELS,
             "completed_lessons": completed_lessons,
+            "completed_count": completed_count,
+            "total_lessons": total_lessons,
             "unlocked_lessons": unlocked_lessons,
         }
     )
 
+def opening_trainer(request):
+    return render(
+        request,
+        "game/opening_trainer.html",
+        {
+            "openings": OPENINGS,
+        }
+    )
+
+
+def opening_detail(request, slug):
+    opening = next(
+        (
+            opening
+            for opening in OPENINGS
+            if opening["slug"] == slug
+        ),
+        None,
+    )
+
+    if opening is None:
+        raise Http404("Opening not found")
+
+    return render(
+        request,
+        "game/opening_detail.html",
+        {
+            "opening": opening,
+        }
+    )
 
 @login_required
-def achievements_view(request):
-    achievements = Achievement.objects.all().order_by(
-        "category",
-        "title"
-    )
+@require_POST
+def update_opening_stats(request):
+    try:
+        data = json.loads(request.body)
 
-    unlocked = set(
-        UserAchievement.objects.filter(
-            user=request.user
-        ).values_list(
-            "achievement_id",
-            flat=True
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Invalid JSON payload",
+            },
+            status=400,
         )
+
+    opening_name = data.get("opening_name")
+    completed = data.get("completed", False)
+    accuracy = data.get("accuracy", 0)
+
+    update_opening_progress(
+        request.user,
+        opening_name,
+        completed=completed,
     )
 
-    featured_badges = FeaturedBadge.objects.filter(
-        user=request.user
-    ).select_related("achievement")
+    if completed:
+        award_xp(request.user, 50)
+
+        if accuracy == 100:
+            award_xp(request.user, 25)
+
+    return JsonResponse({
+        "success": True,
+        "accuracy": accuracy,
+    })
+    
+@login_required
+def achievements_view(request):
+    try:
+        achievements = Achievement.objects.all().order_by(
+            "category",
+            "title"
+        )
+    except Exception:
+        achievements = Achievement.objects.none()
+
+    try:
+        unlocked = set(
+            UserAchievement.objects.filter(
+                user=request.user
+            ).values_list(
+                "achievement_id",
+                flat=True
+            )
+        )
+    except Exception:
+        unlocked = set()
+
+    try:
+        featured_badges = FeaturedBadge.objects.filter(
+            user=request.user
+        ).select_related("achievement")
+    except Exception:
+        featured_badges = FeaturedBadge.objects.none()
 
     return render(
         request,
@@ -3362,8 +3514,8 @@ def achievements_view(request):
         }
     )
 
-
 @login_required
+@require_POST
 def feature_badge(request, achievement_id):
     achievement = get_object_or_404(
         Achievement,
@@ -3403,8 +3555,8 @@ def feature_badge(request, achievement_id):
 
     return redirect("achievements")
 
-
 @login_required
+@require_POST
 def remove_featured_badge(request, badge_id):
     FeaturedBadge.objects.filter(
         id=badge_id,
@@ -3417,7 +3569,6 @@ def remove_featured_badge(request, badge_id):
     )
 
     return redirect("achievements")
-
 
 @login_required
 def download_badge(request, achievement_id):
@@ -3453,3 +3604,147 @@ def download_badge(request, achievement_id):
         return HttpResponseServerError(
             "Badge generation failed."
         )
+
+def forum_list(request):
+    discussions = Discussion.objects.select_related("user").prefetch_related("replies")
+
+    return render(
+        request,
+        "game/forum_list.html",
+        {
+            "discussions": discussions,
+        }
+    )
+
+def forum_detail(request, discussion_id):
+    discussion = get_object_or_404(Discussion, id=discussion_id)
+
+    replies = (
+        discussion.replies
+        .select_related("user", "reply_to", "reply_to__user")
+    )
+
+    form = ReplyForm()
+
+    return render(
+        request,
+        "game/forum_detail.html",
+        {
+            "discussion": discussion,
+            "replies": replies,
+            "form": form,
+        }
+    )
+
+@login_required
+def forum_new(request):
+    if request.method == "POST":
+        form = DiscussionForm(request.POST)
+        if form.is_valid():
+            discussion = form.save(commit=False)
+            discussion.user = request.user
+            discussion.save()
+
+            messages.success(request, "Discussion created successfully.")
+            return redirect("forum_detail", discussion_id=discussion.id)
+    else:
+        form = DiscussionForm()
+
+    return render(
+        request,
+        "game/forum_new.html",
+        {
+            "form": form,
+        }
+    )
+
+@login_required
+@require_POST
+def forum_reply(request, discussion_id):
+    discussion = get_object_or_404(Discussion, id=discussion_id)
+    form = ReplyForm(request.POST)
+
+    reply_to_id = request.POST.get("reply_to")
+    parent_reply = None
+
+    if reply_to_id:
+        parent_reply = Reply.objects.filter(
+            id=reply_to_id,
+            discussion=discussion,
+            is_deleted=False
+        ).first()
+        if parent_reply is None:
+            messages.error(request, "selected parent reply is unavailable.")
+            return redirect("forum_detail", discussion_id=discussion.id)
+
+    if form.is_valid():
+        reply = form.save(commit=False)
+        reply.discussion = discussion
+        reply.user = request.user
+        reply.reply_to = parent_reply
+        reply.save()
+
+        messages.success(request, "Reply posted successfully.")
+    else:
+        messages.error(request, "Reply could not be posted.")
+
+    return redirect("forum_detail", discussion_id=discussion.id)
+
+@login_required
+@require_POST
+def forum_reply_edit(request, reply_id):
+    reply = get_object_or_404(
+        Reply,
+        id=reply_id,
+        user=request.user,
+        is_deleted=False
+    )
+
+    content = request.POST.get("content", "").strip()
+
+    if len(content) < 2:
+        messages.error(request, "Reply cannot be empty.")
+        return redirect("forum_detail", discussion_id=reply.discussion.id)
+
+    updated = Reply.objects.filter(
+        id=reply.id,
+        user=request.user,
+        is_deleted=False,
+    ).update(
+        content=content,
+        is_edited=True,
+        updated_at=timezone.now(),
+    )
+    if not updated:
+        messages.error(request, "reply is no longer editable.")
+        return redirect("forum_detail", discussion_id=reply.discussion.id)
+
+    messages.success(request, "Reply updated successfully.")
+    return redirect("forum_detail", discussion_id=reply.discussion.id)
+
+
+@login_required
+@require_POST
+def forum_reply_delete(request, reply_id):
+    reply = get_object_or_404(
+        Reply,
+        id=reply_id,
+        user=request.user,
+        is_deleted=False
+    )
+
+    deleted = Reply.objects.filter(
+        id=reply.id,
+        user=request.user,
+        is_deleted=False,
+    ).update(
+        content="",
+        is_deleted=True,
+        updated_at=timezone.now(),
+    )
+    if not deleted:
+        messages.error(request, "reply is already deleted.")
+        return redirect("forum_detail", discussion_id=reply.discussion.id)
+
+    messages.success(request, "Reply deleted successfully.")
+    return redirect("forum_detail", discussion_id=reply.discussion.id)

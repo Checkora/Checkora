@@ -9,6 +9,7 @@ from game.models import (
     PuzzleStats,
     Achievement,
     UserAchievement,
+    OpeningProgress,
 )
 from django.db.models import F
 
@@ -93,6 +94,7 @@ def cleanup_stale_games():
 # ==========================
 
 def unlock_achievement(user, code):
+    """Unlock an achievement for a user."""
     if not user:
         return
 
@@ -109,6 +111,7 @@ def unlock_achievement(user, code):
 
 
 def check_game_achievements(user):
+    """Check and award achievements based on game statistics."""
     if not user:
         return
 
@@ -203,6 +206,7 @@ def check_game_achievements(user):
 
 
 def check_puzzle_achievements(user, stats):
+    """Check and award achievements based on puzzle progress."""
     if not user:
         return
 
@@ -248,6 +252,56 @@ def check_puzzle_achievements(user, stats):
 
 BASE_DIR = Path(__file__).resolve().parent
 
+def update_opening_progress(
+    user,
+    opening_name,
+    correct_move=False,
+    incorrect_move=False,
+    completed=False,
+    checkpoint=None,
+):
+    if not user:
+        return None
+
+    progress, created = OpeningProgress.objects.get_or_create(
+        user=user,
+        opening_name=opening_name,
+    )
+
+    if created:
+        progress.openings_started = 1
+    
+    if correct_move:
+        progress.correct_moves += 1
+
+    if incorrect_move:
+        progress.incorrect_moves += 1
+
+    if checkpoint is not None:
+        progress.last_checkpoint = checkpoint
+        
+        progress.completion_percentage = min(
+            100,
+            checkpoint
+        )
+
+    total_moves = (
+        progress.correct_moves +
+        progress.incorrect_moves
+    )
+
+    if total_moves > 0:
+        progress.accuracy_percentage = round(
+            (progress.correct_moves / total_moves) * 100,
+            2
+        )
+
+    if completed:
+        progress.openings_completed += 1
+
+    progress.save()
+
+    return progress
 
 def generate_badge(user_achievement):
     achievement = user_achievement.achievement

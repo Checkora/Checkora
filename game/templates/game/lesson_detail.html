@@ -171,7 +171,7 @@
 
             <button
                 class="quiz-btn"
-                onclick="checkAnswer('{{ option }}', '{{ lesson.quiz_answer }}')"
+                onclick="checkAnswer(this, '{{ option|escapejs }}', '{{ lesson.quiz_answer|escapejs }}')"
             >
                 {{ option }}
             </button>
@@ -209,17 +209,31 @@
 
 <script>
 
-function checkAnswer(selected, correct) {
+function checkAnswer(btn, selected, correct) {
 
     const result =
         document.getElementById("quiz-result");
+    const buttons = document.querySelectorAll(".quiz-btn");
 
-    if (selected === correct) {
+    // Reset previous states
+    buttons.forEach(b => {
+        b.classList.remove("correct", "incorrect");
+    });
+
+    if (selected.trim() === correct.trim()) {
 
         result.innerHTML =
             "✅ Correct Answer!";
 
         result.style.color = "#4caf50";
+        btn.classList.add("correct");
+
+        // Force re-trigger animation
+        btn.classList.remove("correct");
+        void btn.offsetWidth;
+        btn.classList.add("correct");
+
+        triggerCelebration(btn);
 
     } else {
 
@@ -227,7 +241,62 @@ function checkAnswer(selected, correct) {
             "❌ Incorrect. Try Again.";
 
         result.style.color = "#ff5252";
+        btn.classList.add("incorrect");
+
+        // Force re-trigger animation
+        btn.classList.remove("incorrect");
+        void btn.offsetWidth; // trigger reflow
+        btn.classList.add("incorrect");
     }
+}
+
+function triggerCelebration(btn) {
+    // Create confetti container if it doesn't exist
+    let confettiContainer = document.querySelector('.confetti-container');
+    if (!confettiContainer) {
+        confettiContainer = document.createElement('div');
+        confettiContainer.className = 'confetti-container';
+        document.body.appendChild(confettiContainer);
+    }
+
+    // Clear existing confetti
+    confettiContainer.innerHTML = '';
+
+    // Create confetti pieces
+    const colors = ['#ffd700', '#f0c040', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff9ff3'];
+    const confettiCount = 100; // More for fullscreen effect
+
+    for (let i = 0; i < confettiCount; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+
+        // Random properties
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        const randomLeft = Math.random() * 100;
+        const randomDelay = Math.random() * 1.5; // Spread out the start
+        const randomDuration = 2.5 + Math.random() * 2;
+        const randomRotation = Math.random() * 360;
+
+        confetti.style.left = randomLeft + '%';
+        confetti.style.background = randomColor;
+        confetti.style.animationDelay = randomDelay + 's';
+        confetti.style.animationDuration = randomDuration + 's';
+        confetti.style.transform = `rotate(${randomRotation}deg)`;
+
+        // Random shapes
+        if (Math.random() > 0.5) {
+            confetti.style.borderRadius = '50%';
+        }
+
+        confettiContainer.appendChild(confetti);
+    }
+
+    // Cleanup after animation
+    setTimeout(() => {
+        if (confettiContainer) {
+            confettiContainer.remove();
+        }
+    }, 6000);
 }
 
 </script>
