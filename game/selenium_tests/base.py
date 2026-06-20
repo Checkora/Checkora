@@ -77,27 +77,35 @@ class BaseE2ETest(StaticLiveServerTestCase):
         super().tearDownClass()
 
     def _start_pvp_game(self):
-        """Helper: navigate to homepage and start a PvP game."""
-        log_info(f"Starting PvP game at {self.live_server_url}/play/")
+        """Helper to navigate to /play/ and start a PvP game."""
         self.driver.get(self.live_server_url + '/play/')
-
         self.wait.until(
             EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
         )
+        
+        # --- NEW LOGIC START ---
+        # 1. Click the mode selection button first to reveal the inputs
+        welcome_pvp_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "welcomePvPBtn")))
+        welcome_pvp_btn.click()
+        
+        # 2. Wait for the new "Start Pass & Play" button to appear (meaning inputs are now visible)
+        start_pvp_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "startPvPBtn")))
+        # --- NEW LOGIC END ---
 
+        # Now Selenium can safely interact with the inputs
         white_input = self.driver.find_element(By.ID, 'whiteNameInput')
         black_input = self.driver.find_element(By.ID, 'blackNameInput')
         white_input.clear()
+        white_input.send_keys('TestWhite')
         black_input.clear()
-        white_input.send_keys('Alice')
-        black_input.send_keys('Bob')
+        black_input.send_keys('TestBlack')
 
-        self.driver.find_element(By.ID, 'welcomePvPBtn').click()
+        # 3. Click the NEW start button instead of the old one
+        start_pvp_btn.click()
 
         self.wait.until(
-            EC.visibility_of_element_located((By.ID, 'board'))
+            EC.invisibility_of_element_located((By.ID, 'welcomeOverlay'))
         )
-        log_ok("PvP game started — board visible")
 
     def _js_click(self, element):
         """Helper: click element via JavaScript (more reliable than Selenium click)."""
