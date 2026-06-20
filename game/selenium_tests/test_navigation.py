@@ -245,22 +245,16 @@ class NavigationTest(BaseE2ETest):
     # Test 11: Name Validation Error Shows on Empty Submit
     # ───────────────────────────────────────────────────────────────
     def test_11_name_validation_error_on_empty_submit(self):
-        """Clicking PvP without entering names shows validation error."""
-        log_info("Testing name validation...")
-        self.driver.get(self.live_server_url + '/play/')
-
-        self.wait.until(
-            EC.presence_of_element_located((By.ID, 'welcomeOverlay'))
-        )
-
-        # Click PvP without entering names
-        pvp_btn = self.driver.find_element(By.ID, 'welcomePvPBtn')
-        pvp_btn.click()
-
-        # Error div should be visible
-        error_div = self.wait.until(
-            EC.visibility_of_element_located((By.ID, 'nameError')),
-            message="Validation error not shown after empty name submit"
-        )
+        # 1. Click the mode selection button first (Step 1)
+        welcome_pvp_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "welcomePvPBtn")))
+        welcome_pvp_btn.click()
+        
+        # 2. Wait for the new "Start Pass & Play" button to appear (Step 2)
+        start_pvp_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "startPvPBtn")))
+        
+        # 3. Click start WITHOUT entering names to trigger the error
+        start_pvp_btn.click()
+        
+        # 4. Now check for your specific validation error div
+        error_div = self.wait.until(EC.visibility_of_element_located((By.ID, "nameError")))
         self.assertTrue(error_div.is_displayed())
-        log_ok(f"Validation error shown: '{error_div.text}'")
