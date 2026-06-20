@@ -81,7 +81,7 @@
     // Updates UI to highlight selected game mode button
     function updateModeButtonsUI(mode) {
         const pvpBtn = document.getElementById("newPvPBtn");
-        const aiBtn = document.getElementById("newAIBtn");
+        const aiBtn = document.getElementById("newAIBtn"); 
 
         if (!pvpBtn || !aiBtn) return;
 
@@ -555,6 +555,8 @@
     const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
     const welcomePvPBtn = document.getElementById('welcomePvPBtn');
     const welcomeAIBtn = document.getElementById('welcomeAIBtn');
+    const startPvPBtn = document.getElementById('startPvPBtn');
+    const backToModesFromPvP = document.getElementById('backToModesFromPvP');
     const welcomeDailyPuzzleBtn = document.getElementById("welcomeDailyPuzzleBtn");
     const welcomeFenInput = document.getElementById('welcomeFenInput');
     const welcomeFenError = document.getElementById('welcomeFenError');
@@ -3395,7 +3397,7 @@
 
         pveOptions.style.display = 'none';
         modeSelection.style.display = 'flex';
-        nameInputs.style.display = 'flex';
+        nameInputs.style.display = 'none';
 
         if (whiteInput) {
             whiteInput.style.display = 'block';
@@ -3469,9 +3471,25 @@
             welcomeOverlay.classList.remove('active');
             gameLayout.style.visibility = 'visible';
         });
-    }
-
-    if (welcomePvPBtn) welcomePvPBtn.onclick = async () => {
+    }// 1. Advance to Name Entry when clicking Pass & Play
+    if (welcomePvPBtn) welcomePvPBtn.onclick = () => {
+        if (modeSelection) modeSelection.style.display = 'none';
+        if (nameInputs) nameInputs.style.display = 'flex';
+        
+        // Show PvP specific buttons
+        if (startPvPBtn) startPvPBtn.style.display = 'block';
+        if (backToModesFromPvP) backToModesFromPvP.style.display = 'block';
+        
+        // Make sure the second name input is visible
+        const blackInput = document.getElementById('blackNameInput');
+        if (blackInput) {
+            blackInput.style.display = 'block';
+            if (blackInput.value === 'AI') blackInput.value = ''; 
+        }
+    };
+    
+    // 2. NEW: Actually validate names and start the PvP game
+    if (startPvPBtn) startPvPBtn.onclick = async () => {
         if (!validatePlayerNames()) return;
         const fen = welcomeFenInput?.value?.trim() || null;
         const started = await startNewGame('pvp', 'white', 'medium', fen);
@@ -3479,41 +3497,44 @@
         welcomeOverlay.classList.remove('active');
         gameLayout.style.visibility = 'visible';
     };
-
-    if (welcomeDailyPuzzleBtn) {
-        welcomeDailyPuzzleBtn.onclick = async () => {
-
-            await startDailyPuzzle();
-
-            welcomeOverlay.classList.remove('active');
-            gameLayout.style.visibility = 'visible';
-        };
-    }
-
+    
+    // 3. NEW: Allow backing out of the PvP name entry screen
+    if (backToModesFromPvP) backToModesFromPvP.onclick = () => {
+        if (nameInputs) nameInputs.style.display = 'none';
+        if (startPvPBtn) startPvPBtn.style.display = 'none';
+        if (backToModesFromPvP) backToModesFromPvP.style.display = 'none';
+        if (modeSelection) modeSelection.style.display = 'flex';
+    };
+    
+    // 4. Update AI flow to hide the new PvP buttons just in case
     if (welcomeAIBtn) welcomeAIBtn.onclick = () => {
         modeSelection.style.display = 'none';
         pveOptions.style.display = 'flex';
-
+    
+        // Hide PvP specific buttons
+        if (startPvPBtn) startPvPBtn.style.display = 'none';
+        if (backToModesFromPvP) backToModesFromPvP.style.display = 'none';
+    
         const whiteInput = document.getElementById('whiteNameInput');
         const blackInput = document.getElementById('blackNameInput');
         const errorDiv = document.getElementById('nameError');
-
+    
         if (whiteInput) {
             whiteInput.style.display = 'block';
             whiteInput.placeholder = 'Your Name';
             whiteInput.classList.remove('input-error');
         }
-
+    
         if (blackInput) {
             blackInput.style.display = 'none';
             blackInput.value = 'AI';
             blackInput.classList.remove('input-error');
         }
-
+    
         if (errorDiv) {
             errorDiv.style.display = 'none';
         }
-
+    
         nameInputs.style.display = 'flex';
     };
 
