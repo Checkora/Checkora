@@ -1890,9 +1890,16 @@ def update_puzzle_stats(request):
 
 
 def puzzle_stats_view(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "authentication required"}, status=401)
+
+    stats, _ = PuzzleStats.objects.get_or_create(user=request.user)
+
     return JsonResponse({
-        "streak": 0,
-        "longest_streak": 0
+        "streak": stats.current_streak,
+        "longest_streak": stats.best_streak,
+        "puzzles_solved": stats.puzzles_solved,
+        "daily_completions": stats.daily_completions,
     })
 
 
