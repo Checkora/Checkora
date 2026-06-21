@@ -1903,6 +1903,12 @@ body {
 .white-mat .mat-score { color: #4ade80; }
 .black-mat .mat-score { color: rgba(255,255,255,0.3); }
 
+/* Light mode overrides for material score pieces */
+[data-theme="light"] .white-mat .mat-pieces { color: #1e293b; }
+[data-theme="light"] .black-mat .mat-pieces { color: #475569; }
+[data-theme="light"] .white-mat .mat-score { color: #16a34a; }
+[data-theme="light"] .black-mat .mat-score { color: #64748b; }
+
 /* Modes Visual */
 .modes-visual {
     flex-direction: column;
