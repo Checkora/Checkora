@@ -1796,7 +1796,7 @@ body {
 }
 
   .m-fab {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 10px;
   position: fixed;
