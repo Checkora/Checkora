@@ -1903,6 +1903,10 @@ body {
 .white-mat .mat-score { color: #4ade80; }
 .black-mat .mat-score { color: rgba(255,255,255,0.3); }
 
+[data-theme="light"] .white-mat .mat-pieces { color: #1f2937; }
+[data-theme="light"] .black-mat .mat-pieces { color: #6b7280; }
+[data-theme="light"] .black-mat .mat-score { color: rgba(0,0,0,0.4); }
+
 /* Modes Visual */
 .modes-visual {
     flex-direction: column;
@@ -2525,6 +2529,14 @@ body {
 
 [data-theme="light"] .faq-answer-content {
     color: #374151;
+}
+
+[data-theme="light"] .faq-item:hover .faq-question {
+    color: #b8860b;
+}
+
+[data-theme="light"] .faq-item:hover .faq-icon-arrow {
+    color: #b8860b;
 }
 
 [data-theme="light"] .bento-visual {

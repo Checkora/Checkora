@@ -1542,18 +1542,18 @@
     }
 
     // trigger stat counters when about section is visible
-    const aboutObserver = new IntersectionObserver((entries) => {
+    const statsObserver = new IntersectionObserver((entries) => {
         entries.forEach(e => {
             if (e.isIntersecting) {
                 animateStats();
-                aboutObserver.disconnect();
+                statsObserver.disconnect();
             }
         });
-    }, { threshold: 0.3 });
+    }, { threshold: 0.15 });
 
-    const aboutSection = document.querySelector('.about-pin-section');
-    if (aboutSection) {
-        aboutObserver.observe(aboutSection);
+    const statsTarget = document.querySelector('.about-stats-row') || document.querySelector('.about-pin-section');
+    if (statsTarget) {
+        statsObserver.observe(statsTarget);
     }
 
     // ── Smooth Scrolling for Anchor Links ──
