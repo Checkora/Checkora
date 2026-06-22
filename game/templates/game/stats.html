@@ -388,6 +388,36 @@
             </div>
         </div>
 
+        <h2>Opening Trainer Analytics</h2>
+        <div class="summary">
+            <div class="card">
+                <div class="num">
+                    {{ completed_openings }}
+                </div>
+                <div class="label">
+                    Openings Completed
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="num">
+                    {{ average_opening_accuracy }}%
+                </div>
+                <div class="label">
+                    Average Accuracy
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="num">
+                    {{ most_practiced_opening }}
+                </div>
+                <div class="label">
+                    Most Practiced Opening
+                </div>
+            </div>
+        </div>
+
         <h2>Chess Rating History</h2>
         {% if history %}
         <div style="overflow-x:auto; margin-top: 20px;">

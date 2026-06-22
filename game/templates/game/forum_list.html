@@ -1,0 +1,99 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Forum | Checkora</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
+</head>
+<body>
+    <nav class="forum-navbar">
+        <div class="nav-left">
+            <a href="{% url 'landing' %}" class="logo-link">
+                <img src="{% static 'game/checkora_icon_only.png' %}"
+                    alt="Checkora Logo"
+                    class="logo-img">
+
+                <span class="logo-text">
+                    CHECK<span class="logo-accent">ORA</span>
+                </span>
+            </a>
+        </div>
+
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+            <div class="profile-dropdown">
+                <button type="button" class="profile-btn">
+                    {{ user.username }} ⌄
+                </button>
+
+                <div class="dropdown-content">
+                    <a href="/play/">Dashboard</a>
+                    <a href="/stats/">Stats</a>
+                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
+                    <a href="{% url 'achievements' %}">Achievements</a>
+
+                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-option">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="forum-container">
+        <div class="forum-header">
+            <a href="{% url 'landing' %}" class="forum-home-btn"> ← Back to Home </a>
+            <h1 class="forum-title">Community <span class="gold">Forum</span></h1>
+            <p class="forum-subtitle">Discuss strategies, ask questions, and connect with fellow players.</p>
+        </div>
+
+        <div class="forum-list">
+            {% for discussion in discussions %}
+            <a href="{% url 'forum_detail' discussion.id %}" class="forum-card">
+                <div class="forum-card-main">
+                    <h3 class="forum-card-title"><span class="forum-topic-label">Topic:</span> {{ discussion.title }}</h3>
+                    <p class="forum-card-excerpt">{{ discussion.content|truncatewords:40 }}</p>
+                    <div class="forum-card-meta">
+                        <span class="forum-meta-label">Started by</span>
+                        <span class="forum-author">{{ discussion.user.username }}</span>
+
+                        <span class="forum-dot">•</span>
+
+                        <span class="forum-meta-label">On</span>
+                        <span class="forum-date">{{ discussion.created_at|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+                <div class="forum-card-stats">
+                    <span class="forum-reply-count">{{ discussion.replies.count }}</span>
+                    <span class="forum-reply-label">Replies</span>
+                </div>
+            </a>
+            {% empty %}
+            <div class="forum-empty">
+                <p>No discussions yet. Be the first to start one!</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if user.is_authenticated %}
+        <a href="{% url 'forum_new' %}" class="forum-fab-new">+ New Discussion</a>
+        {% endif %}
+    </div>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
+</body>
+</html>

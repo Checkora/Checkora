@@ -1,0 +1,72 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ opening.name }}</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'game/css/opening_trainer.css' %}"
+    >
+</head>
+
+<body>
+
+<a href="{% url 'opening_trainer' %}" class="back-btn">
+    ← Back to Openings
+</a>
+
+<div class="container">
+
+    <h1>{{ opening.name }}</h1>
+
+    <p>{{ opening.description }}</p>
+
+    <p>
+        <strong>Difficulty:</strong>
+        {{ opening.difficulty }}
+    </p>
+
+    <div id="trainer-feedback" class="feedback-box">
+        Ready to begin.
+    </div>
+
+    <div class="progress-box">
+        <div id="move-progress">
+            0 / {{ opening.moves|length }}
+        </div>
+        <label for="move-input">
+            Enter Move
+        </label>
+        <input
+            type="text"
+            id="move-input"
+            placeholder="Enter move (e4, Nf3...)"
+        />
+
+        <button 
+            type="button"
+            id="check-move-btn">
+            Check Move
+        </button>
+    </div>
+
+    <h3>Opening Line</h3>
+
+    <ul>
+        {% for move in opening.moves %}
+        <li>{{ move }}</li>
+        {% endfor %}
+    </ul>
+
+</div>
+
+{{ opening.moves|json_script:"opening-moves" }}
+
+<script src="{% static 'game/js/opening_trainer.js' %}"></script>
+
+</body>
+</html>

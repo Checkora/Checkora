@@ -185,7 +185,12 @@
             outline-offset: -2px;
         }
 
-        .rule-nav-item .icon { font-size: 1.1rem; width: 22px; text-align: center; }
+        .rule-nav-item .icon {
+            font-size: 1.1rem;
+            width: 22px;
+            text-align: center;
+            transition: transform 0.15s ease;
+        }
 
         /* ── Main Content ── */
         main {
@@ -583,55 +588,114 @@
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             z-index: 200;
         }
+
         .sidebar-overlay.open {
             display: block;
-        }
+}
 
         @media (max-width: 768px) {
-            #menuToggle { display: block; }
+    #menuToggle { display: block; }
 
-            .layout { grid-template-columns: 1fr; }
+    .layout { grid-template-columns: 1fr; }
 
-            .sidebar {
-                display: none;
-                position: fixed;
-                top: var(--header-height);
-                left: 0;
-                width: 260px;
-                height: calc(100vh - var(--header-height));
-                z-index: 300;
-                overflow-y: auto;
-                padding-top: 1rem;
-                background: var(--surface);
-                border-right: 1px solid var(--border);
-            }
+    .sidebar {
+        display: none;
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        width: 260px;
+        height: calc(100vh - var(--header-height));
+        z-index: 300;
+        overflow-y: auto;
+        padding-top: 1rem;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+    }
 
-            .sidebar.open { display: block; }
+    .sidebar.open {
+        display: block;
+    }
+    .sidebar.open {
+        display: block;
+    }
 
-            main { padding: 1.5rem 1rem; }
+    main {
+        padding: 1.5rem 1rem;
+    }
 
-            .mini-board {
-                width: 100% !important;
-                max-width: 300px;
-            }
+    .mini-board {
+        width: 100%;
+        max-width: 300px;
+    }
+    .mini-board {
+        width: 100%;
+        max-width: 300px;
+    }
 
-            .mini-board-container { flex-direction: column; }
+    .mini-board-container {
+        flex-direction: column;
+    }
+    .mini-board-container {
+        flex-direction: column;
+    }
 
-            .header-subtitle { display: none; }
+    .header-subtitle {
+        display: none;
+    }
 
-            .value-row {
-                grid-template-columns: 1fr;
-                gap: 0.3rem;
-            }
+    .value-row {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
 
-            .value-note {
-                display: block;
-                font-size: 0.82rem;
-            }
-        }
+    .value-note {
+        display: block;
+        font-size: 0.82rem;
+    }
+
+    .sidebar .rule-nav-item:hover,
+    .sidebar .rule-nav-item:active,
+    .sidebar .rule-nav-item.is-hovered {
+        background: rgba(244, 196, 48, 0.16);
+        color: var(--gold);
+        border-left-color: var(--gold);
+        box-shadow: inset 0 0 0 1px rgba(244, 196, 48, 0.08);
+    }
+
+    .sidebar .rule-nav-item:hover .icon,
+    .sidebar .rule-nav-item:active .icon,
+    .sidebar .rule-nav-item.is-hovered .icon {
+        transform: translateX(2px);
+    }
+}
+
+@media (max-width: 400px) {
+    .sidebar {
+        display: none;
+        position: fixed;
+        top: calc(var(--header-height) + 8px);
+        right: 12px;
+        left: auto !important;
+        width: 260px;
+        height: calc(100vh - var(--header-height) - 20px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        z-index: 300;
+    }
+
+    .sidebar.open {
+        display: block;
+    }
+}
     </style>
 </head>
 <body>
@@ -1305,16 +1369,24 @@ function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const isOpen = sidebar.classList.toggle('open');
-    overlay.classList.toggle('open', isOpen);
-    document.getElementById('menuToggle').setAttribute('aria-expanded', String(isOpen));
-    overlay.setAttribute('aria-hidden', String(!isOpen));
+
+    if (window.innerWidth > 400) {
+        overlay.classList.toggle('open', isOpen);
+        overlay.setAttribute('aria-hidden', String(!isOpen));
+    }
+
+    document.getElementById('menuToggle')
+        .setAttribute('aria-expanded', String(isOpen));
 }
 
 function closeSidebar() {
     document.querySelector('.sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('open');
+
+    const overlay = document.getElementById('sidebarOverlay');
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+
     document.getElementById('menuToggle').setAttribute('aria-expanded', 'false');
-    document.getElementById('sidebarOverlay').setAttribute('aria-hidden', 'true');
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1333,6 +1405,16 @@ window.onload = () => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.rule-nav-item').forEach(item => {
+        const showHoverState = () => item.classList.add('is-hovered');
+        const hideHoverState = () => item.classList.remove('is-hovered');
+
+        item.addEventListener('pointerenter', showHoverState);
+        item.addEventListener('pointerleave', hideHoverState);
+        item.addEventListener('focus', showHoverState);
+        item.addEventListener('blur', hideHoverState);
+    });
+
     const backBtn = document.getElementById('dynamicBackBtn');
     if (!backBtn) return;
 

@@ -223,11 +223,39 @@ background-size:60px 60px;
     z-index: 2;
 }
 
-.back-btn{
-    color:#f0c040;
-    text-decoration:none;
-    font-weight:bold;
-    margin-left:20px;
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    margin: 20px 0 0 20px;
+    padding: 0.6rem 1.2rem;
+
+    background: rgba(22, 22, 42, 0.6);
+    color: #ffffff;
+
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 30px;
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.back-btn:hover {
+    color: #f0c040;
+    border-color: rgba(240, 192, 64, 0.3);
+
+    transform: translateX(-3px);
+
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
 @media(max-width:768px){
@@ -242,11 +270,85 @@ background-size:60px 60px;
         height:90px;
     }
 }
+
+.alert-banner {
+    background: linear-gradient(135deg, #2c1f00, #1b1300);
+    border: 1px solid #f0c040;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 20px 20px 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(240, 192, 64, 0.15);
+    animation: fadeIn 0.5s ease;
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.alert-banner a.alert-link {
+    color: #f0c040;
+    text-decoration: underline;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.alert-banner a.alert-link:hover {
+    color: #ffdf70;
+}
+
+.alert-text {
+    font-size: 1rem;
+    color: #e0e0e0;
+    line-height: 1.5;
+}
+
+.alert-icon {
+    font-size: 1.25rem;
+}
+
+.alert-close {
+    background: transparent;
+    border: none;
+    color: #bdbdbd;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.alert-close:hover {
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 </style>
 
 </head>
 
 <body>
+
+{% if not user.is_authenticated %}
+<div class="alert-banner" id="guest-alert">
+    <div class="alert-content">
+        <span class="alert-icon">💡</span>
+        <span class="alert-text">
+            <a href="{% url 'login' %}" class="alert-link">Sign in</a> or <a href="{% url 'register' %}" class="alert-link">create a free account</a> to save your lesson progress.
+        </span>
+    </div>
+    <button class="alert-close" type="button" onclick="dismissAlert()" aria-label="Close message">&times;</button>
+</div>
+{% endif %}
 
 <a href="{% url 'landing' %}" class="back-btn">
 ← Back to Home
@@ -325,10 +427,10 @@ background-size:60px 60px;
                             </span>
 
                         {% elif lesson in unlocked_lessons %}
-                            <span class="badge active">
-                                Start Lesson
-                            </span>
-
+                            <a href="{% url 'lesson_detail' lesson|slugify %}"
+                            class="badge active">
+                            Start Lesson
+                            </a>
                         {% else %}
                             <span class="badge locked-badge">
                                 Locked
@@ -352,6 +454,28 @@ background-size:60px 60px;
 
 </div>
 <script src="{% static 'game/js/roadmap_connectors.js' %}"></script>
-    
-    </body>
-    </html>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (localStorage.getItem('lessons_guest_alert_dismissed') === 'true') {
+            var alert = document.getElementById('guest-alert');
+            if (alert) {
+                alert.style.display = 'none';
+            }
+        }
+    });
+
+    function dismissAlert() {
+        var alert = document.getElementById('guest-alert');
+        if (alert) {
+            alert.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-10px)';
+            localStorage.setItem('lessons_guest_alert_dismissed', 'true');
+            setTimeout(function() {
+                alert.style.display = 'none';
+            }, 300);
+        }
+    }
+</script>
+</body>
+</html>

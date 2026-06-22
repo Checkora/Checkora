@@ -79,10 +79,72 @@ h1 {
     border-radius: 8px;
     cursor: pointer;
     margin-bottom: 8px;
+    transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
 }
 
 .quiz-btn:hover {
     background: #444;
+    transform: translateY(-1px);
+}
+
+.quiz-btn.correct {
+    background-color: #4caf50 !important;
+    color: white;
+    animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+}
+
+.quiz-btn.incorrect {
+    background-color: #ff5252 !important;
+    color: white;
+    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    box-shadow: 0 0 15px rgba(255, 82, 82, 0.4);
+}
+
+@keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* Confetti celebration */
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.confetti {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #f0c040;
+    top: -20px;
+    opacity: 0;
+    animation: confetti-fall 3.5s ease-in-out forwards;
+}
+
+@keyframes confetti-fall {
+    0% {
+        opacity: 1;
+        transform: translateY(0) rotateZ(0deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(110vh) rotateZ(720deg);
+    }
 }
 
 .complete-btn:hover {

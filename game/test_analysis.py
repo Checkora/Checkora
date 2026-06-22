@@ -1,5 +1,5 @@
 import json
-from django.test import TestCase, override_settings
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from game.views import MAX_ANALYSIS_MOVES, MAX_MOVE_LENGTH
 from game.analysis import (
@@ -185,3 +185,51 @@ class AnalysisTest(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn('total_moves', data)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class AnalyzeGameCsrfTest(TestCase):
+    """Verify that CSRF protection is enforced on analyze_game_view."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(
+            username='csrfuser', password='password123'
+        )
+
+    def test_post_without_csrf_token_is_rejected(self):
+        """POST without a CSRF token must return 403."""
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+
+        response = csrf_client.post(
+            reverse('analyze_game'),
+            data=json.dumps({
+                'moves': ['e4', 'e5'],
+                'result': 'Win',
+                'reason': 'Checkmate',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_post_with_valid_csrf_token_succeeds(self):
+        """POST with a valid X-CSRFToken header must return 200."""
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+
+        # Fetch a CSRF cookie by hitting a GET endpoint
+        csrf_client.get(reverse('index'))
+        token = csrf_client.cookies['csrftoken'].value
+
+        response = csrf_client.post(
+            reverse('analyze_game'),
+            data=json.dumps({
+                'moves': ['e4', 'e5'],
+                'result': 'Win',
+                'reason': 'Checkmate',
+            }),
+            content_type='application/json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 200)
