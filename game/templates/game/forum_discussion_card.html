@@ -1,5 +1,9 @@
 <div class="forum-card-wrap">
-    <a href="{% url 'forum_detail' discussion.id %}" class="forum-card">
+    <div class="forum-card">
+        <a href="{% url 'forum_detail' discussion.id %}"
+           class="forum-card-link"
+           aria-label="{{ discussion.title }}"></a>
+
         <div class="forum-card-main">
             <div class="forum-topic-row">
                 <h3 class="forum-card-title">
@@ -9,11 +13,11 @@
 
                 {% if user.is_authenticated %}
                 <form method="post"
-                    action="{% url 'toggle_discussion_bookmark' discussion.id %}"
-                    class="forum-bookmark-form"
-                    onclick="event.stopPropagation();">
+                      action="{% url 'toggle_discussion_bookmark' discussion.id %}"
+                      class="forum-bookmark-form">
                     {% csrf_token %}
-
+                    <input type="hidden" name="next" value="">
+                    
                     <button type="submit"
                             class="forum-bookmark-btn {% if discussion.id in bookmarked_ids %}bookmarked{% endif %}"
                             title="{% if discussion.id in bookmarked_ids %}Remove bookmark{% else %}Bookmark{% endif %}">
@@ -44,5 +48,5 @@
             <span class="forum-reply-count">{{ discussion.replies.count }}</span>
             <span class="forum-reply-label">Replies</span>
         </div>
-    </a>
+    </div>
 </div>

@@ -578,3 +578,7 @@ class DiscussionBookmark(models.Model):
     def __str__(self):
         return f"{self.user.username} bookmarked {self.discussion.title}"
     
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    

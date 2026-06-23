@@ -125,20 +125,35 @@
         {% endif %}
     </div>
     <script>
+        function activateTab(tabId) {
+            const tabBtn = document.querySelector(`.forum-tab[data-tab="${tabId}"]`);
+            const panel = document.getElementById(`tab-${tabId}`);
+            if (!tabBtn || !panel) return;
+            document.querySelectorAll(".forum-tab").forEach((t) => t.classList.remove("active"));
+            document.querySelectorAll(".forum-tab-panel").forEach((p) => p.classList.remove("active"));
+            tabBtn.classList.add("active");
+            panel.classList.add("active");
+        }
+
+        // restore tab from hash on load
+        const hashTab = window.location.hash.replace("`#tab-`", "");
+        if (hashTab) activateTab(hashTab);
+
         document.querySelectorAll(".forum-tab").forEach((tab) => {
             tab.addEventListener("click", () => {
                 const target = tab.dataset.tab;
+                activateTab(target);
+                window.location.hash = `tab-${target}`;
+            });
+        });
 
-                document.querySelectorAll(".forum-tab").forEach((item) => {
-                    item.classList.remove("active");
-                });
-
-                document.querySelectorAll(".forum-tab-panel").forEach((panel) => {
-                    panel.classList.remove("active");
-                });
-
-                tab.classList.add("active");
-                document.getElementById(`tab-${target}`).classList.add("active");
+        // stamp next value with current path+hash before bookmark submit
+        document.querySelectorAll(".forum-bookmark-form").forEach((form) => {
+            form.addEventListener("submit", () => {
+                const nextInput = form.querySelector('input[name="next"]');
+                if (nextInput) {
+                    nextInput.value = window.location.pathname + window.location.hash;
+                }
             });
         });
     </script>

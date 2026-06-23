@@ -38,6 +38,7 @@
 }
 
 .forum-card {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -72,6 +73,18 @@
     font-weight: 600;
     color: #ffffff;
     margin-bottom: 0.35rem;
+}
+
+.forum-card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.forum-bookmark-form,
+.forum-card-stats {
+    position: relative;
+    z-index: 2;
 }
 
 .forum-card-excerpt {
@@ -530,7 +543,6 @@
 }
 
 .forum-bookmark-btn.bookmarked {
-    width: 3rem;
     background: rgba(240, 192, 64, 0.12);
     border-color: rgba(240, 192, 64, 0.32);
 }
