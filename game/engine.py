@@ -714,7 +714,7 @@ DP cache is intentionally excluded to save cookie space."""
         """Return True when a pawn reaches the opponent's back rank."""
         if not piece:
             return False
-        return (piece == 'P' and to_row == 0) or (piece == 'p' and to_row == 7)
+        return piece == 'P' and to_row == 0 or (piece == 'p' and to_row == 7)
 
     @staticmethod
     def _promote(piece, choice=None):
@@ -731,7 +731,7 @@ DP cache is intentionally excluded to save cookie space."""
         piece = board[fr][fc]
         if not piece:
             return False
-        return (piece == 'P' and tr == 0) or (piece == 'p' and tr == 7)
+        return piece == 'P' and tr == 0 or (piece == 'p' and tr == 7)
 
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,

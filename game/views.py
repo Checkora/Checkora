@@ -468,7 +468,7 @@ def get_state(request):
     else:
         game = ChessGame.from_dict(game_data)
 
-        # Skip clock deduction if tab was closed for too long
+        # Skip clock deduction if tab was closed for too int
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
             game.paused = True  # pause without deducting lost time
