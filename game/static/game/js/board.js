@@ -3573,6 +3573,29 @@
             blackInput.classList.remove('input-error');
         }
 
+                const emotePanel = document.getElementById('emotePanel');
+                if (emotePanel) {
+                    emotePanel.style.display = gameMode === 'pvp' ? 'block' : 'none';
+                }
+                movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
+                wCapEl.innerHTML = bCapEl.innerHTML = '';
+                lastMove = null;
+                highlightedSquare = null;
+                selected = null;
+                hints = [];
+                await loadGame();
+                // Force sync the theme to the newly rebuilt DOM
+                applyCurrentTheme();
+
+                // Apply active state after UI reload
+                updateModeButtonsUI(gameMode);
+                paused = false;
+                updatePauseUI();
+                
+                // Auto-trigger AI if it's their turn
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    queueAIMoveIfNeeded();
+                }
         if (errorDiv) {
             errorDiv.style.display = 'none';
         }
@@ -4352,6 +4375,88 @@
                     resumeGame().catch(() => { });
                 }
             };
+            if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
+                drawOverlay.classList.remove('active');
+                resumeGame();
+            };
+
+            if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
+                openWelcomeForNewGame();
+            };
+            const resRematchBtn = document.getElementById('resRematchBtn');
+            if (resRematchBtn) {
+                resRematchBtn.onclick = () => {
+                    dismissGameOverOverlay();
+                    const mode = gameMode;
+                    const pColor = playerColor;
+                    const diff = currentDifficulty;
+                    const timeLimitString = `${selectedMins}|${selectedIncrement}`;
+                    startNewGame(mode, pColor, diff, null, timeLimitString, {
+                        white: currentWhiteName,
+                        black: currentBlackName
+                    });
+                };
+            }
+            const resDownloadPgnBtn = document.getElementById('resDownloadPgnBtn');
+            if (resDownloadPgnBtn) {
+                resDownloadPgnBtn.onclick = () => {
+                    const originalBtn = document.getElementById('copyPgnBtn');
+                    if (originalBtn) originalBtn.click();
+                };
+            }
+           if (gameOverExitBtn) gameOverExitBtn.addEventListener('click', () => {
+    const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+    if (confettiContainer) confettiContainer.remove();
+});
+
+            // ========== Exit to Menu Logic ==========
+            const exitToMenuBtn = document.getElementById('exitToMenuBtn');
+            if (exitToMenuBtn) {
+                exitToMenuBtn.onclick = () => {
+                    // 1. Hide the Game Over modal and clear celebrations
+                    gameOverOverlay.classList.remove('active', 'game-over-celebration');
+                    const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
+                    if (confettiContainer) {
+                        confettiContainer.remove();
+                    }
+
+                    // 2. Hide the chess board layout
+                    gameLayout.style.visibility = 'hidden';
+
+                    // 3. Reset and show the Welcome/Setup Menu
+                    prepareWelcomeForPvP(true);
+                    welcomeOverlay.classList.add('active');
+                };
+            }
+
+            // Theme Switcher
+            function applyCurrentTheme() {
+                const themeBtns = document.querySelectorAll('.theme-btn');
+                const currentTheme = localStorage.getItem('chessBoardTheme') || 'classic';
+                document.documentElement.setAttribute('data-theme', currentTheme);
+
+                themeBtns.forEach(btn => {
+                    if (btn.dataset.theme === currentTheme) {
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    } else {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-pressed', 'false');
+                    }
+                });
+            }
+
+            function initThemeSwitcher() {
+                applyCurrentTheme(); // Apply on initial load
+
+                const themeBtns = document.querySelectorAll('.theme-btn');
+                themeBtns.forEach(btn => {
+                    btn.onclick = () => {
+                        const theme = btn.dataset.theme;
+                        localStorage.setItem('chessBoardTheme', theme);
+                        applyCurrentTheme(); // Apply immediately on click
+                    };
+                });
         }
     } function checkAssets() {
         const img = document.querySelector('.piece');
