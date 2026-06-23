@@ -43,7 +43,7 @@ from django.template.loader import render_to_string
 from django.contrib import messages
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -71,7 +71,7 @@ from .models import (
 )
 
 from .rating_service import calculate_rating_change
-from .models import Discussion, Reply, DiscussionBookmark
+from .models import Discussion, Reply, DiscussionBookmark, ReplyVote
 from .forms import DiscussionForm, ReplyForm
 
 logger = logging.getLogger(__name__)
@@ -3791,13 +3791,30 @@ def forum_detail(request, discussion_id):
     replies = (
         discussion.replies
         .select_related("user", "reply_to", "reply_to__user")
+        .prefetch_related("votes")
+        .annotate(vote_score=Sum("votes__value"))
     )
 
-    form = ReplyForm()
+    bookmarked_ids = set()
+    user_reply_votes = {}
 
-    is_bookmarked = False
     if request.user.is_authenticated:
-        is_bookmarked = discussion.bookmarks.filter(user=request.user).exists()
+        bookmarked_ids = set(
+            request.user.discussion_bookmarks.values_list(
+                "discussion_id",
+                flat=True
+            )
+        )
+
+        user_reply_votes = {
+            vote.reply_id: vote.value
+            for vote in ReplyVote.objects.filter(
+                user=request.user,
+                reply__discussion=discussion
+            )
+        }
+
+    form = ReplyForm()
 
     return render(
         request,
@@ -3806,7 +3823,8 @@ def forum_detail(request, discussion_id):
             "discussion": discussion,
             "replies": replies,
             "form": form,
-            "is_bookmarked": is_bookmarked,
+            "bookmarked_ids": bookmarked_ids,
+            "user_reply_votes": user_reply_votes,
         }
     )
 
@@ -3922,3 +3940,54 @@ def forum_reply_delete(request, reply_id):
 
     messages.success(request, "Reply deleted successfully.")
     return redirect("forum_detail", discussion_id=reply.discussion.id)
+
+@login_required
+@require_POST
+def toggle_reply_vote(request, reply_id):
+    reply = get_object_or_404(Reply, id=reply_id)
+
+    if reply.is_deleted:
+        return JsonResponse(
+            {"success": False, "error": "Cannot vote on deleted replies."},
+            status=400
+        )
+
+    vote_type = request.POST.get("vote")
+
+    if vote_type == "up":
+        vote_value = ReplyVote.UPVOTE
+    elif vote_type == "down":
+        vote_value = ReplyVote.DOWNVOTE
+    else:
+        return JsonResponse(
+            {"success": False, "error": "Invalid vote type."},
+            status=400
+        )
+
+    vote, created = ReplyVote.objects.get_or_create(
+        reply=reply,
+        user=request.user,
+        defaults={"value": vote_value}
+    )
+
+    user_vote = vote_value
+
+    if not created:
+        if vote.value == vote_value:
+            vote.delete()
+            user_vote = 0
+        else:
+            vote.value = vote_value
+            vote.save(update_fields=["value", "updated_at"])
+
+    score = ReplyVote.objects.filter(reply=reply).aggregate(
+        total=Sum("value")
+    )["total"] or 0
+
+    return JsonResponse(
+        {
+            "success": True,
+            "score": score,
+            "user_vote": user_vote,
+        }
+    )
