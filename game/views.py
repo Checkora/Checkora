@@ -623,92 +623,102 @@ def ai_move(request):
 @require_POST
 def hint_move(request):
     """Return the best move hint for the current position."""
-    game_data = request.session.get('game')
-
-    if not game_data:
+    lock_key = f"hint_lock:{request.session.session_key or request.user.pk or 'anonymous'}"
+    if not cache.add(lock_key, '1', timeout=5):
         return JsonResponse({
             'valid': False,
-            'message': 'No active game.'
-        }, status=400)
+            'message': 'Hint request already in progress.'
+        }, status=429)
 
-    game = ChessGame.from_dict(game_data)
-    
-    if game.game_status != 'active':  
-        return JsonResponse({
-            'valid': False,
-            'message': 'Game is not active.'
-        }, status=400)
-        
-    hint_count = request.session.get('hint_count', 0)
+    try:
+        game_data = request.session.get('game')
 
-    if hint_count >= 3:
-        return JsonResponse({
-            'valid': False,
-            'message': 'Hint limit reached'
-        })
+        if not game_data:
+            return JsonResponse({
+                'valid': False,
+                'message': 'No active game.'
+            }, status=400)
 
-    # Prevent hints during AI turn
-    player_color = request.session.get('player_color', 'white')
+        game = ChessGame.from_dict(game_data)
 
-    if game.mode == 'ai' and game.current_turn != player_color:
-        return JsonResponse({
-            'valid': False,
-            'message': 'Wait for your turn.'
-        })
+        if game.game_status != 'active':
+            return JsonResponse({
+                'valid': False,
+                'message': 'Game is not active.'
+            }, status=400)
 
-    difficulty = request.session.get('difficulty', 'medium')
-    # Use same depth mapping as `ai_move` to avoid longer hint searches
-    # that may exceed the engine subprocess timeout and return None.
-    depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
-    depth = depth_map.get(difficulty, 3)
+        hint_count = request.session.get('hint_count', 0)
 
-    before_fen = game.generate_fen_key()
-    before_turn = game.current_turn
-    before_status = game.game_status
+        if hint_count >= 3:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Hint limit reached'
+            })
 
-    temp_game = copy.deepcopy(game)
-    logger.debug(
-        'Hint request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s, depth=%s',
-        game.current_turn,
-        game.mode,
-        game.game_status,
-        game.draw_reason,
-        before_fen,
-        hint_count,
-        depth,
-    )
+        # Prevent hints during AI turn
+        player_color = request.session.get('player_color', 'white')
 
-    best = temp_game.get_ai_move(depth=depth)
+        if game.mode == 'ai' and game.current_turn != player_color:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Wait for your turn.'
+            })
 
-    if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
-        logger.error(
-            'Hint evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
-            before_fen,
-            game.generate_fen_key(),
-            before_turn,
+        difficulty = request.session.get('difficulty', 'medium')
+        # Use same depth mapping as `ai_move` to avoid longer hint searches
+        # that may exceed the engine subprocess timeout and return None.
+        depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
+        depth = depth_map.get(difficulty, 3)
+
+        before_fen = game.generate_fen_key()
+        before_turn = game.current_turn
+        before_status = game.game_status
+
+        temp_game = copy.deepcopy(game)
+        logger.debug(
+            'Hint request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s, depth=%s',
             game.current_turn,
-            before_status,
+            game.mode,
             game.game_status,
+            game.draw_reason,
+            before_fen,
+            hint_count,
+            depth,
         )
 
-    if not best:
-        logger.debug('Hint calculation returned no move for current position. game_status=%s draw_reason=%s', game.game_status, game.draw_reason)
+        best = temp_game.get_ai_move(depth=depth)
+
+        if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
+            logger.error(
+                'Hint evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
+                before_fen,
+                game.generate_fen_key(),
+                before_turn,
+                game.current_turn,
+                before_status,
+                game.game_status,
+            )
+
+        if not best:
+            logger.debug('Hint calculation returned no move for current position. game_status=%s draw_reason=%s', game.game_status, game.draw_reason)
+            return JsonResponse({
+                'valid': False,
+                'message': 'No legal moves available.'
+            })
+
+        request.session['hint_count'] = hint_count + 1
+        request.session.modified = True
+
+        logger.debug('Hint returned: best=%s, new_hint_count=%s', best, request.session['hint_count'])
+
         return JsonResponse({
-            'valid': False,
-            'message': 'No legal moves available.'
+            'valid': True,
+            'hint': best,
+            'hint_count': request.session['hint_count'],
+            'remaining_hints': max(0, 3 - request.session['hint_count']),
         })
-
-    request.session['hint_count'] = hint_count + 1
-    request.session.modified = True
-
-    logger.debug('Hint returned: best=%s, new_hint_count=%s', best, request.session['hint_count'])
-
-    return JsonResponse({
-        'valid': True,
-        'hint': best,
-        'hint_count': request.session['hint_count'],
-        'remaining_hints': max(0, 3 - request.session['hint_count']),
-    })
+    finally:
+        cache.delete(lock_key)
     
 @require_POST
 def offer_draw(request):
