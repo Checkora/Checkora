@@ -387,18 +387,18 @@ body {
     box-shadow: 0 0 15px rgba(240, 192, 64, 0.4);
 }
 
-@keyframes cursorOrbit {
+@keyframes cursor-Orbit {
     0% { transform: translate(-50%, -50%) scale(1); }
     50% { transform: translate(-50%, -50%) scale(1.6); }
     100% { transform: translate(-50%, -50%) scale(1); }
 }
 
-@keyframes sparklePulse {
+@keyframes sparkle-Pulse {
     0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
     50% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
 }
 
-@keyframes sparkleSprinkle {
+@keyframes sparkle-Sprinkle {
     0% { transform: translate(-50%, -50%) translate3d(0,0,0) scale(0.5); opacity: 1; }
     100% { transform: translate(-50%, -50%) translate3d(var(--dx), var(--dy), 0) scale(0.1); opacity: 0; }
 }
@@ -449,7 +449,7 @@ body {
     --dy: 10px;
 }
 
-@keyframes cursorRing {
+@keyframes cursor-Ring {
     0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.5); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
 }
