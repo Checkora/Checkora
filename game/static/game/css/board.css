@@ -56,6 +56,21 @@ body {
 /* ============================================================
    Header
    ============================================================ */
+.header {
+    padding: 20px 0 8px;
+    text-align: center;
+    width: 100%;
+    background: rgba(15, 15, 26, 0.95);
+    border-bottom: 1px solid #2a2a4a;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    -webkit-backdrop-filter: blur(8px);
+backdrop-filter: blur(8px);
+}
+.header h1 {
+    font-size: 1.8rem;
 
    .header { 
     padding: 20px 32px 8px;
