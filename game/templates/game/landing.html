@@ -93,6 +93,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
+    <link rel="manifest" href="/manifest.json" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
   </head>
 
   <body>
