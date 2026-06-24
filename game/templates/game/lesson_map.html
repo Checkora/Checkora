@@ -595,7 +595,7 @@ background-size:60px 60px;
 {% endfor %}
 
 </div>
-<div id="backToTopWrapper" class="visible">
+<div id="backToTopWrapper">
     <span id="backToTopTooltip">Back to Top</span>
     <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
         <span class="btn-arrow">^</span>
@@ -606,13 +606,18 @@ background-size:60px 60px;
     document.addEventListener("DOMContentLoaded", () => {
         const backToTop = document.getElementById("backToTopWrapper");
 
-        window.addEventListener("scroll", () => {
-            if (window.scrollY > 300) {   // show after 300px scroll
+        const toggleBackToTop = () => {
+            if (window.scrollY > 300) {
                 backToTop.classList.add("visible");
             } else {
                 backToTop.classList.remove("visible");
             }
-        });
+        };
+
+        window.addEventListener("scroll", toggleBackToTop);
+
+        // Sync initial state for restored scroll positions
+        toggleBackToTop();
     });
     document.addEventListener('DOMContentLoaded', function() {
         if (localStorage.getItem('lessons_guest_alert_dismissed') === 'true') {
