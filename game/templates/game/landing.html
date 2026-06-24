@@ -94,6 +94,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
     <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1" />
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
+                if (savedTheme === 'light' || savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {}
+        })();
+    </script>
   </head>
 
   <body>
@@ -117,7 +127,7 @@
         </div>
       </div>
       <div class="nav-right">
-        <button type="button" id="themeToggle" class="theme-toggle">
+        <button type="button" class="theme-toggle">
             🌙
         </button>
         <div class="cursor-dropdown custom-dropdown">

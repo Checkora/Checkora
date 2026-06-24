@@ -111,7 +111,7 @@
         <div class="promo-dialog">
             <div style="margin-bottom: 20px; color:#f0c040; position: relative;">
                 <a href="/" class="back-btn">← Back to Home</a>
-                <button type="button" id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
+                <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -291,6 +291,7 @@
         </div>
         
         <div class="auth-buttons">
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             {% if user.is_authenticated %}
 
             <div class="profile-dropdown">

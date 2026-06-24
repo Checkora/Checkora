@@ -64,14 +64,48 @@
         [data-theme="light"] a {
             color: #b47505;
         }
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: white;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .theme-toggle {
+            border-color: #d1d5db;
+            color: #4b5563;
+        }
+        [data-theme="light"] .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #111827;
+        }
     </style>
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
+                if (savedTheme === 'light' || savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 <body>
 
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 800px;">
+        <a href="{% url 'landing' %}" style="margin-bottom: 0;">← Back to Home</a>
+        <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
+    </div>
+    
     <h1>🏆 Puzzle Leaderboard</h1>
-
-    <a href="{% url 'landing' %}">← Back to Home</a>
 
     <table>
         <thead>

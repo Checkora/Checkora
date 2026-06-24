@@ -697,7 +697,45 @@
         display: block;
     }
 }
+
+.theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.theme-toggle:hover {
+    background: var(--surface2);
+}
+[data-theme="light"] {
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --surface2: #f0f2f5;
+    --border: #d1d5db;
+    --gold: #b47505;
+    --gold-dim: #78350f;
+    --text: #111827;
+    --muted: #4b5563;
+    --glow: 0 0 20px rgba(180, 117, 5, 0.15);
+}
     </style>
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
+                if (savedTheme === 'light' || savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body>
 
@@ -710,7 +748,10 @@
             </a>
             <h1 class="header-subtitle">Interactive Chess Rulebook</h1>
         </div>
-        <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
+            <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        </div>
     </header>
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"

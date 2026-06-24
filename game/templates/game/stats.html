@@ -168,12 +168,101 @@
             color: #facc15;
             text-decoration: none;
         }
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.02);
+            color: #ffffff;
+        }
+        [data-theme="light"] .theme-toggle {
+            border-color: rgba(0, 0, 0, 0.08);
+            color: #475569;
+        }
+        [data-theme="light"] .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.02);
+            color: #000000;
+        }
+        [data-theme="light"] body {
+            background: radial-gradient(circle at top, #f1f5f9 0%, #e2e8f0 45%, #cbd5e1 100%);
+            color: #0f172a;
+        }
+        [data-theme="light"] h1, [data-theme="light"] h2 {
+            color: #020617;
+        }
+        [data-theme="light"] .subtitle {
+            color: #475569;
+        }
+        [data-theme="light"] h2 {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        [data-theme="light"] table {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        [data-theme="light"] th {
+            background: rgba(226, 232, 240, 0.8);
+            color: #b47505;
+        }
+        [data-theme="light"] td {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            color: #334155;
+        }
+        [data-theme="light"] tr:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+        [data-theme="light"] .card {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+        [data-theme="light"] .card .label {
+            color: #475569;
+        }
+        [data-theme="light"] .card .num {
+            color: #ca8a04;
+        }
+        [data-theme="light"] .empty-state {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+        [data-theme="light"] .empty-state h3 {
+            color: #020617;
+        }
+        [data-theme="light"] .empty-state p {
+            color: #475569;
+        }
+        [data-theme="light"] .back-btn {
+            color: #475569;
+        }
+        [data-theme="light"] .back-btn:hover {
+            color: #ca8a04;
+        }
     </style>
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
+                if (savedTheme === 'light' || savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
-        <div>
-            <a href="/" class="back-btn">← Back to Home</a>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <a href="/" class="back-btn" style="margin-bottom: 0;">← Back to Home</a>
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
         </div>
         
         <h1>CHECK<span>ORA</span></h1>
@@ -327,7 +416,6 @@
         <p>No games played yet. Play a game to see your stats here!</p>
     </div>
     {% endif %}
-<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 
     <h2>Learning Progress</h2>
 

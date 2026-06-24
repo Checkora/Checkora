@@ -12,6 +12,16 @@
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
+                if (savedTheme === 'light' || savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body>
     <nav class="forum-navbar">
@@ -27,7 +37,8 @@
             </a>
         </div>
 
-        <div class="nav-right">
+        <div class="nav-right" style="gap: 15px;">
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             {% if user.is_authenticated %}
             <div class="profile-dropdown">
                 <button type="button" class="profile-btn">
@@ -82,5 +93,6 @@
         </div>
     </div>
     <script src="{% static 'game/js/dropdown.js' %}"></script>
+    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 </html>
