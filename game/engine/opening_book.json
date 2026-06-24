@@ -1,5 +1,4 @@
 {
-  "_comment": "Opening book: keys are FEN positions (no move count), values are lists of [from_row, from_col, to_row, to_col].",
 
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq": [
     [6, 4, 4, 4],
