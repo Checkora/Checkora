@@ -508,7 +508,7 @@
                     <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
                     <button class="btn btn-gold" style="width: 100%;"
-                        onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+                       onclick="document.getElementById('rulebookModal').style.display='flex'; document.getElementById('rulebookFrame').src='/rules/';""
                 </div>
                 <a href="/" class="btn" 
    style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
@@ -784,7 +784,11 @@
             style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
             <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
                 style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
-            <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
+            <iframe id="rulebookFrame"
+title="Chess rulebook"
+src="/rules/"
+style="width:100%; height:100%; border:none;">
+</iframe>
         </div>
     </div>
     <div id="toast-container" class="toast-container"></div>
