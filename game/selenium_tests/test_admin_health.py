@@ -1,3 +1,5 @@
+import secrets
+
 from django.contrib.auth import get_user_model
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -13,10 +15,12 @@ class AdminHealthDashboardTests(BaseE2ETest):
 
         User = get_user_model()
 
+        cls.admin_username = "admin_" + secrets.token_hex(4)
+        cls.admin_password = secrets.token_urlsafe(16)
         cls.admin_user = User.objects.create_superuser(
-            username="admin",
+            username=cls.admin_username,
             email="admin@test.com",
-            password="admin123"
+            password=cls.admin_password
         )
 
     def test_health_dashboard_visible(self):
@@ -30,12 +34,12 @@ class AdminHealthDashboardTests(BaseE2ETest):
         self.driver.find_element(
             By.ID,
             "id_username"
-        ).send_keys("admin")
+        ).send_keys(self.admin_username)
 
         self.driver.find_element(
             By.ID,
             "id_password"
-        ).send_keys("admin123")
+        ).send_keys(self.admin_password)
 
         self.driver.find_element(
             By.XPATH,
