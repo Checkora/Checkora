@@ -63,7 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.head.appendChild(link);
             }
             // Dynamically load toast.js if not present
-            if (!document.getElementById("toast-js-dynamic")) {
+            const existingScript = document.getElementById("toast-js-dynamic");
+            if (!existingScript) {
                 const script = document.createElement("script");
                 script.id = "toast-js-dynamic";
                 script.src = "/static/game/js/toast.js";
@@ -73,6 +74,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 };
                 document.body.appendChild(script);
+            } else {
+                // If script exists but window.showToast is not yet defined, it means the script is currently loading.
+                // We attach the callback to the existing script's load event.
+                existingScript.addEventListener("load", () => {
+                    if (typeof window.showToast === "function") {
+                        window.showToast(message, type);
+                    }
+                });
             }
         }
     };
@@ -84,12 +93,19 @@ document.addEventListener("DOMContentLoaded", () => {
             const currentTheme = document.documentElement.getAttribute("data-theme");
             const newTheme = currentTheme === "light" ? "dark" : "light";
 
+            // Temporarily enable theme transitions
+            document.documentElement.classList.add("theme-transition");
             document.documentElement.setAttribute("data-theme", newTheme);
             safeLocalStorage.set("theme", newTheme);
             updateToggleState(newTheme);
 
             // Trigger the toast notification
             showThemeToast(`Switched to ${newTheme === "light" ? "Light" : "Dark"} Mode`, "info");
+
+            // Remove the class after the transition finishes (0.3s)
+            setTimeout(() => {
+                document.documentElement.classList.remove("theme-transition");
+            }, 300);
         });
     }
 });
