@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <!-- ──preloader on loading page reload ── -->
     <script>
         (function () {
@@ -92,8 +93,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
     <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1" />
-    {% include 'game/includes/theme_bootstrap.html' %}
-    <style>
+        <style>
         /* ── Navbar avatar thumbnail ── */
         .nav-avatar {
             width: 26px;

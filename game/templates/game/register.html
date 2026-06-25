@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
@@ -12,8 +13,7 @@
       href="{% static 'game/favicon.jpeg' %}"
     />
       <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
-    {% include 'game/includes/theme_bootstrap.html' %}
-</head>
+    </head>
   <body>
     <!-- Upgraded Back-to-home Button -->
     <a href="{% url 'landing' %}" class="back-btn">
