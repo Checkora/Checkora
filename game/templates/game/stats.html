@@ -358,7 +358,7 @@
     <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <a href="/" class="back-btn" style="margin-bottom: 0;">← Back to Home</a>
-            <button type="button" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
         </div>
         
         <h1>CHECK<span>ORA</span></h1>
@@ -536,7 +536,7 @@
         </table>
     </div>
     {% else %}
-    <div class="empty">
+    <div class="empty-state">
         <p>No games played yet. Play a game to see your stats here!</p>
     </div>
     {% endif %}
