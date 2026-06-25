@@ -9,12 +9,21 @@
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <script>
         (function () {
+            let savedTheme = 'dark';
             try {
-                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
-                if (savedTheme === 'light' || savedTheme === 'dark') {
-                    document.documentElement.setAttribute('data-theme', savedTheme);
+                const theme = localStorage.getItem('theme');
+                if (theme === 'light' || theme === 'dark') {
+                    savedTheme = theme;
+                } else {
+                    const legacyTheme = localStorage.getItem('chessBoardTheme');
+                    if (legacyTheme === 'light' || legacyTheme === 'dark') {
+                        savedTheme = legacyTheme;
+                    }
                 }
-            } catch (e) {}
+            } catch (e) {
+                // Keep default 'dark' if localStorage is blocked or fails
+            }
+            document.documentElement.setAttribute('data-theme', savedTheme);
         })();
     </script>
     <style>
@@ -70,7 +79,7 @@
         [data-theme="light"] .otp-input {
             background: #ffffff;
             border-color: rgba(0,0,0,0.15);
-            color: #d4a017;
+            color: #78350f;
         }
     </style>
 </head>

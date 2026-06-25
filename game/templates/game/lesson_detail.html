@@ -9,12 +9,21 @@
     <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
     <script>
         (function () {
+            let savedTheme = 'dark';
             try {
-                const savedTheme = localStorage.getItem('theme') || localStorage.getItem('chessBoardTheme') || 'dark';
-                if (savedTheme === 'light' || savedTheme === 'dark') {
-                    document.documentElement.setAttribute('data-theme', savedTheme);
+                const theme = localStorage.getItem('theme');
+                if (theme === 'light' || theme === 'dark') {
+                    savedTheme = theme;
+                } else {
+                    const legacyTheme = localStorage.getItem('chessBoardTheme');
+                    if (legacyTheme === 'light' || legacyTheme === 'dark') {
+                        savedTheme = legacyTheme;
+                    }
                 }
-            } catch (e) {}
+            } catch (e) {
+                // Keep default 'dark' if localStorage is blocked or fails
+            }
+            document.documentElement.setAttribute('data-theme', savedTheme);
         })();
     </script>
     <style>
