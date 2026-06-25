@@ -3098,3 +3098,19 @@ body.blindfold-mode .capture-ring {
     pointer-events: none;
     transition: opacity 0.2s ease, visibility 0.2s ease;
 }
+/* ============================================================
+   Heuristic Analysis Styles
+   ============================================================ */
+.accuracy-badge {
+    color: #4ade80;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+}
+.mistake-highlight {
+    color: #facc15;
+    font-weight: bold;
+}
+.blunder-highlight {
+    color: #f87171;
+    font-weight: bold;
+}

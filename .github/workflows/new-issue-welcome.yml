@@ -1,0 +1,47 @@
+name: New Issue Welcome
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions: {}
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Welcome new issue author
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const author = issue.user.login;
+
+            const message = [
+              `👋 Hi @${author},`,
+              "",
+              "Thank you for opening this issue!",
+              "",
+              "A maintainer will review your issue before assigning it to a contributor.",
+              "",
+              "⏳ Please wait until the issue is officially assigned before starting work.",
+              "",
+              "💬 Need help or have questions?",
+              "Join our Discord server for further information, updates, and community support:",
+              "https://discord.gg/WfrpMuNZn",
+              "",
+              "Happy Contributing! 🚀"
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: message,
+            });

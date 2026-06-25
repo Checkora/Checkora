@@ -8,25 +8,7 @@
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
-    <script>
-        (function () {
-            let savedTheme = 'dark';
-            try {
-                const theme = localStorage.getItem('theme');
-                if (theme === 'light' || theme === 'dark') {
-                    savedTheme = theme;
-                } else {
-                    const legacyTheme = localStorage.getItem('chessBoardTheme');
-                    if (legacyTheme === 'light' || legacyTheme === 'dark') {
-                        savedTheme = legacyTheme;
-                    }
-                }
-            } catch (e) {
-                // Keep default 'dark' if localStorage is blocked or fails
-            }
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        })();
-    </script>
+    {% include 'game/includes/theme_bootstrap.html' %}
 </head>
 <body class="login-page">
     <!-- Upgraded Back-to-home Button -->

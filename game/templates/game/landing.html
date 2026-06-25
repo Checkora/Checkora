@@ -81,38 +81,18 @@
       type="image/jpeg"
       href="{% static 'game/favicon.jpeg' %}"
     />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+   
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+
+    
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
     <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1" />
-    <script>
-        (function () {
-            let savedTheme = 'dark';
-            try {
-                const theme = localStorage.getItem('theme');
-                if (theme === 'light' || theme === 'dark') {
-                    savedTheme = theme;
-                } else {
-                    const legacyTheme = localStorage.getItem('chessBoardTheme');
-                    if (legacyTheme === 'light' || legacyTheme === 'dark') {
-                        savedTheme = legacyTheme;
-                    }
-                }
-            } catch (e) {
-                // Keep default 'dark' if localStorage is blocked or fails
-            }
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        })();
-    </script>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <style>
         /* ── Navbar avatar thumbnail ── */
         .nav-avatar {

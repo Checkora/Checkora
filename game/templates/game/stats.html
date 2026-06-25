@@ -352,25 +352,7 @@
             .profile-username { font-size: 1rem; }
         }
     </style>
-    <script>
-        (function () {
-            let savedTheme = 'dark';
-            try {
-                const theme = localStorage.getItem('theme');
-                if (theme === 'light' || theme === 'dark') {
-                    savedTheme = theme;
-                } else {
-                    const legacyTheme = localStorage.getItem('chessBoardTheme');
-                    if (legacyTheme === 'light' || legacyTheme === 'dark') {
-                        savedTheme = legacyTheme;
-                    }
-                }
-            } catch (e) {
-                // Keep default 'dark' if localStorage is blocked or fails
-            }
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        })();
-    </script>
+    {% include 'game/includes/theme_bootstrap.html' %}
 </head>
 <body>
     <div class="container">
