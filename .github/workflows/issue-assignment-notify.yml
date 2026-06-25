@@ -10,7 +10,7 @@ permissions: {}
 jobs:
   notify:
     permissions:
-        issues: write
+      issues: write
     runs-on: ubuntu-latest
 
     steps:
@@ -20,29 +20,34 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issue = context.payload.issue;
-            const assignee = context.payload.assignee.login;
+            const assigneeObj = context.payload.assignee;
+
+            if (!assigneeObj || !assigneeObj.login) {
+              core.setFailed("No assignee found in payload.");
+              return;
+            }
+
+            const assignee = assigneeObj.login;
+
+            const message = [
+              `👋 Hi @${assignee},`,
+              "",
+              "Thank you for taking up this issue.",
+              "",
+              "⏳ Please open a pull request within **36 hours** of assignment to indicate active work.",
+              "",
+              "📢 A reminder will be posted after 24 hours if no PR has been opened.",
+              "",
+              "⚠️ If no pull request is opened within 36 hours, the issue may be automatically unassigned and made available for reassignment.",
+              "",
+              "If you need additional time, please leave a progress update comment on this issue.",
+              "",
+              "Happy coding! 🚀",
+            ].join("\n");
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-             await github.rest.issues.createComment({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               issue_number: issue.number,
-               body: [
-                 `👋 hi @${assignee},`,
-                 "",
-                 "thank you for taking up this issue.",
-                 "",
-                 "⏳ please open a pull request within **36 hours** of assignment to indicate active work.",
-                 "",
-                 "📢 a reminder will be posted after 24 hours if no pr has been opened.",
-                 "",
-                 "⚠️ if no pull request is opened within 36 hours, the issue may be automatically unassigned and made available for reassignment.",
-                 "",
-                 "if you need additional time, please leave a progress update comment on this issue.",
-                 "",
-                 "happy coding! 🚀",
-               ].join("\n")
-             });
+              body: message,
+            });

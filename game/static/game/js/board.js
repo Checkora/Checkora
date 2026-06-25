@@ -1190,12 +1190,37 @@
         if (whiteCapturedName) whiteCapturedName.textContent = wName;
         if (blackCapturedName) blackCapturedName.textContent = bName;
 
+        const whiteAvatarEl = document.getElementById('whitePlayerAvatar');
+        const blackAvatarEl = document.getElementById('blackPlayerAvatar');
+        const whiteCapturedAvatarEl = document.getElementById('whiteCapturedAvatar');
+        const blackCapturedAvatarEl = document.getElementById('blackCapturedAvatar');
+
         if (gameMode === 'ai') {
             if (whiteYouTag) whiteYouTag.style.display = (playerColor === 'white') ? 'inline' : 'none';
             if (blackYouTag) blackYouTag.style.display = (playerColor === 'black') ? 'inline' : 'none';
+            if (whiteAvatarEl && window.USER_AVATAR_URL) {
+                whiteAvatarEl.src = window.USER_AVATAR_URL;
+                whiteAvatarEl.style.display = (playerColor === 'white') ? 'inline-block' : 'none';
+                if (whiteCapturedAvatarEl) {
+                    whiteCapturedAvatarEl.src = window.USER_AVATAR_URL;
+                    whiteCapturedAvatarEl.style.display = (playerColor === 'white') ? 'inline-block' : 'none';
+                }
+            }
+            if (blackAvatarEl && window.USER_AVATAR_URL) {
+                blackAvatarEl.src = window.USER_AVATAR_URL;
+                blackAvatarEl.style.display = (playerColor === 'black') ? 'inline-block' : 'none';
+                if (blackCapturedAvatarEl) {
+                    blackCapturedAvatarEl.src = window.USER_AVATAR_URL;
+                    blackCapturedAvatarEl.style.display = (playerColor === 'black') ? 'inline-block' : 'none';
+                }
+            }
         } else {
             if (whiteYouTag) whiteYouTag.style.display = 'none';
             if (blackYouTag) blackYouTag.style.display = 'none';
+            if (whiteAvatarEl) whiteAvatarEl.style.display = 'none';
+            if (blackAvatarEl) blackAvatarEl.style.display = 'none';
+            if (whiteCapturedAvatarEl) whiteCapturedAvatarEl.style.display = 'none';
+            if (blackCapturedAvatarEl) blackCapturedAvatarEl.style.display = 'none';
         }
     }
 

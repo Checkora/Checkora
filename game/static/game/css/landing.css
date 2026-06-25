@@ -484,13 +484,6 @@ body.hide-native-cursor * {
     transition-delay: 0s;
 }
 
-.profile-dropdown:hover .dropdown-content {
-    display: block;
-}
-
-.profile-dropdown:focus-within .dropdown-content {
-    display: block;
-}
 .profile-dropdown:not(.active) .dropdown-content {
     transition-delay: 0.15s;
 }
@@ -1430,6 +1423,136 @@ body.hide-native-cursor * {
     width: 28px;
     text-align: center;
     flex-shrink: 0;
+}
+
+/* ==========================================================================
+   User Testimonials Section Styles
+   ========================================================================== */
+.testimonials-section {
+    padding: 4rem 0;
+    width: 100%;
+    background-color: var(--bg-primary);
+}
+
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.testimonial-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(10px);
+}
+
+.testimonial-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(240, 192, 64, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(240, 192, 64, 0.05);
+}
+
+/* Featured / Highlight Card version matching bento grid hierarchy styles */
+.testimonial-card.highlight-card {
+    border-color: rgba(240, 192, 64, 0.25);
+    background: linear-gradient(145deg, var(--card-bg), rgba(240, 192, 64, 0.02));
+    box-shadow: 0 0 40px rgba(240, 192, 64, 0.02);
+}
+
+.testimonial-stars {
+    color: var(--accent-gold);
+    font-size: 1rem;
+    margin-bottom: 1.2rem;
+    letter-spacing: 2px;
+}
+
+.testimonial-text {
+    color: var(--text-secondary);
+    font-size: 0.98rem;
+    line-height: 1.6;
+    font-style: italic;
+    margin-bottom: 1.8rem;
+}
+
+.testimonial-user {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1.2rem;
+}
+
+.user-avatar {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    color: var(--text-title);
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.user-title {
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* Light Theme Variables Adaptations */
+[data-theme="light"] .testimonial-card {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .user-avatar {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* Responsive Breakpoints matching system guidelines */
+@media (max-width: 900px) {
+    .testimonials-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    .testimonial-card {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+}
+
+@media (max-width: 600px) {
+    .testimonials-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    .testimonial-card {
+        padding: 1.25rem;
+        border-radius: 12px;
+    }
+    .testimonial-text {
+        font-size: 0.9rem;
+        margin-bottom: 1.2rem;
+    }
 }
 
 /* Responsive - About Us: keep card layout, just scale down */

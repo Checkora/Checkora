@@ -91,6 +91,8 @@ class ChessGame:
         # (row, col) of the square a pawn can capture en passant
         self.en_passant_target = None
         self.halfmove_clock = 0
+        self.initial_fullmove = 1
+        self.initial_turn_was_black = False
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
         self.game_status = 'active'
@@ -162,6 +164,8 @@ DP cache is intentionally excluded to save cookie space."""
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
+            'initial_fullmove': getattr(self, 'initial_fullmove', 1),
+            'initial_turn_was_black': getattr(self, 'initial_turn_was_black', False),
         }
 
     @classmethod
@@ -188,6 +192,8 @@ DP cache is intentionally excluded to save cookie space."""
         game.game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
         game.threefold_warning = data.get('threefold_warning', False)
+        game.initial_fullmove = data.get('initial_fullmove', 1)
+        game.initial_turn_was_black = data.get('initial_turn_was_black', False)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -231,8 +237,39 @@ DP cache is intentionally excluded to save cookie space."""
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
-        game.en_passant_target = None
-        game.halfmove_clock = 0
+
+        # Parse en passant target (field 4)
+        if len(parts) >= 4 and parts[3] != '-':
+            ep_str = parts[3]
+            if len(ep_str) == 2 and ep_str[0] in 'abcdefgh' and ep_str[1] in '12345678':
+                col = ord(ep_str[0]) - ord('a')
+                row = 8 - int(ep_str[1])
+                game.en_passant_target = (row, col)
+            else:
+                game.en_passant_target = None
+        else:
+            game.en_passant_target = None
+
+        # Parse halfmove clock (field 5)
+        if len(parts) >= 5:
+            try:
+                game.halfmove_clock = max(0, int(parts[4]))
+            except ValueError:
+                game.halfmove_clock = 0
+        else:
+            game.halfmove_clock = 0
+
+        # Parse fullmove clock (field 6)
+        if len(parts) >= 6:
+            try:
+                game.initial_fullmove = max(1, int(parts[5]))
+            except ValueError:
+                game.initial_fullmove = 1
+        else:
+            game.initial_fullmove = 1
+
+        game.initial_turn_was_black = (active_color == 'b')
+
         game.move_history = []
         game.captured = {'white': [], 'black': []}
         game.valid_moves_cache = {}
@@ -890,6 +927,28 @@ DP cache is intentionally excluded to save cookie space."""
         castling = self.serialize_castling_rights()
 
         return f"{placement} {side} {castling}"
+
+    def generate_full_fen(self) -> str:
+        """Build a complete 6-field FEN string."""
+        base_fen = self.generate_fen_key()
+
+        # En Passant target
+        ep_str = '-'
+        if self.en_passant_target:
+            row, col = self.en_passant_target
+            file_char = chr(ord('a') + col)
+            rank_char = str(8 - row)
+            ep_str = f"{file_char}{rank_char}"
+
+        # Halfmove clock
+        halfmove = str(self.halfmove_clock)
+
+        # Fullmove clock
+        offset = 1 if getattr(self, 'initial_turn_was_black', False) else 0
+        fullmove_count = getattr(self, 'initial_fullmove', 1)
+        fullmove = str(fullmove_count + ((len(self.move_history) + offset) // 2))
+
+        return f"{base_fen} {ep_str} {halfmove} {fullmove}"
 
     def get_opening_book_move(self) -> dict | None:
         """Return a random book move for the current position, or ``None``.

@@ -20,6 +20,33 @@
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <style>
+        /* ── Navbar avatar thumbnail ── */
+        .nav-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid rgba(250, 204, 21, 0.6);
+            vertical-align: middle;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .nav-avatar-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            flex-shrink: 0;
+            color: #94a3b8;
+            vertical-align: middle;
+        }
+    </style>
 
     <!-- Vercel Web Analytics -->
     <script>
@@ -71,6 +98,9 @@
 
 <body>
     <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
+    <script>
+        window.USER_AVATAR_URL = "{% if user.is_authenticated and user.profile.avatar %}{{ user.profile.avatar|escapejs }}{% else %}{% endif %}";
+    </script>
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
@@ -295,8 +325,15 @@
             {% if user.is_authenticated %}
 
             <div class="profile-dropdown">
-                <button class="profile-btn">
-                    {{ user.username }} ⌄
+                <button type="button" class="profile-btn" style="display:flex;align-items:center;gap:4px;">
+                    {% if user.profile.avatar %}
+                      <img src="{{ user.profile.avatar }}" class="nav-avatar" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">
+                    {% else %}
+                      <span class="nav-avatar-icon" aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:#333;border-radius:50%;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </span>
+                    {% endif %}
+                    {{ user.username }} ⌔
                 </button>
 
                 <div class="dropdown-content">
@@ -318,6 +355,10 @@
 
                     <a href="{% url 'puzzles' %}">
                         🧩 Puzzles
+                    </a>
+
+                    <a href="{% url 'upload_avatar' %}">
+                        Profile Picture
                     </a>
 
                     <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
@@ -351,12 +392,18 @@
         <!-- Left Panel -->
         <div class="panel">
             <div class="card">
-                <div class="card-title">Captured by <span id="whiteCapturedName">White</span></div>
+                <div class="card-title">
+                    <img id="whiteCapturedAvatar" class="nav-avatar" src="" style="display:none; width:18px; height:18px; border-radius:50%; object-fit:cover;">
+                    Captured by <span id="whiteCapturedName">White</span>
+                </div>
                 <div class="captured-list" id="whiteCaptured"></div>
                 <div class="captured-score">Points: <span id="whitePoints">+0</span></div>
             </div>
             <div class="card">
-                <div class="card-title">Captured by <span id="blackCapturedName">Black</span></div>
+                <div class="card-title">
+                    <img id="blackCapturedAvatar" class="nav-avatar" src="" style="display:none; width:18px; height:18px; border-radius:50%; object-fit:cover;">
+                    Captured by <span id="blackCapturedName">Black</span>
+                </div>
                 <div class="captured-list" id="blackCaptured"></div>
                 <div class="captured-score">Points: <span id="blackPoints">+0</span></div>
             </div>
@@ -387,6 +434,7 @@
             <div class="clocks">
                 <div id="whiteClock" class="clock white active">
                     <span class="label">
+                        <img id="whitePlayerAvatar" class="nav-avatar" src="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
                         <span id="whiteNameLabel">WHITE</span>
                         <span id="whiteYouTag"
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
@@ -404,6 +452,7 @@
 
                 <div id="blackClock" class="clock black">
                     <span class="label">
+                        <img id="blackPlayerAvatar" class="nav-avatar" src="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
                         <span id="blackNameLabel">BLACK</span>
                         <span id="blackYouTag"
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>

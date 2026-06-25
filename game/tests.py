@@ -2946,8 +2946,8 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         response = self.client.get(reverse('leaderboard'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'game/leaderboard.html')
-        self.assertContains(response, "No leaderboard data available.")
-        self.assertContains(response, "No chess rating data available.")
+        self.assertContains(response, "No leaderboard data available yet.")
+        self.assertContains(response, "No chess rating data available yet.")
 
     def test_achievements_authenticated(self):
         password = 'Password123!'
@@ -3259,3 +3259,234 @@ class ChessPuzzleDashboardTests(TestCase):
         data = response.json()
         self.assertEqual(data['id'], self.puzzle_easy.id)
         self.assertNotIn('solution', data)
+
+
+# ===========================================================================
+# Avatar Support Tests (Issue #455)
+# ===========================================================================
+
+class UserProfileModelTest(TestCase):
+    """Test UserProfile model creation and the post_save signal."""
+
+    def test_profile_auto_created_on_user_registration(self):
+        """Creating a User automatically creates a corresponding UserProfile."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='avatar_test_user',
+            password='TestPass123!',
+            email='avatar@example.com'
+        )
+        self.assertTrue(
+            UserProfile.objects.filter(user=user).exists(),
+            'UserProfile should be auto-created via post_save signal'
+        )
+
+    def test_profile_avatar_defaults_to_empty_string(self):
+        """A freshly created UserProfile has an empty avatar field."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='no_avatar_user',
+            password='TestPass123!',
+            email='noavatar@example.com'
+        )
+        profile = UserProfile.objects.get(user=user)
+        self.assertEqual(profile.avatar, '')
+
+    def test_profile_str(self):
+        """UserProfile.__str__ returns '<username> Profile'."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='str_test_user',
+            password='TestPass123!',
+            email='strtest@example.com'
+        )
+        profile = UserProfile.objects.get(user=user)
+        self.assertEqual(str(profile), 'str_test_user Profile')
+
+    def test_profile_deleted_when_user_deleted(self):
+        """Deleting a User cascades to delete the associated UserProfile."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='cascade_user',
+            password='TestPass123!',
+            email='cascade@example.com'
+        )
+        user_id = user.id
+        user.delete()
+        self.assertFalse(UserProfile.objects.filter(user_id=user_id).exists())
+
+
+class AvatarUploadFormTest(TestCase):
+    """Test AvatarUploadForm validation rules."""
+
+    def _make_image_file(
+        self,
+        name='test.jpg',
+        content_type='image/jpeg',
+        size_bytes=1024
+    ):
+        """Return a minimal in-memory SimpleUploadedFile."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(
+            name=name,
+            content=b'\xff\xd8\xff' + b'0' * size_bytes,  # JPEG magic bytes
+            content_type=content_type
+        )
+
+    def test_valid_jpeg_passes(self):
+        from game.forms import AvatarUploadForm
+        from PIL import Image
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        # Dynamically generate a valid 10x10 JPEG
+        img_buffer = io.BytesIO()
+        Image.new('RGB', (10, 10), color='red').save(img_buffer, 'JPEG')
+        img_buffer.seek(0)
+        
+        file = SimpleUploadedFile('photo.jpg', img_buffer.read(), 'image/jpeg')
+        file.content_type = 'image/jpeg'
+        
+        form = AvatarUploadForm()
+        form.cleaned_data = {'avatar': file}
+        cleaned = form.clean_avatar()
+        self.assertEqual(cleaned, file)
+
+    def test_size_validation_rejects_files_over_5mb(self):
+        from game.forms import AvatarUploadForm
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        large_file = SimpleUploadedFile(
+            name='big.jpg',
+            content=b'x' * (5 * 1024 * 1024 + 1),
+            content_type='image/jpeg'
+        )
+        large_file.content_type = 'image/jpeg'
+        form = AvatarUploadForm()
+        # Manually call clean_avatar by building the cleaned_data dict
+        form.cleaned_data = {'avatar': large_file}
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            form.clean_avatar()
+
+    def test_mime_validation_rejects_pdf(self):
+        from game.forms import AvatarUploadForm
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core.exceptions import ValidationError
+        pdf_file = SimpleUploadedFile(
+            name='doc.pdf',
+            content=b'%PDF-1.4',
+            content_type='application/pdf'
+        )
+        pdf_file.content_type = 'application/pdf'
+        form = AvatarUploadForm()
+        form.cleaned_data = {'avatar': pdf_file}
+        with self.assertRaises(ValidationError):
+            form.clean_avatar()
+
+    def test_mime_validation_accepts_webp(self):
+        from game.forms import AvatarUploadForm
+        from PIL import Image
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        # Dynamically generate a valid WEBP
+        img_buffer = io.BytesIO()
+        Image.new('RGB', (10, 10), color='blue').save(img_buffer, 'WEBP')
+        img_buffer.seek(0)
+        
+        webp_file = SimpleUploadedFile('img.webp', img_buffer.read(), 'image/webp')
+        webp_file.content_type = 'image/webp'
+        
+        form = AvatarUploadForm()
+        form.cleaned_data = {'avatar': webp_file}
+        result = form.clean_avatar()
+        self.assertEqual(result, webp_file)
+
+
+class AvatarViewTest(TestCase):
+    """Test avatar upload, remove, and get API views."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username='viewtest_user',
+            password='TestPass123!',
+            email='viewtest@example.com'
+        )
+        self.client.login(username='viewtest_user', password='TestPass123!')
+        self.upload_url = reverse('upload_avatar')
+        self.remove_url = reverse('remove_avatar')
+        self.get_url = reverse('get_avatar')
+
+    # ── Authentication guards ─────────────────────────────────────────────
+
+    def test_upload_page_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.upload_url)
+        self.assertRedirects(
+            response,
+            f"/login/?next={self.upload_url}",
+            fetch_redirect_response=False
+        )
+
+    def test_remove_requires_login(self):
+        self.client.logout()
+        response = self.client.post(self.remove_url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_get_avatar_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.get_url)
+        self.assertEqual(response.status_code, 302)
+
+    # ── GET /avatar/ ──────────────────────────────────────────────────────
+
+    def test_upload_page_renders(self):
+        response = self.client.get(self.upload_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/avatar.html')
+
+    # ── GET /api/avatar/ ─────────────────────────────────────────────────
+
+    def test_get_avatar_returns_json_with_empty_string_when_no_avatar(self):
+        response = self.client.get(self.get_url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('avatar', data)
+        self.assertEqual(data['avatar'], '')
+
+    def test_get_avatar_returns_avatar_after_set(self):
+        from game.models import UserProfile
+        profile = UserProfile.objects.get(user=self.user)
+        profile.avatar = 'data:image/jpeg;base64,TESTDATA'
+        profile.save()
+
+        response = self.client.get(self.get_url)
+        data = response.json()
+        self.assertEqual(data['avatar'], 'data:image/jpeg;base64,TESTDATA')
+
+    # ── POST /avatar/remove/ ─────────────────────────────────────────────
+
+    def test_remove_avatar_clears_avatar_field(self):
+        from game.models import UserProfile
+        profile = UserProfile.objects.get(user=self.user)
+        profile.avatar = 'data:image/jpeg;base64,SOMEDATA'
+        profile.save()
+
+        response = self.client.post(self.remove_url)
+        self.assertRedirects(response, self.upload_url, fetch_redirect_response=False)
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.avatar, '')
+
+    def test_remove_avatar_get_is_not_allowed(self):
+        response = self.client.get(self.remove_url)
+        self.assertEqual(response.status_code, 405)
+
+    # ── POST /avatar/ (invalid uploads) ──────────────────────────────────
+
+    def test_upload_with_no_file_shows_error(self):
+        response = self.client.post(self.upload_url, data={}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        # Should stay on avatar page with an error message
+        self.assertTemplateUsed(response, 'game/avatar.html')

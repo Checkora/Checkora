@@ -246,6 +246,111 @@
         [data-theme="light"] .back-btn:hover {
             color: #ca8a04;
         }
+
+        /* ── Avatar / profile card ── */
+        .profile-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .profile-avatar-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .profile-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2.5px solid rgba(250, 204, 21, 0.6);
+            box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.08);
+            display: block;
+        }
+
+        .profile-avatar-placeholder {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.9);
+            border: 2px dashed rgba(255,255,255,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+        }
+
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-username {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-rating {
+            color: #facc15;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .profile-avatar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            color: #64748b;
+            font-size: 0.8rem;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .profile-avatar-link:hover { color: #facc15; }
+
+        /* Light theme overrides for profile card */
+        [data-theme="light"] .profile-card {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+        [data-theme="light"] .profile-username {
+            color: #020617;
+        }
+        [data-theme="light"] .profile-rating {
+            color: #b47505;
+        }
+        [data-theme="light"] .profile-avatar-placeholder {
+            background: #e5e7eb;
+            border-color: #cbd5e1;
+            color: #64748b;
+        }
+
+        @media (max-width: 480px) {
+            .profile-card {
+                gap: 14px;
+                padding: 16px;
+            }
+            .profile-avatar,
+            .profile-avatar-placeholder {
+                width: 56px;
+                height: 56px;
+            }
+            .profile-username { font-size: 1rem; }
+        }
     </style>
     <script>
         (function () {
@@ -267,6 +372,34 @@
         
         <h1>CHECK<span>ORA</span></h1>
         <div class="subtitle">Personal Game Statistics & History</div>
+
+        <!-- ── Profile card ── -->
+        <div class="profile-card">
+            <div class="profile-avatar-wrap">
+                {% if request.user.profile.avatar %}
+                    <img src="{{ request.user.profile.avatar }}"
+                         class="profile-avatar"
+                         alt="Your profile picture">
+                {% else %}
+                    <div class="profile-avatar-placeholder" aria-label="No avatar set">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="profile-info">
+                <div class="profile-username">{{ request.user.username }}</div>
+                <div class="profile-rating">♟ Rating: {{ rating.rating }}</div>
+                <a href="{% url 'upload_avatar' %}" class="profile-avatar-link">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    {% if request.user.profile.avatar %}Update{% else %}Add{% endif %} Profile Picture
+                </a>
+            </div>
+        </div>
 
         <h2>AI Game Summary</h2>
         <div class="summary">

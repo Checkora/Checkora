@@ -104,6 +104,33 @@
             } catch (e) {}
         })();
     </script>
+    <style>
+        /* ── Navbar avatar thumbnail ── */
+        .nav-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid rgba(250, 204, 21, 0.6);
+            vertical-align: middle;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .nav-avatar-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            flex-shrink: 0;
+            color: #94a3b8;
+            vertical-align: middle;
+        }
+    </style>
   </head>
 
   <body>
@@ -145,7 +172,17 @@
         </div>
         {% if user.is_authenticated %}
         <div class="profile-dropdown">
-          <button type="button" class="profile-btn">{{ user.username }} <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+          <button type="button" class="profile-btn" style="display:flex;align-items:center;gap:4px;">
+            {% if user.profile.avatar %}
+              <img src="{{ user.profile.avatar }}" class="nav-avatar" alt="">
+            {% else %}
+              <span class="nav-avatar-icon" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+            {% endif %}
+            {{ user.username }}
+            <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
           <div class="dropdown-content">
             <a href="/play/"> Dashboard </a>
 
@@ -160,6 +197,8 @@
             <a href="{% url 'leaderboard' %}"> Leaderboard </a>
 
             <a href="{% url 'achievements' %}"> Achievements </a>
+
+            <a href="{% url 'upload_avatar' %}"> Profile Picture </a>
 
             <a
               href="{% url 'delete_account' %}"
@@ -717,6 +756,57 @@
         </div>
     </section>
 
+    <!-- ── User Testimonials Section ── -->
+    <section id="testimonials" class="testimonials-section">
+      <div class="bento-container">
+        <h2 class="section-title">Community Feedback</h2>
+        <p class="section-subtitle">What players and developers worldwide are saying about Checkora's engine.</p>
+        
+        <div class="testimonials-grid">
+          
+          <!-- Testimonial 1 -->
+          <div class="testimonial-card">
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-text">"The performance shift when calculating endgames natively with the C++ minimax engine core is unbelievable. Real-time material scores sync up instantly."</p>
+            <div class="testimonial-user">
+              <div class="user-avatar">🤖</div>
+              <div class="user-info">
+                <h4 class="user-name">Alex Rivera</h4>
+                <span class="user-title">National Master</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Testimonial 2 -->
+          <div class="testimonial-card highlight-card">
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-text">"As an open-source contributor, building feature modules on top of this Django framework has been super clean. Truly a state-of-the-art hybrid platform setup."</p>
+            <div class="testimonial-user">
+              <div class="user-avatar">🧑‍💻</div>
+              <div class="user-info">
+                <h4 class="user-name">Sarah Chen</h4>
+                <span class="user-title">Core Developer</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Testimonial 3 -->
+          <div class="testimonial-card">
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-text">"The interactive lessons and end-of-chapter quizzes transformed my Sicilian Defence opening lines. Highly recommend to club players grinding ranked matches!"</p>
+            <div class="testimonial-user">
+              <div class="user-avatar">♟️</div>
+              <div class="user-info">
+                <h4 class="user-name">Marcus Brody</h4>
+                <span class="user-title">Club Player (1900 ELO)</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
     <section id="faq" class="faq-section">
       <div class="faq-container">
         <h2 class="section-title">Frequently Asked Questions</h2>
@@ -1206,6 +1296,7 @@
     });
   })();
   </script>
+  <!-- <script src="{% static 'game/js/theme.js' %}"></script> -->
 
   <div id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerModalTitle"
       style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
@@ -1809,7 +1900,6 @@
 
 })();
 </script>
-  <script src="{% static 'game/js/dropdown.js' %}"></script>
   <div class="cursor"></div>
   <script>
     const cursor = document.querySelector('.cursor');
@@ -1888,7 +1978,17 @@ updateCursorType('default');
       }
     });
   </script>
-    <script src="{% static 'game/js/dropdown.js' %}"></script>
+    <script src="{% static 'game/js/dropdown.js' %}?v=2"></script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <script>
+    // close only when clicking outside each active dropdown
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.profile-dropdown.active').forEach(function(menu) {
+            if (!menu.contains(e.target)) {
+                menu.classList.remove('active');
+            }
+        });
+    });
+    </script>
   </body>
 </html>

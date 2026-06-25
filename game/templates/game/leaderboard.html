@@ -37,6 +37,38 @@
             text-decoration: none;
         }
 
+        /* ── User cell with avatar ── */
+        .user-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid rgba(250, 204, 21, 0.4);
+            flex-shrink: 0;
+        }
+
+        .user-avatar-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1.5px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+            flex-shrink: 0;
+        }
+
+        .username { font-weight: 500; }
+
         /* Light Theme Overrides */
         [data-theme="light"] body {
             background: #f5f7fb;
@@ -85,6 +117,10 @@
             background: rgba(0, 0, 0, 0.05);
             color: #111827;
         }
+        [data-theme="light"] .user-avatar-icon {
+            background: #f3f4f6;
+            border: 1.5px solid #d1d5db;
+        }
     </style>
     <script>
         (function () {
@@ -121,13 +157,24 @@
             {% for player in leaderboard %}
             <tr>
                 <td>{{ forloop.counter }}</td>
-                <td>{{ player.user.username }}</td>
+                <td>
+                    <div class="user-cell">
+                        {% if player.user.profile.avatar %}
+                            <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
+                        {% else %}
+                            <div class="user-avatar-icon" aria-hidden="true">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                        {% endif %}
+                        <span class="username">{{ player.user.username }}</span>
+                    </div>
+                </td>
                 <td>{{ player.puzzles_solved }}</td>
                 <td>{{ player.best_streak }}</td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4">No leaderboard data available.</td>
+                <td colspan="4">No leaderboard data available yet.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -152,7 +199,18 @@
             {% for player in chess_leaderboard %}
             <tr>
                 <td>{{ forloop.counter }}</td>
-                <td>{{ player.user.username }}</td>
+                <td>
+                    <div class="user-cell">
+                        {% if player.user.profile.avatar %}
+                            <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
+                        {% else %}
+                            <div class="user-avatar-icon" aria-hidden="true">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                        {% endif %}
+                        <span class="username">{{ player.user.username }}</span>
+                    </div>
+                </td>
                 <td>{{ player.rating }}</td>
                 <td>{{ player.games_played }}</td>
                 <td>{{ player.wins }}</td>
@@ -161,7 +219,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7">No chess rating data available.</td>
+                <td colspan="7">No chess rating data available yet.</td>
             </tr>
             {% endfor %}
         </tbody>

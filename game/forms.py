@@ -143,3 +143,56 @@ class ReplyForm(forms.ModelForm):
             raise ValidationError("Reply cannot be empty.")
 
         return content
+
+
+class AvatarUploadForm(forms.Form):
+    """Form for uploading a user avatar image.
+
+    Validates file format (PNG, JPEG, WEBP) and enforces a 5 MB size
+    limit before the image reaches any processing code.
+    """
+
+    avatar = forms.ImageField(
+        label="Profile Picture",
+        error_messages={"required": "Please select an image file to upload."},
+    )
+
+    ALLOWED_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+    MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get("avatar")
+        if avatar is None:
+            return avatar
+
+        if avatar.size > self.MAX_SIZE_BYTES:
+            raise ValidationError(
+                "Avatar file is too large. Maximum allowed size is 5 MB."
+            )
+
+        content_type = getattr(avatar, "content_type", "")
+        if content_type not in self.ALLOWED_MIME_TYPES:
+            raise ValidationError(
+                "Unsupported image format. "
+                "Please upload a PNG, JPG/JPEG, or WEBP file."
+            )
+
+        from PIL import Image
+        try:
+            # Pillow uses tell() to remember where it started reading
+            # but since Django's file object might be manipulated, we 
+            # make sure it starts at 0.
+            avatar.seek(0)
+            img = Image.open(avatar)
+            img.verify()  # verify checks the header without decoding the entire image
+            if img.format not in ("PNG", "JPEG", "MPO", "WEBP"):
+                raise ValidationError(
+                    "Unsupported image format. "
+                    "Please upload a PNG, JPG/JPEG, or WEBP file."
+                )
+        except Exception:
+            raise ValidationError("Invalid or corrupted image file.")
+        finally:
+            avatar.seek(0)
+
+        return avatar

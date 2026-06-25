@@ -260,5 +260,4 @@ if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
         'TRUSTED_PROXY_IPS must be set in production'
     )
 
-
-
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
