@@ -731,6 +731,20 @@
             body: JSON.stringify(body)
         })).json();
     }
+    async function withLoading(btn, asyncFn) {
+        if (!btn || btn.classList.contains('is-loading')) {
+            // Already loading (or no button passed) — don't double-fire.
+            return asyncFn ? asyncFn() : undefined;
+        }
+        btn.classList.add('is-loading');
+        btn.disabled = true;
+        try {
+            return await asyncFn();
+        } finally {
+            btn.classList.remove('is-loading');
+            btn.disabled = false;
+        }
+    }
 
     function isAITurn() {
         return gameMode === 'ai' && turn !== playerColor && !gameOver;
@@ -1477,14 +1491,17 @@
             refreshHighlights();
             return;
         }
-
+        
         // NORMAL MOVE LOGIC
-        const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
-
-        hints = data.valid_moves || [];
+        try {
+            const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
+            hints = data.valid_moves || [];
+        } catch (_) {
+            hints = [];
+            showStatus('Could not load valid moves. Check your connection.', true);
+        }
 
         refreshHighlights();
-    }
     function toggleSquareHighlight(r, c) {
         if (highlightedSquare) {
             sq(highlightedSquare.r, highlightedSquare.c)
@@ -3203,13 +3220,14 @@
             "Offer Draw?",
             `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`,
             async () => {
-                drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
-                drawOverlay.classList.add('active');
-                await pauseGame();
+                await withLoading(drawBtn, async () => {
+                    drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
+                    drawOverlay.classList.add('active');
+                    await pauseGame();
+                });
             },
             '#f0c040'
         );
-    }
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
         evaluationCache = {};
@@ -3764,21 +3782,21 @@
             }, 2000);
         }
     };
-
     if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
-        const data = await post('/api/resume/', {});
-        if (!data.valid) {
-            welcomeResumeBtn.style.display = 'none';
-            return;
-        }
-        welcomeOverlay.classList.remove('active');
-        gameLayout.style.visibility = 'visible';
-        paused = false;
-        updatePauseUI();
-        startTimer();
-        queueAIMoveIfNeeded();
+        await withLoading(welcomeResumeBtn, async () => {
+            const data = await post('/api/resume/', {});
+            if (!data.valid) {
+                welcomeResumeBtn.style.display = 'none';
+                return;
+            }
+            welcomeOverlay.classList.remove('active');
+            gameLayout.style.visibility = 'visible';
+            paused = false;
+            updatePauseUI();
+            startTimer();
+            queueAIMoveIfNeeded();
+        });
     };
-
     if (confirmYesBtn) confirmYesBtn.onclick = () => {
         boardEl.classList.remove('confirm-open');
 
@@ -3941,30 +3959,35 @@
     if (resignBtn) resignBtn.onclick = () => {
         if (!gameOver) {
             showConfirm("Resign?", "Are you sure you want to resign?", async () => {
-                try {
-                    const result = await post('/api/resign/', {});
-                    if (result.valid) {
-                        if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
-                        const loserColor = result.winner === 'white' ? 'black' : 'white';
-                        endGame('resign', loserColor);
-                    } else {
-                        showStatus('Resign failed. Please try again.', true);
+                await withLoading(resignBtn, async () => {
+                    try {
+                        const result = await post('/api/resign/', {});
+                        if (result.valid) {
+                            if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
+                            const loserColor = result.winner === 'white' ? 'black' : 'white';
+                            endGame('resign', loserColor);
+                        } else {
+                            showStatus('Resign failed. Please try again.', true);
+                        }
+                    } catch (_) {
+                        showStatus('Resign failed. Please check your connection and try again.', true);
                     }
-                } catch (_) {
-                    showStatus('Resign failed. Please check your connection and try again.', true);
-                }
+                });
             });
         }
     };
+    
 
     if (drawBtn) drawBtn.onclick = offerDraw;
     if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
-        drawOverlay.classList.remove('active');
-        const data = await post('/api/draw/', { action: 'accept' });
-        if (data.success) {
-            if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
-            endGame('draw', turn, data.draw_reason);
-        }
+        await withLoading(drawAcceptBtn, async () => {
+            drawOverlay.classList.remove('active');
+            const data = await post('/api/draw/', { action: 'accept' });
+            if (data.success) {
+                if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
+                endGame('draw', turn, data.draw_reason);
+            }
+        });
     };
     if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
         drawOverlay.classList.remove('active');
