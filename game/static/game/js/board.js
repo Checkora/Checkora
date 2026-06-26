@@ -537,6 +537,21 @@
         }
     }
 
+    function updateRatingBadge(currentRating) {
+        const whiteBadge = document.getElementById('whiteRatingBadge');
+        const blackBadge = document.getElementById('blackRatingBadge');
+        if (whiteBadge) whiteBadge.style.display = 'none';
+        if (blackBadge) blackBadge.style.display = 'none';
+
+        if (currentRating == null) return;
+
+        const myBadge = playerColor === 'black' ? blackBadge : whiteBadge;
+        if (myBadge) {
+            myBadge.textContent = `(${currentRating})`;
+            myBadge.style.display = 'inline';
+        }
+    }
+
 
     /* ==========================================================
     DOM REFERENCES
@@ -1139,6 +1154,7 @@
         }
 
         updatePlayerNames(data);
+        updateRatingBadge(data.current_rating);
         updateTurn();
         updateMoves(data.move_history);
         updateCaptured(data.captured_pieces);
@@ -1158,7 +1174,7 @@
         }
 
         if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
-            handleGameStatus(data.game_status, data.draw_reason);
+            handleGameStatus(data.game_status, data.draw_reason, data.rating);
         }
         if (!welcomeOverlay.classList.contains('active')) {
             queueAIMoveIfNeeded();
@@ -1807,6 +1823,7 @@
                 selected = null;
                 hints = [];
                 updatePlayerNames(data);
+                updateRatingBadge(data.current_rating ?? data.rating?.new_rating);
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
@@ -1831,7 +1848,7 @@
                     a11yMsg = `${playedColor} played ${lastMove}. `;
                 }
 
-                const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
+                const gameEnded = handleGameStatus(data.game_status, data.draw_reason, data.rating);
                 if (!gameEnded) {
                     if (data.game_status === 'check') {
                         applyCheckHighlight();
@@ -1920,6 +1937,7 @@
                 selected = null;
                 hints = [];
                 updatePlayerNames(data);
+                updateRatingBadge(data.current_rating ?? data.rating?.new_rating);
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
@@ -1944,7 +1962,7 @@
                     a11yMsg = `AI played ${lastMove}. `;
                 }
 
-                const gameEnded = handleGameStatus(data.game_status, data.draw_reason);
+                const gameEnded = handleGameStatus(data.game_status, data.draw_reason, data.rating);
                 if (!gameEnded) {
                     if (data.game_status === 'check') {
                         applyCheckHighlight();
@@ -2269,26 +2287,26 @@
         statusEl.className = 'status-bar' + (err ? ' error' : '');
     }
 
-    function handleGameStatus(status, drawReason) {
+    function handleGameStatus(status, drawReason, ratingInfo) {
         if (dailyPuzzleMode) {
             return false;
         }
         if (status === 'checkmate') {
-            endGame('checkmate', turn);
+            endGame('checkmate', turn, null, ratingInfo);
             return true;
         }
         if (status === 'stalemate') {
-            endGame('stalemate', turn);
+            endGame('stalemate', turn, null, ratingInfo);
             return true;
         }
         if (status === 'draw') {
-            endGame('draw', turn, drawReason);
+            endGame('draw', turn, drawReason, ratingInfo);
             return true;
         }
         return false;
     }
 
-    async function endGame(reason, color, drawReason = null) {
+    async function endGame(reason, color, drawReason = null, ratingInfo = null) {
         if (gameOver) return;
         gameOver = true;
         const frozenPlayerColor = playerColor;
@@ -2564,6 +2582,17 @@
             } else {
                 resMatDiffEl.textContent = `Black +${blackMat - whiteMat}`;
             }
+        }
+
+        const resRatingItem = document.getElementById('resRatingItem');
+        const resRatingEl = document.getElementById('resRatingChange');
+        if (ratingInfo && resRatingItem && resRatingEl) {
+            const sign = ratingInfo.rating_change >= 0 ? '+' : '';
+            resRatingEl.textContent = `${sign}${ratingInfo.rating_change} (${ratingInfo.new_rating})`;
+            resRatingEl.style.color = ratingInfo.rating_change >= 0 ? '#4ade80' : '#f87171';
+            resRatingItem.style.display = '';
+        } else if (resRatingItem) {
+            resRatingItem.style.display = 'none';
         }
 
         const modalWhiteCap = document.getElementById('modalWhiteCaptured');
@@ -3951,21 +3980,20 @@
             }, 2000);
         };
     }
-
     if (resignBtn) resignBtn.onclick = () => {
         if (!gameOver) {
             if (gameMode === 'pvp') {
                 const modal = document.getElementById('resignModal');
                 if (modal) {
                     modal.style.display = 'flex';
-                    
+
                     const hideModal = () => {
                         modal.style.display = 'none';
                         document.getElementById('resignWhite').onclick = null;
                         document.getElementById('resignBlack').onclick = null;
                         document.getElementById('resignCancel').onclick = null;
                     };
-                    
+
                     const confirmResign = (side) => {
                         hideModal();
                         showConfirm("Resign?", `Are you sure ${side} wants to resign?`, async () => {
@@ -3974,7 +4002,7 @@
                                 if (result.valid) {
                                     if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
                                     const loserColor = result.winner === 'white' ? 'black' : 'white';
-                                    endGame('resign', loserColor);
+                                    endGame('resign', loserColor, null, result.rating);
                                 } else {
                                     showStatus('Resign failed. Please try again.', true);
                                 }
@@ -3983,7 +4011,7 @@
                             }
                         });
                     };
-                    
+
                     document.getElementById('resignWhite').onclick = () => confirmResign('white');
                     document.getElementById('resignBlack').onclick = () => confirmResign('black');
                     document.getElementById('resignCancel').onclick = hideModal;
@@ -3995,7 +4023,7 @@
                         if (result.valid) {
                             if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
                             const loserColor = result.winner === 'white' ? 'black' : 'white';
-                            endGame('resign', loserColor);
+                            endGame('resign', loserColor, null, result.rating);
                         } else {
                             showStatus('Resign failed. Please try again.', true);
                         }
@@ -4007,13 +4035,16 @@
         }
     };
 
+
+    
+
     if (drawBtn) drawBtn.onclick = offerDraw;
     if (drawAcceptBtn) drawAcceptBtn.onclick = async () => {
         drawOverlay.classList.remove('active');
         const data = await post('/api/draw/', { action: 'accept' });
         if (data.success) {
             if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
-            endGame('draw', turn, data.draw_reason);
+            endGame('draw', turn, data.draw_reason, data.rating);
         }
     };
     if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
