@@ -2,6 +2,9 @@ import json
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from .engine import ChessGame
+from .models import GameRecord, GameResult
+
+
 class ResignTest(TestCase):
     """Test the /api/resign/ endpoint."""
 
@@ -57,6 +60,25 @@ class ResignTest(TestCase):
         self.client.post('/api/resign/', content_type='application/json')
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'resignation')
+
+    def test_immediate_resign_creates_linked_replay_record(self):
+        """Immediate resignation should still create a replay record."""
+        response = self.client.post(
+            '/api/resign/',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(GameRecord.objects.count(), 1)
+        self.assertEqual(GameResult.objects.count(), 1)
+
+        replay_record = GameRecord.objects.first()
+        game_result = GameResult.objects.first()
+
+        self.assertTrue(replay_record.pgn.strip())
+        self.assertIn('[Result "0-1"]', replay_record.pgn)
+        self.assertTrue(replay_record.pgn.strip().endswith('0-1'))
+        self.assertEqual(game_result.replay_record, replay_record)
 
 
 class DrawAIModeTest(TestCase):

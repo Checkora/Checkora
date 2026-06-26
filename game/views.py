@@ -694,16 +694,13 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    try:
-        game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
-        pgn_str = game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black'))
-        pgn_result = '1-0' if winner == 'white' else '0-1'
-        replay_record = save_game_record(request, pgn=pgn_str, result=pgn_result, termination='resignation', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-        if game_result is not None:
-            game_result.replay_record = replay_record
-            game_result.save(update_fields=['replay_record'])
-    except Exception as e:
-        logger.error('Failed to record resign result: %s', e)
+    game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
+    pgn_str = game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black'))
+    pgn_result = '1-0' if winner == 'white' else '0-1'
+    replay_record = save_game_record(request, pgn=pgn_str, result=pgn_result, termination='resignation', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
+    if game_result is not None:
+        game_result.replay_record = replay_record
+        game_result.save(update_fields=['replay_record'])
 
     return JsonResponse({
         'valid': True,
