@@ -155,15 +155,16 @@ body {
     font-size: 0.95rem;
     font-weight: 500;
     transition: color 0.3s ease;
+    padding-bottom: 6px;
 }
 
 .nav-links a::after {
     content: "";
     position: absolute;
     left: 0;
-    bottom: -4px;
+    bottom: -6px;
     width: 0;
-    height: 2px;
+    height: 0px;
     background-color: var(--accent-gold);
     transition: width 0.3s ease;
     position: relative;

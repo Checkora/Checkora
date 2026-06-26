@@ -43,8 +43,48 @@
             });
         };
 
+        // Helper to safely trigger toast notifications, dynamically loading
+        // toast.js and toast.css on demand if they aren't statically loaded on the page.
+        const showThemeToast = (message, type = "info") => {
+            if (typeof window.showToast === "function") {
+                window.showToast(message, type);
+            } else {
+                // Dynamically load toast.css if not present
+                if (!document.getElementById("toast-css-dynamic")) {
+                    const link = document.createElement("link");
+                    link.id = "toast-css-dynamic";
+                    link.rel = "stylesheet";
+                    link.href = "/static/game/css/toast.css";
+                    document.head.appendChild(link);
+                }
+                // Dynamically load toast.js if not present
+                const existingScript = document.getElementById("toast-js-dynamic");
+                if (!existingScript) {
+                    const script = document.createElement("script");
+                    script.id = "toast-js-dynamic";
+                    script.src = "/static/game/js/toast.js";
+                    script.onload = () => {
+                        if (typeof window.showToast === "function") {
+                            window.showToast(message, type);
+                        }
+                    };
+                    document.body.appendChild(script);
+                } else {
+                    // If script exists but window.showToast is not yet defined, it means the script is currently loading.
+                    // We attach the callback to the existing script's load event.
+                    existingScript.addEventListener("load", () => {
+                        if (typeof window.showToast === "function") {
+                            window.showToast(message, type);
+                        }
+                    });
+                }
+            }
+        };
+
         // Initialize button states
         updateToggleState(savedTheme);
+
+        let transitionTimeout = null;
 
         // Bind event listeners to all toggles
         toggles.forEach(toggle => {
@@ -52,9 +92,25 @@
                 const currentTheme = document.documentElement.getAttribute("data-theme");
                 const newTheme = currentTheme === "light" ? "dark" : "light";
 
+                // Clear any active transition timeout to handle rapid toggles
+                if (transitionTimeout) {
+                    clearTimeout(transitionTimeout);
+                }
+
+                // Temporarily enable theme transitions
+                document.documentElement.classList.add("theme-transition");
                 document.documentElement.setAttribute("data-theme", newTheme);
                 safeLocalStorage.set("theme", newTheme);
                 updateToggleState(newTheme);
+
+                // Trigger the toast notification
+                showThemeToast(`Switched to ${newTheme === "light" ? "Light" : "Dark"} Mode`, "info");
+
+                // Remove the class after the transition finishes (0.3s)
+                transitionTimeout = setTimeout(() => {
+                    document.documentElement.classList.remove("theme-transition");
+                    transitionTimeout = null;
+                }, 300);
             };
         });
     };
