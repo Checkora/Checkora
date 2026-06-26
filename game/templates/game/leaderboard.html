@@ -2,6 +2,7 @@
 {% load static %}
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leaderboards — Checkora</title>
@@ -9,17 +10,43 @@
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/leaderboard.css' %}">
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <style>
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: white;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .theme-toggle {
+            border-color: #d1d5db;
+            color: #4b5563;
+        }
+        [data-theme="light"] .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #111827;
+        }
+    </style>
+        <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 <body>
 
     <div class="header-container">
         <div class="header-title-row">
             <h1>🏆 Leaderboards</h1>
-            <a href="{% url 'landing' %}" class="back-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                Back to Home
-            </a>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
+                <a href="{% url 'landing' %}" class="back-link">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    Back to Home
+                </a>
+            </div>
         </div>
 
         <!-- Real-time client-side search box -->

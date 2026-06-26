@@ -119,10 +119,6 @@ body {
 }
 
 .theme-toggle {
-    position: absolute;
-    top: 0;
-    right: 0;
-    transform: translateY(-4px);
     background: transparent;
     border: 1px solid var(--card-border);
     color: var(--text-primary);
@@ -130,11 +126,22 @@ body {
     padding: 10px 14px;
     border-radius: 999px;
     font-size: 1rem;
-    transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+    transition: background 0.25s ease, color 0.25s ease;
 }
 
 .theme-toggle:hover {
     background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .theme-toggle:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.promo-dialog .theme-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translateY(-4px);
 }
 
 /* Responsive logo sizes */

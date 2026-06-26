@@ -2,13 +2,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | CHECKORA</title>
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
-</head>
+    </head>
 <body class="login-page">
     <!-- Upgraded Back-to-home Button -->
     <a href="{% url 'landing' %}" class="back-btn">

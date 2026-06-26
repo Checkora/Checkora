@@ -2,6 +2,7 @@
 {% load static %}
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora Achievements</title>
@@ -232,14 +233,38 @@
         [data-theme="light"] .rarity-rare { background: #dbeafe; color: #1e40af; }
         [data-theme="light"] .rarity-epic { background: #f3e8ff; color: #6b21a8; }
         [data-theme="light"] .rarity-legendary { background: #ffedd5; color: #9a3412; }
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: white;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .theme-toggle {
+            border-color: #d1d5db;
+            color: #4b5563;
+        }
+        [data-theme="light"] .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #111827;
+        }
     </style>
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+        <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 <body>
 
-<a href="{% url 'stats' %}" class="back-btn">
-    ← Back to Statistics
-</a>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 800px; margin-top: 10px;">
+    <a href="{% url 'stats' %}" class="back-btn" style="margin-bottom: 0;">
+        ← Back to Statistics
+    </a>
+    <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
+</div>
 
 <h1>🏆 Achievement Collection</h1>
 <p class="subtitle">

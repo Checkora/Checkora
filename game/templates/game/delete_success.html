@@ -3,6 +3,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Deleted | Checkora</title>
@@ -11,8 +12,7 @@
         rel="stylesheet"
         href="{% static 'game/css/landing.css' %}"
     >
-
-    <style>
+        <style>
 
         body{
             min-height:100vh;
@@ -118,6 +118,25 @@
             }
         }
 
+        /* Light Theme Overrides */
+        [data-theme="light"] body {
+            background: radial-gradient(circle at top, #f1f5f9 0%, #e2e8f0 45%, #cbd5e1 100%);
+            color: #0f172a;
+        }
+        [data-theme="light"] .success-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1), 0 0 30px rgba(180, 117, 5, 0.05);
+        }
+        [data-theme="light"] .logo h1, [data-theme="light"] .title {
+            color: #020617;
+        }
+        [data-theme="light"] .logo span {
+            color: #b47505;
+        }
+        [data-theme="light"] .description {
+            color: #4b5563;
+        }
     </style>
 </head>
 

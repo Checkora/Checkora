@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Rulebook – Checkora</title>
@@ -30,15 +31,15 @@
         [data-theme="light"] {
             --bg: #f5f7fb;
             --surface: #ffffff;
-            --surface2: #f0f2f8;
+            --surface2: #f0f2f5;
             --border: #d1d5db;
-            --gold: #d4a017;
-            --gold-dim: #b8860b;
+            --gold: #b47505;
+            --gold-dim: #78350f;
             --text: #111827;
             --muted: #4b5563;
-            --highlight: rgba(212, 160, 23, 0.35);
+            --highlight: rgba(180, 117, 5, 0.35);
             --danger: #dc2626;
-            --glow: 0 0 20px rgba(212, 160, 23, 0.15);
+            --glow: 0 0 20px rgba(180, 117, 5, 0.15);
         }
 
         [data-theme="light"] body {
@@ -239,23 +240,7 @@
             color: var(--gold-dim);
         }
 
-        /* Theme toggle button */
-        .theme-toggle-btn {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text);
-            cursor: pointer;
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-            line-height: 1;
-        }
 
-        .theme-toggle-btn:hover {
-            background: var(--surface2);
-            border-color: var(--gold);
-        }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -907,8 +892,26 @@
 
             .sidebar.open { display: block; }
         }
+
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .theme-toggle:hover {
+            background: var(--surface2);
+            border-color: var(--gold);
+        }
     </style>
-</head>
+    </head>
 <body>
 
     <header>
@@ -920,11 +923,9 @@
             </a>
             <h1 class="header-subtitle">Interactive Chess Rulebook</h1>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <button id="themeToggle" class="theme-toggle-btn" type="button"
-                    aria-label="Switch to light mode" aria-pressed="false">🌙</button>
-            <button id="menuToggle" type="button" onclick="toggleSidebar()"
-                    aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
+            <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
         </div>
     </header>
 

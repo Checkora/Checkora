@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Community Forum | Checkora</title>
@@ -12,7 +13,7 @@
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
-</head>
+    </head>
 <body>
     <nav class="forum-navbar">
         <div class="nav-left">
@@ -27,7 +28,8 @@
             </a>
         </div>
 
-        <div class="nav-right">
+        <div class="nav-right" style="gap: 15px;">
+            <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
             {% if user.is_authenticated %}
             <div class="profile-dropdown">
                 <button type="button" class="profile-btn">
@@ -184,5 +186,6 @@
         });
     </script>
     <script src="{% static 'game/js/dropdown.js' %}"></script>
+    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 </html>

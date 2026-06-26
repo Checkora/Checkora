@@ -3,18 +3,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ lesson.title }} - Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
+        <style>
+        /* Theme Toggle Button Styling */
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: white;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="light"] .theme-toggle {
+            border-color: #d1d5db;
+            color: #4b5563;
+        }
+        [data-theme="light"] .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #111827;
+        }
+        [data-theme="light"] .back-btn {
+            color: #b47505;
+        }
+        [data-theme="light"] .back-btn:hover {
+            color: #d4a017;
+        }
+
+        /* Light Theme Overrides */
+        [data-theme="light"] body {
+            background: #f5f7fb;
+            color: #111827;
+        }
+        [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 {
+            color: #111827;
+        }
+        [data-theme="light"] .description, [data-theme="light"] .lesson-content li, [data-theme="light"] .lesson-navigation a {
+            color: #4b5563;
+        }
+        [data-theme="light"] .lesson-box, [data-theme="light"] .coord-toggle-container {
+            background: #ffffff;
+            border-color: #d1d5db;
+        }
+        [data-theme="light"] .coord-toggle-label {
+            color: #4b5563;
+        }
+        [data-theme="light"] .coming-soon {
+            background: rgba(212, 160, 23, 0.08);
+            border-left-color: #d4a017;
+            color: #111827;
+        }
+        [data-theme="light"] .quiz-btn {
+            background: #e5e7eb;
+            color: #111827;
+        }
+        [data-theme="light"] .quiz-btn:hover {
+            background: #d1d5db;
+        }
+        [data-theme="light"] .lesson-ranks span, [data-theme="light"] .lesson-files span {
+            color: #6b7280;
+        }
+    </style>
 </head>
 <body>
 
 <div class="container">
 
-    <a href="{% url 'lessons' %}" class="back-btn">
-        ← Back to Lessons
-    </a>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 900px; margin-top: 10px;">
+        <a href="{% url 'lessons' %}" class="back-btn" style="margin-bottom: 0;">
+            ← Back to Lessons
+        </a>
+        <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
+    </div>
 
     <div class="lesson-box">
 
@@ -303,5 +371,6 @@ function triggerCelebration(btn) {
 <script src="{% static 'game/js/lesson_demo.js' %}"></script>
 <script src="{% static 'game/js/lesson_practice.js' %}"></script>
 <script src="{% static 'game/js/lesson_coordinates.js' %}"></script>
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 </html>

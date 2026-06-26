@@ -2,11 +2,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% include 'game/includes/theme_bootstrap.html' %}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Learning Journey</title>
-
 <style>
 body{
     margin:0;
@@ -476,6 +476,40 @@ background-size:60px 60px;
 [data-theme="light"] .lesson-name {
     color: #4b5563;
 }
+
+/* Theme Toggle Button Styling */
+.theme-toggle {
+    background: transparent;
+    border: 1px solid #444;
+    color: white;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+.theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="light"] .theme-toggle {
+    border-color: #d1d5db;
+    color: #4b5563;
+}
+[data-theme="light"] .theme-toggle:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #111827;
+}
+[data-theme="light"] .back-btn {
+    background: rgba(255, 255, 255, 0.8);
+    color: #111827;
+    border-color: #d1d5db;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .back-btn:hover {
+    color: #b47505;
+    border-color: rgba(180, 117, 5, 0.3);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+}
 </style>
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
@@ -494,9 +528,12 @@ background-size:60px 60px;
 </div>
 {% endif %}
 
-<a href="{% url 'landing' %}" class="back-btn">
-← Back to Home
-</a>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 900px; margin-top: 10px; padding: 0 20px;">
+    <a href="{% url 'landing' %}" class="back-btn" style="margin: 0;">
+        ← Back to Home
+    </a>
+    <button type="button" class="theme-toggle" title="Toggle light / dark theme" aria-label="Switch to light mode" aria-pressed="false">🌙</button>
+</div>
 
 <div class="header">
     <h1>🗺 Chess Learning Journey</h1>
