@@ -434,9 +434,12 @@
                 <div id="whiteClock" class="clock white active">
                     <span class="label">
                         <img id="whitePlayerAvatar" class="nav-avatar" src="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
+                        <!-- NEW -->
                         <span id="whiteNameLabel">WHITE</span>
                         <span id="whiteYouTag"
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
+                        <span id="whiteRatingBadge"
+                            style="display: none; color: #9aa0c0; margin-left: 4px; font-size: 0.8em;"></span>
                     </span>
                     <span class="time" id="whiteTime">10:00</span>
                 </div>
@@ -453,8 +456,10 @@
                     <span class="label">
                         <img id="blackPlayerAvatar" class="nav-avatar" src="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
                         <span id="blackNameLabel">BLACK</span>
-                        <span id="blackYouTag"
+                         <span id="blackYouTag"
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
+                        <span id="blackRatingBadge"
+                            style="display: none; color: #9aa0c0; margin-left: 4px; font-size: 0.8em;"></span>
                     </span>
                     <span class="time" id="blackTime">10:00</span>
                 </div>
@@ -736,10 +741,16 @@
                                 <span class="stat-label">Duration</span>
                                 <span class="stat-value" id="gameDurationText">00:00</span>
                             </div>
+                            <!-- NEW -->
                             <div class="stat-item">
                                 <span class="stat-label">Material</span>
                                 <span class="stat-value" id="resMaterialDiff">Even</span>
                             </div>
+                            <div class="stat-item" id="resRatingItem" style="display:none;">
+                                <span class="stat-label">Rating</span>
+                                <span class="stat-value" id="resRatingChange">+0</span>
+                            </div>
+                            
                             <div class="stat-item">
                                 <span class="stat-label">Captures</span>
                                 <span class="stat-value" id="resAnalysisCaptures">0</span>
