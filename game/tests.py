@@ -1,6 +1,7 @@
 """Tests for the Checkora chess engine and API endpoints."""
 
 import json
+from pathlib import Path
 import sys
 import time
 from smtplib import SMTPException
@@ -83,6 +84,45 @@ class EnginePathResolutionTest(SimpleTestCase):
                 ChessGame._build_engine_command(candidates[2]),
                 [sys.executable, candidates[2]],
             )
+
+
+class BadgeGenerationTest(TestCase):
+    """Badge image generation should use bundled fonts."""
+
+    def setUp(self):
+        self.badge_path = None
+
+    def tearDown(self):
+        if self.badge_path and self.badge_path.exists():
+            self.badge_path.unlink()
+
+    def test_generate_badge_uses_bundled_fonts(self):
+        from .models import Achievement, UserAchievement
+        from .services import BADGE_FONT_PATHS, _load_badge_font, generate_badge
+
+        for style, font_path in BADGE_FONT_PATHS.items():
+            self.assertTrue(font_path.exists(), f"Missing badge font: {font_path}")
+            self.assertIn("Tinos", _load_badge_font(style, 24).getname()[0])
+
+        user = User.objects.create_user(username="badgewinner")
+        achievement = Achievement.objects.create(
+            code="BADGE_SMOKE_TEST",
+            title="Badge Ready",
+            description="Generated badge smoke test",
+            icon="🏅",
+            category="special",
+            rarity="common",
+        )
+        user_achievement = UserAchievement.objects.create(
+            user=user,
+            achievement=achievement,
+        )
+
+        self.badge_path = Path(generate_badge(user_achievement))
+
+        self.assertTrue(self.badge_path.exists())
+        self.assertGreater(self.badge_path.stat().st_size, 1024)
+
 
 class BoardViewTest(TestCase):
     """The board page should load and initialise a session."""
