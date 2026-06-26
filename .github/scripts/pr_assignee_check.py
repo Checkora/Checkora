@@ -37,29 +37,6 @@ def github_get(url: str, token: str):
         return json.load(response)
 
 
-def evaluate_pr_from_first_available_repo(
-    repos: list[tuple[str, str]],
-    pr_number: int,
-    token: str,
-) -> tuple[bool, str]:
-    """Evaluate a PR, trying fallback repos when Vercel reports fork metadata."""
-    not_found: list[str] = []
-    for owner, repo in repos:
-        try:
-            return evaluate_pr(owner, repo, pr_number, token)
-        except urllib.error.HTTPError as exc:
-            if exc.code != 404:
-                raise
-            not_found.append(f"{owner}/{repo}")
-
-    print(
-        "PR not found in Vercel repo metadata: "
-        + ", ".join(not_found)
-        + " — building"
-    )
-    return True, "pr_not_found"
-
-
 def is_infra_only_pr(owner: str, repo: str, pr_number: int, token: str) -> bool:
     """Allow workflow-only PRs (e.g. PR Guardian itself) without a linked issue."""
     files = github_get(
@@ -182,20 +159,7 @@ def run_vercel() -> int:
             print("Missing repo owner/slug — building")
             return 1
 
-    repos = [(owner, repo)]
-    repository = os.environ.get("GITHUB_REPOSITORY", "")
-    if "/" in repository:
-        gh_owner, gh_repo = repository.split("/", 1)
-        if (gh_owner, gh_repo) not in repos:
-            repos.append((gh_owner, gh_repo))
-    if repo == "Checkora" and ("Checkora", "Checkora") not in repos:
-        repos.append(("Checkora", "Checkora"))
-
-    allowed, reason = evaluate_pr_from_first_available_repo(
-        repos,
-        int(pr_id),
-        token,
-    )
+    allowed, reason = evaluate_pr(owner, repo, int(pr_id), token)
     if allowed:
         print(f"Vercel build allowed: {reason}")
         return 1
