@@ -3519,3 +3519,49 @@ class AvatarViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         # Should stay on avatar page with an error message
         self.assertTemplateUsed(response, 'game/avatar.html')
+
+
+class GameResultRatingTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='ratingplayer', password='password123')
+        from game.models import PlayerRating, GameResult, UserAchievement, Achievement
+        self.PlayerRating = PlayerRating
+        self.GameResult = GameResult
+        self.UserAchievement = UserAchievement
+        Achievement.objects.create(code='FIRST_WIN', title='First Win', description='Win a game', icon='🏆', category='game', rarity='common')
+
+    def test_record_game_result_updates_rating_and_achievements_for_ai(self):
+        from game.views import record_game_result
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        request.session = {}
+
+        record_game_result(request, 'ai', 'white', 'checkmate', 'white')
+
+        rating = self.PlayerRating.objects.get(user=self.user)
+        self.assertEqual(rating.games_played, 1)
+        self.assertEqual(rating.wins, 1)
+        self.assertTrue(self.UserAchievement.objects.filter(user=self.user).exists())
+        
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.mode, 'ai')
+        self.assertEqual(res.winner, 'white')
+
+    def test_record_game_result_does_not_update_rating_or_achievements_for_pvp(self):
+        from game.views import record_game_result
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        request.session = {}
+
+        record_game_result(request, 'pvp', 'white', 'checkmate', 'white')
+
+        self.assertFalse(self.PlayerRating.objects.filter(user=self.user).exists())
+        self.assertFalse(self.UserAchievement.objects.filter(user=self.user).exists())
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.mode, 'pvp')
+        self.assertEqual(res.winner, 'white')

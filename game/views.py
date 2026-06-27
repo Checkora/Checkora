@@ -198,7 +198,7 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     result.full_clean()
     result.save()
 
-    if user:
+    if user and mode == 'ai':
         update_player_rating(
             user,
             winner,
