@@ -279,14 +279,12 @@ document.addEventListener(
             ["a", "b", "c", "d", "e", "f", "g", "h"];
 
         const pieces = {
-            P: "♙",
-            N: "♘",
-            B: "♗",
-            R: "♖",
-            Q: "♕",
-            K: "♔",
-
-            
+            P: "♙", p: "♟",
+            N: "♘", n: "♞",
+            B: "♗", b: "♝",
+            R: "♖", r: "♜",
+            Q: "♕", q: "♛",
+            K: "♔", k: "♚"
         };
 
         board.innerHTML = "";

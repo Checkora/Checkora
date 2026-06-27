@@ -93,6 +93,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
+    <script src="{% static 'game/js/cursor.js' %}"></script>
   </head>
 
   <body>
@@ -115,7 +116,16 @@
           <a href="{% url 'forum' %}">Forum</a>
         </div>
       </div>
+      <button type="button" class="hamburger" id="hamburgerBtn" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
       <div class="nav-right">
+        <div class="cursor-selector">
+          <select id="cursorSelect" class="cursor-select" onchange="window.__setCursor(this.value)">
+            <option value="default">🖱 Default</option>
+            <option value="glow">✨ Glow</option>
+          </select>
+        </div>
         <button type="button" id="themeToggle" class="theme-toggle">
             🌙
         </button>
@@ -168,6 +178,15 @@
         {% endif %}
       </div>
     </nav>
+
+    <div class="mobile-menu" id="mobileMenu">
+      <div class="mobile-menu-links">
+        <a href="#about" class="mobile-nav-link">About Us</a>
+        <a href="#features" class="mobile-nav-link">Features</a>
+        <a href="#faq" class="mobile-nav-link">FAQ</a>
+        <a href="{% url 'forum' %}" class="mobile-nav-link">Forum</a>
+      </div>
+    </div>
 
     <main class="hero" id="hero">
       <div class="ambient-glow glow-gold"></div>
@@ -1784,5 +1803,32 @@
 })();
 </script>
   <script src="{% static 'game/js/dropdown.js' %}"></script>
+  <script>
+    (function() {
+      var sel = document.getElementById('cursorSelect');
+      if (sel && window.__cursor) {
+        sel.value = window.__cursor;
+      }
+    })();
+  </script>
+  <script>
+    (function() {
+      var btn = document.getElementById('hamburgerBtn');
+      var menu = document.getElementById('mobileMenu');
+      if (btn && menu) {
+        btn.addEventListener('click', function() {
+          var expanded = btn.getAttribute('aria-expanded') === 'true' ? false : true;
+          btn.setAttribute('aria-expanded', expanded);
+          menu.classList.toggle('open');
+        });
+        menu.addEventListener('click', function(e) {
+          if (e.target.classList.contains('mobile-nav-link')) {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+    })();
+  </script>
   </body>
 </html>

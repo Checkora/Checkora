@@ -21,12 +21,12 @@ document.addEventListener(
         let current = 0;
 
         const pieces = {
-            P: "♙",
-            N: "♘",
-            B: "♗",
-            R: "♖",
-            Q: "♕",
-            K: "♔"
+            P: "♙", p: "♟",
+            N: "♘", n: "♞",
+            B: "♗", b: "♝",
+            R: "♖", r: "♜",
+            Q: "♕", q: "♛",
+            K: "♔", k: "♚"
         };
 
         function renderExample() {

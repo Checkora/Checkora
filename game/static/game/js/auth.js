@@ -82,8 +82,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
- /* ── Password validation checklist (register page only) ── */
+  /* ── Password validation checklist (register page only) ── */
   const passwordInput = document.querySelector('input[name="password1"]');
+  const password2Input = document.querySelector('input[name="password2"]');
   const emailInput = document.querySelector('input[name="email"]');
   const usernameInput = document.querySelector('input[name="username"]');
 
@@ -133,6 +134,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const emailPart = emailInput && emailInput.value ? emailInput.value.split('@')[0] : '';
             const userVal = usernameInput ? usernameInput.value : '';
             return !checkSimilarity(v, emailPart) && !checkSimilarity(v, userVal);
+        }
+      },
+      { 
+        id: "rule-match", 
+        text: "Passwords match", 
+        test: (v) => {
+            if (!v && !password2Input?.value) return false;
+            if (!password2Input?.value) return false;
+            return v === password2Input.value;
         }
       }
     ];
@@ -204,6 +214,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Cross-bind to email and username so the rule evaluates correctly if filled out of order
     if (emailInput) emailInput.addEventListener("input", validatePassword);
     if (usernameInput) usernameInput.addEventListener("input", validatePassword);
+
+    // Live password match validation
+    if (password2Input) password2Input.addEventListener("input", validatePassword);
 
     validatePassword(); // Run on initial load (handles autofill/form restoration)
   }

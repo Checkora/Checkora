@@ -371,3 +371,40 @@ h1 {
     pointer-events: none;
     transition: opacity 0.2s ease;
 }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+    body {
+        padding: 15px;
+    }
+    .container {
+        max-width: 100%;
+    }
+    .lesson-box {
+        padding: 15px;
+    }
+    .coming-soon {
+        padding: 12px;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    .quiz-btn {
+        width: 100%;
+        margin-bottom: 10px;
+        white-space: normal;
+        text-align: left;
+    }
+    #demo-board {
+        max-width: 100%;
+    }
+    .lesson-board {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1/1;
+    }
+    .lesson-square {
+        width: 100%;
+        height: 100%;
+        font-size: clamp(24px, 5vw, 38px);
+    }
+}
