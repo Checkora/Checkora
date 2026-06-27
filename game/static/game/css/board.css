@@ -409,6 +409,17 @@ body {
     gap: 12px;
     box-sizing: border-box;
 }
+/* Give Move History panel a bit more room on desktop */
+@media (min-width: 1024px) {
+    .move-history-panel {
+        width: 240px;
+        max-width: 240px;
+    }
+
+    .move-history-panel .move-row {
+        grid-template-columns: 36px minmax(56px, 1fr) minmax(56px, 1fr);
+    }
+}
 
 .panel input,
 .panel select,
