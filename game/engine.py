@@ -23,11 +23,51 @@ import json
 import sys
 import time
 import threading
+import atexit
+import signal
 from datetime import date
+
+# Register engine cleanup on process exit
+atexit.register(ChessGame._cleanup_engines)
+
+# Also handle SIGTERM/SIGINT for server shutdown
+def _signal_cleanup(*_args):
+    ChessGame._cleanup_engines()
+    os._exit(0)
+
+signal.signal(signal.SIGTERM, _signal_cleanup)
+signal.signal(signal.SIGINT, _signal_cleanup)
 
 class ChessGame:
     """Manage a single chess game: state, validation,
       and engine communication."""
+
+    # Track spawned engine processes for cleanup
+    _engine_processes = set()
+    _engine_lock = threading.Lock()
+
+    @classmethod
+    def _cleanup_engines(cls):
+        """Kill all tracked engine subprocesses."""
+        with cls._engine_lock:
+            for proc in list(cls._engine_processes):
+                try:
+                    if proc.poll() is None:
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=3)
+                        except subprocess.TimeoutExpired:
+                            proc.kill()
+                            proc.wait(timeout=1)
+                    cls._engine_processes.discard(proc)
+                except Exception:
+                    pass
+
+    @classmethod
+    def _register_engine(cls, proc):
+        """Track an engine process for later cleanup."""
+        with cls._engine_lock:
+            cls._engine_processes.add(proc)
 
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
     ENGINE_DIR = os.path.join(CURRENT_DIR, 'engine')
@@ -318,6 +358,7 @@ DP cache is intentionally excluded to save cookie space."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
+        proc = None
         try:
             proc = subprocess.Popen(
                 self._build_engine_command(engine_path),
@@ -326,9 +367,22 @@ DP cache is intentionally excluded to save cookie space."""
                 stderr=subprocess.PIPE,
                 text=True,
             )
+            self._register_engine(proc)
             stdout, _ = proc.communicate(input=command, timeout=5)
+            self._engine_processes.discard(proc)
             return stdout.strip()
         except (subprocess.TimeoutExpired, OSError):
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    try:
+                        proc.kill()
+                        proc.wait(timeout=1)
+                    except Exception:
+                        pass
+                self._engine_processes.discard(proc)
             return None
 
     def _count_active_pieces(self):
@@ -821,6 +875,17 @@ DP cache is intentionally excluded to save cookie space."""
     #  Game status detection (check / checkmate / stalemate)
     # ------------------------------------------------------------------
 
+    def _has_legal_moves(self):
+        """Return True if the side to move has at least one legal move."""
+        for r in range(8):
+            for c in range(8):
+                piece = self.board[r][c]
+                if not piece or self._color(piece) != self.current_turn:
+                    continue
+                if self.get_valid_moves(r, c):
+                    return True
+        return False
+
     def check_game_status(self):
         """Ask the C++ engine for the game status of the current side.
 
@@ -835,6 +900,9 @@ DP cache is intentionally excluded to save cookie space."""
             status = resp.split()[1].lower()
             if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 return status
+        # Python fallback when engine is unavailable
+        if not self._has_legal_moves():
+            return 'stalemate'
         return 'ok'
 
     # ------------------------------------------------------------------

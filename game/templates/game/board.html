@@ -493,6 +493,10 @@
                     <a href="{% url 'leaderboard' %}" class="btn btn-gold" style="text-decoration:none;text-align:center;">Leaderboard</a>
                     <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
                     <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-gold" id="undoBtn" style="flex:1;" disabled>↩ Undo</button>
+                        <button class="btn btn-gold" id="redoBtn" style="flex:1;" disabled>↪ Redo</button>
+                    </div>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>

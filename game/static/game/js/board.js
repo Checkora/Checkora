@@ -679,6 +679,50 @@
     let aiThinking = false;
     let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
 
+    let undoStack = [];
+    let redoStack = [];
+
+    function snapshotState() {
+        return {
+            board: board.map(r => [...r]),
+            turn: turn,
+            whiteTime: whiteTime,
+            blackTime: blackTime,
+            moveHistory: movesEl ? movesEl.innerHTML : '',
+            capturedWhite: wCapEl ? wCapEl.innerHTML : '',
+            capturedBlack: bCapEl ? bCapEl.innerHTML : '',
+            lastMove: lastMove ? { ...lastMove } : null,
+            selected: selected ? { ...selected } : null,
+            hints: hints.map(h => ({ ...h })),
+            gameOver: gameOver,
+        };
+    }
+
+    function restoreState(s) {
+        board = s.board;
+        turn = s.turn;
+        whiteTime = s.whiteTime;
+        blackTime = s.blackTime;
+        lastMove = s.lastMove;
+        selected = null;
+        hints = [];
+        gameOver = s.gameOver;
+        buildBoard();
+        syncPieces();
+        renderClocks();
+        updateTurn();
+        updateMaterialUI(board);
+        showStatus('', false);
+        updateUndoRedoButtons();
+    }
+
+    function updateUndoRedoButtons() {
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+        if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+    }
+
     let replayMode = false;
     let replayMoves = [];
     let replayIndex = 0;
@@ -1063,7 +1107,12 @@
         if (gameMode === 'ai') {
             flipped = (playerColor === 'black');
         } else {
-            flipped = false;
+            try {
+                const savedOrientation = localStorage.getItem('boardOrientation');
+                flipped = savedOrientation === 'black';
+            } catch (e) {
+                flipped = false;
+            }
         }
 
         if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
@@ -1543,6 +1592,9 @@
             return;
         }
 
+        undoStack.push(snapshotState());
+        redoStack = [];
+        updateUndoRedoButtons();
         await executeMove(fr, fc, tr, tc, null);
     } let reconnecting = false;
     async function handleReconnect() {
@@ -1769,6 +1821,9 @@
 
     async function requestAIMove() {
         if (gameOver || aiThinking) return;
+        undoStack.push(snapshotState());
+        redoStack = [];
+        updateUndoRedoButtons();
         // Increment and store current sequence value to identify this specific request
         const seq = ++aiRequestSeq;
         aiThinking = true;
@@ -2973,6 +3028,9 @@
     function toggleBoardOrientation() {
         flipped = !flipped;
         buildBoard();
+        try {
+            localStorage.setItem('boardOrientation', flipped ? 'black' : 'white');
+        } catch (e) {}
     }
 
     async function pauseGame() {
@@ -3089,6 +3147,9 @@
     }
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
+        undoStack = [];
+        redoStack = [];
+        updateUndoRedoButtons();
         evaluationCache = {};
         if (!isPuzzle) {
             dailyPuzzleMode = false;
@@ -3232,7 +3293,12 @@
         if (gameMode === 'ai') {
             flipped = (playerColor === 'black');
         } else {
-            flipped = false;
+            try {
+                const savedOrientation = localStorage.getItem('boardOrientation');
+                flipped = savedOrientation === 'black';
+            } catch (e) {
+                flipped = false;
+            }
         }
         buildBoard();
 
@@ -3842,6 +3908,20 @@
         resumeGame();
     };
 
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    if (undoBtn) undoBtn.onclick = () => {
+        if (undoStack.length === 0) return;
+        if (gameMode === 'ai' && aiThinking) return;
+        redoStack.push(snapshotState());
+        restoreState(undoStack.pop());
+    };
+    if (redoBtn) redoBtn.onclick = () => {
+        if (redoStack.length === 0) return;
+        undoStack.push(snapshotState());
+        restoreState(redoStack.pop());
+    };
+
     if (gameOverStartBtn) gameOverStartBtn.onclick = () => {
         openWelcomeForNewGame();
     };
@@ -4360,6 +4440,7 @@
         if (!isPremoveDrag && !isNormalDrag) return;
 
         touchDragSrc = { r, c };
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
     }, { passive: true });
 
     boardEl.addEventListener('touchmove', (e) => {

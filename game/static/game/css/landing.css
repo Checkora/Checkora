@@ -16,20 +16,20 @@
 }
 
 [data-theme="light"] {
-    --bg-primary: #f5f7fb;
-    --bg-dark: #f5f7fb;
+    --bg-primary: #f8f7f2;
+    --bg-dark: #f8f7f2;
     --nav-bg: #ffffff;
 
     --card-bg: #ffffff;
-    --card-border: #d1d5db;
-    --card-hover: #f3f4f6;
+    --card-border: #e5e0d4;
+    --card-hover: #f3f1ec;
 
-    --text-primary: #111827;
-    --text-title: #000000;
-    --text-secondary: #4b5563;
+    --text-primary: #2c2c2c;
+    --text-title: #1a1a1a;
+    --text-secondary: #5b5b5b;
 
-    --accent-gold: #d4a017;
-    --border-color: rgba(0,0,0,0.1);
+    --accent-gold: #c8962e;
+    --border-color: rgba(0,0,0,0.08);
 }
 .theme-toggle {
     background: transparent;
