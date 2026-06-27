@@ -122,6 +122,9 @@
   </head>
 
   <body>
+
+    <div class="nav-backdrop" id="navBackdrop"></div>
+
     <nav class="navbar">
       <div class="nav-left">
         <a href="{% url 'landing' %}" class="logo-link">
@@ -134,7 +137,18 @@
             >CHECK<span class="logo-accent">ORA</span></span
           >
         </a>
-        <div class="nav-links">
+
+        <!-- HAMBURGER BUTTON -->
+    <button
+      class="nav-toggle"
+      id="navToggle"
+      aria-label="Menu"
+      aria-expanded="false"
+    >
+      ☰
+    </button>
+
+        <div class="nav-links" id="navLinks">
           <a href="#about">About Us</a>
           <a href="#features">Features</a>
           <a href="#faq">FAQ</a>
@@ -1978,5 +1992,6 @@ updateCursorType('default');
         });
     });
     </script>
+    <script src="{% static 'game/js/landing.js' %}"></script>
   </body>
 </html>
