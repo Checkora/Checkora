@@ -1739,6 +1739,118 @@ body.hide-native-cursor * {
     .ring2 { width: 68px; height: 68px; }
     .ring3 { width: 86px; height: 86px; }
 }
+
+/* ==========================================================================
+   Platform Growth Statistics Section
+   ========================================================================== */
+.platform-stats-section {
+    padding: 3rem 0;
+    width: 100%;
+    background-color: var(--bg-primary);
+    position: relative;
+    z-index: 10;
+}
+
+.stats-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 5%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+}
+
+.stat-box {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(10px);
+}
+
+.stat-box:hover {
+    transform: translateY(-4px);
+    border-color: rgba(240, 192, 64, 0.3);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(240, 192, 64, 0.03);
+}
+
+.stat-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+.stat-number-wrapper {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    font-family: 'Exo 2', 'Rajdhani', sans-serif;
+    color: var(--text-title);
+}
+
+.stat-num {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-title);
+}
+
+.stat-plus, .stat-suffix {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    margin-left: 2px;
+}
+
+.stat-label {
+    margin-top: 0.5rem;
+    font-size: 0.88rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Theme Adaptations */
+[data-theme="light"] .stat-box {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* Responsive Rules */
+@media (max-width: 900px) {
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        padding: 0 3%;
+    }
+    .stat-num {
+        font-size: 2rem;
+    }
+    .stat-plus, .stat-suffix {
+        font-size: 1.3rem;
+    }
+    .stat-box {
+        padding: 1.5rem 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-container {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    .stat-box {
+        padding: 1.25rem 1rem;
+        border-radius: 14px;
+    }
+}
+
 /* ==========================================================================
    Upgraded Multi-Column Modern Footer
    ========================================================================== */
