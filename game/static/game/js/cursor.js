@@ -74,26 +74,32 @@ cursorOptions.forEach(option => {
 
 let savedCursor = "default";
 
-try {
-    const storedCursor = window.localStorage.getItem("cursorType");
-
-    if (allowedCursorTypes.includes(storedCursor)) {
-        savedCursor = storedCursor;
+    try {
+        const storedCursor = window.localStorage.getItem("cursorType");
+        if (allowedCursorTypes.includes(storedCursor)) {
+            savedCursor = storedCursor;
+        }
+    } 
+    catch (error) {
+        // Ignore storage access errors.
     }
-} catch (error) {
-    // Ignore storage access errors.
-}
 
 updateCursorType(savedCursor);
     
     if (cursorDropdown && cursorTrigger && cursorTypeLabel) {
 
     cursorTrigger.addEventListener('click', e => {
-        e.stopPropagation();
-        cursorDropdown.classList.toggle('active');
-        const expanded = cursorDropdown.classList.contains('active');
-        cursorTrigger.setAttribute('aria-expanded', expanded);
+    e.stopPropagation();
+
+    document.querySelectorAll('.profile-dropdown.active').forEach(menu => {
+        menu.classList.remove('active');
     });
+
+    cursorDropdown.classList.toggle('active');
+
+    const expanded = cursorDropdown.classList.contains('active');
+    cursorTrigger.setAttribute('aria-expanded', expanded);
+});
 
     cursorOptions.forEach(option => {
         option.addEventListener('click', () => {
