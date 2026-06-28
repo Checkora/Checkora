@@ -32,6 +32,13 @@ if (!cursor) {
     }
 
     updateCursorPosition();
+    const allowedCursorTypes = [
+        "default",
+        "glow",
+        "trail",
+        "sparkle",
+        "orbit",
+    ];
 
     function updateCursorType(type) {
       activeCursor = type;
@@ -56,13 +63,28 @@ cursorOptions.forEach(option => {
         option.dataset.cursor === type
     );
 });
-      window.localStorage.setItem("cursorType", type);
+      try {
+    window.localStorage.setItem("cursorType", type);
+} catch (error) {
+    // Ignore storage access errors.
+}
     }
 
-    const savedCursor =
-        window.localStorage.getItem("cursorType") || "default";
+    
 
-    updateCursorType(savedCursor);
+let savedCursor = "default";
+
+try {
+    const storedCursor = window.localStorage.getItem("cursorType");
+
+    if (allowedCursorTypes.includes(storedCursor)) {
+        savedCursor = storedCursor;
+    }
+} catch (error) {
+    // Ignore storage access errors.
+}
+
+updateCursorType(savedCursor);
     
     if (cursorDropdown && cursorTrigger && cursorTypeLabel) {
 
