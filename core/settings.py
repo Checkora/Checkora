@@ -182,6 +182,14 @@ ANALYZE_GAME_USER_MAX_REQUESTS = _positive_int_env('ANALYZE_GAME_USER_MAX_REQUES
 # Max requests that can originate from a single IP address in the time window
 ANALYZE_GAME_IP_MAX_REQUESTS = _positive_int_env('ANALYZE_GAME_IP_MAX_REQUESTS', 20)
 
+# Rate limiting for opening lookup
+OPENING_RATE_LIMIT_WINDOW_SECONDS = _positive_int_env(
+    'OPENING_RATE_LIMIT_WINDOW_SECONDS', 60
+)
+OPENING_RATE_LIMIT_MAX_REQUESTS = _positive_int_env(
+    'OPENING_RATE_LIMIT_MAX_REQUESTS', 60
+)
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 

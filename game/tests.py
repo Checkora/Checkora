@@ -3565,3 +3565,75 @@ class GameResultRatingTest(TestCase):
         res = self.GameResult.objects.first()
         self.assertEqual(res.mode, 'pvp')
         self.assertEqual(res.winner, 'white')
+
+
+@override_settings(
+    OPENING_RATE_LIMIT_WINDOW_SECONDS=60,
+    OPENING_RATE_LIMIT_MAX_REQUESTS=2,
+)
+class OpeningLookupRateLimitTest(TestCase):
+    """Opening lookup requests should be throttled."""
+
+    def setUp(self):
+        cache.clear()
+        self.trainer_url = reverse('opening_trainer')
+        self.detail_url = reverse('opening_detail', kwargs={'slug': 'italian-game'})
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_opening_trainer_rate_limit(self):
+        res1 = self.client.get(self.trainer_url)
+        self.assertEqual(res1.status_code, 200)
+        
+        res2 = self.client.get(self.trainer_url)
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res3.status_code, 429)
+        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+        res_html = self.client.get(self.trainer_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(res_html.status_code, 429)
+        self.assertIn(b"429 Too Many Requests", res_html.content)
+
+    def test_opening_detail_rate_limit(self):
+        res1 = self.client.get(self.detail_url)
+        self.assertEqual(res1.status_code, 200)
+        
+        res2 = self.client.get(self.detail_url)
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(self.detail_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res3.status_code, 429)
+        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+    def test_opening_trainer_rate_limit_authenticated(self):
+        # First exhaust the anonymous limit (IP based)
+        res1 = self.client.get(self.trainer_url)
+        self.assertEqual(res1.status_code, 200)
+        
+        res2 = self.client.get(self.trainer_url)
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res3.status_code, 429)
+        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+        # Now authenticate and verify we get a fresh allowance (User ID based)
+        User.objects.create_user(
+            username='testuser_rl',
+            password='Password123!',
+            email='testuser_rl@example.com'
+        )
+        self.client.login(username='testuser_rl', password='Password123!')
+        
+        res4 = self.client.get(self.trainer_url)
+        self.assertEqual(res4.status_code, 200)
+        
+        res5 = self.client.get(self.trainer_url)
+        self.assertEqual(res5.status_code, 200)
+        
+        res6 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res6.status_code, 429)
+        self.assertEqual(res6.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})

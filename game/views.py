@@ -2,6 +2,7 @@
 import logging
 import json
 import time
+from functools import wraps
 import hashlib
 import math
 import io
@@ -1556,6 +1557,46 @@ def increment_counter(key, timeout):
     finally:
         if acquired:
             cache.delete(lock_key)
+
+
+def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit reached. Please try again shortly."):
+    """
+    Reusable rate limit decorator based on cache throttle.
+    Limits requests to max_setting within window_setting seconds per user/IP.
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.is_authenticated:
+                key_id = request.user.id
+            else:
+                key_id = get_client_ip(request)
+            
+            key_digest = hashlib.sha256(
+                str(key_id).encode('utf-8')
+            ).hexdigest()
+            cache_key = f"rate_limit:{prefix}:{key_digest}"
+            
+            window_seconds = getattr(settings, window_setting, 60)
+            max_requests = getattr(settings, max_setting, 60)
+            
+            current = increment_counter(cache_key, window_seconds)
+            
+            if current > max_requests:
+                if request.accepts("text/html"):
+                    from django.http import HttpResponse
+                    return HttpResponse(
+                        (
+                            "<h1>429 Too Many Requests</h1>"
+                            f"<p>{error_message}</p>"
+                        ),
+                        status=429
+                    )
+                return JsonResponse({"error": error_message}, status=429)
+                
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
 
 
 def login_view(request):
@@ -3590,6 +3631,15 @@ def lesson_map_view(request):
         }
     )
 
+
+@rate_limit(
+    window_setting="OPENING_RATE_LIMIT_WINDOW_SECONDS",
+    max_setting="OPENING_RATE_LIMIT_MAX_REQUESTS",
+    prefix="opening_lookup",
+    error_message=(
+        "Opening lookup rate limit reached. Please try again shortly."
+    )
+)
 def opening_trainer(request):
     return render(
         request,
@@ -3600,6 +3650,14 @@ def opening_trainer(request):
     )
 
 
+@rate_limit(
+    window_setting="OPENING_RATE_LIMIT_WINDOW_SECONDS",
+    max_setting="OPENING_RATE_LIMIT_MAX_REQUESTS",
+    prefix="opening_lookup",
+    error_message=(
+        "Opening lookup rate limit reached. Please try again shortly."
+    )
+)
 def opening_detail(request, slug):
     opening = next(
         (
