@@ -84,8 +84,6 @@
    
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
-    
-
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -314,6 +312,40 @@
       </script>
     </main>
 
+    <!-- ── Platform Growth Statistics Section ── -->
+    <section class="platform-stats-section">
+      <div class="stats-container">
+        <div class="stat-box">
+          <div class="stat-icon">⚔️</div>
+          <div class="stat-number-wrapper">
+            <span class="stat-num" data-target="1250000">0</span><span class="stat-plus">+</span>
+          </div>
+          <p class="stat-label">Games Played</p>
+        </div>
+        <div class="stat-box">
+          <div class="stat-icon">👑</div>
+          <div class="stat-number-wrapper">
+            <span class="stat-num" data-target="45000">0</span><span class="stat-plus">+</span>
+          </div>
+          <p class="stat-label">Active Players</p>
+        </div>
+        <div class="stat-box">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-number-wrapper">
+            <span class="stat-num" data-target="850">0</span><span class="stat-suffix">k/s</span>
+          </div>
+          <p class="stat-label">Engine Node Speed</p>
+        </div>
+        <div class="stat-box">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-number-wrapper">
+            <span class="stat-num" data-target="180">0</span><span class="stat-plus">+</span>
+          </div>
+          <p class="stat-label">Countries Represented</p>
+        </div>
+      </div>
+    </section>
+
     <section id="features" class="features-capabilities">
       <div class="bento-container">
         <h2 class="section-title">Platform Capabilities</h2>
@@ -531,7 +563,6 @@
             </div>
           </div>
 
-
         </div>
       </div>
     </section>
@@ -560,7 +591,6 @@
                 <span class="about-counter-sep">/</span>
                 <span>4</span>
             </div>
-
 
             <!-- Track -->
             <div class="about-track-wrapper">
@@ -1284,7 +1314,6 @@
     });
   })();
   </script>
-  <!-- <script src="{% static 'game/js/theme.js' %}"></script> -->
 
   <div id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerModalTitle"
       style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
@@ -1502,8 +1531,9 @@
 
     typeWriter();
   </script>
+  
   <script>
-        // ── Contribution Graph ──
+    // ── Contribution Graph ──
     const osGrid = document.getElementById('osGrid');
     if (osGrid) {
         for (let i = 0; i < 140; i++) {
@@ -1544,22 +1574,47 @@
         });
     }
 
-    // ── Stat Counters ──
-    let statsAnimated = false;
-    function animateStats() {
-        if (statsAnimated) return;
-        statsAnimated = true;
-        document.querySelectorAll('.about-stat-num').forEach(el => {
-            const target = parseInt(el.dataset.target);
-            let count = 0;
-            const step = Math.ceil(target / 40);
-            const interval = setInterval(() => {
-                count = Math.min(count + step, target);
-                el.textContent = count;
-                if (count >= target) clearInterval(interval);
-            }, 40);
-        });
+    // ── Reusable Stat Counters Animation ──
+    function setupCounterAnimation(sectionSelector, numSelector) {
+        let statsAnimated = false;
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting && !statsAnimated) {
+                    statsAnimated = true;
+                    
+                    e.target.querySelectorAll(numSelector).forEach(el => {
+                        const target = parseInt(el.dataset.target);
+                        let count = 0;
+                        const stepsCount = target > 500000 ? 60 : 40;
+                        const step = Math.ceil(target / stepsCount);
+                        
+                        const interval = setInterval(() => {
+                            count = Math.min(count + step, target);
+                            
+                            if (target >= 1000000) {
+                                el.textContent = (count / 1000000).toFixed(1) + "M";
+                            } else {
+                                el.textContent = count.toLocaleString();
+                            }
+                            
+                            if (count >= target) {
+                                clearInterval(interval);
+                            }
+                        }, 35);
+                    });
+                    observer.disconnect();
+                }
+            });
+        }, { threshold: 0.2 });
+
+        const section = document.querySelector(sectionSelector);
+        if (section) observer.observe(section);
     }
+
+    // Fire observers for both statistics modules smoothly
+    setupCounterAnimation('.platform-stats-section', '.stat-num');
+    setupCounterAnimation('.about-pin-section', '.about-stat-num');
 
     // ── Automatic Carousel ──
     const track       = document.getElementById('aboutTrack');
@@ -1605,12 +1660,11 @@
         }
     }
 
-    // dot click — go to that card
     dots.forEach((dot, i) => {
         dot.addEventListener('click', () => {
             goToCard(i);
             stopCarousel();
-            startCarousel(); // reset timer
+            startCarousel();
         });
     });
 
@@ -1634,7 +1688,6 @@
         goToCard(0);
         startCarousel();
 
-        // Pause on hover
         const aboutBox = document.querySelector('.about-box');
         if (aboutBox) {
             aboutBox.addEventListener('mouseenter', () => {
@@ -1644,21 +1697,6 @@
                 if (!isPausedManually) startCarousel();
             });
         }
-    }
-
-    // trigger stat counters when about section is visible
-    const aboutObserver = new IntersectionObserver((entries) => {
-        entries.forEach(e => {
-            if (e.isIntersecting) {
-                animateStats();
-                aboutObserver.disconnect();
-            }
-        });
-    }, { threshold: 0.3 });
-
-    const aboutSection = document.querySelector('.about-pin-section');
-    if (aboutSection) {
-        aboutObserver.observe(aboutSection);
     }
 
     // ── Smooth Scrolling for Anchor Links ──
@@ -1677,6 +1715,7 @@
         });
     });
   </script>
+  
   <script>
     // ── Performance Meter Animation ──
     (function() {
@@ -1714,7 +1753,6 @@
             frame = setTimeout(animate, 120);
         }
 
-        // start when card 3 is visible
         const perfObserver = new IntersectionObserver((entries) => {
             entries.forEach(e => {
                 if (e.isIntersecting) animate();
@@ -1726,6 +1764,7 @@
         if (card3) perfObserver.observe(card3);
     })();
   </script>  
+  
   <script>
     function selectQuizOpt(el, isCorrect) {
         const opts = el.parentElement.querySelectorAll('.quiz-opt');
@@ -1739,156 +1778,121 @@
         if (!isCorrect) { fb.style.color = '#ef4444'; fb.textContent = '✗ Not quite — 2.Nf3 is the key move.'; }
     }
   </script>
+
   <!-- Keyboard Shortcuts Modal -->
-<div
-  id="shortcutsModal"
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="shortcutsTitle"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;align-items:center;justify-content:center;">
+  <div
+    id="shortcutsModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="shortcutsTitle"
+       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;align-items:center;justify-content:center;">
 
-  <div style="background:#131522;color:white;padding:24px;border-radius:16px;width:90%;max-width:600px;border:1px solid rgba(240,192,64,.3);">
+    <div style="background:#131522;color:white;padding:24px;border-radius:16px;width:90%;max-width:600px;border:1px solid rgba(240,192,64,.3);">
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <h2 id="shortcutsTitle" style="color:#f0c040;">
-  Keyboard Shortcuts
-</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 id="shortcutsTitle" style="color:#f0c040;">Keyboard Shortcuts</h2>
+        <button type="button" aria-label="Close keyboard shortcuts dialog" title="Close" onclick="closeShortcutsModal()" style="background:none;border:none;color:white;font-size:22px;cursor:pointer;">✕</button>
+      </div>
 
-      <button
-  type="button"
-  aria-label="Close keyboard shortcuts dialog"
-  title="Close"
-  onclick="closeShortcutsModal()"
-              style="background:none;border:none;color:white;font-size:22px;cursor:pointer;">
-        ✕
-      </button>
+      <table style="width:100%;">
+        <tr>
+          <td><strong>Shift + /</strong></td>
+          <td>Open shortcuts help</td>
+        </tr>
+        <tr>
+          <td><strong>Esc</strong></td>
+          <td>Close modal</td>
+        </tr>
+        <tr>
+          <td><strong>g + h</strong></td>
+          <td>Go to Home</td>
+        </tr>
+        <tr>
+          <td><strong>g + p</strong></td>
+          <td>Play Game</td>
+        </tr>
+        <tr>
+          <td><strong>g + l</strong></td>
+          <td>Leaderboard</td>
+        </tr>
+        <tr>
+          <td><strong>g + s</strong></td>
+          <td>Lessons</td>
+        </tr>
+      </table>
+
     </div>
-
-    <table style="width:100%;">
-      <tr>
-        <td><strong>Shift + /</strong></td>
-        <td>Open shortcuts help</td>
-      </tr>
-
-      <tr>
-        <td><strong>Esc</strong></td>
-        <td>Close modal</td>
-      </tr>
-
-      <tr>
-        <td><strong>g + h</strong></td>
-        <td>Go to Home</td>
-      </tr>
-
-      <tr>
-        <td><strong>g + p</strong></td>
-        <td>Play Game</td>
-      </tr>
-
-      <tr>
-        <td><strong>g + l</strong></td>
-        <td>Leaderboard</td>
-      </tr>
-
-      <tr>
-        <td><strong>g + s</strong></td>
-        <td>Lessons</td>
-      </tr>
-    </table>
-
   </div>
-</div>
-<script>
-(function () {
 
-  let gPressed = false;
+  <script>
+  (function () {
+    let gPressed = false;
+    const modal = document.getElementById("shortcutsModal");
 
-  const modal = document.getElementById("shortcutsModal");
+    window.openShortcutsModal = function () {
+      modal.style.display = "flex";
+    };
 
-  window.openShortcutsModal = function () {
-    modal.style.display = "flex";
-  };
+    window.closeShortcutsModal = function () {
+      modal.style.display = "none";
+    };
 
-  window.closeShortcutsModal = function () {
-    modal.style.display = "none";
-  };
+    document.addEventListener("keydown", function (e) {
+      const tag = document.activeElement.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        document.activeElement.isContentEditable
+      ) {
+        return;
+      }
 
-  document.addEventListener("keydown", function (e) {
+      if (e.shiftKey && e.key === "?") {
+        e.preventDefault();
+        openShortcutsModal();
+        return;
+      }
 
-    const tag = document.activeElement.tagName;
+      if (e.key === "Escape") {
+        closeShortcutsModal();
+        return;
+      }
 
-    if (
-      tag === "INPUT" ||
-      tag === "TEXTAREA" ||
-      tag === "SELECT" ||
-      document.activeElement.isContentEditable
-    ) {
-      return;
-    }
+      if (e.key.toLowerCase() === "g") {
+        gPressed = true;
+        setTimeout(() => { gPressed = false; }, 1000);
+        return;
+      }
 
-    // Shift + /
-    if (e.shiftKey && e.key === "?") {
-      e.preventDefault();
-      openShortcutsModal();
-      return;
-    }
+      if (modal.style.display === "flex") return;
+      if (!gPressed) return;
 
-    // ESC
-    if (e.key === "Escape") {
-      closeShortcutsModal();
-      return;
-    }
+      switch (e.key.toLowerCase()) {
+        case "h":
+          window.location.href = "{% url 'landing' %}";
+          break;
+        case "p":
+          window.location.href = "{% url 'index' %}";
+          break;
+        case "l":
+          window.location.href = "{% url 'leaderboard' %}";
+          break;
+        case "s":
+          window.location.href = "{% url 'lessons' %}";
+          break;
+      }
+      gPressed = false;
+    });
 
-    // g shortcuts
-    if (e.key.toLowerCase() === "g") {
-      gPressed = true;
+    modal.addEventListener("click", function(e){
+      if(e.target === modal) closeShortcutsModal();
+    });
+  })();
+  </script>
 
-      setTimeout(() => {
-        gPressed = false;
-      }, 1000);
-
-      return;
-    }
-
-        if (modal.style.display === "flex") {
-      return;
-    }
-
-    if (!gPressed) {
-      return;
-    }
-
-    switch (e.key.toLowerCase()) {
-
-      case "h":
-        window.location.href = "{% url 'landing' %}";
-        break;
-
-      case "p":
-        window.location.href = "{% url 'index' %}";
-        break;
-
-      case "l":
-        window.location.href = "{% url 'leaderboard' %}";
-        break;
-
-      case "s":
-        window.location.href = "{% url 'lessons' %}";
-        break;
-    }
-
-    gPressed = false;
-  });
-
-  modal.addEventListener("click", function(e){
-    if(e.target === modal){
-      closeShortcutsModal();
-    }
-  });
-
-})();
-</script>
   <div class="cursor"></div>
+  
   <script>
     const cursor = document.querySelector('.cursor');
     const cursorDropdown = document.querySelector('.cursor-dropdown');
@@ -1896,7 +1900,7 @@
     const cursorTypeLabel = document.getElementById('cursorTypeLabel');
     const cursorOptions = document.querySelectorAll('.cursor-type-option');
     let activeCursor = 'default';
-    // Only hide it if it's explicitly set to 'default'
+
     if (activeCursor === 'default') {
         cursor.style.display = 'none';
     } else {
@@ -1919,24 +1923,26 @@
     updateCursorPosition();
 
     function updateCursorType(type) {
-    activeCursor = type;
-    cursor.className = 'cursor';
-    
-    if (type !== 'default') {
-        cursor.classList.add(type);
-        cursor.style.opacity = '0.98';
-        cursor.style.display = 'block'; // Centralized!
-    } else {
-        cursor.style.opacity = '0';
-        cursor.style.display = 'none';  // Centralized!
-    }
+      activeCursor = type;
+      cursor.className = 'cursor';
+      
+      if (type !== 'default') {
+          cursor.classList.add(type);
+          cursor.style.opacity = '0.98';
+          cursor.style.display = 'block';
+      } else {
+          cursor.style.opacity = '0';
+          cursor.style.display = 'none';
+      }
       cursorTypeLabel.textContent = type.charAt(0).toUpperCase() + type.slice(1);
       document.body.classList.toggle('hide-native-cursor', type !== 'default');
       cursorOptions.forEach(option => {
         option.classList.toggle('selected', option.dataset.cursor === type);
       });
-  }
-updateCursorType('default');
+    }
+
+    updateCursorType('default');
+    
     cursorTrigger.addEventListener('click', e => {
       e.stopPropagation();
       cursorDropdown.classList.toggle('active');
@@ -1966,10 +1972,11 @@ updateCursorType('default');
       }
     });
   </script>
-    <script src="{% static 'game/js/dropdown.js' %}?v=2"></script>
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
-    <script>
-    // close only when clicking outside each active dropdown
+  
+  <script src="{% static 'game/js/dropdown.js' %}?v=2"></script>
+  <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+  
+  <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.profile-dropdown.active').forEach(function(menu) {
             if (!menu.contains(e.target)) {
@@ -1977,6 +1984,6 @@ updateCursorType('default');
             }
         });
     });
-    </script>
+  </script>
   </body>
 </html>

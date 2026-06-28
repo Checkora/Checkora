@@ -319,8 +319,18 @@
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
+
+        
         
         <div class="auth-buttons">
+            <button
+        type="button"
+        class="theme-toggle game-header-theme-toggle"
+        title="Toggle light / dark theme"
+        aria-label="Switch to light mode"
+        aria-pressed="false">
+        🌙
+    </button>
             {% if user.is_authenticated %}
 
             <div class="profile-dropdown">
@@ -567,7 +577,7 @@
         </div>
 
         <!-- Right Panel: Move History -->
-        <div class="panel">
+        <div class="panel move-history-panel">
             <div class="card" style="height: 100%;">
                 <div class="card-title">Move History</div>
                 <div class="moves-list" id="movesList">
@@ -842,7 +852,7 @@
     <div id="rulebookModal"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10001; align-items:center; justify-content:center;">
         <div
-            style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
+            style="position:relative; width:min(95vw, 1400px); height:90vh; background:var(--page-bg); border-radius:12px; overflow:hidden; padding-top:48px;">
             <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
                 style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>

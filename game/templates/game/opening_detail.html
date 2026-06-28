@@ -30,6 +30,18 @@
         {{ opening.difficulty }}
     </p>
 
+    <!-- Color Selection Toggle -->
+    <div class="color-toggle-container">
+        <span class="toggle-label">Play as:</span>
+        <button type="button" id="play-white-btn" class="toggle-btn active" aria-pressed="true">White</button>
+        <button type="button" id="play-black-btn" class="toggle-btn" aria-pressed="false">Black</button>
+    </div>
+
+    <!-- Chess Board Container -->
+    <div class="board-wrapper">
+        <div id="board" class="chess-board"></div>
+    </div>
+
     <div id="trainer-feedback" class="feedback-box">
         Ready to begin.
     </div>

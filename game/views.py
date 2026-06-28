@@ -94,6 +94,8 @@ from game.services import (
     check_puzzle_achievements,
     generate_badge,
     update_opening_progress,
+    create_or_update_active_game,
+    delete_active_game,
 )
 
 from django.http import FileResponse
@@ -118,6 +120,11 @@ def index(request):
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
+        create_or_update_active_game(
+            request,
+            request.session['game']
+        )
+
     return render(request, 'game/board.html')
 
 
@@ -191,7 +198,7 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     result.full_clean()
     result.save()
 
-    if user:
+    if user and mode == 'ai':
         update_player_rating(
             user,
             winner,
@@ -246,6 +253,10 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+        create_or_update_active_game(
+            request,
+            request.session['game']
+        )
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
@@ -380,6 +391,11 @@ def new_game(request):
     request.session.modified = True
     request.session.save()
 
+    create_or_update_active_game(
+        request,
+        request.session['game']
+    )
+
     return JsonResponse({
         'valid': True,
         'board': game.board,
@@ -416,6 +432,11 @@ def resume_game(request):
     game.last_ts = time.time()
     request.session['game'] = game.to_dict()
     request.session.modified = True
+
+    create_or_update_active_game(
+        request,
+        request.session['game']
+    )
 
     return JsonResponse({
         'valid': True,
@@ -482,6 +503,11 @@ def get_state(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+    create_or_update_active_game(
+        request,
+        request.session['game']
+    )
+
     return JsonResponse({
         'board': game.board,
         'current_turn': game.current_turn,
@@ -530,6 +556,11 @@ def set_pause(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
+    create_or_update_active_game(
+        request,
+        request.session['game']
+    )
+
     return JsonResponse({
         'paused': game.paused,
         'white_time': game.white_time,
@@ -575,6 +606,11 @@ def ai_move(request):
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
+        create_or_update_active_game(
+            request,
+            request.session['game']
+        )
+
         return JsonResponse({
             'valid': True,
             'game_status': game_status,
@@ -595,6 +631,11 @@ def ai_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
+
+        create_or_update_active_game(
+            request,
+            request.session['game']
+        )
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -665,6 +706,12 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
+
+        create_or_update_active_game(
+            request,
+            request.session['game']
+        )
+
         record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
         return JsonResponse({
             'success': True,
@@ -693,6 +740,11 @@ def resign_game(request):
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
+
+    create_or_update_active_game(
+        request,
+        request.session['game']
+    )
 
     game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
     pgn_str = game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black'))
@@ -1437,6 +1489,18 @@ def get_ip_lockout_key(ip):
     return f'login_lockout:ip:{digest}'
 
 
+def get_analyze_rate_user_key(user_id):
+    """Get the cache key for per-user analyze game rate limiting."""
+    digest = hashlib.sha256(str(user_id).encode('utf-8')).hexdigest()
+    return f'analyze_rate:user:{digest}'
+
+
+def get_analyze_rate_ip_key(ip):
+    """Get the cache key for per-IP analyze game rate limiting."""
+    digest = hashlib.sha256(ip.encode('utf-8')).hexdigest()
+    return f'analyze_rate:ip:{digest}'
+
+
 def increment_counter(key, timeout):
     """Increment cache value atomically or fall back safely."""
     # DatabaseCache does not provide atomic incr, so force fallback lock.
@@ -1459,26 +1523,33 @@ def increment_counter(key, timeout):
             break
         time.sleep(0.05)
 
-    if not acquired:
-        # fail closed for brute-force logic without taking down login
-        current = cache.get(key)
+    def _fallback_increment():
+        now = time.time()
+        expiry_key = f"{key}:expiry"
+        expires_at = cache.get(expiry_key)
+        
+        if expires_at is None or now >= expires_at:
+            expires_at = now + timeout
+            cache.set(expiry_key, expires_at, timeout=timeout)
+            
+        remaining = max(1, int(expires_at - now))
+        
+        raw_val = cache.get(key)
         try:
-            current = int(current) if current is not None else 0
-        except (ValueError, TypeError):
-            current = 0
-        next_val = current + 1
-        cache.set(key, next_val, timeout=timeout)
-        return next_val
-
-    try:
-        val = cache.get(key)
-        try:
-            val = int(val) if val is not None else 0
+            val = int(raw_val) if raw_val is not None else 0
         except (ValueError, TypeError):
             val = 0
+            
         val += 1
-        cache.set(key, val, timeout=timeout)
+        cache.set(key, val, timeout=remaining)
         return val
+
+    if not acquired:
+        # fail closed for brute-force logic without taking down login
+        return _fallback_increment()
+
+    try:
+        return _fallback_increment()
     finally:
         if acquired:
             cache.delete(lock_key)
@@ -2165,6 +2236,21 @@ def analyze_game_view(request):
     """
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    window = getattr(settings, 'ANALYZE_GAME_RATE_WINDOW_SECONDS', 60)
+    user_max = getattr(settings, 'ANALYZE_GAME_USER_MAX_REQUESTS', 10)
+    ip_max = getattr(settings, 'ANALYZE_GAME_IP_MAX_REQUESTS', 20)
+
+    user_key = get_analyze_rate_user_key(request.user.id)
+    ip_key = get_analyze_rate_ip_key(get_client_ip(request))
+
+    user_count = increment_counter(user_key, timeout=window)
+    if user_count > user_max:
+        return JsonResponse({'error': 'Too many requests'}, status=429)
+
+    ip_count = increment_counter(ip_key, timeout=window)
+    if ip_count > ip_max:
+        return JsonResponse({'error': 'Too many requests'}, status=429)
 
     try:
         data = json.loads(request.body)

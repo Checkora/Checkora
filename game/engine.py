@@ -130,9 +130,11 @@ class ChessGame:
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
+            '[Site "checkora.io"]',
+            f'[Date "{today}"]',
+            '[Round "?"]',
             f'[White "{white_name}"]',
             f'[Black "{black_name}"]',
-            f'[Date "{today}"]',
             f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)

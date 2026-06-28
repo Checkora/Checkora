@@ -232,8 +232,33 @@
         [data-theme="light"] .rarity-rare { background: #dbeafe; color: #1e40af; }
         [data-theme="light"] .rarity-epic { background: #f3e8ff; color: #6b21a8; }
         [data-theme="light"] .rarity-legendary { background: #ffedd5; color: #9a3412; }
+
+        @keyframes celebrate-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.7); border-color: #f0c040; }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px 10px rgba(240, 192, 64, 0); border-color: #f0c040; }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 192, 64, 0); }
+        }
+        .celebrate-effect {
+            animation: celebrate-pulse 0.8s ease-out;
+        }
+        .celebrate-btn {
+            margin-top: 12px;
+            margin-left: 10px;
+            padding: 8px 14px;
+            border: 1px solid #f0c040;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+            color: #f0c040;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .celebrate-btn:hover {
+            background: rgba(240, 192, 64, 0.1);
+        }
     </style>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <script src="{% static 'game/js/confetti.js' %}"></script>
 </head>
 <body>
 
@@ -317,12 +342,16 @@
             </a>
             
             <form method="post"
-                action="{% url 'feature_badge' achievement.id %}">
+                action="{% url 'feature_badge' achievement.id %}" style="display:inline-block;">
                 {% csrf_token %}
                 <button type="submit" class="feature-btn">
                     ⭐ Feature Badge
                 </button>
             </form>
+
+            <button type="button" class="celebrate-btn" onclick="triggerCelebration(this)" aria-label="Celebrate achievement">
+                🎉 Celebrate
+            </button>
 
         {% else %}
             <span class="status locked">
@@ -335,6 +364,28 @@
 {% endfor %}
 
 </div>
+
+<script>
+function triggerCelebration(btn) {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+
+    const card = btn.closest('.achievement-card');
+    card.classList.remove('celebrate-effect');
+    // Trigger reflow to restart animation
+    void card.offsetWidth;
+    card.classList.add('celebrate-effect');
+
+    if (window.triggerConfetti) {
+        window.triggerConfetti({
+            count: 150,
+            spread: 80,
+            colors: ["#ffd700", "#ff6b6b", "#4facfe", "#00f2fe", "#43e97b", "#38f9d7"]
+        });
+    }
+}
+</script>
 
 </body>
 </html>

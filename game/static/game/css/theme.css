@@ -185,3 +185,13 @@
     background: #f3f4f6 !important;
     color: var(--accent-gold) !important;
 }
+
+/* Enable smooth transitions only during theme toggles (respecting reduced motion preferences) */
+@media (prefers-reduced-motion: no-preference) {
+    html.theme-transition,
+    html.theme-transition *,
+    html.theme-transition ::before,
+    html.theme-transition ::after {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+    }
+}
