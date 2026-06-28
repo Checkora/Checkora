@@ -105,9 +105,6 @@ class ChessGame:
 
     def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
-        if not self.move_history:
-            return ""
-        
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -141,7 +138,8 @@ class ChessGame:
             f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
-        return "\n".join(headers) + "\n\n" + moves + " " + result
+        movetext = f"{moves} {result}".strip()
+        return "\n".join(headers) + "\n\n" + movetext
 
     def to_dict(self):
         """Serialise state for Django session storage.
