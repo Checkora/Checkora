@@ -90,6 +90,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}" />
     <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1" />
+    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
     <style>
         /* ── Navbar avatar thumbnail ── */
         .nav-avatar {
@@ -1893,88 +1894,10 @@
 
   <div class="cursor"></div>
   
-  <script>
-    const cursor = document.querySelector('.cursor');
-    const cursorDropdown = document.querySelector('.cursor-dropdown');
-    const cursorTrigger = document.getElementById('cursorTypeTrigger');
-    const cursorTypeLabel = document.getElementById('cursorTypeLabel');
-    const cursorOptions = document.querySelectorAll('.cursor-type-option');
-    let activeCursor = 'default';
-
-    if (activeCursor === 'default') {
-        cursor.style.display = 'none';
-    } else {
-        cursor.style.display = 'block';
-    }
-    let mouseX = 0;
-    let mouseY = 0;
-
-    document.addEventListener('mousemove', e => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-    });
-
-    function updateCursorPosition() {
-      cursor.style.left = `${mouseX}px`;
-      cursor.style.top = `${mouseY}px`;
-      requestAnimationFrame(updateCursorPosition);
-    }
-
-    updateCursorPosition();
-
-    function updateCursorType(type) {
-      activeCursor = type;
-      cursor.className = 'cursor';
-      
-      if (type !== 'default') {
-          cursor.classList.add(type);
-          cursor.style.opacity = '0.98';
-          cursor.style.display = 'block';
-      } else {
-          cursor.style.opacity = '0';
-          cursor.style.display = 'none';
-      }
-      cursorTypeLabel.textContent = type.charAt(0).toUpperCase() + type.slice(1);
-      document.body.classList.toggle('hide-native-cursor', type !== 'default');
-      cursorOptions.forEach(option => {
-        option.classList.toggle('selected', option.dataset.cursor === type);
-      });
-    }
-
-    updateCursorType('default');
-    
-    cursorTrigger.addEventListener('click', e => {
-      e.stopPropagation();
-      cursorDropdown.classList.toggle('active');
-      const expanded = cursorDropdown.classList.contains('active');
-      cursorTrigger.setAttribute('aria-expanded', expanded);
-    });
-
-    cursorOptions.forEach(option => {
-      option.addEventListener('click', () => {
-        updateCursorType(option.dataset.cursor);
-        cursorDropdown.classList.remove('active');
-        cursorTrigger.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    document.addEventListener('click', e => {
-      if (!cursorDropdown.contains(e.target)) {
-        cursorDropdown.classList.remove('active');
-        cursorTrigger.setAttribute('aria-expanded', 'false');
-      }
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        cursorDropdown.classList.remove('active');
-        cursorTrigger.setAttribute('aria-expanded', 'false');
-      }
-    });
-  </script>
   
   <script src="{% static 'game/js/dropdown.js' %}?v=2"></script>
   <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+  <script src="{% static 'game/js/cursor.js' %}"></script>
   
   <script>
     document.addEventListener('click', function(e) {
