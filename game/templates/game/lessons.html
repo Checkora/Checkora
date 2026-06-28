@@ -246,6 +246,52 @@
             }
         }
 
+        /* Light Theme Overrides */
+        [data-theme="light"] body {
+            background: #f5f7fb;
+            color: #111827;
+        }
+        [data-theme="light"] h1, [data-theme="light"] h2 {
+            color: #111827;
+        }
+        [data-theme="light"] p {
+            color: #4b5563;
+        }
+        [data-theme="light"] .progress-box, [data-theme="light"] .continue-learning, [data-theme="light"] .lesson-card {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+        }
+        [data-theme="light"] .progress-header span {
+            color: #4b5563;
+        }
+        [data-theme="light"] .progress-bar {
+            background: #e5e7eb;
+        }
+        [data-theme="light"] .progress-fill {
+            background: #f0c040;
+        }
+        [data-theme="light"] .learning-stats span {
+            background: #fef3c7;
+            color: #b47505;
+        }
+        [data-theme="light"] .lesson-card:hover {
+            border-color: #f0c040;
+            box-shadow: 0 4px 15px rgba(240, 192, 64, 0.1);
+        }
+        [data-theme="light"] .lesson-card h3 {
+            color: #111827;
+        }
+        [data-theme="light"] .lesson-meta, [data-theme="light"] .progress-text {
+            color: #6b7280;
+        }
+        [data-theme="light"] .lesson-count {
+            background: #e5e7eb;
+            color: #4b5563;
+        }
+        [data-theme="light"] a {
+            text-decoration: none;
+        }
+
         .alert-banner {
             background: linear-gradient(135deg, #2c1f00, #1b1300);
             border: 1px solid #f0c040;
@@ -308,6 +354,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
+    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 
 <body>
@@ -342,12 +389,7 @@
         aria-valuemin="0"
         aria-valuemax="100"
         aria-label="Lesson completion progress">
-
-        <div
-            class="progress-fill"
-            style="width:{% widthratio completed_count total_lessons 100 %}%">
-        </div>
-
+        <div class="progress-fill" id="lesson-progress-fill" style="width: {% widthratio completed_count total_lessons 100 %}%;"></div>
     </div>
 
     <p class="progress-text">

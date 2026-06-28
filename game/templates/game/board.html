@@ -19,6 +19,34 @@
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <style>
+        /* ── Navbar avatar thumbnail ── */
+        .nav-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid rgba(250, 204, 21, 0.6);
+            vertical-align: middle;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .nav-avatar-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            flex-shrink: 0;
+            color: #94a3b8;
+            vertical-align: middle;
+        }
+    </style>
 
     <!-- Vercel Web Analytics -->
     <script>
@@ -70,6 +98,9 @@
 
 <body>
     <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
+    <script>
+        window.USER_AVATAR_URL = "{% if user.is_authenticated and user.profile.avatar %}{{ user.profile.avatar|escapejs }}{% else %}{% endif %}";
+    </script>
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
@@ -288,13 +319,30 @@
             </a>
             <span class="badge" id="modeBadge">PVP</span>
         </div>
+
+        
         
         <div class="auth-buttons">
+            <button
+        type="button"
+        class="theme-toggle game-header-theme-toggle"
+        title="Toggle light / dark theme"
+        aria-label="Switch to light mode"
+        aria-pressed="false">
+        🌙
+    </button>
             {% if user.is_authenticated %}
 
             <div class="profile-dropdown">
-                <button class="profile-btn">
-                    {{ user.username }} ⌄
+                <button type="button" class="profile-btn" style="display:flex;align-items:center;gap:4px;">
+                    {% if user.profile.avatar %}
+                      <img src="{{ user.profile.avatar }}" class="nav-avatar" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">
+                    {% else %}
+                      <span class="nav-avatar-icon" aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:#333;border-radius:50%;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </span>
+                    {% endif %}
+                    {{ user.username }} ⌔
                 </button>
 
                 <div class="dropdown-content">
@@ -312,6 +360,14 @@
 
                     <a href="{% url 'opening_trainer' %}">
                         ♟ Opening Trainer
+                    </a>
+
+                    <a href="{% url 'puzzles' %}">
+                        🧩 Puzzles
+                    </a>
+
+                    <a href="{% url 'upload_avatar' %}">
+                        Profile Picture
                     </a>
 
                     <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
@@ -345,12 +401,18 @@
         <!-- Left Panel -->
         <div class="panel">
             <div class="card">
-                <div class="card-title">Captured by <span id="whiteCapturedName">White</span></div>
+                <div class="card-title">
+                    <img id="whiteCapturedAvatar" class="nav-avatar" src="" style="display:none; width:18px; height:18px; border-radius:50%; object-fit:cover;">
+                    Captured by <span id="whiteCapturedName">White</span>
+                </div>
                 <div class="captured-list" id="whiteCaptured"></div>
                 <div class="captured-score">Points: <span id="whitePoints">+0</span></div>
             </div>
             <div class="card">
-                <div class="card-title">Captured by <span id="blackCapturedName">Black</span></div>
+                <div class="card-title">
+                    <img id="blackCapturedAvatar" class="nav-avatar" src="" style="display:none; width:18px; height:18px; border-radius:50%; object-fit:cover;">
+                    Captured by <span id="blackCapturedName">Black</span>
+                </div>
                 <div class="captured-list" id="blackCaptured"></div>
                 <div class="captured-score">Points: <span id="blackPoints">+0</span></div>
             </div>
@@ -381,6 +443,7 @@
             <div class="clocks">
                 <div id="whiteClock" class="clock white active">
                     <span class="label">
+                        <img id="whitePlayerAvatar" class="nav-avatar" src="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
                         <span id="whiteNameLabel">WHITE</span>
                         <span id="whiteYouTag"
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
@@ -398,6 +461,7 @@
 
                 <div id="blackClock" class="clock black">
                     <span class="label">
+                        <img id="blackPlayerAvatar" class="nav-avatar" src="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
                         <span id="blackNameLabel">BLACK</span>
                         <span id="blackYouTag"
                             style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
@@ -518,7 +582,7 @@
         </div>
 
         <!-- Right Panel: Move History -->
-        <div class="panel">
+        <div class="panel move-history-panel">
             <div class="card" style="height: 100%;">
                 <div class="card-title">Move History</div>
                 <div class="moves-list" id="movesList">
@@ -707,6 +771,18 @@
                                 <span class="stat-label">Promotions</span>
                                 <span class="stat-value" id="resAnalysisPromotions">0</span>
                             </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Accuracy</span>
+                                <span class="stat-value accuracy-badge" id="resAccuracyScore">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Mistakes</span>
+                                <span class="stat-value mistake-highlight" id="resMistakesCount">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Blunders</span>
+                                <span class="stat-value blunder-highlight" id="resBlundersCount">0</span>
+                            </div>
                         </div>
 
                         <!-- Material difference and captured pieces summary -->
@@ -779,9 +855,9 @@
 
     <!-- RULEBOOK MODAL -->
     <div id="rulebookModal"
-        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10001; align-items:center; justify-content:center;">
         <div
-            style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
+            style="position:relative; width:min(95vw, 1400px); height:90vh; background:var(--page-bg); border-radius:12px; overflow:hidden; padding-top:48px;">
             <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
                 style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
@@ -844,65 +920,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
-    <script>
-document.getElementById('shareResultBtn').addEventListener('click', function () {
-    const title = document.getElementById('gameOverTitle').innerText.trim();
-    const message = document.getElementById('gameOverMessage').innerText.trim();
-    const whiteName = document.getElementById('whiteNameLabel').innerText.trim();
-    const blackName = document.getElementById('blackNameLabel').innerText.trim();
-    const movesList = document.getElementById('movesList');
-    const moveCount = movesList.querySelectorAll('span:not(.placeholder)').length ||
-                      movesList.innerText.split('\n').filter(x => x.trim()).length;
-
-    document.getElementById('cardTitle').innerText = title;
-    document.getElementById('cardMessage').innerText = message;
-    document.getElementById('cardWhite').innerText = whiteName;
-    document.getElementById('cardBlack').innerText = blackName;
-    document.getElementById('cardMoves').innerText = moveCount;
-
-    const shareText =
-`♟️ Checkora Chess
-─────────────────
-${title}
-${message}
-
-⚪ ${whiteName} vs ⚫ ${blackName}
-🔢 Moves played: ${moveCount}
-─────────────────
-🎮 Play at: https://checkora.vercel.app`;
-
-    const modal = document.getElementById('shareModal');
-    modal.style.display = 'flex';
-
-    document.getElementById('copyTextBtn').onclick = function () {
-        navigator.clipboard.writeText(shareText).then(() => {
-            this.innerText = '✅ Copied!';
-            setTimeout(() => this.innerText = '📋 Copy Text', 2000);
-        });
-    };
-
-    document.getElementById('copyLinkBtn').onclick = function () {
-        navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
-            this.innerText = '✅ Link Copied!';
-            setTimeout(() => this.innerText = '🔗 Copy Link', 2000);
-        });
-    };
-
-    document.getElementById('whatsappBtn').onclick = function () {
-        const encoded = encodeURIComponent(shareText);
-        window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    };
-
-    document.getElementById('twitterBtn').onclick = function () {
-        const encoded = encodeURIComponent(shareText);
-        window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    };
-
-    document.getElementById('closeShareBtn').onclick = function () {
-        modal.style.display = 'none';
-    };
-});
-</script>
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 

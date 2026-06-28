@@ -1,0 +1,52 @@
+<div class="forum-card-wrap">
+    <div class="forum-card">
+        <a href="{% url 'forum_detail' discussion.id %}"
+           class="forum-card-link"
+           aria-label="{{ discussion.title }}"></a>
+
+        <div class="forum-card-main">
+            <div class="forum-topic-row">
+                <h3 class="forum-card-title">
+                    <span class="forum-topic-label">Topic:</span>
+                    {{ discussion.title }}
+                </h3>
+
+                {% if user.is_authenticated %}
+                <form method="post"
+                      action="{% url 'toggle_discussion_bookmark' discussion.id %}"
+                      class="forum-bookmark-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="">
+                    
+                    <button type="submit"
+                            class="forum-bookmark-btn {% if discussion.id in bookmarked_ids %}bookmarked{% endif %}"
+                            title="{% if discussion.id in bookmarked_ids %}Remove bookmark{% else %}Bookmark{% endif %}">
+                        <svg class="bookmark-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>
+                        </svg>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <p class="forum-card-excerpt">
+                {{ discussion.content|truncatewords:40 }}
+            </p>
+
+            <div class="forum-card-meta">
+                <span class="forum-meta-label">Started by</span>
+                <span class="forum-author">{{ discussion.user.username }}</span>
+
+                <span class="forum-dot">•</span>
+
+                <span class="forum-meta-label">On</span>
+                <span class="forum-date">{{ discussion.created_at|date:"M d, Y" }}</span>
+            </div>
+        </div>
+
+        <div class="forum-card-stats">
+            <span class="forum-reply-count">{{ discussion.replies.count }}</span>
+            <span class="forum-reply-label">Replies</span>
+        </div>
+    </div>
+</div>

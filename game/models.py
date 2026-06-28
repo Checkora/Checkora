@@ -6,6 +6,10 @@ from django.core.validators import (
 from django.conf import settings
 from django.db.models import Q
 from django.core.exceptions import ValidationError
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class GameResult(models.Model):
     user = models.ForeignKey(
@@ -38,6 +42,9 @@ class GameResult(models.Model):
         default=list,
         blank=True,
         help_text="List of moves played during the game in chronological order"
+    )
+    replay_record = models.ForeignKey(
+                    'GameRecord', null=True, blank=True, on_delete=models.SET_NULL
     )
 
     class Meta:
@@ -449,6 +456,70 @@ class ChessPuzzle(models.Model):
     def __str__(self):
         return f"{self.title} ({self.difficulty or 'Unknown'})"
 
+def _expires_at_default():
+    """Return a timestamp 48 hours from now."""
+    return timezone.now() + timedelta(hours=48)
+
+
+class GameRecord(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    session_key = models.CharField(max_length=40, db_index=True)
+    white_label = models.CharField(max_length=64, default="White")
+    black_label = models.CharField(max_length=64, default="Black")
+    result = models.CharField(max_length=7, default="*")
+    termination = models.CharField(max_length=32, default="unknown")
+    pgn = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=_expires_at_default, db_index=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Game {self.id} ({self.white_label} vs {self.black_label})"
+
+class ActiveGame(models.Model):
+    """Tracks active games for efficient cleanup."""
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "last_active"]),
+        ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    session_key = models.CharField(
+        max_length=40,
+        unique=True,
+    )
+
+    last_active = models.DateTimeField(
+        auto_now=True,
+        db_index=True,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        default="active",
+        db_index=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return f"{self.session_key} ({self.status})"
+
 class Discussion(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -463,6 +534,17 @@ class Discussion(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+    @property
+    def hours_remaining(self):
+        delta = self.expires_at - timezone.now()
+        if delta.total_seconds() <= 0:
+            return 0
+        return int(delta.total_seconds() // 3600)
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
 
     def __str__(self):
         return self.title
@@ -515,4 +597,67 @@ class Reply(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.discussion.title}"
     
+class DiscussionBookmark(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="discussion_bookmarks"
+    )
+
+    discussion = models.ForeignKey(
+        Discussion,
+        on_delete=models.CASCADE,
+        related_name="bookmarks"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "discussion")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} bookmarked {self.discussion.title}"
     
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class UserProfile(models.Model):
+    """Stores optional profile data for a user, including their avatar.
+
+    The avatar is stored as a base64-encoded data URI (e.g.
+    ``data:image/jpeg;base64,...``) so that it persists correctly on
+    Vercel's ephemeral serverless filesystem without requiring external
+    object storage or a persistent MEDIA_ROOT directory.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile"
+    )
+    # Stored as a base64 data URI. Empty string means no avatar set.
+    avatar = models.TextField(blank=True, default="")
+
+    def clean(self):
+        super().clean()
+        if self.avatar:
+            if not self.avatar.startswith("data:image/"):
+                raise ValidationError({"avatar": "Invalid avatar data URI."})
+            if ";base64," not in self.avatar:
+                raise ValidationError({"avatar": "Invalid avatar data URI."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Automatically create a UserProfile whenever a new User is saved."""
+    if created:
+        UserProfile.objects.get_or_create(user=instance)

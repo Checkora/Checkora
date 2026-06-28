@@ -168,6 +168,93 @@
             color: #facc15;
             text-decoration: none;
         }
+
+        /* ── Avatar / profile card ── */
+        .profile-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .profile-avatar-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .profile-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2.5px solid rgba(250, 204, 21, 0.6);
+            box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.08);
+            display: block;
+        }
+
+        .profile-avatar-placeholder {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.9);
+            border: 2px dashed rgba(255,255,255,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+        }
+
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-username {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-rating {
+            color: #facc15;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .profile-avatar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            color: #64748b;
+            font-size: 0.8rem;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .profile-avatar-link:hover { color: #facc15; }
+
+        @media (max-width: 480px) {
+            .profile-card {
+                gap: 14px;
+                padding: 16px;
+            }
+            .profile-avatar,
+            .profile-avatar-placeholder {
+                width: 56px;
+                height: 56px;
+            }
+            .profile-username { font-size: 1rem; }
+        }
     </style>
 </head>
 <body>
@@ -178,6 +265,34 @@
         
         <h1>CHECK<span>ORA</span></h1>
         <div class="subtitle">Personal Game Statistics & History</div>
+
+        <!-- ── Profile card ── -->
+        <div class="profile-card">
+            <div class="profile-avatar-wrap">
+                {% if request.user.profile.avatar %}
+                    <img src="{{ request.user.profile.avatar }}"
+                         class="profile-avatar"
+                         alt="Your profile picture">
+                {% else %}
+                    <div class="profile-avatar-placeholder" aria-label="No avatar set">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="profile-info">
+                <div class="profile-username">{{ request.user.username }}</div>
+                <div class="profile-rating">♟ Rating: {{ rating.rating }}</div>
+                <a href="{% url 'upload_avatar' %}" class="profile-avatar-link">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    {% if request.user.profile.avatar %}Update{% else %}Add{% endif %} Profile Picture
+                </a>
+            </div>
+        </div>
 
         <h2>AI Game Summary</h2>
         <div class="summary">
@@ -190,182 +305,192 @@
                 <div class="label">🏆 Level</div>
             </div>
 
-            <div class="card">
-                <div class="num">{{ progress.xp }}</div>
-                <div class="label">⚡ XP</div>
-            </div>
+    <div style="text-align:center; margin-top:20px; margin-bottom:20px;">
+        <a href="{% url 'achievements' %}"
+            style="
+                background:#f0c040;
+                color:#0f0f1a;
+                padding:12px 20px;
+                border-radius:8px;
+                font-weight:bold;
+                text-decoration:none;
+                display:inline-block;
+            ">
+            🏆 View Achievements
+        </a>
+    </div>
 
-            <div class="card">
-                <div class="num">{{ rating.rating }}</div>
-                <div class="label">♟ Chess Rating</div>
-            </div>
+    <h2>Advanced Performance Metrics</h2>
 
-            <div class="card">
-                <div class="num">
-                    {% if rating.rating < 1000 %}
-                        Beginner
-                    {% elif rating.rating < 1400 %}
-                        Intermediate
-                    {% elif rating.rating < 1800 %}
-                        Advanced
+    <div class="summary">
+        <div class="card">
+            <div class="num">{{ total_games }}</div>
+            <div class="label">Total Games</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ total_wins }}</div>
+            <div class="label">Wins</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ total_losses }}</div>
+            <div class="label">Losses</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ total_draws }}</div>
+            <div class="label">Draws</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ overall_win_rate }}%</div>
+            <div class="label">Win Rate</div>
+        </div>
+    </div>
+
+    <h2>Color Statistics</h2>
+
+    <div class="summary">
+        <div class="card">
+            <div class="num">{{ games_as_white }}</div>
+            <div class="label">Games as White</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ games_as_black }}</div>
+            <div class="label">Games as Black</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ white_win_rate }}%</div>
+            <div class="label">White Win Rate</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ black_win_rate }}%</div>
+            <div class="label">Black Win Rate</div>
+        </div>
+    </div>
+
+    <h2>Activity Statistics</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ games_this_week }}</div>
+            <div class="label">Games This Week</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ games_this_month }}</div>
+            <div class="label">Games This Month</div>
+        </div>
+
+    </div>
+
+    <h2>Recent Games</h2>
+    {% if recent %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Winner</th>
+                    <th>End Reason</th>
+                    <th>Played At</th>
+                    <th>Replay</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in recent %}
+                <tr>
+                    <td>{{ result.get_mode_display }}</td>
+                    <td>
+                    {% if result.winner == 'draw' %}
+                        Draw
+                    {% elif result.mode == 'ai' %}
+                        {% if result.winner == result.player_color %}
+                            {{ request.user.username }} ({{ result.winner|title }})
+                        {% else %}
+                            AI ({{ result.winner|title }})
+                        {% endif %}
                     {% else %}
-                        Expert
+                        {% if result.winner == 'white' %}
+                            {% if result.replay_record %}{{ result.replay_record.white_label }}{% else %}White{% endif %} (White)
+                        {% elif result.winner == 'black' %}
+                            {% if result.replay_record %}{{ result.replay_record.black_label }}{% else %}Black{% endif %} (Black)
+                        {% endif %}
                     {% endif %}
-                </div>
-                <div class="label">🏅 Rank Tier</div>
-            </div>
-        </div>
-
-        <div style="text-align:center; margin-top:30px; margin-bottom:30px;">
-            <a href="{% url 'achievements' %}" class="btn">🏆 View Achievements</a>
-        </div>
-
-        <h2>Advanced Performance Metrics</h2>
-        <div class="summary">
-            <div class="card">
-                <div class="num">{{ total_games }}</div>
-                <div class="label">Total Games</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ total_wins }}</div>
-                <div class="label">Wins</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ total_losses }}</div>
-                <div class="label">Losses</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ total_draws }}</div>
-                <div class="label">Draws</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ overall_win_rate }}%</div>
-                <div class="label">Win Rate</div>
-            </div>
-        </div>
-
-        <h2>Color Statistics</h2>
-        <div class="summary">
-            <div class="card">
-                <div class="num">{{ games_as_white }}</div>
-                <div class="label">Games as White</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ games_as_black }}</div>
-                <div class="label">Games as Black</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ white_win_rate }}%</div>
-                <div class="label">White Win Rate</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ black_win_rate }}%</div>
-                <div class="label">Black Win Rate</div>
-            </div>
-        </div>
-
-        <h2>Activity Statistics</h2>
-        <div class="summary">
-            <div class="card">
-                <div class="num">{{ games_this_week }}</div>
-                <div class="label">Games This Week</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ games_this_month }}</div>
-                <div class="label">Games This Month</div>
-            </div>
-        </div>
-
-        <h2>Recent Match Records</h2>
-        {% if recent %}
-        <div style="overflow-x: auto; margin-top: 20px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Mode</th>
-                        <th>Winner</th>
-                        <th>End Reason</th>
-                        <th>Played At</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for result in recent %}
-                    <tr>
-                        <td style="font-weight: 600;">{{ result.get_mode_display }}</td>
-                        <td>
-                            {% if result.winner == 'draw' %}
-                            <span style="color: #94a3b8;">Draw</span>
-                            {% else %}
-                            <span style="color: #facc15; font-weight: 600;">{{ result.get_winner_display }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ result.get_end_reason_display }}</td>
-                        <td style="color: #64748b;">{{ result.played_at|date:"Y-m-d H:i" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="empty-state">
-            <span class="empty-state-icon">♟️</span>
-            <h3>No Match Records Found</h3>
-            <p>You haven't played any games on Checkora yet. Battle the hybrid minimax AI or play with a friend to initialize your statistics!</p>
-            <a href="{% url 'index' %}" class="btn">Play vs AI Chess</a>
-        </div>
-        {% endif %}
-
-        <h2>Learning Progress</h2>
-        <div class="summary">
-            <div class="card">
-                <div class="num">{{ lessons_completed }}</div>
-                <div class="label">Lessons Completed</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ lesson_completion_percentage }}%</div>
-                <div class="label">Lesson Completion</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ progress.level }}</div>
-                <div class="label">Current Level</div>
-            </div>
-        </div>
-
-        <h2>Rating Analytics</h2>
-        <div class="summary">
-            <div class="card">
-                <div class="num">{{ highest_rating }}</div>
-                <div class="label">Highest Rating</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ lowest_rating }}</div>
-                <div class="label">Lowest Rating</div>
-            </div>
-
-            <div class="card">
-                <div class="num">{{ average_rating }}</div>
-                <div class="label">Average Rating</div>
-            </div>
-
-            <div class="card">
-                <div class="num">
-                    {% if total_rating_change > 0 %}
-                        +{{ total_rating_change }}
-                    {% else %}
-                        {{ total_rating_change }}
+                    </td>
+                    <td>{{ result.get_end_reason_display }}</td>
+                    <td>{{ result.played_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                    {% if result.replay_record and not result.replay_record.is_expired %}
+                    <a href="{% url 'match_history' %}?game={{ result.replay_record.id }}" class="btn btn-gold" style="padding: 4px 12px; font-size: 0.85rem; text-decoration: none;">
+                        ▶ Replay
+                    </a>
                     {% endif %}
-                </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">
+        <p>No games played yet. Play a game to see your stats here!</p>
+    </div>
+    {% endif %}
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
+
+    <h2>Learning Progress</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ lessons_completed }}</div>
+            <div class="label">Lessons Completed</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ lesson_completion_percentage }}%</div>
+            <div class="label">Lesson Completion</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ progress.level }}</div>
+            <div class="label">Current Level</div>
+        </div>
+
+    </div>
+
+    <h2>Rating Analytics</h2>
+
+    <div class="summary">
+
+        <div class="card">
+            <div class="num">{{ highest_rating }}</div>
+            <div class="label">Highest Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ lowest_rating }}</div>
+            <div class="label">Lowest Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">{{ average_rating }}</div>
+            <div class="label">Average Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">
+                {% if total_rating_change > 0 %}
+                    +{{ total_rating_change }}
+                {% else %}
+                    {{ total_rating_change }}
+                {% endif %}
                 <div class="label">Rating Change</div>
             </div>
         </div>

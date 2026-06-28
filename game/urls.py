@@ -39,7 +39,12 @@ urlpatterns = [
         views.password_reset_account_selection,
         name='password_reset_account_selection'
     ),
-    
+
+    # Avatar Management
+    path('avatar/', views.upload_avatar, name='upload_avatar'),
+    path('avatar/remove/', views.remove_avatar, name='remove_avatar'),
+    path('api/avatar/', views.get_avatar, name='get_avatar'),
+
     # Features & Progressions
     path('leaderboard/', views.leaderboard_view, name='leaderboard'),
     path("lessons/", views.lesson_map_view, name="lessons"),
@@ -52,18 +57,35 @@ urlpatterns = [
 
     path("api/puzzle-stats/", views.puzzle_stats_view, name="puzzle_stats"),
     path("api/puzzles/daily/", views.get_daily_puzzle, name="daily_puzzle"),
+    path("puzzles/", views.puzzles_view, name="puzzles"),
+    path("api/puzzles/", views.puzzles_list_api, name="puzzles_list_api"),
+    path(
+        "api/puzzles/<int:puzzle_id>/",
+        views.puzzle_detail_api,
+        name="puzzle_detail_api"
+    ),
+    path(
+        "api/puzzles/<int:puzzle_id>/solution/",
+        views.puzzle_solution_api,
+        name="puzzle_solution_api"
+    ),
     
     # Badges & Achievements
     path("achievements/", views.achievements_view, name="achievements"),
     path("achievement/<int:achievement_id>/download/", views.download_badge, name="download_badge",),
     path("feature-badge/<int:achievement_id>/", views.feature_badge, name="feature_badge"),
     path("remove-featured-badge/<int:badge_id>/", views.remove_featured_badge, name="remove_featured_badge"),
-
     # Community Forum
     path("forum/", views.forum_list, name="forum"),
     path("forum/new/", views.forum_new, name="forum_new"),
     path("forum/<int:discussion_id>/", views.forum_detail, name="forum_detail"),
     path("forum/<int:discussion_id>/reply/", views.forum_reply, name="forum_reply"),
+
+    path(
+        "forum/<int:discussion_id>/bookmark/",
+        views.toggle_discussion_bookmark,
+        name="toggle_discussion_bookmark",
+    ),
 
     # Reply actions
     path(
@@ -78,3 +100,5 @@ urlpatterns = [
         name="forum_reply_delete",
     ),
 ]
+from game.urls_history import history_urlpatterns
+urlpatterns += history_urlpatterns

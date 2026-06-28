@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChessPuzzle
+from .models import ChessPuzzle, UserProfile
 from django.contrib.auth.models import User
 from django.db import DatabaseError
 from .health_checks import (
@@ -16,6 +16,21 @@ class ChessPuzzleAdmin(admin.ModelAdmin):
     list_display = ('title', 'difficulty', 'date')
     search_fields = ('title', 'fen')
     list_filter = ('difficulty', 'date')
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'has_avatar')
+    search_fields = ('user__username', 'user__email')
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ('user',)
+        return ()
+
+    @admin.display(boolean=True, description='Has Avatar')
+    def has_avatar(self, obj):
+        return bool(obj.avatar)
 
 
 original_each_context = admin.site.each_context

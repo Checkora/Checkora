@@ -57,43 +57,132 @@
 
     <div class="forum-container">
         <div class="forum-header">
-            <a href="{% url 'landing' %}" class="forum-home-btn"> ← Back to Home </a>
+            <a href="{% url 'landing' %}" class="forum-home-btn">← Back to Home</a>
+
             <h1 class="forum-title">Community <span class="gold">Forum</span></h1>
-            <p class="forum-subtitle">Discuss strategies, ask questions, and connect with fellow players.</p>
+
+            <p class="forum-subtitle">
+                Discuss strategies, ask questions, and connect with fellow players.
+            </p>
+
+            <form method="get" class="forum-sort-form">
+                <label for="forum-sort">Sort by</label>
+
+                <select name="sort" id="forum-sort" onchange="this.form.submit()">
+                    <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>
+                        Newest First
+                    </option>
+
+                    <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>
+                        Oldest First
+                    </option>
+
+                    <option value="most_replies" {% if sort_by == "most_replies" %}selected{% endif %}>
+                        Most Replies
+                    </option>
+
+                    <option value="most_bookmarked" {% if sort_by == "most_bookmarked" %}selected{% endif %}>
+                        Most Bookmarked
+                    </option>
+
+                    <option value="recently_active" {% if sort_by == "recently_active" %}selected{% endif %}>
+                        Recently Active
+                    </option>
+                </select>
+            </form>
         </div>
 
-        <div class="forum-list">
-            {% for discussion in discussions %}
-            <a href="{% url 'forum_detail' discussion.id %}" class="forum-card">
-                <div class="forum-card-main">
-                    <h3 class="forum-card-title"><span class="forum-topic-label">Topic:</span> {{ discussion.title }}</h3>
-                    <p class="forum-card-excerpt">{{ discussion.content|truncatewords:40 }}</p>
-                    <div class="forum-card-meta">
-                        <span class="forum-meta-label">Started by</span>
-                        <span class="forum-author">{{ discussion.user.username }}</span>
+        <div class="forum-tabs">
+            <button type="button" class="forum-tab active" data-tab="all">
+                All Discussions
+            </button>
 
-                        <span class="forum-dot">•</span>
+            {% if user.is_authenticated %}
+            <button type="button" class="forum-tab" data-tab="your">
+                Your Discussions
+            </button>
 
-                        <span class="forum-meta-label">On</span>
-                        <span class="forum-date">{{ discussion.created_at|date:"M d, Y" }}</span>
-                    </div>
+            <button type="button" class="forum-tab" data-tab="bookmarked">
+                Bookmarked
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="forum-tab-panel active" id="tab-all">
+            <div class="forum-list">
+                {% for discussion in discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>No discussions yet. Be the first to start one!</p>
                 </div>
-                <div class="forum-card-stats">
-                    <span class="forum-reply-count">{{ discussion.replies.count }}</span>
-                    <span class="forum-reply-label">Replies</span>
-                </div>
-            </a>
-            {% empty %}
-            <div class="forum-empty">
-                <p>No discussions yet. Be the first to start one!</p>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
+
+        {% if user.is_authenticated %}
+        <div class="forum-tab-panel" id="tab-your">
+            <div class="forum-list">
+                {% for discussion in user_discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>You have not started or participated in any discussions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="forum-tab-panel" id="tab-bookmarked">
+            <div class="forum-list">
+                {% for discussion in bookmarked_discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>No bookmarked discussions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         {% if user.is_authenticated %}
         <a href="{% url 'forum_new' %}" class="forum-fab-new">+ New Discussion</a>
         {% endif %}
     </div>
+    <script>
+        function activateTab(tabId) {
+            const tabBtn = document.querySelector(`.forum-tab[data-tab="${tabId}"]`);
+            const panel = document.getElementById(`tab-${tabId}`);
+            if (!tabBtn || !panel) return;
+            document.querySelectorAll(".forum-tab").forEach((t) => t.classList.remove("active"));
+            document.querySelectorAll(".forum-tab-panel").forEach((p) => p.classList.remove("active"));
+            tabBtn.classList.add("active");
+            panel.classList.add("active");
+        }
+
+        // restore tab from hash on load
+        const hashTab = window.location.hash.replace("`#tab-`", "");
+        if (hashTab) activateTab(hashTab);
+
+        document.querySelectorAll(".forum-tab").forEach((tab) => {
+            tab.addEventListener("click", () => {
+                const target = tab.dataset.tab;
+                activateTab(target);
+                window.location.hash = `tab-${target}`;
+            });
+        });
+
+        // stamp next value with current path+hash before bookmark submit
+        document.querySelectorAll(".forum-bookmark-form").forEach((form) => {
+            form.addEventListener("submit", () => {
+                const nextInput = form.querySelector('input[name="next"]');
+                if (nextInput) {
+                    nextInput.value = window.location.pathname + window.location.hash;
+                }
+            });
+        });
+    </script>
     <script src="{% static 'game/js/dropdown.js' %}"></script>
 </body>
 </html>

@@ -172,6 +172,36 @@ jobs:
             --statistics
 
 # ───────────────────────────────────────────────────────────────────
+# JOB 1.5 — JavaScript Tests (Jest)
+# ───────────────────────────────────────────────────────────────────
+  js-tests:
+    name: 🃏 JavaScript Tests (Jest)
+    runs-on: ubuntu-latest
+    needs: [pr-guardian]
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.pr-guardian.result == 'skipped' ||
+      needs.pr-guardian.outputs.ci_allowed == 'true'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: 🃏 Run Jest tests
+        run: npm test
+
+
+# ───────────────────────────────────────────────────────────────────
 # JOB 2 — Compile C++ Engine
 # ───────────────────────────────────────────────────────────────────
   compile-engine:

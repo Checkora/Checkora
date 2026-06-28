@@ -59,7 +59,28 @@
                 <span class="forum-date">{{ discussion.created_at|date:"M d, Y H:i" }}</span>
             </div>
 
-            <h1 class="forum-detail-title">{{ discussion.title }}</h1>
+            <div class="forum-topic-row">
+                <h1 class="forum-detail-title">{{ discussion.title }}</h1>
+
+                {% if user.is_authenticated %}
+                <form method="post"
+                    action="{% url 'toggle_discussion_bookmark' discussion.id %}"
+                    class="forum-bookmark-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+
+                    <button type="submit"
+                            class="forum-bookmark-btn {% if is_bookmarked %}bookmarked{% endif %}"
+                            title="{% if is_bookmarked %}Remove bookmark{% else %}Bookmark{% endif %}"
+                            aria-label="{% if is_bookmarked %}remove bookmark{% else %}bookmark discussion{% endif %}"
+                            aria-pressed="{% if is_bookmarked %}true{% else %}false{% endif %}">
+                        <svg class="bookmark-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>
+                        </svg>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
 
             <div class="forum-detail-content">
                 {{ discussion.content|linebreaks }}

@@ -328,12 +328,156 @@ background-size:60px 60px;
     transform: scale(1.1);
 }
 
+#backToTopWrapper {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+
+    opacity: 0;
+    pointer-events: none;
+
+    transition: opacity 0.3s ease;
+    z-index: 999;
+}
+
+#backToTopWrapper.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#backToTopTooltip {
+    background: rgba(15, 15, 26, 0.9);
+    color: #f0c040;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(240, 192, 64, 0.3);
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+#backToTopWrapper:hover #backToTopTooltip {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#backToTopBtn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #0f0f1a;
+    border: 1.5px solid rgba(0, 0, 0, 0.4);
+    font-size: 1.3rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    box-shadow: 0 4px 20px rgba(240, 192, 64, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#backToTopBtn:hover {
+    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    box-shadow: 0 6px 24px rgba(240, 192, 64, 0.6);
+}
+
+#backToTopBtn:hover .btn-arrow {
+    animation: arrow-bounce 0.6s ease infinite;
+}
+
+#backToTopBtn:active {
+    transform: scale(0.92);
+}
+
+@keyframes arrow-bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
-</style>
 
+
+/* Light Theme Overrides */
+[data-theme="light"] body {
+    background: #f5f7fb;
+    color: #111827;
+}
+
+[data-theme="light"] .header h1,
+[data-theme="light"] .level-title {
+    color: #d4a017;
+    text-shadow: none;
+}
+
+[data-theme="light"] .progress-box {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .progress-box h3,
+[data-theme="light"] .progress-box p {
+    color: #111827;
+}
+
+[data-theme="light"] .progress-track {
+    background: #e5e7eb;
+}
+
+[data-theme="light"] .progress-fill {
+    background: linear-gradient(90deg, #d4a017, #fcd34d);
+}
+
+[data-theme="light"] .lesson-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .lesson-card:hover {
+    border-color: #d4a017;
+    box-shadow: 0 10px 25px rgba(212, 160, 23, 0.2);
+}
+
+[data-theme="light"] .lesson-card h3 {
+    color: #111827;
+}
+
+[data-theme="light"] .node {
+    background: #f3f4f6;
+    border: 2px solid #cbd5e1;
+    color: #4b5563;
+}
+
+[data-theme="light"] .locked-badge {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+[data-theme="light"] .lesson-name {
+    color: #4b5563;
+}
+</style>
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 
 <body>
@@ -364,10 +508,8 @@ background-size:60px 60px;
     <h3>Your Journey Progress</h3>
 
     <div class="progress-track">
-        <div
-            class="progress-fill"
-            style="width:{% widthratio completed_lessons|length 12 100 %}%">
-        </div>
+        <div class="progress-fill" id="map-progress-fill" data-progress="{% widthratio completed_lessons|length total_lessons 100 %}"></div>
+        <script>document.getElementById('map-progress-fill').style.width = document.getElementById('map-progress-fill').dataset.progress + '%';</script>
     </div>
 
     <p>
@@ -453,8 +595,30 @@ background-size:60px 60px;
 {% endfor %}
 
 </div>
+<div id="backToTopWrapper">
+    <span id="backToTopTooltip">Back to Top</span>
+    <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <span class="btn-arrow">^</span>
+    </button>
+</div>
 <script src="{% static 'game/js/roadmap_connectors.js' %}"></script>
 <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const backToTop = document.getElementById("backToTopWrapper");
+
+        const toggleBackToTop = () => {
+            if (window.scrollY > 300) {
+                backToTop.classList.add("visible");
+            } else {
+                backToTop.classList.remove("visible");
+            }
+        };
+
+        window.addEventListener("scroll", toggleBackToTop);
+
+        // Sync initial state for restored scroll positions
+        toggleBackToTop();
+    });
     document.addEventListener('DOMContentLoaded', function() {
         if (localStorage.getItem('lessons_guest_alert_dismissed') === 'true') {
             var alert = document.getElementById('guest-alert');

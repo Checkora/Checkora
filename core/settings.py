@@ -24,7 +24,10 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-for-local-testing')
+try:
+    SECRET_KEY = os.environ['SECRET_KEY']
+except KeyError:
+    raise ImproperlyConfigured('SECRET_KEY environment variable is required')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 IS_PRODUCTION = os.environ.get('VERCEL_ENV') == 'production'
@@ -163,6 +166,30 @@ PASSWORD_RESET_EMAIL_COOLDOWN_SECONDS = 300
 PASSWORD_RESET_IP_WINDOW_SECONDS = 900
 PASSWORD_RESET_IP_MAX_REQUESTS = 3
 
+def _positive_int_env(name: str, default: int) -> int:
+    value = int(os.environ.get(name, str(default)))
+    if value < 1:
+        raise ValueError(f'{name} must be >= 1')
+    return value
+
+
+# Analyze Game Rate Limiting
+# Configures the rate limits for the analyze_game_view endpoint.
+# Window duration for tracking analyze game requests
+ANALYZE_GAME_RATE_WINDOW_SECONDS = _positive_int_env('ANALYZE_GAME_RATE_WINDOW_SECONDS', 60)
+# Max requests a single authenticated user can make in the time window
+ANALYZE_GAME_USER_MAX_REQUESTS = _positive_int_env('ANALYZE_GAME_USER_MAX_REQUESTS', 10)
+# Max requests that can originate from a single IP address in the time window
+ANALYZE_GAME_IP_MAX_REQUESTS = _positive_int_env('ANALYZE_GAME_IP_MAX_REQUESTS', 20)
+
+# Rate limiting for opening lookup
+OPENING_RATE_LIMIT_WINDOW_SECONDS = _positive_int_env(
+    'OPENING_RATE_LIMIT_WINDOW_SECONDS', 60
+)
+OPENING_RATE_LIMIT_MAX_REQUESTS = _positive_int_env(
+    'OPENING_RATE_LIMIT_MAX_REQUESTS', 60
+)
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
@@ -257,5 +284,4 @@ if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
         'TRUSTED_PROXY_IPS must be set in production'
     )
 
-
-
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

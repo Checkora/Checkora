@@ -6,6 +6,9 @@ import time
 from smtplib import SMTPException
 from unittest import mock
 
+from django.utils import timezone
+from game.models import ActiveGame
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
@@ -949,24 +952,24 @@ class DrawRuleTest(SimpleTestCase):
         without_ep = game.generate_position_key()
 
         self.assertEqual(with_ep, without_ep)
-        
+
     def test_double_pawn_push_sets_en_passant_target(self):
         game = ChessGame()
-            
+
         game.make_move(6, 4, 4, 4)
-            
+
         self.assertEqual(game.en_passant_target, (5, 4))
-        
+
     def test_non_pawn_move_clears_en_passant_target(self):
         game = ChessGame()
-        
+
         game.make_move(6, 4, 4, 4)
-        
+
         self.assertEqual(game.en_passant_target, (5, 4))
-        
+
         game.make_move(0, 1, 2, 2)
-        
-        self.assertIsNone(game.en_passant_target)    
+
+        self.assertIsNone(game.en_passant_target)
 
     def test_en_passant_target_preserved_in_session(self):
         game = ChessGame()
@@ -998,11 +1001,11 @@ class DrawRuleTest(SimpleTestCase):
 
         self.assertTrue(success)
         self.assertEqual(captured, 'p')
-        
+
         # self.assertEqual(game.board[3][4])  # e5 empty
         self.assertIsNone(game.board[3][3])     # captured pawn removed
         self.assertEqual(game.board[2][3], 'P') # white pawn moved to d6
-        
+
     def test_en_passant_expires_after_one_turn(self):
         game = ChessGame()
 
@@ -1072,7 +1075,7 @@ class AIMoveTest(TestCase):
 
 class OpeningBookTest(SimpleTestCase):
     """Unit tests for the opening-book integration in ChessGame."""
-    
+
     # FEN key generation
 
     def test_fen_key_starting_position(self):
@@ -1326,33 +1329,33 @@ class StatsCleanupTest(TestCase):
     def test_user_isolation(self):
         """Users should only see their own game results."""
         # Create game for user A
-        self.GameResult.objects.create(user=self.user_a, mode='pvp', winner='white', end_reason='checkmate')
+        self.user_a.game_results.create(mode='pvp', winner='white', end_reason='checkmate')
         # Create game for user B
-        self.GameResult.objects.create(user=self.user_b, mode='ai', winner='black', end_reason='resign')
+        self.user_b.game_results.create(mode='ai', winner='black', end_reason='resign')
 
         # Check as User A
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td style="font-weight: 600;">PvP</td>')
-        self.assertNotContains(response, '<td style="font-weight: 600;">AI</td>')
+        self.assertContains(response, '<td>PvP</td>')
+        self.assertNotContains(response, '<td>AI</td>')
         self.client.logout()
 
         # Check as User B
         self.client.login(username='userb', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<td style="font-weight: 600;">AI</td>')
-        self.assertNotContains(response, '<td style="font-weight: 600;">PvP</td>')
+        self.assertContains(response, '<td>AI</td>')
+        self.assertNotContains(response, '<td>PvP</td>')
 
     def test_empty_stats_page(self):
         """Users with no games should see a clean empty state."""
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No Match Records Found')
+        self.assertContains(response, 'No games played yet. Play a game to see your stats here!')
         # Summary cards should show 17 cards
-        self.assertContains(response, '<div class="num">0</div>', count=17)
+        self.assertContains(response, '<div class="num">0</div>', count=16)
         # No <tr> should be present in the tbody
         self.assertNotContains(response, '<tr><td>')
 
@@ -1394,18 +1397,18 @@ class StatsCleanupTest(TestCase):
         self.client.login(username='usera', password='password123')
         response = self.client.get('/stats/')
         self.assertNotContains(response, 'Checkmate')
-        self.assertContains(response, 'No Match Records Found')
+        self.assertContains(response, 'No games played yet. Play a game to see your stats here!')
 
 class StaleGameCleanupTest(TestCase):
     def setUp(self):
         self.url = '/api/cron/cleanup-stale-games/'
         self.secret = 'test_secret_123'
-        
+
     @override_settings(CRON_SECRET='test_secret_123')
     def test_stale_game_deletion(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         s = SessionStore()
         s.create()
         # low engagement: < 5 moves
@@ -1415,11 +1418,20 @@ class StaleGameCleanupTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        
+
+        active_game = ActiveGame.objects.create(
+            session_key=s.session_key,
+            status="active",
+        )
+
+        ActiveGame.objects.filter(pk=active_game.pk).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 1)
-        
+
         s = SessionStore(session_key=s.session_key)
         self.assertNotIn('game', s)
 
@@ -1428,7 +1440,7 @@ class StaleGameCleanupTest(TestCase):
         from django.contrib.sessions.backends.db import SessionStore
         import time
         from game.models import GameResult
-        
+
         s = SessionStore()
         s.create()
         # high engagement: >= 5 moves
@@ -1441,14 +1453,23 @@ class StaleGameCleanupTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        
+
+        active_game = ActiveGame.objects.create(
+            session_key=s.session_key,
+            status="active",
+        )
+
+        ActiveGame.objects.filter(pk=active_game.pk).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['resigned_games'], 1)
-        
+
         s = SessionStore(session_key=s.session_key)
         self.assertEqual(s['game']['game_status'], 'resignation')
-        
+
         self.assertEqual(GameResult.objects.count(), 1)
         res = GameResult.objects.first()
         self.assertEqual(res.winner, 'black')
@@ -1458,29 +1479,29 @@ class StaleGameCleanupTest(TestCase):
     def test_edge_cases(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         # 1. Game less than 48 hours old
         s1 = SessionStore()
         s1.create()
         s1['game'] = {'game_status': 'active', 'move_history': [1], 'last_ts': time.time() - (10 * 3600)}
         s1.save()
-        
+
         # 2. Game already completed
         s2 = SessionStore()
         s2.create()
         s2['game'] = {'game_status': 'checkmate', 'move_history': [1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
         s2.save()
-        
+
         # 3. Session without game data
         s3 = SessionStore()
         s3.create()
         s3.save()
-        
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 0)
         self.assertEqual(response.json()['resigned_games'], 0)
-        
+
         s1 = SessionStore(session_key=s1.session_key)
         self.assertEqual(s1['game']['game_status'], 'active')
 
@@ -1488,7 +1509,7 @@ class StaleGameCleanupTest(TestCase):
     def test_protected_endpoint(self):
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 401)
-        
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
 
@@ -1696,12 +1717,12 @@ class SecureRegistrationTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, '/verify-otp/')
-        
+
         # Verify the inactive user was not updated/hijacked
         not_reused = User.objects.get(id=old_id)
         self.assertEqual(not_reused.username, 'pendingplayer')
         self.assertTrue(not_reused.check_password('OldPassword456!'))
-        
+
         # Verify no new user was created
         self.assertFalse(User.objects.filter(username='newchessplayer').exists())
 
@@ -1722,7 +1743,7 @@ class SecureRegistrationTest(TestCase):
         )
         response = self.client.post('/register/', data=self.VALID_PAYLOAD)
         self.assertEqual(response.status_code, 302)
-        
+
         self.assertEqual(User.objects.filter(username='newchessplayer').count(), 1)
         self.assertTrue(User.objects.filter(id=inactive.id).exists())
         inactive.refresh_from_db()
@@ -1886,14 +1907,14 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[4] = 'k'
         board64[60] = 'K'
         board64_str = "".join(board64)
-        
+
         # STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
         cmd = f"STATUS {board64_str} - white -1 -1\n"
-        
+
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -1906,12 +1927,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[45] = 'N'
         board64_str = "".join(board64)
-        
+
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -1924,12 +1945,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[45] = 'B'
         board64_str = "".join(board64)
-        
+
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -1942,12 +1963,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[52] = 'P'
         board64_str = "".join(board64)
-        
+
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-        
+
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS OK")
@@ -1959,11 +1980,11 @@ class InsufficientMaterialDrawTest(TestCase):
         game.board = [[None] * 8 for _ in range(8)]
         game.board[0][4] = 'k'
         game.board[7][4] = 'K'
-        
+
         # Verify the status is 'draw'
         status = game.check_game_status()
         self.assertEqual(status, 'draw')
-        
+
         # Actually trigger a move to verify game state transitions to 'draw' and 'insufficient_material'
         with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
             success, notation, captured, final_status = game.make_move(7, 4, 7, 3)
@@ -2019,7 +2040,7 @@ class TimeControlIncrementTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['valid'])
-        
+
         session = self.client.session
         game_dict = session.get('game')
         self.assertIsNotNone(game_dict)
@@ -2055,7 +2076,7 @@ class GameResultMoveHistoryTest(TestCase):
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        
+
         moves = [{'notation': 'd4', 'piece': 'P', 'from': [6, 3], 'to': [4, 3], 'color': 'white'}]
         request.session = {'game': {'move_history': moves}}
 
@@ -2088,6 +2109,14 @@ class GameResultMoveHistoryTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
+        active_game = ActiveGame.objects.create(
+            session_key=s.session_key,
+            status="active",
+        )
+
+        ActiveGame.objects.filter(pk=active_game.pk).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
 
         deleted, resigned = cleanup_stale_games()
         self.assertEqual(resigned, 1)
@@ -2122,7 +2151,7 @@ class GameResultMoveHistoryTest(TestCase):
 
         # Populate session with active game
         self.client.get('/play/')
-        
+
         # Player makes the move
         response = self.client.post(
             '/api/move/',
@@ -2252,7 +2281,7 @@ class AdditionalViewsSecurityAndLessonsTest(TestCase):
             response = self.client.post(reverse('resend_otp'), follow=True)
 
         self.assertContains(response, 'Failed to resend OTP. Please try again.')
-        
+
         # Verify the session registration_otp_hash was NOT changed/mutated
         session = self.client.session
         self.assertEqual(session.get('registration_otp_hash'), initial_hash)
@@ -2444,11 +2473,11 @@ class OtpBruteForceProtectionTest(TestCase):
 
         response = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
         self.assertRedirects(response, reverse('index'))
-        
+
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_active)
         self.assertIn('_auth_user_id', self.client.session)
-        
+
         from django.contrib.messages import get_messages
         messages_list = [m.message for m in get_messages(response.wsgi_request)]
         self.assertIn('Registration successful! Welcome to Checkora.', messages_list)
@@ -2497,7 +2526,7 @@ class OtpBruteForceProtectionTest(TestCase):
         # Attacker fails OTP 5 times on the dummy flow
         for _ in range(5):
             attacker_client.post(self.verify_url, {'otp': '000000'})
-        
+
         # Verify that the legit user session's counter is still untouched (can still verify OTP successfully)
         response_legit = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
         self.assertRedirects(response_legit, reverse('index'))
@@ -2610,7 +2639,7 @@ class LoginBruteForceProtectionTest(TestCase):
     def test_ip_lockout_after_20_failures(self):
         """A client IP is locked out after IP failed attempts."""
         client_ip = '192.168.1.50'
-        
+
         # We perform IP_MAX_FAILS - 1 failed attempts from this IP.
         for i in range(IP_MAX_FAILS - 1):
             response = self.client.post(
@@ -2726,7 +2755,7 @@ class LoginBruteForceProtectionTest(TestCase):
     def test_lockout_expiration_after_15_minutes(self):
         """A locked username or IP becomes unlocked after duration."""
         from game.views import get_username_lockout_key, get_ip_lockout_key
-        
+
         # 1. Username lockout check
         username_key = get_username_lockout_key(self.username)
         cache.set(
@@ -2791,7 +2820,7 @@ class LoginBruteForceProtectionTest(TestCase):
     def test_lockout_messages_show_remaining_time(self):
         """Lockout messages show remaining time in minutes dynamically."""
         from game.views import get_username_lockout_key, get_ip_lockout_key
-        
+
         # Set lockout for username to expire in exactly 7 minutes (420 seconds)
         username_key = get_username_lockout_key(self.username)
         cache.set(username_key, time.time() + 420, timeout=LOCKOUT_SECONDS)
@@ -2864,7 +2893,7 @@ class ChessPuzzleDailyApiTest(TestCase):
         self.assertEqual(data['id'], expected_puzzle.id)
         self.assertEqual(data['title'], "Today's Special Puzzle")
         self.assertEqual(data['difficulty'], "hard")
-        self.assertEqual(data['solution'], ["e2e4"])
+        self.assertNotIn('solution', data)
 
     def test_daily_puzzle_api_fallback_to_modulo(self):
         """Deterministic fallback when no puzzle matches today."""
@@ -2946,8 +2975,8 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         response = self.client.get(reverse('leaderboard'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'game/leaderboard.html')
-        self.assertContains(response, "No leaderboard data available.")
-        self.assertContains(response, "No chess rating data available.")
+        self.assertContains(response, "No leaderboard data available yet.")
+        self.assertContains(response, "No chess rating data available yet.")
 
     def test_achievements_authenticated(self):
         password = 'Password123!'
@@ -2962,14 +2991,14 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertTemplateUsed(response, 'game/achievements.html')
         self.assertContains(response, "Achievements Unlocked")
         self.assertContains(response, "No featured badges selected yet.")
-        
+
     def test_opening_trainer_page(self):
         response = self.client.get(
             reverse("opening_trainer")
         )
 
         self.assertEqual(response.status_code, 200)
-    
+
     def test_opening_detail_page(self):
         response = self.client.get(
             reverse(
@@ -2999,7 +3028,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
         request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps({}), content_type='application/json')
         from django.contrib.auth.models import AnonymousUser
         request.user = AnonymousUser()
-        
+
         response = views.update_puzzle_stats(request)
         self.assertEqual(response.status_code, 302)
 
@@ -3043,7 +3072,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
         response = views.update_puzzle_stats(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content), {'success': True})
-        
+
         from game.models import PuzzleStats
         stats = PuzzleStats.objects.get(user=self.user)
         self.assertEqual(stats.puzzles_solved, 5)
@@ -3061,7 +3090,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
             best_streak=10,
             daily_completions=2
         )
-        
+
         payload = {
             'current_streak': 5,
             'best_streak': 12
@@ -3071,7 +3100,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
         response = views.update_puzzle_stats(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content), {'success': True})
-        
+
         stats = PuzzleStats.objects.get(user=self.user)
         self.assertEqual(stats.current_streak, 5)
         self.assertEqual(stats.best_streak, 12)
@@ -3147,3 +3176,464 @@ class UpdatePuzzleStatsViewTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(PuzzleStats.objects.filter(user=self.user).exists())
 
+
+class ChessPuzzleDashboardTests(TestCase):
+    """Test suite for the chess puzzle dashboard views and API endpoints."""
+
+    def setUp(self):
+        super().setUp()
+        from game.models import ChessPuzzle
+        ChessPuzzle.objects.all().delete()
+
+        self.puzzle_easy = ChessPuzzle.objects.create(
+            title="Easy Mate in One",
+            fen="8/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["e2e4"],
+            difficulty="easy"
+        )
+        self.puzzle_medium = ChessPuzzle.objects.create(
+            title="Medium Tactics Puzzle",
+            fen="7k/8/8/8/8/8/8/8 w - - 0 1",
+            solution=["d2d4"],
+            difficulty="medium"
+        )
+        self.puzzle_hard = ChessPuzzle.objects.create(
+            title="Hard Endgame Study",
+            fen="6k1/8/8/8/8/8/8/6K1 w - - 0 1",
+            solution=["c2c4"],
+            difficulty="hard"
+        )
+
+    def test_puzzles_view_renders_correct_template(self):
+        """The puzzles dashboard view renders the puzzle_list.html template."""
+        url = reverse('puzzles')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/puzzle_list.html')
+
+    def test_puzzles_list_api_returns_all_without_solution(self):
+        """The listing API returns all puzzles and excludes solutions."""
+        url = reverse('puzzles_list_api')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 3)
+
+        for item in data:
+            self.assertNotIn('solution', item)
+            self.assertIn('id', item)
+            self.assertIn('title', item)
+            self.assertIn('fen', item)
+            self.assertIn('difficulty', item)
+
+    def test_puzzles_list_api_difficulty_filtering(self):
+        """The listing API supports filtering by difficulty."""
+        url = reverse('puzzles_list_api')
+
+        # Filter easy
+        response = self.client.get(url, {'difficulty': 'easy'})
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['title'], "Easy Mate in One")
+
+        # Filter hard
+        response = self.client.get(url, {'difficulty': 'hard'})
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['title'], "Hard Endgame Study")
+
+    def test_puzzles_list_api_search_filtering(self):
+        """The listing API supports filtering by search queries on title."""
+        url = reverse('puzzles_list_api')
+
+        response = self.client.get(url, {'search': 'Tactics'})
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['title'], "Medium Tactics Puzzle")
+
+    def test_puzzle_detail_api_excludes_solution(self):
+        """Detail API returns details for a single puzzle without solution."""
+        url = reverse(
+            'puzzle_detail_api',
+            kwargs={'puzzle_id': self.puzzle_easy.id}
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], self.puzzle_easy.id)
+        self.assertEqual(data['title'], "Easy Mate in One")
+        self.assertNotIn('solution', data)
+
+    def test_puzzle_solution_api_returns_solution(self):
+        """The puzzle solution API returns the correct solution array."""
+        url = reverse(
+            'puzzle_solution_api',
+            kwargs={'puzzle_id': self.puzzle_easy.id}
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['solution'], ["e2e4"])
+
+    def test_daily_puzzle_api_excludes_solution(self):
+        """The daily puzzle API endpoint now excludes solutions."""
+        from django.utils import timezone
+        # Assign self.puzzle_easy as today's daily puzzle
+        self.puzzle_easy.date = timezone.localdate()
+        self.puzzle_easy.save()
+
+        url = reverse('daily_puzzle')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['id'], self.puzzle_easy.id)
+        self.assertNotIn('solution', data)
+
+
+# ===========================================================================
+# Avatar Support Tests (Issue #455)
+# ===========================================================================
+
+class UserProfileModelTest(TestCase):
+    """Test UserProfile model creation and the post_save signal."""
+
+    def test_profile_auto_created_on_user_registration(self):
+        """Creating a User automatically creates a corresponding UserProfile."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='avatar_test_user',
+            password='TestPass123!',
+            email='avatar@example.com'
+        )
+        self.assertTrue(
+            UserProfile.objects.filter(user=user).exists(),
+            'UserProfile should be auto-created via post_save signal'
+        )
+
+    def test_profile_avatar_defaults_to_empty_string(self):
+        """A freshly created UserProfile has an empty avatar field."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='no_avatar_user',
+            password='TestPass123!',
+            email='noavatar@example.com'
+        )
+        profile = UserProfile.objects.get(user=user)
+        self.assertEqual(profile.avatar, '')
+
+    def test_profile_str(self):
+        """UserProfile.__str__ returns '<username> Profile'."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='str_test_user',
+            password='TestPass123!',
+            email='strtest@example.com'
+        )
+        profile = UserProfile.objects.get(user=user)
+        self.assertEqual(str(profile), 'str_test_user Profile')
+
+    def test_profile_deleted_when_user_deleted(self):
+        """Deleting a User cascades to delete the associated UserProfile."""
+        from game.models import UserProfile
+        user = User.objects.create_user(
+            username='cascade_user',
+            password='TestPass123!',
+            email='cascade@example.com'
+        )
+        user_id = user.id
+        user.delete()
+        self.assertFalse(UserProfile.objects.filter(user_id=user_id).exists())
+
+
+class AvatarUploadFormTest(TestCase):
+    """Test AvatarUploadForm validation rules."""
+
+    def _make_image_file(
+        self,
+        name='test.jpg',
+        content_type='image/jpeg',
+        size_bytes=1024
+    ):
+        """Return a minimal in-memory SimpleUploadedFile."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(
+            name=name,
+            content=b'\xff\xd8\xff' + b'0' * size_bytes,  # JPEG magic bytes
+            content_type=content_type
+        )
+
+    def test_valid_jpeg_passes(self):
+        from game.forms import AvatarUploadForm
+        from PIL import Image
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        # Dynamically generate a valid 10x10 JPEG
+        img_buffer = io.BytesIO()
+        Image.new('RGB', (10, 10), color='red').save(img_buffer, 'JPEG')
+        img_buffer.seek(0)
+        
+        file = SimpleUploadedFile('photo.jpg', img_buffer.read(), 'image/jpeg')
+        file.content_type = 'image/jpeg'
+        
+        form = AvatarUploadForm()
+        form.cleaned_data = {'avatar': file}
+        cleaned = form.clean_avatar()
+        self.assertEqual(cleaned, file)
+
+    def test_size_validation_rejects_files_over_5mb(self):
+        from game.forms import AvatarUploadForm
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        large_file = SimpleUploadedFile(
+            name='big.jpg',
+            content=b'x' * (5 * 1024 * 1024 + 1),
+            content_type='image/jpeg'
+        )
+        large_file.content_type = 'image/jpeg'
+        form = AvatarUploadForm()
+        # Manually call clean_avatar by building the cleaned_data dict
+        form.cleaned_data = {'avatar': large_file}
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            form.clean_avatar()
+
+    def test_mime_validation_rejects_pdf(self):
+        from game.forms import AvatarUploadForm
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core.exceptions import ValidationError
+        pdf_file = SimpleUploadedFile(
+            name='doc.pdf',
+            content=b'%PDF-1.4',
+            content_type='application/pdf'
+        )
+        pdf_file.content_type = 'application/pdf'
+        form = AvatarUploadForm()
+        form.cleaned_data = {'avatar': pdf_file}
+        with self.assertRaises(ValidationError):
+            form.clean_avatar()
+
+    def test_mime_validation_accepts_webp(self):
+        from game.forms import AvatarUploadForm
+        from PIL import Image
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        # Dynamically generate a valid WEBP
+        img_buffer = io.BytesIO()
+        Image.new('RGB', (10, 10), color='blue').save(img_buffer, 'WEBP')
+        img_buffer.seek(0)
+        
+        webp_file = SimpleUploadedFile('img.webp', img_buffer.read(), 'image/webp')
+        webp_file.content_type = 'image/webp'
+        
+        form = AvatarUploadForm()
+        form.cleaned_data = {'avatar': webp_file}
+        result = form.clean_avatar()
+        self.assertEqual(result, webp_file)
+
+
+class AvatarViewTest(TestCase):
+    """Test avatar upload, remove, and get API views."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username='viewtest_user',
+            password='TestPass123!',
+            email='viewtest@example.com'
+        )
+        self.client.login(username='viewtest_user', password='TestPass123!')
+        self.upload_url = reverse('upload_avatar')
+        self.remove_url = reverse('remove_avatar')
+        self.get_url = reverse('get_avatar')
+
+    # ── Authentication guards ─────────────────────────────────────────────
+
+    def test_upload_page_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.upload_url)
+        self.assertRedirects(
+            response,
+            f"/login/?next={self.upload_url}",
+            fetch_redirect_response=False
+        )
+
+    def test_remove_requires_login(self):
+        self.client.logout()
+        response = self.client.post(self.remove_url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_get_avatar_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.get_url)
+        self.assertEqual(response.status_code, 302)
+
+    # ── GET /avatar/ ──────────────────────────────────────────────────────
+
+    def test_upload_page_renders(self):
+        response = self.client.get(self.upload_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/avatar.html')
+
+    # ── GET /api/avatar/ ─────────────────────────────────────────────────
+
+    def test_get_avatar_returns_json_with_empty_string_when_no_avatar(self):
+        response = self.client.get(self.get_url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('avatar', data)
+        self.assertEqual(data['avatar'], '')
+
+    def test_get_avatar_returns_avatar_after_set(self):
+        from game.models import UserProfile
+        profile = UserProfile.objects.get(user=self.user)
+        profile.avatar = 'data:image/jpeg;base64,TESTDATA'
+        profile.save()
+
+        response = self.client.get(self.get_url)
+        data = response.json()
+        self.assertEqual(data['avatar'], 'data:image/jpeg;base64,TESTDATA')
+
+    # ── POST /avatar/remove/ ─────────────────────────────────────────────
+
+    def test_remove_avatar_clears_avatar_field(self):
+        from game.models import UserProfile
+        profile = UserProfile.objects.get(user=self.user)
+        profile.avatar = 'data:image/jpeg;base64,SOMEDATA'
+        profile.save()
+
+        response = self.client.post(self.remove_url)
+        self.assertRedirects(response, self.upload_url, fetch_redirect_response=False)
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.avatar, '')
+
+    def test_remove_avatar_get_is_not_allowed(self):
+        response = self.client.get(self.remove_url)
+        self.assertEqual(response.status_code, 405)
+
+    # ── POST /avatar/ (invalid uploads) ──────────────────────────────────
+
+    def test_upload_with_no_file_shows_error(self):
+        response = self.client.post(self.upload_url, data={}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        # Should stay on avatar page with an error message
+        self.assertTemplateUsed(response, 'game/avatar.html')
+
+
+class GameResultRatingTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='ratingplayer', password='password123')
+        from game.models import PlayerRating, GameResult, UserAchievement, Achievement
+        self.PlayerRating = PlayerRating
+        self.GameResult = GameResult
+        self.UserAchievement = UserAchievement
+        Achievement.objects.create(code='FIRST_WIN', title='First Win', description='Win a game', icon='🏆', category='game', rarity='common')
+
+    def test_record_game_result_updates_rating_and_achievements_for_ai(self):
+        from game.views import record_game_result
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        request.session = {}
+
+        record_game_result(request, 'ai', 'white', 'checkmate', 'white')
+
+        rating = self.PlayerRating.objects.get(user=self.user)
+        self.assertEqual(rating.games_played, 1)
+        self.assertEqual(rating.wins, 1)
+        self.assertTrue(self.UserAchievement.objects.filter(user=self.user).exists())
+        
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.mode, 'ai')
+        self.assertEqual(res.winner, 'white')
+
+    def test_record_game_result_does_not_update_rating_or_achievements_for_pvp(self):
+        from game.views import record_game_result
+        factory = RequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user
+        request.session = {}
+
+        record_game_result(request, 'pvp', 'white', 'checkmate', 'white')
+
+        self.assertFalse(self.PlayerRating.objects.filter(user=self.user).exists())
+        self.assertFalse(self.UserAchievement.objects.filter(user=self.user).exists())
+
+        self.assertEqual(self.GameResult.objects.count(), 1)
+        res = self.GameResult.objects.first()
+        self.assertEqual(res.mode, 'pvp')
+        self.assertEqual(res.winner, 'white')
+
+
+@override_settings(
+    OPENING_RATE_LIMIT_WINDOW_SECONDS=60,
+    OPENING_RATE_LIMIT_MAX_REQUESTS=2,
+)
+class OpeningLookupRateLimitTest(TestCase):
+    """Opening lookup requests should be throttled."""
+
+    def setUp(self):
+        cache.clear()
+        self.trainer_url = reverse('opening_trainer')
+        self.detail_url = reverse('opening_detail', kwargs={'slug': 'italian-game'})
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_opening_trainer_rate_limit(self):
+        res1 = self.client.get(self.trainer_url)
+        self.assertEqual(res1.status_code, 200)
+        
+        res2 = self.client.get(self.trainer_url)
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res3.status_code, 429)
+        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+        res_html = self.client.get(self.trainer_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(res_html.status_code, 429)
+        self.assertIn(b"429 Too Many Requests", res_html.content)
+
+    def test_opening_detail_rate_limit(self):
+        res1 = self.client.get(self.detail_url)
+        self.assertEqual(res1.status_code, 200)
+        
+        res2 = self.client.get(self.detail_url)
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(self.detail_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res3.status_code, 429)
+        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+    def test_opening_trainer_rate_limit_authenticated(self):
+        # First exhaust the anonymous limit (IP based)
+        res1 = self.client.get(self.trainer_url)
+        self.assertEqual(res1.status_code, 200)
+        
+        res2 = self.client.get(self.trainer_url)
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res3.status_code, 429)
+        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+        # Now authenticate and verify we get a fresh allowance (User ID based)
+        User.objects.create_user(
+            username='testuser_rl',
+            password='Password123!',
+            email='testuser_rl@example.com'
+        )
+        self.client.login(username='testuser_rl', password='Password123!')
+        
+        res4 = self.client.get(self.trainer_url)
+        self.assertEqual(res4.status_code, 200)
+        
+        res5 = self.client.get(self.trainer_url)
+        self.assertEqual(res5.status_code, 200)
+        
+        res6 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
+        self.assertEqual(res6.status_code, 429)
+        self.assertEqual(res6.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})

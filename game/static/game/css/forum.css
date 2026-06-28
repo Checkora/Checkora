@@ -38,6 +38,7 @@
 }
 
 .forum-card {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -72,6 +73,18 @@
     font-weight: 600;
     color: #ffffff;
     margin-bottom: 0.35rem;
+}
+
+.forum-card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.forum-bookmark-form,
+.forum-card-stats {
+    position: relative;
+    z-index: 2;
 }
 
 .forum-card-excerpt {
@@ -450,6 +463,129 @@
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+.forum-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+}
+
+.forum-tab {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    padding: 0.7rem 1.1rem;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.forum-tab:hover {
+    color: var(--accent-gold);
+    border-color: rgba(240, 192, 64, 0.28);
+}
+
+.forum-tab.active {
+    background: rgba(240, 192, 64, 0.1);
+    border-color: rgba(240, 192, 64, 0.35);
+    color: var(--accent-gold);
+}
+
+.forum-tab-panel {
+    display: none;
+}
+
+.forum-tab-panel.active {
+    display: block;
+}
+
+.forum-card-wrap {
+    position: relative;
+}
+
+.forum-topic-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.forum-topic-row .forum-card-title {
+    margin-bottom: 0.35rem;
+}
+
+.forum-bookmark-form {
+    flex-shrink: 0;
+}
+
+.forum-bookmark-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    background: transparent;
+    border: none;
+    padding: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.forum-bookmark-btn:hover {
+    background: rgba(240, 192, 64, 0.08);
+}
+
+.forum-bookmark-btn.bookmarked {
+    background: rgba(240, 192, 64, 0.12);
+    border-color: rgba(240, 192, 64, 0.32);
+}
+
+.bookmark-icon {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--accent-gold);
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    transition: fill 0.2s ease;
+}
+
+.bookmark-text {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.forum-bookmark-btn:hover .bookmark-text,
+.forum-bookmark-btn.bookmarked .bookmark-text {
+    opacity: 1;
+}
+
+.forum-bookmark-btn.bookmarked .bookmark-icon {
+    fill: var(--accent-gold);
+}
+
+@media (max-width: 600px) {
+    .forum-topic-row {
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .forum-bookmark-btn,
+    .forum-bookmark-btn:hover,
+    .forum-bookmark-btn.bookmarked {
+        width: auto;
+    }
+
+    .bookmark-text {
+        opacity: 1;
+    }
 
     .forum-reply-compose {
         max-width: 100%;
@@ -761,4 +897,42 @@ html {
 
 .forum-delete-confirm:hover {
     background: #dc2626;
+}
+
+.forum-sort-form {
+    margin-top: 1.25rem;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: fit-content;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 5px;
+    padding: 0.55rem 0.75rem;
+}
+
+.forum-sort-form label {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.forum-sort-form select {
+    background: #1a1d30;
+    color: #ffffff;
+    border: 1px solid rgba(240, 192, 64, 0.25);
+    border-radius: 5px;
+    padding: 0.45rem 2rem 0.45rem 0.85rem;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 180px;
+}
+
+.forum-sort-form select:focus {
+    outline: none;
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.12);
 }

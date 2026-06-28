@@ -139,6 +139,30 @@ body {
     background: rgba(255, 255, 255, 0.08);
 }
 
+
+.game-header-theme-toggle {
+    position: static !important;
+    transform: none !important;
+
+    margin-top: 8px;      /* Adjust this value */
+    margin-right: 12px;
+
+    width: 40px;
+    height: 40px;
+
+    padding: 0;
+    border-radius: 50%;   /* Keeps it circular */
+}
+
+.game-header-theme-toggle:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: var(--accent-gold);
+}
+
+.game-header-theme-toggle:active {
+    transform: scale(0.96) !important;
+}
+
 /* Responsive logo sizes */
 @media (max-width: 768px) {
     .logo-icon-img {
@@ -376,6 +400,17 @@ body {
     gap: 12px;
     box-sizing: border-box;
 }
+/* Give Move History panel a bit more room on desktop */
+@media (min-width: 1024px) {
+    .move-history-panel {
+        width: 240px;
+        max-width: 240px;
+    }
+
+    .move-history-panel .move-row {
+        grid-template-columns: 36px minmax(56px, 1fr) minmax(56px, 1fr);
+    }
+}
 
 .panel input,
 .panel select,
@@ -565,6 +600,7 @@ body {
     max-width: 100%;
     box-sizing: content-box;
     position: relative;
+    color-scheme: light dark;
 }
 
 /* ============================================================
@@ -1368,10 +1404,8 @@ body {
         font-size: 1.15rem;
         font-weight: 700;
         flex-shrink: 0;
+        color: #fed7aa;
     }
-
-    color: #fed7aa;
-}
 
 /* Low time warning — stage 3: 10s–1s (red + scale pulse animation) */
 @keyframes low-time-pulse {
@@ -1708,7 +1742,6 @@ body {
     position: absolute !important;
     top: 37px !important;
     right: 0 !important;
-     !important;
 }
 
 .promo-overlay .btn-gold {
@@ -1796,7 +1829,7 @@ body {
 }
 
   .m-fab {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 10px;
   position: fixed;
@@ -3210,4 +3243,23 @@ body.blindfold-mode .capture-ring {
 
 
 
+
+
+
+/* ============================================================
+   Heuristic Analysis Styles
+   ============================================================ */
+.accuracy-badge {
+    color: #4ade80;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+}
+.mistake-highlight {
+    color: #facc15;
+    font-weight: bold;
+}
+.blunder-highlight {
+    color: #f87171;
+    font-weight: bold;
+}
 
