@@ -1,0 +1,152 @@
+/* Animated cursor */
+
+.cursor {
+    position: fixed;
+    pointer-events: none;
+    z-index: 99999;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(240, 192, 64, 0.95);
+    transform: translate(-50%, -50%);
+    transition: transform 0.12s ease,
+                width 0.2s ease,
+                height 0.2s ease,
+                background 0.2s ease,
+                box-shadow 0.2s ease,
+                opacity 0.12s ease;
+    box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.3);
+    opacity: 0.98;
+}
+
+.cursor.glow {
+    width: 22px;
+    height: 22px;
+    background: rgba(240, 192, 64, 0.98);
+    box-shadow: 0 0 20px rgba(240, 192, 64, 0.45);
+}
+
+.cursor.trail {
+    width: 14px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.22);
+}
+
+.cursor.sparkle {
+    width: 16px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow:
+        0 0 24px rgba(255, 255, 255, 0.85),
+        0 0 0 6px rgba(240, 192, 64, 0.12);
+    animation: sparkle-Pulse 1s ease-in-out infinite;
+}
+
+.cursor.orbit {
+    width: 12px;
+    height: 12px;
+    background: rgba(240, 192, 64, 1);
+    box-shadow: 0 0 15px rgba(240, 192, 64, 0.4);
+}
+
+@keyframes cursor-Orbit {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.6);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes sparkle-Pulse {
+    0%,100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: .9;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.25);
+        opacity: 1;
+    }
+}
+
+@keyframes sparkle-Sprinkle {
+    0% {
+        transform: translate(-50%, -50%) translate3d(0,0,0) scale(.5);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) translate3d(var(--dx),var(--dy),0) scale(.1);
+        opacity: 0;
+    }
+}
+
+.cursor.orbit {
+    animation: cursor-Orbit .9s ease-in-out infinite;
+}
+
+.cursor.trail::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(240,192,64,.12);
+    animation: cursor-Ring .8s ease-out infinite;
+}
+
+.cursor.sparkle::before,
+.cursor.sparkle::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(240,192,64,.85);
+    opacity: 0;
+}
+
+.cursor.sparkle::before {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    animation: sparkle-Sprinkle .9s ease-out infinite;
+    --dx: -18px;
+    --dy: -12px;
+}
+
+.cursor.sparkle::after {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    animation: sparkle-Sprinkle .95s ease-out infinite;
+    --dx: 18px;
+    --dy: 10px;
+}
+
+@keyframes cursor-Ring {
+    0% {
+        opacity: .6;
+        transform: translate(-50%, -50%) scale(.5);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.4);
+    }
+}
+
+body.hide-native-cursor,
+body.hide-native-cursor * {
+    cursor: none !important;
+}
