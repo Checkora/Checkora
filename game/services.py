@@ -298,6 +298,16 @@ def check_puzzle_achievements(user, stats):
 
 
 BASE_DIR = Path(__file__).resolve().parent
+BADGE_FONT_DIR = BASE_DIR / "static" / "game" / "fonts"
+BADGE_FONT_PATHS = {
+    "regular": BADGE_FONT_DIR / "Tinos-Regular.ttf",
+    "bold": BADGE_FONT_DIR / "Tinos-Bold.ttf",
+    "italic": BADGE_FONT_DIR / "Tinos-Italic.ttf",
+}
+
+
+def _load_badge_font(style, size):
+    return ImageFont.truetype(BADGE_FONT_PATHS[style], size)
 
 def update_opening_progress(
     user,
@@ -374,25 +384,10 @@ def generate_badge(user_achievement):
     draw = ImageDraw.Draw(badge)
 
     try:
-        title_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            85
-        )
-
-        desc_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgia.ttf",
-            38
-        )
-
-        award_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            32
-        )
-
-        name_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiai.ttf",
-            60
-        )
+        title_font = _load_badge_font("bold", 85)
+        desc_font = _load_badge_font("regular", 38)
+        award_font = _load_badge_font("bold", 32)
+        name_font = _load_badge_font("italic", 60)
 
     except Exception:
         title_font = ImageFont.load_default()
@@ -406,23 +401,14 @@ def generate_badge(user_achievement):
     # Handle long achievement names
     try:
         if len(title) > 15:
-            title_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiab.ttf",
-                60
-            )
+            title_font = _load_badge_font("bold", 60)
 
         if len(title) > 22:
-            title_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiab.ttf",
-                50
-            )
+            title_font = _load_badge_font("bold", 50)
 
         # Handle long usernames
         if len(username) > 15:
-            name_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiai.ttf",
-                45
-            )
+            name_font = _load_badge_font("italic", 45)
 
     except Exception:
         pass
