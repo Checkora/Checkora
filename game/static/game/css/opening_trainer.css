@@ -157,3 +157,71 @@ body{
 .square.highlight-to {
     background: rgba(129, 199, 132, 0.75) !important;
 }
+
+/* Navigation Controls Container */
+.nav-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 15px auto 25px auto;
+    max-width: 480px;
+    background: rgba(30, 30, 30, 0.45);
+    border: 1px solid rgba(240, 192, 64, 0.15);
+    border-radius: 12px;
+    padding: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Glassmorphic Nav Buttons */
+.nav-btn {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f0c040;
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.25);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    outline: none;
+}
+
+.nav-btn:hover:not(:disabled) {
+    background: rgba(240, 192, 64, 0.18);
+    border-color: rgba(240, 192, 64, 0.45);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(240, 192, 64, 0.1);
+}
+
+.nav-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.nav-btn:disabled {
+    color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.05);
+    cursor: not-allowed;
+}
+
+/* Reset button specific override */
+#reset-trainer-btn {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #e0e0e0;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#reset-trainer-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}
+
