@@ -2065,6 +2065,23 @@ body.hide-native-cursor * {
     justify-content: center;
 }
 
+@media (max-width:600px) {
+    #backToTopBtn {
+        width: auto;
+        height: auto;
+        min-width: 90px;
+        min-height: 45px;
+        border-radius: 25px;
+        padding: 8px 14px;
+        font-size: 0.9rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+}
+
 #backToTopBtn:hover {
     background: linear-gradient(135deg, #f5cc55, #e0b030);
     box-shadow: 0 6px 24px rgba(240, 192, 64, 0.6);
