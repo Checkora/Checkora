@@ -387,3 +387,58 @@ h1 {
         transition: none !important;
     }
 }
+/* ============================================================
+   LIGHT THEME OVERRIDES
+   ============================================================ */
+   [data-theme="light"] body {
+    background: #f5f7fb;
+    color: #111827;
+}
+
+[data-theme="light"] .lesson-box {
+    background: #ffffff;
+    border-color: #d1d5db;
+}
+
+[data-theme="light"] h2,
+[data-theme="light"] h3 {
+    color: #111827;
+}
+
+/* Accent colors remain unchanged */
+[data-theme="light"] h1,
+[data-theme="light"] .back-btn,
+[data-theme="light"] .lesson-navigation a {
+    color: #f0c040;
+}
+
+[data-theme="light"] .description,
+[data-theme="light"] .lesson-content li {
+    color: #4b5563;
+}
+
+[data-theme="light"] .quiz-btn {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+[data-theme="light"] .quiz-btn:hover {
+    background: #d1d5db;
+}
+
+[data-theme="light"] .coord-toggle-container {
+    background: #ffffff;
+    border-color: #d1d5db;
+}
+
+[data-theme="light"] .coord-toggle-label,
+[data-theme="light"] .lesson-ranks span,
+[data-theme="light"] .lesson-files span {
+    color: #6b7280;
+}
+
+[data-theme="light"] .coming-soon {
+    background: rgba(240, 192, 64, 0.1);
+    border-left-color: #f0c040;
+    color: #111827;
+}
