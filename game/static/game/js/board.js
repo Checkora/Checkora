@@ -731,6 +731,20 @@
             body: JSON.stringify(body)
         })).json();
     }
+    async function withLoading(btn, asyncFn) {
+        if (!btn || btn.classList.contains('is-loading')) {
+            // Already loading (or no button passed) — don't double-fire.
+            return asyncFn ? asyncFn() : undefined;
+        }
+        btn.classList.add('is-loading');
+        btn.disabled = true;
+        try {
+            return await asyncFn();
+        } finally {
+            btn.classList.remove('is-loading');
+            btn.disabled = false;
+        }
+    }
 
     function isAITurn() {
         return gameMode === 'ai' && turn !== playerColor && !gameOver;
