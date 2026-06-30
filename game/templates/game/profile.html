@@ -1,0 +1,149 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile — Checkora</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: radial-gradient(circle at top, #1e293b 0%, #0f172a 45%, #020617 100%);
+            color: #f8fafc;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 40px 20px;
+            min-height: 100vh;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 12px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .header-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 2rem;
+        }
+        .back-link {
+            color: #38bdf8;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .avatar-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #38bdf8;
+        }
+        .avatar-placeholder {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #38bdf8;
+        }
+        .username {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .stat-card {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        @media (max-width: 500px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-title-row">
+            <h1>User Profile</h1>
+            <a href="{% url 'landing' %}" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Home
+            </a>
+        </div>
+        
+        <div class="profile-header">
+            {% if request.user.profile.avatar %}
+                <img src="{{ request.user.profile.avatar }}" alt="{{ request.user.username }}'s Avatar" class="avatar-img">
+            {% else %}
+                <div class="avatar-placeholder">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+            {% endif %}
+            <div class="username">{{ request.user.username }}</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Rating</div>
+                <div class="stat-value">{{ rating }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Wins</div>
+                <div class="stat-value">{{ wins }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Losses</div>
+                <div class="stat-value">{{ losses }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Draws</div>
+                <div class="stat-value">{{ draws }}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -4229,3 +4229,28 @@ def get_avatar(request):
         "avatar", flat=True
     ).first() or ""
     return JsonResponse({"avatar": avatar})
+
+
+@login_required
+def profile_view(request):
+    """User profile view."""
+    try:
+        pr = request.user.player_rating
+        rating = pr.rating
+        wins = pr.wins
+        losses = pr.losses
+        draws = pr.draws
+    except Exception:
+        # Fallback if PlayerRating doesn't exist
+        rating = 1200
+        wins = 0
+        losses = 0
+        draws = 0
+
+    context = {
+        'rating': rating,
+        'wins': wins,
+        'losses': losses,
+        'draws': draws,
+    }
+    return render(request, 'game/profile.html', context)

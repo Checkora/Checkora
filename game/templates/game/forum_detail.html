@@ -28,6 +28,7 @@
                 <button type="button" class="profile-btn">{{ user.username }} ⌄</button>
 
                 <div class="dropdown-content">
+                    <a href="{% url 'profile' %}"> Profile </a>
                     <a href="/play/">Dashboard</a>
                     <a href="{% url 'opening_trainer' %}">Opening Trainer</a>
                     <a href="/stats/">Stats</a>

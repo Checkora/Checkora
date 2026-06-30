@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.preloader, name='preloader'),
     path('home/', views.landing, name='landing'),
     path('play/', views.index, name='index'),
+    path('profile/', views.profile_view, name='profile'),
     
     # Game API Endpoints
     path('api/move/', views.make_move, name='make_move'),
