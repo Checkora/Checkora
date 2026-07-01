@@ -30,6 +30,7 @@ def default_secure_transport_enabled():
     vercel_env = os.environ.get('VERCEL_ENV', '').strip().lower()
     return django_env == 'production' or vercel_env == 'production'
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
