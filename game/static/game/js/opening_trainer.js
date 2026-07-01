@@ -603,6 +603,49 @@ moveInput.addEventListener("keypress", (event) => {
     }
 });
 
+// Navigation Stepper Event Listeners
+const prevBtn = document.getElementById("prev-move-btn");
+const nextBtn = document.getElementById("next-move-btn");
+const resetTrainerBtn = document.getElementById("reset-trainer-btn");
+
+if (prevBtn) {
+    prevBtn.addEventListener("click", () => {
+        if (viewingMoveIndex > 0) {
+            showMoveAt(viewingMoveIndex - 1);
+        }
+    });
+}
+
+if (nextBtn) {
+    nextBtn.addEventListener("click", () => {
+        if (viewingMoveIndex < currentMove) {
+            showMoveAt(viewingMoveIndex + 1);
+        }
+    });
+}
+
+if (resetTrainerBtn) {
+    resetTrainerBtn.addEventListener("click", () => {
+        resetGame();
+    });
+}
+
+// Keyboard Arrow Navigation
+document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+        return; // Don't intercept arrow keys if typing in input fields
+    }
+    if (e.key === "ArrowLeft") {
+        if (viewingMoveIndex > 0) {
+            showMoveAt(viewingMoveIndex - 1);
+        }
+    } else if (e.key === "ArrowRight") {
+        if (viewingMoveIndex < currentMove) {
+            showMoveAt(viewingMoveIndex + 1);
+        }
+    }
+});
+
 // Theme Selection Setup
 const themeSelect = document.getElementById("board-theme-select");
 

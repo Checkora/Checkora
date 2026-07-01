@@ -1,3 +1,8 @@
+:root {
+    --classic-light: #f0d9b5;
+    --classic-dark: #b58863;
+}
+
 body{
     background:#111;
     color:white;
@@ -132,17 +137,17 @@ body{
 }
 
 .square.light {
-    background: var(--light-square, #f0d9b5);
+    background: var(--light-square, var(--classic-light));
 }
 
 .square.dark {
-    background: var(--dark-square, #b58863);
+    background: var(--dark-square, var(--classic-dark));
 }
 
 /* Board Themes */
 .chess-board.theme-classic {
-    --light-square: #f0d9b5;
-    --dark-square: #b58863;
+    --light-square: var(--classic-light);
+    --dark-square: var(--classic-dark);
 }
 
 .chess-board.theme-wood {
