@@ -1823,7 +1823,7 @@
                 selected = null;
                 hints = [];
                 updatePlayerNames(data);
-                updateRatingBadge(data.current_rating ?? data.rating?.new_rating);
+                if (data.current_rating != null) updateRatingBadge(data.current_rating);
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
@@ -1937,7 +1937,7 @@
                 selected = null;
                 hints = [];
                 updatePlayerNames(data);
-                updateRatingBadge(data.current_rating ?? data.rating?.new_rating);
+                if (data.current_rating != null) updateRatingBadge(data.current_rating);
                 updateTurn();
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
