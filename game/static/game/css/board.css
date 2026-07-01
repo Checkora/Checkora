@@ -100,10 +100,11 @@ body {
 
 /* Logo text */ 
 .logo-text {
-    font-family: Cinzel, serif;
+    font-family: 'Cinzel', serif;
     font-size: 26px;
     font-weight: 700;
     letter-spacing: 2px;
+
 }
 
 .promo-logo .logo-text {
@@ -115,6 +116,7 @@ body {
 }
 
 .logo-gold {
+
     color: #f0c040;
 }
 
@@ -169,8 +171,6 @@ body {
     .logo-text {
         font-size: 20px;
     }
-
-
 }
 
 .header .badge {
@@ -295,28 +295,20 @@ body {
 }
 
 .profile-btn{
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #0f172a;
-    color: #f0c040;
-    border: 1px solid #2d3748;
+    background: #1a1a2e;
+    color: #fff;
+    border: 1px solid #444;
     padding: 8px 14px;
     border-radius: 10px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;
     transition: all 0.3s ease;
-    min-height: 40px;
-    appearance: none;
-    -webkit-appearance: none;
 }
 
 .profile-btn:hover{
     border-color: #f0c040;
     color: #f0c040;
-    box-shadow: 0 0 15px rgba(240, 192, 64, 0.25);
-    transform: translateY(-1px);
 }
 
 .dropdown-content{
@@ -324,8 +316,7 @@ body {
     visibility: hidden;
     position: absolute;
     right: 0;
-    top: 100%;
-    margin-top: -2px;
+    top: 48px;
     min-width: 220px;
     background: var(--card-bg);
     border-radius: 14px;
@@ -728,6 +719,14 @@ body {
 }
 
 
+.square.premove.light {
+    background-color: rgba(255, 80, 80, 0.45);
+}
+
+.square.premove.dark {
+    background-color: rgba(180, 40, 40, 0.6);
+
+
 .square.premove {
     outline: 2px dashed #3b82f6 !important;
     outline-offset: -3px;
@@ -741,6 +740,7 @@ body {
     ) !important;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
     z-index: 5;
+
 }
 
 /* Valid-move dot */
@@ -1511,8 +1511,8 @@ body {
 
 .theme-btn.active {
     border-color: #f0c040;
-    box-shadow: 0 0 6px rgba(240, 192, 64, 0.35);
-    transform: scale(1.1);
+    box-shadow: 0 0 0 3px #f0c040, 0 0 8px rgba(240, 192, 64, 0.5);
+    transform: scale(1.25);
     opacity: 1;
 }
 
@@ -1849,9 +1849,13 @@ body {
     right: 12px;
     z-index: 10000;
   }
+
+  .m-fab-btn {
+
 }
 
 .m-fab-btn {
+
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -1895,10 +1899,11 @@ body {
     gap: 12px;
 }
 
-.promo-logo .logo-text {
+.promo-logo span {
     font-family: 'Cinzel', serif;
     font-size: 1.8rem;
     font-weight: 700;
+
     letter-spacing: 2px;
 }
 
@@ -1907,7 +1912,9 @@ body {
 }
 
 .promo-logo .logo-gold {
+
     color: #f0c040;
+    letter-spacing: 2px;
 }
 
 .promo-title img {
@@ -2164,8 +2171,15 @@ body {
     pointer-events: none;
     filter: blur(15px);
 }
+
+
+
+.chessboard.paused::after {
+    content: "Resume to Continue";
+
 .chessboard.paused::before {
     content: "Press P or click Resume to continue";
+
     position: absolute;
     bottom: 20%;
     left: 50%;
@@ -3013,23 +3027,122 @@ body.blindfold-mode .capture-ring {
         animation: none !important;
         transform: none !important;
     }
+
+}
+/* ================= HINT BUTTON ================= */
+
+
+.hint-container {
+    width: calc(var(--square-size) * 8 + var(--board-border) * 2);
+    max-width: 100%;
+    margin: 8px auto;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 
 /* Puzzle Hint System */
 
-.hint-source {
-    box-shadow:
-        inset 0 0 0 4px #f0c040,
-        0 0 12px rgba(240, 192, 64, 0.6);
-    border-radius: 4px;
+
+#hintBtn {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #1a1a2e;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+
+    box-sizing: border-box;
 }
 
-.hint-target {
+#hintBtn:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
+}
+
+#hintBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(30%);
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+
+    .hint-container {
+        width: var(--mobile-board-size);
+        max-width: 100%;
+        margin: 10px auto;
+    }
+
+    #hintBtn {
+        min-height: 48px;
+        font-size: 0.9rem;
+        padding: 12px;
+    }
+}
+/* =======================================================
+                        Hint Highlight
+==========================================================*/
+.hint-source {
+    border: 3px solid white;
     box-shadow:
-        inset 0 0 0 4px #4caf50,
-        0 0 12px rgba(76, 175, 80, 0.6);
-    border-radius: 4px;
+        0 0 10px rgba(255,255,255,0.9),
+        0 0 20px rgba(173,216,230,0.8),
+        0 0 30px rgba(173,216,230,0.6);
+    animation: pulseSource 1.2s infinite;
+}
+
+.hint-destination {
+    border: 3px solid gold;
+    box-shadow:
+        0 0 10px rgba(255,215,0,0.9),
+        0 0 20px rgba(255,215,0,0.7);
+    animation: pulseDestination 1.2s infinite;
+}
+
+@keyframes pulseSource {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.04);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+
+@keyframes pulseDestination {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.03);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 @keyframes thinking-dot-pulse {
@@ -3127,6 +3240,12 @@ body.blindfold-mode .capture-ring {
     pointer-events: none;
     transition: opacity 0.2s ease, visibility 0.2s ease;
 }
+
+
+
+
+
+
 /* ============================================================
    Heuristic Analysis Styles
    ============================================================ */
@@ -3143,3 +3262,4 @@ body.blindfold-mode .capture-ring {
     color: #f87171;
     font-weight: bold;
 }
+
