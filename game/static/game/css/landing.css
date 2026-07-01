@@ -3213,3 +3213,49 @@ body.hide-native-cursor * {
         var(--accent-gold)
     );
 }
+
+/* Mobile Navbar */
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1rem;
+        margin: 10px;
+    }
+
+    .nav-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.8rem;
+    }
+
+    .nav-right {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.8rem;
+    }
+
+    .logo-link {
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .logo-img {
+        height: 32px;
+    }
+
+    .btn-signin,
+    .btn-register {
+        padding: 8px 18px;
+    }
+}
