@@ -662,6 +662,7 @@ body.hide-native-cursor * {
 /* ==========================================================================
    Hero Section
    ========================================================================== */
+
 .hero {
     position: relative;
     min-height: 100vh;
@@ -2920,8 +2921,10 @@ body.hide-native-cursor * {
 
 @media (max-width: 768px) {
     .navbar {
-
-        padding: 1rem 5%;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+        margin: 10px 12px; /* Slight margin optimization for smaller layout edge padding */
     }
 
     .nav-left {
@@ -2931,14 +2934,6 @@ body.hide-native-cursor * {
         align-items: center;
         gap: 1rem;
     }
-
-=======
-        flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
-        margin: 10px 12px; /* Slight margin optimization for smaller layout edge padding */
-    }
-
     .nav-left {
         flex-direction: column;
         gap: 0.75rem;
