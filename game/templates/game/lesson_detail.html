@@ -8,6 +8,23 @@
     <title>{{ lesson.title }} - Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
     <style>
+        @media (max-width: 480px) {
+            #backToTopWrapper {
+                bottom: 1rem;
+                right: 1rem;
+            }
+
+            #backToTopBtn {
+                width: 44px;
+                height: 44px;
+                font-size: 1.1rem;
+            }
+
+            #backToTopTooltip {
+                font-size: 0.7rem;
+            }
+        }
+        
         #backToTopWrapper {
             position: fixed;
             bottom: 2rem;
@@ -41,7 +58,8 @@
             white-space: nowrap;
         }
 
-        #backToTopWrapper:hover #backToTopTooltip {
+        #backToTopWrapper:hover #backToTopTooltip,
+        #backToTopWrapper:focus-within #backToTopTooltip {
             opacity: 1;
             transform: translateY(0);
         }
@@ -63,12 +81,18 @@
             transition: .3s;
         }
 
+        #backToTopBtn:focus-visible {
+            outline: 3px solid #ffffff;
+            outline-offset: 3px;
+        }
+
         #backToTopBtn:hover {
             background: linear-gradient(135deg,#f5cc55,#e0b030);
             box-shadow: 0 6px 24px rgba(240,192,64,.6);
         }
 
-        #backToTopBtn:hover .btn-arrow {
+        #backToTopBtn:hover .btn-arrow,
+        #backToTopBtn:focus-visible .btn-arrow {
             animation: arrowBounce .6s infinite;
         }
 
