@@ -1088,7 +1088,9 @@
         }
 
         board = parseBoard(data.board);
+        if (process.env.NODE_ENV !== "test") {
         console.log("SERVER DATA ON AI MOVE:", data);
+        }
         turn = data.current_turn;
         whiteTime = data.white_time;
         blackTime = data.black_time;

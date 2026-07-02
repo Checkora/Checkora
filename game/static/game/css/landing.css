@@ -46,6 +46,19 @@
     background: var(--card-bg);
 }
 
+[data-theme="light"] {
+    --bg-dark: #f9f9f9;
+    --nav-bg: #ffffff;
+    --card-bg: #ffffff;
+    --card-border: #dddddd;
+    --card-hover: #f1f1f1;
+
+    --text-primary: #1f2937;
+    --text-title: #111827;
+    --text-secondary: #4b5563;
+
+    --accent-gold: #f0c040;
+}
 * {
     margin: 0;
     padding: 0;
@@ -79,16 +92,16 @@ body {
     align-items: center;
     padding: 1.5rem 5%;
     background-color: var(--nav-bg);
-    border-bottom: 1px solid var(--border-color);
+
     position: sticky;
     top: 0;
-    z-index: 1000;
+    z-index: 10002;
     margin: 14px 22px;
     border-radius: 18px;
     background: rgba(15, 15, 25, 0.55);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-color);
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
     transition: background 0.3s ease, box-shadow 0.3s ease;
 }
@@ -211,7 +224,25 @@ body {
     gap: 1.5rem;
 }
 
-.btn-signin {
+.btn-signin,
+.theme-toggle {
+    background: transparent;
+    border: 1px solid rgba(240, 192, 64, 0.35);
+    color: var(--text-primary);
+    font-size: 1rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.theme-toggle:hover {
+    background: rgba(240, 192, 64, 0.1);
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
+.btn-register {
+
     text-decoration: none;
     display: inline-block;
     background: transparent;
@@ -314,8 +345,12 @@ body {
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+
+    z-index: 10001;
+
     /* z-index 10000 keeps dropdown above the custom cursor (z-index: 9990) */
     z-index: 10000;
+
     transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
     transform: translateY(10px);
     pointer-events: none;
@@ -379,7 +414,11 @@ body {
 .cursor {
     position: fixed;
     pointer-events: none;
+
+    z-index:99999;
+
     z-index: 9990;
+
     width: 18px;
     height: 18px;
     border-radius: 50%;
@@ -623,6 +662,7 @@ body.hide-native-cursor * {
 /* ==========================================================================
    Hero Section
    ========================================================================== */
+
 .hero {
     position: relative;
     min-height: 100vh;
@@ -2888,6 +2928,13 @@ body.hide-native-cursor * {
     }
 
     .nav-left {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+    .nav-left {
         flex-direction: column;
         gap: 0.75rem;
         width: 100%;
@@ -3212,4 +3259,81 @@ body.hide-native-cursor * {
         #ffd54f,
         var(--accent-gold)
     );
+
+}
+
+/* ============================= */
+/* MOBILE NAVBAR FIX */
+/* ============================= */
+
+.nav-toggle {
+    display: none;
+    font-size: 28px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+
+/* Mobile view */
+@media (max-width: 768px) {
+
+    .nav-toggle {
+        display: block;
+    }
+
+    .nav-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+     left: 5%;
+    right: 5%;
+    flex-direction: column;
+    background: var(--nav-bg);
+    border-radius: 12px;
+    padding: 1rem;
+    gap: 1rem;
+     z-index: 10000;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+    /* THIS is the key fix */
+    .nav-links.active {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nav-links a {
+        padding: 10px;
+        border-radius: 6px;
+    }
+
+    .nav-links a:hover {
+        background: rgba(255,255,255,0.08);
+    }
+}
+
+.nav-links a{
+    padding:.75rem 0;
+}
+
+.nav-toggle:focus-visible{
+    outline:2px solid var(--accent-gold);
+    outline-offset:4px;
+}
+
+.nav-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.5);
+    opacity:0;
+    pointer-events:none;
+    transition:.25s;
+    z-index:9998;
+}
+
+.nav-backdrop.active{
+    opacity:1;
+    pointer-events:auto;
+
 }

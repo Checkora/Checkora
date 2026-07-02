@@ -120,6 +120,9 @@
   </head>
 
   <body>
+
+    <div class="nav-backdrop" id="navBackdrop"></div>
+
     <nav class="navbar">
       <div class="nav-left">
         <a href="{% url 'landing' %}" class="logo-link">
@@ -132,7 +135,19 @@
             >CHECK<span class="logo-accent">ORA</span></span
           >
         </a>
-        <div class="nav-links">
+
+        <!-- HAMBURGER BUTTON -->
+    <button
+      class="nav-toggle"
+      id="navToggle"
+      type="button"
+      aria-label="Menu"
+      aria-expanded="false"
+    >
+      ☰
+    </button>
+
+        <div class="nav-links" id="navLinks">
           <a href="#about">About Us</a>
           <a href="#features">Features</a>
           <a href="#faq">FAQ</a>
@@ -140,6 +155,7 @@
         </div>
       </div>
       <div class="nav-right">
+
         <button type="button" id="themeToggle" class="theme-toggle">
             🌙
         </button>
@@ -157,6 +173,7 @@
             <button type="button" class="dropdown-item cursor-type-option" data-cursor="chess">Chess</button>
           </div>
         </div>
+
         {% if user.is_authenticated %}
         <div class="profile-dropdown">
           <button type="button" class="profile-btn" style="display:flex;align-items:center;gap:4px;">
@@ -936,15 +953,42 @@
               </a>
             </li>
             <li class="maintainer-item">
-              <span class="footer-meta-text">
-                Maintainers: 
-                <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">@triemerge</a> &amp; 
-                <a href="https://github.com/EDWARD-012" target="_blank" rel="noopener noreferrer">@EDWARD-012</a>
-              </span>
-            </li>
-          </ul>
-        </div>
+  <span class="footer-meta-text">
+    Core Maintainers:
+    <a href="https://github.com/EDWARD-012"
+       target="_blank"
+       rel="noopener noreferrer">
+      @EDWARD-012
+    </a>
+    &amp;
+    <a href="https://github.com/triemerge"
+       target="_blank"
+       rel="noopener noreferrer">
+      @triemerge
+    </a>
+  </span>
+</li>
 
+<li class="maintainer-item">
+  <span class="footer-meta-text">
+    Contributors:
+    <!-- Replace these with the actual contributors -->
+    <a href="https://github.com/username1"
+       target="_blank"
+       rel="noopener noreferrer">
+      @username1
+    </a>
+    &amp;
+    <a href="https://github.com/username2"
+       target="_blank"
+       rel="noopener noreferrer">
+      @username2
+    </a>
+  </span>
+</li>
+</ul>
+</div>
+      
         <div class="footer-col">
           <h4>Legal</h4>
           <ul class="footer-nav-list">
@@ -973,6 +1017,7 @@
           </a>
         </div>
       </div>
+
     </section>
 
     <div id="backToTopWrapper">
@@ -2053,6 +2098,14 @@
             }
         });
     });
+    
+    </script>
+    <script src="{% static 'game/js/landing.js' %}"></script>
+
+    </footer>
+      
+=======
   </script>
+>>>>>>> upstream/main
   </body>
 </html>
