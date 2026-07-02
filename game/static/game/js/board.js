@@ -662,6 +662,7 @@
     let gameOver = false;
     let aiThinking = false;
     let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
+    let analysisRequestSeq = 0; // Sequence token to cancel stale analysis responses
 
     let replayMode = false;
     let replayMoves = [];
@@ -1019,6 +1020,7 @@
     async function loadGame() {
         // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
         aiRequestSeq = 0;
+        analysisRequestSeq++;
         aiThinking = false;
         premoveQueue = [];
         refreshPremoveHighlight();
@@ -2674,6 +2676,8 @@
             }
         }
         
+        const currentAnalysisSeq = ++analysisRequestSeq;
+
         post('/api/analyze-game/', {
             moves: rawAnalysisMoves,
             fen_history: fenHistory,
@@ -2681,6 +2685,7 @@
             reason: reason
         }).then(analysisData => {
             if (!analysisData) return;
+            if (currentAnalysisSeq !== analysisRequestSeq) return;
 
             const openingNameEl = document.getElementById('resOpeningName');
             if (openingNameEl) {
@@ -2753,13 +2758,18 @@
 
             const bestMoveEl = document.getElementById('resBestMove');
             if (bestMoveEl) {
-                const highlightMoves = rawAnalysisMoves.filter(m => m.includes('+') || m.includes('x'));
-                if (highlightMoves.length > 0) {
-                    bestMoveEl.textContent = `${highlightMoves[highlightMoves.length - 1]} (Excellent)`;
-                } else if (rawAnalysisMoves.length > 2) {
-                    bestMoveEl.textContent = `${rawAnalysisMoves[2]} (Book)`;
+                if (analysisData.move_analysis_details && analysisData.move_analysis_details.length > 0) {
+                    const bestMoves = analysisData.move_analysis_details.filter(d => d.class === 'Best');
+                    if (bestMoves.length > 0) {
+                        const lastBest = bestMoves[bestMoves.length - 1];
+                        bestMoveEl.textContent = `${lastBest.played} (Best)`;
+                    } else if (rawAnalysisMoves.length > 2) {
+                        bestMoveEl.textContent = `${rawAnalysisMoves[2]} (Book)`;
+                    } else {
+                        bestMoveEl.textContent = 'Standard Game';
+                    }
                 } else {
-                    bestMoveEl.textContent = 'Available in full review';
+                    bestMoveEl.textContent = 'Standard Game';
                 }
             }
 
@@ -3314,6 +3324,7 @@
         }
         // Reset AI request sequence and thinking state on new game
         aiRequestSeq = 0;
+        analysisRequestSeq++;
         aiThinking = false;
         premoveQueue = [];
         refreshPremoveHighlight();
