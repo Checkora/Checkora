@@ -822,6 +822,15 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <div id="postGameAnalysisPanel" style="display: none; background: #1a1a2e; border: 1px solid #444; border-radius: 5px; padding: 15px; margin-top: 15px; max-height: 200px; overflow-y: auto; text-align: left;">
+                        <h4 style="color: #f0c040; margin: 0 0 10px 0;">Analysis (<span id="panelAccuracyScore"></span> Accuracy)</h4>
+                        <p style="color: #ccc; margin: 0 0 10px 0; font-size: 0.9rem;">Blunders: <span id="panelBlundersCount">0</span></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; color: #ccc;">
+                            <thead><tr style="border-bottom: 1px solid #444; text-align: left;"><th style="padding: 5px;">Move</th><th style="padding: 5px;">Played</th><th style="padding: 5px;">Best</th><th style="padding: 5px;">Eval</th></tr></thead>
+                            <tbody id="postGameAnalysisTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

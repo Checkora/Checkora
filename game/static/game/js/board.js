@@ -662,9 +662,11 @@
     let gameOver = false;
     let aiThinking = false;
     let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
+    let analysisRequestSeq = 0; // Sequence token to cancel stale analysis responses
 
     let replayMode = false;
     let replayMoves = [];
+    let rawAnalysisMoves = [];
     let replayIndex = 0;
     let replayBoard = null;
     let autoReplayInterval = null;
@@ -1018,6 +1020,7 @@
     async function loadGame() {
         // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
         aiRequestSeq = 0;
+        analysisRequestSeq++;
         aiThinking = false;
         premoveQueue = [];
         refreshPremoveHighlight();
@@ -2369,6 +2372,7 @@
         }
 
         replayMoves = [];
+        rawAnalysisMoves = [];
         replayIndex = 0;
 
         // Reverse the rows so we get the oldest moves first
@@ -2377,6 +2381,11 @@
         moveRows.forEach(row => {
             const spans = row.querySelectorAll('.move-white, .move-black');
             spans.forEach(span => {
+                const rawMove = span.textContent?.replace(/\s+/g, '')?.trim();
+                if (rawMove && rawMove !== '...') {
+                    rawAnalysisMoves.push(rawMove);
+                }
+                
                 const move = span.textContent
                     ?.replace(/[+#]/g, '')
                     ?.replace(/\s+/g, '')
@@ -2390,6 +2399,7 @@
         });
 
         console.log("FINAL REPLAY MOVES:", replayMoves);
+        console.log("FINAL RAW MOVES:", rawAnalysisMoves);
 
         if (window.Chess) {
             replayBoard = new window.Chess();
@@ -2648,11 +2658,10 @@
             }
         }
 
-        // 6. Opening Book and Review Highlights
-        let analysisData = null;
-        try {
-            let fenHistory = [];
-            if (window.Chess) {
+        // 6. Opening Book and Review Highlights (Fetch in Background)
+        let fenHistory = [];
+        if (window.Chess) {
+            try {
                 let tempChess = new window.Chess();
                 fenHistory.push(tempChess.fen());
                 for (let move of replayMoves) {
@@ -2662,25 +2671,28 @@
                     }
                     fenHistory.push(tempChess.fen());
                 }
+            } catch (e) {
+                console.error("Error replaying moves for history", e);
+            }
+        }
+        
+        const currentAnalysisSeq = ++analysisRequestSeq;
+
+        post('/api/analyze-game/', {
+            moves: rawAnalysisMoves,
+            fen_history: fenHistory,
+            result: resultState,
+            reason: reason
+        }).then(analysisData => {
+            if (!analysisData) return;
+            if (currentAnalysisSeq !== analysisRequestSeq) return;
+
+            const openingNameEl = document.getElementById('resOpeningName');
+            if (openingNameEl) {
+                openingNameEl.textContent = analysisData.opening || 'Standard Game';
             }
 
-            analysisData = await post('/api/analyze-game/', {
-                moves: replayMoves,
-                fen_history: fenHistory,
-                result: resultState,
-                reason: reason
-            });
-        } catch (e) {
-            console.error("Failed to fetch post-game analysis", e);
-        }
-
-        const openingNameEl = document.getElementById('resOpeningName');
-        if (openingNameEl) {
-            openingNameEl.textContent = analysisData?.opening || 'Standard Game';
-        }
-
-        // Populate new stats
-        if (analysisData) {
+            // Populate new stats
             const capEl = document.getElementById('resAnalysisCaptures');
             if (capEl) capEl.textContent = analysisData.captures || 0;
 
@@ -2694,8 +2706,10 @@
             if (proEl) proEl.textContent = analysisData.promotions || 0;
 
             const accuracyEl = document.getElementById('resAccuracyScore');
+            const panelAccuracyEl = document.getElementById('panelAccuracyScore');
             if (accuracyEl && analysisData.accuracy !== undefined) {
                 accuracyEl.textContent = `${analysisData.accuracy}%`;
+                if (panelAccuracyEl) panelAccuracyEl.textContent = `${analysisData.accuracy}%`;
             }
 
             const mistakesEl = document.getElementById('resMistakesCount');
@@ -2704,37 +2718,78 @@
             }
 
             const blundersEl = document.getElementById('resBlundersCount');
+            const panelBlundersEl = document.getElementById('panelBlundersCount');
             if (blundersEl && analysisData.blunders !== undefined) {
                 blundersEl.textContent = analysisData.blunders;
+                if (panelBlundersEl) panelBlundersEl.textContent = analysisData.blunders;
             }
-        }
 
-        const bestMoveEl = document.getElementById('resBestMove');
-        if (bestMoveEl) {
-            const highlightMoves = replayMoves.filter(m => m.includes('+') || m.includes('x'));
-            if (highlightMoves.length > 0) {
-                bestMoveEl.textContent = `${highlightMoves[highlightMoves.length - 1]} (Excellent)`;
-            } else if (replayMoves.length > 2) {
-                bestMoveEl.textContent = `${replayMoves[2]} (Book)`;
-            } else {
-                bestMoveEl.textContent = 'Available in full review';
-            }
-        }
+            const tbody = document.getElementById('postGameAnalysisTableBody');
+            if (tbody && analysisData.move_analysis_details) {
+                tbody.innerHTML = '';
+                analysisData.move_analysis_details.forEach(detail => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #333';
+                    
+                    const tdMove = document.createElement('td');
+                    tdMove.style.padding = '5px';
+                    tdMove.textContent = detail.move_num;
+                    tr.appendChild(tdMove);
 
-        const blunderEl = document.getElementById('resBlunder');
-        if (blunderEl) {
-            const blunderLabel = blunderEl.previousElementSibling;
-            if (analysisData && analysisData.blunders > 0) {
-                blunderEl.textContent = `${analysisData.blunders} Blunder${analysisData.blunders > 1 ? 's' : ''}`;
-                if (blunderLabel) blunderLabel.textContent = 'Blunder';
-            } else if (analysisData && analysisData.mistakes > 0) {
-                blunderEl.textContent = `${analysisData.mistakes} Mistake${analysisData.mistakes > 1 ? 's' : ''}`;
-                if (blunderLabel) blunderLabel.textContent = 'Mistake';
-            } else {
-                blunderEl.textContent = 'None';
-                if (blunderLabel) blunderLabel.textContent = 'Blunder';
+                    const tdPlayed = document.createElement('td');
+                    tdPlayed.style.padding = '5px';
+                    tdPlayed.textContent = detail.played;
+                    tr.appendChild(tdPlayed);
+
+                    const tdBest = document.createElement('td');
+                    tdBest.style.padding = '5px';
+                    tdBest.textContent = detail.best;
+                    tr.appendChild(tdBest);
+
+                    const tdClass = document.createElement('td');
+                    tdClass.style.padding = '5px';
+                    tdClass.style.color = detail.class === 'Best' ? '#4caf50' : '#f44336';
+                    tdClass.textContent = detail.class;
+                    tr.appendChild(tdClass);
+
+                    tbody.appendChild(tr);
+                });
             }
-        }
+
+            const bestMoveEl = document.getElementById('resBestMove');
+            if (bestMoveEl) {
+                if (analysisData.move_analysis_details && analysisData.move_analysis_details.length > 0) {
+                    const bestMoves = analysisData.move_analysis_details.filter(d => d.class === 'Best');
+                    if (bestMoves.length > 0) {
+                        const lastBest = bestMoves[bestMoves.length - 1];
+                        bestMoveEl.textContent = `${lastBest.played} (Best)`;
+                    } else if (rawAnalysisMoves.length > 2) {
+                        bestMoveEl.textContent = `${rawAnalysisMoves[2]} (Book)`;
+                    } else {
+                        bestMoveEl.textContent = 'Standard Game';
+                    }
+                } else {
+                    bestMoveEl.textContent = 'Standard Game';
+                }
+            }
+
+            const blunderEl = document.getElementById('resBlunder');
+            if (blunderEl) {
+                const blunderLabel = blunderEl.previousElementSibling;
+                if (analysisData.blunders > 0) {
+                    blunderEl.textContent = `${analysisData.blunders} Blunder${analysisData.blunders > 1 ? 's' : ''}`;
+                    if (blunderLabel) blunderLabel.textContent = 'Blunder';
+                } else if (analysisData.mistakes > 0) {
+                    blunderEl.textContent = `${analysisData.mistakes} Mistake${analysisData.mistakes > 1 ? 's' : ''}`;
+                    if (blunderLabel) blunderLabel.textContent = 'Mistake';
+                } else {
+                    blunderEl.textContent = 'None';
+                    if (blunderLabel) blunderLabel.textContent = 'Blunder';
+                }
+            }
+        }).catch(e => {
+            console.error("Failed to fetch post-game analysis", e);
+        });
 
 
         // Delay the overlay and celebration effects by 0.5 seconds
@@ -3237,6 +3292,10 @@
                 stockfishWorker = null;
             }
         }
+        const analysisPanel = document.getElementById('postGameAnalysisPanel');
+        if (analysisPanel) analysisPanel.style.display = 'none';
+        const tbody = document.getElementById('postGameAnalysisTableBody');
+        if (tbody) tbody.innerHTML = '';
         replayMode = false;
         // Show clocks for normal games
         document.getElementById("whiteClock").style.display = "";
@@ -3265,6 +3324,7 @@
         }
         // Reset AI request sequence and thinking state on new game
         aiRequestSeq = 0;
+        analysisRequestSeq++;
         aiThinking = false;
         premoveQueue = [];
         refreshPremoveHighlight();

@@ -101,7 +101,7 @@ from game.services import (
 
 from django.http import FileResponse
 
-from .analysis import build_summary
+from .analysis import detect_opening
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -2272,58 +2272,157 @@ def confirm_delete_account(request, uidb64, token):
     return redirect('landing')
 
 
+def _classify_move(is_best, played_mv, best_mv, game_state):
+    """Classifies a move using a basic material heuristic."""
+    if is_best:
+        return 'Best'
+        
+    if not best_mv or not played_mv:
+        return 'Mistake'
+        
+    piece_vals = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0}
+    
+    def _capture_value(move):
+        target = game_state.board[move[0]][move[1]]
+        return piece_vals.get(target.lower(), 0) if target else 0
+
+    played_val = _capture_value((played_mv['to_row'], played_mv['to_col']))
+    best_val = _capture_value((best_mv['to_row'], best_mv['to_col']))
+    
+    if best_val >= played_val + 3 or (best_val >= 5 and played_val == 0):
+        return 'Blunder'
+    elif best_val > played_val:
+        return 'Mistake'
+    return 'Inaccuracy'
+
 @require_POST
 def analyze_game_view(request):
-    """
-    Analyze a completed game based on its move history and return statistics.
-    Expects JSON payload with 'moves' (list of notation strings), 'result', and 'reason'.
-    """
+    """POST /api/analyze-game/ — engine-powered post-game analysis."""
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
-    window = getattr(settings, 'ANALYZE_GAME_RATE_WINDOW_SECONDS', 60)
-    user_max = getattr(settings, 'ANALYZE_GAME_USER_MAX_REQUESTS', 10)
-    ip_max = getattr(settings, 'ANALYZE_GAME_IP_MAX_REQUESTS', 20)
-
-    user_key = get_analyze_rate_user_key(request.user.id)
-    ip_key = get_analyze_rate_ip_key(get_client_ip(request))
-
-    user_count = increment_counter(user_key, timeout=window)
-    if user_count > user_max:
-        return JsonResponse({'error': 'Too many requests'}, status=429)
-
-    ip_count = increment_counter(ip_key, timeout=window)
-    if ip_count > ip_max:
-        return JsonResponse({'error': 'Too many requests'}, status=429)
-
     try:
         data = json.loads(request.body)
-        moves = data.get('moves', [])
+        if 'moves' not in data:
+            return JsonResponse({'error': 'Missing moves field'}, status=400)
+        moves = data['moves']
         result = data.get('result', 'Unknown')
         reason = data.get('reason', 'Unknown')
 
-        fen_history = data.get('fen_history')
+        window = getattr(settings, 'ANALYZE_GAME_RATE_WINDOW_SECONDS', 60)
+        user_max = getattr(settings, 'ANALYZE_GAME_USER_MAX_REQUESTS', 10)
+        ip_max = getattr(settings, 'ANALYZE_GAME_IP_MAX_REQUESTS', 20)
+
+        user_key = get_analyze_rate_user_key(request.user.id)
+        user_count = increment_counter(user_key, timeout=window)
+        if user_count > user_max:
+            return JsonResponse({'error': 'Too many requests'}, status=429)
+
+        ip_key = get_analyze_rate_ip_key(get_client_ip(request))
+
+        ip_count = increment_counter(ip_key, timeout=window)
+        if ip_count > ip_max:
+            return JsonResponse({'error': 'Too many requests'}, status=429)
 
         if not isinstance(moves, list):
             return JsonResponse({'error': 'Moves must be a list'}, status=400)
             
-        if fen_history is not None:
-            if not isinstance(fen_history, list):
-                return JsonResponse({'error': 'fen_history must be a list'}, status=400)
-            if len(fen_history) > MAX_ANALYSIS_MOVES + 1:
-                return JsonResponse({'error': f'fen_history list cannot exceed {MAX_ANALYSIS_MOVES + 1} entries'}, status=400)
-            for fen in fen_history:
-                if not isinstance(fen, str) or len(fen) > 100:
-                    return JsonResponse({'error': 'fen_history items must be strings of at most 100 characters'}, status=400)
-
         if len(moves) > MAX_ANALYSIS_MOVES:
             return JsonResponse({'error': f'Moves list cannot exceed {MAX_ANALYSIS_MOVES} entries'}, status=400)
 
         for m in moves:
             if not isinstance(m, str) or len(m) > MAX_MOVE_LENGTH:
                 return JsonResponse({'error': f'Move must be a string of at most {MAX_MOVE_LENGTH} characters'}, status=400)
-        summary = build_summary(moves, result, reason, fen_history=fen_history)
-        return JsonResponse(summary)
+
+        captures = checks = checkmates = promotions = blunders = mistakes = 0
+        move_analysis_details = []
+        game = ChessGame()
+        game.white_time = 10 ** 9
+        game.black_time = 10 ** 9
+        
+        analyzed_moves_count = 0
+        for idx, notation in enumerate(moves[:80]): # Cap at 80 for perf
+            move_num = idx // 2 + 1
+            color = 'White' if idx % 2 == 0 else 'Black'
+
+            best_move = None
+            try:
+                best_move = game.get_ai_move(depth=2)
+            except Exception as ex:
+                logger.warning('Failed to get best move from engine for %s: %s', notation, ex)
+
+            actual_from = actual_to = None
+            clean_notation = notation.replace('+', '').replace('#', '')
+            
+            for r in range(8):
+                for c in range(8):
+                    piece = game.board[r][c]
+                    if piece and game._color(piece) == game.current_turn:
+                        for mv in game.get_valid_moves(r, c):
+                            try:
+                                tn = game._notation(r, c, mv['row'], mv['col'], piece, game.board[mv['row']][mv['col']], game.serialize_board(), game.serialize_castling_rights(), game._serialize_ep())
+                                if tn.replace('+', '').replace('#', '') == clean_notation:
+                                    actual_from, actual_to = (r, c), (mv['row'], mv['col'])
+                            except Exception as ex:
+                                logger.warning('Failed to generate notation during search: %s', ex)
+                    if actual_from:
+                        break
+                if actual_from:
+                    break
+
+            if not actual_from or not actual_to:
+                logger.warning('Could not resolve move notation %s, stopping analysis', notation)
+                break
+
+            # Now that it's resolved, increment stats
+            analyzed_moves_count += 1
+            if 'x' in notation:
+                captures += 1
+            if notation.endswith('+'):
+                checks += 1
+            if notation.endswith('#'):
+                checkmates += 1
+            if '=' in notation:
+                promotions += 1
+
+            is_best = False
+            played_dict = {'to_row': actual_to[0], 'to_col': actual_to[1]}
+            if best_move:
+                is_best = (best_move['from_row'] == actual_from[0] and best_move['from_col'] == actual_from[1] and best_move['to_row'] == actual_to[0] and best_move['to_col'] == actual_to[1])
+            else:
+                is_best = True
+                
+            move_class = _classify_move(is_best, played_dict, best_move, game)
+            if move_class == 'Blunder':
+                blunders += 1
+            elif move_class == 'Mistake':
+                mistakes += 1
+
+            best_notation = '?'
+            if best_move and game.board[best_move['from_row']][best_move['from_col']]:
+                try:
+                    best_notation = game._notation(best_move['from_row'], best_move['from_col'], best_move['to_row'], best_move['to_col'], game.board[best_move['from_row']][best_move['from_col']], game.board[best_move['to_row']][best_move['to_col']], game.serialize_board(), game.serialize_castling_rights(), game._serialize_ep()).replace('+', '').replace('#', '')
+                except Exception as ex:
+                    logger.warning('Failed to get notation for best move: %s', ex)
+
+            move_analysis_details.append({'move_num': move_num, 'color': color, 'played': notation, 'best': best_notation, 'class': move_class})
+
+            game.make_move(actual_from[0], actual_from[1], actual_to[0], actual_to[1])
+            game.last_ts = time.time()
+
+        bad_moves = blunders + mistakes
+        accuracy = round(((analyzed_moves_count - bad_moves) / analyzed_moves_count) * 100) if analyzed_moves_count > 0 else 100
+        opening = detect_opening(moves) or 'Unknown'
+
+        return JsonResponse({
+            'result': result,
+            'end_reason': reason,
+            'opening': opening,
+            'captures': captures, 'checks': checks, 'checkmates': checkmates,
+            'promotions': promotions, 'blunders': blunders, 'mistakes': mistakes, 
+            'accuracy': accuracy, 'total_moves': (len(moves) + 1) // 2, 'move_analysis_details': move_analysis_details,
+            'move_analysis': [detail['class'] for detail in move_analysis_details],
+        })
     except Exception as e:
         logger.error('Failed to analyze game: %s', e)
         return JsonResponse({'error': 'Failed to analyze game'}, status=400)

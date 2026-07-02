@@ -1295,6 +1295,85 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
 
+
+class AnalyzeGameTest(TestCase):
+    """Test the /api/analyze-game/ endpoint for Issue #332."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='test_analyze_user', password='password123')
+        self.client.force_login(self.user)
+
+    def test_missing_moves_json(self):
+        r = self.client.post('/api/analyze-game/', content_type='application/json')
+        print("MISSING MOVES RESPONSE:", r.status_code, r.content)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('error', r.json())
+
+    @mock.patch('game.views.ChessGame.get_ai_move')
+    def test_analyze_game_identifies_mistake_and_blunder(self, mock_ai):
+        # Engine returns a massive capture as best move
+        # If the player plays e4 instead, they miss out on the capture, making it a Blunder.
+        mock_ai.return_value = {
+            'from_row': 7, 'from_col': 6, 'to_row': 1, 'to_col': 3  # Pretend it captures a Queen
+        }
+
+        # Fake board state to make the heuristic think the best move captures a queen (val 9)
+        with mock.patch('game.views.ChessGame') as MockGame:
+            instance = MockGame.return_value
+            instance.board = [['' for _ in range(8)] for _ in range(8)]
+            instance.board[1][3] = 'q'  # Queen at target square
+            instance.board[6][4] = 'P'  # Place moving pawn
+            
+            # Mock get_valid_moves and _notation so the inner loop finds it
+            instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
+            instance._notation.return_value = 'e4'
+            instance._color.return_value = 'white'
+            instance.current_turn = 'white'
+            instance.serialize_board.return_value = 'board'
+            instance.serialize_castling_rights.return_value = 'rights'
+            instance._serialize_ep.return_value = '-'
+
+            instance.get_ai_move = mock_ai
+            
+            payload = {"moves": ["e4"]}
+            r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
+            
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+
+            self.assertEqual(len(data['move_analysis_details']), 1)
+            
+            # White played e4 but engine wanted to capture a Queen. Blunder!
+            white_analysis = data['move_analysis_details'][0]
+            self.assertEqual(white_analysis['played'], 'e4')
+            self.assertEqual(white_analysis['class'], 'Blunder')
+            self.assertEqual(data['blunders'], 1)
+
+    @mock.patch('game.views.ChessGame.get_ai_move')
+    def test_analyze_game_engine_failure(self, mock_ai):
+        # Simulate an engine crash or timeout (raises Exception)
+        mock_ai.side_effect = Exception("Engine timeout")
+
+        payload = {"moves": ["e4"]}
+        
+        with mock.patch('game.views.ChessGame') as MockGame:
+            instance = MockGame.return_value
+            instance.board = [['' for _ in range(8)] for _ in range(8)]
+            instance.board[6][4] = 'P'  # Place moving pawn
+            instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
+            instance._notation.return_value = 'e4'
+            instance._color.return_value = 'white'
+            instance.current_turn = 'white'
+            instance.serialize_board.return_value = 'board'
+            instance.serialize_castling_rights.return_value = 'rights'
+            instance._serialize_ep.return_value = '-'
+            instance.get_ai_move = mock_ai
+
+            r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
+            
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json()['accuracy'], 100) # Defaults to 100% accurate if engine fails
+
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
 
@@ -3648,4 +3727,3 @@ class OpeningStatsTests(TestCase):
 
         # XP should not increase after the second completion
         self.assertEqual(user_progress.xp, 75)
-
