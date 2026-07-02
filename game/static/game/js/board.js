@@ -665,6 +665,7 @@
 
     let replayMode = false;
     let replayMoves = [];
+    let rawAnalysisMoves = [];
     let replayIndex = 0;
     let replayBoard = null;
     let autoReplayInterval = null;
@@ -2369,6 +2370,7 @@
         }
 
         replayMoves = [];
+        rawAnalysisMoves = [];
         replayIndex = 0;
 
         // Reverse the rows so we get the oldest moves first
@@ -2377,6 +2379,11 @@
         moveRows.forEach(row => {
             const spans = row.querySelectorAll('.move-white, .move-black');
             spans.forEach(span => {
+                const rawMove = span.textContent?.replace(/\s+/g, '')?.trim();
+                if (rawMove && rawMove !== '...') {
+                    rawAnalysisMoves.push(rawMove);
+                }
+                
                 const move = span.textContent
                     ?.replace(/[+#]/g, '')
                     ?.replace(/\s+/g, '')
@@ -2390,6 +2397,7 @@
         });
 
         console.log("FINAL REPLAY MOVES:", replayMoves);
+        console.log("FINAL RAW MOVES:", rawAnalysisMoves);
 
         if (window.Chess) {
             replayBoard = new window.Chess();
@@ -2648,8 +2656,7 @@
             }
         }
 
-        // 6. Opening Book and Review Highlights
-        let analysisData = null;
+        // 6. Opening Book and Review Highlights (Fetch in Background)
         let fenHistory = [];
         if (window.Chess) {
             try {
@@ -2667,23 +2674,20 @@
             }
         }
         
-        analysisData = await post('/api/analyze-game/', {
-            moves: replayMoves,
+        post('/api/analyze-game/', {
+            moves: rawAnalysisMoves,
             fen_history: fenHistory,
             result: resultState,
             reason: reason
-        }).catch(e => {
-            console.error("Failed to fetch post-game analysis", e);
-            return null;
-        });
+        }).then(analysisData => {
+            if (!analysisData) return;
 
-        const openingNameEl = document.getElementById('resOpeningName');
-        if (openingNameEl) {
-            openingNameEl.textContent = analysisData?.opening || 'Standard Game';
-        }
+            const openingNameEl = document.getElementById('resOpeningName');
+            if (openingNameEl) {
+                openingNameEl.textContent = analysisData.opening || 'Standard Game';
+            }
 
-        // Populate new stats
-        if (analysisData) {
+            // Populate new stats
             const capEl = document.getElementById('resAnalysisCaptures');
             if (capEl) capEl.textContent = analysisData.captures || 0;
 
@@ -2746,44 +2750,36 @@
                     tbody.appendChild(tr);
                 });
             }
-            
-            const replayGameBtn = document.getElementById('replayGameBtn');
-            if (replayGameBtn) {
-                replayGameBtn.onclick = () => {
-                    const panel = document.getElementById('postGameAnalysisPanel');
-                    if (panel) {
-                        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-                    }
-                };
-            }
-        }
 
-        const bestMoveEl = document.getElementById('resBestMove');
-        if (bestMoveEl) {
-            const highlightMoves = replayMoves.filter(m => m.includes('+') || m.includes('x'));
-            if (highlightMoves.length > 0) {
-                bestMoveEl.textContent = `${highlightMoves[highlightMoves.length - 1]} (Excellent)`;
-            } else if (replayMoves.length > 2) {
-                bestMoveEl.textContent = `${replayMoves[2]} (Book)`;
-            } else {
-                bestMoveEl.textContent = 'Available in full review';
+            const bestMoveEl = document.getElementById('resBestMove');
+            if (bestMoveEl) {
+                const highlightMoves = rawAnalysisMoves.filter(m => m.includes('+') || m.includes('x'));
+                if (highlightMoves.length > 0) {
+                    bestMoveEl.textContent = `${highlightMoves[highlightMoves.length - 1]} (Excellent)`;
+                } else if (rawAnalysisMoves.length > 2) {
+                    bestMoveEl.textContent = `${rawAnalysisMoves[2]} (Book)`;
+                } else {
+                    bestMoveEl.textContent = 'Available in full review';
+                }
             }
-        }
 
-        const blunderEl = document.getElementById('resBlunder');
-        if (blunderEl) {
-            const blunderLabel = blunderEl.previousElementSibling;
-            if (analysisData && analysisData.blunders > 0) {
-                blunderEl.textContent = `${analysisData.blunders} Blunder${analysisData.blunders > 1 ? 's' : ''}`;
-                if (blunderLabel) blunderLabel.textContent = 'Blunder';
-            } else if (analysisData && analysisData.mistakes > 0) {
-                blunderEl.textContent = `${analysisData.mistakes} Mistake${analysisData.mistakes > 1 ? 's' : ''}`;
-                if (blunderLabel) blunderLabel.textContent = 'Mistake';
-            } else {
-                blunderEl.textContent = 'None';
-                if (blunderLabel) blunderLabel.textContent = 'Blunder';
+            const blunderEl = document.getElementById('resBlunder');
+            if (blunderEl) {
+                const blunderLabel = blunderEl.previousElementSibling;
+                if (analysisData.blunders > 0) {
+                    blunderEl.textContent = `${analysisData.blunders} Blunder${analysisData.blunders > 1 ? 's' : ''}`;
+                    if (blunderLabel) blunderLabel.textContent = 'Blunder';
+                } else if (analysisData.mistakes > 0) {
+                    blunderEl.textContent = `${analysisData.mistakes} Mistake${analysisData.mistakes > 1 ? 's' : ''}`;
+                    if (blunderLabel) blunderLabel.textContent = 'Mistake';
+                } else {
+                    blunderEl.textContent = 'None';
+                    if (blunderLabel) blunderLabel.textContent = 'Blunder';
+                }
             }
-        }
+        }).catch(e => {
+            console.error("Failed to fetch post-game analysis", e);
+        });
 
 
         // Delay the overlay and celebration effects by 0.5 seconds
