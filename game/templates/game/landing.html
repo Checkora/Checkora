@@ -2011,6 +2011,10 @@
       }
 
       // ── Dropdown wiring ─────────────────────────────────────────────
+      function closeCursorDropdown() {
+        cursorDropdown.classList.remove('active');
+        cursorTrigger.setAttribute('aria-expanded', 'false');
+      }
       cursorTrigger.addEventListener('click', e => {
         e.stopPropagation();
         cursorDropdown.classList.toggle('active');
@@ -2021,25 +2025,27 @@
       cursorOptions.forEach(option => {
         option.addEventListener('click', () => {
           updateCursorType(option.dataset.cursor, true);
-          cursorDropdown.classList.remove('active');
-          cursorTrigger.setAttribute('aria-expanded', 'false');
+          closeCursorDropdown();
         });
       });
 
       document.addEventListener('click', e => {
         if (!cursorDropdown.contains(e.target)) {
-          cursorDropdown.classList.remove('active');
-          cursorTrigger.setAttribute('aria-expanded', 'false');
+          closeCursorDropdown();
         }
       });
 
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-          cursorDropdown.classList.remove('active');
-          cursorTrigger.setAttribute('aria-expanded', 'false');
+          closeCursorDropdown();
         }
       });
     }
+    window.addEventListener(
+      'scroll',
+      closeCursorDropdown,
+      { passive: true }
+    );
   </script>
   
   <script src="{% static 'game/js/dropdown.js' %}?v=2"></script>
