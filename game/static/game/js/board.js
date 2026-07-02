@@ -2693,8 +2693,10 @@
             if (proEl) proEl.textContent = analysisData.promotions || 0;
 
             const accuracyEl = document.getElementById('resAccuracyScore');
+            const panelAccuracyEl = document.getElementById('panelAccuracyScore');
             if (accuracyEl && analysisData.accuracy !== undefined) {
                 accuracyEl.textContent = `${analysisData.accuracy}%`;
+                if (panelAccuracyEl) panelAccuracyEl.textContent = `${analysisData.accuracy}%`;
             }
 
             const mistakesEl = document.getElementById('resMistakesCount');
@@ -2703,8 +2705,10 @@
             }
 
             const blundersEl = document.getElementById('resBlundersCount');
+            const panelBlundersEl = document.getElementById('panelBlundersCount');
             if (blundersEl && analysisData.blunders !== undefined) {
                 blundersEl.textContent = analysisData.blunders;
+                if (panelBlundersEl) panelBlundersEl.textContent = analysisData.blunders;
             }
 
             const tbody = document.getElementById('postGameAnalysisTableBody');

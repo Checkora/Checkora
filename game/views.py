@@ -2272,7 +2272,6 @@ def confirm_delete_account(request, uidb64, token):
     return redirect('landing')
 
 
-
 def _classify_move(is_best, played_mv, best_mv, game_state):
     """Classifies a move using a basic material heuristic."""
     if is_best:
