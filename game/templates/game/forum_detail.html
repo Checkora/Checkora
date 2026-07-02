@@ -1,4 +1,5 @@
 {% load static %}
+{% load forum_extras %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -95,85 +96,164 @@
 
             {% for reply in replies %}
             <div class="forum-reply-card" id="reply-{{ reply.id }}">
-                <div class="forum-reply-top">
-                    <div class="forum-discussion-meta">
-                        <span class="forum-meta-label">Posted by</span>
-                        <span class="forum-author">{{ reply.user.username }}</span>
+                <div class="forum-reply-main-layout">
 
-                        {% if reply.reply_to %}
-                        <span class="forum-dot">•</span>
-                        <span class="forum-meta-label">Replying to</span>
-                        <a href="#reply-{{ reply.reply_to.id }}" class="forum-reply-reference">
-                            {{ reply.reply_to.user.username }}
-                        </a>
-                        {% endif %}
+                    <div class="forum-reply-body">
+                        <div class="forum-reply-top">
+                            <div class="forum-discussion-meta">
+                                <span class="forum-meta-label">Posted by</span>
+                                <span class="forum-author">{{ reply.user.username }}</span>
 
-                        <span class="forum-dot">•</span>
+                                {% if reply.reply_to %}
+                                <span class="forum-dot">•</span>
+                                <span class="forum-meta-label">Replying to</span>
+                                <a href="#reply-{{ reply.reply_to.id }}" class="forum-reply-reference">
+                                    {{ reply.reply_to.user.username }}
+                                </a>
+                                {% endif %}
 
-                        <span class="forum-date">
-                            {{ reply.created_at|date:"M d, Y H:i" }}
-                        </span>
+                                <span class="forum-dot">•</span>
 
-                        {% if reply.is_edited and not reply.is_deleted %}
-                        <span class="forum-edited-label">Edited</span>
-                        {% endif %}
-                    </div>
+                                <span class="forum-date">
+                                    {{ reply.created_at|date:"M d, Y H:i" }}
+                                </span>
 
-                    {% if user.is_authenticated and reply.user == user and not reply.is_deleted %}
-                    <div class="reply-actions">
-                        <button type="button" class="reply-menu-btn" onclick="toggleReplyMenu('{{ reply.id }}')">
-                            ⋮
-                        </button>
+                                {% if reply.is_edited and not reply.is_deleted %}
+                                <span class="forum-edited-label">Edited</span>
+                                {% endif %}
+                            </div>
 
-                        <div class="reply-menu" id="reply-menu-{{ reply.id }}">
-                            <button type="button" onclick="showEditForm('{{ reply.id }}')">
-                                Edit
-                            </button>
-
-                            <form method="post" action="{% url 'forum_reply_delete' reply.id %}">
-                                {% csrf_token %}
+                            {% if user.is_authenticated and reply.user == user and not reply.is_deleted %}
+                            <div class="reply-actions">
                                 <button type="button"
-                                        onclick="openDeleteModal('{% url 'forum_reply_delete' reply.id %}')">
-                                    Delete
+                                        class="reply-menu-btn"
+                                        onclick="toggleReplyMenu('{{ reply.id }}')">
+                                    ⋮
                                 </button>
-                            </form>
+
+                                <div class="reply-menu" id="reply-menu-{{ reply.id }}">
+                                    <button type="button" onclick="showEditForm('{{ reply.id }}')">
+                                        Edit
+                                    </button>
+
+                                    <form method="post" action="{% url 'forum_reply_delete' reply.id %}">
+                                        {% csrf_token %}
+                                        <button type="button"
+                                                onclick="openDeleteModal('{% url 'forum_reply_delete' reply.id %}')">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
+
+                        {% if reply.is_deleted %}
+                        <div class="forum-deleted-reply">
+                            This comment was deleted by {{ reply.user.username }}
+                        </div>
+                        {% else %}
+                        <div class="forum-reply-content" id="reply-content-{{ reply.id }}">
+                            {{ reply.content|linebreaks }}
+                        </div>
+
+                        <form method="post"
+                            action="{% url 'forum_reply_edit' reply.id %}"
+                            class="forum-edit-form"
+                            id="edit-form-{{ reply.id }}">
+                            {% csrf_token %}
+
+                            <textarea name="content" required>{{ reply.content }}</textarea>
+
+                            <div class="forum-edit-actions">
+                                <button type="submit" class="forum-btn-small">
+                                    Save
+                                </button>
+
+                                <button type="button"
+                                        class="forum-btn-small secondary"
+                                        onclick="hideEditForm('{{ reply.id }}')">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+
+                        {% if user.is_authenticated %}
+                        <div class="reply-footer">
+                            {# ── Vote controls ── #}
+                            {% if not reply.is_deleted %}
+                            {% if reply.user == user %}
+                                {# Owner: upvote only #}
+                                {% with user_vote=user_reply_votes|get_item:reply.id %}
+                                <div class="reply-vote-inline">
+                                    <button type="button"
+                                            class="rvi-btn upvote-btn {% if user_vote == 1 %}active{% endif %}"
+                                            data-reply-id="{{ reply.id }}"
+                                            data-vote="up"
+                                            title="Upvote">
+                                        ▲ <span class="rvi-label">Upvotes</span>
+                                        <span class="rvi-count upvote-count" id="reply-upvotes-{{ reply.id }}">{{ reply.upvote_count|default:0 }}</span>
+                                    </button>
+                                    <span class="rvi-divider">|</span>
+                                    <button type="button" class="rvi-btn downvote-btn" disabled title="Cannot downvote own reply">
+                                        ▼ <span class="rvi-label">Downvotes</span>
+                                        <span class="rvi-count downvote-count" id="reply-downvotes-{{ reply.id }}">{{ reply.downvote_count|default:0 }}</span>
+                                    </button>
+                                </div>
+                                {% endwith %}
+                            {% else %}
+                                {# Non-owner: full voting #}
+                                {% with user_vote=user_reply_votes|get_item:reply.id %}
+                                <div class="reply-vote-inline">
+                                    <button type="button"
+                                            class="rvi-btn upvote-btn {% if user_vote == 1 %}active{% endif %}"
+                                            data-reply-id="{{ reply.id }}"
+                                            data-vote="up"
+                                            title="Upvote">
+                                        ▲ <span class="rvi-label">Upvotes</span>
+                                        <span class="rvi-count upvote-count" id="reply-upvotes-{{ reply.id }}">{{ reply.upvote_count|default:0 }}</span>
+                                    </button>
+                                    <span class="rvi-divider">|</span>
+                                    <button type="button"
+                                            class="rvi-btn downvote-btn {% if user_vote == -1 %}active{% endif %}"
+                                            data-reply-id="{{ reply.id }}"
+                                            data-vote="down"
+                                            title="Downvote">
+                                        ▼ <span class="rvi-label">Downvotes</span>
+                                        <span class="rvi-count downvote-count" id="reply-downvotes-{{ reply.id }}">{{ reply.downvote_count|default:0 }}</span>
+                                    </button>
+                                </div>
+                                {% endwith %}
+                            {% endif %}
+                            {% endif %}
+
+                            {# ── Reply button ── #}
+                            <button type="button"
+                                    class="forum-reply-to-btn"
+                                    onclick="setReplyTo('{{ reply.id }}', '{{ reply.user.username|escapejs }}')">↪ Reply
+                            </button>
+                        </div>
+                        {% else %}
+                        {# Unauthenticated: show read-only counts #}
+                        {% if not reply.is_deleted %}
+                        <div class="reply-footer">
+                            <div class="reply-vote-inline">
+                                <span class="rvi-btn" style="cursor:default;">
+                                    ▲ <span class="rvi-label">Upvotes</span>
+                                    <span class="rvi-count upvote-count">{{ reply.upvote_count|default:0 }}</span>
+                                </span>
+                                <span class="rvi-divider">|</span>
+                                <span class="rvi-btn" style="cursor:default;">
+                                    ▼ <span class="rvi-label">Downvotes</span>
+                                    <span class="rvi-count downvote-count">{{ reply.downvote_count|default:0 }}</span>
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                        {% endif %}{# /if reply.is_deleted #}
                     </div>
-                    {% endif %}
                 </div>
-
-                {% if reply.is_deleted %}
-                <div class="forum-deleted-reply">
-                    This comment was deleted by {{ reply.user.username }}
-                </div>
-                {% else %}
-                <div class="forum-reply-content" id="reply-content-{{ reply.id }}">
-                    {{ reply.content|linebreaks }}
-                </div>
-
-                <form method="post"
-                      action="{% url 'forum_reply_edit' reply.id %}"
-                      class="forum-edit-form"
-                      id="edit-form-{{ reply.id }}">
-                    {% csrf_token %}
-                    <textarea name="content" required>{{ reply.content }}</textarea>
-
-                    <div class="forum-edit-actions">
-                        <button type="submit" class="forum-btn-small">Save</button>
-                        <button type="button" class="forum-btn-small secondary" onclick="hideEditForm('{{ reply.id }}')">
-                            Cancel
-                        </button>
-                    </div>
-                </form>
-
-                {% if user.is_authenticated %}
-                <button type="button"
-                        class="forum-reply-to-btn"
-                        onclick="setReplyTo('{{ reply.id }}', '{{ reply.user.username|escapejs }}')">
-                    ↪ Reply
-                </button>
-                {% endif %}
-                {% endif %}
             </div>
             {% empty %}
             <div class="forum-empty">
@@ -312,6 +392,50 @@
             if (event.target === this) {
                 closeDeleteModal();
             }
+        });
+
+        function getCSRFToken() {
+            const csrfInput = document.querySelector("[name=csrfmiddlewaretoken]");
+            return csrfInput ? csrfInput.value : "";
+        }
+
+        // Delegated handler — catches every .rvi-btn[data-reply-id] click,
+        // no matter when or where it appears in the DOM.
+        document.addEventListener("click", function (event) {
+            const button = event.target.closest(".rvi-btn[data-reply-id]");
+            if (!button || button.disabled) return;
+
+            const replyId  = button.dataset.replyId;
+            const voteType = button.dataset.vote;
+
+            fetch(`/forum/reply/${replyId}/vote/`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCSRFToken(),
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({ vote: voteType })
+            })
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.success) return;
+
+                const upvoteEl   = document.getElementById(`reply-upvotes-${replyId}`);
+                const downvoteEl = document.getElementById(`reply-downvotes-${replyId}`);
+                if (upvoteEl)   upvoteEl.textContent   = data.upvotes;
+                if (downvoteEl) downvoteEl.textContent = data.downvotes;
+
+                const replyCard = document.getElementById(`reply-${replyId}`);
+                const upBtn   = replyCard.querySelector(".upvote-btn");
+                const downBtn = replyCard.querySelector(".downvote-btn");
+
+                if (upBtn)   upBtn.classList.remove("active");
+                if (downBtn) downBtn.classList.remove("active");
+
+                if (data.user_vote === 1  && upBtn)   upBtn.classList.add("active");
+                if (data.user_vote === -1 && downBtn) downBtn.classList.add("active");
+            })
+            .catch(() => console.error("Vote request failed."));
         });
     </script>
     <div class="forum-delete-modal" id="delete-modal">

@@ -105,6 +105,13 @@ urlpatterns = [
         views.forum_reply_delete,
         name="forum_reply_delete",
     ),
+
+    path(
+        "forum/reply/<int:reply_id>/vote/",
+        views.toggle_reply_vote,
+        name="toggle_reply_vote",
+    ),
 ]
+
 from game.urls_history import history_urlpatterns
 urlpatterns += history_urlpatterns
