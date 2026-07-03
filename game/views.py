@@ -208,7 +208,7 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     result.save()
 
     result.rating_info = None
-    if user:
+    if user and mode != 'pvp':
         result.rating_info = update_player_rating(
             user,
             winner,
