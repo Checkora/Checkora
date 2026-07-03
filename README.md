@@ -541,6 +541,60 @@ python manage.py test game
 
 ---
 
+## Keyboard Shortcuts
+
+Checkora supports keyboard-first play and navigation across the board, replay, lesson, and landing experiences. These shortcuts reflect the current handlers in `game/static/game/js/board.js`, `game/templates/game/landing.html`, `game/templates/game/match_history.html`, and `game/static/game/js/lesson_practice.js`.
+
+### Game Board
+
+| Shortcut | Action |
+| :--- | :--- |
+| `Arrow keys` | Move focus between board squares |
+| `Enter` / `Space` | Select the focused square or make the focused move |
+| `Esc` | Clear selected squares or close active overlays |
+| `F` | Flip the board |
+| `R` | Resign the current game |
+| `D` | Offer a draw when available |
+| `P` | Pause or resume the game clock |
+| `N` | Start a new player-vs-player game |
+| `A` | Start a new game against AI |
+| `H` | Return to the home page, with leave confirmation when needed |
+| Type `e2e4` + `Enter` | Submit a manual move from the input bar |
+| Paste FEN + `Enter` | Start from a custom FEN position when the FEN input is active |
+
+### Replay And Match History
+
+| Shortcut | Action |
+| :--- | :--- |
+| `ArrowLeft` | Step one move backward |
+| `ArrowRight` | Step one move forward |
+| `Home` | Jump to the start of the replay |
+| `End` | Jump to the end of the replay |
+| `Space` | Toggle autoplay in match history replay |
+
+### Landing Navigation
+
+| Shortcut | Action |
+| :--- | :--- |
+| `Shift` + `/` | Open the keyboard shortcuts help modal |
+| `Esc` | Close the shortcuts or landing-page modal |
+| `G`, then `H` | Jump to Home |
+| `G`, then `P` | Jump to Play |
+| `G`, then `L` | Jump to Leaderboard |
+| `G`, then `S` | Jump to Lessons |
+
+### Lessons
+
+| Shortcut | Action |
+| :--- | :--- |
+| `Arrow keys` | Move focus around the lesson board |
+| `Enter` / `Space` | Select the focused lesson square |
+| `Esc` | Deselect the current lesson square and clear move hints |
+
+Future shortcuts should be documented here after they are added to the relevant `keydown` handlers.
+
+---
+
 ## Troubleshooting Guide
 
 Below are solutions to common setup, installation, and environment issues contributors encounter when getting Checkora running locally.

@@ -203,6 +203,7 @@ An interactive 8x8 grid rendering the pieces:
   - *Rulebook*: Opens an overlay modal showing basic chess rules.
 - **Move History Card**: Lists all moves chronologically in Standard Algebraic Notation (SAN).
 - **Manual Input Bar**: Enables entering moves manually (e.g., typing `e2e4`) for keyboard-only play.
+- **Keyboard Shortcuts**: See the [README Keyboard Shortcuts](README.md#keyboard-shortcuts) section for current board, replay, landing, and lesson shortcuts.
 
 ---
 

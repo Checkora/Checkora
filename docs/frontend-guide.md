@@ -37,6 +37,8 @@ game/static/game/js/
 
 Largest frontend module responsible for:
 
+Global board keyboard shortcuts are handled here and documented in the [README Keyboard Shortcuts](../README.md#keyboard-shortcuts) section.
+
 * Chess board rendering
 * Move handling
 * Game state updates
