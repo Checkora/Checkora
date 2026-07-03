@@ -479,6 +479,17 @@ class GameRecord(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    @property
+    def hours_remaining(self):
+        delta = self.expires_at - timezone.now()
+        if delta.total_seconds() <= 0:
+            return 0
+        return int(delta.total_seconds() // 3600)
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
+
     def __str__(self):
         return f"Game {self.id} ({self.white_label} vs {self.black_label})"
 
@@ -534,17 +545,6 @@ class Discussion(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-
-    @property
-    def hours_remaining(self):
-        delta = self.expires_at - timezone.now()
-        if delta.total_seconds() <= 0:
-            return 0
-        return int(delta.total_seconds() // 3600)
-
-    @property
-    def is_expired(self):
-        return self.expires_at <= timezone.now()
 
     def __str__(self):
         return self.title
@@ -622,7 +622,44 @@ class DiscussionBookmark(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+    
+class ReplyVote(models.Model):
+    UPVOTE = 1
+    DOWNVOTE = -1
 
+    VOTE_CHOICES = (
+        (UPVOTE, "Upvote"),
+        (DOWNVOTE, "Downvote"),
+    )
+
+    reply = models.ForeignKey(
+        Reply,
+        on_delete=models.CASCADE,
+        related_name="votes"
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reply_votes"
+    )
+
+    value = models.SmallIntegerField(choices=VOTE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("reply", "user")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return (
+            f"{self.user.username} "
+            f"{self.get_value_display().lower()}d reply {self.reply_id}"
+        )
 
 class UserProfile(models.Model):
     """Stores optional profile data for a user, including their avatar.

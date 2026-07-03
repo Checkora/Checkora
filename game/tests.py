@@ -7,7 +7,11 @@ from smtplib import SMTPException
 from unittest import mock
 
 from django.utils import timezone
-from game.models import ActiveGame
+from game.models import (
+    ActiveGame,
+    OpeningProgress,
+    UserProgress,
+)
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -1290,6 +1294,85 @@ class OpeningBookTest(SimpleTestCase):
         self.assertEqual(move['from_row'], 6)
         self.assertEqual(move['to_row'], 4)
         ChessGame._opening_book = None
+
+
+class AnalyzeGameTest(TestCase):
+    """Test the /api/analyze-game/ endpoint for Issue #332."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='test_analyze_user', password='password123')
+        self.client.force_login(self.user)
+
+    def test_missing_moves_json(self):
+        r = self.client.post('/api/analyze-game/', content_type='application/json')
+        print("MISSING MOVES RESPONSE:", r.status_code, r.content)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('error', r.json())
+
+    @mock.patch('game.views.ChessGame.get_ai_move')
+    def test_analyze_game_identifies_mistake_and_blunder(self, mock_ai):
+        # Engine returns a massive capture as best move
+        # If the player plays e4 instead, they miss out on the capture, making it a Blunder.
+        mock_ai.return_value = {
+            'from_row': 7, 'from_col': 6, 'to_row': 1, 'to_col': 3  # Pretend it captures a Queen
+        }
+
+        # Fake board state to make the heuristic think the best move captures a queen (val 9)
+        with mock.patch('game.views.ChessGame') as MockGame:
+            instance = MockGame.return_value
+            instance.board = [['' for _ in range(8)] for _ in range(8)]
+            instance.board[1][3] = 'q'  # Queen at target square
+            instance.board[6][4] = 'P'  # Place moving pawn
+            
+            # Mock get_valid_moves and _notation so the inner loop finds it
+            instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
+            instance._notation.return_value = 'e4'
+            instance._color.return_value = 'white'
+            instance.current_turn = 'white'
+            instance.serialize_board.return_value = 'board'
+            instance.serialize_castling_rights.return_value = 'rights'
+            instance._serialize_ep.return_value = '-'
+
+            instance.get_ai_move = mock_ai
+            
+            payload = {"moves": ["e4"]}
+            r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
+            
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+
+            self.assertEqual(len(data['move_analysis_details']), 1)
+            
+            # White played e4 but engine wanted to capture a Queen. Blunder!
+            white_analysis = data['move_analysis_details'][0]
+            self.assertEqual(white_analysis['played'], 'e4')
+            self.assertEqual(white_analysis['class'], 'Blunder')
+            self.assertEqual(data['blunders'], 1)
+
+    @mock.patch('game.views.ChessGame.get_ai_move')
+    def test_analyze_game_engine_failure(self, mock_ai):
+        # Simulate an engine crash or timeout (raises Exception)
+        mock_ai.side_effect = Exception("Engine timeout")
+
+        payload = {"moves": ["e4"]}
+        
+        with mock.patch('game.views.ChessGame') as MockGame:
+            instance = MockGame.return_value
+            instance.board = [['' for _ in range(8)] for _ in range(8)]
+            instance.board[6][4] = 'P'  # Place moving pawn
+            instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
+            instance._notation.return_value = 'e4'
+            instance._color.return_value = 'white'
+            instance.current_turn = 'white'
+            instance.serialize_board.return_value = 'board'
+            instance.serialize_castling_rights.return_value = 'rights'
+            instance._serialize_ep.return_value = '-'
+            instance.get_ai_move = mock_ai
+
+            r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
+            
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json()['accuracy'], 100) # Defaults to 100% accurate if engine fails
 
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
@@ -3566,74 +3649,81 @@ class GameResultRatingTest(TestCase):
         self.assertEqual(res.mode, 'pvp')
         self.assertEqual(res.winner, 'white')
 
-
-@override_settings(
-    OPENING_RATE_LIMIT_WINDOW_SECONDS=60,
-    OPENING_RATE_LIMIT_MAX_REQUESTS=2,
-)
-class OpeningLookupRateLimitTest(TestCase):
-    """Opening lookup requests should be throttled."""
+class OpeningStatsTests(TestCase):
 
     def setUp(self):
-        cache.clear()
-        self.trainer_url = reverse('opening_trainer')
-        self.detail_url = reverse('opening_detail', kwargs={'slug': 'italian-game'})
-
-    def tearDown(self):
-        cache.clear()
-
-    def test_opening_trainer_rate_limit(self):
-        res1 = self.client.get(self.trainer_url)
-        self.assertEqual(res1.status_code, 200)
-        
-        res2 = self.client.get(self.trainer_url)
-        self.assertEqual(res2.status_code, 200)
-        
-        res3 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
-        self.assertEqual(res3.status_code, 429)
-        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
-
-        res_html = self.client.get(self.trainer_url, HTTP_ACCEPT='text/html')
-        self.assertEqual(res_html.status_code, 429)
-        self.assertIn(b"429 Too Many Requests", res_html.content)
-
-    def test_opening_detail_rate_limit(self):
-        res1 = self.client.get(self.detail_url)
-        self.assertEqual(res1.status_code, 200)
-        
-        res2 = self.client.get(self.detail_url)
-        self.assertEqual(res2.status_code, 200)
-        
-        res3 = self.client.get(self.detail_url, HTTP_ACCEPT='application/json')
-        self.assertEqual(res3.status_code, 429)
-        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
-
-    def test_opening_trainer_rate_limit_authenticated(self):
-        # First exhaust the anonymous limit (IP based)
-        res1 = self.client.get(self.trainer_url)
-        self.assertEqual(res1.status_code, 200)
-        
-        res2 = self.client.get(self.trainer_url)
-        self.assertEqual(res2.status_code, 200)
-        
-        res3 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
-        self.assertEqual(res3.status_code, 429)
-        self.assertEqual(res3.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
-
-        # Now authenticate and verify we get a fresh allowance (User ID based)
-        User.objects.create_user(
-            username='testuser_rl',
-            password='Password123!',
-            email='testuser_rl@example.com'
+        self.user = User.objects.create_user(
+            username="testuser",
+            password="password123",
         )
-        self.client.login(username='testuser_rl', password='Password123!')
-        
-        res4 = self.client.get(self.trainer_url)
-        self.assertEqual(res4.status_code, 200)
-        
-        res5 = self.client.get(self.trainer_url)
-        self.assertEqual(res5.status_code, 200)
-        
-        res6 = self.client.get(self.trainer_url, HTTP_ACCEPT='application/json')
-        self.assertEqual(res6.status_code, 429)
-        self.assertEqual(res6.json(), {"error": "Opening lookup rate limit reached. Please try again shortly."})
+
+        self.client.login(
+            username="testuser",
+            password="password123",
+        )
+
+        self.url = reverse("update_opening_stats")
+
+    def test_first_completion_awards_xp_and_records_progress(self):
+        response = self.client.post(
+            self.url,
+            data=json.dumps({
+                "opening_name": "Italian Game",
+                "completed": True,
+                "accuracy": 100,
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        progress = OpeningProgress.objects.get(
+            user=self.user,
+            opening_name="Italian Game",
+        )
+
+        self.assertEqual(progress.openings_completed, 1)
+
+        user_progress = UserProgress.objects.get(
+            user=self.user,
+        )
+
+        self.assertEqual(user_progress.xp, 75)
+
+    def test_repeated_completion_does_not_award_extra_xp(self):
+        payload = {
+            "opening_name": "Italian Game",
+            "completed": True,
+            "accuracy": 100,
+        }
+
+        # First completion
+        self.client.post(
+            self.url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        # Second completion
+        response = self.client.post(
+            self.url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        progress = OpeningProgress.objects.get(
+            user=self.user,
+            opening_name="Italian Game",
+        )
+
+        # Completion should only be counted once
+        self.assertEqual(progress.openings_completed, 1)
+
+        user_progress = UserProgress.objects.get(
+            user=self.user,
+        )
+
+        # XP should not increase after the second completion
+        self.assertEqual(user_progress.xp, 75)

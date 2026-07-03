@@ -7,6 +7,104 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ lesson.title }} - Checkora</title>
     <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
+    <style>
+        @media (max-width: 480px) {
+            #backToTopWrapper {
+                bottom: 1rem;
+                right: 1rem;
+            }
+
+            #backToTopBtn {
+                width: 44px;
+                height: 44px;
+                font-size: 1.1rem;
+            }
+
+            #backToTopTooltip {
+                font-size: 0.7rem;
+            }
+        }
+        
+        #backToTopWrapper {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .3s ease;
+            z-index: 9999;
+        }
+
+        #backToTopWrapper.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #backToTopTooltip {
+            background: rgba(15,15,26,.9);
+            color: #f0c040;
+            font-size: .75rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(240,192,64,.3);
+            opacity: 0;
+            transform: translateY(4px);
+            transition: .2s;
+            white-space: nowrap;
+        }
+
+        #backToTopWrapper:hover #backToTopTooltip,
+        #backToTopWrapper:focus-within #backToTopTooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #backToTopBtn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(0,0,0,.4);
+            background: linear-gradient(135deg,#f0c040,#d4a020);
+            color: #111;
+            font-size: 1.3rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(240,192,64,.35);
+            transition: .3s;
+        }
+
+        #backToTopBtn:focus-visible {
+            outline: 3px solid #ffffff;
+            outline-offset: 3px;
+        }
+
+        #backToTopBtn:hover {
+            background: linear-gradient(135deg,#f5cc55,#e0b030);
+            box-shadow: 0 6px 24px rgba(240,192,64,.6);
+        }
+
+        #backToTopBtn:hover .btn-arrow,
+        #backToTopBtn:focus-visible .btn-arrow {
+            animation: arrowBounce .6s infinite;
+        }
+
+        #backToTopBtn:active {
+            transform: scale(.92);
+        }
+
+        @keyframes arrowBounce {
+            0%,100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+    </style>
 </head>
 <body>
 
@@ -208,6 +306,22 @@
 </div>
 
 <script>
+document.addEventListener("DOMContentLoaded", () => {
+    const backToTop = document.getElementById("backToTopWrapper");
+
+    const toggleBackToTop = () => {
+        if (window.scrollY > 300) {
+            backToTop.classList.add("visible");
+        } else {
+            backToTop.classList.remove("visible");
+        }
+    };
+
+    window.addEventListener("scroll", toggleBackToTop);
+
+    // Show immediately if page is already scrolled
+    toggleBackToTop();
+});
 
 function checkAnswer(btn, selected, correct) {
 
@@ -303,5 +417,17 @@ function triggerCelebration(btn) {
 <script src="{% static 'game/js/lesson_demo.js' %}"></script>
 <script src="{% static 'game/js/lesson_practice.js' %}"></script>
 <script src="{% static 'game/js/lesson_coordinates.js' %}"></script>
+<div id="backToTopWrapper">
+    <span id="backToTopTooltip">Back to Top</span>
+
+    <button
+        type="button"
+        id="backToTopBtn"
+        aria-label="Back to top"
+        onclick="window.scrollTo({top:0,behavior:'smooth'})"
+    >
+        <span class="btn-arrow">^</span>
+    </button>
+</div>
 </body>
 </html>
