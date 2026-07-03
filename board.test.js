@@ -28,6 +28,7 @@ document.body.innerHTML = `
   <div id="flipControls"></div>
   <button id="flipBtn"></button>
   <button id="copyFenBtn"></button>
+  <button id="copyPgnClipboardBtn"></button>
   <div id="welcomeOverlay"></div>
   <button id="welcomeResumeBtn"></button>
   <button id="welcomePvPBtn"></button>
@@ -137,6 +138,7 @@ global.fetch = jest.fn((url, options) => {
     json: () => Promise.resolve({ 
       valid: true,
       fen: 'startpos_fen',
+      pgn: mockPgn,
       board: boardData,
       current_turn: 'white',
       player_color: 'white',
@@ -150,6 +152,14 @@ global.fetch = jest.fn((url, options) => {
   });
 });
 global.SOUND_BASE_URL = '/static/game/sounds/';
+Object.assign(navigator, {
+  clipboard: {
+    writeText: jest.fn(() => Promise.resolve())
+  }
+});
+window.showToast = jest.fn();
+
+let mockPgn = '[Event "Checkora"]\n\n1. e4 e5';
 
 // Mock Worker for Jest
 global.Worker = class MockWorker {
@@ -352,6 +362,33 @@ describe("Coordinates visibility toggle", () => {
     checkbox.dispatchEvent(new Event("change"));
     expect(board.classList.contains("hide-coordinates")).toBe(false);
     expect(localStorage.getItem("showCoordinates")).toBe("true");
+  });
+});
+
+describe("Copy PGN clipboard button", () => {
+  beforeEach(() => {
+    mockPgn = '[Event "Checkora"]\n\n1. e4 e5';
+    navigator.clipboard.writeText.mockClear();
+    window.showToast.mockClear();
+    global.fetch.mockClear();
+  });
+
+  test("copies the current PGN to the clipboard", async () => {
+    document.getElementById("copyPgnClipboardBtn").click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(mockPgn);
+    expect(window.showToast).toHaveBeenCalledWith("PGN copied to clipboard!", "success");
+  });
+
+  test("does not copy when no PGN is available", async () => {
+    mockPgn = "";
+
+    document.getElementById("copyPgnClipboardBtn").click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+    expect(window.showToast).toHaveBeenCalledWith("No moves available to export.", "info");
   });
 });
 
@@ -754,4 +791,3 @@ describe("SAN Quick Move Input", () => {
     expect(body.to_col).toBe(3);
   });
 });
-

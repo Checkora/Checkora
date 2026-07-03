@@ -634,7 +634,10 @@
         <!-- Right Panel: Move History -->
         <div class="panel move-history-panel">
             <div class="card" style="height: 100%;">
-                <div class="card-title">Move History</div>
+                <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <span>Move History</span>
+                    <button type="button" class="btn btn-gold" id="copyPgnClipboardBtn" style="width:auto;padding:6px 12px;font-size:0.85rem;">Copy PGN</button>
+                </div>
                 <div class="moves-list" id="movesList">
                     <span class="placeholder">No moves yet</span>
                 </div>

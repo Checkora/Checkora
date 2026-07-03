@@ -612,6 +612,7 @@
     const flipControls = document.getElementById('flipControls');
     const copyFenBtn = document.getElementById('copyFenBtn');
     const copyPgnBtn = document.getElementById('copyPgnBtn');
+    const copyPgnClipboardBtn = document.getElementById('copyPgnClipboardBtn');
     const muteBtn = document.getElementById('muteBtn');
 
     const welcomeOverlay = document.getElementById('welcomeOverlay');
@@ -3883,6 +3884,30 @@
             pgnDownloadTimeout = setTimeout(() => {
                 copyPgnBtn.textContent = 'Export as PGN';
             }, 2000);
+        }
+    };
+
+    if (copyPgnClipboardBtn) copyPgnClipboardBtn.onclick = async () => {
+        const notify = (message, type) => {
+            if (typeof window.showToast === 'function') {
+                window.showToast(message, type);
+            } else {
+                showStatus(message, type === 'error');
+            }
+        };
+
+        try {
+            const data = await get('/api/state/');
+
+            if (!data.pgn) {
+                notify('No moves available to export.', 'info');
+                return;
+            }
+
+            await navigator.clipboard.writeText(data.pgn);
+            notify('PGN copied to clipboard!', 'success');
+        } catch (_) {
+            notify('Failed to copy PGN', 'error');
         }
     };
 
