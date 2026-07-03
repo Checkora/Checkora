@@ -373,6 +373,22 @@ describe("Board UI Interactions", () => {
     expect(sq.classList.contains("custom-highlight")).toBe(false);
   });
 
+  it('keeps puzzle clock and streak visibility when starting puzzle mode', async () => {
+    const whiteClock = document.getElementById("whiteClock");
+    const blackClock = document.getElementById("blackClock");
+    const streakCounter = document.getElementById("streak-counter");
+
+    whiteClock.style.display = "none";
+    blackClock.style.display = "none";
+    streakCounter.style.display = "block";
+
+    await startNewGame('pvp', 'white', 'medium', 'startpos', 10, null, true);
+
+    expect(whiteClock.style.display).toBe("none");
+    expect(blackClock.style.display).toBe("none");
+    expect(streakCounter.style.display).toBe("block");
+  });
+
   it('showPromoModal makes overlay active', () => {
     showPromoModal('white');
     const overlay = document.getElementById("promoOverlay");
@@ -754,4 +770,3 @@ describe("SAN Quick Move Input", () => {
     expect(body.to_col).toBe(3);
   });
 });
-
