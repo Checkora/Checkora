@@ -133,6 +133,7 @@ def index(request):
     return render(request, 'game/board.html')
 
 
+# NEW
 def update_player_rating(user, winner, player_color):
     rating, _ = PlayerRating.objects.get_or_create(
         user=user
@@ -181,8 +182,15 @@ def update_player_rating(user, winner, player_color):
         rating_change=actual_change,
         result=result
     )
-    
 
+    return {
+        "old_rating": old_rating,
+        "new_rating": rating.rating,
+        "rating_change": actual_change,
+        "result": result,
+    }
+
+# NEW
 def record_game_result(request, mode, winner, reason, player_color='white', moves=None):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
@@ -202,14 +210,14 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     )
     result.full_clean()
     result.save()
-
-    if user and mode == 'ai':
-        update_player_rating(
+    result.rating_info = None
+    if user:
+        result.rating_info = update_player_rating(
             user,
             winner,
             player_color
         )
-        
+
         check_game_achievements(user)
     return result
 
@@ -255,6 +263,8 @@ def make_move(request):
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
+    # NEW
+    rating_payload = None
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
@@ -269,12 +279,14 @@ def make_move(request):
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+                rating_payload = getattr(game_result, 'rating_info', None)
         elif game_status in ('stalemate', 'draw'):
             game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)            
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+                rating_payload = getattr(game_result, 'rating_info', None)
 
     return JsonResponse({
         'valid': success,
@@ -295,6 +307,7 @@ def make_move(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+        'rating': rating_payload,
     })
 
 
@@ -518,7 +531,13 @@ def get_state(request):
         request.session['game']
     )
 
+    current_rating = None
+    if request.user.is_authenticated:
+        rating_obj, _ = PlayerRating.objects.get_or_create(user=request.user)
+        current_rating = rating_obj.rating
+        
     return JsonResponse({
+        'current_rating': current_rating,
         'board': game.board,
         'current_turn': game.current_turn,
         'white_time': game.white_time,
@@ -631,13 +650,14 @@ def ai_move(request):
         request.session.modified = True
         best = game.get_ai_move(depth=depth)
 
+    # NEW
     if not best:
         if game.game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
+            no_move_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
             game_status = 'checkmate'
         else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
+            no_move_result = record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
             game_status = 'stalemate'
 
         game.game_status = game_status
@@ -659,6 +679,7 @@ def ai_move(request):
             'move_history': game.move_history,
             'captured_pieces': game.captured,
             'message': '',
+            'rating': getattr(no_move_result, 'rating_info', None),
         })
 
     success, message, captured, game_status = game.make_move(
@@ -666,6 +687,8 @@ def ai_move(request):
         best['to_row'],   best['to_col'],
     )
 
+    # NEW
+    rating_payload = None
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
@@ -682,12 +705,14 @@ def ai_move(request):
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+                rating_payload = getattr(game_result, 'rating_info', None)
         elif game_status in ('stalemate', 'draw'):
             game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+                rating_payload = getattr(game_result, 'rating_info', None)
 
     return JsonResponse({
         'valid': success,
@@ -709,8 +734,10 @@ def ai_move(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+        'rating': rating_payload,
         'opening': request.session.get('opening', ''),
     })
+
 
 @require_POST
 def offer_draw(request):
@@ -735,6 +762,7 @@ def offer_draw(request):
             {'success': False, 'message': 'Invalid action.'}, status=400
         )
 
+    # NEW
     if action == 'accept':
         game = ChessGame.from_dict(game_data)
         if game.game_status != 'active':
@@ -745,20 +773,21 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-
         create_or_update_active_game(
             request,
             request.session['game']
         )
 
-        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
+        draw_result = record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
+            'rating': getattr(draw_result, 'rating_info', None),
         })
 
     return JsonResponse({'success': True})
+
 
 @require_POST
 def resign_game(request):
@@ -772,16 +801,7 @@ def resign_game(request):
     if game.game_status != 'active':
         return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
 
-    import json
-    try:
-        data = json.loads(request.body)
-        resigning_player = data.get('resigning_player')
-    except (json.JSONDecodeError, AttributeError, ValueError):
-        resigning_player = None
-
-    if resigning_player not in ['white', 'black']:
-        resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
-
+    resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
     winner = 'black' if resigning_player == 'white' else 'white'
     game_status = 'resignation'
 
@@ -794,6 +814,9 @@ def resign_game(request):
         request.session['game']
     )
 
+    # NEW
+    rating_payload = None
+
     try:
         game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
         pgn_str = game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black'))
@@ -802,6 +825,7 @@ def resign_game(request):
         if game_result is not None:
             game_result.replay_record = replay_record
             game_result.save(update_fields=['replay_record'])
+            rating_payload = getattr(game_result, 'rating_info', None)
     except Exception as e:
         logger.error('Failed to record resign result: %s', e)
 
@@ -809,7 +833,8 @@ def resign_game(request):
         'valid': True,
         'message': f'{resigning_player.capitalize()} resigned.',
         'winner': winner,
-        'game_status': game_status
+        'game_status': game_status,
+        'rating': rating_payload,
     })
 
 @require_GET
