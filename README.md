@@ -658,6 +658,22 @@ If the browser shows `ERR_SSL_PROTOCOL_ERROR` or the terminal prints *"You're ac
     3. Disable your browser's HTTPS-upgrade setting for local development (for example, Chrome/Brave: "Always use secure connections" / "Upgrade connections to HTTPS").
     4. Clear cached HSTS for `127.0.0.1` if the browser keeps forcing HTTPS (Chrome/Brave: `chrome://net-internals/#hsts`; steps vary by browser).
 
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| -------- | ------ |
+| `Arrow Left` | Navigate to previous move |
+| `Arrow Right` | Navigate to next move |
+| `Arrow Up` | Navigate to first move |
+| `Arrow Down` | Navigate to last move |
+| `F` | Flip board |
+| `R` | Resign game |
+| `D` | Offer / accept draw |
+| `P` | Pause / resume timer |
+| `N` | Start new PvP game |
+| `A` | Start new AI game |
+| `Escape` | Close overlays / dialogs |
+
 ## Contributor Support & Feedback
 
 We want your contribution journey with Checkora to be smooth, welcoming, and productive! If you hit roadblocks or have ideas, please utilize the following channels:
