@@ -72,12 +72,27 @@
     let stockfishWorker = null;
 
     let hintLevel = 0;
+    let gameId = null;
 
     let expectedMoveEval = null;
     let evaluationCache = {};
     let currentDifficulty = 'medium';
     let currentWhiteName = 'White';
     let currentBlackName = 'Black';
+
+    /**
+     * Guard: warn in console if we're making an API call without a gameId.
+     * This helps catch any missed fetch() calls during development.
+     */
+    function requireGameId(context) {
+        if (!gameId) {
+            console.error(`[Checkora] API call from "${context}" fired before gameId was set. 
+            Has the new-game call completed?`);
+            return false;
+        }
+        return true;
+}
+
     // Updates UI to highlight selected game mode button
     function updateModeButtonsUI(mode) {
         const pvpBtn = document.getElementById("newPvPBtn");
@@ -718,10 +733,19 @@
     }
 
     async function get(url) {
+        // ── Add game_id as query param if available ──
+        if (gameId) {
+            const separator = url.includes('?') ? '&' : '?';
+            url += `${separator}game_id=${gameId}`;
+        }
         return (await fetch(url)).json();
     }
 
     async function post(url, body) {
+        // ── Add game_id to the JSON body if available ──
+        if (gameId) {
+            body = { ...body, game_id: gameId };
+        }
         return (await fetch(url, {
             method: 'POST',
             headers: {
@@ -731,6 +755,7 @@
             body: JSON.stringify(body)
         })).json();
     }
+}
     async function withLoading(btn, asyncFn) {
         if (!btn || btn.classList.contains('is-loading')) {
             // Already loading (or no button passed) — don't double-fire.
@@ -3332,6 +3357,12 @@
 
         const d = await post('/api/new-game/', payload);
 
+        // ── FIX #2186: Capture game_id returned by the server ──────────────────
+        if (d.game_id) {
+            gameId = d.game_id;
+        }
+        // ───────────────────────────────────────────────────────────────────────
+
         if (d.valid === false || !d.board) {
             const message = d.message || 'Unable to start a new game.';
             if (fenError) fenError.textContent = message;
@@ -4347,6 +4378,8 @@
     if (!navigator.webdriver) {
         window.addEventListener('beforeunload', (e) => {
             if (!paused) {
+                const payload = { pause: true };
+                if (gameId) payload.game_id = gameId;
                 const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
                 navigator.sendBeacon('/api/pause/', blob);
             }

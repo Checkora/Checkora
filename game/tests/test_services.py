@@ -335,3 +335,84 @@ class TestActiveGameServices(TestCase):
         request2 = self.factory.get("/")
         middleware.process_request(request2)
         delete_active_game(request2)  # Should not raise exception
+
+
+# ─── Tests for Issue #2186: game_id session scoping ──────────────────────────
+
+def test_new_game_returns_game_id(self):
+    """POST /api/new-game/ must return a unique game_id field."""
+    response = self.client.post(
+        '/api/new-game/',
+        data=json.dumps({'mode': 'ai'}),
+        content_type='application/json'
+    )
+    self.assertEqual(response.status_code, 200)
+    data = response.json()
+    self.assertIn('game_id', data, "Response must include a 'game_id' field")
+    self.assertTrue(len(data['game_id']) > 0, "game_id must not be empty")
+
+
+def test_two_concurrent_games_do_not_corrupt_each_other(self):
+    """
+    Two separate game sessions must operate independently.
+    Simulates two browser tabs starting games and making moves.
+    """
+    # Start game 1 (Tab 1)
+    response1 = self.client.post(
+        '/api/new-game/',
+        data=json.dumps({'mode': 'pvp'}),
+        content_type='application/json'
+    )
+    game_id_1 = response1.json()['game_id']
+
+    # Start game 2 in the same session (Tab 2 — same sessionid cookie)
+    response2 = self.client.post(
+        '/api/new-game/',
+        data=json.dumps({'mode': 'ai'}),
+        content_type='application/json'
+    )
+    game_id_2 = response2.json()['game_id']
+
+    # The two game IDs must be different
+    self.assertNotEqual(game_id_1, game_id_2, "Each game must get a unique game_id")
+
+    # Game 1 state must still be accessible independently
+    state_response_1 = self.client.get(f'/api/state/?game_id={game_id_1}')
+    self.assertEqual(state_response_1.status_code, 200)
+    self.assertEqual(state_response_1.json()['mode'], 'pvp')
+
+    # Game 2 state must reflect its own mode, not be corrupted by game 1
+    state_response_2 = self.client.get(f'/api/state/?game_id={game_id_2}')
+    self.assertEqual(state_response_2.status_code, 200)
+    self.assertEqual(state_response_2.json()['mode'], 'ai')
+
+
+def test_api_move_requires_game_id(self):
+    """POST /api/move/ without game_id must return 400, not process blindly."""
+    response = self.client.post(
+        '/api/move/',
+        data=json.dumps({'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4}),
+        content_type='application/json'
+    )
+    self.assertEqual(response.status_code, 400)
+    self.assertIn('error', response.json())
+
+
+def test_invalid_game_id_returns_404(self):
+    """API calls with a non-existent game_id must return 404."""
+    fake_game_id = str(uuid.uuid4())
+    response = self.client.get(f'/api/state/?game_id={fake_game_id}')
+    self.assertEqual(response.status_code, 404)
+
+
+def test_each_new_game_generates_unique_id(self):
+    """Ten consecutive new_game calls must all produce different game_ids."""
+    ids = set()
+    for _ in range(10):
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+        ids.add(response.json()['game_id'])
+    self.assertEqual(len(ids), 10, "All 10 game_ids must be unique")
