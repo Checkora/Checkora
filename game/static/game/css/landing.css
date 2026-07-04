@@ -1680,27 +1680,41 @@ body.hide-native-cursor * {
 @media (max-width: 600px) {
     .about-box {
         width: 95%;
-        height: 380px;
+        height: 550px;
     }
 
     .about-card {
-        grid-template-columns: 30% 70%;
-        padding: 1rem 0.8rem;
-        gap: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1.5rem 1rem;
+        gap: 1.25rem;
+        overflow-y: auto;
+        box-sizing: border-box;
     }
 
     .about-card-visual {
-        min-height: 140px;
+        height: auto;
+        min-height: 130px;
         padding: 0.6rem;
+        flex-shrink: 0;
+    }
+
+    .about-card-content {
+        flex-grow: 1;
+        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
     }
 
     .about-card-title {
-        font-size: clamp(0.95rem, 3vw, 1.3rem);
+        font-size: clamp(1rem, 3.5vw, 1.4rem);
         margin-bottom: 0.5rem;
     }
 
     .about-card-desc {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         line-height: 1.5;
         margin-bottom: 0.75rem;
     }
@@ -1748,6 +1762,93 @@ body.hide-native-cursor * {
     .ring1 { width: 50px; height: 50px; }
     .ring2 { width: 68px; height: 68px; }
     .ring3 { width: 86px; height: 86px; }
+}
+
+@media (max-width: 480px) {
+    .about-box {
+        width: 95%;
+        height: 500px;
+    }
+
+    .about-card {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1.25rem 0.75rem;
+        gap: 1rem;
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
+
+    .about-card-visual {
+        height: auto;
+        min-height: 110px;
+        padding: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .about-card-content {
+        flex-grow: 1;
+        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    .about-card-title {
+        font-size: 1.1rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .about-card-desc {
+        font-size: 0.75rem;
+        line-height: 1.45;
+        margin-bottom: 0.6rem;
+    }
+
+    .about-stat-num {
+        font-size: 1.1rem;
+    }
+
+    .about-stat-label {
+        font-size: 0.6rem;
+    }
+
+    .about-stats-row {
+        gap: 0.5rem;
+    }
+
+    .tech-pills {
+        gap: 0.3rem;
+    }
+
+    .tech-pill {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.5rem;
+    }
+
+    .os-links {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .os-link-btn {
+        font-size: 0.7rem;
+        padding: 0.35rem 0.75rem;
+    }
+
+    .mv-icon-wrap {
+        width: 50px;
+        height: 50px;
+    }
+
+    .mv-piece {
+        font-size: 1.8rem;
+    }
+
+    .ring1 { width: 40px; height: 40px; }
+    .ring2 { width: 56px; height: 56px; }
+    .ring3 { width: 72px; height: 72px; }
 }
 
 /* ==========================================================================
@@ -2689,37 +2790,38 @@ body.hide-native-cursor * {
 
 @media (max-width: 600px) {
     .bento-container {
-        padding: 0 2%;
+        padding: 0 4%;
     }
 
     .bento-grid {
-        grid-template-columns: repeat(3, 1fr);
-        grid-auto-rows: 170px;
-        gap: 0.4rem;
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: auto;
+        gap: 0.75rem;
     }
 
     .bento-card {
-        padding: 0.5rem;
-        border-radius: 10px;
+        padding: 0.85rem;
+        border-radius: 12px;
     }
 
     .bento-visual {
-        margin-bottom: 0.4rem;
-        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        border-radius: 8px;
+        min-height: 120px;
     }
 
     .bento-icon-small {
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
     }
 
     .bento-title {
-        font-size: 0.7rem;
+        font-size: 0.95rem;
     }
 
     .bento-desc {
-        font-size: 0.6rem;
-        line-height: 1.3;
+        font-size: 0.78rem;
+        line-height: 1.4;
     }
 
     .section-title {
@@ -2730,19 +2832,71 @@ body.hide-native-cursor * {
         font-size: 0.85rem;
     }
 
-    /* Scale diagram contents to fit very small boxes */
-    .ai-brain-container { transform: scale(0.55); transform-origin: center; }
-    .perf-meter { transform: scale(0.6); transform-origin: center; }
-    .lesson-mockup { width: 95%; padding: 0.5rem; gap: 0.5rem; }
-    .lm-video { width: 50px; height: 38px; }
-    .chess-visual-wrap { transform: scale(0.65); transform-origin: center; }
-    .mode-switch-container { transform: scale(0.65); transform-origin: center; }
-    .score-visual { padding: 0 0.5rem; }
+    /* Scale diagram contents to fit smaller boxes */
+    .ai-brain-container { transform: scale(0.75); transform-origin: center; }
+    .perf-meter { transform: scale(0.8); transform-origin: center; }
+    .lesson-mockup { width: 95%; padding: 0.75rem; gap: 0.75rem; }
+    .lm-video { width: 60px; height: 45px; }
+    .chess-visual-wrap { transform: scale(0.8); transform-origin: center; }
+    .mode-switch-container { transform: scale(0.8); transform-origin: center; }
+    .score-visual { padding: 0 0.75rem; }
 
-    /* Keep wide/full cards spanning full width on tiny screens */
-    .bento-full {
-        grid-column: span 3;
+    /* Reset span helpers so no card forces a wider track than available */
+    .bento-full,
+    .bento-wide {
+        grid-column: span 1;
     }
+    .bento-tall {
+        grid-row: span 1;
+    }
+    .bento-card.bento-full {
+        grid-row: span 1;
+        height: auto;
+    }
+
+    /* Ensure inner elements/mockups/images use max-width 100% with border-box */
+    .bento-card img,
+    .bento-card svg,
+    .bento-card .bento-visual,
+    .bento-card .lesson-mockup,
+    .bento-card .perf-meter,
+    .bento-card .ai-brain-container,
+    .bento-card .modes-visual,
+    .bento-card .valid-visual,
+    .bento-card .chess-grid-mini {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 480px) {
+    .bento-container {
+        padding: 0 3%;
+    }
+
+    .bento-grid {
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
+        gap: 0.75rem;
+    }
+
+    .bento-title {
+        font-size: 1rem;
+    }
+
+    .bento-desc {
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+
+    /* Scale diagram contents to fit narrower boxes */
+    .ai-brain-container { transform: scale(0.7); transform-origin: center; }
+    .perf-meter { transform: scale(0.75); transform-origin: center; }
+    .lesson-mockup { width: 100%; padding: 0.6rem; gap: 0.6rem; }
+    .lm-video { width: 50px; height: 38px; }
+    .chess-visual-wrap { transform: scale(0.75); transform-origin: center; }
+    .mode-switch-container { transform: scale(0.75); transform-origin: center; }
+    .score-visual { padding: 0 0.5rem; }
 }
 
 /* ==========================================================================
@@ -3212,4 +3366,50 @@ body.hide-native-cursor * {
         #ffd54f,
         var(--accent-gold)
     );
+}
+
+/* Mobile Navbar */
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1rem;
+        margin: 10px;
+    }
+
+    .nav-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.8rem;
+    }
+
+    .nav-right {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.8rem;
+    }
+
+    .logo-link {
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .logo-img {
+        height: 32px;
+    }
+
+    .btn-signin,
+    .btn-register {
+        padding: 8px 18px;
+    }
 }

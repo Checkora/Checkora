@@ -187,6 +187,7 @@ body{
     width: 85%;
     height: 85%;
     object-fit: contain;
+    touch-action: none;
 }
 
 /* Selection and Move Highlights */

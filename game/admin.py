@@ -10,13 +10,12 @@ from .health_checks import (
     check_openings,
 )
 
-
 @admin.register(ChessPuzzle)
 class ChessPuzzleAdmin(admin.ModelAdmin):
     list_display = ('title', 'difficulty', 'date')
     search_fields = ('title', 'fen')
     list_filter = ('difficulty', 'date')
-
+    
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -34,7 +33,6 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 
 original_each_context = admin.site.each_context
-
 
 def custom_each_context(request):
     context = original_each_context(request)

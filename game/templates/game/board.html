@@ -46,6 +46,34 @@
             color: #94a3b8;
             vertical-align: middle;
         }
+        /* ── SAN Quick Move Input styles ── */
+        .san-input-container {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+        }
+        .san-move-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .san-move-btn {
+            padding: 10px 15px;
+        }
+        .san-move-error {
+            color: #ff6b6b;
+            font-size: 0.8rem;
+            display: none;
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
     </style>
 
     <!-- Vercel Web Analytics -->
@@ -298,6 +326,21 @@
                         <option value="hard">Hard</option>
                     </select>
                 </div>
+
+                <!-- Inside #pveOptions div, before startAIBtn -->
+                <div id="aiOpeningContainer" style="margin-bottom: 10px;">
+                    <label for="welcomeOpeningSelect" style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem; text-align: center;">
+                        Opening (optional)
+                    </label>
+                    <select id="welcomeOpeningSelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                        <option value="">— No preference (AI decides) —</option>
+                        <option value="italian_game">Italian Game</option>
+                        <option value="sicilian_defense">Sicilian Defense</option>
+                        <option value="queens_gambit">Queen's Gambit</option>
+                    </select>
+                </div>
+
                 <button class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start
                     Game</button>
                 <button class="btn" id="backToModes"
@@ -441,6 +484,11 @@
             <div class="turn-badge white" id="turnBadge">
                 <span id="turnBadgeText">White</span>'s Turn
             </div>
+            <div id="sessionScoreTracker" class="session-score-tracker">
+                <span class="score-item score-win">🏆 W <span id="sessionWins">0</span></span>
+                <span class="score-item score-loss">💀 L <span id="sessionLosses">0</span></span>
+                <span class="score-item score-draw">🤝 D <span id="sessionDraws">0</span></span>
+            </div>
             <div class="clocks">
                 <div id="whiteClock" class="clock white active">
                     <span class="label">
@@ -516,6 +564,12 @@
                    </div>
                </div>
                 
+                <!-- Quick Move Input (SAN) -->
+                <div class="san-input-container">
+                    <input type="text" id="sanMoveInput" class="san-move-input" placeholder="Move (e.g. e4, Nf3, O-O)" aria-label="Enter move notation" autocomplete="off">
+                    <button type="button" id="sanMoveBtn" class="btn btn-gold san-move-btn">Move</button>
+                </div>
+                <div id="sanMoveError" class="san-move-error" role="alert">Invalid notation</div>
             </div>
         </div>
         
@@ -832,6 +886,15 @@
                                 <span class="detail-value" id="resBlunder">None</span>
                             </div>
                         </div>
+                    </div>
+                    
+                    <div id="postGameAnalysisPanel" style="display: none; background: #1a1a2e; border: 1px solid #444; border-radius: 5px; padding: 15px; margin-top: 15px; max-height: 200px; overflow-y: auto; text-align: left;">
+                        <h4 style="color: #f0c040; margin: 0 0 10px 0;">Analysis (<span id="panelAccuracyScore"></span> Accuracy)</h4>
+                        <p style="color: #ccc; margin: 0 0 10px 0; font-size: 0.9rem;">Blunders: <span id="panelBlundersCount">0</span></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; color: #ccc;">
+                            <thead><tr style="border-bottom: 1px solid #444; text-align: left;"><th style="padding: 5px;">Move</th><th style="padding: 5px;">Played</th><th style="padding: 5px;">Best</th><th style="padding: 5px;">Eval</th></tr></thead>
+                            <tbody id="postGameAnalysisTableBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>

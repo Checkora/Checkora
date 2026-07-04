@@ -18,8 +18,8 @@ urlpatterns = [
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
-    path('stats/', views.stats_view, name='stats'),
     path('api/analyze-game/', views.analyze_game_view, name='analyze_game'),
+    path('stats/', views.stats_view, name='stats'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
 
     # Authentication
@@ -105,6 +105,13 @@ urlpatterns = [
         views.forum_reply_delete,
         name="forum_reply_delete",
     ),
+
+    path(
+        "forum/reply/<int:reply_id>/vote/",
+        views.toggle_reply_vote,
+        name="toggle_reply_vote",
+    ),
 ]
+
 from game.urls_history import history_urlpatterns
 urlpatterns += history_urlpatterns

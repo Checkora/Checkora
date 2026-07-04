@@ -190,6 +190,30 @@ OPENING_RATE_LIMIT_MAX_REQUESTS = _positive_int_env(
     'OPENING_RATE_LIMIT_MAX_REQUESTS', 60
 )
 
+# Forum Rate Limiting
+
+# Discussion creation rate limit
+FORUM_DISCUSSION_RATE_WINDOW_SECONDS = _positive_int_env(
+    'FORUM_DISCUSSION_RATE_WINDOW_SECONDS',
+    86400  # 24 hours
+)
+
+FORUM_DISCUSSION_MAX_REQUESTS = _positive_int_env(
+    'FORUM_DISCUSSION_MAX_REQUESTS',
+    1
+)
+
+# Reply posting rate limit
+FORUM_REPLY_RATE_WINDOW_SECONDS = _positive_int_env(
+    'FORUM_REPLY_RATE_WINDOW_SECONDS',
+    60  # 1 minute
+)
+
+FORUM_REPLY_MAX_REQUESTS = _positive_int_env(
+    'FORUM_REPLY_MAX_REQUESTS',
+    10
+)
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
