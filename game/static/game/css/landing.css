@@ -551,6 +551,24 @@ body.hide-native-cursor * {
     cursor: none !important;
 }
 
+/* Modal Cursor Overrides */
+#privacyModal, #privacyModal *,
+#termsModal, #termsModal *,
+#contactModal, #contactModal *,
+#disclaimerModal, #disclaimerModal *,
+#shortcutsModal, #shortcutsModal *,
+.modal-scroll-content, .modal-scroll-content * {
+    cursor: auto !important;
+}
+
+#privacyModal button, #privacyModal a,
+#termsModal button, #termsModal a,
+#contactModal button, #contactModal a,
+#disclaimerModal button, #disclaimerModal a,
+#shortcutsModal button, #shortcutsModal a {
+    cursor: pointer !important;
+}
+
 .profile-dropdown.active .dropdown-content {
     opacity: 1;
     visibility: visible;
