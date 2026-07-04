@@ -133,7 +133,6 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-
 # NEW
 def update_player_rating(user, winner, player_color):
     rating, _ = PlayerRating.objects.get_or_create(
@@ -223,8 +222,6 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     return result
 
 
-
-
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -312,9 +309,6 @@ def make_move(request):
         'black_name': request.session.get('black_name', 'Black'),
         'rating': rating_payload,
     })
-
-
-   
 
 
 @require_GET
@@ -532,7 +526,6 @@ def get_state(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-
     create_or_update_active_game(
         request,
         request.session['game']
@@ -543,7 +536,6 @@ def get_state(request):
         rating_obj, _ = PlayerRating.objects.get_or_create(user=request.user)
         current_rating = rating_obj.rating
         
-
     return JsonResponse({
         'current_rating': current_rating,
         'board': game.board,
@@ -747,9 +739,6 @@ def ai_move(request):
     })
 
 
-    
-    
-
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -820,12 +809,10 @@ def resign_game(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-
     create_or_update_active_game(
         request,
         request.session['game']
     )
-
 
     # NEW
     rating_payload = None
