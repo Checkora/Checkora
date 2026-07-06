@@ -694,3 +694,4 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for br
 ## License
 
 Released under the [MIT License](LICENSE).
+# TODO: qr code generator for current position
