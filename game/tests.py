@@ -1076,6 +1076,149 @@ class AIMoveTest(TestCase):
         self.assertIn('to_row', data['ai_move'])
         self.assertIn('to_col', data['ai_move'])
 
+    def test_ai_aborts_if_game_paused(self):
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+
+        # Pause the game
+        self.client.post(
+            '/api/pause/', data=json.dumps({'pause': True}),
+            content_type='application/json'
+        )
+
+        state_before = self.client.get('/api/state/').json()
+
+        # Try to make AI move
+        r = self.client.post('/api/ai-move/', content_type='application/json')
+        self.assertEqual(r.status_code, 400)
+
+        data = r.json()
+        self.assertFalse(data['valid'])
+        self.assertEqual(data['message'], 'Game is paused.')
+
+        state_after = self.client.get('/api/state/').json()
+        self.assertEqual(state_before['board'], state_after['board'])
+        self.assertEqual(state_before['current_turn'], state_after['current_turn'])
+        self.assertEqual(state_before['move_history'], state_after['move_history'])
+
+    def test_ai_succeeds_after_resume(self):
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+
+        # Pause the game
+        self.client.post(
+            '/api/pause/', data=json.dumps({'pause': True}),
+            content_type='application/json'
+        )
+
+        # Resume the game
+        self.client.post(
+            '/api/pause/', data=json.dumps({'pause': False}),
+            content_type='application/json'
+        )
+
+        # Try to make AI move
+        r = self.client.post('/api/ai-move/', content_type='application/json')
+        data = r.json()
+
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['current_turn'], 'black')
+        self.assertIn('from_row', data['ai_move'])
+        self.assertIn('from_col', data['ai_move'])
+        self.assertIn('to_row', data['ai_move'])
+        self.assertIn('to_col', data['ai_move'])
+
+    @mock.patch('game.engine.ChessGame.get_ai_move')
+    def test_ai_aborts_if_paused_during_calculation(self, mock_get_ai_move):
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+
+        def side_effect(depth=None):
+            # simulate concurrent pause
+            from importlib import import_module
+            from django.conf import settings
+            engine = import_module(settings.SESSION_ENGINE)
+            store = engine.SessionStore(session_key=self.client.session.session_key)
+            game_data = store.get('game', {})
+            game_data['paused'] = True
+            store['game'] = game_data
+            store.save()
+            return {'from_row': 1, 'from_col': 4, 'to_row': 3, 'to_col': 4}
+
+        mock_get_ai_move.side_effect = side_effect
+
+        state_before = self.client.get('/api/state/').json()
+
+        # Try to make AI move
+        r = self.client.post('/api/ai-move/', content_type='application/json')
+        self.assertEqual(r.status_code, 400)
+
+        data = r.json()
+        self.assertFalse(data['valid'])
+        self.assertEqual(data['message'], 'Game is paused.')
+
+        state_after = self.client.get('/api/state/').json()
+        self.assertEqual(state_before['board'], state_after['board'])
+        self.assertEqual(state_before['current_turn'], state_after['current_turn'])
+        self.assertEqual(state_before['move_history'], state_after['move_history'])
+
+    def test_ai_aborts_on_session_read_error(self):
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+        with mock.patch('game.views.import_module') as mock_import:
+            class MockEngine:
+                class SessionStore:
+                    def __init__(self, *args, **kwargs):
+                        raise Exception("DB offline")
+            mock_import.return_value = MockEngine
+
+            r = self.client.post('/api/ai-move/', content_type='application/json')
+            self.assertEqual(r.status_code, 500)
+
+            data = r.json()
+            self.assertFalse(data['valid'])
+            self.assertEqual(data['message'], 'Internal error verifying game state.')
+
+    @mock.patch('game.engine.ChessGame.make_move')
+    def test_ai_preserves_concurrent_pause_during_save(self, mock_make_move):
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+
+        def side_effect(*args, **kwargs):
+            # simulate concurrent pause occurring exactly during make_move
+            from importlib import import_module
+            from django.conf import settings
+            engine = import_module(settings.SESSION_ENGINE)
+            store = engine.SessionStore(session_key=self.client.session.session_key)
+            game_data = store.get('game', {})
+            game_data['paused'] = True
+            store['game'] = game_data
+            store.save()
+            return True, "Mock move", [], "active"
+
+        mock_make_move.side_effect = side_effect
+
+        r = self.client.post('/api/ai-move/', content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+
+        # The backend should have preserved the authoritative paused state (True)
+        # despite the local game object having paused=False
+        from importlib import import_module
+        from django.conf import settings
+        engine = import_module(settings.SESSION_ENGINE)
+        store = engine.SessionStore(session_key=self.client.session.session_key)
+        self.assertTrue(store.get('game', {}).get('paused'))
+
 
 class OpeningBookTest(SimpleTestCase):
     """Unit tests for the opening-book integration in ChessGame."""
@@ -1323,7 +1466,7 @@ class AnalyzeGameTest(TestCase):
             instance.board = [['' for _ in range(8)] for _ in range(8)]
             instance.board[1][3] = 'q'  # Queen at target square
             instance.board[6][4] = 'P'  # Place moving pawn
-            
+
             # Mock get_valid_moves and _notation so the inner loop finds it
             instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
             instance._notation.return_value = 'e4'
@@ -1334,15 +1477,15 @@ class AnalyzeGameTest(TestCase):
             instance._serialize_ep.return_value = '-'
 
             instance.get_ai_move = mock_ai
-            
+
             payload = {"moves": ["e4"]}
             r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
-            
+
             self.assertEqual(r.status_code, 200)
             data = r.json()
 
             self.assertEqual(len(data['move_analysis_details']), 1)
-            
+
             # White played e4 but engine wanted to capture a Queen. Blunder!
             white_analysis = data['move_analysis_details'][0]
             self.assertEqual(white_analysis['played'], 'e4')
@@ -1355,7 +1498,7 @@ class AnalyzeGameTest(TestCase):
         mock_ai.side_effect = Exception("Engine timeout")
 
         payload = {"moves": ["e4"]}
-        
+
         with mock.patch('game.views.ChessGame') as MockGame:
             instance = MockGame.return_value
             instance.board = [['' for _ in range(8)] for _ in range(8)]
@@ -1370,7 +1513,7 @@ class AnalyzeGameTest(TestCase):
             instance.get_ai_move = mock_ai
 
             r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
-            
+
             self.assertEqual(r.status_code, 200)
             self.assertEqual(r.json()['accuracy'], 100) # Defaults to 100% accurate if engine fails
 
@@ -2129,6 +2272,54 @@ class TimeControlIncrementTest(TestCase):
         self.assertIsNotNone(game_dict)
         self.assertEqual(game_dict['increment'], 3)
         self.assertEqual(game_dict['white_time'], 300)
+
+    def test_update_clock_sub_second_call_deducts_nothing(self):
+        """A single call with < 1s elapsed must deduct 0 seconds."""
+        game = ChessGame(time_limit=600)
+        game.last_ts = 1000.0
+        game.white_time = 600
+        game.current_turn = 'white'
+        game.paused = False
+
+        with mock.patch('game.engine.time.time', return_value=1000.6):
+            game.update_clock()
+
+        self.assertEqual(game.white_time, 600)
+        self.assertEqual(game.last_ts, 1000.0)
+
+    def test_update_clock_remainder_accumulates_across_calls(self):
+        """Sub-second remainders must accumulate; 0.6+0.6 = 1.2 -> deduct 1."""
+        game = ChessGame(time_limit=600)
+        game.last_ts = 1000.0
+        game.white_time = 600
+        game.current_turn = 'white'
+        game.paused = False
+
+        with mock.patch('game.engine.time.time', return_value=1000.6):
+            game.update_clock()
+        self.assertEqual(game.white_time, 600)
+        self.assertEqual(game.last_ts, 1000.0)
+
+        with mock.patch('game.engine.time.time', return_value=1001.2):
+            game.update_clock()
+        self.assertEqual(game.white_time, 599)
+        self.assertEqual(game.last_ts, 1001.0)
+
+    def test_update_clock_high_frequency_no_time_leak(self):
+        """Repeated 0.4s polls must deduct only floor(total elapsed) seconds."""
+        game = ChessGame(time_limit=600)
+        game.last_ts = 0.0
+        game.white_time = 600
+        game.current_turn = 'white'
+        game.paused = False
+
+        for i in range(1, 11):
+            with mock.patch('game.engine.time.time', return_value=i * 0.4):
+                game.update_clock()
+
+        total_elapsed = 10 * 0.4  # 4.0 s
+        self.assertEqual(game.white_time, 600 - int(total_elapsed))
+        self.assertEqual(game.last_ts, float(int(total_elapsed)))
 
 
 class GameResultMoveHistoryTest(TestCase):
@@ -3450,15 +3641,15 @@ class AvatarUploadFormTest(TestCase):
         from PIL import Image
         import io
         from django.core.files.uploadedfile import SimpleUploadedFile
-        
+
         # Dynamically generate a valid 10x10 JPEG
         img_buffer = io.BytesIO()
         Image.new('RGB', (10, 10), color='red').save(img_buffer, 'JPEG')
         img_buffer.seek(0)
-        
+
         file = SimpleUploadedFile('photo.jpg', img_buffer.read(), 'image/jpeg')
         file.content_type = 'image/jpeg'
-        
+
         form = AvatarUploadForm()
         form.cleaned_data = {'avatar': file}
         cleaned = form.clean_avatar()
@@ -3500,15 +3691,15 @@ class AvatarUploadFormTest(TestCase):
         from PIL import Image
         import io
         from django.core.files.uploadedfile import SimpleUploadedFile
-        
+
         # Dynamically generate a valid WEBP
         img_buffer = io.BytesIO()
         Image.new('RGB', (10, 10), color='blue').save(img_buffer, 'WEBP')
         img_buffer.seek(0)
-        
+
         webp_file = SimpleUploadedFile('img.webp', img_buffer.read(), 'image/webp')
         webp_file.content_type = 'image/webp'
-        
+
         form = AvatarUploadForm()
         form.cleaned_data = {'avatar': webp_file}
         result = form.clean_avatar()
@@ -3626,7 +3817,7 @@ class GameResultRatingTest(TestCase):
         self.assertEqual(rating.games_played, 1)
         self.assertEqual(rating.wins, 1)
         self.assertTrue(self.UserAchievement.objects.filter(user=self.user).exists())
-        
+
         self.assertEqual(self.GameResult.objects.count(), 1)
         res = self.GameResult.objects.first()
         self.assertEqual(res.mode, 'ai')

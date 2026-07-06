@@ -195,3 +195,296 @@
         transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
     }
 }
+
+
+/* --- GLOBAL NAVBAR STYLES FROM LANDING.CSS --- */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 5%;
+    background-color: var(--nav-bg);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    margin: 14px 22px;
+    border-radius: 18px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+}
+
+.logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-family: 'Cinzel', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.logo-link:hover {
+    opacity: 0.88;
+    filter: drop-shadow(0 0 10px rgba(201, 168, 76, 0.35));
+}
+
+.logo-img {
+    height: 40px;
+    width: auto;
+    animation: logo-glow 2.5s ease-in-out infinite alternate;
+    transition: transform 0.3s ease;
+    display: block;
+}
+
+.logo-img:hover {
+    transform: scale(1.07);
+}
+
+@keyframes logo-glow {
+    0% {
+        filter: brightness(1.6) contrast(1.3) drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
+    }
+
+    100% {
+        filter: brightness(1.6) contrast(1.3) drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
+    }
+}
+
+.logo-accent {
+    color: var(--accent-gold);
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+}
+
+.nav-links a {
+    position: relative;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    padding-bottom: 6px;
+}
+
+.nav-links a:hover {
+    color: #C9A84C;
+}
+
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #C9A84C, #FFD700);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.nav-links a:hover::after {
+    width: 100%;
+}
+
+.nav-links a.active {
+    color: #C9A84C;
+}
+
+.nav-links a.active::after {
+    width: 100%;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.btn-signin {
+    text-decoration: none;
+    display: inline-block;
+    background: transparent;
+    color: #C9A84C;
+    border: 2px solid #C9A84C;
+    border-radius: 8px;
+    padding: 9px 22px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-signin:hover {
+    background: rgba(201, 168, 76, 0.12);
+    color: #FFD700;
+    box-shadow: 0 0 12px rgba(201, 168, 76, 0.2);
+}
+
+.btn-register {
+    text-decoration: none;
+    display: inline-block;
+    background: linear-gradient(135deg, #C9A84C 0%, #FFD700 100%);
+    color: #1a1a1a;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 22px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(201, 168, 76, 0.35);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
+}
+
+.btn-register:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(201, 168, 76, 0.5);
+    filter: brightness(1.08);
+}
+
+.btn-signin:active,
+.btn-register:active {
+    transform: translateY(0);
+}
+
+.custom-dropdown,
+.profile-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.cursor-btn,
+.profile-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card-bg);
+    color: #f0c040;
+    border: 1px solid var(--card-border);
+    padding: 12px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s ease;
+}
+
+.cursor-dropdown .cursor-dropdown-arrow {
+    width: 1em;
+    height: 1em;
+    transition: transform 0.3s ease;
+}
+
+.cursor-dropdown.active .cursor-dropdown-arrow {
+    transform: rotate(-90deg);
+}
+
+.profile-arrow {
+    display: inline-block;
+    vertical-align: middle;
+    width: 1em;
+    height: 1em;
+    transition: transform 0.3s ease;
+}
+
+.profile-dropdown.active .profile-arrow {
+    transform: rotate(-90deg);
+}
+
+.cursor-btn:hover,
+.profile-btn:hover {
+    border-color: #f0c040;
+}
+
+.dropdown-content {
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    right: 0;
+    top: 55px;
+    min-width: 220px;
+    background: var(--card-bg);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    /* z-index 10000 keeps dropdown above the custom cursor (z-index: 9990) */
+    z-index: 10000;
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+    transform: translateY(10px);
+    pointer-events: none;
+}
+
+.cursor-dropdown.active .dropdown-content,
+.profile-dropdown.active .dropdown-content {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+    transition-delay: 0s;
+}
+
+.cursor-dropdown:not(.active) .dropdown-content,
+.profile-dropdown:not(.active) .dropdown-content {
+    transition-delay: 0.15s;
+}
+
+.cursor-dropdown .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 14px 18px;
+    color: var(--text-primary);
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.cursor-dropdown .dropdown-item:hover,
+.cursor-dropdown .dropdown-item.selected {
+    background: rgba(240, 192, 64, 0.12);
+    color: #f0c040;
+}
+
+.cursor-dropdown .dropdown-item.selected {
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        padding: 0.8rem;
+        margin: 8px;
+        gap: 0.8rem;
+    }
+    .nav-left {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.8rem;
+        align-items: center;
+    }
+    .nav-right {
+        flex-direction: row;
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 0.8rem;
+        justify-content: center;
+    }
+    .nav-links {
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        justify-content: center;
+    }
+}

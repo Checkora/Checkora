@@ -860,7 +860,7 @@ DP cache is intentionally excluded to save cookie space."""
             else:
                 self.black_time = max(0, self.black_time - elapsed)
 
-        self.last_ts = now
+        self.last_ts += elapsed
 
     # ------------------------------------------------------------------
     #  Game status detection (check / checkmate / stalemate)

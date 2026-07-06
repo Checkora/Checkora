@@ -1,0 +1,103 @@
+{% load static %}
+<nav class="navbar">
+  <div class="nav-left">
+    <a href="{% url 'landing' %}" class="logo-link">
+      <img
+        src="{% static 'game/checkora_icon_only.png' %}"
+        alt="Checkora Logo"
+        class="logo-img"
+      />
+      <span class="logo-text"
+        >CHECK<span class="logo-accent">ORA</span></span
+      >
+    </a>
+    <span class="badge" id="modeBadge" style="display: none; margin-left: 8px; background: #f0c040; color: #111; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">PVP</span>
+    <div class="nav-links">
+      <a href="{% url 'landing' %}#about">About Us</a>
+      <a href="{% url 'landing' %}#features">Features</a>
+      <a href="{% url 'landing' %}#faq">FAQ</a>
+      <a href="{% url 'forum' %}">Forum</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <button type="button" id="themeToggle" class="theme-toggle">
+        🌙
+    </button>
+    <div class="cursor-dropdown custom-dropdown">
+      <button type="button" id="cursorTypeTrigger" class="cursor-btn" aria-haspopup="true" aria-expanded="false">
+        Cursor: <span id="cursorTypeLabel">Default</span>
+        <svg viewBox="0 0 24 24" class="cursor-dropdown-arrow" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="dropdown-content" role="menu" aria-label="Cursor type selector">
+        <button type="button" class="dropdown-item cursor-type-option selected" data-cursor="default">Default</button>
+        <button type="button" class="dropdown-item cursor-type-option" data-cursor="glow">Glow</button>
+        <button type="button" class="dropdown-item cursor-type-option" data-cursor="trail">Trail</button>
+        <button type="button" class="dropdown-item cursor-type-option" data-cursor="sparkle">Sparkle</button>
+        <button type="button" class="dropdown-item cursor-type-option" data-cursor="orbit">Orbit</button>
+        <button type="button" class="dropdown-item cursor-type-option" data-cursor="chess">Chess</button>
+      </div>
+    </div>
+    {% if user.is_authenticated %}
+    <div class="profile-dropdown">
+      <button type="button" class="profile-btn" aria-haspopup="true" aria-expanded="false" style="display:flex;align-items:center;gap:4px;">
+        {% if user.profile.avatar %}
+          <img src="{{ user.profile.avatar }}" class="nav-avatar" alt="">
+        {% else %}
+          <span class="nav-avatar-icon" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+        {% endif %}
+        {{ user.username }}
+        <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <div class="dropdown-content">
+        <a href="{% url 'profile' %}"> Profile </a>
+        <a href="/play/"> Dashboard </a>
+
+        <a href="{% url 'opening_trainer' %}">
+            Opening Trainer
+        </a>
+
+        <a href="/stats/"> Stats </a>
+
+        <a href="{% url 'puzzles' %}"> Puzzles </a>
+
+        <a href="{% url 'leaderboard' %}"> Leaderboard </a>
+
+        <a href="{% url 'achievements' %}"> Achievements </a>
+
+        <a href="{% url 'upload_avatar' %}"> Profile Picture </a>
+
+        <a
+          href="{% url 'delete_account' %}"
+          class="delete-option"
+        >
+          Delete Account
+        </a>
+
+        <form
+          method="post"
+          action="{% url 'logout' %}"
+          style="margin:0;"
+        >
+          {% csrf_token %}
+
+          <button
+            type="submit"
+            class="logout-option"
+          >
+            Logout
+          </button>
+
+        </form>
+
+      </div>
+
+    </div>
+
+    {% else %}
+    <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+    <a href="{% url 'register' %}" class="btn-register">Register</a>
+    {% endif %}
+  </div>
+</nav>

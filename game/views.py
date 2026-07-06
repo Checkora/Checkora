@@ -3,6 +3,7 @@ import logging
 import json
 import copy
 import time
+from importlib import import_module
 from functools import wraps
 import hashlib
 import math
@@ -609,6 +610,12 @@ def ai_move(request):
             {'valid': False, 'message': err_msg}, status=400
         )
 
+    if game.paused:
+        err_msg = 'Game is paused.'
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
+
     # Depth Mapping — lower depth = faster response
     difficulty = request.session.get('difficulty', 'medium')
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
@@ -674,13 +681,37 @@ def ai_move(request):
             'message': '',
         })
 
+    engine = import_module(settings.SESSION_ENGINE)
+    try:
+        store = engine.SessionStore(session_key=request.session.session_key)
+        latest_game = store.get('game', {})
+    except Exception as e:
+        logger.error(f"Failed to read session state during AI move: {e}")
+        return JsonResponse({'valid': False, 'message': 'Internal error verifying game state.'}, status=500)
+
+    if latest_game.get('paused'):
+        err_msg = 'Game is paused.'
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
+
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
         best['to_row'],   best['to_col'],
     )
 
     if success:
-        request.session['game'] = game.to_dict()
+        try:
+            final_store = engine.SessionStore(session_key=request.session.session_key)
+            final_game = final_store.get('game', {})
+            authoritative_paused = final_game.get('paused', game.paused)
+        except Exception as e:
+            logger.error(f"Failed to read session state during AI save: {e}")
+            return JsonResponse({'valid': False, 'message': 'Internal error saving game state.'}, status=500)
+
+        game_dict = game.to_dict()
+        game_dict['paused'] = authoritative_paused
+        request.session['game'] = game_dict
         request.session.modified = True
 
         create_or_update_active_game(
@@ -1954,7 +1985,11 @@ def stats_view(request):
     )
 
     recent_history = history[:10]
-    
+
+    history_all = RatingHistory.objects.filter(
+        user=request.user
+    ).order_by('created_at')
+
     # Color Statistics
     games_as_white = user_results.filter(
         player_color="white"
@@ -2072,6 +2107,7 @@ def stats_view(request):
         'progress': progress,
         'rating': rating,
         'history': recent_history,
+        'history_all': history_all,
         
         "total_games": total_games,
         "total_wins": total_wins,
@@ -4318,15 +4354,50 @@ def forum_detail(request, discussion_id):
 
 @login_required
 def forum_new(request):
+    if request.method == "POST" and not request.user.is_staff:
+        window_start = timezone.now() - timedelta(
+            seconds=settings.FORUM_DISCUSSION_RATE_WINDOW_SECONDS
+        )
+
+        recent_discussions = Discussion.objects.filter(
+            user=request.user,
+            created_at__gte=window_start
+        ).count()
+
+        if recent_discussions >= settings.FORUM_DISCUSSION_MAX_REQUESTS:
+            logger.warning(
+                "Forum discussion rate limit exceeded: "
+                "user=%s id=%s ip=%s",
+                request.user.username,
+                request.user.id,
+                request.META.get("REMOTE_ADDR"),
+            )
+
+            messages.error(
+                request,
+                "You are creating discussions too quickly. "
+                "Please wait before trying again."
+            )
+
+            return redirect("forum")
+
     if request.method == "POST":
         form = DiscussionForm(request.POST)
+
         if form.is_valid():
             discussion = form.save(commit=False)
             discussion.user = request.user
             discussion.save()
 
-            messages.success(request, "Discussion created successfully.")
-            return redirect("forum_detail", discussion_id=discussion.id)
+            messages.success(
+                request,
+                "Discussion created successfully."
+            )
+
+            return redirect(
+                "forum_detail",
+                discussion_id=discussion.id
+            )
     else:
         form = DiscussionForm()
 
@@ -4341,7 +4412,42 @@ def forum_new(request):
 @login_required
 @require_POST
 def forum_reply(request, discussion_id):
-    discussion = get_object_or_404(Discussion, id=discussion_id)
+    discussion = get_object_or_404(
+        Discussion,
+        id=discussion_id
+    )
+
+    if not request.user.is_staff:
+        window_start = timezone.now() - timedelta(
+            seconds=settings.FORUM_REPLY_RATE_WINDOW_SECONDS
+        )
+
+        recent_replies = Reply.objects.filter(
+            user=request.user,
+            created_at__gte=window_start
+        ).count()
+
+        if recent_replies >= settings.FORUM_REPLY_MAX_REQUESTS:
+            logger.warning(
+                "Forum reply rate limit exceeded: "
+                "user=%s id=%s ip=%s discussion=%s",
+                request.user.username,
+                request.user.id,
+                request.META.get("REMOTE_ADDR"),
+                discussion.id,
+            )
+
+            messages.error(
+                request,
+                "You are replying too quickly. "
+                "Please wait before posting again."
+            )
+
+            return redirect(
+                "forum_detail",
+                discussion_id=discussion.id
+            )
+
     form = ReplyForm(request.POST)
 
     reply_to_id = request.POST.get("reply_to")
@@ -4353,9 +4459,17 @@ def forum_reply(request, discussion_id):
             discussion=discussion,
             is_deleted=False
         ).first()
+
         if parent_reply is None:
-            messages.error(request, "selected parent reply is unavailable.")
-            return redirect("forum_detail", discussion_id=discussion.id)
+            messages.error(
+                request,
+                "Selected parent reply is unavailable."
+            )
+
+            return redirect(
+                "forum_detail",
+                discussion_id=discussion.id
+            )
 
     if form.is_valid():
         reply = form.save(commit=False)
@@ -4364,11 +4478,20 @@ def forum_reply(request, discussion_id):
         reply.reply_to = parent_reply
         reply.save()
 
-        messages.success(request, "Reply posted successfully.")
+        messages.success(
+            request,
+            "Reply posted successfully."
+        )
     else:
-        messages.error(request, "Reply could not be posted.")
+        messages.error(
+            request,
+            "Reply could not be posted."
+        )
 
-    return redirect("forum_detail", discussion_id=discussion.id)
+    return redirect(
+        "forum_detail",
+        discussion_id=discussion.id
+    )
 
 @login_required
 @require_POST

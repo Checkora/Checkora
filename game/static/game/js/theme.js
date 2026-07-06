@@ -55,7 +55,7 @@ document.documentElement.setAttribute(
     // toast.js and toast.css on demand if they aren't statically loaded on the page.
     const showThemeToast = (message, type = "info") => {
         if (typeof window.showToast === "function") {
-            window.showToast(message, type);
+            window.showToast(message, type, 5000, "theme-toast");
         } else {
             // Dynamically load toast.css if not present
             if (!document.getElementById("toast-css-dynamic")) {
@@ -73,7 +73,7 @@ document.documentElement.setAttribute(
                 script.src = "/static/game/js/toast.js";
                 script.onload = () => {
                     if (typeof window.showToast === "function") {
-                        window.showToast(message, type);
+                        window.showToast(message, type, 5000, "theme-toast");
                     }
                 };
                 document.body.appendChild(script);
@@ -82,7 +82,7 @@ document.documentElement.setAttribute(
                 // We attach the callback to the existing script's load event.
                 existingScript.addEventListener("load", () => {
                     if (typeof window.showToast === "function") {
-                        window.showToast(message, type);
+                        window.showToast(message, type, 5000, "theme-toast");
                     }
                 });
             }

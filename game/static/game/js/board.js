@@ -108,6 +108,7 @@
     let selectedIncrement = 0;
     let paused = false;
     let timerInterval = null;
+    let countdownInterval = null;
     let pendingPromo = null;
     let blindfoldMode = false;
     let illegalMoveCount = 0;
@@ -822,6 +823,8 @@
     const shareModal = document.getElementById('shareModal');
     const rulebookModal = document.getElementById('rulebookModal');
     const boardEl = document.getElementById('board');
+    const countdownOverlay = document.getElementById('countdownOverlay');
+    const countdownNumberEl = document.getElementById('countdownNumber');
     const turnEl = document.getElementById('turnBadge');
     const statusEl = document.getElementById('statusBar');
     const movesEl = document.getElementById('movesList');
@@ -985,6 +988,23 @@
         document.getElementById("whiteScore").innerText = white;
 
         document.getElementById("blackScore").innerText = black;
+
+        const whiteAdv = document.getElementById("whiteAdvantage");
+        const blackAdv = document.getElementById("blackAdvantage");
+        if (whiteAdv && blackAdv) {
+            if (white > black) {
+                whiteAdv.innerText = `+${white - black}`;
+                whiteAdv.style.display = "inline-block";
+                blackAdv.style.display = "none";
+            } else if (black > white) {
+                blackAdv.innerText = `+${black - white}`;
+                blackAdv.style.display = "inline-block";
+                whiteAdv.style.display = "none";
+            } else {
+                whiteAdv.style.display = "none";
+                blackAdv.style.display = "none";
+            }
+        }
     }
 
     // post() uses csrf()
@@ -1442,7 +1462,10 @@
             flipped = false;
         }
 
-        if (modeBadge) modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+        if (modeBadge) {
+            modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+            modeBadge.style.display = 'inline-block';
+        }
 
         const emotePanel = document.getElementById('emotePanel');
         if (emotePanel) {
@@ -1575,6 +1598,8 @@
     BOARD RENDERING
     ========================================================== */
     function buildBoard() {
+        const bc = document.querySelector('.board-container');
+        if (bc) bc.classList.toggle('flipped', flipped);
         boardEl.innerHTML = '';
         for (let vr = 0; vr < 8; vr++) {
             for (let vc = 0; vc < 8; vc++) {
@@ -1785,8 +1810,7 @@
                 return;
             case 'Escape':
                 e.preventDefault();
-                document.querySelectorAll('.square.selected')
-                    .forEach(s => s.classList.remove('selected'));
+                deselect();
                 return;
             default:
                 return;
@@ -2168,7 +2192,7 @@
                     if (data.game_status === 'check') {
                         applyCheckHighlight();
                         const checkMsg = turn === 'white' ? 'Check to White King!' : 'Check to Black King!';
-                        showStatus(checkMsg, true);
+
                         a11yMsg += checkMsg;
                     } else {
                         highlightCheck();
@@ -2227,6 +2251,9 @@
             // fix: abort if game ended during delay
             if (gameOver) return;
 
+            // fix: abort if game paused during delay
+            if (paused) return;
+
             const data = await post('/api/ai-move/', {});
             
 
@@ -2284,7 +2311,7 @@
                     if (data.game_status === 'check') {
                         applyCheckHighlight();
                         const checkMsg = turn === 'white' ? 'Check to White King!' : 'Check to Black King!';
-                        showStatus(checkMsg, true);
+
                         a11yMsg += checkMsg;
                     } else {
                         highlightCheck();
@@ -3518,6 +3545,34 @@
         boardEl.style.pointerEvents = '';
     }
 }
+            function runStartCountdown(onComplete) {
+    if (!countdownOverlay || !countdownNumberEl) {
+        onComplete();
+        return;
+    }
+
+    clearInterval(countdownInterval);
+
+    const sequence = ['3', '2', '1', 'Go!'];
+    let idx = 0;
+
+    boardEl.classList.add('countdown-active');
+    countdownNumberEl.textContent = sequence[idx];
+    countdownOverlay.classList.add('active');
+
+    countdownInterval = setInterval(() => {
+        idx++;
+        if (idx < sequence.length) {
+            countdownNumberEl.textContent = sequence[idx];
+        } else {
+            clearInterval(countdownInterval);
+            countdownOverlay.classList.remove('active');
+            boardEl.classList.remove('countdown-active');
+            onComplete();
+        }
+    }, 1000);
+}
+               
             function startTimer() {
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
@@ -3862,8 +3917,9 @@
             } else {
                 modeBadge.textContent =
                     gameMode === 'ai' ? 'VS AI' : 'PVP';
-                }
             }
+            modeBadge.style.display = 'inline-block';
+        }
 
         const emotePanel = document.getElementById('emotePanel');
         if (emotePanel) {
@@ -3883,9 +3939,16 @@
         paused = false;
         updatePauseUI();
 
-        // Auto-trigger AI if it's their turn
-        if (!isPuzzle && gameMode === 'ai' && turn !== playerColor) {
-            queueAIMoveIfNeeded();
+        if (!isPuzzle) {
+            // Hold the clocks and lock the board until the countdown finishes
+            clearInterval(timerInterval);
+            runStartCountdown(() => {
+                startTimer();
+                // Auto-trigger AI if it's their turn
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    queueAIMoveIfNeeded();
+                }
+            });
         }
 
         return true;
@@ -4898,7 +4961,18 @@
             welcomeOverlay?.classList.contains('active') ||
             leaveConfirmOverlay?.classList.contains('active');
 
-        // Allow Escape to close overlays
+        // Allow Escape to close overlays or mobile panel
+        if (e.key === 'Escape') {
+            const mobilePanel = document.getElementById('mobilePanel');
+            const toggleBtn = document.getElementById('mobileControlsToggle');
+            if (mobilePanel && mobilePanel.classList.contains('active')) {
+                mobilePanel.classList.remove('active');
+                if (toggleBtn) {
+                    toggleBtn.setAttribute('aria-expanded', 'false');
+                }
+            }
+        }
+
         if (hasBlockingOverlay && key !== 'escape') {
             return;
         }
@@ -5572,6 +5646,27 @@ ${message}
                 closeShareBtn.onclick = function () {
                     modal.style.display = 'none';
                 };
+            }
+        });
+    }
+
+    // Mobile Controls Panel Toggle
+    const mobilePanel = document.getElementById('mobilePanel');
+    const toggleBtn = document.getElementById('mobileControlsToggle');
+    const closeBtn = document.getElementById('mobileControlsClose');
+
+    if (toggleBtn && mobilePanel) {
+        toggleBtn.addEventListener('click', function () {
+            const active = mobilePanel.classList.toggle('active');
+            toggleBtn.setAttribute('aria-expanded', active ? 'true' : 'false');
+        });
+    }
+
+    if (closeBtn && mobilePanel) {
+        closeBtn.addEventListener('click', function () {
+            mobilePanel.classList.remove('active');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-expanded', 'false');
             }
         });
     }

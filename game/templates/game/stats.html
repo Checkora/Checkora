@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora - Game Stats</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
     <style>
         body {
             background: radial-gradient(circle at top, #1e293b 0%, #0f172a 45%, #020617 100%);
@@ -254,6 +255,28 @@
                 height: 56px;
             }
             .profile-username { font-size: 1rem; }
+        }
+
+        /* Timeframe button styles */
+        .btn-timeframe {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-timeframe:hover {
+            border-color: rgba(250, 204, 21, 0.4);
+            color: #facc15;
+        }
+        .btn-timeframe.active {
+            background: rgba(30, 41, 59, 0.8) !important;
+            border-color: #facc15 !important;
+            color: #facc15 !important;
+            box-shadow: 0 0 10px rgba(250, 204, 21, 0.15);
         }
     </style>
 </head>
@@ -542,6 +565,32 @@
                 </div>
             </div>
         </div>
+        
+        <h2>Rating Progress Chart</h2>
+        {% if history_all %}
+        <div class="card" style="margin-top: 20px; text-align: left; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 0.95rem; color: #94a3b8; font-weight: 600;">Rating Over Time</div>
+                <div class="timeframe-buttons" style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-timeframe active" data-days="7">7 Days</button>
+                    <button type="button" class="btn-timeframe" data-days="30">30 Days</button>
+                    <button type="button" class="btn-timeframe" data-days="all">All-Time</button>
+                </div>
+            </div>
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="ratingChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Rating History Data Source for JavaScript -->
+        {{ chart_history|json_script:"rating-history-data" }}
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-state-icon">📈</span>
+            <h3>No Rating History Found</h3>
+            <p>Play rated games to see your rating progress chart here!</p>
+        </div>
+        {% endif %}
 
         <h2>Chess Rating History</h2>
         {% if history %}
@@ -585,5 +634,162 @@
     </div>
 
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const dataElement = document.getElementById('rating-history-data');
+            if (!dataElement) return;
+
+            const rawData = JSON.parse(dataElement.textContent);
+            if (rawData.length === 0) return;
+
+            const ctx = document.getElementById('ratingChart').getContext('2d');
+            let chart;
+
+            // Create a custom element to display when there's no data in a selected timeframe
+            const noDataDiv = document.createElement('div');
+            noDataDiv.id = 'chart-no-data';
+            noDataDiv.style.position = 'absolute';
+            noDataDiv.style.top = '50%';
+            noDataDiv.style.left = '50%';
+            noDataDiv.style.transform = 'translate(-50%, -50%)';
+            noDataDiv.style.color = '#94a3b8';
+            noDataDiv.style.fontSize = '0.9rem';
+            noDataDiv.style.textAlign = 'center';
+            noDataDiv.style.display = 'none';
+            noDataDiv.innerHTML = 'No rating changes in this timeframe';
+            ctx.canvas.parentNode.appendChild(noDataDiv);
+
+            function renderChart(filteredData) {
+                if (filteredData.length === 0) {
+                    if (chart) chart.destroy();
+                    noDataDiv.style.display = 'block';
+                    return;
+                } else {
+                    noDataDiv.style.display = 'none';
+                }
+
+                const labels = filteredData.map(item => item.date);
+                const ratings = filteredData.map(item => item.new_rating);
+
+                if (chart) {
+                    chart.destroy();
+                }
+
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(250, 204, 21, 0.25)');
+                gradient.addColorStop(1, 'rgba(250, 204, 21, 0.0)');
+
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Rating',
+                            data: ratings,
+                            borderColor: '#facc15',
+                            borderWidth: 2,
+                            backgroundColor: gradient,
+                            fill: true,
+                            tension: 0.3,
+                            pointBackgroundColor: '#facc15',
+                            pointBorderColor: '#0f172a',
+                            pointBorderWidth: 1.5,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointHoverBackgroundColor: '#ffffff',
+                            pointHoverBorderColor: '#ca8a04',
+                            pointHoverBorderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#cbd5e1',
+                                borderColor: 'rgba(250, 204, 21, 0.3)',
+                                borderWidth: 1,
+                                padding: 12,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function (context) {
+                                        const item = filteredData[context.dataIndex];
+                                        const changeSign = item.change >= 0 ? '+' : '';
+                                        return [
+                                            `Rating: ${item.new_rating}`,
+                                            `Change: ${changeSign}${item.change}`,
+                                            `Result: ${item.result.charAt(0).toUpperCase() + item.result.slice(1)}`
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)',
+                                    borderColor: 'rgba(255, 255, 255, 0.08)'
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    font: {
+                                        size: 10
+                                    },
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)',
+                                    borderColor: 'rgba(255, 255, 255, 0.08)'
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function filterData(days) {
+                if (days === 'all') {
+                    return rawData;
+                }
+
+                const now = Math.floor(Date.now() / 1000);
+                const secondsLimit = days * 24 * 60 * 60;
+                const cutoffTime = now - secondsLimit;
+
+                return rawData.filter(item => item.timestamp >= cutoffTime);
+            }
+
+            const buttons = document.querySelectorAll('.btn-timeframe');
+            buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+
+                    const days = this.getAttribute('data-days');
+                    const filtered = filterData(days === 'all' ? 'all' : parseInt(days));
+                    renderChart(filtered);
+                });
+            });
+
+            // Default to 7 Days
+            const defaultFiltered = filterData(7);
+            renderChart(defaultFiltered);
+        });
+    </script>
 </body>
 </html>

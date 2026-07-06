@@ -17,9 +17,6 @@
     --accent-gold: #d4a017;
 }
 
-
-
-
 .header,
 .auth-card {
     width: 100%;
@@ -35,32 +32,24 @@ html, body {
 body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-
+    font-family: Outfit, system-ui, sans-serif;
     min-height: 100vh;
-
     display: flex;
     justify-content: center;
     align-items: center;
     flex-direction: column;
-
     gap: 16px;
-
     padding: 24px 20px;
-
     overflow-x: hidden;
 }
 
-/* .header { margin-bottom: 30px; text-align: center; } */
 /* ============================================================
    Header
    ============================================================ */
-
-   .header { 
+.header { 
     padding: 10px 0 6px; 
     display: flex;
-    flex-direction: column; /* Stack logo container and subtitle <p> */
-
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     width: 100%;
@@ -68,6 +57,9 @@ body {
     text-align: center;
 }
 
+.header--with-navbar {
+    margin-top: 40px;
+}
 .logo-container {
     display: flex;
     align-items: center;
@@ -76,13 +68,11 @@ body {
     margin-bottom: 10px;
 }
 
-/* Logo image - FIXED: Single rule with animation */
 .logo-icon-img {
     height: 40px;
     animation: logoGlow 2.5s ease-in-out infinite alternate;
 }
 
-/* Logo glow animation - FIXED: Single keyframes definition */
 @keyframes logoGlow {
     0% {
         filter: brightness(1.6) contrast(1.3)
@@ -94,7 +84,6 @@ body {
     }
 }
 
-/* Logo text */ 
 .logo-text {
     font-family: 'Cinzel', serif;
     font-size: 28px;
@@ -111,7 +100,6 @@ body {
     color: var(--accent-gold);
 }
 
-/* Responsive logo sizes */
 @media (max-width: 768px) {
     .logo-icon-img {
         height: 26px;
@@ -121,16 +109,12 @@ body {
     }
 }
 
-
 .auth-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-
     width: min(90vw, 520px);
-
     padding: 18px 24px;
-
     margin: 0px auto;
     display: flex;
     flex-direction: column;
@@ -236,7 +220,6 @@ body {
     box-shadow: 0 4px 16px rgba(240, 192, 64, 0.25);
 }
 
-/* ── Loading spinner state ── */
 @keyframes btn-spin {
     to { transform: rotate(360deg); }
 }
@@ -278,12 +261,10 @@ body {
     body {
         padding: 20px;
     }
-
     .auth-card {
         padding: 24px 20px;
         max-width: 100%;
     }
-
     .header h1 {
         font-size: 1.8rem;
     }
@@ -302,7 +283,6 @@ body {
     color: #fff;
 }
 
-/* ── Password visibility toggle ── */
 .pw-input-wrapper {
     position: relative;
     display: flex;
@@ -347,7 +327,6 @@ body.login-page .helptext {
     display: none;
 }
 
-/* ── Password validation checklist ── */
 .password-checklist {
     list-style: none;
     padding: 0;
@@ -412,7 +391,6 @@ body.login-page .helptext {
     to { opacity: 0; height: 0; padding: 0; margin: 0; }
 }
 
-/* ── Toast Notifications ── */
 .toast-container {
     position: fixed;
     top: 20px;
@@ -456,19 +434,16 @@ body.login-page .helptext {
         padding: 30px 20px;
     }
 }
-/* Responsive Fixes */
 
 @media (max-width: 768px) {
     body {
         padding: 20px 16px;
         justify-content: center;
     }
-
     .auth-card {
         width: 100%;
         padding: 24px 18px;
     }
-
     .header {
         width: 100%;
         max-width: 100%;
@@ -481,7 +456,6 @@ body.login-page .helptext {
     }
 }
 
-/* Premium Floating Back Button Overrides for Auth Templates */
 .back-btn {
   position: absolute;
   top: 2rem;
@@ -511,7 +485,6 @@ body.login-page .helptext {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Password Strength Meter ── */
 .password-strength-meter {
     height: 4px;
     width: 100%;
@@ -526,4 +499,240 @@ body.login-page .helptext {
     width: 0;
     background: #ef4444;
     transition: width 0.4s ease, background 0.4s ease;
+}
+
+/* ============================================================
+   CYBERPUNK NEON GLOW DESIGN OVERRIDES (.new-cyber-design)
+   ============================================================ */
+
+body.new-cyber-design {
+    position: relative;
+    background: #060913;
+}
+
+/* Subtle digital grid overlay in background */
+body.new-cyber-design .bg-grid-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 30px 30px;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Header typography modifications */
+body.new-cyber-design .login-subtitle {
+    color: #ffffff !important;
+    letter-spacing: 1px;
+    font-size: 0.95rem;
+    opacity: 0.85;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* Modern Card Layout */
+body.new-cyber-design .modern-card {
+    position: relative;
+    background: rgba(13, 17, 33, 0.85);
+    border: 1px solid rgba(240, 192, 64, 0.15);
+    border-radius: 14px;
+    padding: 35px 30px;
+    box-shadow: 0 25px 55px rgba(0, 0, 0, 0.65), 0 0 40px rgba(0, 200, 255, 0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+/* Top dynamic accent line decoration */
+body.new-cyber-design .card-glow-line {
+    position: absolute;
+    top: 0; left: 10%; width: 80%; height: 2px;
+    background: linear-gradient(90deg, transparent, #f0c040, #00c8ff, transparent);
+}
+
+/* Label styling adjustments */
+body.new-cyber-design .modern-group label {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.88rem;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+/* Strict input field prioritization structure (UPDATED FOR BETTER VISIBILITY) */
+body.new-cyber-design .modern-group input,
+body.new-cyber-design .auth-card input[type="text"],
+body.new-cyber-design .auth-card input[type="password"] {
+    width: 100% !important;
+    padding: 15px 18px !important;
+    background: rgba(9, 12, 22, 0.7) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.18) !important; 
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    letter-spacing: 0.5px;
+    transition: all 0.25s ease-in-out !important;
+}
+
+/* Hover state to make it feel reactive before clicking */
+body.new-cyber-design .modern-group input:hover,
+body.new-cyber-design .auth-card input[type="text"]:hover,
+body.new-cyber-design .auth-card input[type="password"]:hover {
+    border-color: rgba(240, 192, 64, 0.4) !important;
+}
+
+/* Synchronized dynamic glow animation for focused items */
+body.new-cyber-design .modern-group input:focus,
+body.new-cyber-design .auth-card input[type="text"]:focus,
+body.new-cyber-design .auth-card input[type="password"]:focus {
+    outline: none !important;
+    border-color: #f0c040 !important;
+    background: #060913 !important;
+    box-shadow: 0 0 15px rgba(240, 192, 64, 0.25), inset 0 0 8px rgba(240, 192, 64, 0.05) !important;
+}
+
+/* Custom premium checkbox container layout */
+body.new-cyber-design .custom-checkbox-container {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    padding-left: 28px;
+    color: #8c94a5;
+    font-size: 0.92rem;
+    transition: color 0.2s ease;
+}
+
+body.new-cyber-design .custom-checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0; width: 0;
+}
+
+body.new-cyber-design .checkbox-checkmark {
+    position: absolute;
+    top: 50%; left: 0;
+    transform: translateY(-50%);
+    height: 18px; width: 18px;
+    background: #090c16;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+body.new-cyber-design .custom-checkbox-container:hover input ~ .checkbox-checkmark {
+    border-color: #f0c040;
+}
+
+body.new-cyber-design .custom-checkbox-container input:checked ~ .checkbox-checkmark {
+    background: #f0c040;
+    border-color: #f0c040;
+    box-shadow: 0 0 8px rgba(240, 192, 64, 0.3);
+}
+
+body.new-cyber-design .checkbox-checkmark::after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 6px; top: 2px;
+    width: 5px; height: 10px;
+    border: solid #0b1020;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+body.new-cyber-design .custom-checkbox-container input:checked ~ .checkbox-checkmark::after {
+    display: block;
+}
+
+body.new-cyber-design .custom-checkbox-container:hover {
+    color: #ffffff;
+}
+
+body.new-cyber-design .modern-remember {
+    margin: 22px 0 16px 0;
+}
+
+/* Cyberpunk Glass Action Button */
+body.new-cyber-design .modern-btn {
+    padding: 15px 0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    color: #060913;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 20px rgba(240, 192, 64, 0.15);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.new-cyber-design .modern-btn:hover {
+    background: linear-gradient(135deg, #f5cc55, #e0b030);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(240, 192, 64, 0.4), 0 0 15px rgba(0, 200, 255, 0.2);
+}
+
+/* Structured Dual-Column Footer */
+body.new-cyber-design .modern-footer {
+    margin-top: 30px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 20px;
+}
+
+body.new-cyber-design .footer-links-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+body.new-cyber-design .footer-link-highlight {
+    color: #00c8ff !important;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+body.new-cyber-design .footer-link-highlight:hover {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(0, 200, 255, 0.6);
+}
+
+body.new-cyber-design .footer-dot {
+    width: 4px; height: 4px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+}
+
+body.new-cyber-design .forgot-link {
+    color: rgba(255, 255, 255, 0.45) !important;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+body.new-cyber-design .forgot-link:hover {
+    color: #f0c040 !important;
+    text-shadow: 0 0 8px rgba(240, 192, 64, 0.5);
+}
+
+/* Custom premium checkbox container layout (COLOR BOOSTED) */
+body.new-cyber-design .custom-checkbox-container {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    padding-left: 28px;
+    color: #cbd5e1; /* Changed from #8c94a5 to #cbd5e1 for clean contrast */
+    font-size: 0.92rem;
+    transition: color 0.2s ease;
 }

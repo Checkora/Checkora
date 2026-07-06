@@ -581,6 +581,9 @@ class Reply(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
 
     def clean(self):
         super().clean()
@@ -615,6 +618,9 @@ class DiscussionBookmark(models.Model):
     class Meta:
         unique_together = ("user", "discussion")
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
 
     def __str__(self):
         return f"{self.user.username} bookmarked {self.discussion.title}"

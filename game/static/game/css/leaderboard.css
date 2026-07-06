@@ -182,25 +182,44 @@ tr:hover td {
 }
 
 /* ── User cell with avatar ── */
+th:nth-child(2),
+td:nth-child(2) {
+    text-align: left;
+}
+
 .user-cell {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 12px;
 }
 
-.user-avatar {
+/* Dedicated avatar container with fixed dimensions */
+.avatar-container {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    object-fit: cover;
-    border: 1.5px solid rgba(250, 204, 21, 0.4);
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 1.5px solid rgba(250, 204, 21, 0.4);
+    box-sizing: border-box;
 }
 
 .user-avatar-icon {
-    width: 36px;
-    height: 36px;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     background: rgba(30, 41, 59, 0.9);
     border: 1.5px solid rgba(255,255,255,0.1);
@@ -208,7 +227,7 @@ tr:hover td {
     align-items: center;
     justify-content: center;
     color: #64748b;
-    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .username { 
@@ -245,7 +264,7 @@ tr:hover td {
         font-size: 0.85rem;
     }
 
-    .user-avatar, .user-avatar-icon {
+    .avatar-container {
         width: 30px;
         height: 30px;
     }

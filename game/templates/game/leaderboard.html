@@ -8,7 +8,7 @@
     <meta name="description" content="Checkora puzzle and chess rating leaderboards.">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/leaderboard.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/leaderboard.css' %}?v=2">
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 <body>
@@ -55,13 +55,15 @@
                     <td>{{ forloop.counter }}</td>
                     <td>
                         <div class="user-cell">
-                            {% if player.user.profile.avatar %}
-                                <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
-                            {% else %}
-                                <div class="user-avatar-icon" aria-hidden="true">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                </div>
-                            {% endif %}
+                            <div class="avatar-container">
+                                {% if player.user.profile.avatar %}
+                                    <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
+                                {% else %}
+                                    <div class="user-avatar-icon" aria-hidden="true">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    </div>
+                                {% endif %}
+                            </div>
                             <span class="username">{{ player.user.username }}</span>
                         </div>
                     </td>
@@ -102,13 +104,15 @@
                     <td>{{ forloop.counter }}</td>
                     <td>
                         <div class="user-cell">
-                            {% if player.user.profile.avatar %}
-                                <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
-                            {% else %}
-                                <div class="user-avatar-icon" aria-hidden="true">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                </div>
-                            {% endif %}
+                            <div class="avatar-container">
+                                {% if player.user.profile.avatar %}
+                                    <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
+                                {% else %}
+                                    <div class="user-avatar-icon" aria-hidden="true">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    </div>
+                                {% endif %}
+                            </div>
                             <span class="username">{{ player.user.username }}</span>
                         </div>
                     </td>

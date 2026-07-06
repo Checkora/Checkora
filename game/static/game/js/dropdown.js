@@ -7,12 +7,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const content = dropdown.querySelector('.dropdown-content');
     function closeDropdown() {
         dropdown.classList.remove('active');
+        btn.setAttribute('aria-expanded', 'false');
     }
 
     if (btn && content) {
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
-            dropdown.classList.toggle('active');
+            const isActive = dropdown.classList.toggle('active');
+            btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
         });
 
         // Close dropdown when clicking outside
