@@ -30,22 +30,32 @@ html, body {
 }
 
 body {
-    background-color: var(--bg-primary);
+    background: var(--bg-primary);
     color: var(--text-primary);
     font-family: Outfit, system-ui, sans-serif;
+
     min-height: 100vh;
+
     display: flex;
-    justify-content: center;
-    align-items: center;
     flex-direction: column;
-    gap: 16px;
-    padding: 24px 20px;
+
     overflow-x: hidden;
 }
 
 /* ============================================================
    Header
    ============================================================ */
+   .auth-layout {
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+    align-items: center;
+
+    padding: 24px;
+}
 .header { 
     padding: 10px 0 6px; 
     display: flex;
@@ -58,7 +68,7 @@ body {
 }
 
 .header--with-navbar {
-    margin-top: 40px;
+    margin-top: 120px;
 }
 .logo-container {
     display: flex;
