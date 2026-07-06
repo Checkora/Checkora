@@ -694,3 +694,4 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for br
 ## License
 
 Released under the [MIT License](LICENSE).
+# TODO: improve dark/light theme transition for a smoother user experience
