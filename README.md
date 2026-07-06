@@ -694,3 +694,4 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for br
 ## License
 
 Released under the [MIT License](LICENSE).
+# TODO: add a load game file picker for pgn/fen files
