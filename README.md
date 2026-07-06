@@ -694,3 +694,4 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for br
 ## License
 
 Released under the [MIT License](LICENSE).
+# TODO: feat: make minimax search depth configurable for ai difficulty
