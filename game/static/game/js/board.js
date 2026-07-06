@@ -32,6 +32,8 @@
     let turn = 'white';
     let selected = null;
     let hints = [];
+    let remainingHints = 3;
+    let hintTimeout = null;
     let lastMove = null;
     let premoveQueue = [];
     let lastPremoveQueueStr = '';
@@ -96,7 +98,7 @@
     }
 
     // =============================================
-    // Daily Puzzle 
+    // Daily Puzzle
     // =============================================
     // Daily puzzles are fetched dynamically from the database.
 
@@ -158,7 +160,7 @@
             let blackAlertFired = false;
 
             let gameStartTime = null;
-    
+
             let gameMode = 'pvp';
             let dailyPuzzleMode = false;
             let currentPuzzle = null;
@@ -166,7 +168,7 @@
             let currentPuzzleFen = null;
             let puzzleAnalyzing = false;
             let stockfishWorker = null;
-    
+
             let hintLevel = 0;
 
             let expectedMoveEval = null;
@@ -180,7 +182,7 @@
                 const aiBtn = document.getElementById("newAIBtn");
 
                 if (!pvpBtn || !aiBtn) return;
-                
+
                 pvpBtn.classList.remove("active-mode");
                 aiBtn.classList.remove("active-mode");
 
@@ -497,153 +499,6 @@
     }
 
 
-            /* ==========================================================
-            DOM REFERENCES
-            ========================================================== */
-            const shareModal = document.getElementById('shareModal');
-            const rulebookModal = document.getElementById('rulebookModal');
-            const boardEl = document.getElementById('board');
-            const turnEl = document.getElementById('turnBadge');
-            const statusEl = document.getElementById('statusBar');
-            const movesEl = document.getElementById('movesList');
-            const wCapEl = document.getElementById('whiteCaptured');
-            const bCapEl = document.getElementById('blackCaptured');
-            const pauseBtn = document.getElementById('pauseBtn');
-            const flipBtn = document.getElementById('flipBtn');
-            const promoOverlay = document.getElementById('promoOverlay');
-            const promoChoices = document.getElementById('promoChoices');
-            const modeBadge = document.getElementById('modeBadge');
-            const autoFlipBtn = document.getElementById('autoFlipBtn');
-            const flipControls = document.getElementById('flipControls');
-            const copyFenBtn = document.getElementById('copyFenBtn');
-            const copyPgnBtn = document.getElementById('copyPgnBtn');
-            const muteBtn = document.getElementById('muteBtn');
-
-            const welcomeOverlay = document.getElementById('welcomeOverlay');
-            const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
-            const welcomePvPBtn = document.getElementById('welcomePvPBtn');
-            const welcomeAIBtn = document.getElementById('welcomeAIBtn');
-            const welcomeDailyPuzzleBtn = document.getElementById("welcomeDailyPuzzleBtn");
-            const welcomeFenInput = document.getElementById('welcomeFenInput');
-            const welcomeFenError = document.getElementById('welcomeFenError');
-
-            const modeSelection = document.getElementById('modeSelection');
-            const pveOptions = document.getElementById('pveOptions');
-            const startAIBtn = document.getElementById('startAIBtn');
-            const backToModes = document.getElementById('backToModes');
-            const gameLayout = document.querySelector('.game-layout');
-            const nameInputs = document.getElementById('nameInputs'); 
-
-            const confirmOverlay = document.getElementById('confirmOverlay');
-            const confirmTitle = document.getElementById('confirmTitle');
-            const confirmMessage = document.getElementById('confirmMessage');
-            const confirmYesBtn = document.getElementById('confirmYesBtn');
-            const confirmNoBtn = document.getElementById('confirmNoBtn');
-
-            const newPvPBtn = document.getElementById('newPvPBtn');
-            const newAIBtn = document.getElementById('newAIBtn');
-            const dailyPuzzleBtn = document.getElementById('dailyPuzzleBtn');
-            const restartPuzzleBtn = document.getElementById('restartPuzzleBtn');
-            const hintPuzzleBtn = document.getElementById('hintPuzzleBtn');
-            const newFenBtn = document.getElementById('newFenBtn');
-
-            const fenOverlay = document.getElementById('fenOverlay');
-            const fenInput = document.getElementById('fenInput');
-            const fenError = document.getElementById('fenError');
-            const fenStartBtn = document.getElementById('fenStartBtn');
-            const fenCancelBtn = document.getElementById('fenCancelBtn');
-
-            const gameOverOverlay = document.getElementById('gameOverOverlay');
-            const gameOverTitle = document.getElementById('gameOverTitle');
-            const gameOverMessage = document.getElementById('gameOverMessage');
-            const gameOverStartBtn = document.getElementById('gameOverStartBtn');
-            const gameOverExitBtn = document.getElementById('gameOverExitBtn');
-            const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
-            const gameOverAIBtn = document.getElementById('gameOverAIBtn');
-
-
-            const hintBtn = document.getElementById('hintBtn');
-
-    
-            const replayControls = document.getElementById('replayControls');
-            const firstReplayBtn = document.getElementById('firstReplayBtn');
-            const prevReplayBtn = document.getElementById('prevReplayBtn');
-            const playReplayBtn = document.getElementById('playReplayBtn');
-            const nextReplayBtn = document.getElementById('nextReplayBtn');
-            const lastReplayBtn = document.getElementById('lastReplayBtn');
-            const replayGameBtn = document.getElementById('replayGameBtn');
-    
-
-            const resignBtn = document.getElementById('resignBtn');
-            const drawBtn = document.getElementById('drawBtn');
-            const drawOverlay = document.getElementById('drawOverlay');
-            const drawMessage = document.getElementById('drawMessage');
-            const drawAcceptBtn = document.getElementById('drawAcceptBtn');
-            const drawDeclineBtn = document.getElementById('drawDeclineBtn');
-
-            const whiteNameLabel = document.getElementById('whiteNameLabel');
-            const blackNameLabel = document.getElementById('blackNameLabel');
-            const whiteYouTag = document.getElementById('whiteYouTag');
-            const blackYouTag = document.getElementById('blackYouTag');
-            const whiteCapturedName = document.getElementById('whiteCapturedName');
-            const blackCapturedName = document.getElementById('blackCapturedName');
-            const turnBadgeText = document.getElementById('turnBadgeText');
-            const a11yAnnouncer = document.getElementById('a11y-announcer');
-
-            function announceMove(msg) {
-                if (a11yAnnouncer) {
-                    a11yAnnouncer.textContent = '';
-                    setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
-                }
-            }
-
-            function getServerRemainingHints(data) {
-                const remaining = Number(data?.remaining_hints);
-                if (Number.isFinite(remaining)) {
-                    return Math.max(0, remaining);
-                }
-
-                const hintCount = Number(data?.hint_count);
-                if (Number.isFinite(hintCount)) {
-                    return Math.max(0, 3 - hintCount);
-                }
-
-                return remainingHints;
-            }
-
-            function refreshHintButton(remaining) {
-                remainingHints = Math.max(0, Number.isFinite(remaining) ? remaining : remainingHints);
-                if (!hintBtn) return;
-                hintBtn.textContent = `Hint (${remainingHints})`;
-                hintBtn.disabled = remainingHints <= 0;
-            }
-
-            let flashTimeout = null;
-            function flashBoard() {
-                if (boardEl) {
-                    boardEl.classList.remove('flash-error');
-                    void boardEl.offsetWidth;
-                    boardEl.classList.add('flash-error');
-                    if (flashTimeout) clearTimeout(flashTimeout);
-                    flashTimeout = setTimeout(() => {
-                        boardEl.classList.remove('flash-error');
-                    }, 2000);
-                }
-                
-                if (blindfoldMode) {
-                    illegalMoveCount++;
-                    if (illegalMoveCount >= 3) {
-                        illegalMoveCount = 0;
-                        document.body.classList.remove('blindfold-mode');
-                        setTimeout(() => {
-                            if (blindfoldMode) {
-                                document.body.classList.add('blindfold-mode');
-                            }
-                        }, 3000);
-                    }
-                }
-            }
-
     let playerColor = 'white';
     let flipped = false;
     let autoFlip = false;
@@ -816,6 +671,7 @@
     const gameOverExitBtn = document.getElementById('gameOverExitBtn');
     const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
     const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+    const hintBtn = document.getElementById('hintBtn');
 
     const replayControls = document.getElementById('replayControls');
     const firstReplayBtn = document.getElementById('firstReplayBtn');
@@ -846,6 +702,27 @@
             a11yAnnouncer.textContent = '';
             setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
         }
+    }
+
+    function getServerRemainingHints(data) {
+        const remaining = Number(data?.remaining_hints);
+        if (Number.isFinite(remaining)) {
+            return Math.max(0, remaining);
+        }
+
+        const hintCount = Number(data?.hint_count);
+        if (Number.isFinite(hintCount)) {
+            return Math.max(0, 3 - hintCount);
+        }
+
+        return remainingHints;
+    }
+
+    function refreshHintButton(remaining) {
+        remainingHints = Math.max(0, Number.isFinite(remaining) ? remaining : remainingHints);
+        if (!hintBtn) return;
+        hintBtn.textContent = `Hint (${remainingHints})`;
+        hintBtn.disabled = remainingHints <= 0;
     }
 
     let flashTimeout = null;
@@ -1122,55 +999,6 @@
                     const ghost = p.cloneNode(true);
                     ghost.classList.add('piece-ghost');
 
-
-            function updatePlayerNames(data) {
-                currentWhiteName = data.white_name || currentWhiteName || 'White';
-                currentBlackName = data.black_name || currentBlackName || 'Black';
-                let wName = currentWhiteName;
-                let bName = currentBlackName;
-                
-                if (gameMode === 'ai'){
-                    const diffLabel = (currentDifficulty || 'medium').toUpperCase();
-                    const humanName = currentWhiteName || document.getElementById('whiteNameInput')?.value?.trim()?.slice(0, 17) || 'Player';
-                    if(playerColor === 'white'){
-                        wName = humanName;
-                        bName = `AI (Black)`;
-                    }else{
-                        bName = humanName;
-                        wName = `AI (White)`;
-                    }
-
-                    // Inject difficulty badge after names are set
-                    setTimeout(() => {
-                        const aiLabel = playerColor === 'white'
-                            ? document.getElementById('blackNameLabel')
-                            : document.getElementById('whiteNameLabel');
-                        if (aiLabel) {
-                            aiLabel.innerHTML = '';
-                            const textNode = document.createTextNode(`AI (${playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
-                            const badge = document.createElement('span');
-                            badge.textContent = diffLabel;
-                            badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:0.95em; letter-spacing:0.2px;';
-                            badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
-                            aiLabel.appendChild(textNode);
-                            aiLabel.appendChild(badge);
-                        }
-                    }, 0);
-                }
-
-                refreshHintButton(getServerRemainingHints(data));
-
-                if (whiteNameLabel) whiteNameLabel.textContent = wName.toUpperCase();
-                if (blackNameLabel) blackNameLabel.textContent = bName.toUpperCase();
-                if (whiteCapturedName) whiteCapturedName.textContent = wName;
-                if (blackCapturedName) blackCapturedName.textContent = bName;
-
-                if (gameMode === 'ai') {
-                    if (whiteYouTag) whiteYouTag.style.display = (playerColor === 'white') ? 'inline' : 'none';
-                    if (blackYouTag) blackYouTag.style.display = (playerColor === 'black') ? 'inline' : 'none';
-                } else {
-                    if (whiteYouTag) whiteYouTag.style.display = 'none';
-                    if (blackYouTag) blackYouTag.style.display = 'none';
 
                     originSquare.appendChild(ghost);
 
@@ -1897,7 +1725,7 @@
                             updateStreakDisplay();
                             showConfirm(
                                 "🎉 Puzzle Solved!",
-                                `🔥 Current Streak: ${streak}<br> 
+                                `🔥 Current Streak: ${streak}<br>
                                                     🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
                                                     Come back tomorrow for a new challenge.`,
                                 () => {
@@ -1930,7 +1758,7 @@
                                         updateStreakDisplay();
                                         showConfirm(
                                             "🎉 Puzzle Solved!",
-                                            `🔥 Current Streak: ${streak}<br> 
+                                            `🔥 Current Streak: ${streak}<br>
                                                                 🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
                                                                 Come back tomorrow for a new challenge.`,
                                             () => {
@@ -2043,7 +1871,7 @@
         const seq = ++aiRequestSeq;
         aiThinking = true;
 
-       
+
         try {
             let piecesOnBoard = 0;
             for (let r = 0; r < 8; r++) {
@@ -2066,7 +1894,7 @@
             if (gameOver) return;
 
             const data = await post('/api/ai-move/', {});
-            
+
 
             // Abort if sequence is no longer current after API call completes
             if (seq !== aiRequestSeq) {
@@ -2331,6 +2159,12 @@
                 }
             }
 
+            replayIndex = index;
+            renderReplayPosition();
+        } catch (e) {
+            console.error("Replay move error:", e);
+        }
+    }
 
             async function showHint() {
                 if (paused || gameOver) {
@@ -2364,7 +2198,7 @@
 
                     const sourceSquare = sq(hint.from_row, hint.from_col);
                     const destinationSquare = sq(hint.to_row, hint.to_col);
-                    
+
                     if (!sourceSquare || !destinationSquare) {
                         showStatus('Hint display error.', true);
                         return;
@@ -2372,11 +2206,11 @@
 
                     sourceSquare.classList.add("hint-source");
                     destinationSquare.classList.add("hint-destination");
-                    
+
                     if (hintTimeout) {
                         clearTimeout(hintTimeout);
                     }
-                    
+
                     hintTimeout = setTimeout(() => {
                         if (sourceSquare && destinationSquare) {
                             sourceSquare.classList.remove("hint-source");
@@ -2390,24 +2224,6 @@
                     showStatus('Hint connection error.', true);
                 }
             }
-
-            /* ==========================================================
-            EVENTS
-            ========================================================== */
-            async function onClick(r, c) {
-                if (replayMode) return;
-                if (dragging && !touchDragging) return;
-
-            replayIndex = index;
-
-
-            renderReplayPosition();
-
-        } catch (e) {
-
-            console.error("Replay move error:", e);
-        }
-    }
 
     /* ==========================================================
     UI UPDATES
@@ -3570,7 +3386,7 @@
         blackAlertFired = false;
 
         gameStartTime = Date.now();
-        
+
         if (!isPuzzle) {
             gameMode = d.mode;
         }
@@ -3881,20 +3697,6 @@
 
 
             if (hintBtn) hintBtn.addEventListener('click', showHint);
-
-            if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
-                const data = await post('/api/resume/', {});
-                if (!data.valid) {
-                    welcomeResumeBtn.style.display = 'none';
-                    return;
-                }
-                welcomeOverlay.classList.remove('active');
-                gameLayout.style.visibility = 'visible';
-                paused = false;
-                updatePauseUI();
-                startTimer();
-                queueAIMoveIfNeeded();
-
 
     if (backToModes) backToModes.onclick = () => {
         prepareWelcomeForPvP(false);
@@ -4598,32 +4400,6 @@
     if (leaveConfirmYes) leaveConfirmYes.addEventListener('click', confirmLeave);
 
     if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', closeLeaveConfirm);
-
-    // Theme Switcher
-    function initThemeSwitcher() {
-        const themeBtns = document.querySelectorAll('.theme-btn');
-        const currentTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
-        document.documentElement.setAttribute('data-board-theme', currentTheme);
-
-        themeBtns.forEach(btn => {
-            if (btn.dataset.theme === currentTheme) {
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            }
-            btn.onclick = () => {
-                const theme = btn.dataset.theme;
-                document.documentElement.setAttribute('data-board-theme', theme);
-                localStorage.setItem('boardTheme', theme);
-                localStorage.setItem('chessBoardTheme', theme);
-                themeBtns.forEach(b => {
-                    b.classList.remove('active');
-                    b.setAttribute('aria-pressed', 'false');
-                });
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            };
-        });
-    }
 
     function showAssetWarning() {
         const t = document.getElementById('confirmTimerContainer');
