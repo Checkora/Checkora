@@ -1739,11 +1739,12 @@ def login_view(request):
             login(request, user)
             request.session.cycle_key()  # Prevent session fixation
 
-            remember_me = request.POST.get('remember_me')
+            remember_me = request.POST.get("remember_me")
+
             if remember_me:
-                request.session.set_expiry(1209600)  # 2 weeks
+                request.session.set_expiry(settings.SESSION_COOKIE_AGE)
             else:
-                request.session.set_expiry(0)  # Browser close
+                request.session.set_expiry(0)
 
             messages.success(
                 request,

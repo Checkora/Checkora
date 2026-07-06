@@ -225,6 +225,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
+# Session lifetime (2 weeks when "Remember Me" is checked)
+SESSION_COOKIE_AGE = 1209600
+
+# Expire session when browser closes unless overridden via set_expiry()
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
 # Session and CSRF cookie security (production only — local runserver is HTTP).
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = IS_PRODUCTION
