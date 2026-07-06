@@ -53,6 +53,11 @@ body {
     max-width: 100vw;
 }
 
+body.font-dyslexic {
+    font-family: 'OpenDyslexic', 'Comic Sans MS', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.02em;
+}
+
 /* ============================================================
    Header
    ============================================================ */
@@ -617,6 +622,12 @@ body {
     font-size: clamp(0.6rem, 1.2vw, 0.75rem);
     color: #5a5a7a;
     font-weight: 600;
+}
+
+body.font-dyslexic .ranks span,
+body.font-dyslexic .files span,
+body.font-dyslexic .square {
+    font-family: inherit;
 }
 
 .files {

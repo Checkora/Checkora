@@ -613,6 +613,7 @@
     const copyFenBtn = document.getElementById('copyFenBtn');
     const copyPgnBtn = document.getElementById('copyPgnBtn');
     const muteBtn = document.getElementById('muteBtn');
+    const dyslexiaFontBtn = document.getElementById('dyslexiaFontBtn');
 
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const welcomeResumeBtn = document.getElementById('welcomeResumeBtn');
@@ -684,6 +685,32 @@
         if (a11yAnnouncer) {
             a11yAnnouncer.textContent = '';
             setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
+        }
+    }
+
+    function setDyslexiaFont(enabled) {
+        document.body.classList.toggle('font-dyslexic', enabled);
+        if (dyslexiaFontBtn) {
+            dyslexiaFontBtn.textContent = `Dyslexia-Friendly Font: ${enabled ? 'ON' : 'OFF'}`;
+            dyslexiaFontBtn.setAttribute('aria-pressed', String(enabled));
+        }
+        try {
+            localStorage.setItem('dyslexiaFontEnabled', String(enabled));
+        } catch (error) {
+            // localStorage can be unavailable in private browsing; the visual toggle still works.
+        }
+    }
+
+    function initDyslexiaFontToggle() {
+        let enabled = false;
+        try {
+            enabled = localStorage.getItem('dyslexiaFontEnabled') === 'true';
+        } catch (error) {
+            enabled = false;
+        }
+        setDyslexiaFont(enabled);
+        if (dyslexiaFontBtn) {
+            dyslexiaFontBtn.onclick = () => setDyslexiaFont(!document.body.classList.contains('font-dyslexic'));
         }
     }
 
@@ -4056,6 +4083,7 @@
     if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
     if (muteBtn) muteBtn.onclick = toggleMute;
     if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+    initDyslexiaFontToggle();
 
     const blindfoldBtn = document.getElementById('blindfoldBtn');
     if (blindfoldBtn) {

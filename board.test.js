@@ -27,6 +27,7 @@ document.body.innerHTML = `
   <button id="autoFlipBtn"></button>
   <div id="flipControls"></div>
   <button id="flipBtn"></button>
+  <button id="dyslexiaFontBtn"></button>
   <button id="copyFenBtn"></button>
   <div id="welcomeOverlay"></div>
   <button id="welcomeResumeBtn"></button>
@@ -352,6 +353,28 @@ describe("Coordinates visibility toggle", () => {
     checkbox.dispatchEvent(new Event("change"));
     expect(board.classList.contains("hide-coordinates")).toBe(false);
     expect(localStorage.getItem("showCoordinates")).toBe("true");
+  });
+});
+
+describe("Dyslexia-friendly font toggle", () => {
+  test("toggles body class, button state, and persisted preference", () => {
+    const button = document.getElementById("dyslexiaFontBtn");
+
+    expect(document.body.classList.contains("font-dyslexic")).toBe(false);
+    expect(button.textContent).toBe("Dyslexia-Friendly Font: OFF");
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+
+    button.click();
+    expect(document.body.classList.contains("font-dyslexic")).toBe(true);
+    expect(button.textContent).toBe("Dyslexia-Friendly Font: ON");
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(localStorage.getItem("dyslexiaFontEnabled")).toBe("true");
+
+    button.click();
+    expect(document.body.classList.contains("font-dyslexic")).toBe(false);
+    expect(button.textContent).toBe("Dyslexia-Friendly Font: OFF");
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    expect(localStorage.getItem("dyslexiaFontEnabled")).toBe("false");
   });
 });
 
@@ -754,4 +777,3 @@ describe("SAN Quick Move Input", () => {
     expect(body.to_col).toBe(3);
   });
 });
-
