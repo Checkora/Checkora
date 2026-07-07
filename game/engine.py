@@ -1032,9 +1032,32 @@ DP cache is intentionally excluded to save cookie space."""
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
-        return {
+        move_data = {
             'from_row': int(parts[1]),
             'from_col': int(parts[2]),
             'to_row':   int(parts[3]),
             'to_col':   int(parts[4]),
+            'eval': None,
+            'alts': []
         }
+        
+        idx = 5
+        while idx < len(parts):
+            if parts[idx] == "EVAL" and idx + 1 < len(parts):
+                move_data['eval'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "ALTS":
+                idx += 1
+                while idx + 4 < len(parts) and parts[idx] not in ("EVAL", "ALTS"):
+                    move_data['alts'].append({
+                        'from_row': int(parts[idx]),
+                        'from_col': int(parts[idx+1]),
+                        'to_row': int(parts[idx+2]),
+                        'to_col': int(parts[idx+3]),
+                        'eval': int(parts[idx+4])
+                    })
+                    idx += 5
+            else:
+                idx += 1
+
+        return move_data

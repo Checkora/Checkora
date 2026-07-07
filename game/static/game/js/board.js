@@ -82,6 +82,45 @@
         renderSessionTracker(stats);
     }
 
+    /* ==========================================================
+    GAME COUNTER (Game #N badge — persists via sessionStorage,
+    resets automatically when the browser session ends)
+    ========================================================== */
+    const GAME_COUNTER_KEY = 'checkoraGameCounter';
+
+    function loadGameCounter() {
+        try {
+            const raw = sessionStorage.getItem(GAME_COUNTER_KEY);
+            const n = Number(raw);
+            return Number.isFinite(n) && n > 0 ? n : 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function saveGameCounter(count) {
+        try {
+            sessionStorage.setItem(GAME_COUNTER_KEY, String(count));
+        } catch (e) {
+            // sessionStorage unavailable (e.g. private browsing) — fail silently
+        }
+    }
+
+    function renderGameCounter(count) {
+        const counterEl = document.getElementById('game-counter');
+        if (counterEl) counterEl.textContent = `Game #${count}`;
+    }
+
+    function updateGameCounterDisplay() {
+        renderGameCounter(loadGameCounter() || 1);
+    }
+
+    function incrementGameCounter() {
+        const count = loadGameCounter() + 1;
+        saveGameCounter(count);
+        renderGameCounter(count);
+    }
+
     let board = [];
     let turn = 'white';
     let selected = null;
@@ -944,6 +983,10 @@
     let aiThinking = false;
     let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
     let analysisRequestSeq = 0; // Sequence token to cancel stale analysis responses
+    const DEFAULT_START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    let gameFens = [];
+    let stepperIndex = 0;
+    let viewingPastState = false;
 
     let replayMode = false;
     let replayMoves = [];
@@ -1518,6 +1561,15 @@
         if (!welcomeOverlay.classList.contains('active')) {
             queueAIMoveIfNeeded();
         }
+
+        if (data.day_streak !== undefined) {
+            const streakCounter = document.getElementById("streak-counter");
+            const streakCount = document.getElementById("streak-count");
+            if (streakCounter && streakCount) {
+                streakCount.textContent = data.day_streak;
+                streakCounter.style.display = "block";
+            }
+        }
     }
 
     function updatePlayerNames(data) {
@@ -1630,7 +1682,7 @@
                         }
                         return e.preventDefault();
                     }
-                    if (paused || gameOver) return e.preventDefault();
+                    if (paused || gameOver || viewingPastState) return e.preventDefault();
 
                     const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
 
@@ -2265,6 +2317,51 @@
             if (data.valid) {
                 playSound(data);
                 const mv = data.ai_move;
+                
+                if (gameMode === 'analysis' && data.ai_move.predicted_responses) {
+                    // Issue #1630: Show predicted responses in Analysis Mode
+                    const predPanel = document.getElementById('aiPredictionPanel');
+                    const predSuggestedMove = document.getElementById('predSuggestedMove');
+                    const predResponsesList = document.getElementById('predResponsesList');
+                    
+                    if (predPanel && predSuggestedMove && predResponsesList) {
+                        const formatEval = (val) => {
+                            if (val === undefined || val === null) return '';
+                            const v = (val / 100).toFixed(2);
+                            return `(${v > 0 ? '+' + v : v})`;
+                        };
+
+                        const moveText = mv.notation || getSquareLabel(mv.to_row, mv.to_col);
+                        predSuggestedMove.textContent = '';
+                        const smStrong = document.createElement('strong');
+                        smStrong.textContent = moveText;
+                        predSuggestedMove.appendChild(smStrong);
+                        predSuggestedMove.appendChild(document.createTextNode(` ${formatEval(mv.eval)}`));
+
+                        predResponsesList.textContent = '';
+                        if (data.ai_move.predicted_responses.length === 0) {
+                            const li = document.createElement('li');
+                            li.textContent = 'No opponent response available. The position may be terminal.';
+                            predResponsesList.appendChild(li);
+                        } else {
+                            data.ai_move.predicted_responses.forEach((resp, index) => {
+                                const li = document.createElement('li');
+                                const respStrong = document.createElement('strong');
+                                respStrong.textContent = `${index + 1}. ${resp.notation}`;
+                                li.appendChild(respStrong);
+                                li.appendChild(document.createTextNode(` ${formatEval(resp.eval)}`));
+                                li.style.marginBottom = '5px';
+                                predResponsesList.appendChild(li);
+                            });
+                        }
+                        
+                        predPanel.style.display = 'block';
+                    }
+                } else {
+                    const predPanel = document.getElementById('aiPredictionPanel');
+                    if (predPanel) predPanel.style.display = 'none';
+                }
+
                 await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                 board = parseBoard(data.board);
                 turn = data.current_turn;
@@ -2353,7 +2450,7 @@
     EVENTS
     ========================================================== */
     async function onClick(r, c) {
-        if (replayMode) return;
+        if (replayMode || viewingPastState) return;
         if (dragging && !touchDragging) return;
 
         const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
@@ -2450,7 +2547,7 @@
     }
 
     async function onDrop(e, tr, tc) {
-        if (replayMode) return;
+        if (replayMode || viewingPastState) return;
         if (!dragSrc) return;
         await tryMove(dragSrc.r, dragSrc.c, tr, tc);
         dragSrc = null;
@@ -2598,6 +2695,77 @@
         }
     }
 
+    function rebuildGameFens(moveHistory, startingFen) {
+        const tempChess = new window.Chess(startingFen || DEFAULT_START_FEN);
+        const fens = [tempChess.fen()];
+        if (moveHistory && moveHistory.length > 0) {
+            for (let m of moveHistory) {
+                const res = tempChess.move(m.notation);
+                if (!res) {
+                    fens.push(fens[fens.length - 1]);
+                    continue;
+                }
+                fens.push(tempChess.fen());
+            }
+        }
+        return fens;
+    }
+
+function renderStepperPosition(fen) {
+    if (!fen || typeof fen !== 'string') return;
+    if (fen.startsWith('startpos')) {
+        fen = DEFAULT_START_FEN;
+    }
+    const position = fen.split(' ')[0];
+    const rows = position.split('/');
+    if (rows.length !== 8) {
+        return;
+    }
+    board = rows.map(row => {
+        const expanded = [];
+        for (const ch of row) {
+            if (!isNaN(ch)) {
+                for (let i = 0; i < Number(ch); i++) expanded.push(null);
+            } else {
+                expanded.push(ch);
+            }
+        }
+        return expanded;
+    });
+    buildBoard();
+    if (typeof syncPieces === 'function') syncPieces();
+    if (typeof updateMaterialUI === 'function') updateMaterialUI(board);
+}
+
+function updateStepperUI() {
+    const fen = gameFens[stepperIndex];
+    if (fen) renderStepperPosition(fen);
+
+    viewingPastState = (stepperIndex < gameFens.length - 1);
+
+    const resumeBtn = document.getElementById('resumeGameBtn');
+    if (resumeBtn) resumeBtn.classList.toggle('hidden', !viewingPastState);
+
+    const firstBtn = document.getElementById('stepperFirst');
+    const prevBtn = document.getElementById('stepperPrev');
+    const nextBtn = document.getElementById('stepperNext');
+    const lastBtn = document.getElementById('stepperLast');
+
+    if (firstBtn) firstBtn.disabled = (stepperIndex === 0);
+    if (prevBtn) prevBtn.disabled = (stepperIndex === 0);
+    if (nextBtn) nextBtn.disabled = (stepperIndex === gameFens.length - 1);
+    if (lastBtn) lastBtn.disabled = (stepperIndex === gameFens.length - 1);
+
+    document.querySelectorAll('.moves-list .selected-move').forEach(el => el.classList.remove('selected-move'));
+    if (stepperIndex > 0) {
+        const activeMoveEl = document.querySelector(`.moves-list span[data-move-index="${stepperIndex - 1}"]`);
+        if (activeMoveEl) {
+            activeMoveEl.classList.add('selected-move');
+            activeMoveEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+}
+
     /* ==========================================================
     UI UPDATES
     ========================================================== */
@@ -2634,27 +2802,57 @@
     }
 
     function updateMoves(history) {
-        if (!history?.length) {
-            movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
-            return;
-        }
-        movesEl.innerHTML = '';
-        const totalPairs = Math.ceil(history.length / 2);
-        for (let i = history.length - 1; i >= 0; i -= 2) {
-            const whiteIdx = i % 2 === 0 ? i : i - 1;
-            const blackIdx = whiteIdx + 1;
-            const moveNum = Math.floor(whiteIdx / 2) + 1;
-            const row = document.createElement('div');
-            row.className = 'move-row';
-            row.innerHTML = `
-                                <span class="move-num">${moveNum}.</span>
-                                <span class="move-white">${history[whiteIdx]?.notation ?? ''}</span>
-                                ${history[blackIdx] ? `<span class="move-black">${history[blackIdx].notation}</span>` : ''}
-                            `;
-            movesEl.appendChild(row);
-        }
-        movesEl.scrollTop = 0;
+    const startingFen = localStorage.getItem('checkora_starting_fen') || DEFAULT_START_FEN;
+    gameFens = rebuildGameFens(history, startingFen);
+
+    if (!viewingPastState) {
+        stepperIndex = gameFens.length - 1;
     }
+
+    if (!history?.length) {
+        movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
+        updateStepperUI();
+        return;
+    }
+    movesEl.innerHTML = '';
+    for (let i = history.length - 1; i >= 0; i -= 2) {
+        const whiteIdx = i % 2 === 0 ? i : i - 1;
+        const blackIdx = whiteIdx + 1;
+        const moveNum = Math.floor(whiteIdx / 2) + 1;
+        const row = document.createElement('div');
+        row.className = 'move-row';
+
+        const whiteSpan = document.createElement('span');
+        whiteSpan.className = 'move-white';
+        whiteSpan.textContent = history[whiteIdx]?.notation ?? '';
+        whiteSpan.dataset.moveIndex = whiteIdx;
+        whiteSpan.onclick = () => {
+            stepperIndex = whiteIdx + 1;
+            updateStepperUI();
+        };
+
+        const numSpan = document.createElement('span');
+        numSpan.className = 'move-num';
+        numSpan.textContent = `${moveNum}.`;
+        row.appendChild(numSpan);
+        row.appendChild(whiteSpan);
+
+        if (history[blackIdx]) {
+            const blackSpan = document.createElement('span');
+            blackSpan.className = 'move-black';
+            blackSpan.textContent = history[blackIdx].notation;
+            blackSpan.dataset.moveIndex = blackIdx;
+            blackSpan.onclick = () => {
+                stepperIndex = blackIdx + 1;
+                updateStepperUI();
+            };
+            row.appendChild(blackSpan);
+        }
+        movesEl.appendChild(row);
+    }
+    updateStepperUI();
+    if (!viewingPastState) movesEl.scrollTop = 0;
+}
 
     function updateCaptured(cap) {
         wCapEl.innerHTML = bCapEl.innerHTML = '';
@@ -3768,6 +3966,9 @@
         }
 
         replayMode = false;
+        viewingPastState = false;
+        stepperIndex = 0;
+        gameFens = [];
 
         if (autoReplayInterval) {
             clearInterval(autoReplayInterval);
@@ -3864,6 +4065,12 @@
         };
 
         const fenValue = (fen && fen.trim()) ? fen.trim() : null;
+        if (fenValue) {
+            localStorage.setItem('checkora_starting_fen', fenValue);
+        } else {
+            localStorage.setItem('checkora_starting_fen', DEFAULT_START_FEN);
+        }
+
         if (fenValue) payload.fen = fenValue;
 
         if (fenError) fenError.textContent = '';
@@ -3887,6 +4094,7 @@
         gameOver = false;
         whiteAlertFired = false;
         blackAlertFired = false;
+        incrementGameCounter();
 
         gameStartTime = Date.now();
         
@@ -4068,6 +4276,48 @@
                 autoReplayInterval = setTimeout(playNextMove, 1000);
             }
         };
+
+        const stepperFirst = document.getElementById('stepperFirst');
+        const stepperPrev = document.getElementById('stepperPrev');
+        const stepperNext = document.getElementById('stepperNext');
+        const stepperLast = document.getElementById('stepperLast');
+        const resumeGameBtn = document.getElementById('resumeGameBtn');
+
+        if (stepperFirst) {
+            stepperFirst.onclick = () => {
+                stepperIndex = 0;
+                updateStepperUI();
+            };
+        }
+        if (stepperPrev) {
+            stepperPrev.onclick = () => {
+                if (stepperIndex > 0) {
+                    stepperIndex--;
+                    updateStepperUI();
+                }
+            };
+        }
+        if (stepperNext) {
+            stepperNext.onclick = () => {
+                if (stepperIndex < gameFens.length - 1) {
+                    stepperIndex++;
+                    updateStepperUI();
+                }
+            };
+        }
+        if (stepperLast) {
+            stepperLast.onclick = () => {
+                stepperIndex = gameFens.length - 1;
+                updateStepperUI();
+            };
+        }
+        if (resumeGameBtn) {
+            resumeGameBtn.onclick = () => {
+                stepperIndex = gameFens.length - 1;
+                viewingPastState = false;
+                updateStepperUI();
+            };
+        }
     }
 
 
@@ -5521,6 +5771,8 @@
 
     // Render any W/L/D counts already stored for this browser session
     updateSessionTracker();
+    // Render the current game count already stored for this browser session
+    updateGameCounterDisplay();
     // Resume game by clicking the paused board overlay
     boardEl.addEventListener('click', async () => {
         if (!paused) return;

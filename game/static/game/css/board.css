@@ -512,6 +512,37 @@ body {
 }
 
 /* ============================================================
+   Game Counter Badge (session game count — resets on tab close)
+   ============================================================ */
+.game-counter-badge {
+    display: block;
+    text-align: center;
+    width: fit-content;
+    margin: 0 auto 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+}
+
+.turn-indicator-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 auto 12px;
+}
+
+.turn-indicator-row .turn-badge {
+    margin-bottom: 0;
+}
+
+.turn-indicator-row .game-counter-badge {
+    margin: 0;
+}
+
+/* ============================================================
    Session Score Tracker (W/L/D — resets on sessionStorage clear)
    ============================================================ */
 .session-score-tracker {

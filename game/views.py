@@ -205,6 +205,11 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     result.full_clean()
     result.save()
 
+    if user:
+        with transaction.atomic():
+            progress, _ = UserProgress.objects.select_for_update().get_or_create(user=user)
+            progress.update_streak()
+
     if user and mode == 'ai':
         update_player_rating(
             user,
@@ -527,7 +532,7 @@ def get_state(request):
         request.session['game']
     )
 
-    return JsonResponse({
+    response_data = {
         'board': game.board,
         'current_turn': game.current_turn,
         'white_time': game.white_time,
@@ -552,7 +557,17 @@ def get_state(request):
 
         'threefold_warning': game.threefold_warning,
 
+
     })
+
+    }
+
+    if request.user.is_authenticated:
+        progress, _ = UserProgress.objects.get_or_create(user=request.user)
+        response_data['day_streak'] = progress.day_streak
+
+    return JsonResponse(response_data)
+
 
 
 @require_POST
@@ -604,7 +619,7 @@ def ai_move(request):
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode != 'ai':
+    if game.mode not in ('ai', 'analysis'):
         err_msg = 'Not in AI mode.'
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
@@ -650,6 +665,60 @@ def ai_move(request):
         request.session['opening'] = ''
         request.session.modified = True
         best = game.get_ai_move(depth=depth)
+
+    # Issue #1630: Predict opponent responses in Analysis Mode
+    if best and game.mode == 'analysis':
+        try:
+            # Generate notation for the best move
+            best['notation'] = game._notation(
+                best['from_row'], best['from_col'],
+                best['to_row'], best['to_col'],
+                game.board[best['from_row']][best['from_col']],
+                game.board[best['to_row']][best['to_col']],
+                game.serialize_board(), game.serialize_castling_rights(), game._serialize_ep()
+            )
+
+            # Create a temporary copy
+            temp_game = ChessGame()
+            temp_game.board = temp_game._parse_board64(game.serialize_board())
+            temp_game.castling_rights = dict(game.castling_rights)
+            temp_game.current_turn = game.current_turn
+            temp_game.en_passant_target = game.en_passant_target
+            
+            # Apply the suggested move
+            temp_game.make_move(best['from_row'], best['from_col'], best['to_row'], best['to_col'])
+            
+            # Request opponent's responses
+            opp_resp = temp_game.get_ai_move(depth=depth)
+            
+            predicted_responses = []
+            if opp_resp and 'alts' in opp_resp:
+                predicted_responses.append({
+                    'notation': temp_game._notation(
+                        opp_resp['from_row'], opp_resp['from_col'], 
+                        opp_resp['to_row'], opp_resp['to_col'], 
+                        temp_game.board[opp_resp['from_row']][opp_resp['from_col']], 
+                        temp_game.board[opp_resp['to_row']][opp_resp['to_col']], 
+                        temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
+                    ),
+                    'eval': opp_resp.get('eval')
+                })
+                # Cap the alts before running the notation loop
+                for alt in opp_resp.get('alts', [])[:2]:
+                    predicted_responses.append({
+                        'notation': temp_game._notation(
+                            alt['from_row'], alt['from_col'], 
+                            alt['to_row'], alt['to_col'], 
+                            temp_game.board[alt['from_row']][alt['from_col']], 
+                            temp_game.board[alt['to_row']][alt['to_col']], 
+                            temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
+                        ),
+                        'eval': alt.get('eval')
+                    })
+            
+            best['predicted_responses'] = predicted_responses
+        except Exception:
+            logger.exception("Failed to predict opponent responses")
 
     if not best:
         if game.game_status == 'checkmate':

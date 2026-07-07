@@ -984,8 +984,8 @@ void handleBestMove(const string &turn, int depth) {
         return;
     }
 
-    Move best = legal[0];
-    int bestVal = maximizing ? INT_MIN : INT_MAX;
+    vector<pair<Move, int>> evaluated;
+    evaluated.reserve(legal.size());
 
     for (auto &m : legal) {
         char src = board[m.fr][m.fc];
@@ -1031,15 +1031,29 @@ void handleBestMove(const string &turn, int depth) {
             board[rook_tr][rook_tc] = '.';
         }
 
-        if (maximizing) {
-            if (eval > bestVal) { bestVal = eval; best = m; }
-        } else {
-            if (eval < bestVal) { bestVal = eval; best = m; }
-        }
+        evaluated.push_back({m, eval});
     }
 
+    if (maximizing) {
+        sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second > b.second; });
+    } else {
+        sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second < b.second; });
+    }
+
+    Move best = evaluated[0].first;
+    int bestVal = evaluated[0].second;
+
     cout << "BESTMOVE " << best.fr << " " << best.fc
-         << " " << best.tr << " " << best.tc << endl;
+         << " " << best.tr << " " << best.tc << " EVAL " << bestVal;
+    
+    if (evaluated.size() > 1) {
+        cout << " ALTS";
+        for (size_t i = 1; i < min((size_t)4, evaluated.size()); i++) {
+            Move am = evaluated[i].first;
+            cout << " " << am.fr << " " << am.fc << " " << am.tr << " " << am.tc << " " << evaluated[i].second;
+        }
+    }
+    cout << endl;
 }
 
 int main() {

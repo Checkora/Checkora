@@ -34,9 +34,24 @@ body {
     color: var(--text-primary);
     font-family: Outfit, system-ui, sans-serif;
     min-height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+.navbar-container,
+.navbar {
+    width: 100%;
+}
+
+.auth-layout {
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
+
+    width: 100%;
     flex-direction: column;
     gap: 16px;
     padding: 24px 20px;
@@ -58,7 +73,7 @@ body {
 }
 
 .header--with-navbar {
-    margin-top: 40px;
+    margin-top: 0px;
 }
 .logo-container {
     display: flex;

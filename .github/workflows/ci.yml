@@ -415,7 +415,6 @@ jobs:
 
       - name: 🔒 Run pip-audit security scan
         run: |
-          pip install -r requirements.txt
           pip-audit \
             --requirement requirements.txt \
             --format=columns \

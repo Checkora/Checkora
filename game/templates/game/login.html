@@ -18,11 +18,13 @@
 
     {% include 'game/includes/navbar.html' %}
 
-    <div class="header header--with-navbar">
-        <p class="login-subtitle">Welcome back! Sign in to continue</p>
-    </div>
+    <main class="auth-layout">
 
-    <div class="auth-card modern-card">
+        <div class="header header--with-navbar">
+            <p class="login-subtitle">Welcome back! Sign in to continue</p>
+        </div>
+
+        <div class="auth-card modern-card">
         <!-- Top glowing neon line decoration -->
         <div class="card-glow-line"></div>
 
@@ -66,9 +68,10 @@
             </div>
         </div>
     </div>
-
+    </main>
     <script src="{% static 'game/js/auth.js' %}?v=15"></script>
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+
 </body>
 </html>
