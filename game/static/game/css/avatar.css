@@ -1,0 +1,331 @@
+/* ============================================================
+   avatar.css — Styles for the Checkora avatar management page
+   ============================================================ */
+
+/* ── Reset & base ── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(circle at top, #1e293b 0%, #0f172a 45%, #020617 100%);
+    color: #f8fafc;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+/* ── Layout ── */
+.page-wrapper {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Back link ── */
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.2s;
+    width: fit-content;
+}
+
+.back-link:hover {
+    color: #facc15;
+}
+
+/* ── Card ── */
+.card {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 36px 32px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ── Page title ── */
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-align: center;
+    letter-spacing: -0.01em;
+}
+
+.page-subtitle {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-top: -16px;
+}
+
+/* ── Flash messages ── */
+.messages {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.message {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.message--success {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #86efac;
+}
+
+.message--error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+/* ── Avatar preview ── */
+.avatar-preview-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.avatar-img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(250, 204, 21, 0.5);
+    box-shadow: 0 0 0 6px rgba(250, 204, 21, 0.08), 0 4px 24px rgba(0, 0, 0, 0.4);
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.avatar-img:hover {
+    border-color: rgba(250, 204, 21, 0.9);
+    box-shadow: 0 0 0 6px rgba(250, 204, 21, 0.15), 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(30, 41, 59, 0.8);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #475569;
+}
+
+.avatar-badge {
+    position: absolute;
+    bottom: 4px;
+    right: calc(50% - 64px);
+    background: rgba(34, 197, 94, 0.9);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(4px);
+}
+
+/* ── Upload form ── */
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Hidden real file input */
+.file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* Custom drop-zone label */
+.file-label {
+    display: block;
+    cursor: pointer;
+    border: 1.5px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.5);
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.file-label:hover,
+.file-label.has-file {
+    border-color: rgba(250, 204, 21, 0.5);
+    background: rgba(250, 204, 21, 0.04);
+}
+
+.file-label-inner {
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.upload-icon {
+    color: #475569;
+    transition: color 0.2s;
+}
+
+.file-label:hover .upload-icon,
+.file-label.has-file .upload-icon {
+    color: #facc15;
+}
+
+.file-label-text {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+    word-break: break-all;
+    transition: color 0.2s;
+}
+
+.file-label.has-file .file-label-text {
+    color: #e2e8f0;
+}
+
+.file-label-hint {
+    color: #475569;
+    font-size: 0.78rem;
+}
+
+/* ── Live preview of new selection ── */
+.preview-new-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.preview-new-img {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(250, 204, 21, 0.4);
+    flex-shrink: 0;
+}
+
+.btn-clear-file {
+    margin-left: auto;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    color: #fca5a5;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.btn-clear-file:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+/* ── Buttons ── */
+.btn {
+    width: 100%;
+    padding: 13px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    font-family: inherit;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn--primary {
+    background: linear-gradient(135deg, #facc15, #ca8a04);
+    color: #020617;
+    box-shadow: 0 4px 20px rgba(250, 204, 21, 0.25);
+}
+
+.btn--primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(250, 204, 21, 0.35);
+}
+
+.btn--primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn--danger {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.btn--danger:hover {
+    background: rgba(239, 68, 68, 0.22);
+    transform: translateY(-1px);
+}
+
+/* ── Remove form ── */
+.remove-form {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 8px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+    .card {
+        padding: 28px 20px;
+        border-radius: 16px;
+    }
+
+    .avatar-img,
+    .avatar-placeholder {
+        width: 100px;
+        height: 100px;
+    }
+
+    .avatar-badge {
+        right: calc(50% - 54px);
+    }
+}

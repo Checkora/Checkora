@@ -5,31 +5,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | CHECKORA</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <!-- Bumped to version 15 to completely break past older cached assets -->
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=15">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 </head>
-<body class="login-page">
-    <!-- Upgraded Back-to-home Button -->
-    <a href="{% url 'landing' %}" class="back-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        <span>Back to Home</span>
-    </a>
+<body class="login-page new-cyber-design">
+    <!-- Animated background grid effect -->
+    <div class="bg-grid-overlay"></div>
 
-    <div class="header">
-        <div class="logo-container">
-            <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
-            <span class="logo-text">
-    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
-</span>
+    {% include 'game/includes/navbar.html' %}
+
+    <main class="auth-layout">
+
+        <div class="header header--with-navbar">
+            <p class="login-subtitle">Welcome back! Sign in to continue</p>
         </div>
-        <p>Welcome back! Sign in to continue</p>
-    </div>
 
-    <div class="auth-card">
+        <div class="auth-card modern-card">
+        <!-- Top glowing neon line decoration -->
+        <div class="card-glow-line"></div>
+
         <form method="POST">
             {% csrf_token %}
             
@@ -40,32 +38,40 @@
             {% endif %}
             
             {% for field in form %}
-                <div class="form-group">
+                <div class="form-group modern-group">
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
+                    <div class="input-container-glow">
+                        {{ field }}
+                    </div>
                     {% if field.errors %}
                         {{ field.errors }}
                     {% endif %}
                 </div>
             {% endfor %}
-            <div class="remember-me">
-                <label>
+            
+            <div class="remember-me modern-remember">
+                <label class="custom-checkbox-container">
                     <input type="checkbox" name="remember_me">
-                    Remember Me
+                    <span class="checkbox-checkmark"></span>
+                    <span class="label-text">Remember Me</span>
                 </label>
             </div>
-            <button type="submit" class="btn btn-gold">Sign In</button>
+            
+            <button type="submit" class="btn btn-gold modern-btn">Sign In</button>
         </form>
         
-        <div class="auth-footer">
-            Don't have an account? <a href="{% url 'register' %}">Register here</a>
-            <br><br>
-            <a href="{% url 'password_reset' %}">Forgot Password?</a>
+        <div class="auth-footer modern-footer">
+            <div class="footer-links-row">
+                <a href="{% url 'register' %}" class="footer-link-highlight">Create Account</a>
+                <span class="footer-dot"></span>
+                <a href="{% url 'password_reset' %}" class="forgot-link">Forgot Password?</a>
+            </div>
         </div>
     </div>
-
-    <script src="{% static 'game/js/auth.js' %}?v=7"></script>
+    </main>
+    <script src="{% static 'game/js/auth.js' %}?v=15"></script>
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+
 </body>
 </html>

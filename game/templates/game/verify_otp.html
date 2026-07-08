@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify your Email | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=15">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <style>
         .otp-container {
@@ -60,8 +62,9 @@
     </style>
 </head>
 <body>
+    {% include 'game/includes/navbar.html' %}
 
-    <div class="header">
+    <div class="header header--with-navbar">
         <h1>Verify your Email</h1>
         <p>We've sent a 6-digit code to {{ user_email|default:"your email address" }}.</p>
     </div>

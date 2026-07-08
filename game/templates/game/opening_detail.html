@@ -15,6 +15,10 @@
 
 <body>
 
+<form style="display:none;">
+    {% csrf_token %}
+</form>
+
 <a href="{% url 'opening_trainer' %}" class="back-btn">
     ← Back to Openings
 </a>
@@ -29,6 +33,33 @@
         <strong>Difficulty:</strong>
         {{ opening.difficulty }}
     </p>
+
+    <!-- Color Selection Toggle -->
+    <div class="color-toggle-container">
+        <span class="toggle-label">Play as:</span>
+        <button type="button" id="play-white-btn" class="toggle-btn active" aria-pressed="true">White</button>
+        <button type="button" id="play-black-btn" class="toggle-btn" aria-pressed="false">Black</button>
+
+        <label for="board-theme-select" class="toggle-label" style="margin-left: 20px;">Board Theme:</label>
+        <select id="board-theme-select" class="theme-select">
+            <option value="classic">Classic</option>
+            <option value="wood">Wood</option>
+            <option value="green">Green</option>
+            <option value="blue">Blue</option>
+        </select>
+    </div>
+
+    <!-- Chess Board Container -->
+    <div class="board-wrapper">
+        <div id="board" class="chess-board"></div>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="nav-controls">
+        <button type="button" id="prev-move-btn" class="nav-btn" disabled>&larr; Previous</button>
+        <button type="button" id="reset-trainer-btn" class="nav-btn">Reset</button>
+        <button type="button" id="next-move-btn" class="nav-btn" disabled>Next &rarr;</button>
+    </div>
 
     <div id="trainer-feedback" class="feedback-box">
         Ready to begin.
@@ -52,6 +83,12 @@
             id="check-move-btn">
             Check Move
         </button>
+        
+        <button 
+            type="button"
+            id="get-hint-btn">
+            Get Hint
+        </button>
     </div>
 
     <h3>Opening Line</h3>
@@ -65,6 +102,7 @@
 </div>
 
 {{ opening.moves|json_script:"opening-moves" }}
+{{ opening.name|json_script:"opening-name" }}
 
 <script src="{% static 'game/js/opening_trainer.js' %}"></script>
 

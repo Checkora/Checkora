@@ -1,10 +1,15 @@
 import time
+import json
+import os
 from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+from django.utils import timezone
+
 from game.models import (
+    ActiveGame,
     GameResult,
     PuzzleStats,
     Achievement,
@@ -15,6 +20,39 @@ from django.db.models import F
 
 User = get_user_model()
 
+def create_or_update_active_game(request, game_state):
+    """Create or update an active game record."""
+
+    if not request.session.session_key:
+        request.session.save()
+    
+    game_status = game_state.get("game_status", "active")
+
+    # Remove tracker entry once the game has finished.
+    if game_status != "active":
+        ActiveGame.objects.filter(
+            session_key=request.session.session_key
+        ).delete()
+        return
+
+    ActiveGame.objects.update_or_create(
+        session_key=request.session.session_key,
+        defaults={
+            "user": request.user if request.user.is_authenticated else None,
+            "status": "active",
+            "last_active": timezone.now(),
+        },
+    )
+
+
+def delete_active_game(request):
+    """Remove the active game record."""
+
+    if request.session.session_key:
+        ActiveGame.objects.filter(
+            session_key=request.session.session_key
+        ).delete()
+
 def cleanup_stale_games():
     """
     Automated cleanup task for abandoned games.
@@ -24,56 +62,67 @@ def cleanup_stale_games():
     """
     # 48 hours in seconds
     stale_threshold = time.time() - (48 * 3600)
-    
+
     deleted_count = 0
     resigned_count = 0
-    
-    # Iterate over all sessions
-    for session in Session.objects.iterator():
+
+    stale_games = ActiveGame.objects.filter(
+        status="active",
+        last_active__lt=timezone.now() - timezone.timedelta(hours=48),
+    )
+
+    for active_game in stale_games:
         try:
+            session = Session.objects.get(
+                session_key=active_game.session_key
+            )
             session_data = session.get_decoded()
+        except Session.DoesNotExist:
+            active_game.delete()
+            continue
         except Exception:
             continue
-            
+
         game_data = session_data.get('game')
         if not game_data or game_data.get('game_status') != 'active':
+            active_game.delete()
             continue
-            
         last_ts = game_data.get('last_ts', 0)
         if last_ts > stale_threshold:
             continue
-            
+
         moves_count = len(game_data.get('move_history', []))
-        
+
         with transaction.atomic():
             if moves_count < 5:
                 # Rule A: Hard deletion
                 del session_data['game']
                 session.session_data = Session.objects.encode(session_data)
                 session.save()
+                active_game.delete()
                 deleted_count += 1
             else:
                 # Rule B: Auto-resignation
                 current_turn = game_data.get('current_turn', 'white')
                 player_color = game_data.get('player_color', 'white')
                 mode = game_data.get('mode', 'pvp')
-                
+
                 # In AI mode, the human (player_color) is the inactive one
                 # In PvP mode, the player whose turn it is is inactive
                 if mode == 'ai':
                     winner = 'black' if player_color == 'white' else 'white'
                 else:
                     winner = 'black' if current_turn == 'white' else 'white'
-                
+
                 game_data['game_status'] = 'resignation'
                 session_data['game'] = game_data
                 session.session_data = Session.objects.encode(session_data)
                 session.save()
-                
+
                 # Create a GameResult historically linking to the user if auth is known
                 user_id = session_data.get('_auth_user_id')
                 user = User.objects.filter(pk=user_id).first() if user_id else None
-                
+
                 result = GameResult(
                     user=user,
                     mode=mode,
@@ -84,10 +133,13 @@ def cleanup_stale_games():
                 )
                 result.full_clean()
                 result.save()
-                
+
+                active_game.delete()
+
                 resigned_count += 1
-                
+
     return deleted_count, resigned_count
+
 
 # ==========================
 # Achievement System
@@ -156,19 +208,19 @@ def check_game_achievements(user):
         unlock_achievement(user, "WIN_100")
 
     # Games Played
-    
+
     if total_games >= 10:
         unlock_achievement(user, "PLAY_10")
 
     if total_games >= 20:
         unlock_achievement(user, "PLAY_20")
-    
+
     if total_games >= 50:
         unlock_achievement(user, "PLAY_50")
-    
+
     if total_games >= 100:
         unlock_achievement(user, "PLAY_100")
-        
+
     if total_games >= 500:
         unlock_achievement(user, "PLAY_500")
 
@@ -178,19 +230,19 @@ def check_game_achievements(user):
 
     if checkmates >= 5:
         unlock_achievement(user, "FIFTH_CHECKMATE")
-    
+
     if checkmates >= 10:
         unlock_achievement(user, "CHECKMATE_10")
-        
+
     if checkmates >= 20:
         unlock_achievement(user, "CHECKMATE_20")
-    
+
     if checkmates >= 30:
         unlock_achievement(user, "CHECKMATE_30")
-        
+
     if checkmates >= 50:
         unlock_achievement(user, "CHECKMATE_50")
-    
+
     if checkmates >= 100:
         unlock_achievement(user, "CHECKMATE_100")
 
@@ -212,40 +264,40 @@ def check_puzzle_achievements(user, stats):
 
     if stats.puzzles_solved >= 1:
         unlock_achievement(user, "FIRST_PUZZLE")
-    
+
     if stats.puzzles_solved >= 10:
         unlock_achievement(user, "PUZZLE_10")
 
     if stats.puzzles_solved >= 25:
         unlock_achievement(user, "PUZZLE_25")
-    
+
     if stats.puzzles_solved >= 50:
         unlock_achievement(user, "PUZZLE_50")
-    
+
     if stats.puzzles_solved >= 75:
         unlock_achievement(user, "PUZZLE_75")
-    
+
     if stats.puzzles_solved >= 100:
         unlock_achievement(user, "PUZZLE_100")
-        
+
     if stats.puzzles_solved >= 200:
         unlock_achievement(user, "PUZZLE_200")
-        
+
     if stats.current_streak >= 3:
         unlock_achievement(user, "STREAK_3")
 
     if stats.current_streak >= 7:
         unlock_achievement(user, "STREAK_7")
-    
+
     if stats.current_streak >= 10:
         unlock_achievement(user, "STREAK_10")
 
     if stats.current_streak >= 30:
         unlock_achievement(user, "STREAK_30")
-    
+
     if stats.current_streak >= 50:
         unlock_achievement(user, "STREAK_50")
-    
+
     if stats.current_streak >= 100:
         unlock_achievement(user, "STREAK_100")
 
@@ -263,45 +315,53 @@ def update_opening_progress(
     if not user:
         return None
 
-    progress, created = OpeningProgress.objects.get_or_create(
-        user=user,
-        opening_name=opening_name,
-    )
+    with transaction.atomic():
+        progress, created = (
+            OpeningProgress.objects
+            .select_for_update()
+            .get_or_create(
+                user=user,
+                opening_name=opening_name,
+            )
+        )
 
-    if created:
-        progress.openings_started = 1
+        if created:
+            progress.openings_started = 1
     
-    if correct_move:
-        progress.correct_moves += 1
+        if correct_move:
+            progress.correct_moves += 1
 
-    if incorrect_move:
-        progress.incorrect_moves += 1
+        if incorrect_move:
+            progress.incorrect_moves += 1
 
-    if checkpoint is not None:
-        progress.last_checkpoint = checkpoint
+        if checkpoint is not None:
+            progress.last_checkpoint = checkpoint
         
-        progress.completion_percentage = min(
-            100,
-            checkpoint
+            progress.completion_percentage = min(
+                100,
+                checkpoint,
+            )
+
+        total_moves = (
+            progress.correct_moves +
+            progress.incorrect_moves
         )
 
-    total_moves = (
-        progress.correct_moves +
-        progress.incorrect_moves
-    )
+        if total_moves > 0:
+            progress.accuracy_percentage = round(
+                (progress.correct_moves / total_moves) * 100,
+                2
+            )
 
-    if total_moves > 0:
-        progress.accuracy_percentage = round(
-            (progress.correct_moves / total_moves) * 100,
-            2
-        )
+        first_completion = False
 
-    if completed:
-        progress.openings_completed += 1
+        if completed and progress.openings_completed == 0:
+            progress.openings_completed = 1
+            first_completion = True
 
-    progress.save()
+        progress.save()
 
-    return progress
+        return progress, first_completion
 
 def generate_badge(user_achievement):
     achievement = user_achievement.achievement
@@ -429,3 +489,45 @@ def generate_badge(user_achievement):
     badge.save(output_path)
 
     return output_path
+
+
+_NAMED_LINES_CACHE = None
+
+
+def _load_named_lines():
+    global _NAMED_LINES_CACHE
+    if _NAMED_LINES_CACHE is None:
+        book_path = os.path.join(os.path.dirname(__file__), 'engine', 'opening_book.json')
+        try:
+            with open(book_path) as f:
+                _NAMED_LINES_CACHE = json.load(f).get('_named_lines', {})
+        except (OSError, json.JSONDecodeError):
+            _NAMED_LINES_CACHE = {}
+    return _NAMED_LINES_CACHE
+
+
+def get_opening_line(name):
+    """return full move list for a named opening, or empty list if not found"""
+    lines = _load_named_lines()
+    opening = lines.get(name, {})
+    return opening.get('moves', [])[:]  # [:] copies so callers can't mutate the cache
+
+
+def get_opening_reply(name, move_index, played_moves):
+    """
+    played_moves: list of (from_row, from_col, to_row, to_col) tuples
+    actually played so far in the game.
+    Returns None if the game has diverged from the book line.
+    """
+    moves = get_opening_line(name)
+    if move_index >= len(moves):
+        return None
+    # normalize book moves to tuples for comparison against played_moves
+    expected = [tuple(m) for m in moves[:move_index]]
+    if list(played_moves) != expected:
+        return None
+    return moves[move_index]
+
+def get_valid_openings():
+    """return the set of opening names available in the book"""
+    return set(_load_named_lines().keys())

@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.preloader, name='preloader'),
     path('home/', views.landing, name='landing'),
     path('play/', views.index, name='index'),
+    path('profile/', views.profile_view, name='profile'),
     
     # Game API Endpoints
     path('api/move/', views.make_move, name='make_move'),
@@ -18,8 +19,8 @@ urlpatterns = [
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
-    path('stats/', views.stats_view, name='stats'),
     path('api/analyze-game/', views.analyze_game_view, name='analyze_game'),
+    path('stats/', views.stats_view, name='stats'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
 
     # Authentication
@@ -39,7 +40,12 @@ urlpatterns = [
         views.password_reset_account_selection,
         name='password_reset_account_selection'
     ),
-    
+
+    # Avatar Management
+    path('avatar/', views.upload_avatar, name='upload_avatar'),
+    path('avatar/remove/', views.remove_avatar, name='remove_avatar'),
+    path('api/avatar/', views.get_avatar, name='get_avatar'),
+
     # Features & Progressions
     path('leaderboard/', views.leaderboard_view, name='leaderboard'),
     path("lessons/", views.lesson_map_view, name="lessons"),
@@ -50,20 +56,43 @@ urlpatterns = [
     path("openings/", views.opening_trainer, name="opening_trainer"),
     path("openings/<slug:slug>/", views.opening_detail, name="opening_detail"),
 
+    path(
+        "api/opening-stats/",
+        views.update_opening_stats,
+        name="update_opening_stats",
+    ),
+
     path("api/puzzle-stats/", views.puzzle_stats_view, name="puzzle_stats"),
     path("api/puzzles/daily/", views.get_daily_puzzle, name="daily_puzzle"),
+    path("puzzles/", views.puzzles_view, name="puzzles"),
+    path("api/puzzles/", views.puzzles_list_api, name="puzzles_list_api"),
+    path(
+        "api/puzzles/<int:puzzle_id>/",
+        views.puzzle_detail_api,
+        name="puzzle_detail_api"
+    ),
+    path(
+        "api/puzzles/<int:puzzle_id>/solution/",
+        views.puzzle_solution_api,
+        name="puzzle_solution_api"
+    ),
     
     # Badges & Achievements
     path("achievements/", views.achievements_view, name="achievements"),
     path("achievement/<int:achievement_id>/download/", views.download_badge, name="download_badge",),
     path("feature-badge/<int:achievement_id>/", views.feature_badge, name="feature_badge"),
     path("remove-featured-badge/<int:badge_id>/", views.remove_featured_badge, name="remove_featured_badge"),
-
     # Community Forum
     path("forum/", views.forum_list, name="forum"),
     path("forum/new/", views.forum_new, name="forum_new"),
     path("forum/<int:discussion_id>/", views.forum_detail, name="forum_detail"),
     path("forum/<int:discussion_id>/reply/", views.forum_reply, name="forum_reply"),
+
+    path(
+        "forum/<int:discussion_id>/bookmark/",
+        views.toggle_discussion_bookmark,
+        name="toggle_discussion_bookmark",
+    ),
 
     # Reply actions
     path(
@@ -77,4 +106,13 @@ urlpatterns = [
         views.forum_reply_delete,
         name="forum_reply_delete",
     ),
+
+    path(
+        "forum/reply/<int:reply_id>/vote/",
+        views.toggle_reply_vote,
+        name="toggle_reply_vote",
+    ),
 ]
+
+from game.urls_history import history_urlpatterns
+urlpatterns += history_urlpatterns

@@ -712,8 +712,7 @@ def handle_bestmove(turn, depth):
         print('BESTMOVE NONE')
         return
 
-    best_move = legal_moves[0]
-    best_value = -(10 ** 9) if maximizing else 10 ** 9
+    evaluated = []
 
     for move in legal_moves:
         src_piece = BOARD[move.fr][move.fc]
@@ -769,14 +768,22 @@ def handle_bestmove(turn, depth):
             BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
             BOARD[rook_tr][rook_tc] = '.'
 
-        if maximizing and value > best_value:
-            best_value = value
-            best_move = move
-        if not maximizing and value < best_value:
-            best_value = value
-            best_move = move
+        evaluated.append((move, value))
 
-    print(f'BESTMOVE {best_move.fr} {best_move.fc} {best_move.tr} {best_move.tc}')
+    if maximizing:
+        evaluated.sort(key=lambda x: x[1], reverse=True)
+    else:
+        evaluated.sort(key=lambda x: x[1])
+
+    best_move, best_value = evaluated[0]
+    out = f'BESTMOVE {best_move.fr} {best_move.fc} {best_move.tr} {best_move.tc} EVAL {best_value}'
+    
+    if len(evaluated) > 1:
+        out += ' ALTS'
+        for i in range(1, min(4, len(evaluated))):
+            alt_m, alt_val = evaluated[i]
+            out += f' {alt_m.fr} {alt_m.fc} {alt_m.tr} {alt_m.tc} {alt_val}'
+    print(out)
 
 
 def handle_notation(turn, fr, fc, tr, tc, promo='\0'):

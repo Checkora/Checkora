@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -188,7 +189,76 @@
             opacity: 0.9;
         }
 
+        /* Light Theme Overrides */
+        [data-theme="light"] body {
+            background: #f5f7fb;
+            color: #111827;
+        }
+        [data-theme="light"] h1 {
+            color: #111827;
+        }
+        [data-theme="light"] .subtitle {
+            color: #6b7280;
+        }
+        [data-theme="light"] .achievement-card, [data-theme="light"] .stats-banner {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+        }
+        [data-theme="light"] .achievement-card:hover {
+            border-color: #b47505;
+            box-shadow: 0 4px 15px rgba(180, 117, 5, 0.1);
+        }
+        [data-theme="light"] .title, [data-theme="light"] .stats-banner h2 {
+            color: #111827;
+        }
+        [data-theme="light"] .description, [data-theme="light"] .stats-banner p {
+            color: #4b5563;
+        }
+        [data-theme="light"] .back-btn {
+            color: #6b7280;
+        }
+        [data-theme="light"] .back-btn:hover {
+            color: #b47505;
+        }
+        [data-theme="light"] .featured-badge {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            color: #111827;
+        }
+        [data-theme="light"] .category {
+            color: #b47505;
+        }
+        [data-theme="light"] .rarity-common { background: #e5e7eb; color: #4b5563; }
+        [data-theme="light"] .rarity-rare { background: #dbeafe; color: #1e40af; }
+        [data-theme="light"] .rarity-epic { background: #f3e8ff; color: #6b21a8; }
+        [data-theme="light"] .rarity-legendary { background: #ffedd5; color: #9a3412; }
+
+        @keyframes celebrate-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.7); border-color: #f0c040; }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px 10px rgba(240, 192, 64, 0); border-color: #f0c040; }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 192, 64, 0); }
+        }
+        .celebrate-effect {
+            animation: celebrate-pulse 0.8s ease-out;
+        }
+        .celebrate-btn {
+            margin-top: 12px;
+            margin-left: 10px;
+            padding: 8px 14px;
+            border: 1px solid #f0c040;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+            color: #f0c040;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .celebrate-btn:hover {
+            background: rgba(240, 192, 64, 0.1);
+        }
     </style>
+    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <script src="{% static 'game/js/confetti.js' %}"></script>
 </head>
 <body>
 
@@ -272,12 +342,16 @@
             </a>
             
             <form method="post"
-                action="{% url 'feature_badge' achievement.id %}">
+                action="{% url 'feature_badge' achievement.id %}" style="display:inline-block;">
                 {% csrf_token %}
                 <button type="submit" class="feature-btn">
                     ⭐ Feature Badge
                 </button>
             </form>
+
+            <button type="button" class="celebrate-btn" onclick="triggerCelebration(this)" aria-label="Celebrate achievement">
+                🎉 Celebrate
+            </button>
 
         {% else %}
             <span class="status locked">
@@ -290,6 +364,28 @@
 {% endfor %}
 
 </div>
+
+<script>
+function triggerCelebration(btn) {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+
+    const card = btn.closest('.achievement-card');
+    card.classList.remove('celebrate-effect');
+    // Trigger reflow to restart animation
+    void card.offsetWidth;
+    card.classList.add('celebrate-effect');
+
+    if (window.triggerConfetti) {
+        window.triggerConfetti({
+            count: 150,
+            spread: 80,
+            colors: ["#ffd700", "#ff6b6b", "#4facfe", "#00f2fe", "#43e97b", "#38f9d7"]
+        });
+    }
+}
+</script>
 
 </body>
 </html>

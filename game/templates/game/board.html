@@ -9,7 +9,7 @@
     <meta name="description" content="Challenge the Checkora AI engine. Play a professional game of chess with advanced AI analysis and move history.">
     <meta name="keywords" content="Play Chess, Checkora, AI Chess, Chess Analysis, Chess Game Online">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <!-- Vercel Speed Insights -->
     <script>
@@ -19,6 +19,62 @@
 
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <style>
+        /* ── Navbar avatar thumbnail ── */
+        .nav-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid rgba(250, 204, 21, 0.6);
+            vertical-align: middle;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .nav-avatar-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            flex-shrink: 0;
+            color: #94a3b8;
+            vertical-align: middle;
+        }
+        /* ── SAN Quick Move Input styles ── */
+        .san-input-container {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+        }
+        .san-move-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .san-move-btn {
+            padding: 10px 15px;
+        }
+        .san-move-error {
+            color: #ff6b6b;
+            font-size: 0.8rem;
+            display: none;
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+    </style>
 
     <!-- Vercel Web Analytics -->
     <script>
@@ -70,9 +126,19 @@
 
 <body>
     <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
+    <script>
+        window.USER_AVATAR_URL = "{% if user.is_authenticated and user.profile.avatar %}{{ user.profile.avatar|escapejs }}{% else %}{% endif %}";
+    </script>
 
     <!-- MOBILE FAB -->
 <div class="m-fab" id="mFab">
+  <button type="button" class="m-fab-btn" id="mobileControlsToggle" title="Show Controls" aria-expanded="false" aria-controls="mobilePanel">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
   <button
   type="button"
   class="m-fab-btn"
@@ -110,7 +176,7 @@
         <div class="promo-dialog">
             <div style="margin-bottom: 20px; color:#f0c040; position: relative;">
                 <a href="/" class="back-btn">← Back to Home</a>
-                <button type="button" id="themeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
+                <button type="button" id="welcomeThemeToggle" class="theme-toggle" title="Toggle light / dark theme">🌙</button>
             </div>
             <div class="promo-title"
                 style="font-size: 1.6rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -151,7 +217,7 @@
                         </span>
                         <span class="tc-chevron" style="font-size: 0.75rem; opacity: 0.7;">▼</span>
                     </button>
-                    
+
                     <!-- Popover / dropdown panel -->
                     <div class="time-control-popover" id="timeControlPopover" style="display: none; flex-direction: column; background: #16162a; border: 1px solid #f0c040; border-radius: 8px; margin-top: 6px; padding: 12px; z-index: 1000; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); position: absolute; left: 0; right: 0;">
                         <div class="tc-tabs" style="display: flex; gap: 4px; border-bottom: 1px solid #252545; padding-bottom: 8px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap;">
@@ -161,7 +227,7 @@
                             <button type="button" class="tc-tab-btn" data-tab="classical" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Classical</button>
                             <button type="button" class="tc-tab-btn" data-tab="custom" style="background: none; border: none; color: #8a8aaa; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; border-radius: 4px; transition: all 0.2s;">Custom...</button>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-bullet" style="display: none;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn" data-mins="1" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">1 min</button>
@@ -169,7 +235,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="2" data-inc="1" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">2 | 1</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-blitz" style="display: none;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn" data-mins="3" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">3 min</button>
@@ -178,7 +244,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="5" data-inc="3" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">5 | 3</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-rapid" style="display: block;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn active" data-mins="10" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">10 min</button>
@@ -188,7 +254,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="30" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">30 min</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-classical" style="display: none;">
                             <div class="tc-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
                                 <button type="button" class="tc-preset-btn" data-mins="30" data-inc="20" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">30 | 20</button>
@@ -196,7 +262,7 @@
                                 <button type="button" class="tc-preset-btn" data-mins="60" data-inc="0" style="padding: 8px; border-radius: 4px; border: 1px solid #252545; background: #0f0f1a; color: #fff; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; grid-column: span 2;">60 min</button>
                             </div>
                         </div>
-                        
+
                         <div class="tc-tab-content" id="tab-custom" style="display: none;">
                             <div class="tc-custom-inputs" style="display: flex; gap: 8px; margin-bottom: 10px; text-align: left;">
                                 <div class="tc-input-field" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
@@ -220,12 +286,12 @@
 
             <!-- Rest stays the same -->
             <div id="modeSelection" style="display: flex; flex-direction: column; gap: 14px;">
-                
-                <button class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
+
+                <button type="button" class="btn btn-gold" id="welcomePvPBtn" style="padding: 12px; font-size: 1.05rem;">Pass & Play
                     (PvP)</button>
-                <button class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
+                <button type="button" class="btn btn-gold" id="welcomeAIBtn" style="padding: 12px; font-size: 1.05rem;">Play vs
                     AI</button>
-                <button type="button" 
+                <button type="button"
                         class="btn btn-gold"
                         id="welcomeDailyPuzzleBtn"
                         style="padding: 12px; font-size: 1.05rem;">
@@ -248,10 +314,10 @@
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
                     <button class="btn color-choice active" id="pveWhiteBtn" data-color="white"
                         style="padding: 12px; flex: 1; border: 2px solid #f0c040; background: #fff; color: #000; transition: all 0.2s;">White</button>
-                    <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection" 
+                    <button type="button" class="btn color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection"
                         style="padding: 12px; flex: 1; border: 1px solid #444; background: linear-gradient(to right, #fff 50%, #000 50%); color: #666; transition: all 0.2s; font-weight: 500;">
             🎲 Random
-        </button>    
+        </button>
                     <button class="btn color-choice" id="pveBlackBtn" data-color="black"
                         style="padding: 12px; flex: 1; border: 2px solid #444; background: #000; color: #fff; transition: all 0.2s;">Black</button>
                 </div>
@@ -267,6 +333,21 @@
                         <option value="hard">Hard</option>
                     </select>
                 </div>
+
+                <!-- Inside #pveOptions div, before startAIBtn -->
+                <div id="aiOpeningContainer" style="margin-bottom: 10px;">
+                    <label for="welcomeOpeningSelect" style="color: #ccc; display: block; margin-bottom: 5px; font-size: 0.9rem; text-align: center;">
+                        Opening (optional)
+                    </label>
+                    <select id="welcomeOpeningSelect"
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;">
+                        <option value="">— No preference (AI decides) —</option>
+                        <option value="italian_game">Italian Game</option>
+                        <option value="sicilian_defense">Sicilian Defense</option>
+                        <option value="queens_gambit">Queen's Gambit</option>
+                    </select>
+                </div>
+
                 <button class="btn btn-gold" id="startAIBtn" style="padding: 12px; font-size: 1.05rem;">Start
                     Game</button>
                 <button class="btn" id="backToModes"
@@ -274,141 +355,51 @@
             </div>
         </div>
     </div>
-    
-    <!-- ========== HEADER ========== -->
-    
-    <div class="header">
-        
-        <div class="logo-container">
-            <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
-                <span class="logo-text">
-    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
-</span>
-            </a>
-            <span class="badge" id="modeBadge">PVP</span>
-        </div>
-        
-        <div class="auth-buttons">
-            {% if user.is_authenticated %}
 
-            <div class="profile-dropdown">
-                <button class="profile-btn">
-                    {{ user.username }} ⌄
-                </button>
+    <!-- ========== NAVBAR ========== -->
+    {% include 'game/includes/navbar.html' %}
 
-                <div class="dropdown-content">
-                    <a href="/stats/">
-                        Stats
-                    </a>
-
-                    <a href="{% url 'leaderboard' %}">
-                        Leaderboard
-                    </a>
-
-                    <a href="{% url 'achievements' %}">
-                        Achievements
-                    </a>
-
-                    <a href="{% url 'opening_trainer' %}">
-                        ♟ Opening Trainer
-                    </a>
-
-                    <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
-                    <form
-                        method="post"
-                        action="{% url 'logout' %}"
-                        style="margin:0;"
-                    >
-                        {% csrf_token %}
-
-                        <button
-                            type="submit"
-                            class="logout-option"
-                        >
-                            Logout
-                        </button>
-                    </form>
-                </div>
-            </div>
-            {% else %}
-
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
-            {% endif %}
-        </div>
-    </div>
-    
     <!-- ========== GAME ========== -->
     <div class="game-layout" style="visibility: hidden;">
 
-        <!-- Left Panel -->
-        <div class="panel">
-            <div class="card">
-                <div class="card-title">Captured by <span id="whiteCapturedName">White</span></div>
-                <div class="captured-list" id="whiteCaptured"></div>
-                <div class="captured-score">Points: <span id="whitePoints">+0</span></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Captured by <span id="blackCapturedName">Black</span></div>
-                <div class="captured-list" id="blackCaptured"></div>
-                <div class="captured-score">Points: <span id="blackPoints">+0</span></div>
-            </div>
-            <div style="margin-top: 10px;">
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <input type="text" id="manualMoveInput" placeholder="Move (e.g. e2e4)" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;" maxlength="5">
-                    <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move format</div>
-                </div>
-            </div>
-
-            <div class="card" id="emotePanel" style="display: none;">
-                <div class="card-title">React</div>
-                <div style="display: flex; gap: 8px; justify-content: space-around; font-size: 1.5rem; flex-wrap: wrap;">
-                    <button class="emote-btn" data-emote="👍" aria-label="React with Thumbs Up" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
-                    <button class="emote-btn" data-emote="🤝" aria-label="React with Shake Hands" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
-                    <button class="emote-btn" data-emote="😂" aria-label="React with Laughing" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
-                    <button class="emote-btn" data-emote="😮" aria-label="React with Surprised" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
-                    <button class="emote-btn" data-emote="🏳️" aria-label="Offer Resignation Emote" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Board -->
+        <!-- Board Monolith -->
         <div class="board-container">
-            <div class="turn-badge white" id="turnBadge">
-                <span id="turnBadgeText">White</span>'s Turn
+            <div class="turn-indicator-row">
+                <div class="turn-badge white" id="turnBadge">
+                    <span id="turnBadgeText">White</span>'s Turn
+                </div>
+                <span id="game-counter" class="game-counter-badge">Game #1</span>
             </div>
-            <div class="clocks">
-                <div id="whiteClock" class="clock white active">
-                    <span class="label">
-                        <span id="whiteNameLabel">WHITE</span>
-                        <span id="whiteYouTag"
-                            style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
-                    </span>
-                    <span class="time" id="whiteTime">10:00</span>
-                </div>
-                <div class="online-status">
-                    <span id="status-indicator"></span>
-                    <span id="status-text">Online</span>
-                </div>
+            <div id="sessionScoreTracker" class="session-score-tracker">
+                <span class="score-item score-win">🏆 W <span id="sessionWins">0</span></span>
+                <span class="score-item score-loss">💀 L <span id="sessionLosses">0</span></span>
+                <span class="score-item score-draw">🤝 D <span id="sessionDraws">0</span></span>
+            </div>
 
-                <div id="streak-counter" class="streak-counter" style="display:none;">
-                    🔥 <span id="streak-count">0</span> Day Streak
+            <!-- Opponent Info (Top) -->
+            <div class="player-info top-player">
+                <div class="player-details">
+                    <img id="blackPlayerAvatar" class="nav-avatar" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
+                    <span id="blackNameLabel">BLACK</span>
+                    <span id="blackYouTag" style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
+                    <div class="captured-list" id="blackCaptured"></div>
+                    <div class="captured-score">Points: <span id="blackPoints">+0</span> <span id="blackAdvantage" class="material-advantage" style="display: none; margin-left: 6px; font-weight: 700; color: #4ade80;"></span></div>
+                    <!-- Hidden elements kept for JS compatibility -->
+                    <div class="captured-meta" style="display:none;">
+                        <img id="blackCapturedAvatar" class="nav-avatar" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="" style="display:none; width:18px; height:18px; border-radius:50%; object-fit:cover;">
+                        Captured by <span id="blackCapturedName">Black</span>
+                    </div>
                 </div>
-
                 <div id="blackClock" class="clock black">
-                    <span class="label">
-                        <span id="blackNameLabel">BLACK</span>
-                        <span id="blackYouTag"
-                            style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
-                    </span>
                     <span class="time" id="blackTime">10:00</span>
                 </div>
             </div>
 
+
            <div class="hint-container">
                 <button id="hintBtn" type="button" class="btn btn-gold">Hint (3)</button>
             </div>
+
 
             <div class="board-outer">
                 <div class="board-aligned">
@@ -419,6 +410,13 @@
                         </div>
                         <div class="board-grid-wrap">
                             <div class="chessboard" id="board" role="grid" aria-label="Chess Board"></div>
+                            <div class="countdown-overlay" id="countdownOverlay" aria-live="assertive" aria-atomic="true">
+                                <div class="countdown-number" id="countdownNumber">3</div>
+                            </div>
+                            <!-- Floating Resume Button -->
+                            <button type="button" id="resumeGameBtn" class="resume-game-floating-btn hidden">
+                                Resume Game
+                            </button>
                         </div>
                         <div id="a11y-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
                     </div>
@@ -429,34 +427,100 @@
                 </div>
             </div>
 
-            <div class="status-bar" id="statusBar">
-                <div id="replayControls" class="replay-controls hidden" aria-label="Game Replay Controls" role="group">
-                    <button id="firstReplayBtn" aria-label="Go to first move">⏮</button>
-                    <button id="prevReplayBtn" aria-label="Go to previous move">◀</button>
-                    <button id="playReplayBtn" aria-label="Play/Pause automatic replay">▶</button>
-                    <button id="nextReplayBtn" aria-label="Go to next move">▶▶</button>
-                    <button id="lastReplayBtn" aria-label="Go to last move">⏭</button>
+            <!-- Player Info (Bottom) -->
+            <div class="player-info bottom-player">
+                <div class="player-details">
+                    <img id="whitePlayerAvatar" class="nav-avatar" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="" style="display:none; width:20px; height:20px; border-radius:50%; object-fit:cover;">
+                    <span id="whiteNameLabel">WHITE</span>
+                    <span id="whiteYouTag" style="display: none; color: #f0c040; margin-left: 4px; font-size: 0.8em;">(YOU)</span>
+                    <div class="captured-list" id="whiteCaptured"></div>
+                    <div class="captured-score">Points: <span id="whitePoints">+0</span> <span id="whiteAdvantage" class="material-advantage" style="display: none; margin-left: 6px; font-weight: 700; color: #4ade80;"></span></div>
+                    <!-- Hidden elements kept for JS compatibility -->
+                    <div class="captured-meta" style="display:none;">
+                        <img id="whiteCapturedAvatar" class="nav-avatar" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="" style="display:none; width:18px; height:18px; border-radius:50%; object-fit:cover;">
+                        Captured by <span id="whiteCapturedName">White</span>
+                    </div>
                 </div>
-                <!--Score bar-->
-                  <div id="game-status">Game started</div>
-                   <div class="score-panel">
-                   <div class="score-box">
-                       <span class="score-label">White</span>
-                       <span id="whiteScore">0</span>
-                   </div>
-           
-                   <div class="score-box">
-                       <span class="score-label">Black</span>
-                       <span id="blackScore">0</span>
-                   </div>
-               </div>
-                
+                <div id="whiteClock" class="clock white active">
+                    <span class="time" id="whiteTime">10:00</span>
+                </div>
+            </div>
+
+            <div class="online-status">
+                <span id="status-indicator"></span>
+                <span id="status-text">Online</span>
+            </div>
+
+            <div id="streak-counter" class="streak-counter" style="display:none;">
+                🔥 <span id="streak-count">0</span> Day Streak
             </div>
         </div>
-        
-<!-- Right Panel: Controls -->
-        <div class="panel">
-            <div class="card">
+
+        <!-- Consolidated Sidebar -->
+        <div class="sidebar-container" id="mobilePanel">
+            <button type="button" id="mobileControlsClose" aria-label="Close controls" class="mobile-close-btn">&times;</button>
+            <div class="card status-card">
+                <div class="status-bar" id="statusBar">
+                    <div id="replayControls" class="replay-controls hidden" aria-label="Game Replay Controls" role="group">
+                        <button type="button" id="firstReplayBtn" aria-label="Go to first move">⏮</button>
+                        <button type="button" id="prevReplayBtn" aria-label="Go to previous move">◀</button>
+                        <button type="button" id="playReplayBtn" aria-label="Play/Pause automatic replay">▶</button>
+                        <button type="button" id="nextReplayBtn" aria-label="Go to next move">▶▶</button>
+                        <button type="button" id="lastReplayBtn" aria-label="Go to last move">⏭</button>
+                    </div>
+                    <!--Score bar-->
+                    <div id="game-status">Game started</div>
+                    <div class="score-panel">
+                        <div class="score-box">
+                            <span class="score-label">White</span>
+                            <span id="whiteScore">0</span>
+                        </div>
+                        <div class="score-box">
+                            <span class="score-label">Black</span>
+                            <span id="blackScore">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Quick Move Input (SAN) -->
+                    <div class="san-input-container">
+                        <input type="text" id="sanMoveInput" class="san-move-input" placeholder="Move (e.g. e4, Nf3, O-O)" aria-label="Enter move notation" autocomplete="off">
+                        <button type="button" id="sanMoveBtn" class="btn btn-gold san-move-btn">Move</button>
+                    </div>
+                    <div id="sanMoveError" class="san-move-error" role="alert">Invalid notation</div>
+
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <input type="text" id="manualMoveInput" aria-label="Enter manual move notation" placeholder="Move (e.g. e2e4)" style="padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.9rem;" maxlength="5">
+                            <div id="manualMoveError" style="color: #ff6b6b; font-size: 0.8rem; display: none;">Invalid move format</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card move-history-card">
+                <div class="card-title">Move History</div>
+                <div class="moves-list" id="movesList">
+                    <span class="placeholder">No moves yet</span>
+                </div>
+                 <!-- Move Stepper Navigation Controls -->
+                <div class="move-stepper-controls">
+                    <button type="button" id="stepperFirst" class="stepper-btn" title="Go to First Move" aria-label="Go to first move" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                    </button>
+                    <button type="button" id="stepperPrev" class="stepper-btn" title="Go to Previous Move" aria-label="Go to previous move" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button type="button" id="stepperNext" class="stepper-btn" title="Go to Next Move" aria-label="Go to next move" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                    <button type="button" id="stepperLast" class="stepper-btn" title="Go to Last Move" aria-label="Go to last move" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-utility-column">
+            <div class="card controls-card theme-card">
                 <div class="card-title">Board Theme</div>
                 <div class="theme-switcher">
                     <div class="theme-option">
@@ -485,12 +549,12 @@
                     <label for="showCoordinatesCheckbox" class="preference-label">Show Coordinates</label>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-title">Game Controls</div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
 
+            <div class="card controls-card">
+                <div class="card-title">Game Controls</div>
+                <div class="controls-grid">
                     <button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
-                   <button class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
+                    <button type="button" class="btn btn-gold" id="blindfoldBtn">Blindfold: OFF</button>
                     <button class="btn btn-gold" id="newPvPBtn">Pass & Play (PvP)</button>
                     <button class="btn btn-gold" id="newAIBtn">Play vs AI</button>
                     <button type="button" class="btn btn-gold" id="dailyPuzzleBtn">Daily Puzzle</button>
@@ -501,29 +565,27 @@
                     <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
-                    <div id="flipControls" style="display: flex; flex-direction: column; gap: 8px;">
+                    <div id="flipControls" class="controls-grid-full">
                         <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
                     </div>
                     <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
                     <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
-                    <button class="btn btn-gold" style="width: 100%;"
-                        onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
+                    <button type="button" class="btn btn-gold controls-grid-full" onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
-                <a href="/" class="btn" 
-   style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">
-    EXIT TO HOME
-</a>
+                <a href="/" class="btn controls-grid-full" style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">EXIT TO HOME</a>
             </div>
-        </div>
 
-        <!-- Right Panel: Move History -->
-        <div class="panel">
-            <div class="card" style="height: 100%;">
-                <div class="card-title">Move History</div>
-                <div class="moves-list" id="movesList">
-                    <span class="placeholder">No moves yet</span>
+            <div class="card" id="emotePanel" style="display: none;">
+                <div class="card-title">React</div>
+                <div style="display: flex; gap: 8px; justify-content: space-around; font-size: 1.5rem; flex-wrap: wrap;">
+                    <button type="button" class="emote-btn" data-emote="👍" aria-label="React with Thumbs Up" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">👍</button>
+                    <button type="button" class="emote-btn" data-emote="🤝" aria-label="React with Shake Hands" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🤝</button>
+                    <button type="button" class="emote-btn" data-emote="😂" aria-label="React with Laughing" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😂</button>
+                    <button type="button" class="emote-btn" data-emote="😮" aria-label="React with Surprised" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">😮</button>
+                    <button type="button" class="emote-btn" data-emote="🏳️" aria-label="Offer Resignation Emote" style="background:none;border:none;cursor:pointer;transition:transform 0.2s;">🏳️</button>
                 </div>
+            </div>
             </div>
         </div>
 
@@ -626,7 +688,7 @@
             </button>
         </div>
     </div>
-</div> 
+</div>
     <!-- ========== GAME OVER MODAL ========== -->
     <div class="promo-overlay" id="gameOverOverlay" style="z-index: 10000;">
         <div class="promo-dialog premium-result-dialog" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle" aria-describedby="gameOverMessage">
@@ -707,6 +769,18 @@
                                 <span class="stat-label">Promotions</span>
                                 <span class="stat-value" id="resAnalysisPromotions">0</span>
                             </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Accuracy</span>
+                                <span class="stat-value accuracy-badge" id="resAccuracyScore">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Mistakes</span>
+                                <span class="stat-value mistake-highlight" id="resMistakesCount">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Blunders</span>
+                                <span class="stat-value blunder-highlight" id="resBlundersCount">0</span>
+                            </div>
                         </div>
 
                         <!-- Material difference and captured pieces summary -->
@@ -750,6 +824,27 @@
                             </div>
                         </div>
                     </div>
+
+                    <div id="postGameAnalysisPanel" style="display: none; background: #1a1a2e; border: 1px solid #444; border-radius: 5px; padding: 15px; margin-top: 15px; max-height: 200px; overflow-y: auto; text-align: left;">
+                        <h4 style="color: #f0c040; margin: 0 0 10px 0;">Analysis (<span id="panelAccuracyScore"></span> Accuracy)</h4>
+                        <p style="color: #ccc; margin: 0 0 10px 0; font-size: 0.9rem;">Blunders: <span id="panelBlundersCount">0</span></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; color: #ccc;">
+                            <thead><tr style="border-bottom: 1px solid #444; text-align: left;"><th style="padding: 5px;">Move</th><th style="padding: 5px;">Played</th><th style="padding: 5px;">Best</th><th style="padding: 5px;">Eval</th></tr></thead>
+                            <tbody id="postGameAnalysisTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="aiPredictionPanel" style="display: none; background: #1a1a2e; border: 1px solid #444; border-radius: 5px; padding: 15px; margin-top: 15px; text-align: left;">
+                        <h4 style="color: #f0c040; margin: 0 0 10px 0;">AI Prediction</h4>
+                        <div style="font-size: 0.9rem; color: #ccc;">
+                            <strong>Suggested Move:</strong> <span id="predSuggestedMove"></span>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.9rem; color: #ccc;">
+                            <strong>Predicted Responses:</strong>
+                            <ul id="predResponsesList" style="margin: 5px 0 0 20px; padding: 0;">
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -777,11 +872,33 @@
         </div>
     </div>
 
+    <!-- ========== RESIGN SELECTION MODAL ========== -->
+    <div class="promo-overlay" id="resignModal" style="display: none;">
+        <div class="promo-dialog">
+            <div class="promo-title" style="font-size: 1.4rem; color: #ff6b6b; margin-bottom: 10px;">Who is resigning?
+            </div>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">Select the player who is resigning.</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn" id="resignWhite"
+                    style="padding: 12px; background: #fff; color: #000; font-size: 1rem; border-radius: 6px;">
+                    White
+                </button>
+                <button class="btn" id="resignBlack"
+                    style="padding: 12px; background: #000; color: #fff; font-size: 1rem; border-radius: 6px; border: 1px solid #555;">
+                    Black
+                </button>
+                <button class="btn btn-secondary" id="resignCancel" style="padding: 12px; font-size: 1rem;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- RULEBOOK MODAL -->
     <div id="rulebookModal"
-        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10001; align-items:center; justify-content:center;">
         <div
-            style="position:relative; width:min(95vw, 1400px); height:90vh; background:#13161e; border-radius:12px; overflow:hidden; padding-top:48px;">
+            style="position:relative; width:min(95vw, 1400px); height:90vh; background:var(--page-bg); border-radius:12px; overflow:hidden; padding-top:48px;">
             <button type="button" aria-label="Close rulebook" onclick="document.getElementById('rulebookModal').style.display='none'"
                 style="position:absolute; top: 16px; right:16px; z-index:10; background:#333; border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             <iframe src="/rules/" style="width:100%; height:100%; border:none;"></iframe>
@@ -844,65 +961,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
 
-    <script>
-document.getElementById('shareResultBtn').addEventListener('click', function () {
-    const title = document.getElementById('gameOverTitle').innerText.trim();
-    const message = document.getElementById('gameOverMessage').innerText.trim();
-    const whiteName = document.getElementById('whiteNameLabel').innerText.trim();
-    const blackName = document.getElementById('blackNameLabel').innerText.trim();
-    const movesList = document.getElementById('movesList');
-    const moveCount = movesList.querySelectorAll('span:not(.placeholder)').length ||
-                      movesList.innerText.split('\n').filter(x => x.trim()).length;
-
-    document.getElementById('cardTitle').innerText = title;
-    document.getElementById('cardMessage').innerText = message;
-    document.getElementById('cardWhite').innerText = whiteName;
-    document.getElementById('cardBlack').innerText = blackName;
-    document.getElementById('cardMoves').innerText = moveCount;
-
-    const shareText =
-`♟️ Checkora Chess
-─────────────────
-${title}
-${message}
-
-⚪ ${whiteName} vs ⚫ ${blackName}
-🔢 Moves played: ${moveCount}
-─────────────────
-🎮 Play at: https://checkora.vercel.app`;
-
-    const modal = document.getElementById('shareModal');
-    modal.style.display = 'flex';
-
-    document.getElementById('copyTextBtn').onclick = function () {
-        navigator.clipboard.writeText(shareText).then(() => {
-            this.innerText = '✅ Copied!';
-            setTimeout(() => this.innerText = '📋 Copy Text', 2000);
-        });
-    };
-
-    document.getElementById('copyLinkBtn').onclick = function () {
-        navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
-            this.innerText = '✅ Link Copied!';
-            setTimeout(() => this.innerText = '🔗 Copy Link', 2000);
-        });
-    };
-
-    document.getElementById('whatsappBtn').onclick = function () {
-        const encoded = encodeURIComponent(shareText);
-        window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    };
-
-    document.getElementById('twitterBtn').onclick = function () {
-        const encoded = encodeURIComponent(shareText);
-        window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    };
-
-    document.getElementById('closeShareBtn').onclick = function () {
-        modal.style.display = 'none';
-    };
-});
-</script>
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 

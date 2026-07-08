@@ -38,6 +38,7 @@
 }
 
 .forum-card {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -72,6 +73,18 @@
     font-weight: 600;
     color: #ffffff;
     margin-bottom: 0.35rem;
+}
+
+.forum-card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.forum-bookmark-form,
+.forum-card-stats {
+    position: relative;
+    z-index: 2;
 }
 
 .forum-card-excerpt {
@@ -450,6 +463,129 @@
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+.forum-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+}
+
+.forum-tab {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    padding: 0.7rem 1.1rem;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.forum-tab:hover {
+    color: var(--accent-gold);
+    border-color: rgba(240, 192, 64, 0.28);
+}
+
+.forum-tab.active {
+    background: rgba(240, 192, 64, 0.1);
+    border-color: rgba(240, 192, 64, 0.35);
+    color: var(--accent-gold);
+}
+
+.forum-tab-panel {
+    display: none;
+}
+
+.forum-tab-panel.active {
+    display: block;
+}
+
+.forum-card-wrap {
+    position: relative;
+}
+
+.forum-topic-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.forum-topic-row .forum-card-title {
+    margin-bottom: 0.35rem;
+}
+
+.forum-bookmark-form {
+    flex-shrink: 0;
+}
+
+.forum-bookmark-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    background: transparent;
+    border: none;
+    padding: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.forum-bookmark-btn:hover {
+    background: rgba(240, 192, 64, 0.08);
+}
+
+.forum-bookmark-btn.bookmarked {
+    background: rgba(240, 192, 64, 0.12);
+    border-color: rgba(240, 192, 64, 0.32);
+}
+
+.bookmark-icon {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--accent-gold);
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    transition: fill 0.2s ease;
+}
+
+.bookmark-text {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.forum-bookmark-btn:hover .bookmark-text,
+.forum-bookmark-btn.bookmarked .bookmark-text {
+    opacity: 1;
+}
+
+.forum-bookmark-btn.bookmarked .bookmark-icon {
+    fill: var(--accent-gold);
+}
+
+@media (max-width: 600px) {
+    .forum-topic-row {
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .forum-bookmark-btn,
+    .forum-bookmark-btn:hover,
+    .forum-bookmark-btn.bookmarked {
+        width: auto;
+    }
+
+    .bookmark-text {
+        opacity: 1;
+    }
 
     .forum-reply-compose {
         max-width: 100%;
@@ -602,7 +738,6 @@
 }
 
 .forum-reply-to-btn {
-    margin-top: 0.75rem;
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -625,6 +760,85 @@
     background: rgba(240, 192, 64, 0.12);
     border-color: rgba(240, 192, 64, 0.3);
     box-shadow: 0 0 10px rgba(240, 192, 64, 0.08);
+}
+
+/* ── Reply footer: vote controls + reply button in one row ── */
+.reply-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.reply-vote-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 0.2rem 0.1rem;
+}
+
+.rvi-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.6rem;
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+    white-space: nowrap;
+}
+
+.rvi-btn:not(:disabled):hover {
+    background: rgba(255,255,255,0.07);
+    color: #ffffff;
+}
+
+.rvi-btn.active.upvote-btn {
+    color: #6ddb8b;
+}
+
+.rvi-btn.active.downvote-btn {
+    color: #e06c75;
+}
+
+.rvi-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.rvi-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.7;
+}
+
+.rvi-count {
+    font-size: 0.82rem;
+    font-weight: 700;
+    min-width: 1ch;
+    text-align: center;
+}
+
+.rvi-count.upvote-count  { color: #6ddb8b; }
+.rvi-count.downvote-count { color: #e06c75; }
+
+.rvi-divider {
+    color: rgba(255,255,255,0.15);
+    font-size: 0.75rem;
+    user-select: none;
+    pointer-events: none;
 }
 
 .forum-reply-compose {
@@ -761,4 +975,62 @@ html {
 
 .forum-delete-confirm:hover {
     background: #dc2626;
+}
+
+.forum-sort-form {
+    margin-top: 1.25rem;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: fit-content;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 5px;
+    padding: 0.55rem 0.75rem;
+}
+
+.forum-sort-form label {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.forum-sort-form select {
+    background: #1a1d30;
+    color: #ffffff;
+    border: 1px solid rgba(240, 192, 64, 0.25);
+    border-radius: 5px;
+    padding: 0.45rem 2rem 0.45rem 0.85rem;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 180px;
+}
+
+.forum-sort-form select:focus {
+    outline: none;
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.12);
+}
+
+.forum-reply-main-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.upvote-count  { color: #6ddb8b; }
+.downvote-count { color: #e06c75; }
+
+.forum-reply-body {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 600px) {
+    .forum-reply-main-layout {
+        gap: 0.75rem;
+    }
 }

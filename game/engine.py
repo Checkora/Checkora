@@ -91,6 +91,8 @@ class ChessGame:
         # (row, col) of the square a pawn can capture en passant
         self.en_passant_target = None
         self.halfmove_clock = 0
+        self.initial_fullmove = 1
+        self.initial_turn_was_black = False
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
         self.game_status = 'active'
@@ -116,11 +118,14 @@ class ChessGame:
             result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
+        
+        def _fix_castling(move):
+            return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
         for i in range(0, len(self.move_history), 2):
             move_number = i // 2 + 1
-            white_move = self.move_history[i]['notation']
+            white_move = _fix_castling(self.move_history[i]['notation'])
             if i + 1 < len(self.move_history):
-                black_move = self.move_history[i + 1]['notation']
+                black_move = _fix_castling(self.move_history[i + 1]['notation'])
                 pgn_moves.append(f"{move_number}. {white_move} {black_move}")
             else:
                 pgn_moves.append(f"{move_number}. {white_move}")
@@ -128,13 +133,15 @@ class ChessGame:
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
+            '[Site "checkora.io"]',
+            f'[Date "{today}"]',
+            '[Round "?"]',
             f'[White "{white_name}"]',
             f'[Black "{black_name}"]',
-            f'[Date "{today}"]',
             f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
-        return "\n".join(headers) + "\n\n" + moves
+        return "\n".join(headers) + "\n\n" + moves + " " + result
 
     def to_dict(self):
         """Serialise state for Django session storage.
@@ -159,6 +166,8 @@ DP cache is intentionally excluded to save cookie space."""
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
+            'initial_fullmove': getattr(self, 'initial_fullmove', 1),
+            'initial_turn_was_black': getattr(self, 'initial_turn_was_black', False),
         }
 
     @classmethod
@@ -185,6 +194,8 @@ DP cache is intentionally excluded to save cookie space."""
         game.game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
         game.threefold_warning = data.get('threefold_warning', False)
+        game.initial_fullmove = data.get('initial_fullmove', 1)
+        game.initial_turn_was_black = data.get('initial_turn_was_black', False)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -228,8 +239,39 @@ DP cache is intentionally excluded to save cookie space."""
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
-        game.en_passant_target = None
-        game.halfmove_clock = 0
+
+        # Parse en passant target (field 4)
+        if len(parts) >= 4 and parts[3] != '-':
+            ep_str = parts[3]
+            if len(ep_str) == 2 and ep_str[0] in 'abcdefgh' and ep_str[1] in '12345678':
+                col = ord(ep_str[0]) - ord('a')
+                row = 8 - int(ep_str[1])
+                game.en_passant_target = (row, col)
+            else:
+                game.en_passant_target = None
+        else:
+            game.en_passant_target = None
+
+        # Parse halfmove clock (field 5)
+        if len(parts) >= 5:
+            try:
+                game.halfmove_clock = max(0, int(parts[4]))
+            except ValueError:
+                game.halfmove_clock = 0
+        else:
+            game.halfmove_clock = 0
+
+        # Parse fullmove clock (field 6)
+        if len(parts) >= 6:
+            try:
+                game.initial_fullmove = max(1, int(parts[5]))
+            except ValueError:
+                game.initial_fullmove = 1
+        else:
+            game.initial_fullmove = 1
+
+        game.initial_turn_was_black = (active_color == 'b')
+
         game.move_history = []
         game.captured = {'white': [], 'black': []}
         game.valid_moves_cache = {}
@@ -326,7 +368,8 @@ DP cache is intentionally excluded to save cookie space."""
                 stderr=subprocess.PIPE,
                 text=True,
             )
-            stdout, _ = proc.communicate(input=command, timeout=5)
+            timeout_secs = getattr(self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS)
+            stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
             return stdout.strip()
         except (subprocess.TimeoutExpired, OSError):
             return None
@@ -576,10 +619,12 @@ DP cache is intentionally excluded to save cookie space."""
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
         if game_status == 'checkmate':
-            notation += '#'
+            if not notation.endswith('#'):
+                notation += '#'
 
         elif game_status == 'check':
-            notation += '+'
+            if not notation.endswith('+') and not notation.endswith('#'):
+                notation += '+'
         self.move_history.append({
             'notation': notation,
             'piece': piece,
@@ -816,7 +861,7 @@ DP cache is intentionally excluded to save cookie space."""
             else:
                 self.black_time = max(0, self.black_time - elapsed)
 
-        self.last_ts = now
+        self.last_ts += elapsed
 
     # ------------------------------------------------------------------
     #  Game status detection (check / checkmate / stalemate)
@@ -887,6 +932,28 @@ DP cache is intentionally excluded to save cookie space."""
 
         return f"{placement} {side} {castling}"
 
+    def generate_full_fen(self) -> str:
+        """Build a complete 6-field FEN string."""
+        base_fen = self.generate_fen_key()
+
+        # En Passant target
+        ep_str = '-'
+        if self.en_passant_target:
+            row, col = self.en_passant_target
+            file_char = chr(ord('a') + col)
+            rank_char = str(8 - row)
+            ep_str = f"{file_char}{rank_char}"
+
+        # Halfmove clock
+        halfmove = str(self.halfmove_clock)
+
+        # Fullmove clock
+        offset = 1 if getattr(self, 'initial_turn_was_black', False) else 0
+        fullmove_count = getattr(self, 'initial_fullmove', 1)
+        fullmove = str(fullmove_count + ((len(self.move_history) + offset) // 2))
+
+        return f"{base_fen} {ep_str} {halfmove} {fullmove}"
+
     def get_opening_book_move(self) -> dict | None:
         """Return a random book move for the current position, or ``None``.
 
@@ -932,6 +999,9 @@ DP cache is intentionally excluded to save cookie space."""
     AI_SEARCH_DEPTH_CPP = 4  # C++ is much faster, can search deeper
     AI_SEARCH_DEPTH_PYTHON = 3  # Python engine needs conservative depth
 
+    # Max seconds for engine analysis before returning best move
+    ANALYSIS_TIMEOUT_SECONDS = 10
+
     def get_ai_move(self, depth=None):
         """Return the best move for the current position.
 
@@ -966,9 +1036,32 @@ DP cache is intentionally excluded to save cookie space."""
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
-        return {
+        move_data = {
             'from_row': int(parts[1]),
             'from_col': int(parts[2]),
             'to_row':   int(parts[3]),
             'to_col':   int(parts[4]),
+            'eval': None,
+            'alts': []
         }
+        
+        idx = 5
+        while idx < len(parts):
+            if parts[idx] == "EVAL" and idx + 1 < len(parts):
+                move_data['eval'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "ALTS":
+                idx += 1
+                while idx + 4 < len(parts) and parts[idx] not in ("EVAL", "ALTS"):
+                    move_data['alts'].append({
+                        'from_row': int(parts[idx]),
+                        'from_col': int(parts[idx+1]),
+                        'to_row': int(parts[idx+2]),
+                        'to_col': int(parts[idx+3]),
+                        'eval': int(parts[idx+4])
+                    })
+                    idx += 5
+            else:
+                idx += 1
+
+        return move_data

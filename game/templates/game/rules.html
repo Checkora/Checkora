@@ -26,6 +26,237 @@
             --header-height: 61px;
         }
 
+        /* ── Light Theme Overrides ── */
+        [data-theme="light"] {
+            --bg: #f5f7fb;
+            --surface: #ffffff;
+            --surface2: #f0f2f8;
+            --border: #d1d5db;
+            --gold: #d4a017;
+            --gold-dim: #b8860b;
+            --text: #111827;
+            --muted: #4b5563;
+            --highlight: rgba(212, 160, 23, 0.35);
+            --danger: #dc2626;
+            --glow: 0 0 20px rgba(212, 160, 23, 0.15);
+        }
+
+        [data-theme="light"] body {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        [data-theme="light"] header {
+            background: var(--surface);
+            border-bottom-color: var(--border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .header-subtitle {
+            color: #1d6fa4;
+            border-left-color: var(--border);
+        }
+
+        [data-theme="light"] .sidebar {
+            background: var(--surface);
+            border-right-color: var(--border);
+        }
+
+        [data-theme="light"] .sidebar-title {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .rule-nav-item {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .rule-nav-item:hover {
+            background: var(--surface2);
+            color: var(--text);
+        }
+
+        [data-theme="light"] .rule-nav-item.active {
+            background: #eff6ff;
+            color: var(--gold);
+            border-left-color: var(--gold);
+        }
+
+        [data-theme="light"] .rule-card {
+            background: var(--surface);
+            border-color: var(--border);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        [data-theme="light"] .rule-title {
+            color: var(--text);
+        }
+
+        [data-theme="light"] .rule-desc {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .rule-desc strong {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .demo-wrapper {
+            background: var(--surface2);
+            border-color: var(--border);
+        }
+
+        [data-theme="light"] .demo-label {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .demo-btn {
+            background: var(--surface);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        [data-theme="light"] .demo-btn:hover,
+        [data-theme="light"] .demo-btn.active {
+            background: var(--gold);
+            color: #fff;
+            border-color: var(--gold);
+        }
+
+        [data-theme="light"] .piece-card {
+            background: linear-gradient(145deg, var(--surface2), var(--surface));
+            border-color: var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        [data-theme="light"] .piece-card:hover {
+            box-shadow: 0 8px 15px rgba(212, 160, 23, 0.15);
+            border-color: var(--gold-dim);
+        }
+
+        [data-theme="light"] .piece-card.active {
+            border-color: var(--gold);
+            background: linear-gradient(145deg, var(--surface), #fef9ec);
+            box-shadow: 0 0 20px rgba(212, 160, 23, 0.15);
+        }
+
+        [data-theme="light"] .piece-card .piece-name {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .piece-card.active .piece-name {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .piece-label {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .piece-label h4 {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .step {
+            color: var(--muted);
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        [data-theme="light"] .step:hover {
+            background: var(--surface);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        [data-theme="light"] .step.active {
+            background: linear-gradient(90deg, rgba(212, 160, 23, 0.1), transparent);
+            border-left-color: var(--gold);
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .step-num {
+            background: var(--surface2);
+            border-color: var(--border);
+        }
+
+        [data-theme="light"] .step.active .step-num {
+            background: var(--gold);
+            color: #fff;
+            border-color: var(--gold);
+        }
+
+        [data-theme="light"] .value-row {
+            background: linear-gradient(145deg, var(--surface2), rgba(0, 0, 0, 0.01));
+            border-color: var(--border);
+        }
+
+        [data-theme="light"] .value-piece {
+            color: var(--text);
+        }
+
+        [data-theme="light"] .value-piece .piece-symbol {
+            background: rgba(212, 160, 23, 0.1);
+            border-color: rgba(212, 160, 23, 0.2);
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .value-score {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .value-footnote {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .value-footnote strong {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .value-summary {
+            color: var(--muted);
+        }
+
+        [data-theme="light"] .value-summary strong {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .mini-board {
+            border-color: var(--border);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .sidebar-overlay {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="light"] #menuToggle {
+            background: var(--gold);
+            color: #fff;
+        }
+
+        [data-theme="light"] .back-btn {
+            color: var(--gold);
+        }
+
+        [data-theme="light"] .back-btn:hover {
+            color: var(--gold-dim);
+        }
+
+        /* Theme toggle button */
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--surface2);
+            border-color: var(--gold);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
@@ -292,33 +523,33 @@
         }
 
         .mini-board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    width: 360px;
-    aspect-ratio: 1 / 1;
-    border: 2px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
-    flex-shrink: 0;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-}
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 360px;
+            aspect-ratio: 1 / 1;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
 
         .mini-sq {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    font-size: 1.1rem;
-    cursor: default;
-    transition: background 0.3s ease, transform 0.2s ease;
-    text-shadow: 0 3px 6px rgba(0,0,0,0.6);
-    user-select: none;
-    overflow: hidden;
-}
+            position: relative;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            font-size: 1.1rem;
+            cursor: default;
+            transition: background 0.3s ease, transform 0.2s ease;
+            text-shadow: 0 3px 6px rgba(0,0,0,0.6);
+            user-select: none;
+            overflow: hidden;
+        }
 
         .mini-sq.light { background: var(--light-sq); }
         .mini-sq.dark  { background: var(--dark-sq); }
@@ -596,120 +827,105 @@
 
         .sidebar-overlay.open {
             display: block;
-}
+        }
 
         @media (max-width: 768px) {
-    #menuToggle { display: block; }
+            #menuToggle { display: block; }
 
-    .layout { grid-template-columns: 1fr; }
+            .layout { grid-template-columns: 1fr; }
 
-    .sidebar {
-        display: none;
-        position: fixed;
-        top: var(--header-height);
-        left: 0;
-        width: 260px;
-        height: calc(100vh - var(--header-height));
-        z-index: 300;
-        overflow-y: auto;
-        padding-top: 1rem;
-        background: var(--surface);
-        border-right: 1px solid var(--border);
-    }
+            .sidebar {
+                display: none;
+                position: fixed;
+                top: var(--header-height);
+                left: 0;
+                width: 260px;
+                height: calc(100vh - var(--header-height));
+                z-index: 300;
+                overflow-y: auto;
+                padding-top: 1rem;
+                background: var(--surface);
+                border-right: 1px solid var(--border);
+            }
 
-    .sidebar.open {
-        display: block;
-    }
-    .sidebar.open {
-        display: block;
-    }
+            .sidebar.open { display: block; }
 
-    main {
-        padding: 1.5rem 1rem;
-    }
+            main { padding: 1.5rem 1rem; }
 
-    .mini-board {
-        width: 100%;
-        max-width: 300px;
-    }
-    .mini-board {
-        width: 100%;
-        max-width: 300px;
-    }
+            .mini-board {
+                width: 100%;
+                max-width: 300px;
+            }
 
-    .mini-board-container {
-        flex-direction: column;
-    }
-    .mini-board-container {
-        flex-direction: column;
-    }
+            .mini-board-container { flex-direction: column; }
 
-    .header-subtitle {
-        display: none;
-    }
+            .header-subtitle { display: none; }
 
-    .value-row {
-        grid-template-columns: 1fr;
-        gap: 0.3rem;
-    }
+            .value-row {
+                grid-template-columns: 1fr;
+                gap: 0.3rem;
+            }
 
-    .value-note {
-        display: block;
-        font-size: 0.82rem;
-    }
+            .value-note {
+                display: block;
+                font-size: 0.82rem;
+            }
 
-    .sidebar .rule-nav-item:hover,
-    .sidebar .rule-nav-item:active,
-    .sidebar .rule-nav-item.is-hovered {
-        background: rgba(244, 196, 48, 0.16);
-        color: var(--gold);
-        border-left-color: var(--gold);
-        box-shadow: inset 0 0 0 1px rgba(244, 196, 48, 0.08);
-    }
+            .sidebar .rule-nav-item:hover,
+            .sidebar .rule-nav-item:active,
+            .sidebar .rule-nav-item.is-hovered {
+                background:var(--highlight);
+                color: var(--gold);
+                border-left-color: var(--gold);
+                box-shadow: inset 0 0 0 1px var(--highlight);
+            }
 
-    .sidebar .rule-nav-item:hover .icon,
-    .sidebar .rule-nav-item:active .icon,
-    .sidebar .rule-nav-item.is-hovered .icon {
-        transform: translateX(2px);
-    }
-}
+            .sidebar .rule-nav-item:hover .icon,
+            .sidebar .rule-nav-item:active .icon,
+            .sidebar .rule-nav-item.is-hovered .icon {
+                transform: translateX(2px);
+            }
+        }
 
-@media (max-width: 400px) {
-    .sidebar {
-        display: none;
-        position: fixed;
-        top: calc(var(--header-height) + 8px);
-        right: 12px;
-        left: auto !important;
-        width: 260px;
-        height: calc(100vh - var(--header-height) - 20px);
-        overflow-y: auto;
-        overflow-x: hidden;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-        z-index: 300;
-    }
+        @media (max-width: 400px) {
+            .sidebar {
+                display: none;
+                position: fixed;
+                top: calc(var(--header-height) + 8px);
+                right: 12px;
+                left: auto !important;
+                width: 260px;
+                height: calc(100vh - var(--header-height) - 20px);
+                overflow-y: auto;
+                overflow-x: hidden;
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+                z-index: 300;
+            }
 
-    .sidebar.open {
-        display: block;
-    }
-}
+            .sidebar.open { display: block; }
+        }
     </style>
 </head>
 <body>
 
     <header>
         <div class="header-left">
-            <a href="{% url 'landing' %}" class="logo">
+            <a href="{% url 'landing' %}" class="logo" target="_top">
                 <img src="{% static 'game/checkora_icon_only.png' %}" 
                     style="height: 2rem; width: auto; object-fit: contain;" alt="Checkora">
                 <span>Checkora</span>
             </a>
             <h1 class="header-subtitle">Interactive Chess Rulebook</h1>
         </div>
-        <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button id="themeToggle" class="theme-toggle-btn" type="button"
+                    aria-label="Switch to light mode" aria-pressed="false">🌙</button>
+            <button id="menuToggle" type="button" onclick="toggleSidebar()"
+                    aria-label="Toggle navigation menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button>
+        </div>
     </header>
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"

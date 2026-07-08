@@ -290,7 +290,7 @@ document.addEventListener(
         };
 
         board.innerHTML = "";
-
+        let selectedSquare = null;
         for (
             let row = 8;
             row >= 1;
@@ -326,6 +326,39 @@ document.addEventListener(
                 square.dataset.square =
                     squareName;
 
+                // --- NEW KEYBOARD NAV CODE ---
+                square.setAttribute("tabindex", "0");
+                square.dataset.r = row;
+                square.dataset.c = col;
+
+                square.addEventListener("keydown", (e) => {
+                    let r = parseInt(square.dataset.r);
+                    let c = parseInt(square.dataset.c);
+                    switch(e.key) {
+                        case 'ArrowUp': e.preventDefault(); r = Math.min(8, r + 1); break;
+                        case 'ArrowDown': e.preventDefault(); r = Math.max(1, r - 1); break;
+                        case 'ArrowLeft': e.preventDefault(); c = Math.max(0, c - 1); break;
+                        case 'ArrowRight': e.preventDefault(); c = Math.min(7, c + 1); break;
+                        case 'Enter':
+                        case ' ':
+                            e.preventDefault();
+                            square.click(); // Trigger standard move logic
+                            return;
+                        case 'Escape':
+                            e.preventDefault();
+                            if (selectedSquare) {
+                                selectedSquare.classList.remove("selected-square");
+                                document.querySelectorAll(".valid-move").forEach(sq => sq.classList.remove("valid-move"));
+                                selectedSquare = null;
+                                currentLegalMoves = [];
+                            }
+                            return;
+                        default: return;
+                    }
+                    // Move visual focus to the new square
+                    const target = board.querySelector(`.lesson-square[data-r="${r}"][data-c="${c}"]`);
+                    if (target) target.focus();
+                });
                 if (
                     position[squareName]
                 ) {
@@ -344,7 +377,7 @@ document.addEventListener(
             }
         }
 
-        let selectedSquare = null;
+        // let selectedSquare = null;
 
         board.addEventListener(
             "click",
