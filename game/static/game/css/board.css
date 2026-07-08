@@ -1595,7 +1595,7 @@ body {
 }
 
 .clock .time {
-    font-family: 'Consolas', 'Courier New', monospace;
+    font-family: Consolas, "Courier New", monospace;
     font-size: 1.15rem;
     font-weight: 700;
     flex-shrink: 0;
