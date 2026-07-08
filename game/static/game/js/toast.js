@@ -2,10 +2,7 @@
  * Checkora Toast System
  * Replaces default alerts with modern, floating toast notifications.
  */
-console.log("showToast called", {
-    message,
-    key
-});
+
 (function() {
     'use strict';
 

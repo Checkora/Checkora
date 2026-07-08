@@ -37,8 +37,8 @@ class AuthenticationEndpointsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFormError(
             response.context['form'],
-            'username',
-            'A user with that username already exists.'
+            'email',
+            'Enter a valid email address.'
         )
 
     @mock.patch('game.views.send_mail')
@@ -244,11 +244,15 @@ class AdditionalGameEndpointsTest(TestCase):
         self.assertEqual(result.winner, 'white')
 
     def test_stats_view(self):
+        from django.contrib.auth.models import User
+        user = User.objects.create_user(username='statsuser', password='password123')
+        self.client.force_login(user)
+
         GameResult.objects.create(
-            mode='ai', winner='white', end_reason='checkmate'
+            user=user, mode='ai', winner='white', end_reason='checkmate', player_color='black'
         )
         GameResult.objects.create(
-            mode='pvp', winner='black', end_reason='resign'
+            user=user, mode='pvp', winner='black', end_reason='resign', player_color='white'
         )
 
         response = self.client.get(reverse('stats'))
