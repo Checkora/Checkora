@@ -3378,6 +3378,9 @@
             return false;
         }
 
+        if (welcomeOverlay) welcomeOverlay.classList.remove('active');
+        if (gameLayout) gameLayout.style.visibility = 'visible';
+
         board = d.board;
         turn = d.current_turn;
         paused = false;
