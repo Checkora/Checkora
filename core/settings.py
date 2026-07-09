@@ -24,17 +24,21 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-try:
-    SECRET_KEY = os.environ['SECRET_KEY']
-except KeyError:
-    raise ImproperlyConfigured('SECRET_KEY environment variable is required')
-
-# SECURITY WARNING: don't run with debug turned on in production!
+# In development, provide a safe fallback so local runs and tests work without
+# requiring a manually configured secret key.
 IS_PRODUCTION = os.environ.get('VERCEL_ENV') == 'production'
 if IS_PRODUCTION:
     DEBUG = False
 else:
     DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+
+try:
+    SECRET_KEY = os.environ['SECRET_KEY']
+except KeyError:
+    if DEBUG:
+        SECRET_KEY = 'dev-secret-key-for-local-testing'
+    else:
+        raise ImproperlyConfigured('SECRET_KEY environment variable is required')
 
 ALLOWED_HOSTS = ['.vercel.app']
 
