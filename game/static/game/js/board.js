@@ -720,12 +720,12 @@
     const whiteCapturedName = document.getElementById('whiteCapturedName');
     const blackCapturedName = document.getElementById('blackCapturedName');
     const turnBadgeText = document.getElementById('turnBadgeText');
-    const a11yAnnouncer = document.getElementById('a11y-announcer');
+    const moveAnnouncer = document.getElementById('move-announcer');
 
     function announceMove(msg) {
-        if (a11yAnnouncer) {
-            a11yAnnouncer.textContent = '';
-            setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
+        if (moveAnnouncer) {
+            moveAnnouncer.textContent = '';
+            setTimeout(() => { moveAnnouncer.textContent = msg; }, 50);
         }
     }
 
@@ -1374,6 +1374,20 @@
     /* ==========================================================
     BOARD RENDERING
     ========================================================== */
+    function getSquareOccupantLabel(row, col) {
+        const square = getSquareLabel(row, col);
+        const piece = board[row][col];
+        if (!piece) return `${square}, empty`;
+        const color = pColor(piece);
+        const pieceName = PIECE_NAMES[piece.toLowerCase()] || 'piece';
+        return `${square}, ${color} ${pieceName}`;
+    }
+
+    function setSquareAccessibility(el, row, col) {
+        el.dataset.square = getSquareLabel(row, col);
+        el.setAttribute('aria-label', getSquareOccupantLabel(row, col));
+    }
+
     function buildBoard() {
         const bc = document.querySelector('.board-container');
         if (bc) bc.classList.toggle('flipped', flipped);
@@ -1394,7 +1408,6 @@
                 d.ondragover = e => e.preventDefault();
                 d.ondrop = e => onDrop(e, r, c);
 
-                // ADD THESE:
                 d.draggable = true;
                 d.ondragstart = e => {
                     const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
@@ -1411,12 +1424,10 @@
 
                     const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
 
-                    // If it's the AI's turn, only allow dragging if it's a valid premove
                     if (gameMode === 'ai' && turn !== playerColor && !isPremovedDrag) {
                         return e.preventDefault();
                     }
 
-                    // For all other normal moves, you can only drag your own pieces on your turn
                     if (!isPremovedDrag && pColor(piece) !== turn) {
                         return e.preventDefault();
                     }
@@ -1443,7 +1454,7 @@
                 d.setAttribute('role', 'gridcell');
                 d.setAttribute('data-row', r);
                 d.setAttribute('data-col', c);
-                d.setAttribute('aria-label', getSquareLabel(r, c));
+                setSquareAccessibility(d, r, c);
                 d.onkeydown = (e) => handleSquareKeydown(e, r, c);
 
                 boardEl.appendChild(d);
@@ -1471,16 +1482,18 @@
             const el = sq(r, c);
             el.innerHTML = '';
             const p = board[r][c];
-            if (!p) continue;
+            if (!p) {
+                setSquareAccessibility(el, r, c);
+                continue;
+            }
 
             const img = document.createElement('img');
             img.src = PIECE_IMG[pKey(p)];
             img.className = 'piece';
-            //Set to false, as the parent div now handles dragging
             img.draggable = false;
-            // Keep this so drops work smoothly on occupied squares
             img.ondragover = e => e.preventDefault();
             el.appendChild(img);
+            setSquareAccessibility(el, r, c);
         }
         refreshHighlights();
         markPlayable();
