@@ -1734,6 +1734,29 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
 }
 
+@media (max-width: 480px) {
+    .promo-overlay .time-control-popover {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        max-height: 70vh;
+        overflow-y: auto;
+        z-index: 1001;
+    }
+    .promo-overlay .tc-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .promo-overlay .tc-custom-inputs {
+        flex-direction: column;
+    }
+    .promo-overlay .tc-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
 .promo-overlay .tc-tabs {
     display: flex !important;
     gap: 4px !important;
