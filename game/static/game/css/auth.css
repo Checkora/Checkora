@@ -525,6 +525,82 @@ body.new-cyber-design {
     background: #060913;
 }
 
+[data-theme="light"] body.new-cyber-design {
+    background: var(--bg-primary);
+}
+
+[data-theme="light"] body.new-cyber-design .modern-card {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] body.new-cyber-design .card-glow-line {
+    opacity: 0.5;
+}
+
+[data-theme="light"] body.new-cyber-design .login-subtitle {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .modern-group label {
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] body.new-cyber-design .modern-group input,
+[data-theme="light"] body.new-cyber-design .auth-card input[type="text"],
+[data-theme="light"] body.new-cyber-design .auth-card input[type="password"] {
+    background: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
+    color: var(--input-text) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .modern-group input:focus,
+[data-theme="light"] body.new-cyber-design .auth-card input[type="text"]:focus,
+[data-theme="light"] body.new-cyber-design .auth-card input[type="password"]:focus {
+    border-color: var(--accent-gold) !important;
+    background: var(--card-bg) !important;
+    box-shadow: 0 0 15px rgba(212, 160, 23, 0.25), inset 0 0 8px rgba(212, 160, 23, 0.05) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .checkbox-checkmark {
+    background: var(--card-bg);
+    border-color: var(--input-border);
+}
+
+[data-theme="light"] body.new-cyber-design .custom-checkbox-container {
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] body.new-cyber-design .custom-checkbox-container:hover {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] body.new-cyber-design .modern-footer {
+    border-top-color: var(--border-color);
+}
+
+[data-theme="light"] body.new-cyber-design .forgot-link {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .forgot-link:hover {
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .footer-link-highlight {
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .footer-link-highlight:hover {
+    color: var(--text-primary) !important;
+    text-shadow: none;
+}
+
+[data-theme="light"] body.new-cyber-design .footer-dot {
+    background-color: var(--border-color);
+}
+
 /* Subtle digital grid overlay in background */
 body.new-cyber-design .bg-grid-overlay {
     position: fixed;
@@ -534,6 +610,11 @@ body.new-cyber-design .bg-grid-overlay {
     background-size: 30px 30px;
     z-index: -1;
     pointer-events: none;
+}
+
+[data-theme="light"] body.new-cyber-design .bg-grid-overlay {
+    background-image: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
 }
 
 /* Header typography modifications */
