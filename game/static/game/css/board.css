@@ -2042,7 +2042,7 @@ body {
 @media (max-width: 400px) {
     :root {
         --mobile-board-size: min(
-    calc(100vw - var(--rank-label-width) - 12px),
+    calc(100vw - 24px),
     360px
     );
         --mobile-square-size: calc((var(--mobile-board-size) - (var(--board-border-width) * 2)) / 8);
@@ -2054,7 +2054,6 @@ body {
         max-width: 100%;
         padding: 8px 4px 16px;
         gap: 12px;
-        overflow-x: hidden;
         box-sizing: border-box;
 
     }
@@ -2075,14 +2074,13 @@ body {
     .board-container {
         width: 100%;
         max-width: 100%;
-        overflow-x: hidden;
     }
 
     .board-outer {
         width: fit-content;
         max-width: 100%;
         margin: 0 auto;
-        overflow-x: hidden;
+        overflow: visible;
     }
 
     .files span,
