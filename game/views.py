@@ -1,3 +1,5 @@
+
+
 """Game views for the Checkora chess platform."""
 import logging
 import json
@@ -4163,6 +4165,8 @@ def apply_discussion_sort(queryset, sort_by):
 def forum_list(request):
     sort_by = request.GET.get("sort", "newest")
     page_number = request.GET.get("page", 1)
+    your_page_number = request.GET.get("your_page", 1)
+    bookmarked_page_number = request.GET.get("bookmarked_page", 1)
 
     discussions = Discussion.objects.select_related("user").prefetch_related("replies")
 
@@ -4174,6 +4178,11 @@ def forum_list(request):
     
     paginator = Paginator(discussions, 20)
     page_obj = paginator.get_page(page_number)
+
+    # Defaults so the template always has a page object to iterate over,
+    # even for anonymous users where these tabs are hidden.
+    your_page_obj = Paginator(Discussion.objects.none(), 20).get_page(1)
+    bookmarked_page_obj = Paginator(Discussion.objects.none(), 20).get_page(1)
 
     if request.user.is_authenticated:
         user_discussions = (
@@ -4198,6 +4207,15 @@ def forum_list(request):
         user_discussions = apply_discussion_sort(user_discussions, sort_by)
         bookmarked_discussions = apply_discussion_sort(bookmarked_discussions, sort_by)
 
+        # Same 20-per-page pagination as the "All Discussions" tab, but with
+        # their own page query params so paging one tab doesn't affect the
+        # others.
+        your_paginator = Paginator(user_discussions, 20)
+        your_page_obj = your_paginator.get_page(your_page_number)
+
+        bookmarked_paginator = Paginator(bookmarked_discussions, 20)
+        bookmarked_page_obj = bookmarked_paginator.get_page(bookmarked_page_number)
+
         bookmarked_ids = set(
             request.user.discussion_bookmarks.values_list(
                 "discussion_id",
@@ -4212,7 +4230,9 @@ def forum_list(request):
             "page_obj": page_obj,
             "discussions": discussions,
             "user_discussions": user_discussions,
+            "your_page_obj": your_page_obj,
             "bookmarked_discussions": bookmarked_discussions,
+            "bookmarked_page_obj": bookmarked_page_obj,
             "bookmarked_ids": bookmarked_ids,
             "sort_by": sort_by,
         }
