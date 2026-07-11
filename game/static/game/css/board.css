@@ -1985,6 +1985,11 @@ body {
                 0 0 0 1px rgba(212,175,55,0.08);
     transition: transform 0.12s, box-shadow 0.12s;
   }
+  .m-fab-btn:focus-visible {
+    outline: 3px solid #f0c040;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 4px rgba(240, 192, 64, 0.25);
+  }
   .m-fab-btn:active {
     transform: scale(0.9);
     box-shadow: 0 1px 6px rgba(0,0,0,0.4);
