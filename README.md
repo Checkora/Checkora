@@ -624,18 +624,9 @@ If migrations fail to run, or database models get out of sync, you may encounter
 If you attempt to launch the Django server without setting up a local configuration file, Django will throw `KeyError` or configuration load failures for crucial settings.
 
 *   **Resolution:**
-    Ensure you clone the template configuration into a new active `.env` file in the root directory:
-
-    ```bash
-    # Windows PowerShell
-    copy .env.example .env
-    
-    # macOS / Linux
-    cp .env.example .env
-    ```
-    Open `.env` and verify you have a robust string under `SECRET_KEY`.
-    Additionally, ensure `TRUSTED_PROXIES` is configured (defaulting to
-    `127.0.0.1,::1` for local development).
+    Follow the [Quick Start](#quick-start) section to set up your `.env` file from the template.
+    Make sure `SECRET_KEY` is set to a strong random value and `TRUSTED_PROXIES`
+    is configured (defaulting to `127.0.0.1,::1` for local development).
 
     > **⚠️ Security Warning for Production:**
     > When deploying behind reverse proxies (Vercel, Cloudflare, AWS ALB,
@@ -658,7 +649,7 @@ If you already have another service running on your local port 8000, Django will
 If the browser shows `ERR_SSL_PROTOCOL_ERROR` or the terminal prints *"You're accessing the development server over HTTPS, but it only supports HTTP"*, the browser is using HTTPS against the local HTTP dev server.
 
 *   **Resolution:**
-    1. Copy the example env file if you have not already: `copy .env.example .env` (Windows) or `cp .env.example .env` (macOS/Linux).
+    1. Follow the [Quick Start](#quick-start) setup to configure your `.env` file if you haven't already.
     2. Copy the exact URL from the terminal, for example **`http://127.0.0.1:8000/`** — include `http://` and do not let the browser change it to `https://`.
     3. Disable your browser's HTTPS-upgrade setting for local development (for example, Chrome/Brave: "Always use secure connections" / "Upgrade connections to HTTPS").
     4. Clear cached HSTS for `127.0.0.1` if the browser keeps forcing HTTPS (Chrome/Brave: `chrome://net-internals/#hsts`; steps vary by browser).
