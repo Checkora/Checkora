@@ -136,9 +136,9 @@
         </div>
 
         {% if user.is_authenticated %}
-        <div class="forum-tab-panel" id="tab-your">
+       <div class="forum-tab-panel" id="tab-your">
             <div class="forum-list">
-                {% for discussion in user_discussions %}
+                {% for discussion in your_page_obj %}
                     {% include "game/forum_discussion_card.html" with discussion=discussion %}
                 {% empty %}
                 <div class="forum-empty">
@@ -146,11 +146,25 @@
                 </div>
                 {% endfor %}
             </div>
+
+            {% if your_page_obj.paginator.num_pages > 1 %}
+            <div class="forum-pagination">
+                {% if your_page_obj.has_previous %}
+                    <a href="?your_page={{ your_page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">← Prev</a>
+                {% endif %}
+
+                <span class="forum-page-current">Page {{ your_page_obj.number }} of {{ your_page_obj.paginator.num_pages }}</span>
+
+                {% if your_page_obj.has_next %}
+                    <a href="?your_page={{ your_page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">Next →</a>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
 
         <div class="forum-tab-panel" id="tab-bookmarked">
             <div class="forum-list">
-                {% for discussion in bookmarked_discussions %}
+                {% for discussion in bookmarked_page_obj %}
                     {% include "game/forum_discussion_card.html" with discussion=discussion %}
                 {% empty %}
                 <div class="forum-empty">
@@ -158,6 +172,20 @@
                 </div>
                 {% endfor %}
             </div>
+
+            {% if bookmarked_page_obj.paginator.num_pages > 1 %}
+            <div class="forum-pagination">
+                {% if bookmarked_page_obj.has_previous %}
+                    <a href="?bookmarked_page={{ bookmarked_page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">← Prev</a>
+                {% endif %}
+
+                <span class="forum-page-current">Page {{ bookmarked_page_obj.number }} of {{ bookmarked_page_obj.paginator.num_pages }}</span>
+
+                {% if bookmarked_page_obj.has_next %}
+                    <a href="?bookmarked_page={{ bookmarked_page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">Next →</a>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
         {% endif %}
 
