@@ -519,35 +519,10 @@
                 </div>
             </div>
 
-            <div class="sidebar-utility-column">
-            <div class="card controls-card theme-card">
-                <div class="card-title">Board Theme</div>
-                <div class="theme-switcher">
-                    <div class="theme-option">
-                        <button class="theme-btn active" data-theme="classic" title="Classic" aria-label="Classic theme" aria-pressed="true" type="button"></button>
-                        <span class="theme-label">Classic</span>
-                    </div>
-                    <div class="theme-option">
-                        <button class="theme-btn" data-theme="dark" title="Dark" aria-label="Dark theme" aria-pressed="false" type="button"></button>
-                        <span class="theme-label">Dark</span>
-                    </div>
-                    <div class="theme-option">
-                        <button class="theme-btn" data-theme="green" title="Green" aria-label="Green theme" aria-pressed="false" type="button"></button>
-                        <span class="theme-label">Green</span>
-                    </div>
-                    <div class="theme-option">
-                        <button class="theme-btn" data-theme="blue" title="Blue" aria-label="Blue theme" aria-pressed="false" type="button"></button>
-                        <span class="theme-label">Blue</span>
-                    </div>
-                    <div class="theme-option">
-                        <button class="theme-btn" data-theme="pastel" title="Pastel" aria-label="Pastel theme" aria-pressed="false" type="button"></button>
-                        <span class="theme-label">Pastel</span>
-                    </div>
-                </div>
-                <div class="preference-container">
-                    <input type="checkbox" id="showCoordinatesCheckbox" class="custom-checkbox" checked>
-                    <label for="showCoordinatesCheckbox" class="preference-label">Show Coordinates</label>
-                </div>
+            <div class="card controls-card" style="padding: 15px;">
+                <button type="button" class="btn btn-gold" id="openThemeModalBtn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>⚙️</span> Customize Theme & Settings
+                </button>
             </div>
 
             <div class="card controls-card">
@@ -562,12 +537,8 @@
                     <button type="button" class="btn btn-gold" id="restartPuzzleBtn" style="display:none;">Restart Puzzle</button>
                     <button type="button" class="btn btn-gold" id="hintPuzzleBtn" aria-label="Show puzzle Hint" style="display:none;">💡 Hint</button>
                     <button class="btn btn-gold" id="copyFenBtn">Copy FEN</button>
-                    <button class="btn btn-gold" id="muteBtn" type="button" aria-pressed="true">🔊 Sound On</button>
                     <button class="btn btn-gold" id="newFenBtn">Load Game</button>
                     <button class="btn btn-gold" id="copyPgnBtn">Export as PGN</button>
-                    <div id="flipControls" class="controls-grid-full">
-                        <button class="btn btn-gold" id="autoFlipBtn">Auto-Flip: OFF</button>
-                    </div>
                     <button type="button" class="btn btn-gold" id="drawBtn" title="Shortcut: D">Offer Draw<span class="btn-shortcut">D</span></button>
                     <button type="button" class="btn btn-warning" id="pauseBtn" title="Shortcut: P">Pause<span class="btn-shortcut">P</span></button>
                     <button type="button" class="btn btn-danger" id="resignBtn" title="Shortcut: R">Resign<span class="btn-shortcut">R</span></button>
@@ -665,6 +636,74 @@
         <div class="promo-dialog">
             <div class="promo-title">Promote Pawn</div>
             <div class="promo-pieces" id="promoChoices"></div>
+        </div>
+    </div>
+
+    <!-- ========== THEME & SETTINGS MODAL ========== -->
+    <div class="theme-settings-modal" id="themeSettingsModal" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+        <div class="theme-modal-dialog">
+            <button type="button" class="modal-close-btn" id="closeThemeModalBtn" aria-label="Close modal">&times;</button>
+            <h2 class="theme-modal-title" id="themeModalTitle">⚙️ Theme & Settings</h2>
+            
+            <div class="theme-modal-section">
+                <h3 class="section-title">Board Theme</h3>
+                <div class="theme-swatches-grid">
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="classic" class="theme-radio-input">
+                        <span class="theme-swatch classic-swatch theme-btn" data-theme="classic" title="Classic"></span>
+                        <span class="theme-swatch-name">Classic</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="dark" class="theme-radio-input">
+                        <span class="theme-swatch dark-swatch theme-btn" data-theme="dark" title="Dark"></span>
+                        <span class="theme-swatch-name">Dark</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="green" class="theme-radio-input">
+                        <span class="theme-swatch green-swatch theme-btn" data-theme="green" title="Green"></span>
+                        <span class="theme-swatch-name">Green</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="blue" class="theme-radio-input">
+                        <span class="theme-swatch blue-swatch theme-btn" data-theme="blue" title="Blue"></span>
+                        <span class="theme-swatch-name">Blue</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="pastel" class="theme-radio-input">
+                        <span class="theme-swatch pastel-swatch theme-btn" data-theme="pastel" title="Pastel"></span>
+                        <span class="theme-swatch-name">Pastel</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="theme-modal-section">
+                <h3 class="section-title">Preferences</h3>
+                <div class="pref-switch-row">
+                    <label class="pref-label" for="modalSoundToggle">🔊 Sound Enabled</label>
+                    <label class="switch-toggle">
+                        <input type="checkbox" id="modalSoundToggle">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div class="pref-switch-row">
+                    <label class="pref-label" for="modalCoordsToggle">🔢 Show Coordinates</label>
+                    <label class="switch-toggle">
+                        <input type="checkbox" id="modalCoordsToggle">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div class="pref-switch-row">
+                    <label class="pref-label" for="modalAutoFlipToggle">🔄 Auto-Flip Board</label>
+                    <label class="switch-toggle">
+                        <input type="checkbox" id="modalAutoFlipToggle">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-gold" id="saveThemeSettingsBtn">Close</button>
+            </div>
         </div>
     </div>
 

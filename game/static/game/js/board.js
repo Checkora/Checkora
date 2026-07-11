@@ -604,7 +604,7 @@
 
     let playerColor = 'white';
     let flipped = false;
-    let autoFlip = false;
+    let autoFlip = localStorage.getItem('autoFlip') === 'true';
 
     const sounds = {
         move: new Audio(`${SOUND_BASE_URL}move.wav`),
@@ -5227,6 +5227,175 @@ function updateStepperUI() {
     if (leaveConfirmYes) leaveConfirmYes.addEventListener('click', confirmLeave);
 
     if (leaveConfirmNo) leaveConfirmNo.addEventListener('click', closeLeaveConfirm);
+
+    // ========== Theme & Settings Modal Logic ==========
+    const themeSettingsModal = document.getElementById('themeSettingsModal');
+    const openThemeModalBtn = document.getElementById('openThemeModalBtn');
+    const closeThemeModalBtn = document.getElementById('closeThemeModalBtn');
+    const saveThemeSettingsBtn = document.getElementById('saveThemeSettingsBtn');
+    let themeModalFocusReturn = null;
+
+    if (openThemeModalBtn && themeSettingsModal) {
+        openThemeModalBtn.onclick = () => {
+            themeModalFocusReturn = document.activeElement;
+
+            // 1. Sync Board Theme radio
+            const currentBoardTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
+            const boardThemeRadio = themeSettingsModal.querySelector(`input[name="boardThemeRadio"][value="${currentBoardTheme}"]`);
+            if (boardThemeRadio) boardThemeRadio.checked = true;
+
+            // 2. Sync Sound Toggle
+            const soundToggle = document.getElementById('modalSoundToggle');
+            if (soundToggle) soundToggle.checked = soundEnabled;
+
+            // 3. Sync Coordinates Toggle
+            const coordsToggle = document.getElementById('modalCoordsToggle');
+            const coordsEnabled = localStorage.getItem('showCoordinates') !== 'false';
+            if (coordsToggle) coordsToggle.checked = coordsEnabled;
+
+            // 4. Sync Auto-Flip Toggle
+            const autoFlipToggle = document.getElementById('modalAutoFlipToggle');
+            if (autoFlipToggle) autoFlipToggle.checked = autoFlip;
+
+            // Open the Modal
+            themeSettingsModal.classList.add('active');
+            themeSettingsModal.setAttribute('aria-hidden', 'false');
+
+            // Move focus to modal close button
+            setTimeout(() => {
+                if (closeThemeModalBtn) {
+                    closeThemeModalBtn.focus();
+                }
+            }, 50);
+        };
+    }
+
+    const closeThemeModal = () => {
+        if (themeSettingsModal) {
+            themeSettingsModal.classList.remove('active');
+            themeSettingsModal.setAttribute('aria-hidden', 'true');
+            if (themeModalFocusReturn && typeof themeModalFocusReturn.focus === 'function') {
+                themeModalFocusReturn.focus();
+            }
+            themeModalFocusReturn = null;
+        }
+    };
+
+    if (closeThemeModalBtn) closeThemeModalBtn.onclick = closeThemeModal;
+    if (saveThemeSettingsBtn) saveThemeSettingsBtn.onclick = closeThemeModal;
+
+    // Handle Escape key to close modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && themeSettingsModal && themeSettingsModal.classList.contains('active')) {
+            closeThemeModal();
+        }
+    });
+
+    if (themeSettingsModal) {
+        // Close modal on click outside (backdrop)
+        themeSettingsModal.addEventListener('click', (e) => {
+            if (e.target === themeSettingsModal) {
+                closeThemeModal();
+            }
+        });
+
+        // Handle Board Theme swatch switches
+        const boardRadios = themeSettingsModal.querySelectorAll('input[name="boardThemeRadio"]');
+        boardRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                const selectedTheme = radio.value;
+                document.documentElement.setAttribute('data-board-theme', selectedTheme);
+                localStorage.setItem('boardTheme', selectedTheme);
+                localStorage.setItem('chessBoardTheme', selectedTheme);
+                
+                // Keep any other .theme-btn elements synced (if any exist)
+                const originalThemeBtns = document.querySelectorAll('.theme-btn');
+                originalThemeBtns.forEach(btn => {
+                    if (btn.dataset.theme === selectedTheme) {
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    } else {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-pressed', 'false');
+                    }
+                });
+            });
+        });
+
+        // Handle Sound Toggle Switch
+        const soundToggle = document.getElementById('modalSoundToggle');
+        if (soundToggle) {
+            soundToggle.addEventListener('change', () => {
+                soundEnabled = soundToggle.checked;
+                localStorage.setItem('chessSoundEnabled', String(soundEnabled));
+                if (muteBtn) {
+                    muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
+                    muteBtn.setAttribute('aria-pressed', String(soundEnabled));
+                }
+            });
+        }
+
+        // Handle Coordinates Toggle Switch
+        const coordsToggle = document.getElementById('modalCoordsToggle');
+        if (coordsToggle) {
+            coordsToggle.addEventListener('change', () => {
+                const enabled = coordsToggle.checked;
+                localStorage.setItem('showCoordinates', String(enabled));
+                if (boardEl) {
+                    if (enabled) {
+                        boardEl.classList.remove('hide-coordinates');
+                    } else {
+                        boardEl.classList.add('hide-coordinates');
+                    }
+                }
+                const showCoordsBtn = document.getElementById('showCoordinatesCheckbox');
+                if (showCoordsBtn) showCoordsBtn.checked = enabled;
+            });
+        }
+
+        // Handle Auto-Flip Toggle Switch
+        const autoFlipToggle = document.getElementById('modalAutoFlipToggle');
+        if (autoFlipToggle) {
+            autoFlipToggle.addEventListener('change', () => {
+                autoFlip = autoFlipToggle.checked;
+                localStorage.setItem('autoFlip', String(autoFlip));
+                if (autoFlipBtn) {
+                    autoFlipBtn.textContent = 'Auto-Flip: ' + (autoFlip ? 'ON' : 'OFF');
+                    autoFlipBtn.style.background = autoFlip ? 'linear-gradient(135deg, #40c0f0, #2080d4)' : '';
+                }
+                if (autoFlip && gameMode === 'pvp') {
+                    flipped = (turn === 'black');
+                    buildBoard();
+                }
+            });
+        }
+    }
+
+    // Theme Switcher
+    function initThemeSwitcher() {
+        const themeBtns = document.querySelectorAll('.theme-btn');
+        const currentTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
+        document.documentElement.setAttribute('data-board-theme', currentTheme);
+
+        themeBtns.forEach(btn => {
+            if (btn.dataset.theme === currentTheme) {
+                btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
+            }
+            btn.onclick = () => {
+                const theme = btn.dataset.theme;
+                document.documentElement.setAttribute('data-board-theme', theme);
+                localStorage.setItem('boardTheme', theme);
+                localStorage.setItem('chessBoardTheme', theme);
+                themeBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-pressed', 'false');
+                });
+                btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
+            };
+        });
+    }
 
     function showAssetWarning() {
         const t = document.getElementById('confirmTimerContainer');

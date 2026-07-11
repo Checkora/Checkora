@@ -11,6 +11,8 @@ from game.models import (
     ActiveGame,
     OpeningProgress,
     UserProgress,
+    Discussion,
+    DiscussionBookmark,
 )
 
 from django.conf import settings
@@ -406,6 +408,74 @@ class PasswordResetRateLimitTest(TestCase):
             REMOTE_ADDR='127.0.0.1',
         )
         self.assertEqual(view._client_ip(request), '203.0.113.195')
+
+    def test_password_reset_public_responses_are_indistinguishable(self):
+        """Verify that unknown, single-account, and multi-account submissions
+
+        produce identical public-facing responses (status, redirects, and HTML content)
+        while sending different emails privately.
+        """
+        # Case 1: Unknown email
+        cache.clear()
+        mail.outbox = []
+        response_unknown = self.client.post(
+            self.reset_url,
+            data={'email': 'unknown@example.com'},
+            follow=True,
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+        # Case 2: Single eligible account
+        cache.clear()
+        mail.outbox = []
+        response_single = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+            follow=True,
+        )
+        self.assertEqual(len(mail.outbox), 1)
+
+        # Case 3: Multiple eligible accounts sharing the email
+        cache.clear()
+        mail.outbox = []
+        User.objects.create_user(
+            username='resetplayer2',
+            email='reset@example.com',
+            password='StrongPass1234!',  # noqa: S106
+        )
+        response_multi = self.client.post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+            follow=True,
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+        # 1. Compare status codes (all should be 200 after following redirects)
+        self.assertEqual(response_unknown.status_code, 200)
+        self.assertEqual(response_single.status_code, 200)
+        self.assertEqual(response_multi.status_code, 200)
+
+        # 2. Compare redirect chains
+        self.assertEqual(response_unknown.redirect_chain, response_single.redirect_chain)
+        self.assertEqual(response_single.redirect_chain, response_multi.redirect_chain)
+        self.assertEqual(response_unknown.redirect_chain, [(self.done_url, 302)])
+
+        # 3. Compare final HTML content (must be identical)
+        self.assertEqual(response_unknown.content, response_single.content)
+        self.assertEqual(response_single.content, response_multi.content)
+
+        # 4. Verify no account identifiers or selection UIs are leaked in the public HTML
+        for response in [response_unknown, response_single, response_multi]:
+            self.assertNotContains(response, 'Select Your Account')
+            self.assertNotContains(response, 'resetplayer')
+            self.assertNotContains(response, 'resetplayer2')
+            self.assertNotContains(response, 'usernames')
+
+    def test_account_selection_endpoint_is_removed(self):
+        # Verify that the account selection endpoint returns 404
+        url = '/password-reset-account-selection/'
+        response = self.client.get(url, {'email': 'reset@example.com'})
+        self.assertEqual(response.status_code, 404)
 
 
 class MoveValidationTest(TestCase):
@@ -2229,7 +2299,8 @@ class InsufficientMaterialDrawTest(TestCase):
 class TimeControlIncrementTest(TestCase):
     """Test flexible time control and increment logic."""
 
-    def test_increment_applied_after_move(self):
+    @mock.patch('time.time', return_value=1000.0)
+    def test_increment_applied_after_move(self, _mock_time):
         game = ChessGame(time_limit=600, increment=5)
         self.assertEqual(game.increment, 5)
         self.assertEqual(game.white_time, 600)
@@ -3918,3 +3989,58 @@ class OpeningStatsTests(TestCase):
 
         # XP should not increase after the second completion
         self.assertEqual(user_progress.xp, 75)
+
+
+class DiscussionBookmarkRedirectTests(TestCase):
+    """Tests for safe redirection in toggle_discussion_bookmark view."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username='bookmark_user',
+            password='TestPass123!',
+            email='bookmark@example.com'
+        )
+        self.client.login(username='bookmark_user', password='TestPass123!')
+        self.discussion = Discussion.objects.create(
+            user=self.user,
+            title='Test Discussion',
+            content='This is a test discussion'
+        )
+        self.url = reverse('toggle_discussion_bookmark', kwargs={'discussion_id': self.discussion.id})
+
+    def test_safe_local_path_next(self):
+        response = self.client.post(self.url, {'next': '/forum/'})
+        self.assertRedirects(response, '/forum/', fetch_redirect_response=False)
+
+    def test_safe_same_host_url_next(self):
+        response = self.client.post(self.url, {'next': 'http://testserver/forum/'})
+        self.assertRedirects(response, 'http://testserver/forum/', fetch_redirect_response=False)
+
+    def test_unsafe_external_url_next_falls_back_to_forum(self):
+        response = self.client.post(self.url, {'next': 'http://evil.com/external'})
+        self.assertRedirects(response, reverse('forum'), fetch_redirect_response=False)
+
+    def test_unsafe_protocol_relative_url_next_falls_back_to_forum(self):
+        response = self.client.post(self.url, {'next': '//evil.com/external'})
+        self.assertRedirects(response, reverse('forum'), fetch_redirect_response=False)
+
+    def test_safe_referer_fallback(self):
+        response = self.client.post(self.url, HTTP_REFERER='http://testserver/forum/1/')
+        self.assertRedirects(response, 'http://testserver/forum/1/', fetch_redirect_response=False)
+
+    def test_unsafe_referer_fallback_redirects_to_forum(self):
+        response = self.client.post(self.url, HTTP_REFERER='http://evil.com/external')
+        self.assertRedirects(response, reverse('forum'), fetch_redirect_response=False)
+
+    def test_unsafe_next_and_safe_referer_falls_back_to_referer(self):
+        response = self.client.post(
+            self.url,
+            {'next': 'http://evil.com/external'},
+            HTTP_REFERER='http://testserver/forum/1/'
+        )
+        self.assertRedirects(response, 'http://testserver/forum/1/', fetch_redirect_response=False)
+
+    def test_no_next_and_no_referer_fallback(self):
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse('forum'), fetch_redirect_response=False)

@@ -315,3 +315,161 @@ class AnalyzeGameRateLimitTest(TestCase):
             
             response = self.client.post(reverse('analyze_game'), data=json.dumps(payload), content_type='application/json')
             self.assertEqual(response.status_code, 200)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class AiMoveRateLimitTest(TestCase):
+    """
+    Issue #1625: Rate limiting for the /api/ai-move/ endpoint.
+    """
+
+    def _make_ai_game_session(self):
+        """Set an AI-mode chess game in the test client's session."""
+        from game.engine import ChessGame
+        game = ChessGame()
+        game.mode = 'ai'
+        game.paused = False
+        session = self.client.session
+        session['game'] = game.to_dict()
+        session['difficulty'] = 'easy'
+        session.save()
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from django.core.cache import cache
+        self.user1 = User.objects.create_user(username='ai_rl_user1', password='pass123')
+        self.user2 = User.objects.create_user(username='ai_rl_user2', password='pass123')
+        cache.clear()
+
+    def tearDown(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=2,
+        AI_MOVE_IP_MAX_REQUESTS=1000,
+    )
+    def test_request_under_limit_not_rejected(self):
+        """A single request well below the limit must not return 429 and process normally."""
+        self.client.force_login(self.user1)
+        self._make_ai_game_session()
+
+        from unittest.mock import patch
+        with patch('game.engine.ChessGame.get_ai_move', return_value={'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4}):
+            response = self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get('valid'))
+        self.assertIn('game_status', data)
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=2,
+        AI_MOVE_IP_MAX_REQUESTS=1000,
+    )
+    def test_user_limit_enforcement(self):
+        """After exceeding AI_MOVE_USER_MAX_REQUESTS the endpoint returns 429."""
+        self.client.force_login(self.user1)
+        self._make_ai_game_session()
+
+        for _ in range(2):
+            r = self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+            self.assertNotEqual(r.status_code, 429)
+
+        r = self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+        self.assertEqual(r.status_code, 429)
+        self.assertIn('error', r.json())
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=1000,
+        AI_MOVE_IP_MAX_REQUESTS=2,
+    )
+    def test_ip_limit_enforcement(self):
+        """After exceeding AI_MOVE_IP_MAX_REQUESTS the endpoint returns 429."""
+        self.client.force_login(self.user1)
+        self._make_ai_game_session()
+
+        for _ in range(2):
+            r = self.client.post(reverse('ai_move'), REMOTE_ADDR='10.0.0.1', HTTP_ACCEPT='application/json')
+            self.assertNotEqual(r.status_code, 429)
+
+        r = self.client.post(reverse('ai_move'), REMOTE_ADDR='10.0.0.1', HTTP_ACCEPT='application/json')
+        self.assertEqual(r.status_code, 429)
+        self.assertIn('error', r.json())
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=2,
+        AI_MOVE_IP_MAX_REQUESTS=1000,
+    )
+    def test_separate_users_have_independent_buckets(self):
+        """Exhausting user1's quota must not affect user2's quota."""
+        self.client.force_login(self.user1)
+        self._make_ai_game_session()
+        for _ in range(2):
+            self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+        r = self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+        self.assertEqual(r.status_code, 429)
+
+        self.client.force_login(self.user2)
+        self._make_ai_game_session()
+        r2 = self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+        self.assertNotEqual(r2.status_code, 429)
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=1000,
+        AI_MOVE_IP_MAX_REQUESTS=2,
+    )
+    def test_separate_ips_have_independent_buckets(self):
+        """Exhausting one IP's quota must not throttle a different IP."""
+        self.client.force_login(self.user1)
+        self._make_ai_game_session()
+
+        for _ in range(2):
+            self.client.post(reverse('ai_move'), REMOTE_ADDR='10.0.0.1', HTTP_ACCEPT='application/json')
+        r = self.client.post(reverse('ai_move'), REMOTE_ADDR='10.0.0.1', HTTP_ACCEPT='application/json')
+        self.assertEqual(r.status_code, 429)
+
+        r2 = self.client.post(reverse('ai_move'), REMOTE_ADDR='10.0.0.2', HTTP_ACCEPT='application/json')
+        self.assertNotEqual(r2.status_code, 429)
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=1000,
+        AI_MOVE_IP_MAX_REQUESTS=2,
+    )
+    def test_anonymous_requests_limited_by_ip(self):
+        """Unauthenticated requests fall back to IP-based limiting."""
+        self._make_ai_game_session()
+
+        for _ in range(2):
+            r = self.client.post(reverse('ai_move'), REMOTE_ADDR='192.0.2.1', HTTP_ACCEPT='application/json')
+            self.assertNotEqual(r.status_code, 429)
+
+        r = self.client.post(reverse('ai_move'), REMOTE_ADDR='192.0.2.1', HTTP_ACCEPT='application/json')
+        self.assertEqual(r.status_code, 429)
+        self.assertEqual(r['Retry-After'], '60')
+        self.assertIn('error', r.json())
+
+    @override_settings(
+        AI_MOVE_RATE_WINDOW_SECONDS=60,
+        AI_MOVE_USER_MAX_REQUESTS=1,
+        AI_MOVE_IP_MAX_REQUESTS=1000,
+    )
+    def test_429_response_is_json_with_error_key(self):
+        """The throttled response must be JSON with an 'error' key and a Retry-After header."""
+        self.client.force_login(self.user1)
+        self._make_ai_game_session()
+
+        self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+        r = self.client.post(reverse('ai_move'), HTTP_ACCEPT='application/json')
+        self.assertEqual(r.status_code, 429)
+        self.assertEqual(r['Retry-After'], '60')
+        data = r.json()
+        self.assertIn('error', data)
+        self.assertIsInstance(data['error'], str)
+        self.assertGreater(len(data['error']), 0)
