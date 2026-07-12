@@ -21,7 +21,7 @@ urlpatterns = [
     path('api/analyze-game/', views.analyze_game_view, name='analyze_game'),
     path('stats/', views.stats_view, name='stats'),
     path('api/cron/cleanup-stale-games/', views.cleanup_cron, name='cleanup_cron'),
-
+    path('api/evaluate/', views.evaluate_position, name='evaluate_position'),
     # Authentication
     path('api/check-username/', views.check_username, name='check_username'),
     path('register/', views.register_view, name='register'),

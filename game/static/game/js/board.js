@@ -5781,4 +5781,54 @@ ${message}
             }
         });
     }
-});
+
+    /* ================= EVALUATION BAR ================= */
+    let lastEvalBoardStr = '';
+
+    async function fetchEvaluation() {
+        if (typeof board === 'undefined' || !board || board.length === 0) return;
+        
+        const currentBoardStr = JSON.stringify(board);
+        if (currentBoardStr === lastEvalBoardStr) return;
+        
+        lastEvalBoardStr = currentBoardStr;
+        
+        try {
+            const response = await fetch('/api/evaluate/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const data = await response.json();
+            if (data && data.evaluation !== undefined) {
+                updateEvalBar(data.evaluation);
+            }
+        } catch (e) {
+            console.error("Eval error:", e);
+        }
+    }
+
+    function updateEvalBar(evalScore) {
+        const fill = document.getElementById('evalBarFill');
+        const text = document.getElementById('evalText');
+        if (!fill || !text) return;
+
+        let scoreNum = parseFloat(evalScore) || 0;
+        const formattedScore = (scoreNum > 0 ? '+' : '') + (scoreNum / 100).toFixed(1);
+        text.innerText = formattedScore;
+
+        const maxScore = 1000;
+        let percentage = 50 + (scoreNum / maxScore) * 50;
+        percentage = Math.max(0, Math.min(100, percentage));
+        
+        // Ensure White advantage always expands upward, or orient it relative to player color
+        if (typeof playerColor !== 'undefined' && playerColor === 'black') {
+            percentage = 100 - percentage;
+        }
+
+        fill.style.height = percentage + '%';
+    }
+
+    // Poll for changes
+    setInterval(fetchEvaluation, 1000);
+})();

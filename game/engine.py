@@ -1213,10 +1213,10 @@ DP cache is intentionally excluded to save cookie space."""
     # Max seconds for engine analysis before returning best move
     ANALYSIS_TIMEOUT_SECONDS = 10
 
-    def get_ai_move(self, depth=None):
+    def get_ai_move(self, depth=None, bypass_book=False):
         """Return the best move for the current position.
 
-        Checks the opening book first for an instant theory response.
+        Checks the opening book first for an instant theory response (unless bypass_book is True).
         Falls back to the C++ minimax engine when the position is not
         in the book or the book move fails validation.
 
@@ -1224,9 +1224,10 @@ DP cache is intentionally excluded to save cookie space."""
         legal move exists (checkmate / stalemate).
         """
         # 1. Opening-book lookup (fast path)
-        book_move = self.get_opening_book_move()
-        if book_move:
-            return book_move
+        if not bypass_book:
+            book_move = self.get_opening_book_move()
+            if book_move:
+                return book_move
 
         # 2. Minimax search (slow path)
         board_str = self.serialize_board()

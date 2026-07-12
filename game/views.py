@@ -4711,3 +4711,29 @@ def profile_view(request):
         'draws': draws,
     }
     return render(request, 'game/profile.html', context)
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+@require_POST 
+def evaluate_position(request):
+    try:
+        game_data = request.session.get('game')
+        if not game_data:
+            return JsonResponse({"evaluation": 0})
+            
+        from .engine import ChessGame
+        game = ChessGame.from_dict(game_data)
+        
+        # Use depth=2 for a fast, real-time evaluation, bypassing the book so we always get an eval!
+        best_move = game.get_ai_move(depth=2, bypass_book=True)
+        
+        if best_move and 'eval' in best_move:
+            return JsonResponse({"evaluation": best_move['eval']})
+        else:
+            return JsonResponse({"evaluation": 0})
+            
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Error evaluating position")
+        return JsonResponse({"error": str(e)}, status=500)

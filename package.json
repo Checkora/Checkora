@@ -7,7 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "jest --env=jsdom"
+    "test": "jest --env=jsdom",
+    "start": "node index.js",
+    "dev": ""
   },
   "repository": {
     "type": "git",
