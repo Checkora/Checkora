@@ -118,7 +118,7 @@ body {
     color: #f0c040;
 }
 
-.theme-toggle {
+.header .theme-toggle {
     position: absolute;
     top: 0;
     right: 0;
@@ -133,7 +133,7 @@ body {
     transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
-.theme-toggle:hover {
+.header .theme-toggle:hover {
     background: rgba(255, 255, 255, 0.08);
 }
 

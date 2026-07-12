@@ -13,11 +13,37 @@
         k: 0
     };
 
-
+    const VALID_PIECE_STYLES = ['neo', 'classic', 'alpha', 'cburnett'];
     const PIECE_IMG = {};
-    for (const c of ['w', 'b'])
-        for (const t of ['k', 'q', 'r', 'b', 'n', 'p'])
-            PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
+
+    function buildPieceImg(style) {
+        const targetStyle = VALID_PIECE_STYLES.includes(style) ? style : 'neo';
+        for (const c of ['w', 'b']) {
+            for (const t of ['k', 'q', 'r', 'b', 'n', 'p']) {
+                PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/${targetStyle}/150/${c}${t}.png`;
+            }
+        }
+    }
+
+    // Initialize piece style on page load
+    buildPieceImg(localStorage.getItem('pieceStyle'));
+
+    function updatePieceStyle(style) {
+        buildPieceImg(style);
+        
+        // Re-draw board pieces
+        if (typeof syncPieces === 'function') {
+            syncPieces();
+        }
+        
+        // Re-draw captured list pieces dynamically
+        document.querySelectorAll('.captured-img').forEach(img => {
+            const key = img.dataset.piece;
+            if (key && PIECE_IMG[key]) {
+                img.src = PIECE_IMG[key];
+            }
+        });
+    }
 
     const PIECE_NAMES = {
         'p': 'Pawn',
@@ -760,6 +786,9 @@
     let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
     let analysisRequestSeq = 0; // Sequence token to cancel stale analysis responses
     const DEFAULT_START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    // Tracks the full FEN of the current live position so legal moves can be
+    // computed on the client without a server round-trip (Issue #1445).
+    let liveFen = DEFAULT_START_FEN;
     let gameFens = [];
     let stepperIndex = 0;
     let viewingPastState = false;
@@ -1208,7 +1237,7 @@
         }
 
         board = parseBoard(data.board);
-        console.log("SERVER DATA ON AI MOVE:", data);
+        if (data.fen) liveFen = data.fen;
         turn = data.current_turn;
         whiteTime = data.white_time;
         blackTime = data.black_time;
@@ -1604,6 +1633,57 @@
     /* ==========================================================
     SELECTION & MOVES
     ========================================================== */
+
+    /**
+     * Convert a chess.js square label (e.g. "e4") to board array indices.
+     * board[0][0] == a8, board[7][7] == h1.
+     */
+    function squareLabelToRowCol(square) {
+        const file = square.charCodeAt(0) - 97; // 'a'=0 … 'h'=7
+        const rank = parseInt(square[1], 10);    // 1–8
+        const row  = 8 - rank;                   // rank 8 → row 0
+        return { row, col: file };
+    }
+
+    /**
+     * Compute legal moves for the piece at (r, c) using the chess.js library
+     * that is already loaded on the page.  Returns an array of
+     * { row, col, is_capture, is_promotion } objects — the same shape that
+     * /api/valid-moves/ returns — so the rest of the UI is unchanged.
+     *
+     * Returns null if chess.js is not available so callers can fall back.
+     */
+    function computeLegalMovesClient(r, c) {
+        if (!window.Chess) return null;
+        try {
+            const chess = new window.Chess(liveFen);
+            const fromSquare = getSquareLabel(r, c); // e.g. "e2"
+            const moves = chess.moves({ square: fromSquare, verbose: true });
+            if (!moves) return null;
+
+            const seen = new Set();
+            return moves
+                .filter(m => {
+                    if (seen.has(m.to)) return false;
+                    seen.add(m.to);
+                    return true;
+                })
+                .map(m => {
+                    const { row, col } = squareLabelToRowCol(m.to);
+                    return {
+                        row,
+                        col,
+                        is_capture:   m.captured !== undefined,
+                        is_promotion: m.promotion !== undefined,
+                    };
+                });
+        } catch (e) {
+            // Unexpected chess.js error — caller will fall back to the API.
+            console.warn('computeLegalMovesClient error:', e);
+            return null;
+        }
+    }
+
     async function selectPiece(r, c) {
         const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
         const vBoard = isPremoveMode ? getVirtualBoard() : board;
@@ -1625,11 +1705,18 @@
             return;
         }
 
-        // NORMAL MOVE LOGIC
+        // NORMAL MOVE LOGIC — try client-side first (Issue #1445)
+        const clientMoves = computeLegalMovesClient(r, c);
+        if (clientMoves !== null) {
+            // Instant: no network request needed.
+            hints = clientMoves;
+            refreshHighlights();
+            return;
+        }
+
+        // Fallback: chess.js unavailable — ask the server.
         const data = await get(`/api/valid-moves/?row=${r}&col=${c}`);
-
         hints = data.valid_moves || [];
-
         refreshHighlights();
     }
     function toggleSquareHighlight(r, c) {
@@ -1814,6 +1901,7 @@
                 playSound(data);
                 if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                 board = parseBoard(data.board);
+                if (data.fen) liveFen = data.fen;
                 turn = data.current_turn;
 
                 const hasThreefoldWarning = data.threefold_warning;
@@ -2100,6 +2188,7 @@
 
                 await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                 board = parseBoard(data.board);
+                if (data.fen) liveFen = data.fen;
                 turn = data.current_turn;
                 if (data.threefold_warning) {
                     showStatus(
@@ -2538,8 +2627,10 @@ function updateStepperUI() {
         // Use createElement instead of innerHTML to prevent XSS and avoid DOM reflows
         const makeImg = (p) => {
             const img = document.createElement('img');
-            img.src = PIECE_IMG[pKey(p)];
+            const key = pKey(p);
+            img.src = PIECE_IMG[key];
             img.className = 'captured-img';
+            img.dataset.piece = key; // Save key for live piece style switching
             const name = pieceNames[p.toLowerCase()] || p;
             img.title = name;
             img.alt = name;
@@ -3758,6 +3849,7 @@ function updateStepperUI() {
 
         board = d.board;
         turn = d.current_turn;
+        if (d.fen) liveFen = d.fen;
         paused = false;
         gameOver = false;
         whiteAlertFired = false;
@@ -5029,6 +5121,11 @@ function updateStepperUI() {
             const boardThemeRadio = themeSettingsModal.querySelector(`input[name="boardThemeRadio"][value="${currentBoardTheme}"]`);
             if (boardThemeRadio) boardThemeRadio.checked = true;
 
+            // Sync Piece Style radio
+            const currentPieceStyle = localStorage.getItem('pieceStyle') || 'neo';
+            const pieceStyleRadio = themeSettingsModal.querySelector(`input[name="pieceStyleRadio"][value="${currentPieceStyle}"]`);
+            if (pieceStyleRadio) pieceStyleRadio.checked = true;
+
             // 2. Sync Sound Toggle
             const soundToggle = document.getElementById('modalSoundToggle');
             if (soundToggle) soundToggle.checked = soundEnabled;
@@ -5104,6 +5201,16 @@ function updateStepperUI() {
                         btn.setAttribute('aria-pressed', 'false');
                     }
                 });
+            });
+        });
+
+        // Handle Piece Style swatch switches
+        const pieceRadios = themeSettingsModal.querySelectorAll('input[name="pieceStyleRadio"]');
+        pieceRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                const selectedStyle = radio.value;
+                localStorage.setItem('pieceStyle', selectedStyle);
+                updatePieceStyle(selectedStyle);
             });
         });
 
@@ -5259,7 +5366,8 @@ function updateStepperUI() {
     if (typeof module !== "undefined" && module.exports) {
         module.exports = { 
             pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache,
-            onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame
+            onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame,
+            squareLabelToRowCol, computeLegalMovesClient, updatePieceStyle, PIECE_IMG, VALID_PIECE_STYLES
         };
     } else {
         loadGame();

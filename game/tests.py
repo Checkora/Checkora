@@ -90,7 +90,7 @@ class EnginePathResolutionTest(SimpleTestCase):
             self.assertEqual(ChessGame._resolve_engine_path(), candidates[2])
             self.assertEqual(
                 ChessGame._build_engine_command(candidates[2]),
-                [sys.executable, candidates[2]],
+                [sys.executable, '-u', candidates[2]],
             )
 
 class BoardViewTest(TestCase):

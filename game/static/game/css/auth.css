@@ -520,9 +520,38 @@ body.login-page .helptext {
    CYBERPUNK NEON GLOW DESIGN OVERRIDES (.new-cyber-design)
    ============================================================ */
 
-body.new-cyber-design {
-    position: relative;
-    background: #060913;
+[data-theme="light"] body.new-cyber-design {
+    background: var(--bg-primary);
+}
+/* Light theme overrides for login page */
+[data-theme="light"] body.new-cyber-design {
+    background: var(--bg-primary);
+}
+
+[data-theme="light"] body.new-cyber-design .modern-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] body.new-cyber-design .login-subtitle,
+[data-theme="light"] body.new-cyber-design .modern-group label {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .modern-group input,
+[data-theme="light"] body.new-cyber-design .auth-card input[type="text"],
+[data-theme="light"] body.new-cyber-design .auth-card input[type="password"] {
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--input-text) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .modern-group input:focus,
+[data-theme="light"] body.new-cyber-design .auth-card input[type="text"]:focus,
+[data-theme="light"] body.new-cyber-design .auth-card input[type="password"]:focus {
+    background: var(--input-bg) !important;
+    border-color: var(--accent-gold) !important;
 }
 
 /* Subtle digital grid overlay in background */
