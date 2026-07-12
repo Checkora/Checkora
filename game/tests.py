@@ -156,7 +156,7 @@ class RegistrationViewTest(TestCase):
         EMAIL_HOST_USER='',
         EMAIL_HOST_PASSWORD=''
     )
-    def test_missing_email_credentials_prints_otp_in_debug(self):
+    def test_missing_email_credentials_does_not_fail_registration(self):
         payload = {
             'username': 'devplayer',
             'email': 'devplayer@example.com',
@@ -164,19 +164,10 @@ class RegistrationViewTest(TestCase):
             'password2': 'StrongPass123!',
         }
 
-        with mock.patch('builtins.print') as mock_print:
-            response = self.client.post('/register/', data=payload, follow=True)
+        response = self.client.post('/register/', data=payload, follow=True)
 
         self.assertRedirects(response, '/verify-otp/')
-        self.assertNotContains(response, 'Development mode OTP')
         self.assertTrue(User.objects.filter(username='devplayer').exists())
-        printed_messages = ' '.join(
-            str(arg)
-            for call in mock_print.call_args_list
-            for arg in call.args
-        )
-        self.assertIn('Development registration OTP', printed_messages)
-        self.assertIn('devplayer@example.com', printed_messages)
 
     @override_settings(
         EMAIL_HOST_USER='sender@example.com',

@@ -1113,10 +1113,6 @@ def register_view(request):
                 )
 
                 if settings.DEBUG and missing_email_credentials:
-                    print(
-                        f"[Checkora] Development registration OTP "
-                        f"for {user.email}: {otp}"
-                    )
                     messages.success(
                         request,
                         'If your details are valid, a verification '
