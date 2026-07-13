@@ -243,6 +243,30 @@ class AdditionalGameEndpointsTest(TestCase):
         result = GameResult.objects.last()
         self.assertEqual(result.winner, 'white')
 
+    def test_resign_game_pvp_out_of_turn(self):
+        import json
+        game = ChessGame()
+        game.mode = 'pvp'
+        game.current_turn = 'white'
+
+        self.client.get(reverse('index'))
+        session = self.client.session
+        session['game'] = game.to_dict()
+        session.save()
+
+        response = self.client.post(
+            reverse('resign_game'),
+            data=json.dumps({'resigning_player': 'black'}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['valid'], True)
+        self.assertEqual(data['winner'], 'white')
+
+        result = GameResult.objects.last()
+        self.assertEqual(result.winner, 'white')
+
     def test_stats_view(self):
         from django.contrib.auth.models import User
         user = User.objects.create_user(username='statsuser', password='password123')

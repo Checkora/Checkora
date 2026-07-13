@@ -1704,31 +1704,57 @@ class StaleGameCleanupTest(TestCase):
     def test_edge_cases(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-        
+
         # 1. Game less than 48 hours old
         s1 = SessionStore()
         s1.create()
         s1['game'] = {'game_status': 'active', 'move_history': [1], 'last_ts': time.time() - (10 * 3600)}
         s1.save()
-        
+        ActiveGame.objects.create(
+            session_key=s1.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s1.session_key).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
+
         # 2. Game already completed
         s2 = SessionStore()
         s2.create()
         s2['game'] = {'game_status': 'checkmate', 'move_history': [1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
         s2.save()
-        
+        ActiveGame.objects.create(
+            session_key=s2.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s2.session_key).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
+
         # 3. Session without game data
         s3 = SessionStore()
         s3.create()
         s3.save()
-        
+        ActiveGame.objects.create(
+            session_key=s3.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s3.session_key).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
+
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 0)
         self.assertEqual(response.json()['resigned_games'], 0)
-        
+
         s1 = SessionStore(session_key=s1.session_key)
         self.assertEqual(s1['game']['game_status'], 'active')
+
+        # Verify that only s1's ActiveGame row remains
+        self.assertTrue(ActiveGame.objects.filter(session_key=s1.session_key).exists())
+        self.assertFalse(ActiveGame.objects.filter(session_key=s2.session_key).exists())
+        self.assertFalse(ActiveGame.objects.filter(session_key=s3.session_key).exists())
 
     @override_settings(CRON_SECRET='test_secret_123')
     def test_protected_endpoint(self):
