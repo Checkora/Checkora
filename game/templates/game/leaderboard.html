@@ -116,7 +116,7 @@
                             <span class="username">{{ player.user.username }}</span>
                         </div>
                     </td>
-                    <td>{{ player.rating }}</td>
+                    <td>{{ player.rating }}{% if player.is_provisional %}<span class="provisional-marker" title="Provisional rating (less than 30 games played)">?</span>{% endif %}</td>
                     <td>{{ player.games_played }}</td>
                     <td>{{ player.wins }}</td>
                     <td>{{ player.losses }}</td>

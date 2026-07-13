@@ -333,3 +333,10 @@ td:nth-child(2) {
     color: var(--accent-gold, #b47505);
     border-bottom: 2px solid var(--accent-gold, #b47505);
 }
+
+.provisional-marker {
+    color: #f87171;
+    font-weight: 700;
+    cursor: help;
+    margin-left: 2px;
+}

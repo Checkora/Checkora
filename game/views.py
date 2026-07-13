@@ -145,7 +145,12 @@ def update_player_rating(user, winner, player_color, mode="pvp", difficulty="med
     else:
         result = "loss"
 
-    change = calculate_rating_change(result, old_rating, opponent_rating)
+    change = calculate_rating_change(
+        result,
+        old_rating,
+        opponent_rating,
+        games_played=rating.games_played
+    )
 
     new_rating = max(
         100,

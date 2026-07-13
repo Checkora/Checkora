@@ -230,6 +230,12 @@
             font-weight: 600;
             margin-top: 2px;
         }
+        .provisional-marker {
+            color: #f87171;
+            font-weight: 700;
+            cursor: help;
+            margin-left: 2px;
+        }
 
         .profile-avatar-link {
             display: inline-flex;
@@ -309,7 +315,7 @@
             </div>
             <div class="profile-info">
                 <div class="profile-username">{{ request.user.username }}</div>
-                <div class="profile-rating">♟ Rating: {{ rating.rating }}</div>
+                <div class="profile-rating">♟ Rating: {{ rating.rating }}{% if rating.is_provisional %}<span class="provisional-marker" title="Provisional rating (less than 30 games played)">?</span>{% endif %}</div>
                 <a href="{% url 'upload_avatar' %}" class="profile-avatar-link">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     {% if request.user.profile.avatar %}Update{% else %}Add{% endif %} Profile Picture

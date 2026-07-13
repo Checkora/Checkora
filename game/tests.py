@@ -3967,6 +3967,24 @@ class EloRatingSystemTest(TestCase):
         rating.refresh_from_db()
         self.assertEqual(rating.rating, 100)
 
+    def test_provisional_rating_and_is_provisional(self):
+        from game.rating_service import calculate_rating_change
+        from game.models import PlayerRating
+
+        # Under 30 games: K should be 32 (provisional)
+        self.assertEqual(calculate_rating_change("win", 1200, 1200, games_played=10), 16)
+
+        # 30 or more games: K should be 16 (established)
+        self.assertEqual(calculate_rating_change("win", 1200, 1200, games_played=30), 8)
+
+        # Verify PlayerRating is_provisional property
+        rating, _ = PlayerRating.objects.get_or_create(user=self.user)
+        rating.games_played = 5
+        self.assertTrue(rating.is_provisional)
+
+        rating.games_played = 30
+        self.assertFalse(rating.is_provisional)
+
     def test_record_game_result_resolves_difficulty_from_session(self):
         from game.views import record_game_result
         from game.models import PlayerRating
