@@ -81,6 +81,8 @@
     // --- Game flow ---
     gameOver: false,
     aiThinking: false,
+    isMoving: false,
+    isSanSubmitting: false,
     aiRequestSeq: 0,
     analysisRequestSeq: 0,
     liveFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',

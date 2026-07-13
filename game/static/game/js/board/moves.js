@@ -162,6 +162,8 @@
   }
 
   async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+    if (CB.S.isMoving) return { success: false, message: 'Move in progress' };
+    CB.S.isMoving = true;
     try {
       if (typeof CB.S.openingTrainerMode !== 'undefined' && CB.S.openingTrainerMode) {
         const expectedMove = CB.S.openingTrainerSteps[CB.S.currentTrainerStep]?.expected_move;
@@ -396,6 +398,8 @@
     } catch (e) {
       if (CB.handleReconnect) await CB.handleReconnect();
       return { success: false, message: 'Connection lost' };
+    } finally {
+      CB.S.isMoving = false;
     }
   }
 
@@ -558,6 +562,7 @@
 
   async function onClick(r, c) {
     if (CB.S.replayMode || CB.S.viewingPastState) return;
+    if (CB.S.isMoving || CB.S.isSanSubmitting) return;
     if (CB.S.dragging && !CB.S.touchDragging) return;
 
     const isPremoveMode = CB.S.gameMode === 'ai' && CB.S.turn !== CB.S.playerColor;

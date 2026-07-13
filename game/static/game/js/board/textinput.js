@@ -17,7 +17,9 @@
     if (!sanMoveInput) return;
     let san = sanMoveInput.value.trim();
     if (!san) return;
+    if (CB.S.isMoving || CB.S.isSanSubmitting) return;
 
+    CB.S.isSanSubmitting = true;
     if (sanMoveError) sanMoveError.style.display = 'none';
 
     if (CB.S.paused || CB.S.gameOver) {
@@ -107,6 +109,7 @@
         sanMoveError.style.display = 'block';
       }
     } finally {
+      CB.S.isSanSubmitting = false;
       if (sanMoveBtn) sanMoveBtn.disabled = false;
     }
   }
@@ -206,6 +209,7 @@
       manualMoveInput.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
+          if (CB.S.isMoving || CB.S.isSanSubmitting) return;
           const val = manualMoveInput.value.trim().toLowerCase();
           if (!val) return;
 
