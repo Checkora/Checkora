@@ -18,8 +18,6 @@
     let san = sanMoveInput.value.trim();
     if (!san) return;
     if (CB.S.isMoving || CB.S.isSanSubmitting) return;
-
-    CB.S.isSanSubmitting = true;
     if (sanMoveError) sanMoveError.style.display = 'none';
 
     if (CB.S.paused || CB.S.gameOver) {
@@ -40,6 +38,7 @@
       return;
     }
 
+    CB.S.isSanSubmitting = true;
     if (sanMoveBtn) sanMoveBtn.disabled = true;
 
     try {
@@ -159,7 +158,6 @@
         if (copyFenBtn) copyFenBtn.textContent = 'Copied!';
       } catch (e) {
         if (copyFenBtn) copyFenBtn.textContent = 'Copy failed';
-        return;
       }
 
       if (typeof clearTimeout !== 'undefined' && CB.S.fenCopyTimeout) {

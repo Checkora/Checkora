@@ -368,7 +368,14 @@
     }
 
     if (!CB.get) return;
-    const data = await CB.get('/api/state/');
+    let data;
+    try {
+      data = await CB.get('/api/state/');
+    } catch (error) {
+      console.error('failed to load game state:', error);
+      return;
+    }
+    if (!data) return;
 
     if (data.time_limit !== undefined) {
       CB.S.selectedMins = data.time_limit / 60;
