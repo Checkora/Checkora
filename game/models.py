@@ -163,6 +163,10 @@ class PlayerRating(models.Model):
         auto_now=True
     )
 
+    @property
+    def is_provisional(self):
+        return self.games_played < 30
+
     class Meta:
         constraints = [
             models.CheckConstraint(

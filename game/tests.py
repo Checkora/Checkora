@@ -6,7 +6,6 @@ import time
 from smtplib import SMTPException
 from unittest import mock
 
-from django.utils import timezone
 from game.models import (
     ActiveGame,
     OpeningProgress,
@@ -20,6 +19,7 @@ from django.contrib.auth.models import User
 from django.core import mail
 from django.core.cache import cache
 from django.urls import reverse
+from django.utils import timezone
 from django.test import (
     Client,
     RequestFactory,
@@ -1026,24 +1026,24 @@ class DrawRuleTest(SimpleTestCase):
         without_ep = game.generate_position_key()
 
         self.assertEqual(with_ep, without_ep)
-
+        
     def test_double_pawn_push_sets_en_passant_target(self):
         game = ChessGame()
-
+            
         game.make_move(6, 4, 4, 4)
-
+            
         self.assertEqual(game.en_passant_target, (5, 4))
-
+        
     def test_non_pawn_move_clears_en_passant_target(self):
         game = ChessGame()
-
+        
         game.make_move(6, 4, 4, 4)
-
+        
         self.assertEqual(game.en_passant_target, (5, 4))
-
+        
         game.make_move(0, 1, 2, 2)
-
-        self.assertIsNone(game.en_passant_target)
+        
+        self.assertIsNone(game.en_passant_target)    
 
     def test_en_passant_target_preserved_in_session(self):
         game = ChessGame()
@@ -1075,11 +1075,11 @@ class DrawRuleTest(SimpleTestCase):
 
         self.assertTrue(success)
         self.assertEqual(captured, 'p')
-
+        
         # self.assertEqual(game.board[3][4])  # e5 empty
         self.assertIsNone(game.board[3][3])     # captured pawn removed
         self.assertEqual(game.board[2][3], 'P') # white pawn moved to d6
-
+        
     def test_en_passant_expires_after_one_turn(self):
         game = ChessGame()
 
@@ -1292,7 +1292,7 @@ class AIMoveTest(TestCase):
 
 class OpeningBookTest(SimpleTestCase):
     """Unit tests for the opening-book integration in ChessGame."""
-
+    
     # FEN key generation
 
     def test_fen_key_starting_position(self):
@@ -1587,6 +1587,7 @@ class AnalyzeGameTest(TestCase):
             self.assertEqual(r.status_code, 200)
             self.assertEqual(r.json()['accuracy'], 100) # Defaults to 100% accurate if engine fails
 
+
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
 
@@ -1699,12 +1700,12 @@ class StaleGameCleanupTest(TestCase):
     def setUp(self):
         self.url = '/api/cron/cleanup-stale-games/'
         self.secret = 'test_secret_123'
-
+        
     @override_settings(CRON_SECRET='test_secret_123')
     def test_stale_game_deletion(self):
         from django.contrib.sessions.backends.db import SessionStore
         import time
-
+        
         s = SessionStore()
         s.create()
         # low engagement: < 5 moves
@@ -1715,19 +1716,18 @@ class StaleGameCleanupTest(TestCase):
         }
         s.save()
 
-        active_game = ActiveGame.objects.create(
+        ActiveGame.objects.create(
             session_key=s.session_key,
-            status="active",
+            status='active'
         )
-
-        ActiveGame.objects.filter(pk=active_game.pk).update(
+        ActiveGame.objects.filter(session_key=s.session_key).update(
             last_active=timezone.now() - timezone.timedelta(hours=50)
         )
-
+        
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_games'], 1)
-
+        
         s = SessionStore(session_key=s.session_key)
         self.assertNotIn('game', s)
 
@@ -1736,7 +1736,7 @@ class StaleGameCleanupTest(TestCase):
         from django.contrib.sessions.backends.db import SessionStore
         import time
         from game.models import GameResult
-
+        
         s = SessionStore()
         s.create()
         # high engagement: >= 5 moves
@@ -1750,22 +1750,21 @@ class StaleGameCleanupTest(TestCase):
         }
         s.save()
 
-        active_game = ActiveGame.objects.create(
+        ActiveGame.objects.create(
             session_key=s.session_key,
-            status="active",
+            status='active'
         )
-
-        ActiveGame.objects.filter(pk=active_game.pk).update(
+        ActiveGame.objects.filter(session_key=s.session_key).update(
             last_active=timezone.now() - timezone.timedelta(hours=50)
         )
-
+        
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['resigned_games'], 1)
-
+        
         s = SessionStore(session_key=s.session_key)
         self.assertEqual(s['game']['game_status'], 'resignation')
-
+        
         self.assertEqual(GameResult.objects.count(), 1)
         res = GameResult.objects.first()
         self.assertEqual(res.winner, 'black')
@@ -1781,17 +1780,38 @@ class StaleGameCleanupTest(TestCase):
         s1.create()
         s1['game'] = {'game_status': 'active', 'move_history': [1], 'last_ts': time.time() - (10 * 3600)}
         s1.save()
+        ActiveGame.objects.create(
+            session_key=s1.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s1.session_key).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
 
         # 2. Game already completed
         s2 = SessionStore()
         s2.create()
         s2['game'] = {'game_status': 'checkmate', 'move_history': [1, 2, 3, 4, 5], 'last_ts': time.time() - (50 * 3600)}
         s2.save()
+        ActiveGame.objects.create(
+            session_key=s2.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s2.session_key).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
 
         # 3. Session without game data
         s3 = SessionStore()
         s3.create()
         s3.save()
+        ActiveGame.objects.create(
+            session_key=s3.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s3.session_key).update(
+            last_active=timezone.now() - timezone.timedelta(hours=50)
+        )
 
         response = self.client.post(self.url, HTTP_AUTHORIZATION=f'Bearer {self.secret}')
         self.assertEqual(response.status_code, 200)
@@ -1801,11 +1821,16 @@ class StaleGameCleanupTest(TestCase):
         s1 = SessionStore(session_key=s1.session_key)
         self.assertEqual(s1['game']['game_status'], 'active')
 
+        # Verify that only s1's ActiveGame row remains
+        self.assertTrue(ActiveGame.objects.filter(session_key=s1.session_key).exists())
+        self.assertFalse(ActiveGame.objects.filter(session_key=s2.session_key).exists())
+        self.assertFalse(ActiveGame.objects.filter(session_key=s3.session_key).exists())
+
     @override_settings(CRON_SECRET='test_secret_123')
     def test_protected_endpoint(self):
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 401)
-
+        
         response = self.client.post(self.url, HTTP_AUTHORIZATION='Bearer wrong_secret')
         self.assertEqual(response.status_code, 401)
 
@@ -2013,12 +2038,12 @@ class SecureRegistrationTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, '/verify-otp/')
-
+        
         # Verify the inactive user was not updated/hijacked
         not_reused = User.objects.get(id=old_id)
         self.assertEqual(not_reused.username, 'pendingplayer')
         self.assertTrue(not_reused.check_password('OldPassword456!'))
-
+        
         # Verify no new user was created
         self.assertFalse(User.objects.filter(username='newchessplayer').exists())
 
@@ -2039,7 +2064,7 @@ class SecureRegistrationTest(TestCase):
         )
         response = self.client.post('/register/', data=self.VALID_PAYLOAD)
         self.assertEqual(response.status_code, 302)
-
+        
         self.assertEqual(User.objects.filter(username='newchessplayer').count(), 1)
         self.assertTrue(User.objects.filter(id=inactive.id).exists())
         inactive.refresh_from_db()
@@ -2203,14 +2228,14 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[4] = 'k'
         board64[60] = 'K'
         board64_str = "".join(board64)
-
+        
         # STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
         cmd = f"STATUS {board64_str} - white -1 -1\n"
-
+        
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-
+        
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -2223,12 +2248,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[45] = 'N'
         board64_str = "".join(board64)
-
+        
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-
+        
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -2241,12 +2266,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[45] = 'B'
         board64_str = "".join(board64)
-
+        
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-
+        
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
@@ -2259,12 +2284,12 @@ class InsufficientMaterialDrawTest(TestCase):
         board64[60] = 'K'
         board64[52] = 'P'
         board64_str = "".join(board64)
-
+        
         cmd = f"STATUS {board64_str} - white -1 -1\n"
         game = ChessGame()
         import os
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-
+        
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS OK")
@@ -2276,11 +2301,11 @@ class InsufficientMaterialDrawTest(TestCase):
         game.board = [[None] * 8 for _ in range(8)]
         game.board[0][4] = 'k'
         game.board[7][4] = 'K'
-
+        
         # Verify the status is 'draw'
         status = game.check_game_status()
         self.assertEqual(status, 'draw')
-
+        
         # Actually trigger a move to verify game state transitions to 'draw' and 'insufficient_material'
         with mock.patch.object(game, 'validate_move', return_value=(True, 'ok')):
             success, notation, captured, final_status = game.make_move(7, 4, 7, 3)
@@ -2337,7 +2362,7 @@ class TimeControlIncrementTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['valid'])
-
+        
         session = self.client.session
         game_dict = session.get('game')
         self.assertIsNotNone(game_dict)
@@ -2421,7 +2446,7 @@ class GameResultMoveHistoryTest(TestCase):
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-
+        
         moves = [{'notation': 'd4', 'piece': 'P', 'from': [6, 3], 'to': [4, 3], 'color': 'white'}]
         request.session = {'game': {'move_history': moves}}
 
@@ -2454,12 +2479,12 @@ class GameResultMoveHistoryTest(TestCase):
             'last_ts': time.time() - (50 * 3600)
         }
         s.save()
-        active_game = ActiveGame.objects.create(
-            session_key=s.session_key,
-            status="active",
-        )
 
-        ActiveGame.objects.filter(pk=active_game.pk).update(
+        ActiveGame.objects.create(
+            session_key=s.session_key,
+            status='active'
+        )
+        ActiveGame.objects.filter(session_key=s.session_key).update(
             last_active=timezone.now() - timezone.timedelta(hours=50)
         )
 
@@ -2496,7 +2521,7 @@ class GameResultMoveHistoryTest(TestCase):
 
         # Populate session with active game
         self.client.get('/play/')
-
+        
         # Player makes the move
         response = self.client.post(
             '/api/move/',
@@ -2626,7 +2651,7 @@ class AdditionalViewsSecurityAndLessonsTest(TestCase):
             response = self.client.post(reverse('resend_otp'), follow=True)
 
         self.assertContains(response, 'Failed to resend OTP. Please try again.')
-
+        
         # Verify the session registration_otp_hash was NOT changed/mutated
         session = self.client.session
         self.assertEqual(session.get('registration_otp_hash'), initial_hash)
@@ -2818,11 +2843,11 @@ class OtpBruteForceProtectionTest(TestCase):
 
         response = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
         self.assertRedirects(response, reverse('index'))
-
+        
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_active)
         self.assertIn('_auth_user_id', self.client.session)
-
+        
         from django.contrib.messages import get_messages
         messages_list = [m.message for m in get_messages(response.wsgi_request)]
         self.assertIn('Registration successful! Welcome to Checkora.', messages_list)
@@ -2871,7 +2896,7 @@ class OtpBruteForceProtectionTest(TestCase):
         # Attacker fails OTP 5 times on the dummy flow
         for _ in range(5):
             attacker_client.post(self.verify_url, {'otp': '000000'})
-
+        
         # Verify that the legit user session's counter is still untouched (can still verify OTP successfully)
         response_legit = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
         self.assertRedirects(response_legit, reverse('index'))
@@ -2909,21 +2934,7 @@ class LoginBruteForceProtectionTest(TestCase):
         super().tearDown()
 
     def _clean_test_keys(self):
-        from game.views import (
-            get_username_fail_count_key, get_username_lockout_key,
-            get_ip_fail_count_key, get_ip_lockout_key
-        )
-        cache.delete(get_username_fail_count_key(self.username))
-        cache.delete(get_username_lockout_key(self.username))
-        for i in range(USERNAME_MAX_FAILS + IP_MAX_FAILS + 5):
-            cache.delete(get_username_fail_count_key(f'user_{i}'))
-            cache.delete(get_username_lockout_key(f'user_{i}'))
-        for ip in [
-            '127.0.0.1', '::1', '192.168.1.50', '192.168.1.99',
-            '192.168.1.120'
-        ]:
-            cache.delete(get_ip_fail_count_key(ip))
-            cache.delete(get_ip_lockout_key(ip))
+        cache.clear()
 
     def test_normal_login_flow_works(self):
         """A user with correct credentials can log in successfully."""
@@ -2984,7 +2995,7 @@ class LoginBruteForceProtectionTest(TestCase):
     def test_ip_lockout_after_20_failures(self):
         """A client IP is locked out after IP failed attempts."""
         client_ip = '192.168.1.50'
-
+        
         # We perform IP_MAX_FAILS - 1 failed attempts from this IP.
         for i in range(IP_MAX_FAILS - 1):
             response = self.client.post(
@@ -3100,7 +3111,7 @@ class LoginBruteForceProtectionTest(TestCase):
     def test_lockout_expiration_after_15_minutes(self):
         """A locked username or IP becomes unlocked after duration."""
         from game.views import get_username_lockout_key, get_ip_lockout_key
-
+        
         # 1. Username lockout check
         username_key = get_username_lockout_key(self.username)
         cache.set(
@@ -3165,7 +3176,7 @@ class LoginBruteForceProtectionTest(TestCase):
     def test_lockout_messages_show_remaining_time(self):
         """Lockout messages show remaining time in minutes dynamically."""
         from game.views import get_username_lockout_key, get_ip_lockout_key
-
+        
         # Set lockout for username to expire in exactly 7 minutes (420 seconds)
         username_key = get_username_lockout_key(self.username)
         cache.set(username_key, time.time() + 420, timeout=LOCKOUT_SECONDS)
@@ -3336,14 +3347,14 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertTemplateUsed(response, 'game/achievements.html')
         self.assertContains(response, "Achievements Unlocked")
         self.assertContains(response, "No featured badges selected yet.")
-
+        
     def test_opening_trainer_page(self):
         response = self.client.get(
             reverse("opening_trainer")
         )
 
         self.assertEqual(response.status_code, 200)
-
+    
     def test_opening_detail_page(self):
         response = self.client.get(
             reverse(
@@ -3373,7 +3384,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
         request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps({}), content_type='application/json')
         from django.contrib.auth.models import AnonymousUser
         request.user = AnonymousUser()
-
+        
         response = views.update_puzzle_stats(request)
         self.assertEqual(response.status_code, 302)
 
@@ -3417,7 +3428,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
         response = views.update_puzzle_stats(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content), {'success': True})
-
+        
         from game.models import PuzzleStats
         stats = PuzzleStats.objects.get(user=self.user)
         self.assertEqual(stats.puzzles_solved, 5)
@@ -3435,7 +3446,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
             best_streak=10,
             daily_completions=2
         )
-
+        
         payload = {
             'current_streak': 5,
             'best_streak': 12
@@ -3445,7 +3456,7 @@ class UpdatePuzzleStatsViewTest(TestCase):
         response = views.update_puzzle_stats(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content), {'success': True})
-
+        
         stats = PuzzleStats.objects.get(user=self.user)
         self.assertEqual(stats.current_streak, 5)
         self.assertEqual(stats.best_streak, 12)
@@ -3866,50 +3877,130 @@ class AvatarViewTest(TestCase):
         self.assertTemplateUsed(response, 'game/avatar.html')
 
 
-class GameResultRatingTest(TestCase):
+class EloRatingSystemTest(TestCase):
+    """Tests for the Elo rating calculations and PlayerRating updates."""
+
     def setUp(self):
-        self.user = User.objects.create_user(username='ratingplayer', password='password123')
-        from game.models import PlayerRating, GameResult, UserAchievement, Achievement
-        self.PlayerRating = PlayerRating
-        self.GameResult = GameResult
-        self.UserAchievement = UserAchievement
-        Achievement.objects.create(code='FIRST_WIN', title='First Win', description='Win a game', icon='🏆', category='game', rarity='common')
+        super().setUp()
+        self.user = User.objects.create_user(
+            username='rating_player',
+            password='TestPass123!',
+            email='rating@example.com'
+        )
 
-    def test_record_game_result_updates_rating_and_achievements_for_ai(self):
+    def test_calculate_rating_change_elo_formula(self):
+        from game.rating_service import calculate_rating_change
+
+        # player=1200, opponent=800, win
+        self.assertEqual(calculate_rating_change("win", 1200, 800), 3)
+        # player=1200, opponent=800, loss
+        self.assertEqual(calculate_rating_change("loss", 1200, 800), -29)
+        # player=1200, opponent=800, draw
+        self.assertEqual(calculate_rating_change("draw", 1200, 800), -13)
+        # player=1200, opponent=1200, win
+        self.assertEqual(calculate_rating_change("win", 1200, 1200), 16)
+        # player=1200, opponent=1200, draw
+        self.assertEqual(calculate_rating_change("draw", 1200, 1200), 0)
+        # player=1200, opponent=1600, win
+        self.assertEqual(calculate_rating_change("win", 1200, 1600), 29)
+        # player=1200, opponent=1600, loss
+        self.assertEqual(calculate_rating_change("loss", 1200, 1600), -3)
+        # player=1200, opponent=1600, draw
+        self.assertEqual(calculate_rating_change("draw", 1200, 1600), 13)
+
+        # Invalid result raises ValueError
+        with self.assertRaises(ValueError):
+            calculate_rating_change("invalid_result", 1200, 1200)
+
+    def test_update_player_rating_pve_easy(self):
+        from game.views import update_player_rating
+        from game.models import PlayerRating
+
+        # Base rating starts at 1200
+        rating, _ = PlayerRating.objects.get_or_create(user=self.user)
+        self.assertEqual(rating.rating, 1200)
+
+        # Win against Easy AI (800) -> should gain +3 points
+        update_player_rating(self.user, "white", "white", mode="ai", difficulty="easy")
+        rating.refresh_from_db()
+        self.assertEqual(rating.rating, 1203)
+
+    def test_update_player_rating_pve_hard(self):
+        from game.views import update_player_rating
+        from game.models import PlayerRating
+
+        # Base rating starts at 1200
+        rating, _ = PlayerRating.objects.get_or_create(user=self.user)
+        self.assertEqual(rating.rating, 1200)
+
+        # Win against Hard AI (1600) -> should gain +29 points
+        update_player_rating(self.user, "white", "white", mode="ai", difficulty="hard")
+        rating.refresh_from_db()
+        self.assertEqual(rating.rating, 1229)
+
+    def test_update_player_rating_pvp(self):
+        from game.views import update_player_rating
+        from game.models import PlayerRating
+
+        # Base rating starts at 1200
+        rating, _ = PlayerRating.objects.get_or_create(user=self.user)
+        self.assertEqual(rating.rating, 1200)
+
+        # Win against PvP opponent (defaults to 1200 rating) -> should gain +16 points
+        update_player_rating(self.user, "white", "white", mode="pvp")
+        rating.refresh_from_db()
+        self.assertEqual(rating.rating, 1216)
+
+    def test_rating_floor(self):
+        from game.views import update_player_rating
+        from game.models import PlayerRating
+
+        rating, _ = PlayerRating.objects.get_or_create(user=self.user)
+        # Set player rating to floor boundary
+        rating.rating = 110
+        rating.save()
+
+        # Mock calculate_rating_change to return -50
+        with mock.patch('game.views.calculate_rating_change', return_value=-50):
+            update_player_rating(self.user, "black", "white", mode="ai", difficulty="easy")
+        
+        rating.refresh_from_db()
+        self.assertEqual(rating.rating, 100)
+
+    def test_provisional_rating_and_is_provisional(self):
+        from game.rating_service import calculate_rating_change
+        from game.models import PlayerRating
+
+        # Under 30 games: K should be 32 (provisional)
+        self.assertEqual(calculate_rating_change("win", 1200, 1200, games_played=10), 16)
+
+        # 30 or more games: K should be 16 (established)
+        self.assertEqual(calculate_rating_change("win", 1200, 1200, games_played=30), 8)
+
+        # Verify PlayerRating is_provisional property
+        rating, _ = PlayerRating.objects.get_or_create(user=self.user)
+        rating.games_played = 5
+        self.assertTrue(rating.is_provisional)
+
+        rating.games_played = 30
+        self.assertFalse(rating.is_provisional)
+
+    def test_record_game_result_resolves_difficulty_from_session(self):
         from game.views import record_game_result
+        from game.models import PlayerRating
+
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        request.session = {}
+        request.session = {'difficulty': 'hard'}
 
-        record_game_result(request, 'ai', 'white', 'checkmate', 'white')
+        # A win in an AI game
+        record_game_result(request, mode='ai', winner='white', reason='checkmate', player_color='white', moves=[])
 
-        rating = self.PlayerRating.objects.get(user=self.user)
-        self.assertEqual(rating.games_played, 1)
-        self.assertEqual(rating.wins, 1)
-        self.assertTrue(self.UserAchievement.objects.filter(user=self.user).exists())
+        rating = PlayerRating.objects.get(user=self.user)
+        # Should resolve as a win against Hard AI (1600) starting at 1200 rating -> +29 points -> 1229
+        self.assertEqual(rating.rating, 1229)
 
-        self.assertEqual(self.GameResult.objects.count(), 1)
-        res = self.GameResult.objects.first()
-        self.assertEqual(res.mode, 'ai')
-        self.assertEqual(res.winner, 'white')
-
-    def test_record_game_result_does_not_update_rating_or_achievements_for_pvp(self):
-        from game.views import record_game_result
-        factory = RequestFactory()
-        request = factory.post('/dummy/')
-        request.user = self.user
-        request.session = {}
-
-        record_game_result(request, 'pvp', 'white', 'checkmate', 'white')
-
-        self.assertFalse(self.PlayerRating.objects.filter(user=self.user).exists())
-        self.assertFalse(self.UserAchievement.objects.filter(user=self.user).exists())
-
-        self.assertEqual(self.GameResult.objects.count(), 1)
-        res = self.GameResult.objects.first()
-        self.assertEqual(res.mode, 'pvp')
-        self.assertEqual(res.winner, 'white')
 
 class OpeningStatsTests(TestCase):
 

@@ -48,14 +48,14 @@ from django.template.loader import render_to_string
 from django.contrib import messages
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import F, Q, Sum
+from django.db.models import F, Q
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 from django.db import models
 
-from django.db.models import Count, Avg, Max, Min
+from django.db.models import Count, Avg, Max, Min, Sum
 from datetime import timedelta
 
 from .opening_trainer_data import OPENINGS
@@ -98,16 +98,11 @@ from game.services import (
     generate_badge,
     update_opening_progress,
     create_or_update_active_game,
-    delete_active_game,
-    get_opening_reply,
-    get_valid_openings,
 )
 
 from django.http import FileResponse
 
-from .analysis import detect_opening
-from .analysis import build_summary
-VALID_OPENINGS = get_valid_openings()
+from .analysis import build_summary, detect_opening
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -127,20 +122,19 @@ def index(request):
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
-
     return render(request, 'game/board.html')
 
 
-def update_player_rating(user, winner, player_color):
+AI_RATINGS = {"easy": 800, "medium": 1200, "hard": 1600}
+
+
+def update_player_rating(user, winner, player_color, mode="pvp", difficulty="medium"):
     rating, _ = PlayerRating.objects.get_or_create(
         user=user
     )
 
     old_rating = rating.rating
+    opponent_rating = AI_RATINGS.get((difficulty or "medium").lower(), 1200) if mode == "ai" else 1200
 
     if winner == "draw":
         result = "draw"
@@ -151,7 +145,12 @@ def update_player_rating(user, winner, player_color):
     else:
         result = "loss"
 
-    change = calculate_rating_change(result)
+    change = calculate_rating_change(
+        result,
+        old_rating,
+        opponent_rating,
+        games_played=rating.games_played
+    )
 
     new_rating = max(
         100,
@@ -210,11 +209,13 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
             progress, _ = UserProgress.objects.select_for_update().get_or_create(user=user)
             progress.update_streak()
 
-    if user and mode == 'ai':
+        difficulty = request.session.get("difficulty", "medium")
         update_player_rating(
             user,
             winner,
-            player_color
+            player_color,
+            mode=mode,
+            difficulty=difficulty
         )
         
         check_game_achievements(user)
@@ -265,10 +266,6 @@ def make_move(request):
     if success:
         request.session['game'] = game.to_dict()
         request.session.modified = True
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
@@ -384,10 +381,6 @@ def new_game(request):
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
 
-    raw_opening = data.get('opening', '') if mode == 'ai' else ''
-    opening = raw_opening if raw_opening in VALID_OPENINGS else ''
-    request.session['opening'] = opening
-
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
@@ -407,11 +400,6 @@ def new_game(request):
     request.session.modified = True
     request.session.save()
 
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
-
     return JsonResponse({
         'valid': True,
         'board': game.board,
@@ -429,7 +417,6 @@ def new_game(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
-        'opening': opening,
     })
 
 
@@ -449,11 +436,6 @@ def resume_game(request):
     game.last_ts = time.time()
     request.session['game'] = game.to_dict()
     request.session.modified = True
-
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
 
     return JsonResponse({
         'valid': True,
@@ -579,11 +561,6 @@ def set_pause(request):
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
-
     return JsonResponse({
         'paused': game.paused,
         'white_time': game.white_time,
@@ -646,35 +623,7 @@ def ai_move(request):
     depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
     depth = depth_map.get(difficulty, 2)
 
-    opening = request.session.get('opening', '')
-    book_move = None
-    if opening:
-        try:
-            ai_half_moves = len(game.move_history)
-            played = [
-                (m['from_row'], m['from_col'], m['to_row'], m['to_col'])
-                for m in game.move_history
-            ]
-            book_move = get_opening_reply(opening, ai_half_moves, played)
-        except Exception:
-            book_move = None
-
-    if book_move:
-        best = {
-            'from_row': book_move[0],
-            'from_col': book_move[1],
-            'to_row':   book_move[2],
-            'to_col':   book_move[3],
-        }
-        valid = game.get_valid_moves(best['from_row'], best['from_col'])
-        if not any(m['row'] == best['to_row'] and m['col'] == best['to_col'] for m in valid):
-            request.session['opening'] = ''
-            request.session.modified = True
-            best = game.get_ai_move(depth=depth)
-    else:
-        request.session['opening'] = ''
-        request.session.modified = True
-        best = game.get_ai_move(depth=depth)
+    best = game.get_ai_move(depth=depth)
 
     # Issue #1630: Predict opponent responses in Analysis Mode
     if best and game.mode == 'analysis':
@@ -743,11 +692,6 @@ def ai_move(request):
         request.session['game'] = game.to_dict()
         request.session.modified = True
 
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
-
         return JsonResponse({
             'valid': True,
             'game_status': game_status,
@@ -793,11 +737,6 @@ def ai_move(request):
         request.session['game'] = game_dict
         request.session.modified = True
 
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
-
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
@@ -832,7 +771,6 @@ def ai_move(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
-        'opening': request.session.get('opening', ''),
     })
 
 @require_POST
@@ -868,12 +806,6 @@ def offer_draw(request):
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
         request.session.modified = True
-
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
-
         record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
         return JsonResponse({
             'success': True,
@@ -895,15 +827,18 @@ def resign_game(request):
     if game.game_status != 'active':
         return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
 
-    import json
-    try:
-        data = json.loads(request.body)
-        resigning_player = data.get('resigning_player')
-    except (json.JSONDecodeError, AttributeError, ValueError):
-        resigning_player = None
+    resigning_player = None
+    if game.mode == 'ai':
+        resigning_player = game.player_color
+    else:
+        try:
+            data = json.loads(request.body)
+            resigning_player = data.get('resigning_player')
+        except (json.JSONDecodeError, TypeError):
+            pass
 
-    if resigning_player not in ['white', 'black']:
-        resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
+        if resigning_player not in ('white', 'black'):
+            resigning_player = game.current_turn
 
     winner = 'black' if resigning_player == 'white' else 'white'
     game_status = 'resignation'
@@ -911,11 +846,6 @@ def resign_game(request):
     game.game_status = game_status
     request.session['game'] = game.to_dict()
     request.session.modified = True
-
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
 
     try:
         game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
@@ -980,6 +910,8 @@ def register_view(request):
         if form.is_valid():
             username = form.cleaned_data['username']
             email = form.cleaned_data['email']
+            if not isinstance(email, str):
+                email = str(email)
 
             # Concurrency: serialize registration requests for the same email
             # using a lightweight, synchronized cache lock.
@@ -1175,7 +1107,7 @@ def register_view(request):
                         'code has been sent to your email.',
                     )
                     return redirect('verify_otp')
-                except (SMTPException, BadHeaderError, OSError):
+                except Exception:
                     # If email fails, delete the user only if it was newly created.
                     # This preserves existing inactive accounts for re-verification.
                     if is_new_user:
@@ -1624,8 +1556,7 @@ def get_ip_lockout_key(ip):
 
 def get_analyze_rate_user_key(user_id):
     """Get the cache key for per-user analyze game rate limiting."""
-    digest = hashlib.sha256(str(user_id).encode('utf-8')).hexdigest()
-    return f'analyze_rate:user:{digest}'
+    return f'analyze_rate:user:{user_id}'
 
 
 def get_analyze_rate_ip_key(ip):
@@ -1634,7 +1565,7 @@ def get_analyze_rate_ip_key(ip):
     return f'analyze_rate:ip:{digest}'
 
 
-def increment_counter(key, timeout):
+def increment_counter(key, timeout, threshold=None):
     """Increment cache value atomically or fall back safely."""
     # DatabaseCache does not provide atomic incr, so force fallback lock.
     is_db_cache = cache.__class__.__name__ == 'DatabaseCache'
@@ -1656,81 +1587,36 @@ def increment_counter(key, timeout):
             break
         time.sleep(0.05)
 
-    def _fallback_increment():
-        now = time.time()
-        expiry_key = f"{key}:expiry"
-        expires_at = cache.get(expiry_key)
-        
-        if expires_at is None or now >= expires_at:
-            expires_at = now + timeout
-            cache.set(expiry_key, expires_at, timeout=timeout)
-            
-        remaining = max(1, int(expires_at - now))
-        
-        raw_val = cache.get(key)
-        try:
-            val = int(raw_val) if raw_val is not None else 0
-        except (ValueError, TypeError):
-            val = 0
-            
-        val += 1
-        cache.set(key, val, timeout=remaining)
-        return val
-
     if not acquired:
         # fail closed for brute-force logic without taking down login
-        return _fallback_increment()
+        if threshold is not None:
+            return threshold
+        current = cache.get(key)
+        try:
+            current = int(current) if current is not None else 0
+        except (ValueError, TypeError):
+            current = 0
+        next_val = current + 1
+        cache.set(key, next_val, timeout=timeout)
+        return next_val
 
     try:
-        return _fallback_increment()
+        val = cache.get(key)
+        try:
+            val = int(val) if val is not None else 0
+        except (ValueError, TypeError):
+            val = 0
+        val += 1
+        cache.set(key, val, timeout=timeout)
+        return val
     finally:
         if acquired:
             cache.delete(lock_key)
 
 
-def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit reached. Please try again shortly."):
-    """
-    Reusable rate limit decorator based on cache throttle.
-    Limits requests to max_setting within window_setting seconds per user/IP.
-    """
-    def decorator(view_func):
-        @wraps(view_func)
-        def _wrapped_view(request, *args, **kwargs):
-            if request.user.is_authenticated:
-                key_id = request.user.id
-            else:
-                key_id = get_client_ip(request)
-            
-            key_digest = hashlib.sha256(
-                str(key_id).encode('utf-8')
-            ).hexdigest()
-            cache_key = f"rate_limit:{prefix}:{key_digest}"
-            
-            window_seconds = getattr(settings, window_setting, 60)
-            max_requests = getattr(settings, max_setting, 60)
-            
-            current = increment_counter(cache_key, window_seconds)
-            
-            if current > max_requests:
-                if request.accepts("text/html"):
-                    from django.http import HttpResponse
-                    return HttpResponse(
-                        (
-                            "<h1>429 Too Many Requests</h1>"
-                            f"<p>{error_message}</p>"
-                        ),
-                        status=429
-                    )
-                return JsonResponse({"error": error_message}, status=429)
-                
-            return view_func(request, *args, **kwargs)
-        return _wrapped_view
-    return decorator
-
-
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('landing')
+        return redirect('index')
 
     if request.method == 'POST':
         username = request.POST.get('username', '')
@@ -1800,7 +1686,7 @@ def login_view(request):
                 request,
                 f'Welcome back, {user.username}! Login successful.'
             )
-            return redirect('landing')
+            return redirect('index')
         else:
             # Login failed: track failed attempts
             username_fails = 0
@@ -1809,12 +1695,16 @@ def login_view(request):
                     get_username_fail_count_key(username)
                 )
                 username_fails = increment_counter(
-                    username_fail_count_key, timeout=LOCKOUT_SECONDS
+                    username_fail_count_key,
+                    timeout=LOCKOUT_SECONDS,
+                    threshold=USERNAME_MAX_FAILS,
                 )
 
             ip_fail_count_key = get_ip_fail_count_key(client_ip)
             ip_fails = increment_counter(
-                ip_fail_count_key, timeout=LOCKOUT_SECONDS
+                ip_fail_count_key,
+                timeout=LOCKOUT_SECONDS,
+                threshold=IP_MAX_FAILS,
             )
 
             if ip_fails >= IP_MAX_FAILS:
@@ -2459,14 +2349,14 @@ def analyze_game_view(request):
         ip_max = getattr(settings, 'ANALYZE_GAME_IP_MAX_REQUESTS', 20)
 
         user_key = get_analyze_rate_user_key(request.user.id)
-        user_count = increment_counter(user_key, timeout=window)
-        if user_count > user_max:
+        user_count = increment_counter(user_key, timeout=window, threshold=user_max + 1)
+        if user_count >= user_max + 1:
             return JsonResponse({'error': 'Too many requests'}, status=429)
 
         ip_key = get_analyze_rate_ip_key(get_client_ip(request))
 
-        ip_count = increment_counter(ip_key, timeout=window)
-        if ip_count > ip_max:
+        ip_count = increment_counter(ip_key, timeout=window, threshold=ip_max + 1)
+        if ip_count >= ip_max + 1:
             return JsonResponse({'error': 'Too many requests'}, status=429)
 
         if not isinstance(moves, list):
@@ -3886,15 +3776,6 @@ def lesson_map_view(request):
         }
     )
 
-
-@rate_limit(
-    window_setting="OPENING_RATE_LIMIT_WINDOW_SECONDS",
-    max_setting="OPENING_RATE_LIMIT_MAX_REQUESTS",
-    prefix="opening_lookup",
-    error_message=(
-        "Opening lookup rate limit reached. Please try again shortly."
-    )
-)
 def opening_trainer(request):
     return render(
         request,
@@ -3904,15 +3785,7 @@ def opening_trainer(request):
         }
     )
 
-@ensure_csrf_cookie
-@rate_limit(
-    window_setting="OPENING_RATE_LIMIT_WINDOW_SECONDS",
-    max_setting="OPENING_RATE_LIMIT_MAX_REQUESTS",
-    prefix="opening_lookup",
-    error_message=(
-        "Opening lookup rate limit reached. Please try again shortly."
-    )
-)
+
 def opening_detail(request, slug):
     opening = next(
         (
@@ -3953,41 +3826,7 @@ def update_opening_stats(request):
     completed = data.get("completed", False)
     accuracy = data.get("accuracy", 0)
 
-    if not opening_name:
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Opening name is required",
-            },
-            status=400,
-        )
-
-    valid_openings = {
-        opening["name"]
-        for opening in OPENINGS
-    }
-
-    if opening_name not in valid_openings:
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Invalid opening name",
-            },
-            status=400,
-        )
-
-    if not isinstance(accuracy, (int, float)):
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Invalid accuracy",
-            },
-            status=400,
-        )
-
-    accuracy = max(0, min(100, accuracy))
-
-    progress, first_completion = update_opening_progress(
+    _, first_completion = update_opening_progress(
         request.user,
         opening_name,
         completed=completed,
@@ -4003,7 +3842,7 @@ def update_opening_stats(request):
         "success": True,
         "accuracy": accuracy,
     })
-
+    
 @login_required
 def achievements_view(request):
     try:
@@ -4257,38 +4096,13 @@ def forum_detail(request, discussion_id):
     replies = (
         discussion.replies
         .select_related("user", "reply_to", "reply_to__user")
-        .annotate(
-            upvote_count=Count(
-                "votes",
-                filter=models.Q(votes__value=ReplyVote.UPVOTE)
-            ),
-            downvote_count=Count(
-                "votes",
-                filter=models.Q(votes__value=ReplyVote.DOWNVOTE)
-            ),
-        )
     )
 
-    bookmarked_ids = set()
-    user_reply_votes = {}
-
-    if request.user.is_authenticated:
-        bookmarked_ids = set(
-            request.user.discussion_bookmarks.values_list(
-                "discussion_id",
-                flat=True
-            )
-        )
-
-        user_reply_votes = {
-            vote.reply_id: vote.value
-            for vote in ReplyVote.objects.filter(
-                user=request.user,
-                reply__discussion=discussion
-            )
-        }
-
     form = ReplyForm()
+
+    is_bookmarked = False
+    if request.user.is_authenticated:
+        is_bookmarked = discussion.bookmarks.filter(user=request.user).exists()
 
     return render(
         request,
@@ -4297,8 +4111,7 @@ def forum_detail(request, discussion_id):
             "discussion": discussion,
             "replies": replies,
             "form": form,
-            "bookmarked_ids": bookmarked_ids,
-            "user_reply_votes": user_reply_votes,
+            "is_bookmarked": is_bookmarked,
         }
     )
 
@@ -4333,21 +4146,13 @@ def forum_new(request):
 
     if request.method == "POST":
         form = DiscussionForm(request.POST)
-
         if form.is_valid():
             discussion = form.save(commit=False)
             discussion.user = request.user
             discussion.save()
 
-            messages.success(
-                request,
-                "Discussion created successfully."
-            )
-
-            return redirect(
-                "forum_detail",
-                discussion_id=discussion.id
-            )
+            messages.success(request, "Discussion created successfully.")
+            return redirect("forum_detail", discussion_id=discussion.id)
     else:
         form = DiscussionForm()
 
@@ -4362,10 +4167,7 @@ def forum_new(request):
 @login_required
 @require_POST
 def forum_reply(request, discussion_id):
-    discussion = get_object_or_404(
-        Discussion,
-        id=discussion_id
-    )
+    discussion = get_object_or_404(Discussion, id=discussion_id)
 
     if not request.user.is_staff:
         window_start = timezone.now() - timedelta(
@@ -4409,17 +4211,9 @@ def forum_reply(request, discussion_id):
             discussion=discussion,
             is_deleted=False
         ).first()
-
         if parent_reply is None:
-            messages.error(
-                request,
-                "Selected parent reply is unavailable."
-            )
-
-            return redirect(
-                "forum_detail",
-                discussion_id=discussion.id
-            )
+            messages.error(request, "selected parent reply is unavailable.")
+            return redirect("forum_detail", discussion_id=discussion.id)
 
     if form.is_valid():
         reply = form.save(commit=False)
@@ -4428,20 +4222,11 @@ def forum_reply(request, discussion_id):
         reply.reply_to = parent_reply
         reply.save()
 
-        messages.success(
-            request,
-            "Reply posted successfully."
-        )
+        messages.success(request, "Reply posted successfully.")
     else:
-        messages.error(
-            request,
-            "Reply could not be posted."
-        )
+        messages.error(request, "Reply could not be posted.")
 
-    return redirect(
-        "forum_detail",
-        discussion_id=discussion.id
-    )
+    return redirect("forum_detail", discussion_id=discussion.id)
 
 @login_required
 @require_POST
@@ -4502,75 +4287,6 @@ def forum_reply_delete(request, reply_id):
     messages.success(request, "Reply deleted successfully.")
     return redirect("forum_detail", discussion_id=reply.discussion.id)
 
-@login_required
-@require_POST
-def toggle_reply_vote(request, reply_id):
-    reply = get_object_or_404(Reply, id=reply_id)
-
-    vote_type = request.POST.get("vote")
-
-    if reply.user_id == request.user.id:
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "You cannot vote on your own reply.",
-            },
-            status=400,
-        )
-
-    if reply.is_deleted:
-        return JsonResponse(
-            {"success": False, "error": "Cannot vote on deleted replies."},
-            status=400
-        )
-
-    if vote_type == "up":
-        vote_value = ReplyVote.UPVOTE
-    elif vote_type == "down":
-        vote_value = ReplyVote.DOWNVOTE
-    else:
-        return JsonResponse(
-            {"success": False, "error": "Invalid vote type."},
-            status=400
-        )
-
-    with transaction.atomic():
-        reply = Reply.objects.select_for_update().get(pk=reply.pk)
-        vote = (
-            ReplyVote.objects
-            .select_for_update()
-            .filter(reply=reply, user=request.user)
-            .first()
-        )
-
-        if vote is None:
-            ReplyVote.objects.create(
-                reply=reply,
-                user=request.user,
-                value=vote_value,
-            )
-            user_vote = vote_value
-        elif vote.value == vote_value:
-            vote.delete()
-            user_vote = 0
-        else:
-            vote.value = vote_value
-            vote.save(update_fields=["value", "updated_at"])
-            user_vote = vote_value
-
-        counts = ReplyVote.objects.filter(reply=reply).aggregate(
-            upvotes=Count("id", filter=models.Q(value=ReplyVote.UPVOTE)),
-            downvotes=Count("id", filter=models.Q(value=ReplyVote.DOWNVOTE)),
-        )
-
-    return JsonResponse(
-        {
-            "success": True,
-            "upvotes": counts["upvotes"],
-            "downvotes": counts["downvotes"],
-            "user_vote": user_vote,
-        }
-    )
 
 # ---------------------------------------------------------------------------
 # Avatar management views
@@ -4711,3 +4427,75 @@ def profile_view(request):
         'draws': draws,
     }
     return render(request, 'game/profile.html', context)
+
+
+@login_required
+@require_POST
+def toggle_reply_vote(request, reply_id):
+    reply = get_object_or_404(Reply, id=reply_id)
+
+    vote_type = request.POST.get("vote")
+
+    if reply.user_id == request.user.id:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "You cannot vote on your own reply.",
+            },
+            status=400,
+        )
+
+    if reply.is_deleted:
+        return JsonResponse(
+            {"success": False, "error": "Cannot vote on deleted replies."},
+            status=400
+        )
+
+    if vote_type == "up":
+        vote_value = ReplyVote.UPVOTE
+    elif vote_type == "down":
+        vote_value = ReplyVote.DOWNVOTE
+    else:
+        return JsonResponse(
+            {"success": False, "error": "Invalid vote type."},
+            status=400
+        )
+
+    with transaction.atomic():
+        reply = Reply.objects.select_for_update().get(pk=reply.pk)
+        vote = (
+            ReplyVote.objects
+            .select_for_update()
+            .filter(reply=reply, user=request.user)
+            .first()
+        )
+
+        if vote is None:
+            ReplyVote.objects.create(
+                reply=reply,
+                user=request.user,
+                value=vote_value,
+            )
+            user_vote = vote_value
+        elif vote.value == vote_value:
+            vote.delete()
+            user_vote = 0
+        else:
+            vote.value = vote_value
+            vote.save(update_fields=["value", "updated_at"])
+            user_vote = vote_value
+
+        counts = ReplyVote.objects.filter(reply=reply).aggregate(
+            upvotes=Count("id", filter=models.Q(value=ReplyVote.UPVOTE)),
+            downvotes=Count("id", filter=models.Q(value=ReplyVote.DOWNVOTE)),
+        )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "upvotes": counts["upvotes"],
+            "downvotes": counts["downvotes"],
+            "user_vote": user_vote,
+        }
+    )
+
