@@ -34,11 +34,6 @@ urlpatterns = [
     # Account Settings & Recovery
     path('delete-account/', views.delete_account, name='delete_account'),
     path('confirm-delete/<uidb64>/<token>/', views.confirm_delete_account, name='confirm_delete_account'),
-    path(
-        'password-reset-account-selection/',
-        views.password_reset_account_selection,
-        name='password_reset_account_selection'
-    ),
 
     # Avatar Management
     path('avatar/', views.upload_avatar, name='upload_avatar'),

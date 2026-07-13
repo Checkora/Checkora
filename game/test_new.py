@@ -58,6 +58,29 @@ class ResignTest(TestCase):
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'resignation')
 
+    def test_resign_game_pvp_out_of_turn(self):
+        """When black resigns out of turn in a PvP game, white should be the winner."""
+        session = self.client.session
+        game_data = session['game']
+        game_data['mode'] = 'pvp'
+        game_data['current_turn'] = 'white'
+        session['game'] = game_data
+        session.save()
+
+        response = self.client.post(
+            '/api/resign/',
+            data=json.dumps({'resigning_player': 'black'}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['valid'], True)
+        self.assertEqual(data['winner'], 'white')
+
+        from game.models import GameResult
+        result = GameResult.objects.last()
+        self.assertEqual(result.winner, 'white')
+
 
 class DrawAIModeTest(TestCase):
     """Test draw offer behaviour in AI mode."""

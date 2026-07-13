@@ -23,6 +23,7 @@ import json
 import sys
 import time
 import threading
+import uuid
 from datetime import date
 
 class ChessGame:
@@ -69,7 +70,10 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600, increment=0):
+    def __init__(self, time_limit=600, increment=0, game_id=None,
+                 authkey=None):
+        self.game_id = game_id or str(uuid.uuid4())
+        self.authkey = authkey or os.urandom(16)
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -95,7 +99,7 @@ class ChessGame:
         self.initial_turn_was_black = False
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
-        self.game_status = 'active'
+        self._game_status = 'active'
         self.draw_reason = None
         self.threefold_warning = False
 
@@ -143,10 +147,22 @@ class ChessGame:
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves + " " + result
 
+    @property
+    def game_status(self):
+        return self._game_status
+
+    @game_status.setter
+    def game_status(self, value):
+        self._game_status = value
+        if value != 'active':
+            self.cleanup_engine()
+
     def to_dict(self):
         """Serialise state for Django session storage.
 DP cache is intentionally excluded to save cookie space."""
         return {
+            'game_id': self.game_id,
+            'authkey': self.authkey.hex(),
             'board': self.board,
             'current_turn': self.current_turn,
             'move_history': self.move_history,
@@ -167,13 +183,58 @@ DP cache is intentionally excluded to save cookie space."""
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
             'initial_fullmove': getattr(self, 'initial_fullmove', 1),
-            'initial_turn_was_black': getattr(self, 'initial_turn_was_black', False),
+            'initial_turn_was_black': getattr(
+                self, 'initial_turn_was_black', False
+            ),
         }
+
+    def cleanup_engine(self):
+        """Send SHUTDOWN to the persistent engine server for this game."""
+        game_id = getattr(self, 'game_id', None)
+        if not game_id:
+            return
+
+        import os
+        import tempfile
+        from multiprocessing.connection import Client
+
+        port_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+        )
+        if os.path.exists(port_path):
+            try:
+                with open(port_path, 'r') as f:
+                    port = int(f.read().strip())
+                address = ('127.0.0.1', port)
+                conn = Client(address, family='AF_INET', authkey=self.authkey)
+                conn.send("SHUTDOWN")
+                conn.recv()
+                conn.close()
+            except Exception:
+                pass
+
+        # Clean up files
+        lock_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+        )
+        pid_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.pid'
+        )
+        for path in (lock_path, port_path, pid_path):
+            if os.path.exists(path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
         game = cls.__new__(cls)
+        game.game_id = data.get('game_id') or str(uuid.uuid4())
+        authkey_hex = data.get('authkey')
+        game.authkey = (bytes.fromhex(authkey_hex) if authkey_hex
+                        else os.urandom(16))
         game.board = data['board']
         game.current_turn = data['current_turn']
         game.move_history = data.get('move_history', [])
@@ -191,7 +252,7 @@ DP cache is intentionally excluded to save cookie space."""
             {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
         game.en_passant_target = data.get('en_passant_target', None)
         game.halfmove_clock = data.get('halfmove_clock', 0)
-        game.game_status = data.get('game_status', 'active')
+        game._game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
         game.threefold_warning = data.get('threefold_warning', False)
         game.initial_fullmove = data.get('initial_fullmove', 1)
@@ -352,7 +413,7 @@ DP cache is intentionally excluded to save cookie space."""
         """Build the subprocess command for either a binary
         or Python script."""
         if engine_path.endswith('.py'):
-            return [sys.executable, engine_path]
+            return [sys.executable, '-u', engine_path]
         return [engine_path]
 
     def _call_engine(self, command):
@@ -360,19 +421,170 @@ DP cache is intentionally excluded to save cookie space."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-        try:
-            proc = subprocess.Popen(
-                self._build_engine_command(engine_path),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            timeout_secs = getattr(self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS)
-            stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
-            return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
+
+        game_id = getattr(self, 'game_id', None)
+        if not game_id:
+            self.game_id = str(uuid.uuid4())
+            game_id = self.game_id
+
+        import tempfile
+        from multiprocessing.connection import Client
+
+        port_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+        )
+        lock_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+        )
+
+        def get_address():
+            if os.path.exists(port_path):
+                try:
+                    with open(port_path, 'r') as f:
+                        port = int(f.read().strip())
+                        return ('127.0.0.1', port)
+                except Exception:
+                    pass
             return None
+
+        # Try to connect if port file exists
+        conn = None
+        address = get_address()
+        if address:
+            try:
+                conn = Client(address, family='AF_INET', authkey=self.authkey)
+            except Exception:
+                pass
+
+        if not conn:
+            # Check for stale lock file and clean it up (5.0s TTL)
+            if os.path.exists(lock_path):
+                try:
+                    if time.time() - os.path.getmtime(lock_path) > 5.0:
+                        os.unlink(lock_path)
+                except OSError:
+                    pass
+
+            # Connection failed or not started. Attempt to acquire spawn lock.
+            lock_acquired = False
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
+                lock_acquired = True
+            except OSError:
+                pass
+
+            if lock_acquired:
+                # Spawn the server in the background
+                try:
+                    server_script = os.path.join(
+                        self.ENGINE_DIR, 'persistent_server.py'
+                    )
+                    engine_cmd_json = json.dumps(
+                        self._build_engine_command(engine_path)
+                    )
+                    authkey_hex = self.authkey.hex()
+
+                    creationflags = 0
+                    if os.name == 'nt':
+                        creationflags = subprocess.CREATE_NO_WINDOW
+
+                    if os.path.exists(port_path):
+                        try:
+                            os.unlink(port_path)
+                        except OSError:
+                            pass
+
+                    subprocess.Popen(
+                        [sys.executable, server_script, game_id,
+                         engine_cmd_json, authkey_hex],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        stdin=subprocess.DEVNULL,
+                        close_fds=True,
+                        creationflags=creationflags
+                    )
+                except Exception:
+                    pass
+
+                # Poll for the port file to be created, and then connect
+                start_time = time.time()
+                backoff = 0.01
+                while time.time() - start_time < 2.0:
+                    address = get_address()
+                    if address:
+                        try:
+                            conn = Client(address, family='AF_INET',
+                                          authkey=self.authkey)
+                            break
+                        except Exception:
+                            pass
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 0.1)
+
+                # Release the lock
+                try:
+                    os.unlink(lock_path)
+                except OSError:
+                    pass
+            else:
+                # Lock is held by someone else. Wait for lock release or
+                # connection to succeed
+                start_time = time.time()
+                backoff = 0.01
+                while time.time() - start_time < 2.0:
+                    address = get_address()
+                    if address:
+                        try:
+                            conn = Client(address, family='AF_INET',
+                                          authkey=self.authkey)
+                            break
+                        except Exception:
+                            pass
+                    if not os.path.exists(lock_path):
+                        # Lock file was deleted, try connecting one last time
+                        address = get_address()
+                        if address:
+                            try:
+                                conn = Client(address, family='AF_INET',
+                                              authkey=self.authkey)
+                            except Exception:
+                                pass
+                        break
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 0.1)
+
+        if not conn:
+            # Fallback to stateless spawning if the server failed to
+            # start or connect
+            try:
+                proc = subprocess.Popen(
+                    self._build_engine_command(engine_path),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                timeout_secs = getattr(
+                    self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
+                )
+                stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
+                return stdout.strip()
+            except (subprocess.TimeoutExpired, OSError):
+                return None
+
+        try:
+            conn.send(command)
+            resp = conn.recv()
+            return resp
+        except Exception:
+            return None
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def _count_active_pieces(self):
         """Helper to count the total pieces currently alive

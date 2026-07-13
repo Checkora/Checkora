@@ -24,9 +24,10 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.utils.http import (
     urlsafe_base64_encode,
-    urlsafe_base64_decode
+    urlsafe_base64_decode,
+    url_has_allowed_host_and_scheme
 )
-
+from django.core.paginator import Paginator
 from django.utils.encoding import (
     force_bytes,
     force_str
@@ -565,6 +566,32 @@ def set_pause(request):
 @require_POST
 def ai_move(request):
     """Let the engine compute and play the best move for the current side."""
+    # Issue #1625: Rate-limit this endpoint to prevent computational DoS.
+    # Apply both a per-user limit (for authenticated sessions) and a per-IP
+    # limit (for anonymous or shared-IP scenarios), matching the pattern used
+    # in analyze_game_view.
+    window = getattr(settings, 'AI_MOVE_RATE_WINDOW_SECONDS', 60)
+    ip = get_client_ip(request)
+    ip_key = get_ai_move_rate_ip_key(ip)
+    ip_count = increment_counter(ip_key, timeout=window)
+    if ip_count > getattr(settings, 'AI_MOVE_IP_MAX_REQUESTS', 240):
+        response = JsonResponse(
+            {'error': 'Too many AI move requests. Please try again shortly.'},
+            status=429,
+        )
+        response['Retry-After'] = str(window)
+        return response
+    if request.user.is_authenticated:
+        user_key = get_ai_move_rate_user_key(request.user.id)
+        user_count = increment_counter(user_key, timeout=window)
+        if user_count > getattr(settings, 'AI_MOVE_USER_MAX_REQUESTS', 120):
+            response = JsonResponse(
+                {'error': 'Too many AI move requests. Please try again shortly.'},
+                status=429,
+            )
+            response['Retry-After'] = str(window)
+            return response
+
     game_data = request.session.get('game')
     if not game_data:
         err_msg = 'No active game.'
@@ -1419,17 +1446,6 @@ class CustomPasswordResetView(PasswordResetView):
         else:
             cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
 
-    def _single_user_form(self, selected_user):
-        base_form = self.get_form_class()
-
-        class SingleUserPasswordResetForm(base_form):
-            def get_users(self, email):
-                if selected_user and selected_user.has_usable_password():
-                    return [selected_user]
-                return []
-
-        return SingleUserPasswordResetForm
-
     def post(self, request, *args, **kwargs):
 
         email = request.POST.get('email', '').strip().lower()
@@ -1441,48 +1457,7 @@ class CustomPasswordResetView(PasswordResetView):
 
             return redirect('password_reset')
 
-        users = User.objects.filter(email__iexact=email)
-
-        if users.count() > 1 and not request.POST.get(
-            'selected_username'
-        ):
-
-            usernames = users.values_list(
-                'username',
-                flat=True
-            )
-
-            return render(
-                request,
-                'game/password_reset.html',
-                {
-                    'form': self.get_form(),
-                    'usernames': usernames,
-                    'email': email
-                }
-            )
-        selected_username = request.POST.get(
-            'selected_username'
-        )
-
-        form_class = self.get_form_class()
-        if selected_username:
-
-            selected_user = User.objects.filter(
-                username=selected_username,
-                email__iexact=email
-            ).first()
-
-            if not selected_user:
-                messages.error(
-                    request,
-                    'Please select a valid account for this email address.',
-                )
-                return redirect('password_reset')
-
-            form_class = self._single_user_form(selected_user)
-
-        form = form_class(**self.get_form_kwargs())
+        form = self.get_form()
         if not form.is_valid():
             return self.form_invalid(form)
 
@@ -1512,6 +1487,17 @@ def _is_trusted_proxy(ip_text, trusted_entries):
             continue
     return False
 
+
+def get_ai_move_rate_user_key(user_id):
+    """Get the cache key for per-user AI move rate limiting."""
+    digest = hashlib.sha256(str(user_id).encode('utf-8')).hexdigest()
+    return f'ai_move_rate:user:{digest}'
+
+
+def get_ai_move_rate_ip_key(ip):
+    """Get the cache key for per-IP AI move rate limiting."""
+    digest = hashlib.sha256(ip.encode('utf-8')).hexdigest()
+    return f'ai_move_rate:ip:{digest}'
 
 def get_client_ip(request):
     """Get client IP address safely by parsing trusted proxies."""
@@ -2182,22 +2168,6 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
-
-def password_reset_account_selection(request):
-
-    email = request.GET.get('email')
-
-    users = User.objects.filter(email=email)
-
-    return render(
-        request,
-        'game/password_reset_account_selection.html',
-        {
-            'users': users,
-            'email': email
-        }
-    )
-
 
 @login_required
 def delete_account(request):
@@ -4006,25 +3976,27 @@ def apply_discussion_sort(queryset, sort_by):
     )
 
     if sort_by == "oldest":
-        return queryset.order_by("created_at")
+        return queryset.order_by("created_at", "-id")
 
     if sort_by == "most_replies":
-        return queryset.order_by("-reply_count", "-created_at")
+        return queryset.order_by("-reply_count", "-created_at", "-id")
 
     if sort_by == "most_bookmarked":
-        return queryset.order_by("-bookmark_count", "-created_at")
+        return queryset.order_by("-bookmark_count", "-created_at", "-id")
 
     if sort_by == "recently_active":
         return queryset.order_by(
             F("last_reply_at").desc(nulls_last=True),
             "-updated_at",
             "-created_at",
+            "-id"
         )
 
-    return queryset.order_by("-created_at")
+    return queryset.order_by("-created_at", "-id")
 
 def forum_list(request):
     sort_by = request.GET.get("sort", "newest")
+    page_number = request.GET.get("page", 1)
 
     discussions = Discussion.objects.select_related("user").prefetch_related("replies")
 
@@ -4033,6 +4005,9 @@ def forum_list(request):
     bookmarked_ids = set()
 
     discussions = apply_discussion_sort(discussions, sort_by)
+    
+    paginator = Paginator(discussions, 20)
+    page_obj = paginator.get_page(page_number)
 
     if request.user.is_authenticated:
         user_discussions = (
@@ -4068,6 +4043,7 @@ def forum_list(request):
         request,
         "game/forum_list.html",
         {
+            "page_obj": page_obj,
             "discussions": discussions,
             "user_discussions": user_discussions,
             "bookmarked_discussions": bookmarked_discussions,
@@ -4089,9 +4065,23 @@ def toggle_discussion_bookmark(request, discussion_id):
     if not created:
         bookmark.delete()
 
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER")
-    if next_url:
+    next_url = request.POST.get("next")
+    referer_url = request.META.get("HTTP_REFERER")
+    allowed_hosts = {request.get_host()}
+    require_https = request.is_secure()
+
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts=allowed_hosts,
+        require_https=require_https,
+    ):
         return redirect(next_url)
+    elif referer_url and url_has_allowed_host_and_scheme(
+        url=referer_url,
+        allowed_hosts=allowed_hosts,
+        require_https=require_https,
+    ):
+        return redirect(referer_url)
 
     return redirect("forum")
 

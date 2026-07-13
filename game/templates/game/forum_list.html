@@ -111,7 +111,7 @@
 
         <div class="forum-tab-panel active" id="tab-all">
             <div class="forum-list">
-                {% for discussion in discussions %}
+                {% for discussion in page_obj %}
                     {% include "game/forum_discussion_card.html" with discussion=discussion %}
                 {% empty %}
                 <div class="forum-empty">
@@ -119,6 +119,20 @@
                 </div>
                 {% endfor %}
             </div>
+
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="forum-pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">← Prev</a>
+                {% endif %}
+
+                <span class="forum-page-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">Next →</a>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
 
         {% if user.is_authenticated %}

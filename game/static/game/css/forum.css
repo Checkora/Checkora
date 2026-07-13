@@ -1034,3 +1034,41 @@ html {
         gap: 0.75rem;
     }
 }
+
+/* Pagination */
+.forum-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.forum-page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.forum-page-link:hover {
+    color: var(--accent-gold);
+    border-color: rgba(240, 192, 64, 0.28);
+    background: rgba(240, 192, 64, 0.05);
+}
+
+.forum-page-current {
+    color: var(--accent-gold);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+

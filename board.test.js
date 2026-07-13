@@ -77,7 +77,6 @@ document.body.innerHTML = `
 `;
 
 
-
 global.fetch = jest.fn((url, options) => {
   let boardData = [
     ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -214,6 +213,36 @@ global.Chess = class MockChess {
     
     return { from: 'a1', to: 'a2' };
   }
+  /**
+   * Minimal stub used by computeLegalMovesClient (Issue #1445 tests).
+   * When called with { square: 'e2', verbose: true } it returns two
+   * representative moves for a white pawn on e2.
+   */
+  moves({ square, verbose } = {}) {
+    if (!verbose) return [];
+    if (square === 'e2') {
+      return [
+        { from: 'e2', to: 'e3', piece: 'p', captured: undefined, promotion: undefined },
+        { from: 'e2', to: 'e4', piece: 'p', captured: undefined, promotion: undefined },
+      ];
+    }
+    if (square === 'a1') {
+      // Simulate a rook that can capture on a8 (to test is_capture mapping)
+      return [
+        { from: 'a1', to: 'a8', piece: 'r', captured: 'r', promotion: undefined },
+      ];
+    }
+    if (square === 'e7') {
+      // Simulate a pawn about to promote
+      return [
+        { from: 'e7', to: 'e8', piece: 'p', captured: undefined, promotion: 'q' },
+        { from: 'e7', to: 'e8', piece: 'p', captured: undefined, promotion: 'r' },
+        { from: 'e7', to: 'e8', piece: 'p', captured: undefined, promotion: 'b' },
+        { from: 'e7', to: 'e8', piece: 'p', captured: undefined, promotion: 'n' },
+      ];
+    }
+    return [];
+  }
 };
 
 global.SOUND_BASE_URL = '/static/game/sounds/';
@@ -233,7 +262,7 @@ window.matchMedia = window.matchMedia || function() {
   };
 };
 
-const { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache, onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame } = require("./game/static/game/js/board");
+const { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache, onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame, squareLabelToRowCol, computeLegalMovesClient, updatePieceStyle, PIECE_IMG, VALID_PIECE_STYLES } = require("./game/static/game/js/board");
 
 describe("pColor", () => {
   test("returns white for uppercase piece", () => {
@@ -753,5 +782,147 @@ describe("SAN Quick Move Input", () => {
     expect(body.to_row).toBe(3);
     expect(body.to_col).toBe(3);
   });
+  it('rapid double Enter does not fire two overlapping move requests', async () => {
+    const input = document.getElementById("sanMoveInput");
+    input.value = "e4";
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    await flushPromises();
+
+    const moveReqs = global.fetch.mock.calls.filter(c => c[0].includes('/api/move/'));
+    expect(moveReqs.length).toBe(1);
+  });
 });
 
+// ---------------------------------------------------------------------------
+// Issue #1445: client-side legal move computation
+// ---------------------------------------------------------------------------
+describe("Client-side legal move computation (Issue #1445)", () => {
+  describe("squareLabelToRowCol", () => {
+    it('converts a8 to row=0, col=0', () => {
+      expect(squareLabelToRowCol('a8')).toEqual({ row: 0, col: 0 });
+    });
+
+    it('converts h1 to row=7, col=7', () => {
+      expect(squareLabelToRowCol('h1')).toEqual({ row: 7, col: 7 });
+    });
+
+    it('converts e4 to row=4, col=4', () => {
+      expect(squareLabelToRowCol('e4')).toEqual({ row: 4, col: 4 });
+    });
+
+    it('converts e3 to row=5, col=4', () => {
+      expect(squareLabelToRowCol('e3')).toEqual({ row: 5, col: 4 });
+    });
+
+    it('converts e8 to row=0, col=4', () => {
+      expect(squareLabelToRowCol('e8')).toEqual({ row: 0, col: 4 });
+    });
+  });
+
+  describe("computeLegalMovesClient", () => {
+    it('returns a non-null array when chess.js is available', () => {
+      const result = computeLegalMovesClient(6, 4); // e2 pawn
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it('maps pawn moves for e2 correctly (two forward squares)', () => {
+      const result = computeLegalMovesClient(6, 4); // e2 square
+      // MockChess.moves returns e3 and e4 for e2
+      expect(result.length).toBe(2);
+      // e3 => row 5, col 4
+      expect(result).toContainEqual({ row: 5, col: 4, is_capture: false, is_promotion: false });
+      // e4 => row 4, col 4
+      expect(result).toContainEqual({ row: 4, col: 4, is_capture: false, is_promotion: false });
+    });
+
+    it('marks is_capture=true when captured field is present', () => {
+      // a1 rook capturing a8 per MockChess stub
+      const result = computeLegalMovesClient(7, 0); // a1
+      expect(result).not.toBeNull();
+      expect(result.length).toBe(1);
+      expect(result[0].is_capture).toBe(true);
+      expect(result[0].is_promotion).toBe(false);
+    });
+
+    it('marks is_promotion=true when promotion field is present and deduplicates promotion moves', () => {
+      // e7 pawn promoting per MockChess stub
+      const result = computeLegalMovesClient(1, 4); // e7
+      expect(result).not.toBeNull();
+      // Even though MockChess returns 4 promotion moves (q, r, b, n), they are deduplicated by destination
+      expect(result.length).toBe(1);
+      expect(result[0].is_promotion).toBe(true);
+      expect(result[0].row).toBe(0); // e8 -> row 0
+      expect(result[0].col).toBe(4); // e8 -> col 4
+    });
+
+    it('returns null when window.Chess is unavailable', () => {
+      const saved = global.Chess;
+      global.Chess = undefined;
+      try {
+        const result = computeLegalMovesClient(6, 4);
+        expect(result).toBeNull();
+      } finally {
+        global.Chess = saved;
+      }
+    });
+
+    it('returns an empty array for a square with no legal moves', () => {
+      // MockChess returns [] for any square not explicitly handled
+      const result = computeLegalMovesClient(3, 3); // d5, no piece stub
+      expect(result).not.toBeNull();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("onClick does not call /api/valid-moves/ when chess.js is available", () => {
+    beforeEach(async () => {
+      document.getElementById("board").innerHTML = "";
+      global.fetch.mockClear();
+      await startNewGame('pvp', 'white', 'medium', null, 10);
+    });
+
+    it('clicking a piece never calls /api/valid-moves/ (uses client computation)', async () => {
+      await onClick(6, 4); // click the e2 pawn
+      const validMovesReqs = global.fetch.mock.calls.filter(
+        c => c[0] && c[0].includes('/api/valid-moves/')
+      );
+      expect(validMovesReqs.length).toBe(0);
+    });
+
+    it('clicking a piece still shows hints without a network round-trip', async () => {
+      // computeLegalMovesClient returns moves synchronously so the board
+      // should have hint dots right after onClick resolves.
+      await onClick(6, 4);
+      const boardEl = document.getElementById('board');
+      // The highlights are added via refreshHighlights -> sq().appendChild(div.move-dot)
+      const dots = boardEl.querySelectorAll('.move-dot');
+      // MockChess returns 2 moves for e2 (e3, e4) - both are non-captures
+      expect(dots.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("Customizable Piece Styles Theme", () => {
+    it("has a list of valid piece styles including neo, classic, alpha, cburnett", () => {
+      expect(VALID_PIECE_STYLES).toContain("neo");
+      expect(VALID_PIECE_STYLES).toContain("classic");
+      expect(VALID_PIECE_STYLES).toContain("alpha");
+      expect(VALID_PIECE_STYLES).toContain("cburnett");
+    });
+
+    it("updates PIECE_IMG correctly when updatePieceStyle is called", () => {
+      updatePieceStyle("classic");
+      expect(PIECE_IMG["wk"]).toBe("https://images.chesscomfiles.com/chess-themes/pieces/classic/150/wk.png");
+      expect(PIECE_IMG["bp"]).toBe("https://images.chesscomfiles.com/chess-themes/pieces/classic/150/bp.png");
+      
+      updatePieceStyle("alpha");
+      expect(PIECE_IMG["wk"]).toBe("https://images.chesscomfiles.com/chess-themes/pieces/alpha/150/wk.png");
+      
+      // Falls back to neo if invalid theme is given
+      updatePieceStyle("invalid_theme_name");
+      expect(PIECE_IMG["wk"]).toBe("https://images.chesscomfiles.com/chess-themes/pieces/neo/150/wk.png");
+    });
+  });
+});
