@@ -140,7 +140,7 @@
       }
       CB.S.currentPuzzle = await response.json();
       if (CB.S.currentPuzzle && CB.S.currentPuzzle.id !== 0) {
-        const solResponse = await fetch(`/api/puzzles/${CB.S.currentPuzzle.id}/solution/`);
+        const solResponse = await fetch(`/api/puzzles/${CB.S.currentPuzzle.id}/solution/`, { signal: controller.signal });
         if (solResponse.ok) {
           const solData = await solResponse.json();
           CB.S.currentPuzzle.solution = solData.solution;

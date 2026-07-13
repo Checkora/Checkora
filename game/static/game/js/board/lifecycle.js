@@ -89,82 +89,7 @@
     }
   }
 
-  function updatePlayerNames(data) {
-    CB.S.currentWhiteName = data.white_name || CB.S.currentWhiteName || 'White';
-    CB.S.currentBlackName = data.black_name || CB.S.currentBlackName || 'Black';
-    let wName = CB.S.currentWhiteName;
-    let bName = CB.S.currentBlackName;
 
-    if (CB.S.gameMode === 'ai') {
-      const diffLabel = (CB.S.currentDifficulty || 'medium').toUpperCase();
-      const humanName = CB.S.currentWhiteName || (typeof document !== 'undefined' && document.getElementById('whiteNameInput')?.value?.trim()?.slice(0, 17)) || 'Player';
-      if (CB.S.playerColor === 'white') {
-        wName = humanName;
-        bName = `AI (Black)`;
-      } else {
-        bName = humanName;
-        wName = `AI (White)`;
-      }
-
-      if (typeof setTimeout !== 'undefined' && typeof document !== 'undefined') {
-        setTimeout(() => {
-          const aiLabel = CB.S.playerColor === 'white'
-            ? document.getElementById('blackNameLabel')
-            : document.getElementById('whiteNameLabel');
-          if (aiLabel) {
-            aiLabel.innerHTML = '';
-            const textNode = document.createTextNode(`AI (${CB.S.playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
-            const badge = document.createElement('span');
-            badge.textContent = diffLabel;
-            badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:0.95em; letter-spacing:0.2px;';
-            badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
-            aiLabel.appendChild(textNode);
-            aiLabel.appendChild(badge);
-          }
-        }, 0);
-      }
-    }
-
-    if (CB.DOM.whiteNameLabel) CB.DOM.whiteNameLabel.textContent = wName.toUpperCase();
-    if (CB.DOM.blackNameLabel) CB.DOM.blackNameLabel.textContent = bName.toUpperCase();
-    if (CB.DOM.whiteCapturedName) CB.DOM.whiteCapturedName.textContent = wName;
-    if (CB.DOM.blackCapturedName) CB.DOM.blackCapturedName.textContent = bName;
-
-    if (typeof document !== 'undefined') {
-      const whiteAvatarEl = document.getElementById('whitePlayerAvatar');
-      const blackAvatarEl = document.getElementById('blackPlayerAvatar');
-      const whiteCapturedAvatarEl = document.getElementById('whiteCapturedAvatar');
-      const blackCapturedAvatarEl = document.getElementById('blackCapturedAvatar');
-
-      if (CB.S.gameMode === 'ai') {
-        if (CB.DOM.whiteYouTag) CB.DOM.whiteYouTag.style.display = (CB.S.playerColor === 'white') ? 'inline' : 'none';
-        if (CB.DOM.blackYouTag) CB.DOM.blackYouTag.style.display = (CB.S.playerColor === 'black') ? 'inline' : 'none';
-        if (whiteAvatarEl && window.USER_AVATAR_URL) {
-          whiteAvatarEl.src = window.USER_AVATAR_URL;
-          whiteAvatarEl.style.display = (CB.S.playerColor === 'white') ? 'inline-block' : 'none';
-          if (whiteCapturedAvatarEl) {
-            whiteCapturedAvatarEl.src = window.USER_AVATAR_URL;
-            whiteCapturedAvatarEl.style.display = (CB.S.playerColor === 'white') ? 'inline-block' : 'none';
-          }
-        }
-        if (blackAvatarEl && window.USER_AVATAR_URL) {
-          blackAvatarEl.src = window.USER_AVATAR_URL;
-          blackAvatarEl.style.display = (CB.S.playerColor === 'black') ? 'inline-block' : 'none';
-          if (blackCapturedAvatarEl) {
-            blackCapturedAvatarEl.src = window.USER_AVATAR_URL;
-            blackCapturedAvatarEl.style.display = (CB.S.playerColor === 'black') ? 'inline-block' : 'none';
-          }
-        }
-      } else {
-        if (CB.DOM.whiteYouTag) CB.DOM.whiteYouTag.style.display = 'none';
-        if (CB.DOM.blackYouTag) CB.DOM.blackYouTag.style.display = 'none';
-        if (whiteAvatarEl) whiteAvatarEl.style.display = 'none';
-        if (blackAvatarEl) blackAvatarEl.style.display = 'none';
-        if (whiteCapturedAvatarEl) whiteCapturedAvatarEl.style.display = 'none';
-        if (blackCapturedAvatarEl) blackCapturedAvatarEl.style.display = 'none';
-      }
-    }
-  }
 
   async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
     if (CB.clearEvaluationCache) CB.clearEvaluationCache();
@@ -506,7 +431,7 @@
       CB.DOM.resignBtn.hidden = false;
     }
 
-    updatePlayerNames(data);
+    if (CB.updatePlayerNames) CB.updatePlayerNames(data);
     if (CB.updateTurn) CB.updateTurn();
     if (CB.updateMoves) CB.updateMoves(data.move_history);
     if (CB.updateCaptured) CB.updateCaptured(data.captured_pieces);
@@ -543,7 +468,6 @@
   CB.toggleBoardOrientation = toggleBoardOrientation;
   CB.pauseGame = pauseGame;
   CB.resumeGame = resumeGame;
-  CB.updatePlayerNames = updatePlayerNames;
   CB.startNewGame = startNewGame;
   CB.loadGame = loadGame;
 
@@ -553,7 +477,6 @@
       toggleBoardOrientation: toggleBoardOrientation,
       pauseGame: pauseGame,
       resumeGame: resumeGame,
-      updatePlayerNames: updatePlayerNames,
       startNewGame: startNewGame,
       loadGame: loadGame
     };

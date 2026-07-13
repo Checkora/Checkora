@@ -65,6 +65,7 @@
 
       if (!isPremoveDrag && !isNormalDrag) return;
 
+      CB.S.touchStartPos = { x: touch.clientX, y: touch.clientY };
       CB.S.touchDragSrc = { r, c };
     }, { passive: true });
 

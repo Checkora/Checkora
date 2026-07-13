@@ -100,7 +100,7 @@
 
   function initThemeSwitcher() {
     if (typeof document === 'undefined') return;
-    const themeBtns = document.querySelectorAll('.theme-btn');
+    const themeBtns = document.querySelectorAll('.theme-btn[data-theme]');
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
     document.documentElement.setAttribute('data-theme', currentTheme);
 

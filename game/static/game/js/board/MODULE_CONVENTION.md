@@ -39,10 +39,10 @@ reads from and writes to it.
 
 ## Load Order (browser)
 
-`_ns.js` → `state.js` → `pieces.js` → `dom.js` → `utils.js` → `api.js` →
-`sound.js` → `engine.js` → `render.js` → `moves.js` → `promo.js` →
-`dragdrop.js` → `clocks.js` → `endgame.js` → `dialogs.js` → `puzzle.js` →
-`lifecycle.js` → `replay.js` → `textinput.js` → `events.js`
+`_ns.js` → `state.js` → `dom.js` → `sound.js` → `api.js` → `utils.js` →
+`pieces.js` → `render.js` → `clocks.js` → `engine.js` → `promo.js` →
+`endgame.js` → `dialogs.js` → `puzzle.js` → `moves.js` → `lifecycle.js` →
+`replay.js` → `dragdrop.js` → `textinput.js` → `events.js`
 
 ## Node/Jest
 

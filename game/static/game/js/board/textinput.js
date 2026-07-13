@@ -151,9 +151,14 @@
     const copyFenBtn = document.getElementById('copyFenBtn');
     const data = await CB.get('/api/state/');
     if (data && data.fen) {
-      navigator.clipboard.writeText(data.fen);
+      try {
+        await navigator.clipboard.writeText(data.fen);
+        if (copyFenBtn) copyFenBtn.textContent = 'Copied!';
+      } catch (e) {
+        if (copyFenBtn) copyFenBtn.textContent = 'Copy failed';
+        return;
+      }
 
-      if (copyFenBtn) copyFenBtn.textContent = 'Copied!';
       if (typeof clearTimeout !== 'undefined' && CB.S.fenCopyTimeout) {
         clearTimeout(CB.S.fenCopyTimeout);
       }

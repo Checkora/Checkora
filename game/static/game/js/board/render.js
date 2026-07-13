@@ -509,9 +509,8 @@
     const badge = CB.DOM.turnEl;
     badge.className = 'turn-badge ' + CB.S.turn;
 
-    let label = CB.S.turn.charAt(0).toUpperCase() + CB.S.turn.slice(1) + "'s Turn";
     const pName = CB.S.turn === 'white' ? CB.DOM.whiteNameLabel.textContent : CB.DOM.blackNameLabel.textContent;
-    label = pName + "'s Turn";
+    let label = pName + "'s Turn";
 
     if (CB.S.gameMode === 'ai') {
       if (CB.S.turn === CB.S.playerColor) {

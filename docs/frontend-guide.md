@@ -38,6 +38,7 @@ game/static/game/js/
 The main chessboard logic (`board.js`) has been modularized into focused, single-responsibility modules inside `game/static/game/js/board/`.
 
 ### Modular Architecture (`/board/`)
+
 All board modules follow our **dual-mode module convention**: they attach to `window.CB` in the browser and use `module.exports` under Node.js / Jest.
 
 * `_ns.js` — Global `window.CB` namespace setup.
@@ -63,6 +64,7 @@ All board modules follow our **dual-mode module convention**: they attach to `wi
 * `_barrel.js` — Aggregator entrypoint for Node.js / Jest testing (`require('./board/_barrel.js')`).
 
 ### Deprecated Entrypoint
+
 `board.js` now acts as a lightweight deprecation and forwarding wrapper:
 * In Node/Jest environments, requiring `board.js` delegates to `_barrel.js`.
 * In browser environments, templates directly include the `/board/*.js` scripts in dependency order (see `game/templates/game/board.html`).

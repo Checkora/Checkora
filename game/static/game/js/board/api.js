@@ -18,18 +18,22 @@
   }
 
   async function get(url) {
-    return (await fetch(url)).json();
+    const res = await fetch(url);
+    if (res && res.ok !== undefined && !res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+    return res.json();
   }
 
   async function post(url, body) {
-    return (await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrf()
       },
       body: JSON.stringify(body)
-    })).json();
+    });
+    if (res && res.ok !== undefined && !res.ok) throw new Error(`POST ${url} failed: ${res.status}`);
+    return res.json();
   }
 
   async function withLoading(btn, asyncFn) {
@@ -56,7 +60,8 @@
     while (retries < 3 && !success) {
       try {
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
-        if (CB.loadGame) await CB.loadGame();
+        if (!CB.loadGame) throw new Error('loadGame not available');
+        await CB.loadGame();
         success = true;
       } catch (err) {
         retries++;
