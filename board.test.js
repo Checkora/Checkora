@@ -782,6 +782,17 @@ describe("SAN Quick Move Input", () => {
     expect(body.to_row).toBe(3);
     expect(body.to_col).toBe(3);
   });
+  it('rapid double Enter does not fire two overlapping move requests', async () => {
+    const input = document.getElementById("sanMoveInput");
+    input.value = "e4";
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    await flushPromises();
+
+    const moveReqs = global.fetch.mock.calls.filter(c => c[0].includes('/api/move/'));
+    expect(moveReqs.length).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

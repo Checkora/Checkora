@@ -576,9 +576,17 @@ body {
     white-space: nowrap;
 }
 
-.session-score-tracker .score-win { color: #4ade80; }
-.session-score-tracker .score-loss { color: #f87171; }
-.session-score-tracker .score-draw { color: #f0c040; }
+.session-score-tracker .score-win {
+    color: var(--score-win, #4ade80);
+}
+
+.session-score-tracker .score-loss {
+    color: var(--score-loss, #f87171);
+}
+
+.session-score-tracker .score-draw {
+    color: var(--score-draw, #f0c040);
+}
 
 @media (max-width: 480px) {
     .session-score-tracker {
@@ -783,13 +791,33 @@ body {
 }
 
 /* Dark Theme */
+
 :root[data-board-theme="dark"] {
+
+    /* UI Theme */
+    --bg-dark: #0f0f1a;
+    --nav-bg: #12121f;
+    --card-bg: #16162a;
+    --card-border: #252545;
+    --card-hover: #1a1a35;
+
+    --text-primary: #d0d0d0;
+    --text-title: #ffffff;
+    --text-secondary: #aaaaaa;
+
+    --accent-gold: #f0c040;
+
+    /* Chess Board Theme */
+
     --sq-light: #b0b0b0;
     --sq-dark: #3a3a3a;
+
     --sq-selected-light: #5271ff;
     --sq-selected-dark: #1a36b8;
+
     --sq-last-light: #e6b800;
     --sq-last-dark: #b38f00;
+
     --move-dot: rgba(255, 255, 255, 0.35);
     --move-dot-hover: rgba(255, 255, 255, 0.65);
 }

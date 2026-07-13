@@ -59,3 +59,4 @@ package-lock.json
 
 # Generated achievement badges
 game/generated_badges/
+jest.config.js
