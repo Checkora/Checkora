@@ -157,7 +157,7 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         theme_btns = self.wait.until(
-            lambda d: d.find_elements(By.CLASS_NAME, 'theme-btn'),
+            lambda d: d.find_elements(By.CSS_SELECTOR, '.theme-btn[data-theme]'),
             message="Theme buttons not found"
         )
         self.assertEqual(len(theme_btns), 5, f"Expected 5 theme buttons, got {len(theme_btns)}")

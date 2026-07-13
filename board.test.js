@@ -262,7 +262,7 @@ window.matchMedia = window.matchMedia || function() {
   };
 };
 
-const { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache, onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame, squareLabelToRowCol, computeLegalMovesClient, updatePieceStyle, PIECE_IMG, VALID_PIECE_STYLES } = require("./game/static/game/js/board");
+const { pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache, onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame, squareLabelToRowCol, computeLegalMovesClient, updatePieceStyle, PIECE_IMG, VALID_PIECE_STYLES } = require("./game/static/game/js/board/_barrel.js");
 
 describe("pColor", () => {
   test("returns white for uppercase piece", () => {
@@ -475,7 +475,7 @@ describe("SAN Quick Move Input", () => {
     global.fetch.mockClear();
     
     // Call startNewGame to initialize board variable and DOM
-    const { startNewGame } = require("./game/static/game/js/board");
+    const { startNewGame } = require("./game/static/game/js/board/_barrel.js");
     await startNewGame('pvp', 'white', 'medium', 'startpos', 10);
   });
 

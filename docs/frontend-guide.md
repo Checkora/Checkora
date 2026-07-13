@@ -33,20 +33,43 @@ game/static/game/js/
 
 # Core Modules
 
-## board.js
+## board/ Directory & board.js
 
-Largest frontend module responsible for:
+The main chessboard logic (`board.js`) has been modularized into focused, single-responsibility modules inside `game/static/game/js/board/`.
 
-* Chess board rendering
-* Move handling
-* Game state updates
-* Puzzle interactions
-* Multiplayer integration
-* WebSocket communication
+### Modular Architecture (`/board/`)
+All board modules follow our **dual-mode module convention**: they attach to `window.CB` in the browser and use `module.exports` under Node.js / Jest.
+
+* `_ns.js` — Global `window.CB` namespace setup.
+* `state.js` — Centralized mutable game state (`CB.S`).
+* `dom.js` — Cached DOM references (`CB.DOM`) and query helpers.
+* `sound.js` — Audio and sound effects (`CB.sounds`, `playSound`).
+* `api.js` — CSRF tokens and HTTP API wrappers (`get`, `post`, `handleReconnect`).
+* `utils.js` — Pure mathematical and board helper utilities.
+* `pieces.js` — Chess piece styles and image constants.
+* `render.js` — DOM rendering (`parseBoard`, `buildBoard`, status and badge updates).
+* `clocks.js` — Game timers, clocks, and time control pickers.
+* `engine.js` — Stockfish client-side evaluation, move validation, and AI logic.
+* `promo.js` — Pawn promotion dialogs and choices.
+* `endgame.js` — Game over conditions, celebrations (confetti/sparkles), and session statistics.
+* `dialogs.js` — Confirmation, side-selection, and leave-confirmation modals.
+* `puzzle.js` — Daily puzzles, streaks, and puzzle hints.
+* `moves.js` — Core move execution (`tryMove`, `executeMove`) and click/drop handlers.
+* `lifecycle.js` — Game lifecycle (`startNewGame`, `loadGame`, `pauseGame`, `resumeGame`).
+* `replay.js` — Game history navigation and stepper controls.
+* `dragdrop.js` — Mouse and mobile touch drag-and-drop interactions.
+* `textinput.js` — Standard Algebraic Notation (SAN), manual move inputs, FEN loading, and PGN export.
+* `events.js` — Global keyboard shortcuts, UI button handlers, and welcome screen setup.
+* `_barrel.js` — Aggregator entrypoint for Node.js / Jest testing (`require('./board/_barrel.js')`).
+
+### Deprecated Entrypoint
+`board.js` now acts as a lightweight deprecation and forwarding wrapper:
+* In Node/Jest environments, requiring `board.js` delegates to `_barrel.js`.
+* In browser environments, templates directly include the `/board/*.js` scripts in dependency order (see `game/templates/game/board.html`).
 
 ### Used By
 
-* Board page
+* Board page (`game/templates/game/board.html`)
 * Puzzle pages
 * Game analysis features
 

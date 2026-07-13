@@ -1018,7 +1018,27 @@
         window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <script src="{% static 'game/js/board.js' %}"></script>
+    <!-- Modularized board scripts in dependency order -->
+    <script src="{% static 'game/js/board/_ns.js' %}"></script>
+    <script src="{% static 'game/js/board/state.js' %}"></script>
+    <script src="{% static 'game/js/board/dom.js' %}"></script>
+    <script src="{% static 'game/js/board/sound.js' %}"></script>
+    <script src="{% static 'game/js/board/api.js' %}"></script>
+    <script src="{% static 'game/js/board/utils.js' %}"></script>
+    <script src="{% static 'game/js/board/pieces.js' %}"></script>
+    <script src="{% static 'game/js/board/render.js' %}"></script>
+    <script src="{% static 'game/js/board/clocks.js' %}"></script>
+    <script src="{% static 'game/js/board/engine.js' %}"></script>
+    <script src="{% static 'game/js/board/promo.js' %}"></script>
+    <script src="{% static 'game/js/board/endgame.js' %}"></script>
+    <script src="{% static 'game/js/board/dialogs.js' %}"></script>
+    <script src="{% static 'game/js/board/puzzle.js' %}"></script>
+    <script src="{% static 'game/js/board/moves.js' %}"></script>
+    <script src="{% static 'game/js/board/lifecycle.js' %}"></script>
+    <script src="{% static 'game/js/board/replay.js' %}"></script>
+    <script src="{% static 'game/js/board/dragdrop.js' %}"></script>
+    <script src="{% static 'game/js/board/textinput.js' %}"></script>
+    <script src="{% static 'game/js/board/events.js' %}"></script>
 
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
