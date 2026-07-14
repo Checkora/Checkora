@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Checkora | Play AI Chess Online with Hybrid Engine{% endblock %}</title>
+  <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}" />
+
+  {% block meta %}{% endblock %}
+
+  <!-- Fonts (previously only loaded on landing.html, now loaded everywhere) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'game/css/landing.css' %}?v=2" />
+  <link rel="stylesheet" href="{% static 'game/css/lessons-shared.css' %}?v=1" />
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body{% block body_attrs %}{% endblock %}>
+
+  {% include "partials/navbar.html" %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  {% include "partials/footer.html" %}
+  {% include "partials/back_to_top.html" %}
+
+  <script src="{% static 'game/js/dropdown.js' %}?v=2"></script>
+  <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

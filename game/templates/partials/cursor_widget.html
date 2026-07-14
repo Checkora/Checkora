@@ -1,0 +1,141 @@
+<!-- ══════════════════════════════════════════════════════════════
+     Shared Cursor Widget Partial
+     Pairs with the "Cursor: ..." dropdown in partials/navbar.html.
+     Include once per page, after navbar.html:
+       {% include "partials/cursor_widget.html" %}
+     ══════════════════════════════════════════════════════════════ -->
+<div class="cursor"></div>
+
+<script>
+  /* Animated Cursor System
+     - Core Architecture: JS-driven translate3d() (anchored 0,0) handles mouse tracking.
+       Pseudo-elements (::before/::after) host all animations to prevent transform
+       conflicts with the JS-set position. GPU-accelerated; display: none by default.
+       Z-index < 9999 ensures dropdown/click-through interactivity.
+     - Variant Implementation: Default / Glow / Trail / Sparkle / Orbit / Chess (pawn glyph). */
+  if (window.__checkoraCursorInited) {
+    // Already initialized on this page; do nothing.
+  } else {
+    window.__checkoraCursorInited = true;
+
+    const cursor = document.querySelector('.cursor');
+    const cursorDropdown = document.querySelector('.cursor-dropdown');
+    const cursorTrigger = document.getElementById('cursorTypeTrigger');
+    const cursorTypeLabel = document.getElementById('cursorTypeLabel');
+    const cursorOptions = document.querySelectorAll('.cursor-type-option');
+    const CURSOR_STORAGE_KEY = 'checkora:cursor-type';
+    const VALID_CURSOR_TYPES = ['default', 'glow', 'trail', 'sparkle', 'orbit', 'chess'];
+
+    const prefersReducedMotion = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isTouchDevice = window.matchMedia &&
+      window.matchMedia('(pointer: coarse)').matches;
+
+    let activeCursor = 'default';
+    let mouseX = 0;
+    let mouseY = 0;
+    let rafRunning = false;
+
+    const CURSOR_OFFSETS = {
+      default: 8,
+      glow: 9,
+      trail: 6,
+      sparkle: 8,
+      orbit: 20,
+      chess: 12
+    };
+    let cursorOffset = CURSOR_OFFSETS.default;
+    function updateCursorPosition() {
+      cursor.style.transform =
+        'translate3d(' + (mouseX - cursorOffset) + 'px, ' + (mouseY - cursorOffset) + 'px, 0)';
+      rafRunning = false;
+    }
+
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (!rafRunning && activeCursor !== 'default') {
+        rafRunning = true;
+        requestAnimationFrame(updateCursorPosition);
+      }
+    }, { passive: true });
+
+    function safeGetStoredType() {
+      try {
+        const v = window.localStorage.getItem(CURSOR_STORAGE_KEY);
+        return VALID_CURSOR_TYPES.indexOf(v) >= 0 ? v : 'default';
+      } catch (e) { return 'default'; }
+    }
+    function safeSetStoredType(type) {
+      try { window.localStorage.setItem(CURSOR_STORAGE_KEY, type); } catch (e) { /* ignore */ }
+    }
+
+    function updateCursorType(type, persist) {
+      if (VALID_CURSOR_TYPES.indexOf(type) < 0) type = 'default';
+      if ((isTouchDevice || prefersReducedMotion) && type !== 'default') type = 'default';
+
+      activeCursor = type;
+      cursor.className = 'cursor';
+
+      if (type !== 'default') {
+        cursor.classList.add(type);
+        cursor.style.opacity = '0.98';
+        cursor.style.display = type === 'chess' ? 'flex' : 'block';
+      } else {
+        cursor.style.opacity = '0';
+        cursor.style.display = 'none';
+      }
+
+      cursorTypeLabel.textContent =
+        type.charAt(0).toUpperCase() + type.slice(1);
+      document.body.classList.toggle('hide-native-cursor', type !== 'default');
+      cursorOptions.forEach(option => {
+        option.classList.toggle('selected', option.dataset.cursor === type);
+      });
+
+      if (type !== 'default' && !rafRunning) {
+        rafRunning = true;
+        requestAnimationFrame(updateCursorPosition);
+      }
+
+      if (persist) safeSetStoredType(type);
+    }
+
+    if (!isTouchDevice) {
+      const initialType = prefersReducedMotion ? 'default' : safeGetStoredType();
+      updateCursorType(initialType, false);
+    }
+
+    function closeCursorDropdown() {
+      cursorDropdown.classList.remove('active');
+      cursorTrigger.setAttribute('aria-expanded', 'false');
+    }
+    cursorTrigger.addEventListener('click', e => {
+      e.stopPropagation();
+      cursorDropdown.classList.toggle('active');
+      const expanded = cursorDropdown.classList.contains('active');
+      cursorTrigger.setAttribute('aria-expanded', expanded);
+    });
+
+    cursorOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        updateCursorType(option.dataset.cursor, true);
+        closeCursorDropdown();
+      });
+    });
+
+    document.addEventListener('click', e => {
+      if (!cursorDropdown.contains(e.target)) {
+        closeCursorDropdown();
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeCursorDropdown();
+      }
+    });
+
+    window.addEventListener('scroll', closeCursorDropdown, { passive: true });
+  }
+</script>
