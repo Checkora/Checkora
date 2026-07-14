@@ -1,14 +1,17 @@
 import os
 import time
 import tempfile
+import hashlib
 from unittest import mock
 from django.test import TestCase
+from django.conf import settings
 from game.engine import ChessGame
 
 
 class PersistentEngineTest(TestCase):
     def setUp(self):
         self.temp_files_to_clean = []
+        self.pool_authkey = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
 
     def tearDown(self):
         # Clean up any files created during tests
@@ -41,11 +44,12 @@ class PersistentEngineTest(TestCase):
         self.assertEqual(restored.game_id, game_id)
         self.assertEqual(restored.authkey, game.authkey)
 
-    def test_persistent_server_spawning_once(self):
-        """Test that call_engine spawns the server only once (with authkey)."""
+    @mock.patch('random.randint', return_value=0)
+    def test_persistent_server_spawning_once(self, mock_randint):
+        """Test that call_engine spawns the server only once (with pool authkey)."""
         game = ChessGame()
         port_path = os.path.join(tempfile.gettempdir(),
-                                 f'checkora_engine_{game.game_id}.port')
+                                 'checkora_engine_pool_worker_0.port')
         self.temp_files_to_clean.append(port_path)
 
         # Mock subprocess.Popen to count spawns
@@ -91,30 +95,6 @@ class PersistentEngineTest(TestCase):
                 ]
                 self.assertEqual(len(persistent_server_spawns), 1)
 
-    def test_cleanup_engine_sends_shutdown(self):
-        """Test that cleanup_engine sends a SHUTDOWN command."""
-        game = ChessGame()
-
-        port_path = os.path.join(tempfile.gettempdir(),
-                                 f'checkora_engine_{game.game_id}.port')
-        self.temp_files_to_clean.append(port_path)
-        with open(port_path, 'w') as f:
-            f.write("9999")
-
-        mock_client_instance = mock.MagicMock()
-        mock_client_instance.recv.return_value = "OK"
-
-        with mock.patch('multiprocessing.connection.Client',
-                        return_value=mock_client_instance) as mock_client:
-            game.cleanup_engine()
-
-            # Verify client was created to connect to IPC
-            mock_client.assert_called_once()
-
-            # Verify SHUTDOWN was sent
-            mock_client_instance.send.assert_called_once_with("SHUTDOWN")
-            mock_client_instance.close.assert_called_once()
-
     def test_cleanup_engine_on_game_over(self):
         """Test that cleanup_engine triggers on terminal status change."""
         game = ChessGame()
@@ -124,8 +104,9 @@ class PersistentEngineTest(TestCase):
             game.game_status = 'checkmate'
             mock_cleanup.assert_called_once()
 
-    def test_integration_engine_process_reused(self):
-        """Integration test using python fallback to prove process reuse."""
+    @mock.patch('random.randint', return_value=0)
+    def test_integration_engine_process_reused(self, mock_randint):
+        """Integration test using python fallback to prove pool process reuse."""
         game = ChessGame()
 
         # Ensure we use the python engine fallback
@@ -138,10 +119,10 @@ class PersistentEngineTest(TestCase):
         # Register generated temp files for clean up
         t_dir = tempfile.gettempdir()
         self.temp_files_to_clean.append(
-            os.path.join(t_dir, f'checkora_engine_{game.game_id}.port')
+            os.path.join(t_dir, 'checkora_engine_pool_worker_0.port')
         )
         self.temp_files_to_clean.append(
-            os.path.join(t_dir, f'checkora_engine_{game.game_id}.pid')
+            os.path.join(t_dir, 'checkora_engine_pool_worker_0.pid')
         )
 
         with mock.patch.object(game, '_resolve_engine_path',
@@ -152,7 +133,7 @@ class PersistentEngineTest(TestCase):
 
             # Read PID of the spawned persistent_server.py
             pid_path = os.path.join(tempfile.gettempdir(),
-                                    f'checkora_engine_{game.game_id}.pid')
+                                    'checkora_engine_pool_worker_0.pid')
             self.assertTrue(os.path.exists(pid_path),
                             f"PID file {pid_path} should exist")
 
@@ -170,19 +151,28 @@ class PersistentEngineTest(TestCase):
 
             # Verify PID is identical
             self.assertEqual(pid1, pid2, "Server process should be reused")
+            
+            # Since cleanup_engine is a no-op, we must manually terminate the process 
+            # for the integration test by sending SHUTDOWN
+            from multiprocessing.connection import Client
+            port_path = os.path.join(tempfile.gettempdir(), 'checkora_engine_pool_worker_0.port')
+            if os.path.exists(port_path):
+                with open(port_path, 'r') as f:
+                    port = int(f.read().strip())
+                try:
+                    conn = Client(('127.0.0.1', port), family='AF_INET', authkey=self.pool_authkey)
+                    conn.send("SHUTDOWN")
+                    conn.recv()
+                    conn.close()
+                except Exception:
+                    pass
 
-            # Explicitly clean up
-            game.cleanup_engine()
-
-            # Verify server shut down and PID file removed
-            self.assertFalse(os.path.exists(pid_path),
-                             "PID file should be deleted after shutdown")
-
-    def test_stale_lock_cleanup(self):
+    @mock.patch('random.randint', return_value=0)
+    def test_stale_lock_cleanup(self, mock_randint):
         """Test that a stale lock file is automatically unlinked."""
         game = ChessGame()
         lock_path = os.path.join(tempfile.gettempdir(),
-                                 f'checkora_engine_{game.game_id}.lock')
+                                 'checkora_engine_pool_worker_0.lock')
         self.temp_files_to_clean.append(lock_path)
 
         # Create a stale lock file (simulate old creation time)
@@ -196,12 +186,13 @@ class PersistentEngineTest(TestCase):
         # Setup mock Popen and Client to check that it proceeds normally
         with mock.patch('subprocess.Popen') as mock_popen:
             mock_proc = mock.MagicMock()
+            mock_proc.communicate.return_value = ("STATUS OK\n", "")
             mock_popen.return_value = mock_proc
 
             def popen_side_effect(*args, **kwargs):
                 port_path = os.path.join(
                     tempfile.gettempdir(),
-                    f'checkora_engine_{game.game_id}.port'
+                    'checkora_engine_pool_worker_0.port'
                 )
                 with open(port_path, 'w') as f:
                     f.write("9999")

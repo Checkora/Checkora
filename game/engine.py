@@ -189,43 +189,8 @@ DP cache is intentionally excluded to save cookie space."""
         }
 
     def cleanup_engine(self):
-        """Send SHUTDOWN to the persistent engine server for this game."""
-        game_id = getattr(self, 'game_id', None)
-        if not game_id:
-            return
-
-        import os
-        import tempfile
-        from multiprocessing.connection import Client
-
-        port_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
-        )
-        if os.path.exists(port_path):
-            try:
-                with open(port_path, 'r') as f:
-                    port = int(f.read().strip())
-                address = ('127.0.0.1', port)
-                conn = Client(address, family='AF_INET', authkey=self.authkey)
-                conn.send("SHUTDOWN")
-                conn.recv()
-                conn.close()
-            except Exception:
-                pass
-
-        # Clean up files
-        lock_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
-        )
-        pid_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.pid'
-        )
-        for path in (lock_path, port_path, pid_path):
-            if os.path.exists(path):
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
+        """No-op. Engine pool workers manage their own lifecycle via inactivity timeouts."""
+        pass
 
     @classmethod
     def from_dict(cls, data):
@@ -422,19 +387,24 @@ DP cache is intentionally excluded to save cookie space."""
         if not engine_path:
             return None
 
-        game_id = getattr(self, 'game_id', None)
-        if not game_id:
-            self.game_id = str(uuid.uuid4())
-            game_id = self.game_id
-
         import tempfile
+        import hashlib
+        import random
+        from django.conf import settings
         from multiprocessing.connection import Client
 
+        pool_size = getattr(settings, 'ENGINE_POOL_SIZE', 4)
+        worker_id = random.randint(0, pool_size - 1)
+        worker_name = f"pool_worker_{worker_id}"
+
+        # Create a globally consistent authkey derived from SECRET_KEY
+        pool_authkey = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+
         port_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+            tempfile.gettempdir(), f'checkora_engine_{worker_name}.port'
         )
         lock_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+            tempfile.gettempdir(), f'checkora_engine_{worker_name}.lock'
         )
 
         def get_address():
@@ -452,7 +422,7 @@ DP cache is intentionally excluded to save cookie space."""
         address = get_address()
         if address:
             try:
-                conn = Client(address, family='AF_INET', authkey=self.authkey)
+                conn = Client(address, family='AF_INET', authkey=pool_authkey)
             except Exception:
                 pass
 
@@ -484,7 +454,7 @@ DP cache is intentionally excluded to save cookie space."""
                     engine_cmd_json = json.dumps(
                         self._build_engine_command(engine_path)
                     )
-                    authkey_hex = self.authkey.hex()
+                    authkey_hex = pool_authkey.hex()
 
                     creationflags = 0
                     if os.name == 'nt':
@@ -497,7 +467,7 @@ DP cache is intentionally excluded to save cookie space."""
                             pass
 
                     subprocess.Popen(
-                        [sys.executable, server_script, game_id,
+                        [sys.executable, server_script, worker_name,
                          engine_cmd_json, authkey_hex],
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
@@ -516,7 +486,7 @@ DP cache is intentionally excluded to save cookie space."""
                     if address:
                         try:
                             conn = Client(address, family='AF_INET',
-                                          authkey=self.authkey)
+                                          authkey=pool_authkey)
                             break
                         except Exception:
                             pass
@@ -538,7 +508,7 @@ DP cache is intentionally excluded to save cookie space."""
                     if address:
                         try:
                             conn = Client(address, family='AF_INET',
-                                          authkey=self.authkey)
+                                          authkey=pool_authkey)
                             break
                         except Exception:
                             pass
@@ -548,7 +518,7 @@ DP cache is intentionally excluded to save cookie space."""
                         if address:
                             try:
                                 conn = Client(address, family='AF_INET',
-                                              authkey=self.authkey)
+                                              authkey=pool_authkey)
                             except Exception:
                                 pass
                         break
