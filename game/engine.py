@@ -23,6 +23,7 @@ import json
 import sys
 import time
 import threading
+import uuid
 from datetime import date
 
 class ChessGame:
@@ -69,7 +70,10 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600, increment=0):
+    def __init__(self, time_limit=600, increment=0, game_id=None,
+                 authkey=None):
+        self.game_id = game_id or str(uuid.uuid4())
+        self.authkey = authkey or os.urandom(16)
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -95,7 +99,7 @@ class ChessGame:
         self.initial_turn_was_black = False
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
-        self.game_status = 'active'
+        self._game_status = 'active'
         self.draw_reason = None
         self.threefold_warning = False
 
@@ -143,10 +147,22 @@ class ChessGame:
         moves = " ".join(pgn_moves)
         return "\n".join(headers) + "\n\n" + moves + " " + result
 
+    @property
+    def game_status(self):
+        return self._game_status
+
+    @game_status.setter
+    def game_status(self, value):
+        self._game_status = value
+        if value != 'active':
+            self.cleanup_engine()
+
     def to_dict(self):
         """Serialise state for Django session storage.
 DP cache is intentionally excluded to save cookie space."""
         return {
+            'game_id': self.game_id,
+            'authkey': self.authkey.hex(),
             'board': self.board,
             'current_turn': self.current_turn,
             'move_history': self.move_history,
@@ -167,13 +183,58 @@ DP cache is intentionally excluded to save cookie space."""
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
             'initial_fullmove': getattr(self, 'initial_fullmove', 1),
-            'initial_turn_was_black': getattr(self, 'initial_turn_was_black', False),
+            'initial_turn_was_black': getattr(
+                self, 'initial_turn_was_black', False
+            ),
         }
+
+    def cleanup_engine(self):
+        """Send SHUTDOWN to the persistent engine server for this game."""
+        game_id = getattr(self, 'game_id', None)
+        if not game_id:
+            return
+
+        import os
+        import tempfile
+        from multiprocessing.connection import Client
+
+        port_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+        )
+        if os.path.exists(port_path):
+            try:
+                with open(port_path, 'r') as f:
+                    port = int(f.read().strip())
+                address = ('127.0.0.1', port)
+                conn = Client(address, family='AF_INET', authkey=self.authkey)
+                conn.send("SHUTDOWN")
+                conn.recv()
+                conn.close()
+            except Exception:
+                pass
+
+        # Clean up files
+        lock_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+        )
+        pid_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.pid'
+        )
+        for path in (lock_path, port_path, pid_path):
+            if os.path.exists(path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
         game = cls.__new__(cls)
+        game.game_id = data.get('game_id') or str(uuid.uuid4())
+        authkey_hex = data.get('authkey')
+        game.authkey = (bytes.fromhex(authkey_hex) if authkey_hex
+                        else os.urandom(16))
         game.board = data['board']
         game.current_turn = data['current_turn']
         game.move_history = data.get('move_history', [])
@@ -191,7 +252,7 @@ DP cache is intentionally excluded to save cookie space."""
             {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
         game.en_passant_target = data.get('en_passant_target', None)
         game.halfmove_clock = data.get('halfmove_clock', 0)
-        game.game_status = data.get('game_status', 'active')
+        game._game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
         game.threefold_warning = data.get('threefold_warning', False)
         game.initial_fullmove = data.get('initial_fullmove', 1)
@@ -352,7 +413,7 @@ DP cache is intentionally excluded to save cookie space."""
         """Build the subprocess command for either a binary
         or Python script."""
         if engine_path.endswith('.py'):
-            return [sys.executable, engine_path]
+            return [sys.executable, '-u', engine_path]
         return [engine_path]
 
     def _call_engine(self, command):
@@ -360,19 +421,170 @@ DP cache is intentionally excluded to save cookie space."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-        try:
-            proc = subprocess.Popen(
-                self._build_engine_command(engine_path),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            timeout_secs = getattr(self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS)
-            stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
-            return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
+
+        game_id = getattr(self, 'game_id', None)
+        if not game_id:
+            self.game_id = str(uuid.uuid4())
+            game_id = self.game_id
+
+        import tempfile
+        from multiprocessing.connection import Client
+
+        port_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+        )
+        lock_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+        )
+
+        def get_address():
+            if os.path.exists(port_path):
+                try:
+                    with open(port_path, 'r') as f:
+                        port = int(f.read().strip())
+                        return ('127.0.0.1', port)
+                except Exception:
+                    pass
             return None
+
+        # Try to connect if port file exists
+        conn = None
+        address = get_address()
+        if address:
+            try:
+                conn = Client(address, family='AF_INET', authkey=self.authkey)
+            except Exception:
+                pass
+
+        if not conn:
+            # Check for stale lock file and clean it up (5.0s TTL)
+            if os.path.exists(lock_path):
+                try:
+                    if time.time() - os.path.getmtime(lock_path) > 5.0:
+                        os.unlink(lock_path)
+                except OSError:
+                    pass
+
+            # Connection failed or not started. Attempt to acquire spawn lock.
+            lock_acquired = False
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
+                lock_acquired = True
+            except OSError:
+                pass
+
+            if lock_acquired:
+                # Spawn the server in the background
+                try:
+                    server_script = os.path.join(
+                        self.ENGINE_DIR, 'persistent_server.py'
+                    )
+                    engine_cmd_json = json.dumps(
+                        self._build_engine_command(engine_path)
+                    )
+                    authkey_hex = self.authkey.hex()
+
+                    creationflags = 0
+                    if os.name == 'nt':
+                        creationflags = subprocess.CREATE_NO_WINDOW
+
+                    if os.path.exists(port_path):
+                        try:
+                            os.unlink(port_path)
+                        except OSError:
+                            pass
+
+                    subprocess.Popen(
+                        [sys.executable, server_script, game_id,
+                         engine_cmd_json, authkey_hex],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        stdin=subprocess.DEVNULL,
+                        close_fds=True,
+                        creationflags=creationflags
+                    )
+                except Exception:
+                    pass
+
+                # Poll for the port file to be created, and then connect
+                start_time = time.time()
+                backoff = 0.01
+                while time.time() - start_time < 2.0:
+                    address = get_address()
+                    if address:
+                        try:
+                            conn = Client(address, family='AF_INET',
+                                          authkey=self.authkey)
+                            break
+                        except Exception:
+                            pass
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 0.1)
+
+                # Release the lock
+                try:
+                    os.unlink(lock_path)
+                except OSError:
+                    pass
+            else:
+                # Lock is held by someone else. Wait for lock release or
+                # connection to succeed
+                start_time = time.time()
+                backoff = 0.01
+                while time.time() - start_time < 2.0:
+                    address = get_address()
+                    if address:
+                        try:
+                            conn = Client(address, family='AF_INET',
+                                          authkey=self.authkey)
+                            break
+                        except Exception:
+                            pass
+                    if not os.path.exists(lock_path):
+                        # Lock file was deleted, try connecting one last time
+                        address = get_address()
+                        if address:
+                            try:
+                                conn = Client(address, family='AF_INET',
+                                              authkey=self.authkey)
+                            except Exception:
+                                pass
+                        break
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 0.1)
+
+        if not conn:
+            # Fallback to stateless spawning if the server failed to
+            # start or connect
+            try:
+                proc = subprocess.Popen(
+                    self._build_engine_command(engine_path),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                timeout_secs = getattr(
+                    self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
+                )
+                stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
+                return stdout.strip()
+            except (subprocess.TimeoutExpired, OSError):
+                return None
+
+        try:
+            conn.send(command)
+            resp = conn.recv()
+            return resp
+        except Exception:
+            return None
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def _count_active_pieces(self):
         """Helper to count the total pieces currently alive
@@ -1002,7 +1214,13 @@ DP cache is intentionally excluded to save cookie space."""
     # Max seconds for engine analysis before returning best move
     ANALYSIS_TIMEOUT_SECONDS = 10
 
-    def get_ai_move(self, depth=None):
+    DIFFICULTY_SETTINGS = {
+        'easy': {'max_depth': 2, 'time_budget_ms': 500},
+        'medium': {'max_depth': 4, 'time_budget_ms': 1500},
+        'hard': {'max_depth': 6, 'time_budget_ms': 4000},
+    }
+
+    def get_ai_move(self, depth=None, difficulty=None):
         """Return the best move for the current position.
 
         Checks the opening book first for an instant theory response.
@@ -1017,15 +1235,39 @@ DP cache is intentionally excluded to save cookie space."""
         if book_move:
             return book_move
 
-        # 2. Minimax search (slow path)
+        # 2. Map difficulty settings
+        if difficulty in self.DIFFICULTY_SETTINGS:
+            cfg = self.DIFFICULTY_SETTINGS[difficulty]
+            max_depth = cfg['max_depth']
+            time_budget_ms = cfg['time_budget_ms']
+        else:
+            # Map depth parameter if possible
+            if depth == 1:
+                cfg = self.DIFFICULTY_SETTINGS['easy']
+                max_depth = cfg['max_depth']
+                time_budget_ms = cfg['time_budget_ms']
+            elif depth == 2:
+                cfg = self.DIFFICULTY_SETTINGS['medium']
+                max_depth = cfg['max_depth']
+                time_budget_ms = cfg['time_budget_ms']
+            elif depth == 3:
+                cfg = self.DIFFICULTY_SETTINGS['hard']
+                max_depth = cfg['max_depth']
+                time_budget_ms = cfg['time_budget_ms']
+            else:
+                if depth is None:
+                    max_depth = self._get_ai_search_depth()
+                else:
+                    max_depth = depth
+                time_budget_ms = 2000  # Default budget
+
+        # 3. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        if depth is None:
-            depth = self._get_ai_search_depth()
         ep_str = self._serialize_ep()
         cmd = (
             f"BESTMOVE {board_str} {rights_str}"
-            f" {self.current_turn} {ep_str} {depth}"
+            f" {self.current_turn} {ep_str} {max_depth} {time_budget_ms}"
         )
         resp = self._call_engine(cmd)
 
@@ -1042,7 +1284,13 @@ DP cache is intentionally excluded to save cookie space."""
             'to_row':   int(parts[3]),
             'to_col':   int(parts[4]),
             'eval': None,
-            'alts': []
+            'alts': [],
+            'depth': 0,
+            'nodes': 0,
+            'tthits': 0,
+            'time': 0,
+            'engine': 'unknown',
+            'status': 'completed'
         }
         
         idx = 5
@@ -1052,7 +1300,7 @@ DP cache is intentionally excluded to save cookie space."""
                 idx += 2
             elif parts[idx] == "ALTS":
                 idx += 1
-                while idx + 4 < len(parts) and parts[idx] not in ("EVAL", "ALTS"):
+                while idx + 4 < len(parts) and parts[idx] not in ("EVAL", "ALTS", "DEPTH", "NODES", "TTHITS", "TIME", "ENGINE", "STATUS"):
                     move_data['alts'].append({
                         'from_row': int(parts[idx]),
                         'from_col': int(parts[idx+1]),
@@ -1061,6 +1309,24 @@ DP cache is intentionally excluded to save cookie space."""
                         'eval': int(parts[idx+4])
                     })
                     idx += 5
+            elif parts[idx] == "DEPTH" and idx + 1 < len(parts):
+                move_data['depth'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "NODES" and idx + 1 < len(parts):
+                move_data['nodes'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "TTHITS" and idx + 1 < len(parts):
+                move_data['tthits'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "TIME" and idx + 1 < len(parts):
+                move_data['time'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "ENGINE" and idx + 1 < len(parts):
+                move_data['engine'] = parts[idx + 1]
+                idx += 2
+            elif parts[idx] == "STATUS" and idx + 1 < len(parts):
+                move_data['status'] = parts[idx + 1]
+                idx += 2
             else:
                 idx += 1
 

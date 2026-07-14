@@ -166,3 +166,16 @@ class PuzzleStatsTest(TestCase):
         """GET to /api/puzzle-stats/ should return 200."""
         response = self.client.get('/api/puzzle-stats/')
         self.assertEqual(response.status_code, 200)
+
+
+class SecurityHeadersTest(TestCase):
+    """Test HTTP security headers applied by custom middleware."""
+
+    def test_security_headers_present_on_pages(self):
+        """Verify headers on standard HTML page responses."""
+        response = self.client.get('/play/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Content-Security-Policy', response)
+        self.assertIn('Permissions-Policy', response)
+        self.assertTrue(response['Content-Security-Policy'].startswith("default-src 'self'"))
+        self.assertIn("camera=()", response['Permissions-Policy'])

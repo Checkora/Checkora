@@ -323,7 +323,7 @@ class AiMoveRateLimitTest(TestCase):
     Issue #1625: Rate limiting for the /api/ai-move/ endpoint.
     """
 
-    def _make_ai_game_session(self):
+    def _make_ai_game_session(self, user=None):
         """Set an AI-mode chess game in the test client's session."""
         from game.engine import ChessGame
         game = ChessGame()
@@ -333,6 +333,20 @@ class AiMoveRateLimitTest(TestCase):
         session['game'] = game.to_dict()
         session['difficulty'] = 'easy'
         session.save()
+        
+        from game.models import ActiveGame
+        user_to_assign = user or (self.user1 if hasattr(self, 'user1') else None)
+        # If user2 is logged in, use user2
+        if str(session.get('_auth_user_id')) == str(getattr(self, 'user2', -1).pk):
+            user_to_assign = self.user2
+            
+        ActiveGame.objects.create(
+            user=user_to_assign,
+            session_key=session.session_key,
+            game_state=session['game'],
+            version=1,
+            status="active"
+        )
 
     def setUp(self):
         from django.contrib.auth.models import User

@@ -39,7 +39,7 @@ stdout, _ = proc.communicate(input=command, timeout=5)
 | Command | Purpose | Example |
 |---------|---------|---------|
 | `MOVES` | Get valid moves for a piece | `MOVES <board> <castling> <turn> <ep> <row> <col>` |
-| `BESTMOVE` | Get AI best move | `BESTMOVE <board> <castling> <turn> <ep> <depth>` |
+| `BESTMOVE` | Get AI best move | `BESTMOVE <board> <castling> <turn> <ep> <depth> [time_budget_ms]` |
 | `STATUS` | Get game status | `STATUS <board> <castling> <turn> <ep>` |
 | `PROMOTE` | Handle pawn promotion | `PROMOTE <board> <castling> <turn> <ep> <fr> <fc> <tr> <tc> <piece>` |
 | `NOTATION` | Generate SAN notation | `NOTATION <board> <castling> <turn> <ep> <fr> <fc> <tr> <tc>` |
@@ -103,3 +103,38 @@ For the first few moves, the engine uses a pre-built opening book:
 ## Engine Fallback
 
 If C++ binary is not found, the system automatically falls back to Python engine (`main.py`) with reduced search depth.
+
+## Iterative Deepening
+
+The engine search is upgraded from a fixed-depth search to time-bounded iterative deepening:
+- The search starts at depth 1, then depth 2, depth 3, etc., up to the maximum depth allowed by the difficulty level.
+- At the start of each depth iteration, the best move found from the previous depth is ordered first to maximize Alpha-Beta pruning.
+- A clock is checked periodically during search. If the time budget expires, the search is aborted immediately, and the best move from the last fully completed depth is returned.
+
+## Transposition Table (TT)
+
+A Transposition Table is used to store previously searched positions to avoid redundant calculations:
+- **Size**: $2^{19}$ entries (524,288 entries).
+- **Replacement Strategy**: Depth-preferred (overwrite if the new search has a greater or equal depth).
+- **Fields stored**: 64-bit board hash, search depth, evaluation score, best move, and bound type (`EXACT`, `LOWER_BOUND`, `UPPER_BOUND`).
+- **TT Move Ordering**: Stored best moves are tried first at any node, greatly speeding up Alpha-Beta cut-offs.
+
+## Zobrist Hash Design
+
+To uniquely identify board positions without collisions:
+- **Keys**: Deterministically generated using a 64-bit XORShift pseudo-random number generator (PRNG) with a fixed seed (`0x123456789ABCDEF`).
+- **Components hashed**:
+  - Piece type and color at each of the 64 squares (12 piece types total).
+  - Side to move (turn).
+  - Castling rights (16 combinations).
+  - En passant target file (8 possible files).
+
+## Engine Metrics
+
+The engine returns performance metrics appended to the `BESTMOVE` command output:
+- `DEPTH`: Maximum fully completed search depth.
+- `NODES`: Total number of nodes evaluated.
+- `TTHITS`: Number of transposition table cache hits.
+- `TIME`: Total elapsed search time in milliseconds.
+- `ENGINE`: Either `cpp` or `python` to identify the active engine.
+- `STATUS`: Either `completed` (searched to max depth) or `timeout` (budget expired).

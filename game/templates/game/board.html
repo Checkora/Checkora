@@ -404,6 +404,11 @@
             <div class="board-outer">
                 <div class="board-aligned">
                     <div class="board-row">
+                        <!-- Evaluation Bar Container -->
+                        <div id="evalBarContainer" class="eval-bar-container">
+                            <div id="evalBarWhite" class="eval-bar-white"></div>
+                            <span id="evalBarScore" class="eval-bar-score">0.0</span>
+                        </div>
                         <div class="ranks" id="ranksLabels">
                             <span>8</span><span>7</span><span>6</span><span>5</span>
                             <span>4</span><span>3</span><span>2</span><span>1</span>
@@ -519,13 +524,13 @@
                 </div>
             </div>
 
-            <div class="card controls-card" style="padding: 15px;">
+            <div class="card controls-card" id="boardThemeCard" style="padding: 15px;">
                 <button type="button" class="btn btn-gold" id="openThemeModalBtn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <span>⚙️</span> Customize Theme & Settings
                 </button>
             </div>
 
-            <div class="card controls-card">
+            <div class="card controls-card" id="gameControlsCard">
                 <div class="card-title">Game Controls</div>
                 <div class="controls-grid">
                     <button type="button" class="btn btn-gold" id="flipBtn" title="Shortcut: F">Flip Board<span class="btn-shortcut">F</span></button>
@@ -672,6 +677,32 @@
                         <input type="radio" name="boardThemeRadio" value="pastel" class="theme-radio-input">
                         <span class="theme-swatch pastel-swatch theme-btn" data-theme="pastel" title="Pastel"></span>
                         <span class="theme-swatch-name">Pastel</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="theme-modal-section">
+                <h3 class="section-title">Piece Style</h3>
+                <div class="theme-swatches-grid">
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="pieceStyleRadio" value="neo" class="theme-radio-input">
+                        <span class="theme-swatch piece-swatch piece-style-btn" data-piece-style="neo" title="Neo" style="background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/neo/150/wn.png'); background-size: cover; background-color: rgba(255,255,255,0.05);"></span>
+                        <span class="theme-swatch-name">Neo</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="pieceStyleRadio" value="classic" class="theme-radio-input">
+                        <span class="theme-swatch piece-swatch piece-style-btn" data-piece-style="classic" title="Classic" style="background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/classic/150/wn.png'); background-size: cover; background-color: rgba(255,255,255,0.05);"></span>
+                        <span class="theme-swatch-name">Classic</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="pieceStyleRadio" value="alpha" class="theme-radio-input">
+                        <span class="theme-swatch piece-swatch piece-style-btn" data-piece-style="alpha" title="Alpha" style="background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/alpha/150/wn.png'); background-size: cover; background-color: rgba(255,255,255,0.05);"></span>
+                        <span class="theme-swatch-name">Alpha</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="pieceStyleRadio" value="cburnett" class="theme-radio-input">
+                        <span class="theme-swatch piece-swatch piece-style-btn" data-piece-style="cburnett" title="CBurnett" style="background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/cburnett/150/wn.png'); background-size: cover; background-color: rgba(255,255,255,0.05);"></span>
+                        <span class="theme-swatch-name">CBurnett</span>
                     </label>
                 </div>
             </div>
@@ -999,6 +1030,18 @@
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="{% static 'game/js/board.js' %}"></script>
+
+<!-- First-time visitor onboarding tour -->
+<div id="tourOverlay" class="tour-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Onboarding tour">
+    <div id="tourTooltip" class="tour-tooltip" tabindex="-1">
+        <p id="tourStepLabel" class="tour-step-label"></p>
+        <p id="tourStepText" class="tour-step-text" aria-live="polite"></p>
+        <div class="tour-actions">
+            <button type="button" id="tourSkipBtn" class="tour-skip-btn">Skip tour</button>
+            <button type="button" id="tourNextBtn" class="tour-next-btn">Next →</button>
+        </div>
+    </div>
+</div>
 
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>

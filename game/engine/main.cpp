@@ -28,6 +28,9 @@
 #include <vector>
 #include <climits>
 #include <algorithm>
+#include <cstdint>
+#include <chrono>
+#include <cstring>
 
 using namespace std;
 
@@ -292,6 +295,116 @@ struct Move {
     int fr, fc, tr, tc;
     char promoPiece;  // '\0' if not a promotion
 };
+
+enum BoundType {
+    EXACT = 0,
+    LOWER_BOUND = 1,
+    UPPER_BOUND = 2
+};
+
+struct TTEntry {
+    uint64_t hash;
+    int depth;
+    int score;
+    Move bestMove;
+    BoundType bound;
+    bool isValid;
+};
+
+const int TT_SIZE = 524288;
+TTEntry transpositionTable[TT_SIZE];
+
+uint64_t zobristPieces[64][12];
+uint64_t zobristBlackToMove;
+uint64_t zobristCastling[16];
+uint64_t zobristEnPassant[8];
+
+uint64_t prng_state = 0x123456789ABCDEFULL;
+uint64_t nextRandom() {
+    prng_state ^= (prng_state << 13);
+    prng_state ^= (prng_state >> 7);
+    prng_state ^= (prng_state << 17);
+    return prng_state;
+}
+
+void initZobrist() {
+    prng_state = 0x123456789ABCDEFULL;
+    for (int s = 0; s < 64; s++) {
+        for (int p = 0; p < 12; p++) {
+            zobristPieces[s][p] = nextRandom();
+        }
+    }
+    zobristBlackToMove = nextRandom();
+    for (int i = 0; i < 16; i++) {
+        zobristCastling[i] = nextRandom();
+    }
+    for (int i = 0; i < 8; i++) {
+        zobristEnPassant[i] = nextRandom();
+    }
+}
+
+int getPieceIndex(char p) {
+    switch (p) {
+        case 'P': return 0;
+        case 'N': return 1;
+        case 'B': return 2;
+        case 'R': return 3;
+        case 'Q': return 4;
+        case 'K': return 5;
+        case 'p': return 6;
+        case 'n': return 7;
+        case 'b': return 8;
+        case 'r': return 9;
+        case 'q': return 10;
+        case 'k': return 11;
+        default:  return -1;
+    }
+}
+
+uint64_t computeHash(const string &turn) {
+    uint64_t h = 0;
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            char p = board[r][c];
+            if (p != '.') {
+                int idx = getPieceIndex(p);
+                if (idx != -1) {
+                    h ^= zobristPieces[r * 8 + c][idx];
+                }
+            }
+        }
+    }
+    if (turn == "black") {
+        h ^= zobristBlackToMove;
+    }
+    int castlingIdx = (W_K_CASTLE ? 1 : 0) |
+                     (W_Q_CASTLE ? 2 : 0) |
+                     (B_K_CASTLE ? 4 : 0) |
+                     (B_Q_CASTLE ? 8 : 0);
+    h ^= zobristCastling[castlingIdx];
+    if (EN_PASSANT_C >= 0 && EN_PASSANT_C < 8) {
+        h ^= zobristEnPassant[EN_PASSANT_C];
+    }
+    return h;
+}
+
+// Search control variables
+std::chrono::steady_clock::time_point startTime;
+int timeLimitMs = -1;
+bool searchAborted = false;
+int nodesSearched = 0;
+int tthits = 0;
+
+bool isTimeout() {
+    if (timeLimitMs <= 0) return false;
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+    return elapsed >= timeLimitMs;
+}
+
+bool movesEqual(const Move &a, const Move &b) {
+    return a.fr == b.fr && a.fc == b.fc && a.tr == b.tr && a.tc == b.tc && a.promoPiece == b.promoPiece;
+}
 
 pair<int,int> findKing(const string &color);
 bool leavesKingInCheck(const Move &m, const string &side);
@@ -593,8 +706,12 @@ vector<Move> generateMoves(const string &side) {
  * Simple move-ordering heuristic: captures first, then promotions.
  * Helps alpha-beta prune more effectively.
  */
-void orderMoves(vector<Move> &moves) {
-    sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
+void orderMoves(vector<Move> &moves, const Move &ttMove = Move{-1, -1, -1, -1, '\0'}) {
+    sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {
+        if (ttMove.fr != -1) {
+            if (movesEqual(a, ttMove)) return true;
+            if (movesEqual(b, ttMove)) return false;
+        }
         int sa = 0, sb = 0;
 
         // Captures scored by victim value
@@ -663,11 +780,40 @@ bool leavesKingInCheck(const Move &m, const string &side) {
  * Returns the static evaluation at leaf nodes.
  */
 int minimax(int depth, int alpha, int beta, bool maximizing) {
+    if (searchAborted) return 0;
+
+    nodesSearched++;
+    if (nodesSearched % 1024 == 0) {
+        if (isTimeout()) {
+            searchAborted = true;
+            return 0;
+        }
+    }
+
     if (depth == 0) return evaluate();
+
+    uint64_t hash = computeHash(maximizing ? "white" : "black");
+    int ttIndex = hash % TT_SIZE;
+    if (transpositionTable[ttIndex].isValid && transpositionTable[ttIndex].hash == hash) {
+        if (transpositionTable[ttIndex].depth >= depth) {
+            tthits++;
+            BoundType bound = transpositionTable[ttIndex].bound;
+            int score = transpositionTable[ttIndex].score;
+            if (bound == EXACT) return score;
+            if (bound == LOWER_BOUND && score >= beta) return score;
+            if (bound == UPPER_BOUND && score <= alpha) return score;
+        }
+    }
 
     string side = maximizing ? "white" : "black";
     vector<Move> moves = generateMoves(side);
-    orderMoves(moves);
+    
+    Move ttMove = Move{-1, -1, -1, -1, '\0'};
+    if (transpositionTable[ttIndex].isValid && transpositionTable[ttIndex].hash == hash) {
+        ttMove = transpositionTable[ttIndex].bestMove;
+    }
+
+    orderMoves(moves, ttMove);
 
     // Filter out moves that leave own king in check
     vector<Move> legal;
@@ -686,6 +832,10 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
                               : ( 99999 - (100 - depth));
         return 0;  // stalemate
     }
+
+    int originalAlpha = alpha;
+    int originalBeta = beta;
+    Move bestMoveThisNode = Move{-1, -1, -1, -1, '\0'};
 
     if (maximizing) {
         int maxEval = INT_MIN;
@@ -721,8 +871,20 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
             if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
             if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
 
+            int old_ep_r = EN_PASSANT_R;
+            int old_ep_c = EN_PASSANT_C;
+            if (tolower(src) == 'p' && abs(m.tr - m.fr) == 2) {
+                EN_PASSANT_R = (m.fr + m.tr) / 2;
+                EN_PASSANT_C = m.fc;
+            } else {
+                EN_PASSANT_R = -1;
+                EN_PASSANT_C = -1;
+            }
+
             int eval = minimax(depth - 1, alpha, beta, false);
 
+            EN_PASSANT_R = old_ep_r;
+            EN_PASSANT_C = old_ep_c;
             W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
 
             if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
@@ -733,10 +895,28 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
                 board[rook_tr][rook_tc] = '.';
             }
 
-            maxEval = max(maxEval, eval);
+            if (searchAborted) return 0;
+
+            if (eval > maxEval) {
+                maxEval = eval;
+                bestMoveThisNode = m;
+            }
             alpha = max(alpha, eval);
             if (beta <= alpha) break;
         }
+
+        if (!searchAborted) {
+            TTEntry entry;
+            entry.hash = hash;
+            entry.depth = depth;
+            entry.score = maxEval;
+            entry.bestMove = bestMoveThisNode;
+            entry.bound = (maxEval <= originalAlpha) ? UPPER_BOUND :
+                          (maxEval >= beta) ? LOWER_BOUND : EXACT;
+            entry.isValid = true;
+            transpositionTable[ttIndex] = entry;
+        }
+
         return maxEval;
     } else {
         int minEval = INT_MAX;
@@ -772,8 +952,20 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
             if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
             if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
 
+            int old_ep_r = EN_PASSANT_R;
+            int old_ep_c = EN_PASSANT_C;
+            if (tolower(src) == 'p' && abs(m.tr - m.fr) == 2) {
+                EN_PASSANT_R = (m.fr + m.tr) / 2;
+                EN_PASSANT_C = m.fc;
+            } else {
+                EN_PASSANT_R = -1;
+                EN_PASSANT_C = -1;
+            }
+
             int eval = minimax(depth - 1, alpha, beta, true);
 
+            EN_PASSANT_R = old_ep_r;
+            EN_PASSANT_C = old_ep_c;
             W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
 
             if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
@@ -784,10 +976,28 @@ int minimax(int depth, int alpha, int beta, bool maximizing) {
                 board[rook_tr][rook_tc] = '.';
             }
 
-            minEval = min(minEval, eval);
+            if (searchAborted) return 0;
+
+            if (eval < minEval) {
+                minEval = eval;
+                bestMoveThisNode = m;
+            }
             beta = min(beta, eval);
             if (beta <= alpha) break;
         }
+
+        if (!searchAborted) {
+            TTEntry entry;
+            entry.hash = hash;
+            entry.depth = depth;
+            entry.score = minEval;
+            entry.bestMove = bestMoveThisNode;
+            entry.bound = (minEval <= alpha) ? UPPER_BOUND :
+                          (minEval >= originalBeta) ? LOWER_BOUND : EXACT;
+            entry.isValid = true;
+            transpositionTable[ttIndex] = entry;
+        }
+
         return minEval;
     }
 }
@@ -967,10 +1177,14 @@ void handleNotation(const string &turn, int fr, int fc, int tr, int tc, char pro
  * Runs minimax to the requested depth and returns the best move
  * for the given side.
  */
-void handleBestMove(const string &turn, int depth) {
+void handleBestMove(const string &turn, int maxDepth, int timeLimitMs = -1) {
     bool maximizing = (turn == "white");
+
+    // Clear transposition table
+    memset(transpositionTable, 0, sizeof(transpositionTable));
+
     vector<Move> moves = generateMoves(turn);
-    orderMoves(moves);
+    orderMoves(moves, Move{-1, -1, -1, -1, '\0'});
 
     vector<Move> legal;
     legal.reserve(moves.size());
@@ -984,79 +1198,146 @@ void handleBestMove(const string &turn, int depth) {
         return;
     }
 
-    vector<pair<Move, int>> evaluated;
-    evaluated.reserve(legal.size());
+    // Initialize search variables
+    startTime = std::chrono::steady_clock::now();
+    ::timeLimitMs = timeLimitMs;
+    searchAborted = false;
+    nodesSearched = 0;
+    tthits = 0;
 
-    for (auto &m : legal) {
-        char src = board[m.fr][m.fc];
-        char dst = board[m.tr][m.tc];
-        board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
-        board[m.fr][m.fc] = '.';
+    Move best = legal[0];
+    int bestVal = maximizing ? INT_MIN : INT_MAX;
+    int depthReached = 0;
+    bool completedAll = true;
+    vector<pair<Move, int>> lastCompletedEvaluated;
 
-        int ep_r = -1, ep_c = -1;
-        char ep_captured = '.';
-        if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
-            ep_r = m.fr; ep_c = m.tc;
-            ep_captured = board[ep_r][ep_c];
-            board[ep_r][ep_c] = '.';
-        }
+    for (int d = 1; d <= maxDepth; d++) {
+        vector<pair<Move, int>> evaluated;
+        evaluated.reserve(legal.size());
 
-        int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
-        if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
-            if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
-            else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
-            if (rook_fr != -1) {
-                board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
-                board[rook_fr][rook_fc] = '.';
+        // Order the best move from the last depth to the front if d > 1
+        orderMoves(legal, (d > 1) ? best : Move{-1, -1, -1, -1, '\0'});
+
+        bool currentDepthAborted = false;
+
+        for (auto &m : legal) {
+            char src = board[m.fr][m.fc];
+            char dst = board[m.tr][m.tc];
+            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
+            board[m.fr][m.fc] = '.';
+
+            int ep_r = -1, ep_c = -1;
+            char ep_captured = '.';
+            if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
+                ep_r = m.fr; ep_c = m.tc;
+                ep_captured = board[ep_r][ep_c];
+                board[ep_r][ep_c] = '.';
             }
+
+            int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
+            if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
+                if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
+                else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
+                if (rook_fr != -1) {
+                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
+                    board[rook_fr][rook_fc] = '.';
+                }
+            }
+
+            bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
+            if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
+            if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
+            if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
+            if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
+            if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
+            if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
+
+            int old_ep_r = EN_PASSANT_R;
+            int old_ep_c = EN_PASSANT_C;
+            if (tolower(src) == 'p' && abs(m.tr - m.fr) == 2) {
+                EN_PASSANT_R = (m.fr + m.tr) / 2;
+                EN_PASSANT_C = m.fc;
+            } else {
+                EN_PASSANT_R = -1;
+                EN_PASSANT_C = -1;
+            }
+
+            int eval = minimax(d - 1, INT_MIN, INT_MAX, !maximizing);
+
+            EN_PASSANT_R = old_ep_r;
+            EN_PASSANT_C = old_ep_c;
+            W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
+
+            if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
+            board[m.fr][m.fc] = src;
+            board[m.tr][m.tc] = dst;
+            if (rook_fr != -1) {
+                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
+                board[rook_tr][rook_tc] = '.';
+            }
+
+            if (searchAborted) {
+                currentDepthAborted = true;
+                break;
+            }
+
+            evaluated.push_back({m, eval});
         }
 
-        bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
-        if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
-        if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
-        if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
-        if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
-        if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
-        if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
-
-        int eval = minimax(depth - 1, INT_MIN, INT_MAX, !maximizing);
-
-        W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
-
-        if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
-        board[m.fr][m.fc] = src;
-        board[m.tr][m.tc] = dst;
-        if (rook_fr != -1) {
-            board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
-            board[rook_tr][rook_tc] = '.';
+        if (currentDepthAborted) {
+            completedAll = false;
+            break;
         }
 
-        evaluated.push_back({m, eval});
+        if (maximizing) {
+            sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second > b.second; });
+        } else {
+            sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second < b.second; });
+        }
+
+        best = evaluated[0].first;
+        bestVal = evaluated[0].second;
+        depthReached = d;
+        lastCompletedEvaluated = evaluated;
+
+        if (legal.size() == 1) {
+            break;
+        }
+
+        if (isTimeout()) {
+            completedAll = false;
+            break;
+        }
     }
 
-    if (maximizing) {
-        sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second > b.second; });
-    } else {
-        sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second < b.second; });
-    }
-
-    Move best = evaluated[0].first;
-    int bestVal = evaluated[0].second;
+    auto now = std::chrono::steady_clock::now();
+    int elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
 
     cout << "BESTMOVE " << best.fr << " " << best.fc
          << " " << best.tr << " " << best.tc << " EVAL " << bestVal;
-    
-    if (evaluated.size() > 1) {
+
+    if (legal.size() > 1 && !lastCompletedEvaluated.empty()) {
         cout << " ALTS";
-        for (size_t i = 1; i < min((size_t)4, evaluated.size()); i++) {
-            Move am = evaluated[i].first;
-            cout << " " << am.fr << " " << am.fc << " " << am.tr << " " << am.tc << " " << evaluated[i].second;
+        int printed = 0;
+        for (size_t i = 1; i < lastCompletedEvaluated.size() && printed < 3; i++) {
+            Move am = lastCompletedEvaluated[i].first;
+            cout << " " << am.fr << " " << am.fc << " " << am.tr << " " << am.tc << " " << lastCompletedEvaluated[i].second;
+            printed++;
         }
     }
-    cout << endl;
+
+    string statusStr = completedAll ? "completed" : "timeout";
+    cout << " DEPTH " << depthReached
+         << " NODES " << nodesSearched
+         << " TTHITS " << tthits
+         << " TIME " << elapsedTimeMs
+         << " ENGINE cpp"
+         << " STATUS " << statusStr
+         << endl;
 }
 
 int main() {
+    initZobrist();
     string command;
     while (cin >> command) {
         if (command == "VALIDATE") {
@@ -1102,10 +1383,17 @@ int main() {
         else if (command == "BESTMOVE") {
             string b, rights, t; int epR, epC, depth;
             cin >> b >> rights >> t >> epR >> epC >> depth;
+            int limitMs = -1;
+            while (cin.peek() == ' ' || cin.peek() == '\t') {
+                cin.get();
+            }
+            if (cin.peek() != '\n' && cin.peek() != '\r' && cin.peek() != EOF) {
+                cin >> limitMs;
+            }
             loadBoard(b);
             loadCastlingRights(rights);
             EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleBestMove(t, depth);
+            handleBestMove(t, depth, limitMs);
         }
         else if (command == "NOTATION") {
             string b, rights, t; int epR, epC, fr, fc, tr, tc;

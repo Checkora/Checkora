@@ -102,6 +102,8 @@ from game.services import (
     delete_active_game,
     get_opening_reply,
     get_valid_openings,
+    load_game_state_helper,
+    save_game_state_helper,
 )
 
 from django.http import FileResponse
@@ -109,6 +111,7 @@ from django.http import FileResponse
 from .analysis import detect_opening
 from .analysis import build_summary
 VALID_OPENINGS = get_valid_openings()
+
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -250,13 +253,18 @@ def make_move(request):
         to_row = data['to_row']
         to_col = data['to_col']
         promotion_piece = data.get('promotion_piece', None)
+        client_version = data.get('version', None)
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return JsonResponse(
             {"error": "Invalid board coordinates"},
             status=400,
         )
 
-    game_data = request.session.get('game')
+    active_game, game_data, version = load_game_state_helper(request)
+    
+    if request.user.is_authenticated and client_version is not None and version != client_version:
+        return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
+
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
     success, message, captured, game_status = game.make_move(
@@ -264,12 +272,10 @@ def make_move(request):
     )
 
     if success:
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
+        success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
+        if not success_save:
+            return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
+
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
             game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
@@ -277,12 +283,16 @@ def make_move(request):
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+            delete_active_game(request)
         elif game_status in ('stalemate', 'draw'):
             game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)            
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+            delete_active_game(request)
+
+    res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
     return JsonResponse({
         'valid': success,
@@ -303,6 +313,7 @@ def make_move(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
+        'version': res_version
     })
 
 
@@ -413,6 +424,18 @@ def new_game(request):
         request,
         request.session['game']
     )
+    game_dict = game.to_dict()
+    # Embed session metadata so it can be restored on a different device/session.
+    # Stored under a 'metadata' sub-key inside the existing game_state JSONField;
+    # no model change or migration is required.
+    game_dict['metadata'] = {
+        'difficulty': difficulty,
+        'opening': opening,
+        'white_name': request.session.get('white_name', 'White'),
+        'black_name': request.session.get('black_name', 'Black'),
+    }
+    _success, active_game = save_game_state_helper(request, None, game_dict, 0)
+    res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
     return JsonResponse({
         'valid': True,
@@ -436,13 +459,14 @@ def new_game(request):
         'remaining_hints': 3,
 
         'opening': opening,
+        'version': res_version,
     })
 
 
 @require_POST
 def resume_game(request):
     """Resume the existing session game without resetting it."""
-    game_data = request.session.get('game')
+    active_game, game_data, version = load_game_state_helper(request)
     if not game_data:
         return JsonResponse({'valid': False, 'message': 'No saved game found.'}, status=404)
 
@@ -453,13 +477,12 @@ def resume_game(request):
 
     game.paused = False
     game.last_ts = time.time()
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    
+    success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
+    if not success_save:
+        return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
+    res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
     return JsonResponse({
         'valid': True,
@@ -481,6 +504,7 @@ def resume_game(request):
         'fen': game.generate_full_fen(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'difficulty': request.session.get('difficulty', 'medium'),
+        'version': res_version
     })
 
 
@@ -573,7 +597,7 @@ def get_state(request):
 @require_POST
 def set_pause(request):
     """Toggle the game clock between paused and running."""
-    game_data = request.session.get('game')
+    active_game, game_data, version = load_game_state_helper(request)
     if not game_data:
         return JsonResponse({'paused': False})
 
@@ -592,18 +616,17 @@ def set_pause(request):
     game.paused = pause
     game.last_ts = time.time()
 
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
+    success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
+    if not success_save:
+        return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
+    res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
     return JsonResponse({
         'paused': game.paused,
         'white_time': game.white_time,
         'black_time': game.black_time,
+        'version': res_version
     })
 
 
@@ -636,7 +659,17 @@ def ai_move(request):
             response['Retry-After'] = str(window)
             return response
 
-    game_data = request.session.get('game')
+    client_version = None
+    try:
+        data = json.loads(request.body)
+        client_version = data.get('version')
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        pass
+
+    active_game, game_data, version = load_game_state_helper(request)
+    if request.user.is_authenticated and client_version is not None and version != client_version:
+        return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
+
     if not game_data:
         err_msg = 'No active game.'
         return JsonResponse(
@@ -756,13 +789,12 @@ def ai_move(request):
             game_status = 'stalemate'
 
         game.game_status = game_status
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
+        
+        success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
+        if not success_save:
+            return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
+        delete_active_game(request)
 
         return JsonResponse({
             'valid': True,
@@ -774,6 +806,7 @@ def ai_move(request):
             'move_history': game.move_history,
             'captured_pieces': game.captured,
             'message': '',
+            'version': 0
         })
 
     engine = import_module(settings.SESSION_ENGINE)
@@ -792,7 +825,7 @@ def ai_move(request):
 
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
-        best['to_row'],   best['to_col'],
+        best['to_row'], best['to_col'],
     )
 
     if success:
@@ -806,13 +839,10 @@ def ai_move(request):
 
         game_dict = game.to_dict()
         game_dict['paused'] = authoritative_paused
-        request.session['game'] = game_dict
-        request.session.modified = True
-
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
+        
+        success_save, active_game = save_game_state_helper(request, active_game, game_dict, version)
+        if not success_save:
+            return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
@@ -821,12 +851,16 @@ def ai_move(request):
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+            delete_active_game(request)
         elif game_status in ('stalemate', 'draw'):
             game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
+            delete_active_game(request)
+
+    res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
     return JsonResponse({
         'valid': success,
@@ -849,6 +883,7 @@ def ai_move(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'opening': request.session.get('opening', ''),
+        'version': res_version
     })
 
 @require_POST
@@ -1002,7 +1037,7 @@ def offer_draw(request):
 @require_POST
 def resign_game(request):
     """Handle a player resigning the game."""
-    game_data = request.session.get('game')
+    active_game, game_data, version = load_game_state_helper(request)
     if not game_data:
         return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
 
@@ -1025,13 +1060,10 @@ def resign_game(request):
     game_status = 'resignation'
 
     game.game_status = game_status
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
-
-    create_or_update_active_game(
-        request,
-        request.session['game']
-    )
+    
+    success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
+    if not success_save:
+        return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
     try:
         game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
@@ -1044,11 +1076,14 @@ def resign_game(request):
     except Exception as e:
         logger.error('Failed to record resign result: %s', e)
 
+    delete_active_game(request)
+
     return JsonResponse({
         'valid': True,
         'message': f'{resigning_player.capitalize()} resigned.',
         'winner': winner,
-        'game_status': game_status
+        'game_status': game_status,
+        'version': 0
     })
 
 @require_GET

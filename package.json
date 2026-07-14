@@ -3,24 +3,15 @@
   "version": "1.0.0",
   "description": "<div align=\"center\">",
   "main": "board.test.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
-    "test": "jest --env=jsdom"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/RuchiSheoran/Checkora.git"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/RuchiSheoran/Checkora/issues"
-  },
-  "homepage": "https://github.com/RuchiSheoran/Checkora#readme",
   "devDependencies": {
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0"

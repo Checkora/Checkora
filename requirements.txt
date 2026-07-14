@@ -4,6 +4,6 @@ psycopg2-binary>=2.9.9
 python-dotenv>=1.0.0
 whitenoise>=6.6.0
 flake8>=7.0.0
-selenium==4.15.0
+selenium==4.29.0
 webdriver-manager==4.0.1
-Pillow==12.2.0
+Pillow==12.3.0
