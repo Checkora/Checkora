@@ -122,17 +122,30 @@ class ChessGame:
             result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
-        
+
         def _fix_castling(move):
             return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
-        for i in range(0, len(self.move_history), 2):
-            move_number = i // 2 + 1
-            white_move = _fix_castling(self.move_history[i]['notation'])
-            if i + 1 < len(self.move_history):
-                black_move = _fix_castling(self.move_history[i + 1]['notation'])
-                pgn_moves.append(f"{move_number}. {white_move} {black_move}")
+
+        fullmove = getattr(self, 'initial_fullmove', 1)
+        history = self.move_history
+        i = 0
+
+        # If Black moved first, emit the first half-move as "N... move"
+        if getattr(self, 'initial_turn_was_black', False) and history:
+            black_move = _fix_castling(history[0]['notation'])
+            pgn_moves.append(f"{fullmove}... {black_move}")
+            fullmove += 1
+            i = 1
+
+        while i < len(history):
+            white_move = _fix_castling(history[i]['notation'])
+            if i + 1 < len(history):
+                black_move = _fix_castling(history[i + 1]['notation'])
+                pgn_moves.append(f"{fullmove}. {white_move} {black_move}")
             else:
-                pgn_moves.append(f"{move_number}. {white_move}")
+                pgn_moves.append(f"{fullmove}. {white_move}")
+            fullmove += 1
+            i += 2
         
         today = date.today().strftime('%Y.%m.%d')
         headers = [
