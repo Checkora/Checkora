@@ -415,7 +415,8 @@ body {
     position: fixed;
     pointer-events: none;
 
-    z-index: 9990;
+    /* Keep the visual cursor above the sticky navbar without blocking clicks. */
+    z-index: 10003;
     width: 18px;
     height: 18px;
     border-radius: 50%;
