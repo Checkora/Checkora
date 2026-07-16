@@ -1,0 +1,400 @@
+{% load static %}
+<!-- ══════════════════════════════════════════════════════════════
+     Shared Footer Partial (footer nav + legal modals + their JS)
+     Included via base.html
+     Requires: theme.css + landing.css loaded in the page <head>.
+     ══════════════════════════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-col brand-column">
+      <a href="{% url 'landing' %}" class="logo-link">
+        <img
+          src="{% static 'game/checkora_icon_only.png' %}"
+          alt="Checkora Logo"
+          class="logo-img"
+        />
+        <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
+      </a>
+      <p class="brand-desc">
+        Experience high-performance chess with Checkora's hybrid C++ engine.
+        Challenge the AI, track your stats, and master the board.
+      </p>
+    </div>
+
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <ul class="footer-nav-list">
+        <li><a href="{% url 'index' %}" class="footer-link">Play Game</a></li>
+        <li><a href="{% url 'leaderboard' %}" class="footer-link">Leaderboard</a></li>
+        <li><a href="{% url 'achievements' %}" class="footer-link">Achievements</a></li>
+        <li><a href="{% url 'stats' %}" class="footer-link">Statistics</a></li>
+        <li><a href="{% url 'rules' %}" class="footer-link">Rulebook</a></li>
+        <li><a href="{% url 'lessons' %}" class="footer-link">Lessons</a></li>
+        <li><a href="{% url 'puzzles' %}" class="footer-link">Puzzles</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Community</h4>
+      <ul class="footer-nav-list">
+        <li>
+          <a href="https://github.com/Checkora" target="_blank" rel="noopener noreferrer" class="footer-link">
+            GitHub Organization
+          </a>
+        </li>
+        <li>
+          <a href="https://discord.gg/WfrpMuNZn" target="_blank" rel="noopener noreferrer" class="footer-link">
+            Discord Community
+          </a>
+        </li>
+        <li class="maintainer-item">
+          <span class="footer-meta-text">
+            Maintainers:
+            <a href="https://github.com/triemerge" target="_blank" rel="noopener noreferrer">@triemerge</a> &amp;
+            <a href="https://github.com/EDWARD-012" target="_blank" rel="noopener noreferrer">@EDWARD-012</a>
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul class="footer-nav-list">
+        <li><a href="#" class="footer-link" data-modal-trigger="privacyModal">Privacy Policy</a></li>
+        <li><a href="#" class="footer-link" onclick="openTermsModal(); return false;">Terms &amp; Conditions</a></li>
+        <li><a href="#" class="footer-link" onclick="openDisclaimerModal(); return false;">Disclaimer</a></li>
+        <li><a href="#" class="footer-link" onclick="openContactModal(); return false;">Contact Us</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span class="footer-copy">
+      &copy; {% now "Y" %} Checkora Hybrid Engine. All rights reserved.
+    </span>
+    <div class="footer-socials">
+      <a href="https://github.com/Checkora" target="_blank" rel="noopener noreferrer" aria-label="Checkora GitHub organization">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" fill="currentColor"/>
+        </svg>
+      </a>
+      <a href="https://discord.gg/WfrpMuNZn" target="_blank" rel="noopener noreferrer" aria-label="Checkora Discord community">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09c-.01-.02-.04-.03-.07-.03c-1.5.26-2.93.71-4.27 1.33c-.01 0-.02.01-.03.02c-2.72 4.07-3.47 8.03-3.1 11.95c0 .02.02.04.03.05c1.8 1.32 3.53 2.12 5.24 2.65c.03.01.06 0 .07-.02c.4-.55.76-1.13 1.07-1.74c.02-.04 0-.08-.04-.09c-.57-.22-1.11-.48-1.64-.78c-.04-.02-.04-.08-.01-.11c.11-.08.22-.17.33-.25c.02-.02.05-.02.07-.01c3.44 1.57 7.15 1.57 10.55 0c.02-.01.05-.01.07.01c.11.09.22.17.33.26c.04.03.04.09-.01.11c-.52.31-1.07.56-1.64.78c-.04.01-.05.06-.04.09c.32.61.68 1.19 1.07 1.74c.03.01.06 0 .09.01c1.72-.53 3.45-1.33 5.25-2.65c.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95c-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12c0 1.17-.83 2.12-1.89 2.12z" fill="currentColor"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<!-- ── Legal Modals (Privacy / Terms / Contact / Disclaimer) ── -->
+<div id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" class="legal-modal">
+  <div tabindex="-1" class="legal-modal-inner">
+    <div class="legal-modal-header">
+      <h1 id="privacyModalTitle" class="legal-modal-title">Privacy Policy</h1>
+      <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" class="legal-modal-close">✕</button>
+    </div>
+    <div class="modal-scroll-content legal-modal-body">
+      <div class="legal-modal-sections">
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">1</span>
+          <div>
+            <h2>Information We Collect</h2>
+            <p>Checkora only collects basic information necessary to manage user authentication and orchestrate your chess matches:</p>
+            <ul>
+              <li><strong>Account Data:</strong> Username, email address, and encrypted password profiles when you register.</li>
+              <li><strong>Gameplay Metrics:</strong> Move history, win/loss stats, match durations, and time preferences for leaderboard rankings.</li>
+              <li><strong>Technical Logs:</strong> Minimal session tokens to keep you securely logged in across page reloads.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">2</span>
+          <div>
+            <h2>How Your Data is Used</h2>
+            <p>Your data remains dedicated exclusively to powering your active application experiences:</p>
+            <ul>
+              <li>Maintain your personalized player profile dashboard and performance metrics.</li>
+              <li>Calculate real-time material scores and process live move-validation checks.</li>
+              <li>Optimize the sync pipeline between backend systems and computation services.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">3</span>
+          <div>
+            <h2>Cookies and Session Storage</h2>
+            <p>We use essential cookies and local storage tokens to manage authentication states and secure form submissions against CSRF. No tracking cookies or behavioral profile monitors are embedded inside the platform.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">4</span>
+          <div>
+            <h2>Data Retention &amp; Security</h2>
+            <p>We retain your profile credentials and match logs for as long as your account remains active. Passwords are securely stored using Django authentication hashing mechanisms.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">5</span>
+          <div>
+            <h2>Open Source Transparency &amp; User Rights</h2>
+            <p>In alignment with our open-source framework and GSSoC community policies, users maintain full authority over their data and may request account deletion or data removal at any time.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">6</span>
+          <div>
+            <h2>Contact &amp; Community Channels</h2>
+            <p>If you have questions or feedback regarding this Privacy Policy, please open an issue on our GitHub repository or contact the project maintainers directly.</p>
+          </div>
+        </div>
+        <p class="legal-modal-updated">Last updated: May 2026</p>
+      </div>
+    </div>
+    <div class="legal-modal-footer">
+      <button type="button" aria-label="Close privacy policy" onclick="closePrivacyModal()" class="legal-modal-agree">I Agree</button>
+    </div>
+  </div>
+</div>
+
+<div id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" class="legal-modal">
+  <div tabindex="-1" class="legal-modal-inner">
+    <div class="legal-modal-header">
+      <h1 id="termsModalTitle" class="legal-modal-title">Terms and Conditions</h1>
+      <button type="button" aria-label="Close terms and conditions" onclick="closeTermsModal()" class="legal-modal-close">✕</button>
+    </div>
+    <div class="modal-scroll-content legal-modal-body">
+      <div class="legal-modal-sections">
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">1</span>
+          <div>
+            <h2>Acceptance of Terms</h2>
+            <p>By accessing, registering for, or interacting with the Checkora Chess Platform, you agree to comply with and be bound by these Terms and Conditions. If you do not accept these parameters, you are advised to discontinue platform interaction.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">2</span>
+          <div>
+            <h2>Fair Play and Anti-Cheat Policy</h2>
+            <p>Checkora runs a native high-performance C++ minimax engine designed to provide competitive gameplay. To safeguard integrity:</p>
+            <ul>
+              <li>Use of third-party engine assistance, browser modifications, or state-manipulation scripts is strictly prohibited.</li>
+              <li>Intentionally stalling game clocks or throwing matches to manipulate metrics violates our guidelines.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">3</span>
+          <div>
+            <h2>Account Management and Security</h2>
+            <p>When creating profile credentials and completing OTP verification, you are fully accountable for preserving credential confidentiality. Checkora reserves authority to clean up idle ghost accounts that remain abandoned to free system namespaces.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">4</span>
+          <div>
+            <h2>Open Source and Modifications</h2>
+            <p>Checkora operates openly under the MIT License. While customization of backend logic modules is encouraged for developer variants, users are requested to interact fairly and maintain the software's style parameters.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">5</span>
+          <div>
+            <h2>Disclaimer of Liability</h2>
+            <p>The platform services and integrated AI engines are offered on an "as-is" operational basis. The maintenance team assumes no liability for match state disruptions, profile cache rollbacks during server updates, or local dependency failures in client-side setups.</p>
+          </div>
+        </div>
+        <p class="legal-modal-updated">Last updated: May 2026</p>
+      </div>
+    </div>
+    <div class="legal-modal-footer">
+      <button type="button" onclick="closeTermsModal()" class="legal-modal-agree">I Agree</button>
+    </div>
+  </div>
+</div>
+
+<div id="contactModal" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle" class="legal-modal">
+  <div tabindex="-1" class="legal-modal-inner">
+    <div class="legal-modal-header">
+      <h1 id="contactModalTitle" class="legal-modal-title">Contact Us</h1>
+      <button type="button" aria-label="Close contact form" onclick="closeContactModal()" class="legal-modal-close">✕</button>
+    </div>
+    <div class="modal-scroll-content legal-modal-body">
+      <p class="contact-modal-intro">Have questions about the C++ platform integration or found a glitch? Reach out to the maintainers.</p>
+      <div class="contact-modal-grid">
+        <div class="contact-modal-info">
+          <div>
+            <h3>Community Support</h3>
+            <p>For instant technical coordination, join our active development spaces on the <a href="https://discord.gg/WfrpMuNZn" target="_blank" rel="noopener noreferrer">Discord Server</a>.</p>
+          </div>
+          <div>
+            <h3>Open Source &amp; Bugs</h3>
+            <p>Found a bug? Open a thread on our <a href="https://github.com/Checkora" target="_blank" rel="noopener noreferrer">GitHub Issue Tracker</a>.</p>
+          </div>
+          <div>
+            <h3>Maintainer Reach</h3>
+            <p>Email: <a href="mailto:support@checkora.example.com">support@checkora.example.com</a></p>
+          </div>
+        </div>
+
+        <form id="contactForm" class="contact-modal-form" onsubmit="handleContactSubmit(event)">
+          {% csrf_token %}
+          <div class="contact-modal-field">
+            <label for="contact-name">Name</label>
+            <input type="text" id="contact-name" name="name" placeholder="Your name" required />
+          </div>
+          <div class="contact-modal-field">
+            <label for="contact-email">Email Address</label>
+            <input type="email" id="contact-email" name="email" placeholder="username@example.com" required />
+          </div>
+          <div class="contact-modal-field">
+            <label for="contact-message">Message</label>
+            <textarea id="contact-message" name="message" placeholder="Type your query regarding engine or interface states..." required rows="5"></textarea>
+          </div>
+          <button type="submit" class="contact-modal-submit">Send Message</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerModalTitle" class="legal-modal">
+  <div tabindex="-1" class="legal-modal-inner">
+    <div class="legal-modal-header">
+      <h1 id="disclaimerModalTitle" class="legal-modal-title">Disclaimer</h1>
+      <button type="button" aria-label="Close disclaimer" onclick="closeDisclaimerModal()" class="legal-modal-close">✕</button>
+    </div>
+    <div class="modal-scroll-content legal-modal-body">
+      <div class="legal-modal-sections">
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">1</span>
+          <div>
+            <h2>General Information</h2>
+            <p>The information, services, and structural match simulation environments provided on the Checkora chess platform are intended solely for general informational, educational, and recreational entertainment purposes.</p>
+            <p>All modules are interactive and provided on an "as-is" and "as-available" execution model without absolute performance assertions of any kind.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">2</span>
+          <div>
+            <h2>Limitation of Liability</h2>
+            <p>To the fullest extent permitted by applicable law, Checkora, its core architects, and open-source contribution members shall assume no accountability for any direct, indirect, accidental, or consequential operational data disruptions.</p>
+            <ul>
+              <li>Server connection synchronization issues.</li>
+              <li>Temporary match-state profile resets.</li>
+              <li>Algorithmic parsing variances.</li>
+              <li>System downtime occurrences.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">3</span>
+          <div>
+            <h2>Accuracy of Information</h2>
+            <p>While our platform utilizes a custom C++ Minimax engine alongside Python web orchestration, we make no absolute guarantees regarding analytical precision.</p>
+            <ul>
+              <li>Position evaluations are algorithmic estimates.</li>
+              <li>Material calculations may vary.</li>
+              <li>Strategic suggestions are not official chess arbitration metrics.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">4</span>
+          <div>
+            <h2>External Links</h2>
+            <p>Checkora may reference external resources and community platforms.</p>
+            <ul>
+              <li>GitHub repositories.</li>
+              <li>Discord community servers.</li>
+              <li>Official chess federation resources.</li>
+            </ul>
+            <p>We do not control or guarantee the content, policies, or privacy practices of third-party services.</p>
+          </div>
+        </div>
+        <div class="legal-modal-section">
+          <span class="legal-modal-badge">5</span>
+          <div>
+            <h2>User Responsibility Statement</h2>
+            <p>By using Checkora, you acknowledge responsibility for maintaining fair and secure usage of the platform.</p>
+            <ul>
+              <li>Maintain secure account credentials.</li>
+              <li>Follow fair-play policies.</li>
+              <li>Ensure client-side system reliability.</li>
+              <li>Accept timer synchronization limitations inherent to online systems.</li>
+            </ul>
+          </div>
+        </div>
+        <p class="legal-modal-updated">Last updated: June 2026</p>
+      </div>
+    </div>
+    <div class="legal-modal-footer">
+      <button type="button" onclick="closeDisclaimerModal()" class="legal-modal-agree">I Understand</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function wireModal(modalId, openFnName, closeFnName) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    const modalInner = modal.querySelector('[tabindex="-1"]');
+    let lastFocused;
+
+    window[openFnName] = function (e) {
+      lastFocused = e ? e.target : document.activeElement;
+      modal.style.display = 'flex';
+      if (modalInner) modalInner.focus();
+    };
+
+    window[closeFnName] = function () {
+      modal.style.display = 'none';
+      if (lastFocused) lastFocused.focus();
+    };
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) window[closeFnName]();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.style.display === 'flex') window[closeFnName]();
+    });
+
+    modal.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      const focusable = modal.querySelectorAll('button, input, textarea, [href], [tabindex]:not([tabindex="-1"])');
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    });
+  }
+
+  wireModal('privacyModal', 'openPrivacyModal', 'closePrivacyModal');
+  wireModal('termsModal', 'openTermsModal', 'closeTermsModal');
+  wireModal('disclaimerModal', 'openDisclaimerModal', 'closeDisclaimerModal');
+  wireModal('contactModal', 'openContactModal', 'closeContactModal');
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const trigger = document.querySelector('[data-modal-trigger="privacyModal"]');
+    if (trigger) {
+      trigger.addEventListener('click', function (e) {
+        e.preventDefault();
+        window.openPrivacyModal(e);
+      });
+    }
+  });
+
+  window.handleContactSubmit = function (e) {
+    e.preventDefault();
+    alert('Message logged locally inside development environment container loop.');
+    if (window.closeContactModal) window.closeContactModal();
+    const form = document.getElementById('contactForm');
+    if (form) form.reset();
+  };
+})();
+</script>

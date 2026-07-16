@@ -1,0 +1,23 @@
+<!-- ══════════════════════════════════════════════════════════════
+     Shared Back-to-Top Partial
+     Included via base.html
+     ══════════════════════════════════════════════════════════════ -->
+<div id="backToTopWrapper">
+  <span id="backToTopTooltip">Back to Top</span>
+  <button type="button" id="backToTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  </button>
+</div>
+
+<script>
+  (function () {
+    const backToTopWrapper = document.getElementById('backToTopWrapper');
+    if (!backToTopWrapper) return;
+    window.addEventListener('scroll', () => {
+      backToTopWrapper.classList.toggle('visible', window.scrollY > 300);
+    }, { passive: true });
+  })();
+</script>

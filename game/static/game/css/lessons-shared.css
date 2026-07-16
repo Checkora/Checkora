@@ -1,0 +1,534 @@
+/* lessons-shared.css
+   Shared styles for lessons.html, lessons_roadmap.html (and lesson_detail.html
+   where noted). Built on theme.css variables so light/dark theming is
+   automatic instead of hand-duplicated [data-theme="light"] blocks per page.
+
+   NOTE on renames (avoiding collisions now these pages share landing.css):
+     .hero        -> .lessons-hero        (landing.css already owns `.hero`)
+     .header      -> .roadmap-header      (kept distinct in case of future use)
+     .lesson-card -> .roadmap-lesson-card (lessons.html's `.lesson-card` means
+                                            something different from the
+                                            roadmap's lesson-card)
+                                            */
+
+/* ── Lessons hub hero ── */
+.lessons-hero {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.lessons-hero h1 {
+    font-size: 3rem;
+    color: var(--accent-gold);
+    margin-bottom: 10px;
+    font-family: 'Cinzel', serif;
+}
+
+.lessons-hero p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* ── Guest alert banner (lessons.html + lessons_roadmap.html) ── */
+.alert-banner {
+    background: linear-gradient(135deg, var(--card-hover), var(--bg-dark));
+    border: 1px solid var(--accent-gold);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(240, 192, 64, 0.15);
+    animation: alertFadeIn 0.5s ease;
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.alert-icon {
+    color: var(--accent-gold);
+    flex-shrink: 0;
+    display: flex;
+}
+
+.alert-text {
+    font-size: 1rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.alert-banner a.alert-link {
+    color: var(--accent-gold);
+    text-decoration: underline;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.alert-banner a.alert-link:hover {
+    color: #ffdf70;
+}
+
+.alert-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.alert-close:hover {
+    color: var(--text-title);
+    transform: scale(1.1);
+}
+
+@keyframes alertFadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Progress box (lessons hub) ── */
+.progress-box {
+    background: linear-gradient(145deg, var(--card-bg), var(--card-hover));
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 25px;
+    margin-bottom: 35px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.progress-header h2 {
+    margin: 0;
+    color: var(--accent-gold);
+}
+
+.progress-header span {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: var(--card-border);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-gold), #ffdf70);
+    border-radius: 20px;
+}
+
+.progress-text {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.continue-learning {
+    background: linear-gradient(145deg, var(--card-bg), var(--card-hover));
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 25px;
+    margin-bottom: 40px;
+}
+
+.continue-learning h2 {
+    color: var(--accent-gold);
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.continue-learning p {
+    color: var(--text-secondary);
+    margin-bottom: 0;
+}
+
+.learning-stats {
+    margin-top: 15px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.learning-stats span {
+    background: rgba(240, 192, 64, 0.15);
+    color: var(--accent-gold);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+/* ── Lesson category groups ── */
+.category {
+    margin-bottom: 45px;
+}
+
+.category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.category-header h2 {
+    margin: 0;
+    color: var(--accent-gold);
+    font-size: 1.8rem;
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 15px;
+}
+
+.category-badge.beginner     { background: #16a34a; }
+.category-badge.intermediate { background: #f59e0b; }
+.category-badge.advanced     { background: #dc2626; }
+
+.lesson-count {
+    background: var(--card-hover);
+    color: var(--accent-gold);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ── Lesson cards grid (lessons hub) ── */
+.lesson-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+}
+
+.lesson-card {
+    background: linear-gradient(145deg, var(--card-bg), var(--card-hover));
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+}
+
+.lesson-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: var(--accent-gold);
+    box-shadow: 0 14px 30px rgba(240, 192, 64, 0.3);
+}
+
+.lesson-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lesson-icon {
+    font-size: 28px;
+    color: var(--accent-gold);
+}
+
+.lesson-card h3 {
+    color: var(--text-title);
+    font-size: 1.2rem;
+    margin: 18px 0;
+    line-height: 1.4;
+}
+
+.lesson-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status.pending {
+    background: var(--accent-gold);
+    color: var(--bg-primary);
+}
+
+.status.completed {
+    background: #22c55e;
+    color: #ffffff;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Learning Journey roadmap page
+   ══════════════════════════════════════════════════════════════ */
+
+body.roadmap-checkerboard-bg {
+    background:
+        linear-gradient(45deg,
+            var(--bg-dark) 25%, var(--bg-primary) 25%, var(--bg-primary) 50%,
+            var(--bg-dark) 50%, var(--bg-dark) 75%, var(--bg-primary) 75%);
+    background-size: 60px 60px;
+}
+
+.roadmap-header {
+    text-align: center;
+    padding: 30px;
+}
+
+.roadmap-header h1 {
+    color: var(--accent-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+}
+
+.roadmap-header p {
+    color: var(--text-secondary);
+}
+
+.map-container {
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+    position: relative;
+}
+
+.level-title {
+    text-align: center;
+    margin: 80px 0 30px;
+    font-size: 34px;
+    color: var(--accent-gold);
+    font-weight: 700;
+    text-shadow: 0 0 15px rgba(240, 192, 64, 0.5);
+}
+
+.lesson-path {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lesson-row {
+    width: 100%;
+    display: flex;
+    margin: 10px 0;
+}
+
+.lesson-row.left  { justify-content: flex-start; padding-left: 120px; }
+.lesson-row.right { justify-content: flex-end;   padding-right: 120px; }
+
+.lesson-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.node {
+    width: 60px;
+    height: 60px;
+    background: var(--card-hover);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    border: 2px solid var(--card-border);
+    transition: transform 0.3s, box-shadow 0.3s;
+    text-decoration: none;
+    color: var(--text-primary);
+    position: relative;
+    z-index: 1;
+}
+
+.node span { font-size: 42px; }
+
+.node:hover { transform: scale(1.08); }
+
+.node.completed {
+    background: #22c55e;
+    box-shadow: 0 0 25px #22c55e;
+}
+
+.node.current {
+    background: #3b82f6;
+    box-shadow: 0 0 25px #3b82f6;
+    border: 4px solid #ffffff;
+    transform: scale(1.12);
+}
+
+.node.current::before {
+    content: "NEXT";
+    position: absolute;
+    top: -12px;
+    background: #ffffff;
+    color: #000000;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.node.locked {
+    background: var(--card-border);
+    cursor: not-allowed;
+    color: var(--text-secondary);
+}
+
+.lesson-name {
+    margin-top: 12px;
+    text-align: center;
+    width: 180px;
+    color: var(--text-primary);
+}
+
+.roadmap-lesson-card {
+    margin-top: 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 12px;
+    width: 180px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.roadmap-lesson-card:hover {
+    border-color: var(--accent-gold);
+    transform: translateY(-3px);
+}
+
+.roadmap-lesson-card h3 {
+    margin: 0 0 12px;
+    color: var(--text-title);
+    font-size: 18px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge.done          { background: #22c55e; color: #ffffff; }
+.badge.active        { background: #3b82f6; color: #ffffff; }
+.badge.locked-badge   { background: var(--card-border); color: var(--text-secondary); }
+
+.roadmap-progress-box {
+    max-width: 700px;
+    margin: 0 auto 60px;
+    background: linear-gradient(135deg, var(--card-bg), var(--card-hover));
+    padding: 25px;
+    border-radius: 24px;
+    border: 1px solid var(--card-border);
+}
+
+.roadmap-progress-box h3 {
+    color: var(--text-title);
+    margin-top: 0;
+}
+
+.roadmap-progress-box p {
+    color: var(--text-secondary);
+}
+
+.progress-track {
+    height: 12px;
+    background: var(--card-border);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.progress-track .progress-fill {
+    background: linear-gradient(90deg, #22c55e, #36e6c5);
+}
+
+@media (max-width: 480px) {
+    #backToTopWrapper {
+        bottom: 1rem;
+        right: 1rem;
+    }
+
+    #backToTopBtn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.1rem;
+    }
+
+    #backToTopTooltip {
+        font-size: 0.7rem;
+    }
+}
+
+/* ── Back button, in-flow variant ──
+   landing.css's .back-btn is `position: absolute` (meant for hero-style
+   containers with position:relative). lessons_roadmap.html and
+   lesson_detail.html have no such ancestor, so pair .back-btn with this
+   modifier to keep all the same visual styling but flow it normally. */
+.back-btn.back-btn-inline {
+    position: static;
+    display: inline-flex;
+    margin: 20px 0 0 20px;
+    top: auto;
+    left: auto;
+}
+
+@media (max-width: 768px) {
+    .lesson-row.left,
+    .lesson-row.right {
+        justify-content: center;
+    }
+
+    .node {
+        width: 90px;
+        height: 90px;
+    }
+
+    .lessons-hero h1 {
+        font-size: 2rem;
+    }
+
+    .progress-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .lesson-grid {
+        grid-template-columns: 1fr;
+    }
+}

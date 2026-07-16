@@ -1,6 +1,6 @@
 body {
-    background: #121212;
-    color: white;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 40px;
@@ -11,28 +11,20 @@ body {
     margin: auto;
 }
 
-.back-btn {
-    display: inline-block;
-    margin-bottom: 20px;
-    color: #f0c040;
-    text-decoration: none;
-    font-weight: bold;
-}
-
 .lesson-box {
-    background: #1e1e1e;
+    background: var(--card-bg);
     padding: 25px;
     border-radius: 12px;
-    border: 1px solid #333;
+    border: 1px solid var(--card-border);
 }
 
 h1 {
-    color: #f0c040;
+    color: var(--accent-gold);
     margin-bottom: 15px;
 }
 
 .description {
-    color: #d0d0d0;
+    color: var(--text-primary);
     line-height: 1.6;
     margin-bottom: 30px;
 }
@@ -46,7 +38,7 @@ h1 {
 .lesson-content li {
     margin-bottom: 12px;
     line-height: 1.7;
-    color: #e0e0e0;
+    color: var(--text-primary);
 }
 
 .board-placeholder {
@@ -56,12 +48,12 @@ h1 {
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #aaa;
+    color: var(--text-secondary);
     font-size: 18px;
 }
 
 .complete-btn {
-    background: #f0c040;
+    background: var(--accent-gold);
     color: #121212;
     border: none;
     padding: 12px 20px;
@@ -72,8 +64,8 @@ h1 {
 }
 
 .quiz-btn {
-    background: #333;
-    color: white;
+    background: var(--card-border);
+    color: var(--text-primary);
     border: none;
     padding: 10px 16px;
     border-radius: 8px;
@@ -89,14 +81,14 @@ h1 {
 
 .quiz-btn.correct {
     background-color: #4caf50 !important;
-    color: white;
+    color: var(--text-primary);
     animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
 }
 
 .quiz-btn.incorrect {
     background-color: #ff5252 !important;
-    color: white;
+    color: var(--text-primary);
     animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
     box-shadow: 0 0 15px rgba(255, 82, 82, 0.4);
 }
@@ -130,7 +122,7 @@ h1 {
     position: absolute;
     width: 12px;
     height: 12px;
-    background: #f0c040;
+    background: var(--accent-gold);
     top: -20px;
     opacity: 0;
     animation: confetti-fall 3.5s ease-in-out forwards;
@@ -158,7 +150,7 @@ h1 {
 }
 
 .lesson-navigation a {
-    color: #f0c040;
+    color: var(--accent-gold);
     text-decoration: none;
     font-weight: bold;
 }
@@ -171,51 +163,30 @@ h1 {
     margin-top: 25px;
     padding: 15px;
     background: rgba(240,192,64,0.1);
-    border-left: 4px solid #f0c040;
+    border-left: 4px solid var(--accent-gold);
     border-radius: 8px;
 }
 
-.lesson-square {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 38px;
-    cursor: pointer;
-}
-
-.light {
-    background: #f0d9b5;
-}
-
-.dark {
-    background: #b58863;
-}
-
-.lesson-board-wrapper{
+.lesson-square{
+    aspect-ratio:1;
     display:flex;
     justify-content:center;
-    margin:20px 0;
+    align-items:center;
+    cursor:pointer;
+    user-select:none;
+    font-size:clamp(22px,4vw,42px);
 }
 
 .lesson-board{
-    width:480px;
-    height:480px;
+    width:min(480px,90vw);
+    aspect-ratio:1;
+    height:auto;
 
     display:grid;
     grid-template-columns:repeat(8,1fr);
 
-    border:2px solid #f0c040;
-}
-
-.lesson-square{
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    font-size:42px;
-    user-select:none;
-}       
+    border:2px solid var(--accent-gold);
+}     
 
 .lesson-square.light{
     background:#f0d9b5;
@@ -238,7 +209,7 @@ h1 {
     grid-template-columns:repeat(8,1fr);
     grid-template-rows:repeat(8,1fr);
 
-    border:2px solid #f0c040;
+    border:2px solid var(--accent-gold);
     margin:20px auto;
 }
 
@@ -272,7 +243,7 @@ h1 {
     text-align:center;
     font-size:18px;
     margin-bottom:15px;
-    color:#f0c040;
+    color:var(--accent-gold);
 }
 
 #lesson-result{
@@ -296,14 +267,14 @@ h1 {
     align-items: center;
     gap: 10px;
     margin-bottom: 20px;
-    background: #1e1e1e;
+    background: var(--card-bg);
     padding: 12px 20px;
     border-radius: 8px;
-    border: 1px solid #333;
+    border: 1px solid var(--card-border);
     width: fit-content;
 }
 .coord-toggle-label {
-    color: #d0d0d0;
+    color: var(--text-primary);
     font-size: 16px;
     cursor: pointer;
     user-select: none;
@@ -312,7 +283,7 @@ h1 {
     cursor: pointer;
     width: 18px;
     height: 18px;
-    accent-color: #f0c040;
+    accent-color: var(--accent-gold);
 }
 
 /* Board Wrappers */
@@ -340,7 +311,7 @@ h1 {
     align-items: center;
     justify-content: center;
     font-size: 13px;
-    color: #8b92a5;
+    color: var(--text-secondary);
     font-weight: 600;
     flex: 1; /* Divides height perfectly into 8 */
 }
@@ -354,13 +325,17 @@ h1 {
     flex: 1;
     text-align: center;
     font-size: 13px;
-    color: #8b92a5;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
 /* Override old margins so boards align perfectly with coordinates */
-#demo-board, .lesson-board-wrapper {
-    margin: 0 !important; 
+#demo-board{
+    margin:0 auto;
+}
+
+.lesson-board-wrapper{
+    margin:20px 0;
 }
 
 /* Hide functionality */
@@ -387,58 +362,9 @@ h1 {
         transition: none !important;
     }
 }
-/* ============================================================
-   LIGHT THEME OVERRIDES
-   ============================================================ */
-   [data-theme="light"] body {
-    background: #f5f7fb;
-    color: #111827;
-}
 
-[data-theme="light"] .lesson-box {
-    background: #ffffff;
-    border-color: #d1d5db;
-}
-
-[data-theme="light"] h2,
-[data-theme="light"] h3 {
-    color: #111827;
-}
-
-/* Accent colors remain unchanged */
-[data-theme="light"] h1,
-[data-theme="light"] .back-btn,
-[data-theme="light"] .lesson-navigation a {
-    color: #f0c040;
-}
-
-[data-theme="light"] .description,
-[data-theme="light"] .lesson-content li {
-    color: #4b5563;
-}
-
-[data-theme="light"] .quiz-btn {
-    background: #e5e7eb;
-    color: #111827;
-}
-
-[data-theme="light"] .quiz-btn:hover {
-    background: #d1d5db;
-}
-
-[data-theme="light"] .coord-toggle-container {
-    background: #ffffff;
-    border-color: #d1d5db;
-}
-
-[data-theme="light"] .coord-toggle-label,
-[data-theme="light"] .lesson-ranks span,
-[data-theme="light"] .lesson-files span {
-    color: #6b7280;
-}
-
-[data-theme="light"] .coming-soon {
-    background: rgba(240, 192, 64, 0.1);
-    border-left-color: #f0c040;
-    color: #111827;
+.quiz-btn,
+.confetti,
+.lesson-square {
+    will-change: transform;
 }

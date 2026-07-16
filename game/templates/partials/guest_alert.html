@@ -1,0 +1,45 @@
+<!-- ══════════════════════════════════════════════════════════════
+     Shared Guest Alert Banner Partial
+     Shown to signed-out users on lesson pages so progress isn't lost.
+     Included where needed on lesson pages
+     Requires the .alert-banner rules in lessons-shared.css.
+     ══════════════════════════════════════════════════════════════ -->
+{% if not user.is_authenticated %}
+<div class="alert-banner" id="guest-alert">
+  <div class="alert-content">
+    <span class="alert-icon" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18h6"/>
+        <path d="M10 22h4"/>
+        <path d="M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/>
+      </svg>
+    </span>
+    <span class="alert-text">
+      <a href="{% url 'login' %}" class="alert-link">Sign in</a> or <a href="{% url 'register' %}" class="alert-link">create a free account</a> to save your lesson progress.
+    </span>
+  </div>
+  <button class="alert-close" type="button" onclick="dismissAlert()" aria-label="Close message">&times;</button>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (localStorage.getItem('lessons_guest_alert_dismissed') === 'true') {
+      var alertEl = document.getElementById('guest-alert');
+      if (alertEl) alertEl.style.display = 'none';
+    }
+  });
+
+  function dismissAlert() {
+    var alertEl = document.getElementById('guest-alert');
+    if (alertEl) {
+      alertEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      alertEl.style.opacity = '0';
+      alertEl.style.transform = 'translateY(-10px)';
+      localStorage.setItem('lessons_guest_alert_dismissed', 'true');
+      setTimeout(function () {
+        alertEl.style.display = 'none';
+      }, 300);
+    }
+  }
+</script>
+{% endif %}
