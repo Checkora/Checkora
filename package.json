@@ -1,14 +1,14 @@
 {
-  "name": "checkora-fork",
+  "name": "checkora",
   "version": "1.0.0",
-  "description": "<div align=\"center\">",
+  "description": "Checkora: Universal checker for file integrity, metadata and structure",
   "main": "board.test.js",
   "scripts": {
     "test": "jest"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RuchiSheoran/Checkora.git"
+    "url": "git+https://github.com/Checkora/Checkora.git"
   },
   "license": "ISC",
   "type": "commonjs",
