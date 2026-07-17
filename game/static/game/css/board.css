@@ -869,6 +869,7 @@ body {
     box-sizing: border-box;
     position: relative;
     color-scheme: light dark;
+    touch-action: none;
 }
 
 /* ============================================================
