@@ -1,0 +1,217 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Account Deletion | Checkora</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'game/css/landing.css' %}"
+    >
+
+    <style>
+
+        body{
+            min-height:100vh;
+            background:
+                radial-gradient(circle at top,#1e293b 0%,#0f172a 45%,#020617 100%);
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:30px;
+            overflow-x:hidden;
+        }
+
+        .confirm-wrapper{
+            width:100%;
+            max-width:480px;
+        }
+
+        .confirm-card{
+            background:rgba(15,23,42,0.92);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:24px;
+            padding:48px 40px;
+            backdrop-filter:blur(18px);
+            box-shadow:
+                0 10px 40px rgba(0,0,0,0.45),
+                0 0 30px rgba(250,204,21,0.08);
+        }
+
+        .logo{
+            text-align:center;
+            margin-bottom:10px;
+        }
+
+        .logo h1{
+            font-size:42px;
+            letter-spacing:2px;
+            color:#ffffff;
+            font-weight:800;
+        }
+
+        .logo span{
+            color:#facc15;
+        }
+
+        .subtitle{
+            text-align:center;
+            color:#94a3b8;
+            margin-bottom:32px;
+            font-size:15px;
+        }
+
+        .icon-ring{
+            width:80px;
+            height:80px;
+            margin:0 auto 24px;
+            border-radius:50%;
+            background:linear-gradient(135deg,#dc2626,#7f1d1d);
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            font-size:36px;
+            box-shadow:0 8px 24px rgba(220,38,38,0.4);
+        }
+
+        .title{
+            text-align:center;
+            font-size:28px;
+            margin-bottom:16px;
+            color:#ffffff;
+            font-weight:700;
+        }
+
+        .warning-box{
+            background:rgba(220,38,38,0.12);
+            border:1px solid rgba(239,68,68,0.35);
+            color:#fecaca;
+            padding:18px;
+            border-radius:16px;
+            margin-bottom:32px;
+            line-height:1.7;
+            font-size:14px;
+        }
+
+        .actions{
+            display:flex;
+            gap:14px;
+        }
+
+        .cancel-btn{
+            flex:1;
+            padding:14px;
+            border-radius:14px;
+            background:rgba(255,255,255,0.07);
+            border:1px solid rgba(255,255,255,0.12);
+            color:#e2e8f0;
+            font-size:15px;
+            font-weight:600;
+            cursor:pointer;
+            text-align:center;
+            text-decoration:none;
+            transition:0.3s ease;
+        }
+
+        .cancel-btn:hover{
+            background:rgba(255,255,255,0.12);
+        }
+
+        .delete-btn{
+            flex:1;
+            border:none;
+            padding:14px;
+            border-radius:14px;
+            background:linear-gradient(135deg,#dc2626,#991b1b);
+            color:#ffffff;
+            font-size:15px;
+            font-weight:700;
+            cursor:pointer;
+            transition:0.3s ease;
+        }
+
+        .delete-btn:hover{
+            transform:translateY(-2px);
+            box-shadow:0 10px 25px rgba(220,38,38,0.4);
+        }
+
+        @media(max-width:520px){
+
+            .confirm-card{
+                padding:36px 24px;
+            }
+
+            .logo h1{
+                font-size:34px;
+            }
+
+            .title{
+                font-size:23px;
+            }
+
+            .actions{
+                flex-direction:column;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="confirm-wrapper">
+
+        <div class="confirm-card">
+
+            <div class="logo">
+                <h1>CHECK<span>ORA</span></h1>
+            </div>
+
+            <p class="subtitle">
+                Secure Account Management
+            </p>
+
+            <div class="icon-ring">⚠</div>
+
+            <h2 class="title">
+                Confirm Account Deletion
+            </h2>
+
+            <div class="warning-box">
+                You are about to permanently delete your Checkora account.
+                <br><br>
+                This action <strong>cannot be undone</strong>. All your games,
+                progress, achievements, and data will be permanently removed.
+                <br><br>
+                Click <strong>Delete My Account</strong> below to confirm.
+            </div>
+
+            <div class="actions">
+
+                <a href="{% url 'landing' %}" class="cancel-btn" id="cancel-deletion-btn">
+                    Cancel
+                </a>
+
+                <form method="POST" style="flex:1;">
+                    {% csrf_token %}
+                    <button
+                        type="submit"
+                        class="delete-btn"
+                        id="confirm-deletion-btn"
+                    >
+                        Delete My Account
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
+</body>
+</html>

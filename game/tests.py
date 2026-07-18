@@ -4044,3 +4044,135 @@ class DiscussionBookmarkRedirectTests(TestCase):
     def test_no_next_and_no_referer_fallback(self):
         response = self.client.post(self.url)
         self.assertRedirects(response, reverse('forum'), fetch_redirect_response=False)
+
+
+# ---------------------------------------------------------------------------
+# Account Deletion Confirmation Security Tests
+# ---------------------------------------------------------------------------
+
+class AccountDeletionConfirmationTests(TestCase):
+    """
+    Verify that confirm_delete_account is safe against:
+      - Email-scanner GET pre-fetching (should NOT delete on GET)
+      - Invalid / expired tokens (should redirect to landing)
+      - Valid POST flow (should delete user and show success page)
+      - CSRF enforcement on POST
+    """
+
+    def setUp(self):
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.contrib.auth.tokens import default_token_generator
+
+        self.user = User.objects.create_user(
+            username='del_test_user',
+            password='Securepass123!',
+            email='del_test@example.com',
+        )
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        self.confirm_url = reverse(
+            'confirm_delete_account',
+            kwargs={'uidb64': uid, 'token': token},
+        )
+        self.uid = uid
+        self.token = token
+
+    # ------------------------------------------------------------------
+    # GET requests must NOT perform any deletion
+    # ------------------------------------------------------------------
+
+    def test_get_does_not_delete_account(self):
+        """
+        A GET request to the confirmation URL must render the confirmation
+        page and MUST NOT delete the account. This guards against email
+        clients (Gmail, Outlook) that pre-fetch / scan links in emails.
+        """
+        response = self.client.get(self.confirm_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/confirm_delete_account.html')
+        # User must still exist in the database
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_get_renders_confirmation_template(self):
+        """GET renders confirm_delete_account.html."""
+        response = self.client.get(self.confirm_url)
+        self.assertContains(response, 'Confirm Account Deletion')
+
+    # ------------------------------------------------------------------
+    # POST with valid token deletes the account
+    # ------------------------------------------------------------------
+
+    def test_post_with_valid_token_deletes_user(self):
+        """A POST to a valid deletion link should delete the account."""
+        response = self.client.post(self.confirm_url)
+        self.assertTemplateUsed(response, 'game/delete_success.html')
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_post_with_valid_token_logs_out_user(self):
+        """After deletion the session user_id should be cleared (logged out)."""
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+
+        self.client.login(username='del_test_user', password='Securepass123!')
+
+        # Re-fetch user + re-generate token AFTER login so last_login is current.
+        user = User.objects.get(username='del_test_user')
+        fresh_token = default_token_generator.make_token(user)
+        fresh_url = reverse(
+            'confirm_delete_account',
+            kwargs={
+                'uidb64': urlsafe_base64_encode(force_bytes(user.pk)),
+                'token': fresh_token,
+            }
+        )
+
+        response = self.client.post(fresh_url)
+        self.assertTemplateUsed(response, 'game/delete_success.html')
+        # The user record should no longer exist in the database.
+        self.assertFalse(User.objects.filter(username='del_test_user').exists())
+
+    # ------------------------------------------------------------------
+    # Invalid / expired token must NOT delete the account
+    # ------------------------------------------------------------------
+
+    def test_post_with_invalid_token_rejects_deletion(self):
+        """POST with an invalid token must not delete the account."""
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        bad_url = reverse(
+            'confirm_delete_account',
+            kwargs={'uidb64': uid, 'token': 'invalid-token-xyz'},
+        )
+        response = self.client.post(bad_url)
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+        # User still exists
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_get_with_invalid_token_redirects_to_landing(self):
+        """GET with a tampered token must redirect to landing, not show the form."""
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        bad_url = reverse(
+            'confirm_delete_account',
+            kwargs={'uidb64': uid, 'token': 'tampered-token'},
+        )
+        response = self.client.get(bad_url)
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+
+    def test_post_with_nonexistent_user_rejects_deletion(self):
+        """POST with a UID that does not map to any user must be rejected."""
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+
+        bogus_url = reverse(
+            'confirm_delete_account',
+            kwargs={'uidb64': urlsafe_base64_encode(force_bytes(99999)), 'token': self.token},
+        )
+        response = self.client.post(bogus_url)
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)

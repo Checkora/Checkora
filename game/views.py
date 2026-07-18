@@ -2382,39 +2382,53 @@ If this wasn't you, ignore this email.
 
 
 def confirm_delete_account(request, uidb64, token):
+    """
+    Account deletion confirmation endpoint.
 
+    GET  → validate the token and render a confirmation page.
+           No destructive action is taken, preventing email link
+           pre-fetchers (Gmail, Outlook, Slack unfurlers, etc.)
+           from silently deleting accounts when they scan inbox links.
+
+    POST → re-validate the token and, if valid, log the user out
+           and permanently delete the account.
+    """
     try:
-
         uid = force_str(
             urlsafe_base64_decode(uidb64)
         )
-
         user = User.objects.get(pk=uid)
-
     except Exception:
-
         user = None
 
-    if user and default_token_generator.check_token(
-        user,
-        token
-    ):
+    token_valid = user is not None and default_token_generator.check_token(
+        user, token
+    )
 
+    if not token_valid:
+        messages.error(
+            request,
+            'Invalid or expired deletion link.'
+        )
+        return redirect('landing')
+
+    if request.method == 'POST':
         logout(request)
-
         user.delete()
-
         return render(
             request,
             'game/delete_success.html'
         )
 
-    messages.error(
+    # GET — render the confirmation page; do NOT delete yet.
+    return render(
         request,
-        'Invalid or expired deletion link.'
+        'game/confirm_delete_account.html',
+        {
+            'uidb64': uidb64,
+            'token': token,
+        }
     )
-
-    return redirect('landing')
 
 
 def _classify_move(is_best, played_mv, best_mv, game_state):
