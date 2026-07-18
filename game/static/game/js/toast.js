@@ -2,10 +2,6 @@
  * Checkora Toast System
  * Replaces default alerts with modern, floating toast notifications.
  */
-console.log("showToast called", {
-    message,
-    key
-});
 (function() {
     'use strict';
 
@@ -33,7 +29,6 @@ console.log("showToast called", {
         let toast = null;
         if (key) {
             toast = container.querySelector(`[data-toast-key="${key}"]`);
-            console.log("Existing toast:", toast);
         }
 
         const icons = {
@@ -75,8 +70,8 @@ console.log("showToast called", {
 
         // Auto remove
         toast.dismissTimer = setTimeout(() => {
-        hideToast(toast);
-    }, duration);
+            hideToast(toast);
+        }, duration);
 
         // Allow manual dismissal on click
         toast.onclick = () => {
@@ -86,27 +81,23 @@ console.log("showToast called", {
     };
 
     function hideToast(toast) {
-    clearTimeout(toast.dismissTimer);
+        clearTimeout(toast.dismissTimer);
 
-    toast.classList.add("hiding");
+        toast.classList.add("hiding");
 
-    toast.addEventListener(
-        "animationend",
-        () => {
-            const key = toast.dataset.toastKey;
-
-
-            toast.remove();
-        },
-        { once: true }
-    );
-}
+        toast.addEventListener(
+            "animationend",
+            () => {
+                toast.remove();
+            },
+            { once: true }
+        );
+    }
 
     // Override window.alert
     const originalAlert = window.alert;
     window.alert = function(message) {
         window.showToast(message, 'warning');
-        console.log('Browser alert intercepted:', message);
     };
 
     // Auto-detect Django messages and show as toasts
