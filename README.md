@@ -703,6 +703,29 @@ New to open source? Follow these steps to make your first contribution to Checko
 ```bash
 git clone https://github.com/<your-username>/Checkora.git
 cd Checkora
+```
+
+3. **Create a new branch**
+
+```bash
+git checkout -b docs/your-change-name
+```
+
+4. **Make your changes**  
+   Update the required files and test your changes locally.
+
+5. **Commit and push your changes**
+
+```bash
+git add .
+git commit -m "docs: describe your changes"
+git push origin docs/your-change-name
+```
+
+6. **Open a Pull Request**  
+   Submit a Pull Request from your fork to the main Checkora repository.
+
+Before submitting your PR, please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines, branch naming rules, commit format, and PR requirements.
 
 
 ## Contributing
