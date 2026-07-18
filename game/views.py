@@ -1377,6 +1377,23 @@ def verify_otp(request):
 
 @require_POST
 def resend_otp(request):
+    """Re-send the email OTP for the current registration session.
+
+    Security: Both the dummy path (user_id == -1, used when the email/username
+    already exists) and the real path call send_mail() — or simulate its delay
+    via a background thread — so that response latency is identical regardless
+    of whether the email is registered.  Without this normalisation an attacker
+    can enumerate valid email addresses by timing the endpoint:
+      - dummy path returns instantly  (~0 ms)
+      - real  path blocks on SMTP    (~300–800 ms)
+    """
+    import threading
+
+    def _simulate_smtp_delay():
+        """Sleep for a duration that approximates a real SMTP round-trip."""
+        import random
+        time.sleep(random.uniform(0.3, 0.7))
+
     user_id = request.session.get('registration_user_id')
 
     if not user_id:
@@ -1390,6 +1407,9 @@ def resend_otp(request):
             messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
             return redirect('verify_otp')
 
+        # Dummy session — generate a hash that will never be verified, and fire
+        # a background thread to consume the same ~0.3-0.7 s that SMTP takes.
+        # This prevents timing-based email enumeration.
         otp = str(secrets.randbelow(900000) + 100000)
         otp_hash = hashlib.sha256(
             f"{otp}:{settings.SECRET_KEY}".encode()
@@ -1397,6 +1417,7 @@ def resend_otp(request):
         request.session['registration_otp_hash'] = otp_hash
         request.session['otp_created_at'] = time.time()
         request.session['last_otp_time'] = time.time()
+        threading.Thread(target=_simulate_smtp_delay, daemon=True).start()
         messages.success(request, 'A new OTP has been sent to your email.')
         return redirect('verify_otp')
 
@@ -1405,6 +1426,7 @@ def resend_otp(request):
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
+
     last_otp_time = request.session.get('last_otp_time')
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))

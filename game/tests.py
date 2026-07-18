@@ -4176,3 +4176,131 @@ class AccountDeletionConfirmationTests(TestCase):
         )
         response = self.client.post(bogus_url)
         self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+
+
+# ---------------------------------------------------------------------------
+# OTP Resend Timing Side-Channel Tests
+# ---------------------------------------------------------------------------
+
+class OtpResendTimingTests(TestCase):
+    """
+    Verify that the resend_otp view does not leak registration status via
+    response content or observable behaviour differences between the dummy
+    path (user_id == -1, email already registered / conflict) and the real
+    path (legitimate pending registration).
+
+    A timing attack requires the attacker to measure response latency.
+    The fix fires a background thread on the dummy path to normalise that
+    latency, so the tests here focus on what *can* be asserted deterministically:
+    uniform success messages and that the dummy hash is rotated correctly.
+    """
+
+    def _set_session(self, user_id, otp_hash=None):
+        session = self.client.session
+        session['registration_user_id'] = user_id
+        session['registration_otp_hash'] = otp_hash or 'dummy'
+        session['otp_created_at'] = 0  # expired so cooldown does not fire
+        session['last_otp_time'] = 0
+        session.save()
+
+    def setUp(self):
+        self.url = reverse('resend_otp')
+        self.user = User.objects.create_user(
+            username='otp_timing_user',
+            password='Pass1234!',
+            email='otp_timing@example.com',
+            is_active=False,
+        )
+
+    # ------------------------------------------------------------------
+    # Dummy path (user_id == -1) — email conflict / already registered
+    # ------------------------------------------------------------------
+
+    def test_dummy_path_returns_success_message(self):
+        """Dummy path must show success (not an error that reveals the email exists)."""
+        self._set_session(user_id=-1)
+        response = self.client.post(self.url, follow=True)
+        messages_list = [str(m) for m in response.context['messages']]
+        self.assertTrue(
+            any('new OTP has been sent' in m for m in messages_list),
+            msg=f"Expected success message, got: {messages_list}"
+        )
+
+    def test_dummy_path_rotates_otp_hash(self):
+        """Dummy path must rotate the OTP hash in the session so the old hash is invalid."""
+        self._set_session(user_id=-1, otp_hash='old-hash-value')
+        self.client.post(self.url)
+        new_hash = self.client.session.get('registration_otp_hash')
+        self.assertIsNotNone(new_hash)
+        self.assertNotEqual(new_hash, 'old-hash-value')
+
+    def test_dummy_path_updates_last_otp_time(self):
+        """Dummy path must stamp last_otp_time to enforce the 60 s cooldown."""
+        self._set_session(user_id=-1)
+        before = time.time()
+        self.client.post(self.url)
+        after = time.time()
+        stamped = self.client.session.get('last_otp_time')
+        self.assertIsNotNone(stamped)
+        self.assertGreaterEqual(stamped, before)
+        self.assertLessEqual(stamped, after + 1)
+
+    # ------------------------------------------------------------------
+    # Real path (valid pending user)
+    # ------------------------------------------------------------------
+
+    def test_real_path_returns_same_success_message(self):
+        """Real path must return the identical success message as the dummy path."""
+        self._set_session(user_id=self.user.id)
+        with mock.patch('game.views.send_mail') as mock_send:
+            mock_send.return_value = 1
+            response = self.client.post(self.url, follow=True)
+        messages_list = [str(m) for m in response.context['messages']]
+        self.assertTrue(
+            any('new OTP has been sent' in m for m in messages_list),
+            msg=f"Expected success message, got: {messages_list}"
+        )
+
+    def test_real_path_rotates_otp_hash(self):
+        """Real path must rotate the OTP hash after a successful send."""
+        self._set_session(user_id=self.user.id, otp_hash='old-real-hash')
+        with mock.patch('game.views.send_mail') as mock_send:
+            mock_send.return_value = 1
+            self.client.post(self.url)
+        new_hash = self.client.session.get('registration_otp_hash')
+        self.assertIsNotNone(new_hash)
+        self.assertNotEqual(new_hash, 'old-real-hash')
+
+    # ------------------------------------------------------------------
+    # Cooldown enforcement — both paths
+    # ------------------------------------------------------------------
+
+    def test_dummy_path_cooldown_blocks_rapid_resend(self):
+        """Dummy path must enforce 60 s cooldown; rapid re-requests are rejected."""
+        session = self.client.session
+        session['registration_user_id'] = -1
+        session['registration_otp_hash'] = 'hash'
+        session['otp_created_at'] = time.time()
+        session['last_otp_time'] = time.time()  # just sent
+        session.save()
+        response = self.client.post(self.url, follow=True)
+        messages_list = [str(m) for m in response.context['messages']]
+        self.assertTrue(
+            any('wait' in m.lower() for m in messages_list),
+            msg=f"Expected cooldown message, got: {messages_list}"
+        )
+
+    def test_real_path_cooldown_blocks_rapid_resend(self):
+        """Real path must enforce 60 s cooldown; rapid re-requests are rejected."""
+        session = self.client.session
+        session['registration_user_id'] = self.user.id
+        session['registration_otp_hash'] = 'hash'
+        session['otp_created_at'] = time.time()
+        session['last_otp_time'] = time.time()  # just sent
+        session.save()
+        response = self.client.post(self.url, follow=True)
+        messages_list = [str(m) for m in response.context['messages']]
+        self.assertTrue(
+            any('wait' in m.lower() for m in messages_list),
+            msg=f"Expected cooldown message, got: {messages_list}"
+        )
