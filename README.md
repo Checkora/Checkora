@@ -691,6 +691,20 @@ Want to introduce a new gameplay timer format, customize themes, or build a matc
 - Share your proposals in [GitHub Discussions Ideas](https://github.com/Checkora/Checkora/discussions/categories/ideas).
 - Align with core maintainers (@EDWARD-012 & @triemerge) before writing significant logic to ensure architectural compatibility.
 
+## First Contribution
+
+New to open source? Follow these steps to make your first contribution to Checkora.
+
+1. **Fork the repository**  
+   Create your own copy of the Checkora repository on GitHub.
+
+2. **Clone your fork locally**
+
+```bash
+git clone https://github.com/<your-username>/Checkora.git
+cd Checkora
+
+
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming conventions, commit message format, and PR guidelines before submitting.
