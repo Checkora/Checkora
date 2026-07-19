@@ -305,6 +305,38 @@ describe("validateMoveWithStockfish", () => {
   });
 });
 
+describe("startNewGame puzzle UI state", () => {
+  beforeEach(() => {
+    document.getElementById("whiteClock").style.display = "none";
+    document.getElementById("blackClock").style.display = "none";
+    document.getElementById("streak-counter").style.display = "block";
+  });
+
+  test("preserves puzzle clock and streak visibility in puzzle mode", async () => {
+    await startNewGame(
+      "ai",
+      "white",
+      "medium",
+      "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
+      null,
+      null,
+      true
+    );
+
+    expect(document.getElementById("whiteClock").style.display).toBe("none");
+    expect(document.getElementById("blackClock").style.display).toBe("none");
+    expect(document.getElementById("streak-counter").style.display).toBe("block");
+  });
+
+  test("resets clocks and streak visibility for normal games", async () => {
+    await startNewGame("pvp", "white", "medium", "startpos", 10);
+
+    expect(document.getElementById("whiteClock").style.display).toBe("");
+    expect(document.getElementById("blackClock").style.display).toBe("");
+    expect(document.getElementById("streak-counter").style.display).toBe("none");
+  });
+});
+
 describe("Coordinates visibility toggle", () => {
   test("toggles .hide-coordinates class on #board when checkbox changes state", () => {
     const checkbox = document.getElementById("showCoordinatesCheckbox");

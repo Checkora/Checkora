@@ -3224,15 +3224,17 @@
             }
         }
         replayMode = false;
-        // Show clocks for normal games
-        document.getElementById("whiteClock").style.display = "";
-        document.getElementById("blackClock").style.display = "";
+        if (!isPuzzle) {
+            // Show clocks for normal games and hide puzzle-only streak UI.
+            document.getElementById("whiteClock").style.display = "";
+            document.getElementById("blackClock").style.display = "";
 
-        const streakCounter =
-            document.getElementById("streak-counter");
+            const streakCounter =
+                document.getElementById("streak-counter");
 
-        if (streakCounter) {
-            streakCounter.style.display = "none";
+            if (streakCounter) {
+                streakCounter.style.display = "none";
+            }
         }
 
         replayMode = false;
