@@ -575,15 +575,9 @@ def get_state(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
-
         'hint_count': hint_count,
         'remaining_hints': max(0, 3 - hint_count),
-
         'threefold_warning': game.threefold_warning,
-
-
-    })
-
     }
 
     if request.user.is_authenticated:
