@@ -1341,6 +1341,15 @@ body {
 .theme-btn[data-theme="blue"]    { background-color: #2e4a5a; }
 .theme-btn[data-theme="pastel"]  { background-color: #a55cc7; }
 
+.random-theme-btn {
+    background: linear-gradient(135deg, #f0c040, #d4a020);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+}
+
 /* ================= PROMOTION MODAL ================= */
 
 .promo-overlay {
