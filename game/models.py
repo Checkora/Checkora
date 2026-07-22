@@ -448,6 +448,12 @@ class ChessPuzzle(models.Model):
         blank=True,
         default=""
     )
+    rating = models.IntegerField(
+        default=1500,
+        db_index=True,
+        validators=[MinValueValidator(0), MaxValueValidator(3000)]
+    )
+    tags = models.CharField(max_length=255, blank=True, default="")
     date = models.DateField(
         blank=True,
         null=True,
@@ -458,6 +464,8 @@ class ChessPuzzle(models.Model):
 
     def clean(self):
         super().clean()
+        if self.tags:
+            self.tags = ",".join([t.strip() for t in self.tags.split(",") if t.strip()])
         if self.fen:
             parts = self.fen.split()
             if len(parts) < 4:

@@ -94,7 +94,7 @@
             };
 
             const VALID_APP_THEMES = ['light', 'dark'];
-            const VALID_BOARD_THEMES = ['classic', 'dark', 'green', 'blue', 'pastel'];
+            const VALID_BOARD_THEMES = ['classic', 'wood', 'slate', 'neon', 'glass', 'dark', 'green', 'blue', 'pastel'];
 
             let savedAppTheme = safeLocalStorage.get('theme');
             if (!VALID_APP_THEMES.includes(savedAppTheme)) {
@@ -646,7 +646,7 @@
 
     <!-- ========== THEME & SETTINGS MODAL ========== -->
     <div class="theme-settings-modal" id="themeSettingsModal" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
-        <div class="theme-modal-dialog">
+        <div class="promo-dialog theme-modal-dialog">
             <button type="button" class="modal-close-btn" id="closeThemeModalBtn" aria-label="Close modal">&times;</button>
             <h2 class="theme-modal-title" id="themeModalTitle">⚙️ Theme & Settings</h2>
             
@@ -657,6 +657,26 @@
                         <input type="radio" name="boardThemeRadio" value="classic" class="theme-radio-input">
                         <span class="theme-swatch classic-swatch theme-btn" data-theme="classic" title="Classic"></span>
                         <span class="theme-swatch-name">Classic</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="wood" class="theme-radio-input">
+                        <span class="theme-swatch wood-swatch theme-btn" data-theme="wood" title="Wood"></span>
+                        <span class="theme-swatch-name">Wood</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="slate" class="theme-radio-input">
+                        <span class="theme-swatch slate-swatch theme-btn" data-theme="slate" title="Slate"></span>
+                        <span class="theme-swatch-name">Slate</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="neon" class="theme-radio-input">
+                        <span class="theme-swatch neon-swatch theme-btn" data-theme="neon" title="Neon"></span>
+                        <span class="theme-swatch-name">Neon</span>
+                    </label>
+                    <label class="theme-swatch-label">
+                        <input type="radio" name="boardThemeRadio" value="glass" class="theme-radio-input">
+                        <span class="theme-swatch glass-swatch theme-btn" data-theme="glass" title="Glass"></span>
+                        <span class="theme-swatch-name">Glass</span>
                     </label>
                     <label class="theme-swatch-label">
                         <input type="radio" name="boardThemeRadio" value="dark" class="theme-radio-input">

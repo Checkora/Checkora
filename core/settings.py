@@ -287,31 +287,29 @@ SECURE_HSTS_PRELOAD = IS_PRODUCTION
 CRON_SECRET = os.environ.get('CRON_SECRET')
 
 # Trusted proxies for client IP extraction from X-Forwarded-For header
-TRUSTED_PROXIES = os.environ.get('TRUSTED_PROXIES', '127.0.0.1,::1').split(',')
-TRUSTED_PROXIES = [ip.strip() for ip in TRUSTED_PROXIES if ip.strip()]
-
-# Trusted proxies for password reset rate limiting client IP extraction
-_trusted_proxy_ips_raw = [
-    ip.strip()
-    for ip in os.environ.get('TRUSTED_PROXY_IPS', '').split(',')
-    if ip.strip()
+_trusted_proxies_raw = os.environ.get(
+    'TRUSTED_PROXY_IPS'
+) or os.environ.get('TRUSTED_PROXIES') or '127.0.0.1,::1'
+_trusted_proxies = [
+    proxy.strip()
+    for proxy in _trusted_proxies_raw.split(',')
+    if proxy.strip()
 ]
-
-TRUSTED_PROXY_IPS = []
-_invalid_trusted_proxy_ips = []
-for entry in _trusted_proxy_ips_raw:
+_invalid_trusted_proxies = []
+for entry in _trusted_proxies:
     try:
         ipaddress.ip_network(entry, strict=False)
     except ValueError:
-        _invalid_trusted_proxy_ips.append(entry)
-    else:
-        TRUSTED_PROXY_IPS.append(entry)
+        _invalid_trusted_proxies.append(entry)
 
-if _invalid_trusted_proxy_ips:
+if _invalid_trusted_proxies:
     raise ImproperlyConfigured(
-        "TRUSTED_PROXY_IPS contains invalid IP/CIDR values: "
-        + ", ".join(_invalid_trusted_proxy_ips)
+        "Trusted proxy configuration contains invalid IP/CIDR values: "
+        + ", ".join(_invalid_trusted_proxies)
     )
+
+TRUSTED_PROXY_IPS = _trusted_proxies
+TRUSTED_PROXIES = TRUSTED_PROXY_IPS
 
 if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
     raise ImproperlyConfigured(

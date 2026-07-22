@@ -1906,6 +1906,90 @@ body.hide-native-cursor * {
 }
 
 /* ==========================================================================
+   Chess Quote Section
+   ========================================================================== */
+.quote-section {
+    width: 100%;
+    padding: 2.5rem 1.5rem 3rem;
+    position: relative;
+    z-index: 10;
+}
+
+.quote-container {
+    max-width: 760px;
+    margin: 0 auto;
+    text-align: center;
+    padding: 2rem 2.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+}
+
+.quote-mark {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 3rem;
+    line-height: 1;
+    color: var(--accent-gold);
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+}
+
+.quote-text {
+    margin: 0;
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--text-title);
+}
+
+.quote-author {
+    display: block;
+    margin-top: 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-style: normal;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.quote-author::before {
+    content: "\2014\00A0";
+    color: var(--accent-gold);
+}
+
+@media (max-width: 900px) {
+    .quote-container {
+        padding: 1.75rem 1.75rem;
+    }
+    .quote-text {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .quote-section {
+        padding: 2rem 1rem 2.5rem;
+    }
+    .quote-container {
+        padding: 1.5rem 1.25rem;
+        border-radius: 14px;
+    }
+    .quote-mark {
+        font-size: 2.25rem;
+    }
+    .quote-text {
+        font-size: 1.05rem;
+    }
+    .quote-author {
+        font-size: 0.9rem;
+    }
+}
+
+/* ==========================================================================
    Platform Growth Statistics Section
    ========================================================================== */
 .platform-stats-section {

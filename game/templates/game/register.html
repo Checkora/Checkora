@@ -15,43 +15,50 @@
     />
       <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
 </head>
-  <body>
+<body>
     {% include 'game/includes/navbar.html' %}
 
-    <div class="header header--with-navbar">
-      <p>Create an account to track your stats</p>
-    </div>
+    <main class="auth-layout">
+      <a href="{% url 'landing' %}" class="auth-home-link" aria-label="Back to home">
+          <span aria-hidden="true" class="auth-home-link__arrow">←</span>
+          <span>Back to Home</span>
+      </a>
 
-    <div class="auth-card">
-        <form method="POST">
-            {% csrf_token %}
+      <div class="header header--with-navbar">
+        <p>Create an account to track your stats</p>
+      </div>
 
-            {% include 'game/includes/messages.html' %}
+      <div class="auth-card">
+          <form method="POST">
+              {% csrf_token %}
 
-            {% if form.non_field_errors %}
-                {{ form.non_field_errors }}
-            {% endif %}
-            
-            {% for field in form %}
-                <div class="form-group">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <span class="helptext">{{ field.help_text}}</span>
-                    {% endif %}
-                    {% if field.errors %}
-                        {{ field.errors }}
-                    {% endif %}
-                </div>
-            {% endfor %}
-            
-            <button type="submit" class="btn btn-gold">Create Account</button>
-        </form>
-        
-        <div class="auth-footer">
-            Already have an account? <a href="{% url 'login' %}">Sign In</a>
+              {% include 'game/includes/messages.html' %}
+
+              {% if form.non_field_errors %}
+                  {{ form.non_field_errors }}
+              {% endif %}
+              
+              {% for field in form %}
+                  <div class="form-group">
+                      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}
+                          <span class="helptext">{{ field.help_text}}</span>
+                      {% endif %}
+                      {% if field.errors %}
+                          {{ field.errors }}
+                      {% endif %}
+                  </div>
+              {% endfor %}
+              
+              <button type="submit" class="btn btn-gold">Create Account</button>
+          </form>
+          
+          <div class="auth-footer">
+              Already have an account? <a href="{% url 'login' %}">Sign In</a>
+          </div>
         </div>
-    </div>
+    </main>
 
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>

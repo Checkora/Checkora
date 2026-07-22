@@ -634,12 +634,13 @@ If you attempt to launch the Django server without setting up a local configurat
     cp .env.example .env
     ```
     Open `.env` and verify you have a robust string under `SECRET_KEY`.
-    Additionally, ensure `TRUSTED_PROXIES` is configured (defaulting to
-    `127.0.0.1,::1` for local development).
+    Additionally, ensure `TRUSTED_PROXY_IPS` is configured (defaulting to
+    `127.0.0.1,::1` for local development). `TRUSTED_PROXIES` remains
+    supported as a legacy fallback.
 
     > **⚠️ Security Warning for Production:**
     > When deploying behind reverse proxies (Vercel, Cloudflare, AWS ALB,
-    > etc.), you must set `TRUSTED_PROXIES` to your platform's upstream
+    > etc.), you must set `TRUSTED_PROXY_IPS` to your platform's upstream
     > proxy IPs. Incorrect configuration allows attackers to spoof their
     > IP address and bypass rate limiting entirely.
 

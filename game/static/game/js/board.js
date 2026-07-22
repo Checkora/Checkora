@@ -393,6 +393,7 @@
     let stockfishWorker = null;
     let stockfishEvalSeq = 0;
     let stockfishActiveReject = null;
+    let currentAnalysisData = null;
 
     let hintLevel = 0;
 
@@ -681,16 +682,20 @@
             const sideToMove = fen ? fen.split(' ')[1] : 'w';
             if (type === 'mate') {
                 let isWhiteMate = false;
-                if (sideToMove === 'w') {
+                if (evalResult.absolute) {
                     isWhiteMate = value > 0;
                 } else {
-                    isWhiteMate = value < 0;
+                    if (sideToMove === 'w') {
+                        isWhiteMate = value > 0;
+                    } else {
+                        isWhiteMate = value < 0;
+                    }
                 }
-                displayLabel = `M${Math.abs(value)}`;
+                displayLabel = evalResult.absolute ? 'M' : `M${Math.abs(value)}`;
                 percentage = isWhiteMate ? 100 : 0;
             } else {
                 let cp = value;
-                if (sideToMove === 'b') {
+                if (!evalResult.absolute && sideToMove === 'b') {
                     cp = -cp;
                 }
                 const rawScore = cp / 100;
@@ -2107,12 +2112,32 @@
             { key: 'n', label: 'Knight' },
         ];
         promoChoices.innerHTML = '';
-        pieces.forEach(({ key }) => {
+        pieces.forEach(({ key, label }) => {
             const btn = document.createElement('button');
             btn.className = 'promo-btn';
+            btn.setAttribute('aria-label', `${label} (${key})`);
+            
             const img = document.createElement('img');
             img.src = PIECE_IMG[prefix + key];
+            img.alt = '';
+            img.setAttribute('aria-hidden', 'true');
             btn.appendChild(img);
+            
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'promo-label';
+            labelSpan.setAttribute('aria-hidden', 'true');
+            const keySpan = document.createElement('span');
+            keySpan.className = 'promo-key';
+            keySpan.textContent = `(${key})`;
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'promo-text';
+            nameSpan.textContent = ` ${label}`;
+            
+            labelSpan.appendChild(keySpan);
+            labelSpan.appendChild(nameSpan);
+            btn.appendChild(labelSpan);
+            
             btn.onclick = () => onPromoChoice(key);
             promoChoices.appendChild(btn);
         });
@@ -2949,7 +2974,31 @@ function updateStepperUI() {
     viewingPastState = (stepperIndex < gameFens.length - 1);
 
     updateEvalBarVisibility();
-    if (fen && (gameMode === 'ai' || gameMode === 'analysis') && !dailyPuzzleMode) {
+    
+    if (gameMode === 'analysis' && currentAnalysisData) {
+        let scoreVal = null;
+        let isMate = false;
+        
+        if (stepperIndex < currentAnalysisData.move_analysis_details.length) {
+            scoreVal = currentAnalysisData.move_analysis_details[stepperIndex].eval;
+        } else if (stepperIndex === currentAnalysisData.move_analysis_details.length) {
+            scoreVal = currentAnalysisData.final_eval;
+        }
+        
+        if (scoreVal !== null && scoreVal !== undefined) {
+            if (Math.abs(scoreVal) > 90000) {
+                isMate = true;
+            }
+            const evalObj = {
+                type: isMate ? 'mate' : 'cp',
+                value: scoreVal,
+                absolute: true
+            };
+            updateEvalBar(evalObj, fen);
+        } else {
+            updateEvalBar(null, fen);
+        }
+    } else if (fen && (gameMode === 'ai' || gameMode === 'analysis') && !dailyPuzzleMode) {
         getStockfishEval(fen).then(result => {
             if (gameFens[stepperIndex] === fen) {
                 updateEvalBar(result, fen);
@@ -3139,6 +3188,7 @@ function updateStepperUI() {
     async function endGame(reason, loserColor, drawReason = null) {
         if (gameOver) return;
         gameOver = true;
+        currentAnalysisData = null;
         
         let title = '', message = '';
         let isCelebration = false;
@@ -3542,6 +3592,8 @@ function updateStepperUI() {
         }).then(analysisData => {
             if (!analysisData) return;
             if (currentAnalysisSeq !== analysisRequestSeq) return;
+            
+            currentAnalysisData = analysisData;
 
             const openingNameEl = document.getElementById('resOpeningName');
             if (openingNameEl) {
@@ -3605,7 +3657,24 @@ function updateStepperUI() {
                     const tdClass = document.createElement('td');
                     tdClass.style.padding = '5px';
                     tdClass.style.color = detail.class === 'Best' ? '#4caf50' : '#f44336';
-                    tdClass.textContent = detail.class;
+                    
+                    let nextEval = null;
+                    if (index + 1 < analysisData.move_analysis_details.length) {
+                        nextEval = analysisData.move_analysis_details[index + 1].eval;
+                    } else {
+                        nextEval = analysisData.final_eval;
+                    }
+
+                    let evalText = '';
+                    if (nextEval !== undefined && nextEval !== null) {
+                        if (Math.abs(nextEval) > 90000) {
+                            evalText = ' (M)';
+                        } else {
+                            const score = nextEval / 100;
+                            evalText = ` (${score >= 0 ? '+' : ''}${score.toFixed(1)})`;
+                        }
+                    }
+                    tdClass.textContent = detail.class + evalText;
                     tr.appendChild(tdClass);
 
                     tbody.appendChild(tr);
@@ -5400,7 +5469,18 @@ async function handleSanMove() {
     document.addEventListener('keydown', e => {
         if (e.repeat) return;
 
-        const tag = document.activeElement && document.activeElement.tagName;
+        if (promoOverlay && promoOverlay.classList.contains('active')) {
+            const key = e.key.toLowerCase();
+            if (key === 'q' || key === 'r' || key === 'b' || key === 'n') {
+                e.preventDefault();
+                onPromoChoice(key);
+                return;
+            }
+            // Ignore all other game commands when promotion is pending
+            return;
+        }
+
+        const tag = document.activeElement?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
         if (replayMode) {

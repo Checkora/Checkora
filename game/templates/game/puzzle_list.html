@@ -130,8 +130,15 @@
             gap: 20px;
         }
 
-        @media (min-width: 768px) {
-            .controls-wrapper {
+        .controls-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+        }
+
+        @media (min-width: 900px) {
+            .controls-group {
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
@@ -368,6 +375,125 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Filter elements styling */
+        .filter-select {
+            background: rgba(10, 10, 18, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
+        }
+
+        .rating-input {
+            width: 100px;
+            background: rgba(10, 10, 18, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .rating-input:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
+        }
+        
+        .rating-range-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badges-container {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .badge-rating {
+            background: rgba(240, 192, 64, 0.1);
+            color: var(--accent-gold);
+            border: 1px solid rgba(240, 192, 64, 0.25);
+        }
+
+        .puzzle-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 20px;
+            margin-top: 10px;
+        }
+
+        .tag-pill {
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .tag-pill:hover {
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Pagination Styling */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 40px;
+        }
+
+        .pagination-btn {
+            background: rgba(10, 10, 18, 0.5);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--accent-gold);
+            border-color: var(--accent-gold);
+            color: #000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(240, 192, 64, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -380,22 +506,52 @@
     </header>
 
     <div class="controls-wrapper">
-        <div class="search-container">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="search-input" class="search-input" placeholder="Search puzzles by title..." aria-label="Search puzzles by title">
+        <div class="controls-group">
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" class="search-input" placeholder="Search puzzles by title..." aria-label="Search puzzles by title">
+            </div>
+
+            <div class="filters-container">
+                <span class="filter-label">Difficulty:</span>
+                <button class="filter-btn active" data-difficulty="">All</button>
+                <button class="filter-btn" data-difficulty="easy">Easy</button>
+                <button class="filter-btn" data-difficulty="medium">Medium</button>
+                <button class="filter-btn" data-difficulty="hard">Hard</button>
+            </div>
         </div>
 
-        <div class="filters-container">
-            <span class="filter-label">Difficulty:</span>
-            <button class="filter-btn active" data-difficulty="">All</button>
-            <button class="filter-btn" data-difficulty="easy">Easy</button>
-            <button class="filter-btn" data-difficulty="medium">Medium</button>
-            <button class="filter-btn" data-difficulty="hard">Hard</button>
+        <div class="controls-group">
+            <div class="filters-container">
+                <span class="filter-label">Motif:</span>
+                <select id="tag-filter" class="filter-select" aria-label="Filter by motif">
+                    <option value="">All Motifs</option>
+                    <option value="Mate in 1">Mate in 1</option>
+                    <option value="Mate in 2">Mate in 2</option>
+                    <option value="Endgame">Endgame</option>
+                    <option value="Fork">Fork</option>
+                    <option value="Pin">Pin</option>
+                    <option value="Tactics">Tactics</option>
+                </select>
+            </div>
+
+            <div class="filters-container">
+                <span class="filter-label">Rating:</span>
+                <div class="rating-range-container">
+                    <input type="number" id="min-rating" class="rating-input" placeholder="Min" min="0" max="3000" aria-label="Minimum rating">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">to</span>
+                    <input type="number" id="max-rating" class="rating-input" placeholder="Max" min="0" max="3000" aria-label="Maximum rating">
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="puzzle-grid" id="puzzle-grid">
         <!-- Puzzles will be loaded dynamically here -->
+    </div>
+
+    <div class="pagination-container" id="pagination-container">
+        <!-- Pagination controls will be loaded dynamically here -->
     </div>
 </div>
 
@@ -403,11 +559,21 @@
     document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('search-input');
         const filterBtns = document.querySelectorAll('.filter-btn');
+        const tagFilter = document.getElementById('tag-filter');
+        const minRatingInput = document.getElementById('min-rating');
+        const maxRatingInput = document.getElementById('max-rating');
         const puzzleGrid = document.getElementById('puzzle-grid');
+        const paginationContainer = document.getElementById('pagination-container');
 
         let currentDifficulty = '';
         let currentSearch = '';
+        let currentTag = '';
+        let currentMinRating = '';
+        let currentMaxRating = '';
+        let currentPage = 1;
+        
         let searchDebounceTimeout;
+        let ratingDebounceTimeout;
 
         // Fetch and render puzzles
         async function loadPuzzles() {
@@ -417,17 +583,24 @@
                     <p style="color: var(--text-secondary)">Loading puzzles...</p>
                 </div>
             `;
+            paginationContainer.innerHTML = '';
 
             try {
                 const params = new URLSearchParams();
                 if (currentDifficulty) params.append('difficulty', currentDifficulty);
                 if (currentSearch) params.append('search', currentSearch);
+                if (currentTag) params.append('tag', currentTag);
+                if (currentMinRating) params.append('min_rating', currentMinRating);
+                if (currentMaxRating) params.append('max_rating', currentMaxRating);
+                params.append('page', currentPage);
+                params.append('per_page', 9);
 
                 const response = await fetch(`/api/puzzles/?${params.toString()}`);
                 if (!response.ok) throw new Error('Network response was not ok');
                 
-                const puzzles = await response.json();
-                renderPuzzles(puzzles);
+                const data = await response.json();
+                renderPuzzles(data.puzzles);
+                renderPagination(data);
             } catch (error) {
                 console.error('Error fetching puzzles:', error);
                 puzzleGrid.innerHTML = `
@@ -464,20 +637,106 @@
 
                 const card = document.createElement('div');
                 card.className = 'puzzle-card';
+                
+                // Construct tags pill list
+                const tagsHtml = puzzle.tags && puzzle.tags.length > 0 
+                    ? `<div class="puzzle-tags">
+                        ${puzzle.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}
+                       </div>`
+                    : '';
+
                 card.innerHTML = `
                     <div>
                         <div class="card-header">
                             <span class="puzzle-title">${escapeHtml(puzzle.title)}</span>
-                            <span class="badge ${difficultyClass}">${escapeHtml(puzzle.difficulty)}</span>
+                            <div class="badges-container">
+                                <span class="badge ${difficultyClass}">${escapeHtml(puzzle.difficulty)}</span>
+                                <span class="badge badge-rating">⭐ ${puzzle.rating}</span>
+                            </div>
                         </div>
                         <div class="puzzle-fen" title="${escapeHtml(puzzle.fen)}">
                             FEN: ${escapeHtml(cleanFen)}
                         </div>
+                        ${tagsHtml}
                     </div>
                     <a href="/play/?puzzle_id=${puzzle.id}" class="solve-btn">Solve Puzzle</a>
                 `;
                 puzzleGrid.appendChild(card);
             });
+        }
+
+        // Render Pagination buttons
+        function renderPagination(data) {
+            paginationContainer.innerHTML = '';
+            
+            if (data.total_pages <= 1) return;
+
+            // Previous Button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'pagination-btn';
+            prevBtn.innerText = '← Previous';
+            prevBtn.disabled = !data.has_previous;
+            prevBtn.addEventListener('click', () => {
+                currentPage--;
+                loadPuzzles();
+            });
+            paginationContainer.appendChild(prevBtn);
+
+            // Page info/numbers
+            function addPageBtn(i) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `pagination-btn ${i === data.page ? 'active' : ''}`;
+                pageBtn.innerText = i;
+                pageBtn.addEventListener('click', () => {
+                    currentPage = i;
+                    loadPuzzles();
+                });
+                paginationContainer.appendChild(pageBtn);
+            }
+
+            const totalPages = data.total_pages;
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                addPageBtn(1);
+                if (startPage > 2) {
+                    const dots = document.createElement('span');
+                    dots.className = 'pagination-info';
+                    dots.innerText = '…';
+                    paginationContainer.appendChild(dots);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                addPageBtn(i);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const dots = document.createElement('span');
+                    dots.className = 'pagination-info';
+                    dots.innerText = '…';
+                    paginationContainer.appendChild(dots);
+                }
+                addPageBtn(totalPages);
+            }
+
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'pagination-btn';
+            nextBtn.innerText = 'Next →';
+            nextBtn.disabled = !data.has_next;
+            nextBtn.addEventListener('click', () => {
+                currentPage++;
+                loadPuzzles();
+            });
+            paginationContainer.appendChild(nextBtn);
         }
 
         // Helper to escape HTML to prevent XSS
@@ -490,11 +749,17 @@
                 .replace(/'/g, "&#039;");
         }
 
+        // Reset page to 1 and reload
+        function resetAndReload() {
+            currentPage = 1;
+            loadPuzzles();
+        }
+
         // Search input event handling (with debounce)
         searchInput.addEventListener('input', (e) => {
             currentSearch = e.target.value.trim();
             clearTimeout(searchDebounceTimeout);
-            searchDebounceTimeout = setTimeout(loadPuzzles, 300);
+            searchDebounceTimeout = setTimeout(resetAndReload, 300);
         });
 
         // Filter button event handling
@@ -503,8 +768,31 @@
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentDifficulty = btn.dataset.difficulty;
-                loadPuzzles();
+                resetAndReload();
             });
+        });
+
+        // Tag filter change handling
+        tagFilter.addEventListener('change', (e) => {
+            currentTag = e.target.value;
+            resetAndReload();
+        });
+
+        // Min/Max rating range handlers (with debounce)
+        const onRatingChange = () => {
+            currentMinRating = minRatingInput.value.trim();
+            currentMaxRating = maxRatingInput.value.trim();
+            resetAndReload();
+        };
+
+        minRatingInput.addEventListener('input', () => {
+            clearTimeout(ratingDebounceTimeout);
+            ratingDebounceTimeout = setTimeout(onRatingChange, 400);
+        });
+
+        maxRatingInput.addEventListener('input', () => {
+            clearTimeout(ratingDebounceTimeout);
+            ratingDebounceTimeout = setTimeout(onRatingChange, 400);
         });
 
         // Initial Load

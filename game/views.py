@@ -28,7 +28,7 @@ from django.utils.http import (
     urlsafe_base64_decode,
     url_has_allowed_host_and_scheme
 )
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage
 from django.utils.encoding import (
     force_bytes,
     force_str
@@ -94,6 +94,7 @@ MAX_MOVE_LENGTH = 20
 
 from game.services import (
     cleanup_stale_games,
+    process_game_completion,
     check_game_achievements,
     check_puzzle_achievements,
     generate_badge,
@@ -139,56 +140,6 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def update_player_rating(user, winner, player_color):
-    rating, _ = PlayerRating.objects.get_or_create(
-        user=user
-    )
-
-    old_rating = rating.rating
-
-    if winner == "draw":
-        result = "draw"
-
-    elif winner == player_color:
-        result = "win"
-
-    else:
-        result = "loss"
-
-    change = calculate_rating_change(result)
-
-    new_rating = max(
-        100,
-        old_rating + change
-    )
-
-    actual_change = (
-        new_rating - old_rating
-    )
-    rating.rating = new_rating
-    rating.games_played += 1
-
-    if result == "win":
-        rating.wins += 1
-
-    elif result == "loss":
-        rating.losses += 1
-
-    else:
-        rating.draws += 1
-
-    rating.full_clean()
-    rating.save()
-
-    RatingHistory.objects.create(
-        user=user,
-        old_rating=old_rating,
-        new_rating=rating.rating,
-        rating_change=actual_change,
-        result=result
-    )
-    
-
 def record_game_result(request, mode, winner, reason, player_color='white', moves=None):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
@@ -198,31 +149,8 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
             moves = game_data.get('move_history', [])
         else:
             moves = []
-    result = GameResult.objects.create(
-        user=user,
-        mode=mode,
-        winner=winner,
-        end_reason=reason,
-        player_color=player_color,
-        moves=moves
-    )
-    result.full_clean()
-    result.save()
-
-    if user:
-        with transaction.atomic():
-            progress, _ = UserProgress.objects.select_for_update().get_or_create(user=user)
-            progress.update_streak()
-
-    if user and mode == 'ai':
-        update_player_rating(
-            user,
-            winner,
-            player_color
-        )
-        
-        check_game_achievements(user)
-    return result
+            
+    return process_game_completion(user, mode, winner, reason, player_color, moves)
 
 
 @require_POST
@@ -733,43 +661,53 @@ def ai_move(request):
 
             # Create a temporary copy
             temp_game = ChessGame()
-            temp_game.board = temp_game._parse_board64(game.serialize_board())
-            temp_game.castling_rights = dict(game.castling_rights)
-            temp_game.current_turn = game.current_turn
-            temp_game.en_passant_target = game.en_passant_target
-            
-            # Apply the suggested move
-            temp_game.make_move(best['from_row'], best['from_col'], best['to_row'], best['to_col'])
-            
-            # Request opponent's responses
-            opp_resp = temp_game.get_ai_move(depth=depth)
-            
-            predicted_responses = []
-            if opp_resp and 'alts' in opp_resp:
-                predicted_responses.append({
-                    'notation': temp_game._notation(
-                        opp_resp['from_row'], opp_resp['from_col'], 
-                        opp_resp['to_row'], opp_resp['to_col'], 
-                        temp_game.board[opp_resp['from_row']][opp_resp['from_col']], 
-                        temp_game.board[opp_resp['to_row']][opp_resp['to_col']], 
-                        temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
-                    ),
-                    'eval': opp_resp.get('eval')
-                })
-                # Cap the alts before running the notation loop
-                for alt in opp_resp.get('alts', [])[:2]:
+            try:
+                temp_game.board = temp_game._parse_board64(game.serialize_board())
+                temp_game.castling_rights = dict(game.castling_rights)
+                temp_game.current_turn = game.current_turn
+                temp_game.en_passant_target = game.en_passant_target
+
+                # Synchronize history and clocks to prevent state desync
+                temp_game.move_history = list(game.move_history)
+                temp_game.halfmove_clock = game.halfmove_clock
+                temp_game.repetition_history = list(game.repetition_history)
+                temp_game.repetition_counts = dict(game.repetition_counts)
+                temp_game.captured = {k: list(v) for k, v in game.captured.items()} if hasattr(game, 'captured') and isinstance(game.captured, dict) else {'white': [], 'black': []}
+
+                # Apply the suggested move, handling promotions
+                temp_game.make_move(best['from_row'], best['from_col'], best['to_row'], best['to_col'], promotion_piece=best.get('promotion_piece'))
+
+                # Request opponent's responses
+                opp_resp = temp_game.get_ai_move(depth=depth)
+
+                predicted_responses = []
+                if opp_resp:
                     predicted_responses.append({
                         'notation': temp_game._notation(
-                            alt['from_row'], alt['from_col'], 
-                            alt['to_row'], alt['to_col'], 
-                            temp_game.board[alt['from_row']][alt['from_col']], 
-                            temp_game.board[alt['to_row']][alt['to_col']], 
+                            opp_resp['from_row'], opp_resp['from_col'],
+                            opp_resp['to_row'], opp_resp['to_col'],
+                            temp_game.board[opp_resp['from_row']][opp_resp['from_col']],
+                            temp_game.board[opp_resp['to_row']][opp_resp['to_col']],
                             temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
                         ),
-                        'eval': alt.get('eval')
+                        'eval': opp_resp.get('eval')
                     })
-            
-            best['predicted_responses'] = predicted_responses
+                    # Cap the alts before running the notation loop
+                    for alt in opp_resp.get('alts', [])[:2]:
+                        predicted_responses.append({
+                            'notation': temp_game._notation(
+                                alt['from_row'], alt['from_col'],
+                                alt['to_row'], alt['to_col'],
+                                temp_game.board[alt['from_row']][alt['from_col']],
+                                temp_game.board[alt['to_row']][alt['to_col']],
+                                temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
+                            ),
+                            'eval': alt.get('eval')
+                        })
+
+                best['predicted_responses'] = predicted_responses
+            finally:
+                temp_game.cleanup_engine()
         except Exception:
             logger.exception("Failed to predict opponent responses")
 
@@ -2367,16 +2305,80 @@ def puzzles_list_api(request):
     if search_query:
         puzzles = puzzles.filter(title__icontains=search_query)
 
+    # Filter by tag (motif)
+    tag = request.GET.get('tag')
+    if tag:
+        puzzles = puzzles.filter(
+            Q(tags=tag) |
+            Q(tags__startswith=tag + ",") |
+            Q(tags__startswith=tag + ", ") |
+            Q(tags__endswith="," + tag) |
+            Q(tags__endswith=", " + tag) |
+            Q(tags__contains="," + tag + ",") |
+            Q(tags__contains=", " + tag + ",") |
+            Q(tags__contains="," + tag + " ,") |
+            Q(tags__contains=", " + tag + " ,")
+        )
+
+    # Filter by min_rating
+    min_rating = request.GET.get('min_rating')
+    if min_rating:
+        try:
+            puzzles = puzzles.filter(rating__gte=int(min_rating))
+        except ValueError:
+            pass
+
+    # Filter by max_rating
+    max_rating = request.GET.get('max_rating')
+    if max_rating:
+        try:
+            puzzles = puzzles.filter(rating__lte=int(max_rating))
+        except ValueError:
+            pass
+
+    # Order puzzles logically so pagination is stable
+    puzzles = puzzles.order_by('id')
+
+    # Pagination
+    page = request.GET.get('page', 1)
+    per_page = request.GET.get('per_page', 9)
+
+    try:
+        page = max(1, int(page))
+    except ValueError:
+        page = 1
+
+    try:
+        per_page = max(1, min(int(per_page), 100))
+    except ValueError:
+        per_page = 9
+
+    paginator = Paginator(puzzles, per_page)
+    try:
+        puzzles_page = paginator.page(page)
+    except EmptyPage:
+        puzzles_page = []
+
     puzzles_data = []
-    for puzzle in puzzles:
+    for puzzle in puzzles_page:
         puzzles_data.append({
             "id": puzzle.id,
             "title": puzzle.title,
             "fen": puzzle.fen,
             "difficulty": puzzle.difficulty or "medium",
-            "date": puzzle.date.isoformat() if puzzle.date else None
+            "date": puzzle.date.isoformat() if puzzle.date else None,
+            "rating": puzzle.rating,
+            "tags": [t.strip() for t in puzzle.tags.split(',')] if puzzle.tags else []
         })
-    return JsonResponse(puzzles_data, safe=False)
+
+    return JsonResponse({
+        "puzzles": puzzles_data,
+        "page": page,
+        "total_pages": paginator.num_pages,
+        "total_count": paginator.count,
+        "has_next": puzzles_page.has_next() if hasattr(puzzles_page, 'has_next') else False,
+        "has_previous": puzzles_page.has_previous() if hasattr(puzzles_page, 'has_previous') else False,
+    }, safe=False)
 
 
 @require_GET
@@ -2388,7 +2390,9 @@ def puzzle_detail_api(request, puzzle_id):
         "title": puzzle.title,
         "fen": puzzle.fen,
         "difficulty": puzzle.difficulty or "medium",
-        "date": puzzle.date.isoformat() if puzzle.date else None
+        "date": puzzle.date.isoformat() if puzzle.date else None,
+        "rating": puzzle.rating,
+        "tags": [t.strip() for t in puzzle.tags.split(',')] if puzzle.tags else []
     })
 
 
@@ -2701,7 +2705,14 @@ def analyze_game_view(request):
                 except Exception as ex:
                     logger.warning('Failed to get notation for best move: %s', ex)
 
-            move_analysis_details.append({'move_num': move_num, 'color': color, 'played': notation, 'best': best_notation, 'class': move_class})
+            move_analysis_details.append({
+                'move_num': move_num,
+                'color': color,
+                'played': notation,
+                'best': best_notation,
+                'class': move_class,
+                'eval': best_move.get('eval') if best_move else None
+            })
 
             game.make_move(actual_from[0], actual_from[1], actual_to[0], actual_to[1])
             game.last_ts = time.time()
@@ -2709,6 +2720,15 @@ def analyze_game_view(request):
         bad_moves = blunders + mistakes
         accuracy = round(((analyzed_moves_count - bad_moves) / analyzed_moves_count) * 100) if analyzed_moves_count > 0 else 100
         opening = detect_opening(moves) or 'Unknown'
+
+        # Get evaluation of the final position
+        final_eval = None
+        try:
+            final_move = game.get_ai_move(depth=2)
+            if final_move:
+                final_eval = final_move.get('eval')
+        except Exception as ex:
+            logger.warning('Failed to get final evaluation: %s', ex)
 
         response_data = {
             'result': result,
@@ -2718,7 +2738,8 @@ def analyze_game_view(request):
             'promotions': promotions, 'blunders': blunders, 'mistakes': mistakes,
             'accuracy': accuracy, 'total_moves': (len(moves) + 1) // 2, 'move_analysis_details': move_analysis_details,
             'move_analysis': [detail['class'] for detail in move_analysis_details],
-            'analysis_timeout_seconds': ANALYSIS_TIMEOUT_SECONDS
+            'analysis_timeout_seconds': ANALYSIS_TIMEOUT_SECONDS,
+            'final_eval': final_eval
         }
 
         response = JsonResponse(response_data)

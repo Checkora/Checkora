@@ -17,6 +17,7 @@ is chosen at random to add variety.
 """
 
 import os
+import contextlib
 import random
 import subprocess
 import json
@@ -125,14 +126,27 @@ class ChessGame:
         
         def _fix_castling(move):
             return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
-        for i in range(0, len(self.move_history), 2):
-            move_number = i // 2 + 1
-            white_move = _fix_castling(self.move_history[i]['notation'])
-            if i + 1 < len(self.move_history):
-                black_move = _fix_castling(self.move_history[i + 1]['notation'])
-                pgn_moves.append(f"{move_number}. {white_move} {black_move}")
+
+        fullmove = getattr(self, 'initial_fullmove', 1)
+        history = self.move_history
+        i = 0
+
+        # If Black moved first, write the first half-move as "N... move"
+        if getattr(self, 'initial_turn_was_black', False) and history:
+            black_move = _fix_castling(history[0]['notation'])
+            pgn_moves.append(f"{fullmove}... {black_move}")
+            fullmove += 1
+            i = 1
+
+        while i < len(history):
+            white_move = _fix_castling(history[i]['notation'])
+            if i + 1 < len(history):
+                black_move = _fix_castling(history[i + 1]['notation'])
+                pgn_moves.append(f"{fullmove}. {white_move} {black_move}")
             else:
-                pgn_moves.append(f"{move_number}. {white_move}")
+                pgn_moves.append(f"{fullmove}. {white_move}")
+            fullmove += 1
+            i += 2
         
         today = date.today().strftime('%Y.%m.%d')
         headers = [
@@ -558,6 +572,7 @@ DP cache is intentionally excluded to save cookie space."""
         if not conn:
             # Fallback to stateless spawning if the server failed to
             # start or connect
+            proc = None
             try:
                 proc = subprocess.Popen(
                     self._build_engine_command(engine_path),
@@ -571,13 +586,29 @@ DP cache is intentionally excluded to save cookie space."""
                 )
                 stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
                 return stdout.strip()
-            except (subprocess.TimeoutExpired, OSError):
+            except subprocess.TimeoutExpired:
+                if proc:
+                    try:
+                        proc.kill()
+                        proc.communicate()
+                    except Exception:
+                        pass
+                return None
+            except OSError:
                 return None
 
         try:
             conn.send(command)
-            resp = conn.recv()
-            return resp
+            timeout_secs = getattr(
+                self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
+            )
+            if conn.poll(timeout_secs):
+                return conn.recv()
+
+            with contextlib.suppress(OSError):
+                conn.close()
+            self.cleanup_engine()
+            return None
         except Exception:
             return None
         finally:

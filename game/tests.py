@@ -3534,19 +3534,25 @@ class ChessPuzzleDashboardTests(TestCase):
             title="Easy Mate in One",
             fen="8/8/8/8/8/8/8/8 w - - 0 1",
             solution=["e2e4"],
-            difficulty="easy"
+            difficulty="easy",
+            rating=1000,
+            tags="Mate in 1,Endgame"
         )
         self.puzzle_medium = ChessPuzzle.objects.create(
             title="Medium Tactics Puzzle",
             fen="7k/8/8/8/8/8/8/8 w - - 0 1",
             solution=["d2d4"],
-            difficulty="medium"
+            difficulty="medium",
+            rating=1500,
+            tags="Fork,Tactics"
         )
         self.puzzle_hard = ChessPuzzle.objects.create(
             title="Hard Endgame Study",
             fen="6k1/8/8/8/8/8/8/6K1 w - - 0 1",
             solution=["c2c4"],
-            difficulty="hard"
+            difficulty="hard",
+            rating=2000,
+            tags="Pin,Endgame"
         )
 
     def test_puzzles_view_renders_correct_template(self):
@@ -3562,14 +3568,17 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 3)
+        self.assertIn('puzzles', data)
+        self.assertEqual(len(data['puzzles']), 3)
 
-        for item in data:
+        for item in data['puzzles']:
             self.assertNotIn('solution', item)
             self.assertIn('id', item)
             self.assertIn('title', item)
             self.assertIn('fen', item)
             self.assertIn('difficulty', item)
+            self.assertIn('rating', item)
+            self.assertIn('tags', item)
 
     def test_puzzles_list_api_difficulty_filtering(self):
         """The listing API supports filtering by difficulty."""
@@ -3578,14 +3587,14 @@ class ChessPuzzleDashboardTests(TestCase):
         # Filter easy
         response = self.client.get(url, {'difficulty': 'easy'})
         data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['title'], "Easy Mate in One")
+        self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['puzzles'][0]['title'], "Easy Mate in One")
 
         # Filter hard
         response = self.client.get(url, {'difficulty': 'hard'})
         data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['title'], "Hard Endgame Study")
+        self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['puzzles'][0]['title'], "Hard Endgame Study")
 
     def test_puzzles_list_api_search_filtering(self):
         """The listing API supports filtering by search queries on title."""
@@ -3593,8 +3602,74 @@ class ChessPuzzleDashboardTests(TestCase):
 
         response = self.client.get(url, {'search': 'Tactics'})
         data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['title'], "Medium Tactics Puzzle")
+        self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['puzzles'][0]['title'], "Medium Tactics Puzzle")
+
+    def test_puzzles_list_api_tag_filtering(self):
+        """The listing API supports filtering by tag (motif)."""
+        url = reverse('puzzles_list_api')
+
+        # Filter by "Endgame"
+        response = self.client.get(url, {'tag': 'Endgame'})
+        data = response.json()
+        self.assertEqual(len(data['puzzles']), 2)
+        titles = [p['title'] for p in data['puzzles']]
+        self.assertIn("Easy Mate in One", titles)
+        self.assertIn("Hard Endgame Study", titles)
+
+        # Filter by "Fork"
+        response = self.client.get(url, {'tag': 'Fork'})
+        data = response.json()
+        self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['puzzles'][0]['title'], "Medium Tactics Puzzle")
+
+    def test_puzzles_list_api_rating_filtering(self):
+        """The listing API supports filtering by rating range."""
+        url = reverse('puzzles_list_api')
+
+        # Filter min_rating=1200
+        response = self.client.get(url, {'min_rating': '1200'})
+        data = response.json()
+        self.assertEqual(len(data['puzzles']), 2)
+        titles = [p['title'] for p in data['puzzles']]
+        self.assertIn("Medium Tactics Puzzle", titles)
+        self.assertIn("Hard Endgame Study", titles)
+
+        # Filter max_rating=1600
+        response = self.client.get(url, {'max_rating': '1600'})
+        data = response.json()
+        self.assertEqual(len(data['puzzles']), 2)
+        titles = [p['title'] for p in data['puzzles']]
+        self.assertIn("Easy Mate in One", titles)
+        self.assertIn("Medium Tactics Puzzle", titles)
+
+        # Filter rating range 1200-1600
+        response = self.client.get(url, {'min_rating': '1200', 'max_rating': '1600'})
+        data = response.json()
+        self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['puzzles'][0]['title'], "Medium Tactics Puzzle")
+
+    def test_puzzles_list_api_pagination(self):
+        """The listing API supports pagination."""
+        url = reverse('puzzles_list_api')
+
+        # Set per_page to 2
+        response = self.client.get(url, {'per_page': 2})
+        data = response.json()
+        self.assertEqual(data['page'], 1)
+        self.assertEqual(data['total_pages'], 2)
+        self.assertEqual(data['total_count'], 3)
+        self.assertEqual(len(data['puzzles']), 2)
+        self.assertTrue(data['has_next'])
+        self.assertFalse(data['has_previous'])
+
+        # Get second page
+        response = self.client.get(url, {'per_page': 2, 'page': 2})
+        data = response.json()
+        self.assertEqual(data['page'], 2)
+        self.assertEqual(len(data['puzzles']), 1)
+        self.assertFalse(data['has_next'])
+        self.assertTrue(data['has_previous'])
 
     def test_puzzle_detail_api_excludes_solution(self):
         """Detail API returns details for a single puzzle without solution."""
@@ -4044,3 +4119,41 @@ class DiscussionBookmarkRedirectTests(TestCase):
     def test_no_next_and_no_referer_fallback(self):
         response = self.client.post(self.url)
         self.assertRedirects(response, reverse('forum'), fetch_redirect_response=False)
+
+
+from multiprocessing.connection import Connection
+
+class EnginePersistentTimeoutTest(SimpleTestCase):
+    @mock.patch("multiprocessing.connection.Client")
+    @mock.patch("game.engine.os.path.exists", return_value=True)
+    @mock.patch("builtins.open", new_callable=mock.mock_open, read_data="1234")
+    def test_normal_response(self, _mock_open, _mock_exists, mock_client):
+        game = ChessGame()
+        
+        mock_conn = mock.Mock(spec=Connection)
+        mock_conn.poll.return_value = True
+        mock_conn.recv.return_value = "STATUS ok"
+        mock_client.return_value = mock_conn
+        
+        resp = game._call_engine("STATUS")
+        self.assertEqual(resp, "STATUS ok")
+        mock_conn.send.assert_called_with("STATUS")
+        mock_conn.recv.assert_called_once()
+            
+    @mock.patch("multiprocessing.connection.Client")
+    @mock.patch("game.engine.os.path.exists", return_value=True)
+    @mock.patch("builtins.open", new_callable=mock.mock_open, read_data="1234")
+    def test_unresponsive_engine_triggers_timeout(self, _mock_open, _mock_exists, mock_client):
+        game = ChessGame()
+        
+        mock_conn = mock.Mock(spec=Connection)
+        mock_conn.poll.return_value = False
+        mock_client.return_value = mock_conn
+        
+        with mock.patch.object(game, "cleanup_engine") as mock_cleanup:
+            resp = game._call_engine("STATUS")
+            self.assertIsNone(resp)
+            mock_conn.send.assert_called_with("STATUS")
+            mock_conn.recv.assert_not_called()
+            mock_cleanup.assert_called_once()
+            mock_conn.close.assert_called()

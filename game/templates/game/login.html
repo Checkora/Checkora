@@ -19,56 +19,70 @@
     {% include 'game/includes/navbar.html' %}
 
     <main class="auth-layout">
+    <div class="auth-content">
+
+        <a href="{% url 'landing' %}" class="auth-home-link" aria-label="Back to home">
+            <span aria-hidden="true" class="auth-home-link__arrow">&larr;</span>
+            <span>Back to Home</span>
+        </a>
 
         <div class="header header--with-navbar">
             <p class="login-subtitle">Welcome back! Sign in to continue</p>
         </div>
 
         <div class="auth-card modern-card">
-        <!-- Top glowing neon line decoration -->
-        <div class="card-glow-line"></div>
+            <!-- Top glowing neon line decoration -->
+            <div class="card-glow-line"></div>
 
-        <form method="POST">
-            {% csrf_token %}
-            
-            {% include 'game/includes/messages.html' %}
-            
-            {% if form.non_field_errors %}
-                {{ form.non_field_errors }}
-            {% endif %}
-            
-            {% for field in form %}
-                <div class="form-group modern-group">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    <div class="input-container-glow">
-                        {{ field }}
+            <form method="POST">
+                {% csrf_token %}
+
+                {% include 'game/includes/messages.html' %}
+
+                {% if form.non_field_errors %}
+                    {{ form.non_field_errors }}
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="form-group modern-group">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        <div class="input-container-glow">
+                            {{ field }}
+                        </div>
+                        {% if field.errors %}
+                            {{ field.errors }}
+                        {% endif %}
                     </div>
-                    {% if field.errors %}
-                        {{ field.errors }}
-                    {% endif %}
+                {% endfor %}
+
+                <div class="remember-me modern-remember">
+                    <label class="custom-checkbox-container">
+                        <input type="checkbox" name="remember_me">
+                        <span class="checkbox-checkmark"></span>
+                        <span class="label-text">Remember Me</span>
+                    </label>
                 </div>
-            {% endfor %}
-            
-            <div class="remember-me modern-remember">
-                <label class="custom-checkbox-container">
-                    <input type="checkbox" name="remember_me">
-                    <span class="checkbox-checkmark"></span>
-                    <span class="label-text">Remember Me</span>
-                </label>
+
+                <button type="submit" class="btn btn-gold modern-btn">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="auth-footer modern-footer">
+                <div class="footer-links-row">
+                    <a href="{% url 'register' %}" class="footer-link-highlight">
+                        Create Account
+                    </a>
+                    <span class="footer-dot"></span>
+                    <a href="{% url 'password_reset' %}" class="forgot-link">
+                        Forgot Password?
+                    </a>
+                </div>
             </div>
-            
-            <button type="submit" class="btn btn-gold modern-btn">Sign In</button>
-        </form>
-        
-        <div class="auth-footer modern-footer">
-            <div class="footer-links-row">
-                <a href="{% url 'register' %}" class="footer-link-highlight">Create Account</a>
-                <span class="footer-dot"></span>
-                <a href="{% url 'password_reset' %}" class="forgot-link">Forgot Password?</a>
-            </div>
+
         </div>
     </div>
-    </main>
+</main>
     <script src="{% static 'game/js/auth.js' %}?v=15"></script>
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>

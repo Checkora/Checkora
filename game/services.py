@@ -17,7 +17,11 @@ from game.models import (
     UserAchievement,
     OpeningProgress,
     validate_game_state,
+    PlayerRating,
+    RatingHistory,
+    UserProgress,
 )
+from .rating_service import calculate_rating_change
 from django.db.models import F
 
 logger = logging.getLogger(__name__)
@@ -157,6 +161,89 @@ def delete_active_game(request):
             session_key=request.session.session_key
         ).delete()
 
+@transaction.atomic
+def update_player_rating(user, winner, player_color):
+    rating, _ = PlayerRating.objects.select_for_update().get_or_create(
+        user=user
+    )
+
+    old_rating = rating.rating
+
+    if winner == "draw":
+        result = "draw"
+
+    elif winner == player_color:
+        result = "win"
+
+    else:
+        result = "loss"
+
+    change = calculate_rating_change(result)
+
+    new_rating = max(
+        100,
+        old_rating + change
+    )
+
+    actual_change = (
+        new_rating - old_rating
+    )
+    rating.rating = new_rating
+    rating.games_played += 1
+
+    if result == "win":
+        rating.wins += 1
+
+    elif result == "loss":
+        rating.losses += 1
+
+    else:
+        rating.draws += 1
+
+    rating.full_clean()
+    rating.save()
+
+    RatingHistory.objects.create(
+        user=user,
+        old_rating=old_rating,
+        new_rating=rating.rating,
+        rating_change=actual_change,
+        result=result
+    )
+
+@transaction.atomic
+def process_game_completion(user, mode, winner, reason, player_color='white', moves=None):
+    """Shared logic to finalize a game and update progressions."""
+    if moves is None:
+        moves = []
+        
+    result = GameResult(
+        user=user,
+        mode=mode,
+        winner=winner,
+        end_reason=reason,
+        player_color=player_color,
+        moves=moves
+    )
+    result.full_clean()
+    result.save()
+
+    if user:
+        progress, _ = UserProgress.objects.select_for_update().get_or_create(user=user)
+        progress.update_streak()
+
+    if user and mode == 'ai':
+        update_player_rating(
+            user,
+            winner,
+            player_color
+        )
+        
+        check_game_achievements(user)
+        
+    return result
+
+
 def cleanup_stale_games():
     """
     Automated cleanup task for abandoned games.
@@ -205,16 +292,14 @@ def cleanup_stale_games():
                     else:
                         winner = 'black' if current_turn == 'white' else 'white'
 
-                    result = GameResult(
+                    process_game_completion(
                         user=active_game.user,
                         mode=mode,
                         winner=winner,
-                        end_reason='resign',
+                        reason='resign',
                         player_color=player_color,
                         moves=game_data.get('move_history', [])
                     )
-                    result.full_clean()
-                    result.save()
 
                     active_game.delete()
                     resigned_count += 1
@@ -280,16 +365,14 @@ def cleanup_stale_games():
                 session.session_data = Session.objects.encode(session_data)
                 session.save()
 
-                result = GameResult(
+                process_game_completion(
                     user=None,
                     mode=mode,
                     winner=winner,
-                    end_reason='resign',
+                    reason='resign',
                     player_color=player_color,
                     moves=game_data.get('move_history', [])
                 )
-                result.full_clean()
-                result.save()
 
                 active_game.delete()
                 resigned_count += 1
