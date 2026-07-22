@@ -1922,7 +1922,7 @@ if (timeEl) {
 
             // Theme Switcher
             function initThemeSwitcher() {
-                const themeBtns = document.querySelectorAll('.theme-btn');
+                const themeBtns = document.querySelectorAll('.theme-btn[data-theme]');
                 const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
                 document.documentElement.setAttribute('data-theme', currentTheme);
 
@@ -1943,6 +1943,14 @@ if (timeEl) {
                         btn.setAttribute('aria-pressed', 'true');
                     };
                 });
+
+                const randomThemeBtn = document.getElementById('randomThemeBtn');
+                if (randomThemeBtn) {
+                    randomThemeBtn.onclick = () => {
+                        const randomBtn = themeBtns[Math.floor(Math.random() * themeBtns.length)];
+                        if (randomBtn) randomBtn.click();
+                    };
+                }
             }
 
             if (document.readyState === 'loading') {
