@@ -149,7 +149,7 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
             moves = game_data.get('move_history', [])
         else:
             moves = []
-            
+
     return process_game_completion(user, mode, winner, reason, player_color, moves)
 
 
@@ -189,7 +189,7 @@ def make_move(request):
         )
 
     active_game, game_data, version = load_game_state_helper(request)
-    
+
     if request.user.is_authenticated and client_version is not None and version != client_version:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
@@ -206,14 +206,14 @@ def make_move(request):
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
+            game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1-0' if winner == 'white' else '0-1', termination='checkmate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
             delete_active_game(request)
         elif game_status in ('stalemate', 'draw'):
-            game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)            
+            game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
@@ -405,7 +405,7 @@ def resume_game(request):
 
     game.paused = False
     game.last_ts = time.time()
-    
+
     success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
     if not success_save:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -513,7 +513,6 @@ def get_state(request):
         response_data['day_streak'] = progress.day_streak
 
     return JsonResponse(response_data)
-
 
 
 @require_POST
@@ -721,7 +720,7 @@ def ai_move(request):
             game_status = 'stalemate'
 
         game.game_status = game_status
-        
+
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -771,7 +770,7 @@ def ai_move(request):
 
         game_dict = game.to_dict()
         game_dict['paused'] = authoritative_paused
-        
+
         success_save, active_game = save_game_state_helper(request, active_game, game_dict, version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -917,7 +916,7 @@ def hint_move(request):
         })
     finally:
         cache.delete(lock_key)
-    
+
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
@@ -992,7 +991,7 @@ def resign_game(request):
     game_status = 'resignation'
 
     game.game_status = game_status
-    
+
     success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
     if not success_save:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -1743,19 +1742,19 @@ def increment_counter(key, timeout):
         now = time.time()
         expiry_key = f"{key}:expiry"
         expires_at = cache.get(expiry_key)
-        
+
         if expires_at is None or now >= expires_at:
             expires_at = now + timeout
             cache.set(expiry_key, expires_at, timeout=timeout)
-            
+
         remaining = max(1, int(expires_at - now))
-        
+
         raw_val = cache.get(key)
         try:
             val = int(raw_val) if raw_val is not None else 0
         except (ValueError, TypeError):
             val = 0
-            
+
         val += 1
         cache.set(key, val, timeout=remaining)
         return val
@@ -1783,17 +1782,17 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
                 key_id = request.user.id
             else:
                 key_id = get_client_ip(request)
-            
+
             key_digest = hashlib.sha256(
                 str(key_id).encode('utf-8')
             ).hexdigest()
             cache_key = f"rate_limit:{prefix}:{key_digest}"
-            
+
             window_seconds = getattr(settings, window_setting, 60)
             max_requests = getattr(settings, max_setting, 60)
-            
+
             current = increment_counter(cache_key, window_seconds)
-            
+
             if current > max_requests:
                 if request.accepts("text/html"):
                     from django.http import HttpResponse
@@ -1805,7 +1804,7 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
                         status=429
                     )
                 return JsonResponse({"error": error_message}, status=429)
-                
+
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
@@ -2039,7 +2038,7 @@ def stats_view(request):
         round((black_wins / games_as_black) * 100, 2)
         if games_as_black else 0
     )
-    
+
     # Activity Statistics
     week_ago = timezone.now() - timedelta(days=7)
     month_ago = timezone.now() - timedelta(days=30)
@@ -2066,7 +2065,7 @@ def stats_view(request):
     else:
         highest_rating = rating.rating
         lowest_rating = rating.rating
-        
+
     average_rating = history.aggregate(
         Avg("new_rating")
     )["new_rating__avg"] or rating.rating
@@ -2093,12 +2092,12 @@ def stats_view(request):
         if total_lessons > 0
         else 0
     )
-    
+
     # Puzzle Analytics
     puzzle_stats, _ = PuzzleStats.objects.get_or_create(
         user=request.user
     )
-    
+
     opening_stats = OpeningProgress.objects.filter(
         user=request.user
     )
@@ -2129,7 +2128,7 @@ def stats_view(request):
         'rating': rating,
         'history': recent_history,
         'history_all': history_all,
-        
+
         "total_games": total_games,
         "total_wins": total_wins,
         "total_losses": total_losses,
@@ -2152,7 +2151,7 @@ def stats_view(request):
         "lesson_completion_percentage": lesson_completion_percentage,
 
         "puzzle_stats": puzzle_stats,
-        
+
         "completed_openings": completed_openings,
         "average_opening_accuracy": round(
             average_accuracy,
@@ -2543,29 +2542,29 @@ def _classify_move(is_best, played_mv, best_mv, game_state):
     """Classifies a move by simulating it and comparing material difference."""
     if is_best:
         return 'Best'
-        
+
     if not best_mv or not played_mv:
         return 'Mistake'
-        
+
     piece_vals = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0}
-    
+
     def _simulate_and_evaluate(mv):
         # Calculate material score for the player who just moved
         board_copy = [row[:] for row in game_state.board]
-        
+
         # Apply the move
         f_r, f_c = mv.get('from_row'), mv.get('from_col')
         t_r, t_c = mv.get('to_row'), mv.get('to_col')
-        
+
         if f_r is not None and f_c is not None:
             piece = board_copy[f_r][f_c]
             board_copy[t_r][t_c] = piece
             board_copy[f_r][f_c] = ''
-        
+
         # Simple material evaluation
         score = 0
         is_white = game_state.current_turn == 'white'
-        
+
         for r in range(8):
             for c in range(8):
                 p = board_copy[r][c]
@@ -2575,14 +2574,14 @@ def _classify_move(is_best, played_mv, best_mv, game_state):
                         score += val
                     else:
                         score -= val
-                        
+
         return score
 
     played_eval = _simulate_and_evaluate(played_mv)
     best_eval = _simulate_and_evaluate(best_mv)
-    
+
     diff = best_eval - played_eval
-    
+
     if diff >= 3:
         return 'Blunder'
     elif diff >= 1:
@@ -2620,7 +2619,7 @@ def analyze_game_view(request):
 
         if not isinstance(moves, list):
             return JsonResponse({'error': 'Moves must be a list'}, status=400)
-            
+
         if len(moves) > MAX_ANALYSIS_MOVES:
             return JsonResponse({'error': f'Moves list cannot exceed {MAX_ANALYSIS_MOVES} entries'}, status=400)
 
@@ -2650,7 +2649,7 @@ def analyze_game_view(request):
 
             actual_from = actual_to = None
             clean_notation = notation.replace('+', '').replace('#', '')
-            
+
             for r in range(8):
                 for c in range(8):
                     piece = game.board[r][c]
@@ -2759,7 +2758,7 @@ _LESSON_NAMES = (
     "Piece Values",
     "En Passant",
     "Pawn Promotion",
-    
+
     "Forks",
     "Pins",
     "Skewers",
@@ -2833,9 +2832,9 @@ def get_unlocked_lessons(completed_lessons):
     unlocked = set()
 
     for level_index, level in enumerate(LESSON_LEVELS):
-        
+
         lessons = level["lessons"]
-        
+
         previous_level_complete = True
 
         if level_index > 0:
@@ -2857,7 +2856,7 @@ def get_unlocked_lessons(completed_lessons):
     return unlocked
 
 def lessons_view(request):
-    
+
     completed_lessons = []
 
     if request.user.is_authenticated:
@@ -2870,12 +2869,12 @@ def lessons_view(request):
                 flat=True
             )
         )
-        
+
     total_lessons = sum(
         len(level["lessons"])
         for level in LESSON_LEVELS
     )
-    
+
     unlocked_lessons = get_unlocked_lessons(
         completed_lessons
     )
@@ -3325,7 +3324,7 @@ def lesson_detail_view(request, lesson_name):
                 "g7": "P"
             }
         },
-        
+
         "Forks": {
             "title": "Forks",
             "description": "Attack multiple pieces with one move.",
@@ -3690,7 +3689,7 @@ def lesson_detail_view(request, lesson_name):
                 "h8": "K"
             }
         },
-        
+
         "Pawn Structures": {
             "title": "Pawn Structures",
             "description": "Understand how pawns shape the game.",
@@ -3735,20 +3734,20 @@ def lesson_detail_view(request, lesson_name):
                     ]
                 }
             ],
-            
+
             "lesson_steps": [
                 {
                     "instruction": "Advance the passed pawn from d5 to d6.",
                     "expected_move": "d5-d6"
                 }
             ],
-            
+
             "practice_position": {
                 "d5": "P",
                 "e1": "K"
             },
         },
-        
+
         "King Safety": {
             "title": "King Safety",
             "description": "Keep your king protected throughout the game.",
@@ -3945,7 +3944,7 @@ def lesson_detail_view(request, lesson_name):
         "Removing the Defender",
         "Deflection",
         "Decoy",
-        
+
     ]:
         difficulty = "Intermediate"
 
@@ -4007,7 +4006,7 @@ def complete_lesson(request, lesson_name):
             request.user,
             25
         )
-    
+
     return redirect(
         "lesson_detail",
         lesson_name=slugify(lesson_name)
@@ -4299,7 +4298,7 @@ def download_badge(request, achievement_id):
         return HttpResponseServerError(
             "Badge generation failed."
         )
-    
+
 def apply_discussion_sort(queryset, sort_by):
     queryset = queryset.annotate(
         reply_count=Count("replies", distinct=True),
@@ -4337,7 +4336,7 @@ def forum_list(request):
     bookmarked_ids = set()
 
     discussions = apply_discussion_sort(discussions, sort_by)
-    
+
     paginator = Paginator(discussions, 20)
     page_obj = paginator.get_page(page_number)
 
