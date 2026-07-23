@@ -348,9 +348,6 @@ body {
 
     z-index: 10001;
 
-    /* z-index 10000 keeps dropdown above the custom cursor (z-index: 9990) */
-    z-index: 10000;
-
     transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
     transform: translateY(10px);
     pointer-events: none;
@@ -401,7 +398,7 @@ body {
    - Core Architecture: JS-driven translate3d() (anchored 0,0) handles mouse tracking.
      Pseudo-elements (::before/::after) host all animations to prevent transform 
      conflicts with the JS-set position. GPU-accelerated; display: none by default.
-     Z-index < 9999 ensures dropdown/click-through interactivity.
+     Z-index 10003 ensures cursor renders above navbar (z-index 10002) while pointer-events: none preserves interactivity.
 
    - Variant Implementation:
      * Default: Basic cursor; hidden on load to avoid unstyled flashes.
@@ -415,7 +412,7 @@ body {
     position: fixed;
     pointer-events: none;
 
-    z-index: 9990;
+    z-index: 10003;
     width: 18px;
     height: 18px;
     border-radius: 50%;
