@@ -327,16 +327,27 @@ body {
    ============================================================ */
 .game-layout {
     display: grid;
-    grid-template-columns: minmax(0, auto) minmax(0, var(--sidebar-width));
+    grid-template-columns: 
+        minmax(0, var(--side-panel-width)) 
+        minmax(0, auto) 
+        minmax(0, var(--side-panel-width));
     gap: var(--layout-gap);
     padding: var(--layout-padding-y) var(--layout-padding-x) 60px;
     align-items: start;
+    justify-items: center;
     justify-content: center;
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
+
     overflow-x: hidden;
     box-sizing: border-box;
+
+    overflow-x: auto;
+    box-sizing: border-box;
+    position: relative;
+
+
 }
 
 .panel {
@@ -622,6 +633,14 @@ body {
 /* ============================================================
    Board Area  (ranks · board grid · files)
    ============================================================ */
+#gameControlsCard {
+    grid-column: 3;
+    grid-row: 1;
+    width: 100%;
+    max-width: clamp(240px, 22vw, 360px);
+    margin-top: clamp(140px, 13vw, 180px);
+}
+
 .board-container {
     display: flex;
     flex-direction: column;
@@ -631,6 +650,8 @@ body {
     max-width: 100%;
     width: max-content;
     justify-self: center;
+    grid-column: 2;
+    grid-row: 1;
 }
 
 .board-outer {
@@ -838,14 +859,17 @@ body {
     --layout-padding-y: clamp(12px, 1.5vw, 20px);
     --panel-width: clamp(128px, 11vw, 196px);
     --sidebar-width: clamp(360px, 28vw, 440px);
+    --side-panel-width: clamp(240px, 22vw, 360px);
+    --sidebar-offset-desktop: clamp(140px, 13vw, 180px);
+    --sidebar-offset-tablet: clamp(120px, 14vw, 145px);
     --rank-label-width: 1.35rem;
     --board-border: 3px;
     --board-chrome: calc(var(--rank-label-width) + var(--board-border) * 2 + 12px);
-    /* Fit board + sidebar within the viewport */
+    /* Fit board + two side panels within the viewport */
     --square-size: clamp(
         26px,
         calc(
-            (100vw - var(--sidebar-width) - var(--layout-gap)
+            (100vw - 2 * var(--side-panel-width) - 2 * var(--layout-gap)
                 - 2 * var(--layout-padding-x) - var(--board-chrome)) / 8
         ),
         60px
@@ -2239,6 +2263,20 @@ body {
 
 
 @media (max-width: 768px) {
+  .m-fab {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    position: fixed;
+    right: 16px;
+    bottom: 20px;
+    top: auto;
+    z-index: 10000;
+  }
+}
+
+
+@media (max-width: 768px) {
     .m-fab {
         display: flex;
         flex-direction: column;
@@ -3570,14 +3608,7 @@ body.blindfold-mode .capture-ring {
 
 /* Sidebar Container Styles */
 .sidebar-container {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    box-sizing: border-box;
-    align-content: start;
+    display: contents;
 }
 
 .sidebar-container > .card {
@@ -3586,11 +3617,59 @@ body.blindfold-mode .capture-ring {
 
 .sidebar-container > .status-card,
 .sidebar-container > #emotePanel {
-    grid-column: 1 / -1;
+    grid-column: auto;
+    display: none;
+}
+
+.sidebar-container > #boardThemeCard {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    max-width: clamp(240px, 22vw, 360px);
 }
 
 .sidebar-container > .move-history-card {
-    grid-column: 1 / 2;
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    max-width: clamp(240px, 22vw, 360px);
+    margin-top: clamp(140px, 13vw, 180px);
+}
+
+@media (min-width: 1025px) {
+    .sidebar-container > .move-history-card,
+    .sidebar-container > #boardThemeCard {
+        flex: 0 0 auto;
+    }
+
+    .sidebar-container > #boardThemeCard {
+        margin-top: 0;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+    .sidebar-container {
+        display: contents;
+    }
+
+    .sidebar-container > .move-history-card {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: center;
+        align-self: start;
+    }
+
+    #gameControlsCard {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: center;
+        align-self: start;
+    }
+
+    .sidebar-container > .move-history-card,
+    #gameControlsCard {
+        margin-top: clamp(120px, 14vw, 145px);
+    }
 }
 
 .sidebar-utility-column {
@@ -3641,9 +3720,11 @@ body.blindfold-mode .capture-ring {
 }
 
 @media (max-width: 1024px) {
-    .sidebar-container {
-        gap: 10px;
+    .sidebar-container > .move-history-card,
+    #gameControlsCard {
+        margin-top: clamp(120px, 14vw, 145px);
     }
+
     .controls-grid {
         gap: 6px;
     }
@@ -3654,6 +3735,12 @@ body.blindfold-mode .capture-ring {
 }
 
 @media (max-width: 768px) {
+    .game-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
     .sidebar-container {
         position: fixed;
         top: 0;
@@ -3674,6 +3761,12 @@ body.blindfold-mode .capture-ring {
         overflow-y: auto;
         margin: 0;
         box-sizing: border-box;
+    }
+    #gameControlsCard {
+        margin-top: 0;
+    }
+    .sidebar-container > .move-history-card {
+        margin-top: 0;
     }
     .sidebar-container .card {
         flex: none !important;
@@ -3743,4 +3836,3 @@ body.blindfold-mode .capture-ring {
 
 .board-container.flipped .top-player { order: 4; }
 .board-container.flipped .bottom-player { order: 2; }
-
