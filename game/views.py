@@ -495,8 +495,11 @@ def check_promotion(request):
     if not game_data:
         return JsonResponse({'is_promotion': False})
 
+    board = game_data.get('board')
+    if not board:
+        return JsonResponse({'is_promotion': False})
     is_promo = ChessGame.is_promotion_move(
-        game_data['board'], from_row, from_col, to_row,
+        board, from_row, from_col, to_row,
     )
     return JsonResponse({'is_promotion': is_promo})
 
@@ -2408,7 +2411,8 @@ def _classify_move(is_best, played_mv, best_mv, game_state):
         f_r, f_c = mv.get('from_row'), mv.get('from_col')
         t_r, t_c = mv.get('to_row'), mv.get('to_col')
         
-        if f_r is not None and f_c is not None:
+        if (f_r is not None and f_c is not None and
+                t_r is not None and t_c is not None):
             piece = board_copy[f_r][f_c]
             board_copy[t_r][t_c] = piece
             board_copy[f_r][f_c] = ''
