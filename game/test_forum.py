@@ -143,3 +143,20 @@ class ForumSearchAndFilterTests(TestCase):
             title="New Endgame Tactics"
         )
         self.assertEqual(new_discussion.category, "puzzles")
+
+    def test_pagination_with_encoded_query_params(self):
+        for i in range(25):
+            Discussion.objects.create(
+                user=self.user,
+                title=f"Special & Query #{i}",
+                content="Testing pagination URL encoding",
+                category="puzzles"
+            )
+        response = self.client.get(
+            self.forum_url,
+            {"q": "Special & Query", "category": "puzzles"}
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn("q=Special%20%26%20Query", html)
+        self.assertIn("category=puzzles", html)

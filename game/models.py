@@ -630,6 +630,14 @@ class Discussion(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    category__in=["general", "puzzles", "openings", "feedback"]
+                ),
+                name="valid_discussion_category",
+            ),
+        ]
 
     def __str__(self):
         return self.title

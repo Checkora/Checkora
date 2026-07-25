@@ -72,6 +72,7 @@
                            name="q"
                            value="{{ q }}"
                            placeholder="Search discussions..."
+                           aria-label="Search discussions"
                            class="forum-search-input">
                 </div>
 
@@ -150,13 +151,13 @@
             {% if page_obj.paginator.num_pages > 1 %}
             <div class="forum-pagination">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" class="forum-page-link">← Prev</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">← Prev</a>
                 {% endif %}
 
                 <span class="forum-page-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
 
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" class="forum-page-link">Next →</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">Next →</a>
                 {% endif %}
             </div>
             {% endif %}
