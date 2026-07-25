@@ -61,3 +61,67 @@ class ForumPaginationTests(TestCase):
         
         html = response.content.decode("utf-8")
         self.assertIn("?page=1&sort=oldest", html)
+
+
+class ForumSearchAndFilterTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="forumuser", password="password")
+        self.d1 = Discussion.objects.create(
+            user=self.user,
+            title="Sicilian Defense Analysis",
+            content="Discussing openings strategies for black.",
+            category="openings"
+        )
+        self.d2 = Discussion.objects.create(
+            user=self.user,
+            title="Tactical Mate Puzzle",
+            content="Check out this awesome puzzle I found.",
+            category="puzzles"
+        )
+        self.d3 = Discussion.objects.create(
+            user=self.user,
+            title="General Feedback on Checkora",
+            content="Great platform for learning chess openings.",
+            category="feedback"
+        )
+        self.forum_url = reverse("forum")
+
+    def test_search_discussions_by_query(self):
+        response = self.client.get(self.forum_url, {"q": "Sicilian"})
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        self.assertEqual(len(page_obj), 1)
+        self.assertEqual(page_obj[0].id, self.d1.id)
+
+    def test_search_discussions_by_content(self):
+        response = self.client.get(self.forum_url, {"q": "awesome"})
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        self.assertEqual(len(page_obj), 1)
+        self.assertEqual(page_obj[0].id, self.d2.id)
+
+    def test_filter_discussions_by_category(self):
+        response = self.client.get(self.forum_url, {"category": "puzzles"})
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        self.assertEqual(len(page_obj), 1)
+        self.assertEqual(page_obj[0].id, self.d2.id)
+
+    def test_combined_search_and_category_filter(self):
+        response = self.client.get(self.forum_url, {"q": "openings", "category": "feedback"})
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["page_obj"]
+        self.assertEqual(len(page_obj), 1)
+        self.assertEqual(page_obj[0].id, self.d3.id)
+
+    def test_create_discussion_with_category(self):
+        new_user = User.objects.create_user(username="newuser", password="password")
+        self.client.login(username="newuser", password="password")
+        response = self.client.post(reverse("forum_new"), {
+            "title": "New Endgame Tactics",
+            "category": "puzzles",
+            "content": "Share your best endgame puzzle positions here!"
+        })
+        self.assertEqual(response.status_code, 302)
+        new_discussion = Discussion.objects.get(title="New Endgame Tactics")
+        self.assertEqual(new_discussion.category, "puzzles")

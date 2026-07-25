@@ -72,6 +72,13 @@
                     {% endif %}
                 </div>
                 <div class="forum-form-group">
+                    <label for="{{ form.category.id_for_label }}">Category</label>
+                    {{ form.category }}
+                    {% if form.category.errors %}
+                        <p class="forum-error">{{ form.category.errors|first }}</p>
+                    {% endif %}
+                </div>
+                <div class="forum-form-group">
                     <label for="{{ form.content.id_for_label }}">Content</label>
                     {{ form.content }}
                     {% if form.content.errors %}
