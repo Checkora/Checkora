@@ -110,7 +110,9 @@ class DiscussionForm(forms.ModelForm):
                 "class": "forum-select-category",
             }),
             "content": forms.Textarea(attrs={
-                "placeholder": "Share your thoughts, questions, or strategies...",
+                "placeholder": (
+                    "Share your thoughts, questions, or strategies..."
+                ),
                 "rows": 6,
             }),
         }
