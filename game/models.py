@@ -497,7 +497,7 @@ class GameRecord(models.Model):
     black_label = models.CharField(max_length=64, default="Black")
     result = models.CharField(max_length=7, default="*")
     termination = models.CharField(max_length=32, default="unknown")
-    pgn = models.TextField()
+    pgn = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=_expires_at_default, db_index=True)
     

@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from game.models import validate_game_state
+from game.models import validate_game_state, GameRecord
+from game.engine import ChessGame
 import time
 
 class GameStateValidationTest(TestCase):
@@ -76,3 +77,28 @@ class GameStateValidationTest(TestCase):
         with self.assertRaises(ValidationError) as ctx:
             validate_game_state(invalid_state)
         self.assertEqual(ctx.exception.message, "board must be an 8x8 array")
+
+
+class GameRecordValidationTest(TestCase):
+    def test_game_record_blank_pgn_allowed(self):
+        record = GameRecord.objects.create(
+            session_key="test_session_123",
+            white_label="White",
+            black_label="Black",
+            result="0-1",
+            termination="resignation",
+            pgn=""
+        )
+        self.assertEqual(record.pgn, "")
+
+    def test_generate_pgn_empty_history(self):
+        game = ChessGame()
+        game.game_status = "resignation"
+        game.current_turn = "white"
+        pgn = game.generate_pgn(white_name="Player1", black_name="Player2")
+        self.assertIn('[Event "Checkora Match"]', pgn)
+        self.assertIn('[White "Player1"]', pgn)
+        self.assertIn('[Black "Player2"]', pgn)
+        self.assertIn('[Result "0-1"]', pgn)
+        self.assertTrue(pgn.endswith("0-1"))
+
