@@ -43,7 +43,7 @@ class AdminRegistrationTests(TestCase):
             (PlayerRating, ('user', 'rating', 'games_played', 'wins', 'losses', 'draws', 'updated_at')),
             (RatingHistory, ('user', 'old_rating', 'new_rating', 'rating_change', 'result', 'created_at')),
             (ActiveGame, ('session_key', 'user', 'status', 'version', 'last_activity_at', 'created_at')),
-            (Discussion, ('title', 'user', 'category', 'created_at', 'updated_at')),
+            (Discussion, ('title', 'user', 'created_at', 'updated_at')),
             (Reply, ('id', 'discussion', 'user', 'is_edited', 'is_deleted', 'created_at')),
             (Achievement, ('code', 'title', 'category', 'rarity', 'icon')),
             (UserAchievement, ('user', 'achievement', 'unlocked_at')),

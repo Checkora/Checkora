@@ -78,8 +78,8 @@ class ActiveGameAdmin(admin.ModelAdmin):
 
 @admin.register(Discussion)
 class DiscussionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'category', 'created_at', 'updated_at')
-    list_filter = ('category', 'created_at', 'updated_at')
+    list_display = ('title', 'user', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at')
     search_fields = ('title', 'content', 'user__username', 'user__email')
     raw_id_fields = ('user',)
 
