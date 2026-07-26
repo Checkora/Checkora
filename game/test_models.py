@@ -91,6 +91,16 @@ class GameRecordValidationTest(TestCase):
         )
         self.assertEqual(record.pgn, "")
 
+    def test_game_record_default_pgn_is_empty_string(self):
+        record = GameRecord.objects.create(
+            session_key="test_session_456",
+            white_label="White",
+            black_label="Black",
+            result="0-1",
+            termination="resignation"
+        )
+        self.assertEqual(record.pgn, "")
+
     def test_generate_pgn_empty_history(self):
         game = ChessGame()
         game.game_status = "resignation"
@@ -101,4 +111,15 @@ class GameRecordValidationTest(TestCase):
         self.assertIn('[Black "Player2"]', pgn)
         self.assertIn('[Result "0-1"]', pgn)
         self.assertTrue(pgn.endswith("0-1"))
+
+    def test_generate_pgn_non_standard_initial_fen(self):
+        custom_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+        game = ChessGame.from_fen(custom_fen)
+        game.game_status = "resignation"
+        game.current_turn = "black"
+        pgn = game.generate_pgn(white_name="Player1", black_name="Player2")
+        self.assertIn('[SetUp "1"]', pgn)
+        self.assertIn(f'[FEN "{custom_fen}"]', pgn)
+        self.assertIn('[Result "1-0"]', pgn)
+
 
