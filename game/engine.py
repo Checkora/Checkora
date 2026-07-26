@@ -110,9 +110,6 @@ class ChessGame:
 
     def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
-        if not self.move_history:
-            return ""
-        
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -128,7 +125,7 @@ class ChessGame:
             return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
 
         fullmove = getattr(self, 'initial_fullmove', 1)
-        history = self.move_history
+        history = self.move_history or []
         i = 0
 
         # If Black moved first, write the first half-move as "N... move"
@@ -159,7 +156,8 @@ class ChessGame:
             f'[Result "{result}"]',
         ]
         moves = " ".join(pgn_moves)
-        return "\n".join(headers) + "\n\n" + moves + " " + result
+        moves_str = f"{moves} {result}" if moves else result
+        return "\n".join(headers) + "\n\n" + moves_str
 
     @property
     def game_status(self):
