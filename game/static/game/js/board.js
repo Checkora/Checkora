@@ -375,6 +375,7 @@
     let countdownInterval = null;
     let pauseTimerInterval = null; // Issue #12: drives the "Paused for: MM:SS" overlay counter
     let pauseElapsedSeconds = 0;
+    let pauseStartedAt = null; // Date.now() anchor for this client's pause — see PR discussion on cross-client sync
     let pendingPromo = null;
     let blindfoldMode = false;
     let illegalMoveCount = 0;
@@ -3919,19 +3920,26 @@ function updateStepperUI() {
 
             function startPauseTimer() {
                 if (pauseTimerInterval) return; // already running — avoid double intervals
+                pauseStartedAt = Date.now();
                 pauseElapsedSeconds = 0;
                 if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(0);
+                announceMove('Game paused.');
                 pauseTimerInterval = setInterval(() => {
-                    pauseElapsedSeconds++;
+                    // Derive from the anchor rather than incrementing, so a
+                    // throttled/backgrounded tab self-corrects instead of drifting.
+                    pauseElapsedSeconds = Math.floor((Date.now() - pauseStartedAt) / 1000);
                     if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(pauseElapsedSeconds);
                 }, 1000);
             }
 
             function stopPauseTimer() {
+                const wasRunning = !!pauseTimerInterval;
                 clearInterval(pauseTimerInterval);
                 pauseTimerInterval = null;
+                pauseStartedAt = null;
                 pauseElapsedSeconds = 0;
                 if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(0);
+                if (wasRunning) announceMove('Game resumed.');
             }
 
             function updatePauseUI() {
