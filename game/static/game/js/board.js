@@ -5627,6 +5627,21 @@ async function handleSanMove() {
             });
         });
 
+        // Handle Random Theme button
+        const randomThemeBtn = document.getElementById('randomThemeBtn');
+        if (randomThemeBtn) {
+            randomThemeBtn.onclick = () => {
+                const themeValues = Array.from(boardRadios).map(radio => radio.value);
+                if (!themeValues.length) return;
+                const randomTheme = themeValues[Math.floor(Math.random() * themeValues.length)];
+                const targetRadio = themeSettingsModal.querySelector(`input[name="boardThemeRadio"][value="${randomTheme}"]`);
+                if (targetRadio) {
+                    targetRadio.checked = true;
+                    targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            };
+        }
+
         // Handle Piece Style swatch switches
         const pieceRadios = themeSettingsModal.querySelectorAll('input[name="pieceStyleRadio"]');
         pieceRadios.forEach(radio => {

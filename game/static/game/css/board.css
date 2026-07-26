@@ -1412,6 +1412,16 @@ body {
 }
 .btn-gold:active { transform: translateY(0); }
 
+.random-theme-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
 .btn-danger {
     background: #2a1414;
     color: #ff6b6b;
@@ -1979,6 +1989,17 @@ body {
 .section-title {
     font-size: 1.15rem;
     margin-bottom: 12px;
+}
+
+.theme-swatches-row {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.theme-swatches-row .theme-swatches-grid {
+    flex: 1 1 260px;
 }
 
 .theme-swatches-grid {
