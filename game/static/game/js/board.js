@@ -373,6 +373,9 @@
     let paused = false;
     let timerInterval = null;
     let countdownInterval = null;
+    let pauseTimerInterval = null; // Issue #12: drives the "Paused for: MM:SS" overlay counter
+    let pauseElapsedSeconds = 0;
+    let pauseStartedAt = null; // Date.now() anchor for this client's pause — see PR discussion on cross-client sync
     let pendingPromo = null;
     let blindfoldMode = false;
     let illegalMoveCount = 0;
@@ -993,6 +996,8 @@
     const wCapEl = document.getElementById('whiteCaptured');
     const bCapEl = document.getElementById('blackCaptured');
     const pauseBtn = document.getElementById('pauseBtn');
+    const pauseOverlayEl = document.getElementById('pauseOverlay');
+    const pauseTimerEl = document.getElementById('pause-timer');
     const flipBtn = document.getElementById('flipBtn');
     const promoOverlay = document.getElementById('promoOverlay');
     const promoChoices = document.getElementById('promoChoices');
@@ -3084,6 +3089,11 @@ function updateStepperUI() {
             paused = true;
             clearInterval(timerInterval);
 
+            // Issue #12: hide the pause overlay and reset its timer — the
+            // game is over now, so "paused" no longer means an active pause.
+            stopPauseTimer();
+            if (pauseOverlayEl) pauseOverlayEl.classList.remove('active');
+
         if (blindfoldMode) {
             blindfoldMode = false;
             document.body.classList.remove('blindfold-mode');
@@ -3896,11 +3906,57 @@ function updateStepperUI() {
         updateThinkingDots();
     }
 
+            /* ==========================================================
+            PAUSE DURATION TIMER (Issue #12)
+            Live counter shown inside the pause overlay: "Paused for: MM:SS".
+            Starts at 00:00 when paused, counts up every second, and is
+            stopped/reset whenever the game is resumed or ends.
+            ========================================================== */
+            function formatPauseDuration(totalSeconds) {
+                const mins = Math.floor(totalSeconds / 60);
+                const secs = totalSeconds % 60;
+                return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+
+            function startPauseTimer() {
+                if (pauseTimerInterval) return; // already running — avoid double intervals
+                pauseStartedAt = Date.now();
+                pauseElapsedSeconds = 0;
+                if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(0);
+                announceMove('Game paused.');
+                pauseTimerInterval = setInterval(() => {
+                    // Derive from the anchor rather than incrementing, so a
+                    // throttled/backgrounded tab self-corrects instead of drifting.
+                    pauseElapsedSeconds = Math.floor((Date.now() - pauseStartedAt) / 1000);
+                    if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(pauseElapsedSeconds);
+                }, 1000);
+            }
+
+            function stopPauseTimer() {
+                const wasRunning = !!pauseTimerInterval;
+                clearInterval(pauseTimerInterval);
+                pauseTimerInterval = null;
+                pauseStartedAt = null;
+                pauseElapsedSeconds = 0;
+                if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(0);
+                if (wasRunning) announceMove('Game resumed.');
+            }
+
             function updatePauseUI() {
     pauseBtn.innerHTML =
     `${paused ? 'Resume' : 'Pause'}<span class="btn-shortcut">P</span>`;
     pauseBtn.classList.toggle('paused', paused);
     boardEl.classList.toggle('paused', paused);
+
+    // Issue #12: show/hide the pause overlay and drive its live timer.
+    // gameOver guards against the overlay reappearing right as a game ends
+    // while paused (e.g. a draw is accepted during a pause).
+    if (pauseOverlayEl) pauseOverlayEl.classList.toggle('active', paused && !gameOver);
+    if (paused && !gameOver) {
+        startPauseTimer();
+    } else {
+        stopPauseTimer();
+    }
 
     // Mobile FAB icon toggle
     const pauseFabIcon = document.getElementById('pauseFabIcon');
