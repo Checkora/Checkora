@@ -204,6 +204,7 @@ DP cache is intentionally excluded to save cookie space."""
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
+            'initial_fullmove': getattr(self, 'initial_fullmove', 1),
             'initial_turn_was_black': getattr(
                 self, 'initial_turn_was_black', False
             ),
@@ -355,7 +356,14 @@ DP cache is intentionally excluded to save cookie space."""
             game.initial_fullmove = 1
 
         game.initial_turn_was_black = (active_color == 'b')
-        game.initial_fen = fen
+        ep_square = (
+            f"{chr(ord('a') + game.en_passant_target[1])}{8 - game.en_passant_target[0]}"
+            if game.en_passant_target else "-"
+        )
+        game.initial_fen = (
+            f"{placement} {active_color} {game.serialize_castling_rights()} "
+            f"{ep_square} {game.halfmove_clock} {game.initial_fullmove}"
+        )
 
         game.move_history = []
         game.captured = {'white': [], 'black': []}

@@ -122,4 +122,19 @@ class GameRecordValidationTest(TestCase):
         self.assertIn(f'[FEN "{custom_fen}"]', pgn)
         self.assertIn('[Result "1-0"]', pgn)
 
+    def test_session_roundtrip_preserves_initial_fullmove_and_fen(self):
+        custom_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 7"
+        game = ChessGame.from_fen(custom_fen)
+        game_dict = game.to_dict()
+        restored_game = ChessGame.from_dict(game_dict)
+        self.assertEqual(restored_game.initial_fullmove, 7)
+        self.assertEqual(restored_game.initial_fen, custom_fen)
+
+    def test_from_fen_canonical_six_field(self):
+        three_field_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq"
+        game = ChessGame.from_fen(three_field_fen)
+        expected_canonical = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+        self.assertEqual(game.initial_fen, expected_canonical)
+
+
 
