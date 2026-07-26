@@ -103,6 +103,7 @@ class ChessGame:
         self._game_status = 'active'
         self.draw_reason = None
         self.threefold_warning = False
+        self.initial_fen = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -155,6 +156,15 @@ class ChessGame:
             f'[Black "{black_name}"]',
             f'[Result "{result}"]',
         ]
+        
+        initial_fen = getattr(self, 'initial_fen', None)
+        standard_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        if initial_fen and initial_fen.strip() != standard_fen:
+            headers.extend([
+                '[SetUp "1"]',
+                f'[FEN "{initial_fen.strip()}"]',
+            ])
+
         moves = " ".join(pgn_moves)
         moves_str = f"{moves} {result}" if moves else result
         return "\n".join(headers) + "\n\n" + moves_str
@@ -194,10 +204,10 @@ DP cache is intentionally excluded to save cookie space."""
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
-            'initial_fullmove': getattr(self, 'initial_fullmove', 1),
             'initial_turn_was_black': getattr(
                 self, 'initial_turn_was_black', False
             ),
+            'initial_fen': getattr(self, 'initial_fen', None),
         }
 
     def cleanup_engine(self):
@@ -269,6 +279,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.threefold_warning = data.get('threefold_warning', False)
         game.initial_fullmove = data.get('initial_fullmove', 1)
         game.initial_turn_was_black = data.get('initial_turn_was_black', False)
+        game.initial_fen = data.get('initial_fen', None)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -344,6 +355,7 @@ DP cache is intentionally excluded to save cookie space."""
             game.initial_fullmove = 1
 
         game.initial_turn_was_black = (active_color == 'b')
+        game.initial_fen = fen
 
         game.move_history = []
         game.captured = {'white': [], 'black': []}
