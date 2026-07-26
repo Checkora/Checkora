@@ -67,29 +67,57 @@
             </p>
 
             <form method="get" class="forum-sort-form">
-                <label for="forum-sort">Sort by</label>
+                <div class="forum-search-box">
+                    <input type="text"
+                           name="q"
+                           value="{{ q }}"
+                           placeholder="Search discussions..."
+                           aria-label="Search discussions"
+                           class="forum-search-input">
+                </div>
 
-                <select name="sort" id="forum-sort" onchange="this.form.submit()">
-                    <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>
-                        Newest First
-                    </option>
+                <div class="forum-filter-group">
+                    <label for="forum-category">Category</label>
+                    <select name="category" id="forum-category" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        {% for cat_val, cat_name in categories %}
+                            <option value="{{ cat_val }}" {% if selected_category == cat_val %}selected{% endif %}>
+                                {{ cat_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-                    <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>
-                        Oldest First
-                    </option>
+                <div class="forum-filter-group">
+                    <label for="forum-sort">Sort by</label>
 
-                    <option value="most_replies" {% if sort_by == "most_replies" %}selected{% endif %}>
-                        Most Replies
-                    </option>
+                    <select name="sort" id="forum-sort" onchange="this.form.submit()">
+                        <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>
+                            Newest First
+                        </option>
 
-                    <option value="most_bookmarked" {% if sort_by == "most_bookmarked" %}selected{% endif %}>
-                        Most Bookmarked
-                    </option>
+                        <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>
+                            Oldest First
+                        </option>
 
-                    <option value="recently_active" {% if sort_by == "recently_active" %}selected{% endif %}>
-                        Recently Active
-                    </option>
-                </select>
+                        <option value="most_replies" {% if sort_by == "most_replies" %}selected{% endif %}>
+                            Most Replies
+                        </option>
+
+                        <option value="most_bookmarked" {% if sort_by == "most_bookmarked" %}selected{% endif %}>
+                            Most Bookmarked
+                        </option>
+
+                        <option value="recently_active" {% if sort_by == "recently_active" %}selected{% endif %}>
+                            Recently Active
+                        </option>
+                    </select>
+                </div>
+
+                <button type="submit" class="forum-search-btn">Search</button>
+                {% if q or selected_category %}
+                    <a href="{% url 'forum' %}" class="forum-reset-btn">Clear</a>
+                {% endif %}
             </form>
         </div>
 
@@ -115,7 +143,7 @@
                     {% include "game/forum_discussion_card.html" with discussion=discussion %}
                 {% empty %}
                 <div class="forum-empty">
-                    <p>No discussions yet. Be the first to start one!</p>
+                    <p>No discussions found.</p>
                 </div>
                 {% endfor %}
             </div>
@@ -123,13 +151,13 @@
             {% if page_obj.paginator.num_pages > 1 %}
             <div class="forum-pagination">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">← Prev</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">← Prev</a>
                 {% endif %}
 
                 <span class="forum-page-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
 
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="forum-page-link">Next →</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">Next →</a>
                 {% endif %}
             </div>
             {% endif %}

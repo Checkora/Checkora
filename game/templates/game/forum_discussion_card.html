@@ -9,6 +9,7 @@
                 <h3 class="forum-card-title">
                     <span class="forum-topic-label">Topic:</span>
                     {{ discussion.title }}
+                    <span class="forum-category-badge">{{ discussion.get_category_display }}</span>
                 </h3>
 
                 {% if user.is_authenticated %}

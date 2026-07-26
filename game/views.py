@@ -4208,18 +4208,30 @@ def apply_discussion_sort(queryset, sort_by):
 
     return queryset.order_by("-created_at", "-id")
 
+
 def forum_list(request):
     sort_by = request.GET.get("sort", "newest")
     page_number = request.GET.get("page", 1)
+    q = request.GET.get("q", "").strip()
+    category = request.GET.get("category", "").strip()
 
-    discussions = Discussion.objects.select_related("user").prefetch_related("replies")
+    discussions = Discussion.objects.select_related(
+        "user"
+    ).prefetch_related("replies")
+
+    if q:
+        discussions = discussions.filter(
+            Q(title__icontains=q) | Q(content__icontains=q)
+        )
+    if category:
+        discussions = discussions.filter(category=category)
 
     user_discussions = Discussion.objects.none()
     bookmarked_discussions = Discussion.objects.none()
     bookmarked_ids = set()
 
     discussions = apply_discussion_sort(discussions, sort_by)
-    
+
     paginator = Paginator(discussions, 20)
     page_obj = paginator.get_page(page_number)
 
@@ -4234,6 +4246,12 @@ def forum_list(request):
             .prefetch_related("replies")
             .distinct()
         )
+        if q:
+            user_discussions = user_discussions.filter(
+                Q(title__icontains=q) | Q(content__icontains=q)
+            )
+        if category:
+            user_discussions = user_discussions.filter(category=category)
 
         bookmarked_discussions = (
             Discussion.objects
@@ -4242,9 +4260,21 @@ def forum_list(request):
             .prefetch_related("replies")
             .distinct()
         )
+        if q:
+            bookmarked_discussions = bookmarked_discussions.filter(
+                Q(title__icontains=q) | Q(content__icontains=q)
+            )
+        if category:
+            bookmarked_discussions = (
+                bookmarked_discussions.filter(category=category)
+            )
 
-        user_discussions = apply_discussion_sort(user_discussions, sort_by)
-        bookmarked_discussions = apply_discussion_sort(bookmarked_discussions, sort_by)
+        user_discussions = apply_discussion_sort(
+            user_discussions, sort_by
+        )
+        bookmarked_discussions = apply_discussion_sort(
+            bookmarked_discussions, sort_by
+        )
 
         bookmarked_ids = set(
             request.user.discussion_bookmarks.values_list(
@@ -4263,6 +4293,9 @@ def forum_list(request):
             "bookmarked_discussions": bookmarked_discussions,
             "bookmarked_ids": bookmarked_ids,
             "sort_by": sort_by,
+            "q": q,
+            "selected_category": category,
+            "categories": Discussion.CATEGORY_CHOICES,
         }
     )
 
