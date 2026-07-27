@@ -3171,7 +3171,7 @@ body.hide-native-cursor * {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 599.98px) {
     .navbar {
         flex-direction: column;
         gap: 1rem;
@@ -3528,7 +3528,7 @@ body.hide-native-cursor * {
 }
 
 /* Mobile view */
-@media (max-width: 768px) {
+@media (max-width: 599.98px) {
 
     .nav-toggle {
         display: block;
