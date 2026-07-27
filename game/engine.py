@@ -103,6 +103,7 @@ class ChessGame:
         self._game_status = 'active'
         self.draw_reason = None
         self.threefold_warning = False
+        self.initial_fen = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -110,9 +111,6 @@ class ChessGame:
 
     def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
-        if not self.move_history:
-            return ""
-        
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -128,7 +126,7 @@ class ChessGame:
             return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
 
         fullmove = getattr(self, 'initial_fullmove', 1)
-        history = self.move_history
+        history = self.move_history or []
         i = 0
 
         # If Black moved first, write the first half-move as "N... move"
@@ -158,8 +156,18 @@ class ChessGame:
             f'[Black "{black_name}"]',
             f'[Result "{result}"]',
         ]
+        
+        initial_fen = getattr(self, 'initial_fen', None)
+        standard_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        if initial_fen and initial_fen.strip() != standard_fen:
+            headers.extend([
+                '[SetUp "1"]',
+                f'[FEN "{initial_fen.strip()}"]',
+            ])
+
         moves = " ".join(pgn_moves)
-        return "\n".join(headers) + "\n\n" + moves + " " + result
+        moves_str = f"{moves} {result}" if moves else result
+        return "\n".join(headers) + "\n\n" + moves_str
 
     @property
     def game_status(self):
@@ -200,6 +208,7 @@ DP cache is intentionally excluded to save cookie space."""
             'initial_turn_was_black': getattr(
                 self, 'initial_turn_was_black', False
             ),
+            'initial_fen': getattr(self, 'initial_fen', None),
         }
 
     def cleanup_engine(self):
@@ -271,6 +280,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.threefold_warning = data.get('threefold_warning', False)
         game.initial_fullmove = data.get('initial_fullmove', 1)
         game.initial_turn_was_black = data.get('initial_turn_was_black', False)
+        game.initial_fen = data.get('initial_fen', None)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -346,6 +356,14 @@ DP cache is intentionally excluded to save cookie space."""
             game.initial_fullmove = 1
 
         game.initial_turn_was_black = (active_color == 'b')
+        ep_square = (
+            f"{chr(ord('a') + game.en_passant_target[1])}{8 - game.en_passant_target[0]}"
+            if game.en_passant_target else "-"
+        )
+        game.initial_fen = (
+            f"{placement} {active_color} {game.serialize_castling_rights()} "
+            f"{ep_square} {game.halfmove_clock} {game.initial_fullmove}"
+        )
 
         game.move_history = []
         game.captured = {'white': [], 'black': []}
