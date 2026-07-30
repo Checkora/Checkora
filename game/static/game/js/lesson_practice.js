@@ -9,7 +9,7 @@ function getKnightMoves(square) {
         square.charCodeAt(0);
 
     const rank =
-        parseInt(square[1]);
+        parseInt(square[1], 10);
 
     const offsets = [
         [-2,-1],
@@ -58,7 +58,7 @@ function getPawnMoves(square) {
         square[0];
 
     const rank =
-        parseInt(square[1]);
+        parseInt(square[1], 10);
 
     const moves = [];
 
@@ -82,7 +82,7 @@ function getKingMoves(square) {
         square.charCodeAt(0);
 
     const rank =
-        parseInt(square[1]);
+        parseInt(square[1], 10);
 
     const moves = [];
 
@@ -136,7 +136,7 @@ function getRookMoves(square) {
         square[0];
 
     const rank =
-        parseInt(square[1]);
+        parseInt(square[1], 10);
 
     const moves = [];
 
@@ -180,7 +180,7 @@ function getBishopMoves(square) {
         square.charCodeAt(0);
 
     const rank =
-        parseInt(square[1]);
+        parseInt(square[1], 10);
 
     [
         [1,1],
@@ -332,8 +332,8 @@ document.addEventListener(
                 square.dataset.c = col;
 
                 square.addEventListener("keydown", (e) => {
-                    let r = parseInt(square.dataset.r);
-                    let c = parseInt(square.dataset.c);
+                    let r = parseInt(square.dataset.r, 10);
+                    let c = parseInt(square.dataset.c, 10);
                     switch(e.key) {
                         case 'ArrowUp': e.preventDefault(); r = Math.min(8, r + 1); break;
                         case 'ArrowDown': e.preventDefault(); r = Math.max(1, r - 1); break;
