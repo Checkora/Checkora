@@ -27,6 +27,7 @@ import threading
 import uuid
 from datetime import date
 
+
 class ChessGame:
     """Manage a single chess game: state, validation,
       and engine communication."""
@@ -71,8 +72,9 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600, increment=0, game_id=None,
-                 authkey=None):
+    def __init__(self, time_limit=600, increment=0, difficulty='medium',
+                 game_id=None, authkey=None):
+        self.difficulty = difficulty
         self.game_id = game_id or str(uuid.uuid4())
         self.authkey = authkey or os.urandom(16)
         self.board = [row[:] for row in self.INITIAL_BOARD]
@@ -196,6 +198,7 @@ DP cache is intentionally excluded to save cookie space."""
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
+            'difficulty': self.difficulty,
             'castling_rights': self.castling_rights,
             'en_passant_target': self.en_passant_target,
             'player_color': self.player_color,
@@ -269,6 +272,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
+        game.difficulty = data.get('difficulty', 'medium')
         game.player_color = data.get('player_color', 'white')
         game.castling_rights = data.get(
             'castling_rights',
@@ -293,7 +297,9 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str, time_limit=600, increment=0):
+    def from_fen(
+        cls, fen: str, time_limit=600, increment=0, difficulty='medium'
+    ):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -320,7 +326,9 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls(time_limit=time_limit, increment=increment)
+        game = cls(
+            time_limit=time_limit, increment=increment, difficulty=difficulty
+        )
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
@@ -642,24 +650,10 @@ DP cache is intentionally excluded to save cookie space."""
                    for piece in row if piece is not None)
 
     def _get_ai_search_depth(self):
-        """Return appropriate search depth based on which
-        engine is available and game phase."""
-        engine_path = self._resolve_engine_path()
-        if not engine_path:
-            return self.AI_SEARCH_DEPTH_PYTHON
-        # C++ binary is much faster than Python, use deeper search
-        if engine_path.endswith('.py'):
-            return self.AI_SEARCH_DEPTH_PYTHON
-
-        piece_count = self._count_active_pieces()
-
-        # Adaptive Search Depth for C++ engine in endgame
-        if piece_count <= 6:
-            return self.AI_SEARCH_DEPTH_CPP + 2
-        elif piece_count <= 12:
-            return self.AI_SEARCH_DEPTH_CPP + 1
-
-        return self.AI_SEARCH_DEPTH_CPP
+        """Return appropriate search depth based on difficulty."""
+        if self.difficulty in self.DIFFICULTY_SETTINGS:
+            return self.DIFFICULTY_SETTINGS[self.difficulty]['max_depth']
+        return self.DIFFICULTY_SETTINGS['medium']['max_depth']
 
     def serialize_castling_rights(self):
         """Serialize castling rights to a string for the C++ engine."""
