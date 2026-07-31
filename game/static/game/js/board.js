@@ -1851,8 +1851,8 @@
     function markPlayable() {
         boardEl.querySelectorAll('.piece').forEach(img => {
             const el = img.closest('.square');
-            const r = parseInt(el.dataset.r);
-            const c = parseInt(el.dataset.c);
+            const r = parseInt(el.dataset.r, 10);
+            const c = parseInt(el.dataset.c, 10);
             const p = board[r][c];
             const isPlayable = p && (
                 pColor(p) === turn ||
@@ -3416,8 +3416,8 @@ function updateStepperUI() {
                 }
             }
 
-            const wPoints = parseInt(document.getElementById('whitePoints')?.textContent.replace('+', '')) || 0;
-            const bPoints = parseInt(document.getElementById('blackPoints')?.textContent.replace('+', '')) || 0;
+            const wPoints = parseInt(document.getElementById('whitePoints', 10)?.textContent.replace('+', '')) || 0;
+            const bPoints = parseInt(document.getElementById('blackPoints', 10)?.textContent.replace('+', '')) || 0;
 
             if (isWon) {
                 if (winnerColor === 'white' && hasWhiteQueen) {
@@ -4154,7 +4154,7 @@ function updateStepperUI() {
             "Your current progress will be lost.<br>Are you sure you want to start a new game?",
             () => {
                 const diff = document.getElementById('confirmDifficultySelect').value;
-                const timeLimitMins = parseInt(document.getElementById('confirmTimerSelect').value, 10);
+                const timeLimitMins = parseInt(document.getElementById('confirmTimerSelect', 10).value, 10);
                 if (mode === 'ai') {
                     showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeLimitMins));
                 } else {
@@ -5881,8 +5881,8 @@ async function handleSanMove() {
         const squareEl = e.target.closest('.square');
         if (!squareEl) return;
 
-        const r = parseInt(squareEl.dataset.r);
-        const c = parseInt(squareEl.dataset.c);
+        const r = parseInt(squareEl.dataset.r, 10);
+        const c = parseInt(squareEl.dataset.c, 10);
         const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
         const vBoard = isPremoveMode ? getVirtualBoard() : board;
         const piece = vBoard[r][c];
@@ -6003,8 +6003,8 @@ async function handleSanMove() {
 
             if (!squareEl) return;
 
-            const tr = parseInt(squareEl.dataset.r);
-            const tc = parseInt(squareEl.dataset.c);
+            const tr = parseInt(squareEl.dataset.r, 10);
+            const tc = parseInt(squareEl.dataset.c, 10);
             await onClick(tr, tc);
 
         }
