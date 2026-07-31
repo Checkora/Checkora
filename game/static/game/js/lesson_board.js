@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function buildBoard() {
 
-        board.innerHTML = "";
+        board.textContent = "";
 
         const files =
             ["a", "b", "c", "d", "e", "f", "g", "h"];
@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 square.dataset.square =
                     squareName;
 
-                square.innerHTML =
+                square.textContent =
                     pieces[piece] || "";
 
                 square.addEventListener(
@@ -79,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!selectedSquare) {
 
             if (
-                square.innerHTML === ""
+                square.textContent === ""
             ) {
                 return;
             }
@@ -132,10 +132,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        toSquare.innerHTML =
+        toSquare.textContent =
             piece;
 
-        fromSquare.innerHTML =
+        fromSquare.textContent =
             "";
 
         if (
