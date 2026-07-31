@@ -275,6 +275,8 @@ def new_game(request):
 
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
+    if not isinstance(difficulty, str) or difficulty not in ('easy', 'medium', 'hard'):
+        difficulty = 'medium'
     fen = data.get('fen')
     time_limit_raw = data.get('time_limit', 600)
     increment_raw = data.get('increment', 0)
@@ -323,6 +325,18 @@ def new_game(request):
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
 
+    if mode == 'ai':
+        bot_names = {
+            'easy': '♟️ Novice Pawn',
+            'medium': '♗ Tactical Bishop',
+            'hard': '♜ Grandmaster Rook'
+        }
+        bot_name = bot_names.get(difficulty, '♗ Tactical Bishop')
+        if player_color == 'white':
+            request.session['black_name'] = bot_name
+        else:
+            request.session['white_name'] = bot_name
+
     raw_opening = data.get('opening', '') if mode == 'ai' else ''
     opening = raw_opening if raw_opening in VALID_OPENINGS else ''
     request.session['opening'] = opening
@@ -330,14 +344,14 @@ def new_game(request):
     fen = fen.strip() if isinstance(fen, str) else None
     if fen:
         try:
-            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment)
+            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment, difficulty=difficulty)
         except ValueError as exc:
             return JsonResponse(
                 {'valid': False, 'message': f'Invalid FEN: {exc}'},
                 status=400,
             )
     else:
-        game = ChessGame(time_limit=time_limit, increment=increment)
+        game = ChessGame(time_limit=time_limit, increment=increment, difficulty=difficulty)
     game.mode = mode
     game.player_color = player_color
     game.paused = False
@@ -593,12 +607,6 @@ def ai_move(request):
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
         )
-
-    # Depth Mapping — lower depth = faster response
-    difficulty = request.session.get('difficulty', 'medium')
-    depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
-    depth = depth_map.get(difficulty, 2)
-
     opening = request.session.get('opening', '')
     book_move = None
     if opening:
@@ -623,11 +631,11 @@ def ai_move(request):
         if not any(m['row'] == best['to_row'] and m['col'] == best['to_col'] for m in valid):
             request.session['opening'] = ''
             request.session.modified = True
-            best = game.get_ai_move(depth=depth)
+            best = game.get_ai_move()
     else:
         request.session['opening'] = ''
         request.session.modified = True
-        best = game.get_ai_move(depth=depth)
+        best = game.get_ai_move()
 
     # Issue #1630: Predict opponent responses in Analysis Mode
     if best and game.mode == 'analysis':
@@ -642,7 +650,7 @@ def ai_move(request):
             )
 
             # Create a temporary copy
-            temp_game = ChessGame()
+            temp_game = ChessGame(difficulty=game.difficulty)
             try:
                 temp_game.board = temp_game._parse_board64(game.serialize_board())
                 temp_game.castling_rights = dict(game.castling_rights)
@@ -660,7 +668,7 @@ def ai_move(request):
                 temp_game.make_move(best['from_row'], best['from_col'], best['to_row'], best['to_col'], promotion_piece=best.get('promotion_piece'))
 
                 # Request opponent's responses
-                opp_resp = temp_game.get_ai_move(depth=depth)
+                opp_resp = temp_game.get_ai_move()
 
                 predicted_responses = []
                 if opp_resp:
