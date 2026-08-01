@@ -547,6 +547,15 @@ def evaluate():
                 continue
             value = piece_value(piece) + positional_bonus(piece, row, col, is_endgame)
             score += value if is_white(piece) else -value
+
+    b_king = find_king('black')
+    if b_king[0] != -1 and is_square_attacked(b_king[0], b_king[1], 'white'):
+        score += 50
+
+    w_king = find_king('white')
+    if w_king[0] != -1 and is_square_attacked(w_king[0], w_king[1], 'black'):
+        score -= 50
+
     return score
 
 

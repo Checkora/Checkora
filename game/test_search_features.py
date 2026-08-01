@@ -55,6 +55,37 @@ class SearchFeaturesTest(SimpleTestCase):
         hash_no_rook = python_engine.compute_hash('white')
         self.assertNotEqual(hash1, hash_no_rook)
 
+    def test_evaluate_no_check_has_no_check_bonus(self):
+        """Evaluation should not add a check bonus when neither king is attacked."""
+        python_engine.BOARD[0][4] = 'k'
+        python_engine.BOARD[7][4] = 'K'
+
+        self.assertEqual(python_engine.evaluate(), 0)
+
+    def test_evaluate_adds_white_check_bonus(self):
+        """Evaluation should add 50 when white attacks the black king."""
+        python_engine.BOARD[0][4] = 'k'
+        python_engine.BOARD[7][4] = 'K'
+        python_engine.BOARD[1][3] = 'R'
+        non_check_score = python_engine.evaluate()
+
+        python_engine.BOARD[1][3] = '.'
+        python_engine.BOARD[1][4] = 'R'
+
+        self.assertEqual(python_engine.evaluate(), non_check_score + 50)
+
+    def test_evaluate_subtracts_black_check_bonus(self):
+        """Evaluation should subtract 50 when black attacks the white king."""
+        python_engine.BOARD[0][4] = 'k'
+        python_engine.BOARD[7][4] = 'K'
+        python_engine.BOARD[6][3] = 'r'
+        non_check_score = python_engine.evaluate()
+
+        python_engine.BOARD[6][3] = '.'
+        python_engine.BOARD[6][4] = 'r'
+
+        self.assertEqual(python_engine.evaluate(), non_check_score - 50)
+
     def test_timeout_behavior_returns_move(self):
         """Timeout should return the best move from the last completed depth instead of crashing."""
         # Set up a complex position that requires time
