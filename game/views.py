@@ -1487,8 +1487,7 @@ class CustomPasswordResetView(PasswordResetView):
         ip_expires_key = self._ip_expires_key(request._password_reset_ip_key)
         if not cache.add(request._password_reset_ip_key, 1, timeout=ip_timeout):
             cache.incr(request._password_reset_ip_key)
-            if not cache.get(ip_expires_key):
-                cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
+            cache.add(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
         else:
             cache.set(ip_expires_key, time.time() + ip_timeout, timeout=ip_timeout)
 

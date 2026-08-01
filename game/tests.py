@@ -375,6 +375,29 @@ class PasswordResetRateLimitTest(TestCase):
         self.assertNotContains(response, '15 minute(s)')
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_ip_lockout_expiry_is_not_refreshed_by_subsequent_requests(self):
+        view = CustomPasswordResetView()
+        request = RequestFactory().post(
+            self.reset_url,
+            data={'email': 'reset@example.com'},
+            REMOTE_ADDR='203.0.113.40',
+        )
+        ip_key = view._cache_key('password-reset-ip', '203.0.113.40')
+        ip_expires_key = view._ip_expires_key(ip_key)
+        existing_expires_at = time.time() + 125
+        cache.set(ip_key, 1, timeout=900)
+        cache.set(ip_expires_key, existing_expires_at, timeout=900)
+        request._password_reset_email_key = view._cache_key(
+            'password-reset-email',
+            'reset@example.com',
+        )
+        request._password_reset_ip_key = ip_key
+
+        view._record_password_reset_request(request)
+
+        self.assertEqual(cache.get(ip_key), 2)
+        self.assertEqual(cache.get(ip_expires_key), existing_expires_at)
+
     @override_settings(TRUSTED_PROXY_IPS=[], IS_PRODUCTION=False)
     def test_client_ip_untrusted_proxy_ignored(self):
         view = CustomPasswordResetView()
