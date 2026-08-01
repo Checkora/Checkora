@@ -9,10 +9,12 @@ from unittest import mock
 from django.utils import timezone
 from game.models import (
     ActiveGame,
+    Achievement,
     OpeningProgress,
     UserProgress,
     Discussion,
     DiscussionBookmark,
+    UserAchievement,
 )
 
 from django.conf import settings
@@ -3336,6 +3338,46 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertTemplateUsed(response, 'game/achievements.html')
         self.assertContains(response, "Achievements Unlocked")
         self.assertContains(response, "No featured badges selected yet.")
+
+    def test_download_badge_logs_generation_error(self):
+        password = 'Password123!'
+        user = User.objects.create_user(
+            username='testuser',
+            password=password,
+            email='testuser@example.com'
+        )
+        achievement = Achievement.objects.create(
+            code='FIRST_WIN',
+            title='First Win',
+            description='Win a game',
+            icon='🏆',
+            category='gameplay',
+            rarity='common'
+        )
+        UserAchievement.objects.create(
+            user=user,
+            achievement=achievement
+        )
+        error = OSError('missing badge template')
+
+        self.client.login(username='testuser', password=password)
+        with (
+            mock.patch('game.views.generate_badge', side_effect=error),
+            mock.patch('game.views.logger.error') as mock_logger_error,
+        ):
+            response = self.client.get(
+                reverse(
+                    'download_badge',
+                    kwargs={'achievement_id': achievement.id}
+                )
+            )
+
+        self.assertEqual(response.status_code, 500)
+        mock_logger_error.assert_called_once_with(
+            "Badge generation failed for achievement %s: %s",
+            achievement.id,
+            error,
+        )
 
     def test_opening_trainer_page(self):
         response = self.client.get(
