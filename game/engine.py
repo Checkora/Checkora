@@ -27,6 +27,7 @@ import threading
 import uuid
 from datetime import date
 
+
 class ChessGame:
     """Manage a single chess game: state, validation,
       and engine communication."""
@@ -71,8 +72,9 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600, increment=0, game_id=None,
-                 authkey=None):
+    def __init__(self, time_limit=600, increment=0, difficulty='medium',
+                 game_id=None, authkey=None):
+        self.difficulty = difficulty
         self.game_id = game_id or str(uuid.uuid4())
         self.authkey = authkey or os.urandom(16)
         self.board = [row[:] for row in self.INITIAL_BOARD]
@@ -103,6 +105,7 @@ class ChessGame:
         self._game_status = 'active'
         self.draw_reason = None
         self.threefold_warning = False
+        self.initial_fen = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -110,9 +113,6 @@ class ChessGame:
 
     def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
-        if not self.move_history:
-            return ""
-        
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -128,7 +128,7 @@ class ChessGame:
             return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
 
         fullmove = getattr(self, 'initial_fullmove', 1)
-        history = self.move_history
+        history = self.move_history or []
         i = 0
 
         # If Black moved first, write the first half-move as "N... move"
@@ -158,8 +158,18 @@ class ChessGame:
             f'[Black "{black_name}"]',
             f'[Result "{result}"]',
         ]
+        
+        initial_fen = getattr(self, 'initial_fen', None)
+        standard_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        if initial_fen and initial_fen.strip() != standard_fen:
+            headers.extend([
+                '[SetUp "1"]',
+                f'[FEN "{initial_fen.strip()}"]',
+            ])
+
         moves = " ".join(pgn_moves)
-        return "\n".join(headers) + "\n\n" + moves + " " + result
+        moves_str = f"{moves} {result}" if moves else result
+        return "\n".join(headers) + "\n\n" + moves_str
 
     @property
     def game_status(self):
@@ -188,6 +198,7 @@ DP cache is intentionally excluded to save cookie space."""
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
+            'difficulty': self.difficulty,
             'castling_rights': self.castling_rights,
             'en_passant_target': self.en_passant_target,
             'player_color': self.player_color,
@@ -200,6 +211,7 @@ DP cache is intentionally excluded to save cookie space."""
             'initial_turn_was_black': getattr(
                 self, 'initial_turn_was_black', False
             ),
+            'initial_fen': getattr(self, 'initial_fen', None),
         }
 
     def cleanup_engine(self):
@@ -260,6 +272,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
+        game.difficulty = data.get('difficulty', 'medium')
         game.player_color = data.get('player_color', 'white')
         game.castling_rights = data.get(
             'castling_rights',
@@ -271,6 +284,7 @@ DP cache is intentionally excluded to save cookie space."""
         game.threefold_warning = data.get('threefold_warning', False)
         game.initial_fullmove = data.get('initial_fullmove', 1)
         game.initial_turn_was_black = data.get('initial_turn_was_black', False)
+        game.initial_fen = data.get('initial_fen', None)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -283,7 +297,9 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str, time_limit=600, increment=0):
+    def from_fen(
+        cls, fen: str, time_limit=600, increment=0, difficulty='medium'
+    ):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -310,7 +326,9 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls(time_limit=time_limit, increment=increment)
+        game = cls(
+            time_limit=time_limit, increment=increment, difficulty=difficulty
+        )
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
@@ -346,6 +364,14 @@ DP cache is intentionally excluded to save cookie space."""
             game.initial_fullmove = 1
 
         game.initial_turn_was_black = (active_color == 'b')
+        ep_square = (
+            f"{chr(ord('a') + game.en_passant_target[1])}{8 - game.en_passant_target[0]}"
+            if game.en_passant_target else "-"
+        )
+        game.initial_fen = (
+            f"{placement} {active_color} {game.serialize_castling_rights()} "
+            f"{ep_square} {game.halfmove_clock} {game.initial_fullmove}"
+        )
 
         game.move_history = []
         game.captured = {'white': [], 'black': []}
@@ -624,24 +650,10 @@ DP cache is intentionally excluded to save cookie space."""
                    for piece in row if piece is not None)
 
     def _get_ai_search_depth(self):
-        """Return appropriate search depth based on which
-        engine is available and game phase."""
-        engine_path = self._resolve_engine_path()
-        if not engine_path:
-            return self.AI_SEARCH_DEPTH_PYTHON
-        # C++ binary is much faster than Python, use deeper search
-        if engine_path.endswith('.py'):
-            return self.AI_SEARCH_DEPTH_PYTHON
-
-        piece_count = self._count_active_pieces()
-
-        # Adaptive Search Depth for C++ engine in endgame
-        if piece_count <= 6:
-            return self.AI_SEARCH_DEPTH_CPP + 2
-        elif piece_count <= 12:
-            return self.AI_SEARCH_DEPTH_CPP + 1
-
-        return self.AI_SEARCH_DEPTH_CPP
+        """Return appropriate search depth based on difficulty."""
+        if self.difficulty in self.DIFFICULTY_SETTINGS:
+            return self.DIFFICULTY_SETTINGS[self.difficulty]['max_depth']
+        return self.DIFFICULTY_SETTINGS['medium']['max_depth']
 
     def serialize_castling_rights(self):
         """Serialize castling rights to a string for the C++ engine."""
