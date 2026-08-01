@@ -4626,6 +4626,11 @@ def toggle_reply_vote(request, reply_id):
 
     with transaction.atomic():
         reply = Reply.objects.select_for_update().get(pk=reply.pk)
+        if reply.is_deleted:
+            return JsonResponse(
+                {"success": False, "error": "Cannot vote on deleted replies."},
+                status=400
+            )
         vote = (
             ReplyVote.objects
             .select_for_update()
