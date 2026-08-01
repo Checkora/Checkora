@@ -10,7 +10,6 @@ import io
 import base64
 import ipaddress
 import secrets
-import secrets as secrets_module
 from game.views_history import save_game_record
 from django.http import HttpResponseServerError
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -868,7 +867,6 @@ def resign_game(request):
     if game.game_status != 'active':
         return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
 
-    import json
     try:
         data = json.loads(request.body)
         resigning_player = data.get('resigning_player')
@@ -2308,7 +2306,7 @@ def cleanup_cron(request):
     provided = auth_header or ""
 
     if (not cron_secret or
-            not secrets_module.compare_digest(expected, provided)):
+            not secrets.compare_digest(expected, provided)):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
     try:
