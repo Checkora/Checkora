@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
     <style>
         /* ── Navbar avatar thumbnail ── */
         .nav-avatar {
@@ -125,6 +126,7 @@
 
 
 <body>
+    <div class="cursor"></div>
     <div style="display:none" aria-hidden="true">{% csrf_token %}</div>
     <script>
         window.USER_AVATAR_URL = "{% if user.is_authenticated and user.profile.avatar %}{{ user.profile.avatar|escapejs }}{% else %}{% endif %}";
@@ -1112,6 +1114,7 @@
 </div>
 
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+<script src="{% static 'game/js/cursor.js' %}"></script>
 </body>
 
 
