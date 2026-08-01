@@ -2627,7 +2627,7 @@ def analyze_game_view(request):
             'opening': opening,
             'captures': captures, 'checks': checks, 'checkmates': checkmates,
             'promotions': promotions, 'blunders': blunders, 'mistakes': mistakes,
-            'accuracy': accuracy, 'total_moves': (len(moves) + 1) // 2, 'move_analysis_details': move_analysis_details,
+            'accuracy': accuracy, 'total_moves': (len(moves) + 1) // 2, 'analyzed_moves_count': analyzed_moves_count, 'is_capped': len(moves) > 80, 'move_analysis_details': move_analysis_details,
             'move_analysis': [detail['class'] for detail in move_analysis_details],
             'analysis_timeout_seconds': ANALYSIS_TIMEOUT_SECONDS,
             'final_eval': final_eval
