@@ -160,3 +160,59 @@ class ForumSearchAndFilterTests(TestCase):
         html = response.content.decode("utf-8")
         self.assertIn("q=Special%20%26%20Query", html)
         self.assertIn("category=puzzles", html)
+
+
+class ForumDiscussionDeleteTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username="owner",
+            password="password"
+        )
+        self.other_user = User.objects.create_user(
+            username="other",
+            password="password"
+        )
+        self.discussion = Discussion.objects.create(
+            user=self.owner,
+            title="Delete me",
+            content="Discussion content"
+        )
+        self.delete_url = reverse(
+            "forum_discussion_delete",
+            args=[self.discussion.id]
+        )
+
+    def test_owner_can_delete_discussion(self):
+        self.client.login(username="owner", password="password")
+
+        response = self.client.post(self.delete_url)
+
+        self.assertRedirects(response, reverse("forum"))
+        self.assertFalse(
+            Discussion.objects.filter(id=self.discussion.id).exists()
+        )
+
+    def test_non_owner_cannot_delete_discussion(self):
+        self.client.login(username="other", password="password")
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(
+            Discussion.objects.filter(id=self.discussion.id).exists()
+        )
+
+    def test_discussion_delete_action_visible_only_to_owner(self):
+        detail_url = reverse("forum_detail", args=[self.discussion.id])
+        self.client.login(username="owner", password="password")
+
+        response = self.client.get(detail_url)
+
+        self.assertContains(response, self.delete_url)
+        self.assertContains(response, "Delete discussion?")
+
+        self.client.login(username="other", password="password")
+        response = self.client.get(detail_url)
+
+        self.assertNotContains(response, self.delete_url)
+        self.assertNotContains(response, "Delete discussion?")

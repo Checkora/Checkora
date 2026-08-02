@@ -79,6 +79,11 @@ urlpatterns = [
     # Community Forum
     path("forum/", views.forum_list, name="forum"),
     path("forum/new/", views.forum_new, name="forum_new"),
+    path(
+        "forum/<int:discussion_id>/delete/",
+        views.forum_discussion_delete,
+        name="forum_discussion_delete",
+    ),
     path("forum/<int:discussion_id>/", views.forum_detail, name="forum_detail"),
     path("forum/<int:discussion_id>/reply/", views.forum_reply, name="forum_reply"),
 

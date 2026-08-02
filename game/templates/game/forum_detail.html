@@ -65,6 +65,14 @@
                 <h1 class="forum-detail-title">{{ discussion.title }}</h1>
 
                 {% if user.is_authenticated %}
+                {% if discussion.user == user %}
+                <button type="button"
+                        class="forum-delete-confirm"
+                        onclick="openDeleteModal('{% url 'forum_discussion_delete' discussion.id %}', 'Delete discussion?', 'This discussion and all of its replies will be permanently deleted.')">
+                    Delete
+                </button>
+                {% endif %}
+
                 <form method="post"
                     action="{% url 'toggle_discussion_bookmark' discussion.id %}"
                     class="forum-bookmark-form">
@@ -366,11 +374,15 @@
             }
         }
 
-        function openDeleteModal(deleteUrl) {
+        function openDeleteModal(deleteUrl, title, message) {
             const modal = document.getElementById("delete-modal");
             const form = document.getElementById("delete-form");
+            const modalTitle = document.getElementById("delete-modal-title");
+            const modalMessage = document.getElementById("delete-modal-message");
 
             form.action = deleteUrl;
+            modalTitle.textContent = title || "Delete reply?";
+            modalMessage.textContent = message || "This reply will be removed from the discussion content, but a deleted comment placeholder will remain.";
             modal.classList.add("active");
         }
 
@@ -440,9 +452,9 @@
     </script>
     <div class="forum-delete-modal" id="delete-modal">
         <div class="forum-delete-box">
-            <h3>Delete reply?</h3>
+            <h3 id="delete-modal-title">Delete reply?</h3>
 
-            <p>
+            <p id="delete-modal-message">
                 This reply will be removed from the discussion content, but a deleted comment placeholder will remain.
             </p>
 

@@ -4392,6 +4392,21 @@ def forum_detail(request, discussion_id):
         }
     )
 
+
+@login_required
+@require_POST
+def forum_discussion_delete(request, discussion_id):
+    discussion = get_object_or_404(
+        Discussion,
+        id=discussion_id,
+        user=request.user
+    )
+
+    discussion.delete()
+    messages.success(request, "Discussion deleted successfully.")
+    return redirect("forum")
+
+
 @login_required
 def forum_new(request):
     if request.method == "POST" and not request.user.is_staff:
