@@ -1,7 +1,6 @@
 .cursor {
     position: fixed;
     pointer-events: none;
-
     z-index: 9990;
     width: 18px;
     height: 18px;
@@ -155,7 +154,7 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    animation: sparkle-Sprinkle 0.9s ease-out infinite;
+    animation: sparkle-sprinkle 0.9s ease-out infinite;
     --dx: -18px;
     --dy: -12px;
 }
@@ -164,7 +163,7 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    animation: sparkle-Sprinkle 0.95s ease-out infinite;
+    animation: sparkle-sprinkle 0.95s ease-out infinite;
     --dx: 18px;
     --dy: 10px;
 }

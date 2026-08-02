@@ -1,7 +1,7 @@
 const cursor = document.querySelector(".cursor");
 const cursorDropdown = document.querySelector(".cursor-dropdown");
 const cursorTrigger = document.querySelector(".cursor-btn");
-const cursorTypeLabel = document.querySelector(".cursor-type-label");
+const cursorTypeLabel = document.querySelector("`#cursorTypeLabel`");
 const cursorOptions = document.querySelectorAll("[data-cursor]");
 
 if (!cursor) {
