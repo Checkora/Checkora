@@ -32,7 +32,7 @@ document.documentElement.setAttribute(
 
 // 2. DOM-dependent logic runs after content is loaded.
         document.addEventListener("DOMContentLoaded", () => {
-            const toggles = document.querySelectorAll(".theme-toggle");
+            const toggles = document.querySelectorAll(".theme-toggle, .theme-toggle-btn");
 
             const updateToggleState = (theme) => {
             toggles.forEach((toggle) => {
