@@ -70,24 +70,26 @@ class DrawAIModeTest(TestCase):
             content_type='application/json',
         )
 
-    def test_draw_offer_in_ai_mode_returns_200(self):
-        """Draw endpoint should respond without crashing in AI mode."""
+    def test_draw_offer_in_ai_mode_rejects_direct_accept(self):
+        """Direct accept without a pending offer should be rejected in AI mode."""
         response = self.client.post(
             '/api/draw/',
             data=json.dumps({'action': 'accept'}),
             content_type='application/json',
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['success'])
 
     def test_draw_offer_in_ai_mode_returns_json(self):
-        """Response should be valid JSON with a game_status field."""
+        """Rejected direct accept response should be valid JSON."""
         response = self.client.post(
             '/api/draw/',
             data=json.dumps({'action': 'accept'}),
             content_type='application/json',
         )
         data = response.json()
-        self.assertIn('game_status', data)
+        self.assertIn('success', data)
+        self.assertIn('message', data)
 
 
 class NewGameEdgeCaseTest(TestCase):

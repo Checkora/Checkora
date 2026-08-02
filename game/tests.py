@@ -903,7 +903,29 @@ class DrawOfferTest(TestCase):
     def setUp(self):
         self.client.get('/play/')
 
-    def test_accept_draw_marks_game_as_draw_agreement(self):
+    def test_accept_draw_without_pending_offer_is_rejected_and_game_stays_active(self):
+        response = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'accept'}),
+            content_type='application/json',
+        )
+        data = response.json()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(data['success'])
+
+        state = self.client.get('/api/state/').json()
+        self.assertEqual(state['game_status'], 'active')
+        self.assertIsNone(state['draw_reason'])
+
+    def test_offer_then_accept_marks_game_as_draw_agreement(self):
+        offer = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'offer'}),
+            content_type='application/json',
+        )
+        self.assertEqual(offer.status_code, 200)
+
         response = self.client.post(
             '/api/draw/',
             data=json.dumps({'action': 'accept'}),
@@ -918,6 +940,30 @@ class DrawOfferTest(TestCase):
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'draw')
         self.assertEqual(state['draw_reason'], 'agreement')
+
+    def test_decline_clears_pending_offer(self):
+        offer = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'offer'}),
+            content_type='application/json',
+        )
+        self.assertEqual(offer.status_code, 200)
+
+        decline = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'decline'}),
+            content_type='application/json',
+        )
+        self.assertEqual(decline.status_code, 200)
+
+        response = self.client.post(
+            '/api/draw/',
+            data=json.dumps({'action': 'accept'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['success'])
 
 class DrawRuleTest(SimpleTestCase):
     """Test rule-based draw detection in the engine."""

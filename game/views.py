@@ -90,6 +90,7 @@ IP_MAX_FAILS = 20
 # Limits for game analysis
 MAX_ANALYSIS_MOVES = 500
 MAX_MOVE_LENGTH = 20
+DRAW_OFFER_SESSION_KEY = 'pending_draw_offer'
 
 from game.services import (
     cleanup_stale_games,
@@ -324,6 +325,7 @@ def new_game(request):
     )
     request.session['difficulty'] = difficulty
     request.session['player_color'] = player_color
+    request.session.pop(DRAW_OFFER_SESSION_KEY, None)
 
     if mode == 'ai':
         bot_names = {
@@ -831,15 +833,39 @@ def offer_draw(request):
             {'success': False, 'message': 'Invalid action.'}, status=400
         )
 
+    game = ChessGame.from_dict(game_data)
+    if game.game_status != 'active':
+        return JsonResponse(
+            {'success': False, 'message': 'Game is not active.'}, status=400
+        )
+
+    draw_offer = {
+        'fen': game.generate_full_fen(),
+        'move_count': len(game.move_history),
+        'mode': game.mode,
+        'offered_by': game.current_turn,
+    }
+
+    if action == 'offer':
+        request.session[DRAW_OFFER_SESSION_KEY] = draw_offer
+        request.session.modified = True
+        return JsonResponse({'success': True})
+
+    if action == 'decline':
+        request.session.pop(DRAW_OFFER_SESSION_KEY, None)
+        request.session.modified = True
+        return JsonResponse({'success': True})
+
     if action == 'accept':
-        game = ChessGame.from_dict(game_data)
-        if game.game_status != 'active':
+        if request.session.get(DRAW_OFFER_SESSION_KEY) != draw_offer:
             return JsonResponse(
-                {'success': False, 'message': 'Game is not active.'}, status=400
+                {'success': False, 'message': 'No pending draw offer.'},
+                status=400,
             )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
         request.session['game'] = game.to_dict()
+        request.session.pop(DRAW_OFFER_SESSION_KEY, None)
         request.session.modified = True
 
         create_or_update_active_game(
@@ -853,8 +879,6 @@ def offer_draw(request):
             'game_status': game.game_status,
             'draw_reason': game.draw_reason,
         })
-
-    return JsonResponse({'success': True})
 
 @require_POST
 def resign_game(request):

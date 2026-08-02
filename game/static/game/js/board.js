@@ -4174,6 +4174,8 @@ function updateStepperUI() {
             "Offer Draw?",
             `As <b>${offeringPlayer}</b>, do you want to offer a draw to ${receivingPlayer}?`,
             async () => {
+                const data = await post('/api/draw/', { action: 'offer' });
+                if (!data.success) return;
                 drawMessage.textContent = `${offeringPlayer} offers a draw. ${receivingPlayer}, do you accept?`;
                 drawOverlay.classList.add('active');
                 await pauseGame();
@@ -5045,8 +5047,9 @@ function updateStepperUI() {
             endGame('draw', turn, data.draw_reason);
         }
     };
-    if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
+    if (drawDeclineBtn) drawDeclineBtn.onclick = async () => {
         drawOverlay.classList.remove('active');
+        await post('/api/draw/', { action: 'decline' });
         resumeGame();
     };
 
