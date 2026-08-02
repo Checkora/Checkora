@@ -807,9 +807,9 @@ def minimax(depth, alpha, beta, maximizing):
 
 def is_insufficient_material():
     """Checks if the current board state is a draw due to insufficient material.
-    Simple cases: K vs K, K+N vs K, K+B vs K.
+    Simple cases: K vs K, K+N vs K, K+B vs K, same-color K+B vs K+B.
     """
-    total_minor = 0
+    minors = []
     for row in range(8):
         for col in range(8):
             p = BOARD[row][col]
@@ -821,9 +821,18 @@ def is_insufficient_material():
             # If there's a pawn, rook, or queen, checkmate is possible
             if type_ in ('p', 'r', 'q'):
                 return False
-            total_minor += 1
-    # Draw if total non-king pieces is 0 or 1
-    return total_minor <= 1
+            minors.append((type_, row, col))
+
+    if len(minors) <= 1:
+        return True
+    return (
+        len(minors) == 2
+        and minors[0][0] == minors[1][0] == 'b'
+        and (
+            (minors[0][1] + minors[0][2]) % 2
+            == (minors[1][1] + minors[1][2]) % 2
+        )
+    )
 
 
 def handle_status(turn):

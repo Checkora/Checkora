@@ -706,6 +706,9 @@ def ai_move(request):
             winner = 'black' if game.current_turn == 'white' else 'white'
             record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
             game_status = 'checkmate'
+        elif game.game_status == 'draw':
+            record_game_result(request, game.mode, 'draw', game.draw_reason or 'draw', game.player_color, moves=game.move_history)
+            game_status = 'draw'
         else:
             record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
             game_status = 'stalemate'
@@ -728,6 +731,7 @@ def ai_move(request):
             'move_history': game.move_history,
             'captured_pieces': game.captured,
             'message': '',
+            'draw_reason': game.draw_reason,
             'version': 0
         })
 

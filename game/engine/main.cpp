@@ -654,10 +654,11 @@ int evaluate() {
 
 /**
  * Checks if the current board state is a draw due to insufficient material.
- * Simple cases: K vs K, K+N vs K, K+B vs K.
+ * Simple cases: K vs K, K+N vs K, K+B vs K, same-color K+B vs K+B.
  */
 bool isInsufficientMaterial() {
     int totalMinor = 0;
+    vector<int> bishopColors;
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
             char p = board[r][c];
@@ -667,10 +668,12 @@ bool isInsufficientMaterial() {
             // If there's a pawn, rook, or queen, checkmate is possible
             if (type == 'p' || type == 'r' || type == 'q') return false;
             totalMinor++;
+            if (type == 'b') bishopColors.push_back((r + c) % 2);
         }
     }
-    // Draw if total non-king pieces is 0 or 1
-    return totalMinor <= 1;
+    if (totalMinor <= 1) return true;
+    return totalMinor == 2 && bishopColors.size() == 2
+        && bishopColors[0] == bishopColors[1];
 }
 
 /**

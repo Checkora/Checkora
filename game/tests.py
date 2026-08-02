@@ -1146,6 +1146,26 @@ class AIMoveTest(TestCase):
         self.assertIn('to_row', data['ai_move'])
         self.assertIn('to_col', data['ai_move'])
 
+    def test_ai_no_move_preserves_existing_draw_reason(self):
+        self.client.post(
+            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            content_type='application/json'
+        )
+        session = self.client.session
+        game = ChessGame.from_dict(session['game'])
+        game.game_status = 'draw'
+        game.draw_reason = 'insufficient_material'
+        session['game'] = game.to_dict()
+        session.save()
+
+        with mock.patch.object(ChessGame, 'get_ai_move', return_value=None):
+            r = self.client.post('/api/ai-move/', content_type='application/json')
+
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['game_status'], 'draw')
+        self.assertEqual(data['draw_reason'], 'insufficient_material')
+
     def test_ai_aborts_if_game_paused(self):
         self.client.post(
             '/api/new-game/', data=json.dumps({'mode': 'ai'}),
@@ -2250,6 +2270,42 @@ class InsufficientMaterialDrawTest(TestCase):
         with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
             resp = game._call_engine(cmd)
             self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_insufficient_material_same_color_bishops(self):
+        """Python fallback engine should draw K+B vs. K+B with bishops on the same color."""
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[9] = 'b'
+        board64[45] = 'B'
+        board64[60] = 'K'
+        board64_str = "".join(board64)
+
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS DRAW")
+
+    def test_python_engine_sufficient_material_opposite_color_bishops(self):
+        """Python fallback engine should keep K+B vs. K+B playable with opposite-color bishops."""
+        board64 = list('.' * 64)
+        board64[4] = 'k'
+        board64[10] = 'b'
+        board64[45] = 'B'
+        board64[60] = 'K'
+        board64_str = "".join(board64)
+
+        cmd = f"STATUS {board64_str} - white -1 -1\n"
+        game = ChessGame()
+        import os
+        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+
+        with mock.patch.object(game, '_resolve_engine_path', return_value=python_engine_path):
+            resp = game._call_engine(cmd)
+            self.assertEqual(resp, "STATUS OK")
 
     def test_python_engine_sufficient_material_k_p_vs_k(self):
         """Python fallback engine should return 'STATUS OK' for King + Pawn vs. King."""
