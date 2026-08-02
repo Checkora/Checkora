@@ -5642,8 +5642,8 @@ async function handleSanMove() {
         }
     };
 
-    if (closeThemeModalBtn) closeThemeModalBtn.onclick = closeThemeModal;
-    if (saveThemeSettingsBtn) saveThemeSettingsBtn.onclick = closeThemeModal;
+    if (closeThemeModalBtn) closeThemeModalBtn.addEventListener('click', closeThemeModal);
+    if (saveThemeSettingsBtn) saveThemeSettingsBtn.addEventListener('click', closeThemeModal);
 
     // Handle Escape key to close modal
     document.addEventListener('keydown', (e) => {

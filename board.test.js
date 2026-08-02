@@ -401,6 +401,33 @@ describe("Coordinates visibility toggle", () => {
   });
 });
 
+describe("Theme & Settings modal", () => {
+  test("closes via X button and bottom Close button", () => {
+    const modal = document.getElementById("themeSettingsModal");
+    const openBtn = document.getElementById("openThemeModalBtn");
+    const closeBtn = document.getElementById("closeThemeModalBtn");
+    const saveBtn = document.getElementById("saveThemeSettingsBtn");
+
+    openBtn.click();
+    expect(modal.classList.contains("active")).toBe(true);
+    expect(modal.getAttribute("aria-hidden")).toBe("false");
+
+    closeBtn.onclick = null;
+    closeBtn.click();
+    expect(modal.classList.contains("active")).toBe(false);
+    expect(modal.getAttribute("aria-hidden")).toBe("true");
+
+    openBtn.click();
+    expect(modal.classList.contains("active")).toBe(true);
+    expect(modal.getAttribute("aria-hidden")).toBe("false");
+
+    saveBtn.onclick = null;
+    saveBtn.click();
+    expect(modal.classList.contains("active")).toBe(false);
+    expect(modal.getAttribute("aria-hidden")).toBe("true");
+  });
+});
+
 describe("Board UI Interactions", () => {
   beforeEach(async () => {
     document.getElementById("board").innerHTML = "";
