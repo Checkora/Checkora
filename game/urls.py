@@ -57,6 +57,11 @@ urlpatterns = [
     ),
 
     path("api/puzzle-stats/", views.puzzle_stats_view, name="puzzle_stats"),
+    path(
+        "api/puzzle-stats/update/",
+        views.update_puzzle_stats,
+        name="update_puzzle_stats",
+    ),
     path("api/puzzles/daily/", views.get_daily_puzzle, name="daily_puzzle"),
     path("puzzles/", views.puzzles_view, name="puzzles"),
     path("api/puzzles/", views.puzzles_list_api, name="puzzles_list_api"),
