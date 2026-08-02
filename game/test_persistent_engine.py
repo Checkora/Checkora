@@ -225,3 +225,59 @@ class PersistentEngineTest(TestCase):
                 self.assertFalse(os.path.exists(lock_path),
                                  "Stale lock file should be deleted")
                 self.assertEqual(mock_client.call_count, 2)
+
+    def test_restarts_persistent_server_after_send_failure(self):
+        """Test that a broken persistent connection is cleaned and retried."""
+        game = ChessGame()
+        port_path = os.path.join(tempfile.gettempdir(),
+                                 f'checkora_engine_{game.game_id}.port')
+        lock_path = os.path.join(tempfile.gettempdir(),
+                                 f'checkora_engine_{game.game_id}.lock')
+        pid_path = os.path.join(tempfile.gettempdir(),
+                                f'checkora_engine_{game.game_id}.pid')
+        self.temp_files_to_clean.extend([port_path, lock_path, pid_path])
+
+        with open(port_path, 'w') as f:
+            f.write("9999")
+
+        broken_conn = mock.MagicMock()
+        broken_conn.send.side_effect = OSError("broken connection")
+        shutdown_conn = mock.MagicMock()
+        shutdown_conn.recv.return_value = "OK"
+        healthy_conn = mock.MagicMock()
+        healthy_conn.poll.return_value = True
+        healthy_conn.recv.return_value = "STATUS OK"
+
+        def popen_side_effect(*args, **kwargs):
+            if 'persistent_server.py' in str(args[0]):
+                with open(port_path, 'w') as f:
+                    f.write("10000")
+            return mock.MagicMock()
+
+        with mock.patch.object(game, '_resolve_engine_path',
+                               return_value=os.path.join(
+                                   ChessGame.ENGINE_DIR, 'main.py'
+                               )):
+            with mock.patch('subprocess.Popen',
+                            side_effect=popen_side_effect) as mock_popen:
+                with mock.patch('multiprocessing.connection.Client',
+                                side_effect=[
+                                    broken_conn,
+                                    shutdown_conn,
+                                    healthy_conn,
+                                ]) as mock_client:
+                    with mock.patch.object(
+                        game, 'cleanup_engine', wraps=game.cleanup_engine
+                    ) as mock_cleanup:
+                        resp = game._call_engine("STATUS")
+
+        self.assertEqual(resp, "STATUS OK")
+        mock_cleanup.assert_called_once()
+        broken_conn.send.assert_called_once_with("STATUS")
+        healthy_conn.send.assert_called_once_with("STATUS")
+        self.assertEqual(mock_client.call_count, 3)
+        persistent_server_spawns = [
+            call for call in mock_popen.call_args_list
+            if 'persistent_server.py' in str(call)
+        ]
+        self.assertEqual(len(persistent_server_spawns), 1)

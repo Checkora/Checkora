@@ -623,6 +623,19 @@ DP cache is intentionally excluded to save cookie space."""
             except OSError:
                 return None
 
+        def retry_after_broken_connection():
+            if getattr(self, '_engine_retrying_after_failure', False):
+                return None
+            with contextlib.suppress(Exception):
+                conn.close()
+            self.cleanup_engine()
+            self._engine_retrying_after_failure = True
+            try:
+                return self._call_engine(command)
+            finally:
+                with contextlib.suppress(AttributeError):
+                    delattr(self, '_engine_retrying_after_failure')
+
         try:
             conn.send(command)
             timeout_secs = getattr(
@@ -631,12 +644,9 @@ DP cache is intentionally excluded to save cookie space."""
             if conn.poll(timeout_secs):
                 return conn.recv()
 
-            with contextlib.suppress(OSError):
-                conn.close()
-            self.cleanup_engine()
-            return None
+            return retry_after_broken_connection()
         except Exception:
-            return None
+            return retry_after_broken_connection()
         finally:
             try:
                 conn.close()
