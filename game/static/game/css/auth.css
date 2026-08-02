@@ -853,6 +853,19 @@ body.login-page .helptext {
     background: var(--input-bg) !important;
     border-color: var(--accent-gold) !important;
 }
+[data-theme="light"] body.new-cyber-design .auth-home-link {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] body.new-cyber-design .auth-home-link:hover {
+    background: rgba(240, 192, 64, 0.12);
+    border-color: var(--accent-gold);
+    color: var(--text-primary);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+}
 
 body.new-cyber-design .auth-home-link {
     background: rgba(13, 17, 33, 0.9);
