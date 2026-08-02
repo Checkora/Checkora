@@ -871,12 +871,21 @@ def resign_game(request):
     import json
     try:
         data = json.loads(request.body)
-        resigning_player = data.get('resigning_player')
+        requested_resigning_player = data.get('resigning_player')
     except (json.JSONDecodeError, AttributeError, ValueError):
-        resigning_player = None
+        requested_resigning_player = None
 
-    if resigning_player not in ['white', 'black']:
-        resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
+    if (
+        game.mode != 'ai'
+        and requested_resigning_player in ['white', 'black']
+        and requested_resigning_player != game.player_color
+    ):
+        return JsonResponse(
+            {'valid': False, 'message': 'Invalid resigning player.'},
+            status=400
+        )
+
+    resigning_player = game.player_color
 
     winner = 'black' if resigning_player == 'white' else 'white'
     game_status = 'resignation'
@@ -1661,7 +1670,14 @@ def increment_counter(key, timeout):
             cache.delete(lock_key)
 
 
-def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit reached. Please try again shortly."):
+def rate_limit(
+    window_setting,
+    max_setting,
+    prefix,
+    error_message="Rate limit reached. Please try again shortly.",
+    default_window=60,
+    default_max=60
+):
     """
     Reusable rate limit decorator based on cache throttle.
     Limits requests to max_setting within window_setting seconds per user/IP.
@@ -1679,8 +1695,8 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
             ).hexdigest()
             cache_key = f"rate_limit:{prefix}:{key_digest}"
             
-            window_seconds = getattr(settings, window_setting, 60)
-            max_requests = getattr(settings, max_setting, 60)
+            window_seconds = getattr(settings, window_setting, default_window)
+            max_requests = getattr(settings, max_setting, default_max)
             
             current = increment_counter(cache_key, window_seconds)
             
@@ -1699,6 +1715,16 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
+
+
+resign_game = rate_limit(
+    'RESIGN_RATE_WINDOW_SECONDS',
+    'RESIGN_MAX_REQUESTS',
+    'resign',
+    'Too many resign requests. Please try again shortly.',
+    default_window=60,
+    default_max=10
+)(resign_game)
 
 
 def login_view(request):

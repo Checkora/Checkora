@@ -1,12 +1,20 @@
 import json
-from django.test import TestCase, Client
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 from .engine import ChessGame
+from .models import GameResult, PlayerRating
+
+
 class ResignTest(TestCase):
     """Test the /api/resign/ endpoint."""
 
     def setUp(self):
+        cache.clear()
         self.client.get('/play/')
+
+    def tearDown(self):
+        cache.clear()
 
     def test_resign_ends_game_as_white(self):
         """Resigning as white should mark game status as resignation."""
@@ -57,6 +65,75 @@ class ResignTest(TestCase):
         self.client.post('/api/resign/', content_type='application/json')
         state = self.client.get('/api/state/').json()
         self.assertEqual(state['game_status'], 'resignation')
+
+    def test_ai_resign_ignores_client_controlled_resigning_player(self):
+        """AI games should resign the human player's stored color."""
+        user = User.objects.create_user(username='airesign', password='password123')
+        self.client.force_login(user)
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'player_color': 'white',
+            }),
+            content_type='application/json',
+        )
+
+        response = self.client.post(
+            '/api/resign/',
+            data=json.dumps({'resigning_player': 'black'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['winner'], 'black')
+        result = GameResult.objects.get(user=user)
+        self.assertEqual(result.winner, 'black')
+        rating = PlayerRating.objects.get(user=user)
+        self.assertEqual(rating.wins, 0)
+        self.assertEqual(rating.losses, 1)
+
+    def test_pvp_resign_rejects_opponent_color(self):
+        """PvP resign cannot name the opponent as the resigning player."""
+        user = User.objects.create_user(username='pvpresign', password='password123')
+        self.client.force_login(user)
+        self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'pvp',
+                'player_color': 'white',
+            }),
+            content_type='application/json',
+        )
+
+        response = self.client.post(
+            '/api/resign/',
+            data=json.dumps({'resigning_player': 'black'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(GameResult.objects.filter(user=user).count(), 0)
+
+    @override_settings(RESIGN_RATE_WINDOW_SECONDS=60, RESIGN_MAX_REQUESTS=1)
+    def test_resign_rate_limit_rejects_excess_requests(self):
+        """Excess resign requests from the same user should return 429."""
+        user = User.objects.create_user(username='resignlimit', password='password123')
+        self.client.force_login(user)
+
+        first = self.client.post(
+            '/api/resign/',
+            content_type='application/json',
+            HTTP_ACCEPT='application/json',
+        )
+        second = self.client.post(
+            '/api/resign/',
+            content_type='application/json',
+            HTTP_ACCEPT='application/json',
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
 
 
 class DrawAIModeTest(TestCase):
