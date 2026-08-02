@@ -3528,6 +3528,7 @@ class ChessPuzzleDashboardTests(TestCase):
     def setUp(self):
         super().setUp()
         from game.models import ChessPuzzle
+        self.ChessPuzzle = ChessPuzzle
         ChessPuzzle.objects.all().delete()
 
         self.puzzle_easy = ChessPuzzle.objects.create(
@@ -3580,6 +3581,51 @@ class ChessPuzzleDashboardTests(TestCase):
             self.assertIn('rating', item)
             self.assertIn('tags', item)
 
+    def test_puzzles_list_api_pagination_limits_default_page_size_and_metadata(self):
+        """The listing API limits the default page and returns metadata."""
+        for index in range(57):
+            self.ChessPuzzle.objects.create(
+                title=f"Bulk Puzzle {index}",
+                fen="8/8/8/8/8/8/8/8 w - - 0 1",
+                solution=["e2e4"],
+                difficulty="easy",
+                rating=900 + index,
+                tags="Tactics"
+            )
+
+        response = self.client.get(reverse('puzzles_list_api'))
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data['puzzles']), 50)
+        self.assertEqual(data['page'], 1)
+        self.assertEqual(data['per_page'], 50)
+        self.assertEqual(data['total_pages'], 2)
+        self.assertEqual(data['total_count'], 60)
+        self.assertTrue(data['has_next'])
+        self.assertFalse(data['has_previous'])
+        self.assertNotIn('solution', data['puzzles'][0])
+
+    def test_puzzles_list_api_caps_per_page_at_50(self):
+        """The listing API caps caller-supplied page sizes at 50."""
+        for index in range(57):
+            self.ChessPuzzle.objects.create(
+                title=f"Capped Puzzle {index}",
+                fen="8/8/8/8/8/8/8/8 w - - 0 1",
+                solution=["e2e4"],
+                difficulty="medium",
+                rating=1000 + index,
+                tags="Fork"
+            )
+
+        response = self.client.get(reverse('puzzles_list_api'), {'per_page': 100})
+        data = response.json()
+
+        self.assertEqual(len(data['puzzles']), 50)
+        self.assertEqual(data['per_page'], 50)
+        self.assertEqual(data['total_count'], 60)
+        self.assertEqual(data['total_pages'], 2)
+
     def test_puzzles_list_api_difficulty_filtering(self):
         """The listing API supports filtering by difficulty."""
         url = reverse('puzzles_list_api')
@@ -3588,12 +3634,14 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'difficulty': 'easy'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['total_count'], 1)
         self.assertEqual(data['puzzles'][0]['title'], "Easy Mate in One")
 
         # Filter hard
         response = self.client.get(url, {'difficulty': 'hard'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['total_count'], 1)
         self.assertEqual(data['puzzles'][0]['title'], "Hard Endgame Study")
 
     def test_puzzles_list_api_search_filtering(self):
@@ -3603,6 +3651,7 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'search': 'Tactics'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['total_count'], 1)
         self.assertEqual(data['puzzles'][0]['title'], "Medium Tactics Puzzle")
 
     def test_puzzles_list_api_tag_filtering(self):
@@ -3613,6 +3662,7 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'tag': 'Endgame'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 2)
+        self.assertEqual(data['total_count'], 2)
         titles = [p['title'] for p in data['puzzles']]
         self.assertIn("Easy Mate in One", titles)
         self.assertIn("Hard Endgame Study", titles)
@@ -3621,6 +3671,7 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'tag': 'Fork'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['total_count'], 1)
         self.assertEqual(data['puzzles'][0]['title'], "Medium Tactics Puzzle")
 
     def test_puzzles_list_api_rating_filtering(self):
@@ -3631,6 +3682,7 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'min_rating': '1200'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 2)
+        self.assertEqual(data['total_count'], 2)
         titles = [p['title'] for p in data['puzzles']]
         self.assertIn("Medium Tactics Puzzle", titles)
         self.assertIn("Hard Endgame Study", titles)
@@ -3639,6 +3691,7 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'max_rating': '1600'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 2)
+        self.assertEqual(data['total_count'], 2)
         titles = [p['title'] for p in data['puzzles']]
         self.assertIn("Easy Mate in One", titles)
         self.assertIn("Medium Tactics Puzzle", titles)
@@ -3647,6 +3700,7 @@ class ChessPuzzleDashboardTests(TestCase):
         response = self.client.get(url, {'min_rating': '1200', 'max_rating': '1600'})
         data = response.json()
         self.assertEqual(len(data['puzzles']), 1)
+        self.assertEqual(data['total_count'], 1)
         self.assertEqual(data['puzzles'][0]['title'], "Medium Tactics Puzzle")
 
     def test_puzzles_list_api_pagination(self):

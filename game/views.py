@@ -2232,7 +2232,7 @@ def puzzles_list_api(request):
 
     # Pagination
     page = request.GET.get('page', 1)
-    per_page = request.GET.get('per_page', 9)
+    per_page = request.GET.get('per_page', 50)
 
     try:
         page = max(1, int(page))
@@ -2240,15 +2240,15 @@ def puzzles_list_api(request):
         page = 1
 
     try:
-        per_page = max(1, min(int(per_page), 100))
+        per_page = max(1, min(int(per_page), 50))
     except ValueError:
-        per_page = 9
+        per_page = 50
 
     paginator = Paginator(puzzles, per_page)
     try:
         puzzles_page = paginator.page(page)
     except EmptyPage:
-        puzzles_page = []
+        puzzles_page = paginator.page(paginator.num_pages)
 
     puzzles_data = []
     for puzzle in puzzles_page:
@@ -2264,11 +2264,12 @@ def puzzles_list_api(request):
 
     return JsonResponse({
         "puzzles": puzzles_data,
-        "page": page,
+        "page": puzzles_page.number,
+        "per_page": paginator.per_page,
         "total_pages": paginator.num_pages,
         "total_count": paginator.count,
-        "has_next": puzzles_page.has_next() if hasattr(puzzles_page, 'has_next') else False,
-        "has_previous": puzzles_page.has_previous() if hasattr(puzzles_page, 'has_previous') else False,
+        "has_next": puzzles_page.has_next(),
+        "has_previous": puzzles_page.has_previous(),
     }, safe=False)
 
 

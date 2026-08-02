@@ -571,6 +571,7 @@
         let currentMinRating = '';
         let currentMaxRating = '';
         let currentPage = 1;
+        const pageSize = 9;
         
         let searchDebounceTimeout;
         let ratingDebounceTimeout;
@@ -593,7 +594,7 @@
                 if (currentMinRating) params.append('min_rating', currentMinRating);
                 if (currentMaxRating) params.append('max_rating', currentMaxRating);
                 params.append('page', currentPage);
-                params.append('per_page', 9);
+                params.append('per_page', pageSize);
 
                 const response = await fetch(`/api/puzzles/?${params.toString()}`);
                 if (!response.ok) throw new Error('Network response was not ok');
