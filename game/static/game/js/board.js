@@ -1851,7 +1851,7 @@
     function markPlayable() {
         boardEl.querySelectorAll('.piece').forEach(img => {
             const el = img.closest('.square');
-            const r = parseInt(el.dataset.r);
+            const r = parseInt(el.dataset.r, 10);
             const c = parseInt(el.dataset.c);
             const p = board[r][c];
             const isPlayable = p && (

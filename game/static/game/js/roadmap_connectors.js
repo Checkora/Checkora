@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         function drawConnectors() {
             // Clear existing paths
-            svg.innerHTML = "";
+            svg.textContent = "";
 
             const nodes = document.querySelectorAll(".roadmap-node");
             if (nodes.length < 2) return;

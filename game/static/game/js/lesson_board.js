@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function buildBoard() {
 
-        board.innerHTML = "";
+        board.textContent = "";
 
         const files =
             ["a", "b", "c", "d", "e", "f", "g", "h"];

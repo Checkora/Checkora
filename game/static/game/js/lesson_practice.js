@@ -9,7 +9,7 @@ function getKnightMoves(square) {
         square.charCodeAt(0);
 
     const rank =
-        parseInt(square[1]);
+        parseInt(square[1], 10);
 
     const offsets = [
         [-2,-1],
