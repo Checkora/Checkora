@@ -2964,7 +2964,7 @@ function updateStepperUI() {
 
         openingDisplay.textContent = openingName
             ? `Opening: ${openingName}`
-            : "Opening: —";
+            : "Opening: Custom Position";
     }
 
     function updateMoves(history) {
