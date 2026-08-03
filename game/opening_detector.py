@@ -11,26 +11,24 @@ class OpeningDetector:
             self.openings = json.load(f)
 
     def detect(self, move_history):
-        moves = []
-
-        for move in move_history:
-            moves.append(move["notation"])
-        sequence = " ".join(moves)
+        move_tokens = [move["notation"] for move in move_history]
 
         best_match = None
         best_length = 0
 
         for opening_moves, opening_name in self.openings.items():
+            opening_tokens = opening_moves.split()
 
-            if sequence.startswith(opening_moves):
+            if move_tokens[:len(opening_tokens)] != opening_tokens:
+                continue
 
-                length = len(opening_moves.split())
+            length = len(opening_tokens)
 
-                if length > best_length:
-                    best_length = length
-                    best_match = {
-                        "name": opening_name,
-                        "moves": opening_moves
-                    }
+            if length > best_length:
+                best_length = length
+                best_match = {
+                    "name": opening_name,
+                    "moves": opening_moves,
+                }
 
         return best_match

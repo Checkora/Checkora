@@ -738,6 +738,8 @@ def ai_move(request):
             'white_time': game.white_time,
             'black_time': game.black_time,
             'move_history': game.move_history,
+            'opening_name': getattr(game, 'opening_name', None),
+            'opening_moves': getattr(game, 'opening_moves', None),
             'captured_pieces': game.captured,
             'message': '',
             'version': 0
@@ -761,6 +763,15 @@ def ai_move(request):
         best['from_row'], best['from_col'],
         best['to_row'], best['to_col'],
     )
+
+    opening = opening_detector.detect(game.move_history)
+
+    if opening:
+        game.opening_name = opening["name"]
+        game.opening_moves = opening["moves"]
+    else:
+        game.opening_name = None
+        game.opening_moves = None
 
     if success:
         try:
@@ -807,6 +818,8 @@ def ai_move(request):
         'time_limit': getattr(game, 'time_limit', 600),
         'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
+        'opening_name': opening["name"] if opening else None,
+        'opening_moves': opening["moves"] if opening else None,
         'captured_pieces': game.captured,
         'ai_move': best,
         'game_status': game_status,
