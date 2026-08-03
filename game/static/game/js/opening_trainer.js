@@ -47,6 +47,8 @@ let selectedSquare = null;
 let lastMoveHighlight = null;
 let opponentReplyTimeout = null;
 let hintHighlight = null;
+let correctMoves = 0;
+let incorrectMoves = 0;
 const hintButton = document.getElementById("get-hint-btn");
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const activeTouches = {};
@@ -77,7 +79,8 @@ async function persistOpeningProgress() {
             body: JSON.stringify({
                 opening_name: OPENING_NAME,
                 completed: true,
-                accuracy: 100,
+                correct_move: correctMoves,
+                incorrect_move: incorrectMoves,
             }),
         });
 
@@ -307,6 +310,7 @@ function makeUserMove(fromRow, fromCol, toRow, toCol) {
         applyMoveOnBoard(fromRow, fromCol, toRow, toCol);
         currentMove++;
         viewingMoveIndex = currentMove;
+        correctMoves++;
         feedback.innerText = "✅ Correct move!";
         updateProgress();
         highlightLastMove(fromRow, fromCol, toRow, toCol);
@@ -326,6 +330,7 @@ function makeUserMove(fromRow, fromCol, toRow, toCol) {
         }, 800);
 
     } else {
+        incorrectMoves++;
         feedback.innerText = `❌ Incorrect move. Expected: ${expectedMove}`;
     }
 }
@@ -633,6 +638,8 @@ function resetGame() {
     selectedSquare = null;
     lastMoveHighlight = null;
     hintHighlight = null; // Clear hint highlight state
+    correctMoves = 0;
+    incorrectMoves = 0;
     if (opponentReplyTimeout) {
         clearTimeout(opponentReplyTimeout);
         opponentReplyTimeout = null;
@@ -700,6 +707,7 @@ function validateMove(move) {
         }
         currentMove++;
         viewingMoveIndex = currentMove;
+        correctMoves++;
         feedback.innerText = "✅ Correct move!";
         updateProgress();
         moveInput.value = "";
@@ -719,6 +727,7 @@ function validateMove(move) {
         return true;
     }
 
+    incorrectMoves++;
     feedback.innerText = `❌ Incorrect move. Expected: ${expectedMove}`;
     return false;
 }
