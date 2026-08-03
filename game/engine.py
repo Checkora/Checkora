@@ -105,6 +105,8 @@ class ChessGame:
         self._game_status = 'active'
         self.draw_reason = None
         self.threefold_warning = False
+        self.opening_name = None
+        self.opening_moves = None
         self.initial_fen = None
 
     def serialize_board(self):
@@ -207,6 +209,8 @@ DP cache is intentionally excluded to save cookie space."""
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
+            'opening_name': getattr(self, 'opening_name', None),
+            'opening_moves': getattr(self, 'opening_moves', None),
             'initial_fullmove': getattr(self, 'initial_fullmove', 1),
             'initial_turn_was_black': getattr(
                 self, 'initial_turn_was_black', False
@@ -282,6 +286,8 @@ DP cache is intentionally excluded to save cookie space."""
         game._game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
         game.threefold_warning = data.get('threefold_warning', False)
+        game.opening_name = data.get('opening_name')
+        game.opening_moves = data.get('opening_moves')
         game.initial_fullmove = data.get('initial_fullmove', 1)
         game.initial_turn_was_black = data.get('initial_turn_was_black', False)
         game.initial_fen = data.get('initial_fen', None)
