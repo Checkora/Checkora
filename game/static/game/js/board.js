@@ -1622,6 +1622,7 @@
 
         updatePlayerNames(data);
         updateTurn();
+        updateOpeningDisplay(data.opening_name);
         updateMoves(data.move_history);
         updateCaptured(data.captured_pieces);
 
@@ -2392,6 +2393,7 @@
                 hints = [];
                 updatePlayerNames(data);
                 updateTurn();
+                updateOpeningDisplay(data.opening_name);
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 syncPieces();
@@ -2559,6 +2561,7 @@
                 hints = [];
                 updatePlayerNames(data);
                 updateTurn();
+                updateOpeningDisplay(data.opening_name);
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 syncPieces();
@@ -2953,6 +2956,15 @@ function updateStepperUI() {
 
         wCapEl.classList.toggle('active', turn === 'white');
         bCapEl.classList.toggle('active', turn === 'black');
+    }
+
+    function updateOpeningDisplay(openingName) {
+        const openingDisplay = document.getElementById("openingDisplay");
+        if (!openingDisplay) return;
+
+        openingDisplay.textContent = openingName
+            ? `Opening: ${openingName}`
+            : "Opening: —";
     }
 
     function updateMoves(history) {

@@ -1252,6 +1252,21 @@ body {
 /* ============================================================
    Move History
    ============================================================ */
+.opening-display {
+    display: block;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+    min-height: 32px;
+    line-height: 1.4;
+}
+
 /* ============================================================
    Replay Controls
    ============================================================ */
