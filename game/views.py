@@ -115,6 +115,17 @@ VALID_OPENINGS = get_valid_openings()
 
 opening_detector = OpeningDetector()
 
+
+def update_opening_metadata(game):
+    opening = opening_detector.detect(game.move_history)
+
+    if opening:
+        game.opening_name = opening["name"]
+        game.opening_moves = opening["moves"]
+    else:
+        game.opening_name = None
+        game.opening_moves = None
+
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
@@ -201,13 +212,7 @@ def make_move(request):
     )
 
     if success:
-        opening = opening_detector.detect(game.move_history)
-        if opening:
-            game.opening_name = opening["name"]
-            game.opening_moves = opening["moves"]
-        else:
-            game.opening_name = None
-            game.opening_moves = None
+        update_opening_metadata(game)
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -765,14 +770,7 @@ def ai_move(request):
     )
 
     if success:
-        opening = opening_detector.detect(game.move_history)
-
-        if opening:
-            game.opening_name = opening["name"]
-            game.opening_moves = opening["moves"]
-        else:
-            game.opening_name = None
-            game.opening_moves = None
+        update_opening_metadata(game)
         try:
             final_store = engine.SessionStore(session_key=request.session.session_key)
             final_game = final_store.get('game', {})
