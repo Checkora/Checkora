@@ -199,15 +199,15 @@ def make_move(request):
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
     )
-    opening = opening_detector.detect(game.move_history)
-    if opening:
-        game.opening_name = opening["name"]
-        game.opening_moves = opening["moves"]
-    else:
-        game.opening_name = None
-        game.opening_moves = None
 
     if success:
+        opening = opening_detector.detect(game.move_history)
+        if opening:
+            game.opening_name = opening["name"]
+            game.opening_moves = opening["moves"]
+        else:
+            game.opening_name = None
+            game.opening_moves = None
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -241,8 +241,8 @@ def make_move(request):
         'time_limit': getattr(game, 'time_limit', 600),
         'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
-        'opening_name': opening["name"] if opening else None,
-        'opening_moves': opening["moves"] if opening else None,
+        'opening_name': getattr(game, 'opening_name', None),
+        'opening_moves': getattr(game, 'opening_moves', None),
         'captured_pieces': game.captured,
         'game_status': game_status,
         'draw_reason': game.draw_reason,
@@ -764,16 +764,15 @@ def ai_move(request):
         best['to_row'], best['to_col'],
     )
 
-    opening = opening_detector.detect(game.move_history)
-
-    if opening:
-        game.opening_name = opening["name"]
-        game.opening_moves = opening["moves"]
-    else:
-        game.opening_name = None
-        game.opening_moves = None
-
     if success:
+        opening = opening_detector.detect(game.move_history)
+
+        if opening:
+            game.opening_name = opening["name"]
+            game.opening_moves = opening["moves"]
+        else:
+            game.opening_name = None
+            game.opening_moves = None
         try:
             final_store = engine.SessionStore(session_key=request.session.session_key)
             final_game = final_store.get('game', {})
@@ -818,8 +817,8 @@ def ai_move(request):
         'time_limit': getattr(game, 'time_limit', 600),
         'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
-        'opening_name': opening["name"] if opening else None,
-        'opening_moves': opening["moves"] if opening else None,
+        'opening_name': getattr(game, 'opening_name', None),
+        'opening_moves': getattr(game, 'opening_moves', None),
         'captured_pieces': game.captured,
         'ai_move': best,
         'game_status': game_status,
