@@ -11,6 +11,7 @@ import base64
 import ipaddress
 import secrets
 import secrets as secrets_module
+from .opening_detector import OpeningDetector
 from game.views_history import save_game_record
 from django.http import HttpResponseServerError
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -112,6 +113,18 @@ from .analysis import detect_opening
 from .analysis import build_summary
 VALID_OPENINGS = get_valid_openings()
 
+opening_detector = OpeningDetector()
+
+
+def update_opening_metadata(game):
+    opening = opening_detector.detect(game.move_history)
+
+    if opening:
+        game.opening_name = opening["name"]
+        game.opening_moves = opening["moves"]
+    else:
+        game.opening_name = None
+        game.opening_moves = None
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
@@ -199,6 +212,7 @@ def make_move(request):
     )
 
     if success:
+        update_opening_metadata(game)
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -232,6 +246,8 @@ def make_move(request):
         'time_limit': getattr(game, 'time_limit', 600),
         'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
+        'opening_name': getattr(game, 'opening_name', None),
+        'opening_moves': getattr(game, 'opening_moves', None),
         'captured_pieces': game.captured,
         'game_status': game_status,
         'draw_reason': game.draw_reason,
@@ -411,7 +427,6 @@ def resume_game(request):
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
     res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
-
     return JsonResponse({
         'valid': True,
         'board': game.board,
@@ -503,6 +518,8 @@ def get_state(request):
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
         'threefold_warning': game.threefold_warning,
+        'opening_name': getattr(game, 'opening_name', None),
+        'opening_moves': getattr(game, 'opening_moves', None),
     }
 
     if request.user.is_authenticated:
@@ -726,6 +743,8 @@ def ai_move(request):
             'white_time': game.white_time,
             'black_time': game.black_time,
             'move_history': game.move_history,
+            'opening_name': getattr(game, 'opening_name', None),
+            'opening_moves': getattr(game, 'opening_moves', None),
             'captured_pieces': game.captured,
             'message': '',
             'version': 0
@@ -751,6 +770,7 @@ def ai_move(request):
     )
 
     if success:
+        update_opening_metadata(game)
         try:
             final_store = engine.SessionStore(session_key=request.session.session_key)
             final_game = final_store.get('game', {})
@@ -795,6 +815,8 @@ def ai_move(request):
         'time_limit': getattr(game, 'time_limit', 600),
         'increment': getattr(game, 'increment', 0),
         'move_history': game.move_history,
+        'opening_name': getattr(game, 'opening_name', None),
+        'opening_moves': getattr(game, 'opening_moves', None),
         'captured_pieces': game.captured,
         'ai_move': best,
         'game_status': game_status,
