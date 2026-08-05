@@ -18,7 +18,7 @@
 .forum-title {
     font-size: clamp(2rem, 4vw, 2.8rem);
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-title);
     margin-bottom: 0.75rem;
 }
 
@@ -71,7 +71,7 @@
 .forum-card-title {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-title);
     margin-bottom: 0.35rem;
 }
 
@@ -133,8 +133,8 @@
     padding: 0 2rem;
     min-height: 80px;
 
-    background: rgba(10,10,20,0.95);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--border-color);
 
     box-sizing: border-box;
 }
@@ -250,8 +250,8 @@
 }
 
 .forum-discussion-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 1.75rem;
@@ -267,7 +267,7 @@
 }
 
 .forum-meta-label {
-    color: #8f96b0;
+    color: var(--text-secondary);
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -279,11 +279,11 @@
 }
 
 .forum-date {
-    color: #c2c7da;
+    color: var(--text-secondary);;
 }
 
 .forum-detail-content {
-    color: #d7dcec;
+    color: var(--text-primary);
     font-size: 1rem;
     line-height: 1.7;
 }
@@ -291,13 +291,13 @@
 .forum-replies-title {
     font-size: 1.3rem;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-title);
     margin-bottom: 1.25rem;
 }
 
 .forum-reply-card {
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 1rem 1.25rem;
     margin-bottom: 0.9rem;
@@ -338,7 +338,7 @@
 }
 
 .forum-form-group label {
-    color: #ffffff;
+    color: var(--text-title);
     font-weight: 600;
     font-size: 0.9rem;
 }
@@ -346,11 +346,11 @@
 .forum-new-form input[type="text"],
 .forum-new-form textarea,
 .forum-new-form select {
-    background: #1a1d30;
-    border: 1px solid #2b2f4a;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--input-text);
     border-radius: 8px;
     padding: 0.85rem 1rem;
-    color: #ffffff;
     font-family: inherit;
     font-size: 1rem;
     resize: vertical;
@@ -388,7 +388,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: #131522;
+    background: var(--nav-bg);
     border-top: 1px solid rgba(240, 192, 64, 0.2);
     padding: 1rem 1.5rem;
     display: flex;
@@ -402,11 +402,11 @@
     flex: 1;
     max-width: 1100px;
     margin: 0 auto;
-    background: #1a1d30;
-    border: 1px solid #2b2f4a;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--input-text);
     border-radius: 8px;
     padding: 0.75rem 1rem;
-    color: #ffffff;
     font-family: inherit;
     font-size: 1rem;
     resize: none;
@@ -431,7 +431,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: #131522;
+    background: var(--nav-bg);
     border-top: 1px solid rgba(240, 192, 64, 0.2);
     text-align: center;
     color: var(--text-secondary);
