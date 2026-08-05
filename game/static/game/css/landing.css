@@ -414,8 +414,7 @@ body {
 .cursor {
     position: fixed;
     pointer-events: none;
-
-    z-index: 9990;
+    z-index: 100000;
     width: 18px;
     height: 18px;
     border-radius: 50%;
