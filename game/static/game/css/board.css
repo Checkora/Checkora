@@ -2052,10 +2052,10 @@ body {
 
 .shortcuts-modal.active {
     display: flex;
-    animation: shortcutsModalFadeIn 0.3s ease-out forwards;
+    animation: shortcuts-modal-fade-in 0.3s ease-out forwards;
 }
 
-@keyframes shortcutsModalFadeIn {
+@keyframes shortcuts-modal-fade-in {
     from {
         opacity: 0;
         transform: scale(0.95);
@@ -2079,7 +2079,7 @@ body {
 }
 
 .shortcuts-modal-title {
-    font-family: 'Cinzel', serif;
+    font-family: Cinzel, serif;
     font-size: 1.6rem;
     color: #f0c040;
     text-align: center;
@@ -2102,7 +2102,7 @@ body {
 }
 
 .shortcuts-section-title {
-    font-family: 'Outfit', sans-serif;
+    font-family: Outfit, sans-serif;
     font-size: 0.95rem;
     font-weight: 600;
     color: #f0c040;
@@ -2127,7 +2127,7 @@ body {
 }
 
 .shortcut-desc {
-    font-family: 'Outfit', sans-serif;
+    font-family: Outfit, sans-serif;
     font-size: 0.9rem;
     color: #e2e8f0;
 }
