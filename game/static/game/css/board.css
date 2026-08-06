@@ -2034,6 +2034,128 @@ body {
     justify-content: flex-end;
     margin-top: 24px;
 }
+
+/* ================= KEYBOARD SHORTCUTS MODAL ================= */
+
+.shortcuts-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 99999;
+    padding: 24px;
+}
+
+.shortcuts-modal.active {
+    display: flex;
+    animation: shortcutsModalFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes shortcutsModalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.shortcuts-dialog {
+    position: relative;
+    width: min(540px, 92vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    background: rgba(16, 19, 34, 0.92);
+    border: 1px solid rgba(240, 192, 64, 0.35);
+    border-radius: 16px;
+    padding: 28px 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(240, 192, 64, 0.1);
+}
+
+.shortcuts-modal-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    color: #f0c040;
+    text-align: center;
+    margin-bottom: 24px;
+    padding-right: 20px;
+    letter-spacing: 0.5px;
+}
+
+.shortcuts-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.shortcuts-section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px 18px;
+}
+
+.shortcuts-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f0c040;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(240, 192, 64, 0.2);
+}
+
+.shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    gap: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.shortcut-row:last-child {
+    border-bottom: none;
+}
+
+.shortcut-desc {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+}
+
+.shortcut-keys {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+kbd {
+    display: inline-block;
+    padding: 4px 8px;
+    font-family: 'JetBrains Mono', monospace, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #f0c040;
+    background: #141728;
+    border: 1px solid rgba(240, 192, 64, 0.4);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    min-width: 24px;
+    text-align: center;
+}
+
 /* ================= PROMOTION MODAL ================= */
 
 .promo-overlay {
