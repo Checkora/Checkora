@@ -5831,6 +5831,33 @@ async function handleSanMove() {
                 closeShortcutsModal();
             }
         });
+
+        // Trap keyboard focus inside shortcutsModal while active
+        shortcutsModal.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab') return;
+            const focusable = Array.from(
+                shortcutsModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+            ).filter(el => !el.disabled && el.offsetWidth > 0 && el.offsetHeight > 0);
+
+            if (!focusable.length) {
+                e.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === first || !shortcutsModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last || !shortcutsModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
     }
 
     // Theme Switcher
