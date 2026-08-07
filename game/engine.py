@@ -446,11 +446,23 @@ DP cache is intentionally excluded to save cookie space."""
     #  C++ engine communication
     # ------------------------------------------------------------------
 
+    # Path to the resolved engine binary, cached for the lifetime of this
+    # class to avoid repeated filesystem walks across moves.
+    _resolved_engine_path = None
+
     @classmethod
     def _resolve_engine_path(cls):
-        """Return the first available engine entrypoint for this platform."""
+        """Return the first available engine entrypoint for this platform.
+
+        The result is cached on the class so repeated calls during a single
+        game (each move triggers multiple _call_engine invocations) do not
+        re-scan the filesystem on every call.
+        """
+        if cls._resolved_engine_path is not None and os.path.exists(cls._resolved_engine_path):
+            return cls._resolved_engine_path
         for path in cls.ENGINE_CANDIDATES:
             if os.path.exists(path):
+                cls._resolved_engine_path = path
                 return path
         return None
 
