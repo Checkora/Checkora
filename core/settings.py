@@ -323,3 +323,14 @@ if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
     )
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+# Rate limiting configuration for API endpoints
+# Used by ai_move, analyze_game, and other compute-intensive endpoints.
+AI_MOVE_RATE_WINDOW_SECONDS = int(os.environ.get('AI_MOVE_RATE_WINDOW_SECONDS', '60'))
+AI_MOVE_IP_MAX_REQUESTS = int(os.environ.get('AI_MOVE_IP_MAX_REQUESTS', '240'))
+AI_MOVE_USER_MAX_REQUESTS = int(os.environ.get('AI_MOVE_USER_MAX_REQUESTS', '120'))
+
+# Analysis endpoint rate limits
+ANALYSIS_RATE_WINDOW_SECONDS = int(os.environ.get('ANALYSIS_RATE_WINDOW_SECONDS', '300'))
+ANALYSIS_IP_MAX_REQUESTS = int(os.environ.get('ANALYSIS_IP_MAX_REQUESTS', '20'))
+ANALYSIS_USER_MAX_REQUESTS = int(os.environ.get('ANALYSIS_USER_MAX_REQUESTS', '10'))
