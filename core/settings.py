@@ -323,3 +323,9 @@ if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
     )
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+# Engine subprocess timeout (seconds) - hard kill if engine hangs
+ENGINE_SUBPROCESS_TIMEOUT = int(os.environ.get('ENGINE_SUBPROCESS_TIMEOUT', '15'))
+
+# Maximum move_history entries per game to prevent session cookie overflow
+MAX_MOVE_HISTORY_LENGTH = int(os.environ.get('MAX_MOVE_HISTORY_LENGTH', '300'))
