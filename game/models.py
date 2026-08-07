@@ -50,6 +50,9 @@ class GameResult(models.Model):
 
     class Meta:
         ordering = ["-played_at"]
+        indexes = [
+            models.Index(fields=["played_at"]),
+        ]
 
     def __str__(self):
         return f"{self.mode} | {self.winner} | {self.end_reason}"
