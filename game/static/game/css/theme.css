@@ -527,8 +527,8 @@
     }
 
     .nav-links {
-        display: none;
-    }
+    display: flex;
+}
 
     .nav-toggle {
         display: none;
