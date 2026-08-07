@@ -272,3 +272,23 @@ class NavigationTest(BaseE2ETest):
         )
         self.assertTrue(error_div.is_displayed())
         log_ok(f"Validation error shown: '{error_div.text}'")
+
+    # ───────────────────────────────────────────────────────────────
+    # Test 12: Custom 404 Page
+    # ───────────────────────────────────────────────────────────────
+    def test_12_custom_404_page(self):
+        """Navigating to a nonexistent route renders the custom 404 page."""
+        log_info("Testing custom 404 page...")
+        self.driver.get(self.live_server_url + '/nonexistent-page/')
+
+        self.wait.until(
+            EC.presence_of_element_located((By.TAG_NAME, 'body')),
+            message="404 page did not load"
+        )
+
+        body_text = self.driver.find_element(By.TAG_NAME, 'body').text.lower()
+        self.assertTrue(
+            '404' in body_text or 'not found' in body_text or 'page not found' in body_text,
+            "Custom 404 page does not display a '404' or 'not found' message"
+        )
+        log_ok("Custom 404 page renders correctly")
