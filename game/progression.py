@@ -1,4 +1,5 @@
 from .models import UserProgress
+from django.db.models import F
 
 LEVEL_THRESHOLDS = {
     1: 0,
@@ -32,16 +33,19 @@ def award_xp(user, amount: int) -> UserProgress:
         raise ValueError(
             f"amount must be positive, got {amount}"
         )
-        
-    progress, _ = UserProgress.objects.get_or_create(
-        user=user
+
+    # Use F() expressions for an atomic increment to avoid lost updates
+    # when concurrent requests award XP to the same user.
+    UserProgress.objects.get_or_create(user=user)
+    UserProgress.objects.filter(user=user).update(
+        xp=F("xp") + amount,
     )
 
-    progress.xp += amount
-    progress.level = calculate_level(
-        progress.xp
-    )
-    
-    progress.save()
+    # Re-fetch to compute level from the now-updated xp value.
+    progress = UserProgress.objects.get(user=user)
+    new_level = calculate_level(progress.xp)
+    if new_level != progress.level:
+        progress.level = new_level
+        progress.save(update_fields=["level"])
 
     return progress
