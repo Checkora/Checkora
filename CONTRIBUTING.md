@@ -337,7 +337,7 @@ Violations can be reported to the project maintainers.
 ## ❓ Questions?
 
 - Open an **issue** for project-related questions.
-- For GSSoC-specific questions, join our Discord community: [https://discord.gg/WfrpMuNZn](https://discord.gg/WfrpMuNZn)
+- For GSSoC-specific questions, join our Discord community: [https://discord.gg/DvW3xVXw8g](https://discord.gg/DvW3xVXw8g)
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>
