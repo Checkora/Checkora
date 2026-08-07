@@ -8,6 +8,8 @@
     flex-direction: column;
     gap: 12px;
     pointer-events: none;
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
 }
 
 /* Individual Toast */
@@ -64,6 +66,18 @@
 @keyframes toast-out {
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(120%); opacity: 0; }
+}
+
+/* Reduced motion: disable animations for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        animation: none;
+        transition: opacity 0.2s ease;
+    }
+    .toast.hiding {
+        animation: none;
+        opacity: 0;
+    }
 }
 
 @media (max-width: 480px) {

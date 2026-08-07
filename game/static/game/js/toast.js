@@ -2,10 +2,6 @@
  * Checkora Toast System
  * Replaces default alerts with modern, floating toast notifications.
  */
-console.log("showToast called", {
-    message,
-    key
-});
 (function() {
     'use strict';
 
@@ -16,6 +12,9 @@ console.log("showToast called", {
         if (!container) {
             container = document.createElement('div');
             container.id = 'toast-container';
+            container.setAttribute('role', 'status');
+            container.setAttribute('aria-live', 'polite');
+            container.setAttribute('aria-label', 'Notifications');
             document.body.appendChild(container);
         }
         return container;
@@ -93,13 +92,18 @@ console.log("showToast called", {
     toast.addEventListener(
         "animationend",
         () => {
-            const key = toast.dataset.toastKey;
-
-
             toast.remove();
         },
         { once: true }
     );
+
+    // Fallback: if animationend never fires (e.g. prefers-reduced-motion),
+    // remove the toast after a short delay.
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 500);
 }
 
     // Override window.alert
