@@ -5411,6 +5411,12 @@ async function handleSanMove() {
         const tag = document.activeElement?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+        if (e.key === '?') {
+            e.preventDefault();
+            toggleShortcutsModal();
+            return;
+        }
+
         if (replayMode) {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
@@ -5443,7 +5449,8 @@ async function handleSanMove() {
             drawOverlay?.classList.contains('active') ||
             gameOverOverlay?.classList.contains('active') ||
             welcomeOverlay?.classList.contains('active') ||
-            leaveConfirmOverlay?.classList.contains('active');
+            leaveConfirmOverlay?.classList.contains('active') ||
+            shortcutsModal?.classList.contains('active');
 
         // Allow Escape to close overlays or mobile panel
         if (e.key === 'Escape') {
@@ -5461,7 +5468,10 @@ async function handleSanMove() {
             return;
         }
 
-        if (key === 'f' && flipBtn) {
+        if ((key === 'm' || e.key === '/') && sanMoveInput) {
+            e.preventDefault();
+            sanMoveInput.focus();
+        } else if (key === 'f' && flipBtn) {
             e.preventDefault();
             flipBtn.click();
         } else if (key === 'r' && resignBtn) {
@@ -5490,6 +5500,10 @@ async function handleSanMove() {
 
         } else if (key === 'escape') {
             e.preventDefault();
+
+            if (shortcutsModal?.classList.contains('active')) {
+                closeShortcutsModal();
+            }
 
             if (shareModal?.style.display === 'flex') {
                 shareModal.style.display = 'none';
@@ -5767,6 +5781,83 @@ async function handleSanMove() {
                 }
             });
         }
+    }
+
+    // ========== Keyboard Shortcuts Modal Logic ==========
+    const shortcutsModal = document.getElementById('shortcutsModal');
+    const shortcutsBtn = document.getElementById('shortcutsBtn');
+    const closeShortcutsModalBtn = document.getElementById('closeShortcutsModalBtn');
+    const saveShortcutsModalBtn = document.getElementById('saveShortcutsModalBtn');
+    let shortcutsModalFocusReturn = null;
+
+    function openShortcutsModal() {
+        if (!shortcutsModal) return;
+        shortcutsModalFocusReturn = document.activeElement;
+        shortcutsModal.classList.add('active');
+        shortcutsModal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => {
+            if (closeShortcutsModalBtn) {
+                closeShortcutsModalBtn.focus();
+            }
+        }, 50);
+    }
+
+    function closeShortcutsModal() {
+        if (!shortcutsModal) return;
+        shortcutsModal.classList.remove('active');
+        shortcutsModal.setAttribute('aria-hidden', 'true');
+        if (shortcutsModalFocusReturn && typeof shortcutsModalFocusReturn.focus === 'function') {
+            shortcutsModalFocusReturn.focus();
+        }
+        shortcutsModalFocusReturn = null;
+    }
+
+    function toggleShortcutsModal() {
+        if (!shortcutsModal) return;
+        if (shortcutsModal.classList.contains('active')) {
+            closeShortcutsModal();
+        } else {
+            openShortcutsModal();
+        }
+    }
+
+    if (shortcutsBtn) shortcutsBtn.onclick = toggleShortcutsModal;
+    if (closeShortcutsModalBtn) closeShortcutsModalBtn.onclick = closeShortcutsModal;
+    if (saveShortcutsModalBtn) saveShortcutsModalBtn.onclick = closeShortcutsModal;
+
+    if (shortcutsModal) {
+        shortcutsModal.addEventListener('click', (e) => {
+            if (e.target === shortcutsModal) {
+                closeShortcutsModal();
+            }
+        });
+
+        // Trap keyboard focus inside shortcutsModal while active
+        shortcutsModal.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab') return;
+            const focusable = Array.from(
+                shortcutsModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+            ).filter(el => !el.disabled && el.offsetWidth > 0 && el.offsetHeight > 0);
+
+            if (!focusable.length) {
+                e.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === first || !shortcutsModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last || !shortcutsModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
     }
 
     // Theme Switcher
