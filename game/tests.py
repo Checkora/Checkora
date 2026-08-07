@@ -1879,6 +1879,23 @@ class CheckUsernameViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {'available': False})
 
+
+class CheckUsernameRateLimitTest(TestCase):
+    """Test that the check_username endpoint enforces rate limiting."""
+
+    def setUp(self):
+        self.url = reverse('check_username')
+
+    def test_rate_limit_enforced(self):
+        """After exceeding the IP rate limit, check_username returns 429."""
+        from django.test import override_settings
+        from unittest.mock import patch
+
+        with patch('game.views.increment_counter', return_value=1000):
+            response = self.client.get(self.url, {'username': 'testuser'})
+            self.assertEqual(response.status_code, 429)
+
+
 class PromotionNotationTest(TestCase):
     """Test standard algebraic notation (SAN) generation for pawn promotions."""
 
