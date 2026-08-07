@@ -3315,6 +3315,72 @@ body.hide-native-cursor * {
         text-align: center;
     }
 }
+@media (min-width: 600px) and (max-width: 768px) {
+    .navbar {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 0.75rem;
+        padding: 12px 14px;
+    }
+
+    .nav-left {
+        flex-direction: row;
+        width: auto;
+        min-width: 0;
+        gap: 0.75rem;
+        align-items: center;
+        flex: 1 1 auto;
+    }
+
+    .logo-link {
+        gap: 0.55rem;
+        font-size: clamp(1rem, 3vw, 1.25rem);
+        letter-spacing: 1px;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .logo-img {
+        height: 32px;
+    }
+
+    .nav-links {
+    display: flex;
+}
+
+    .nav-toggle {
+        display: none;
+    }
+
+    .nav-right {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        width: auto;
+        gap: 0.45rem;
+        justify-content: flex-end;
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+
+    .theme-toggle,
+    .btn-signin,
+    .btn-register {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 7px 10px;
+        font-size: 0.8rem;
+    }
+
+    .cursor-btn,
+    .profile-btn {
+        width: auto;
+        justify-content: center;
+        white-space: nowrap;
+        gap: 5px;
+        padding: 8px 10px;
+        font-size: 0.8rem;
+    }
+}
 
 @media (max-width: 480px) {
     .navbar {
