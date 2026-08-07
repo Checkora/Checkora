@@ -1,5 +1,6 @@
 """Base class for Checkora Selenium E2E tests."""
 
+import os
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -67,7 +68,7 @@ class BaseE2ETest(StaticLiveServerTestCase):
                 f"Failed to initialize Chrome WebDriver: {e}"
             ) from e
 
-        cls.wait = WebDriverWait(cls.driver, 15)
+        cls.wait = WebDriverWait(cls.driver, int(os.environ.get('SELENIUM_WAIT_TIMEOUT', '15')))
 
     @classmethod
     def tearDownClass(cls):
