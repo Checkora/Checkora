@@ -29,7 +29,10 @@ class CustomUserCreationForm(UserCreationForm):
         The view layer handles username conflicts with a generic
         response to prevent user enumeration.
         """
-        return self.cleaned_data.get('username')
+        username = self.cleaned_data.get('username')
+        if username:
+            username = username.strip().lower()
+        return username
 
     def validate_unique(self):
         """Exclude username and email from uniqueness validation.
