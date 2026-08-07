@@ -989,8 +989,8 @@ html {
     flex-wrap: wrap;
     gap: 0.75rem;
     width: fit-content;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.75rem 1rem;
 }
@@ -1002,9 +1002,9 @@ html {
 }
 
 .forum-sort-form select {
-    background: #1a1d30;
-    color: #ffffff;
-    border: 1px solid rgba(240, 192, 64, 0.25);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     padding: 0.45rem 2rem 0.45rem 0.85rem;
     font-family: inherit;
@@ -1026,14 +1026,17 @@ html {
 }
 
 .forum-search-input {
-    background: #1a1d30;
-    color: #ffffff;
-    border: 1px solid rgba(240, 192, 64, 0.25);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     padding: 0.45rem 0.85rem;
     font-family: inherit;
     font-size: 0.82rem;
     min-width: 200px;
+}
+.forum-search-input::placeholder {
+    color: var(--text-secondary);
 }
 
 .forum-search-input:focus {
