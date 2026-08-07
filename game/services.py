@@ -626,25 +626,27 @@ def generate_badge(user_achievement):
     draw = ImageDraw.Draw(badge)
 
     try:
-        title_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            85
-        )
-
-        desc_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgia.ttf",
-            38
-        )
-
-        award_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            32
-        )
-
-        name_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiai.ttf",
-            60
-        )
+        # Cross-platform font resolution: try common paths for Georgia
+        _font_candidates = [
+            ("C:/Windows/Fonts/georgiab.ttf", "/usr/share/fonts/truetype/msttcorefonts/Georgia_Bold.ttf"),
+            ("C:/Windows/Fonts/georgia.ttf", "/usr/share/fonts/truetype/msttcorefonts/Georgia.ttf"),
+            ("C:/Windows/Fonts/georgiai.ttf", "/usr/share/fonts/truetype/msttcorefonts/Georgia_Italic.ttf"),
+        ]
+        
+        def _resolve_font(bold=False, italic=False):
+            idx = 0 if bold else (2 if italic else 1)
+            for win_path, linux_path in _font_candidates:
+                import os as _os
+                if _os.path.exists(win_path):
+                    return win_path
+                if _os.path.exists(linux_path):
+                    return linux_path
+            return _font_candidates[idx][0]  # fallback to Windows path (will trigger except
+        
+        title_font = ImageFont.truetype(_resolve_font(bold=True), 85)
+        desc_font = ImageFont.truetype(_resolve_font(), 38)
+        award_font = ImageFont.truetype(_resolve_font(bold=True), 32)
+        name_font = ImageFont.truetype(_resolve_font(italic=True), 60)
 
     except Exception:
         title_font = ImageFont.load_default()
@@ -658,23 +660,14 @@ def generate_badge(user_achievement):
     # Handle long achievement names
     try:
         if len(title) > 15:
-            title_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiab.ttf",
-                60
-            )
+            title_font = ImageFont.truetype(_resolve_font(bold=True), 60)
 
         if len(title) > 22:
-            title_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiab.ttf",
-                50
-            )
+            title_font = ImageFont.truetype(_resolve_font(bold=True), 50)
 
         # Handle long usernames
         if len(username) > 15:
-            name_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiai.ttf",
-                45
-            )
+            name_font = ImageFont.truetype(_resolve_font(italic=True), 45)
 
     except Exception:
         pass
