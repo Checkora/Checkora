@@ -46,8 +46,32 @@ bool B_Q_CASTLE = false;
 int EN_PASSANT_R = -1;
 int EN_PASSANT_C = -1;
 
+/**
+ * Validates a board string: must be exactly 64 characters containing
+ * only valid piece letters, '.', or the null-placeholder '|'.
+ * Returns true if the string is valid.
+ */
+bool isValidBoardString(const string &s) {
+    if ((int)s.length() != 64) return false;
+    for (char c : s) {
+        if (c == '.' || c == '|') continue;
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))) return false;
+        char lower = tolower(static_cast<unsigned char>(c));
+        if (lower != 'k' && lower != 'q' && lower != 'r' &&
+            lower != 'b' && lower != 'n' && lower != 'p') return false;
+    }
+    return true;
+}
+
 void loadBoard(const string &s) {
-    for (int i = 0; i < 64 && i < (int)s.length(); i++) {
+    if (!isValidBoardString(s)) {
+        // Fill with empty board on invalid input to prevent crashes
+        for (int r = 0; r < 8; r++)
+            for (int c = 0; c < 8; c++)
+                board[r][c] = '.';
+        return;
+    }
+    for (int i = 0; i < 64; i++) {
         board[i / 8][i % 8] = s[i];
     }
 }
