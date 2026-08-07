@@ -186,12 +186,19 @@ class ChessGame:
     def to_dict(self):
         """Serialise state for Django session storage.
 DP cache is intentionally excluded to save cookie space."""
+        # Cap move_history to prevent session cookie overflow. Each entry
+        # is ~120 bytes of JSON; 300 entries keeps the cookie well under
+        # common browser limits while still covering very long games.
+        max_history = int(os.environ.get('MAX_MOVE_HISTORY_LENGTH', '300'))
+        history = self.move_history
+        if len(history) > max_history:
+            history = history[-max_history:]
         return {
             'game_id': self.game_id,
             'authkey': self.authkey.hex(),
             'board': self.board,
             'current_turn': self.current_turn,
-            'move_history': self.move_history,
+            'move_history': history,
             'captured': self.captured,
             'white_time': self.white_time,
             'black_time': self.black_time,
