@@ -1,6 +1,7 @@
 """Game views for the Checkora chess platform."""
 import logging
 import json
+import copy
 import time
 from importlib import import_module
 from functools import wraps
@@ -161,7 +162,7 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
             moves = game_data.get('move_history', [])
         else:
             moves = []
-            
+
     return process_game_completion(user, mode, winner, reason, player_color, moves)
 
 
@@ -201,7 +202,7 @@ def make_move(request):
         )
 
     active_game, game_data, version = load_game_state_helper(request)
-    
+
     if request.user.is_authenticated and client_version is not None and version != client_version:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
@@ -219,14 +220,14 @@ def make_move(request):
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
+            game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1-0' if winner == 'white' else '0-1', termination='checkmate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
             delete_active_game(request)
         elif game_status in ('stalemate', 'draw'):
-            game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)            
+            game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
             replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
             if game_result is not None:
                 game_result.replay_record = replay_record
@@ -372,6 +373,15 @@ def new_game(request):
     game.player_color = player_color
     game.paused = False
 
+    request.session['game'] = game.to_dict()
+    request.session['hint_count'] = 0
+    request.session.modified = True
+    request.session.save()
+
+    create_or_update_active_game(
+        request,
+        request.session['game']
+    )
     game_dict = game.to_dict()
     # Embed session metadata so it can be restored on a different device/session.
     # Stored under a 'metadata' sub-key inside the existing game_state JSONField;
@@ -402,6 +412,10 @@ def new_game(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+
+        'hint_count': 0,
+        'remaining_hints': 3,
+
         'opening': opening,
         'version': res_version,
     })
@@ -421,7 +435,7 @@ def resume_game(request):
 
     game.paused = False
     game.last_ts = time.time()
-    
+
     success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
     if not success_save:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -492,6 +506,7 @@ def get_state(request):
 
     request.session['game'] = game.to_dict()
     request.session.modified = True
+    hint_count = request.session.get('hint_count', 0)
 
     create_or_update_active_game(
         request,
@@ -517,6 +532,8 @@ def get_state(request):
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
         'draw_reason': game.draw_reason,
+        'hint_count': hint_count,
+        'remaining_hints': max(0, 3 - hint_count),
         'threefold_warning': game.threefold_warning,
         'opening_name': getattr(game, 'opening_name', None),
         'opening_moves': getattr(game, 'opening_moves', None),
@@ -728,7 +745,7 @@ def ai_move(request):
             game_status = 'stalemate'
 
         game.game_status = game_status
-        
+
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -781,7 +798,7 @@ def ai_move(request):
 
         game_dict = game.to_dict()
         game_dict['paused'] = authoritative_paused
-        
+
         success_save, active_game = save_game_state_helper(request, active_game, game_dict, version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -829,6 +846,106 @@ def ai_move(request):
         'opening': request.session.get('opening', ''),
         'version': res_version
     })
+
+@require_POST
+def hint_move(request):
+    """Return the best move hint for the current position."""
+    lock_key = f"hint_lock:{request.session.session_key or request.user.pk or 'anonymous'}"
+    if not cache.add(lock_key, '1', timeout=5):
+        return JsonResponse({
+            'valid': False,
+            'message': 'Hint request already in progress.'
+        }, status=429)
+
+    try:
+        game_data = request.session.get('game')
+
+        if not game_data:
+            return JsonResponse({
+                'valid': False,
+                'message': 'No active game.'
+            }, status=400)
+
+        game = ChessGame.from_dict(game_data)
+
+        if game.game_status != 'active':
+            return JsonResponse({
+                'valid': False,
+                'message': 'Game is not active.'
+            }, status=400)
+
+        hint_count = request.session.get('hint_count', 0)
+
+        if hint_count >= 3:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Hint limit reached'
+            })
+
+        # Prevent hints during AI turn
+        player_color = request.session.get('player_color', 'white')
+
+        if game.mode == 'ai' and game.current_turn != player_color:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Wait for your turn.'
+            })
+
+        difficulty = request.session.get('difficulty', 'medium')
+        # Use same depth mapping as `ai_move` to avoid longer hint searches
+        # that may exceed the engine subprocess timeout and return None.
+        depth_map = {'easy': 1, 'medium': 2, 'hard': 3}
+        depth = depth_map.get(difficulty, 3)
+
+        before_fen = game.generate_fen_key()
+        before_turn = game.current_turn
+        before_status = game.game_status
+
+        temp_game = copy.deepcopy(game)
+        logger.debug(
+            'Hint request: current_turn=%s, mode=%s, game_status=%s, draw_reason=%s, fen=%s, hint_count=%s, depth=%s',
+            game.current_turn,
+            game.mode,
+            game.game_status,
+            game.draw_reason,
+            before_fen,
+            hint_count,
+            depth,
+        )
+
+        best = temp_game.get_ai_move(depth=depth)
+
+        if game.generate_fen_key() != before_fen or game.current_turn != before_turn or game.game_status != before_status:
+            logger.error(
+                'Hint evaluation unexpectedly mutated live game state: before_fen=%s after_fen=%s before_turn=%s after_turn=%s before_status=%s after_status=%s',
+                before_fen,
+                game.generate_fen_key(),
+                before_turn,
+                game.current_turn,
+                before_status,
+                game.game_status,
+            )
+
+        if not best:
+            logger.debug('Hint calculation returned no move for current position. game_status=%s draw_reason=%s', game.game_status, game.draw_reason)
+            return JsonResponse({
+                'valid': False,
+                'message': 'No legal moves available.'
+            })
+
+        request.session['hint_count'] = hint_count + 1
+        request.session.modified = True
+
+        logger.debug('Hint returned: best=%s, new_hint_count=%s', best, request.session['hint_count'])
+
+        return JsonResponse({
+            'valid': True,
+            'hint': best,
+            'hint_count': request.session['hint_count'],
+            'remaining_hints': max(0, 3 - request.session['hint_count']),
+        })
+    finally:
+        cache.delete(lock_key)
 
 @require_POST
 def offer_draw(request):
@@ -904,7 +1021,7 @@ def resign_game(request):
     game_status = 'resignation'
 
     game.game_status = game_status
-    
+
     success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
     if not success_save:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
@@ -1655,19 +1772,19 @@ def increment_counter(key, timeout):
         now = time.time()
         expiry_key = f"{key}:expiry"
         expires_at = cache.get(expiry_key)
-        
+
         if expires_at is None or now >= expires_at:
             expires_at = now + timeout
             cache.set(expiry_key, expires_at, timeout=timeout)
-            
+
         remaining = max(1, int(expires_at - now))
-        
+
         raw_val = cache.get(key)
         try:
             val = int(raw_val) if raw_val is not None else 0
         except (ValueError, TypeError):
             val = 0
-            
+
         val += 1
         cache.set(key, val, timeout=remaining)
         return val
@@ -1695,17 +1812,17 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
                 key_id = request.user.id
             else:
                 key_id = get_client_ip(request)
-            
+
             key_digest = hashlib.sha256(
                 str(key_id).encode('utf-8')
             ).hexdigest()
             cache_key = f"rate_limit:{prefix}:{key_digest}"
-            
+
             window_seconds = getattr(settings, window_setting, 60)
             max_requests = getattr(settings, max_setting, 60)
-            
+
             current = increment_counter(cache_key, window_seconds)
-            
+
             if current > max_requests:
                 if request.accepts("text/html"):
                     from django.http import HttpResponse
@@ -1717,7 +1834,7 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
                         status=429
                     )
                 return JsonResponse({"error": error_message}, status=429)
-                
+
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
@@ -1952,7 +2069,7 @@ def stats_view(request):
         round((black_wins / games_as_black) * 100, 2)
         if games_as_black else 0
     )
-    
+
     # Activity Statistics
     week_ago = timezone.now() - timedelta(days=7)
     month_ago = timezone.now() - timedelta(days=30)
@@ -1979,7 +2096,7 @@ def stats_view(request):
     else:
         highest_rating = rating.rating
         lowest_rating = rating.rating
-        
+
     average_rating = history.aggregate(
         Avg("new_rating")
     )["new_rating__avg"] or rating.rating
@@ -2006,12 +2123,12 @@ def stats_view(request):
         if total_lessons > 0
         else 0
     )
-    
+
     # Puzzle Analytics
     puzzle_stats, _ = PuzzleStats.objects.get_or_create(
         user=request.user
     )
-    
+
     opening_stats = OpeningProgress.objects.filter(
         user=request.user
     )
@@ -2042,7 +2159,7 @@ def stats_view(request):
         'rating': rating,
         'history': recent_history,
         'history_all': history_all,
-        
+
         "total_games": total_games,
         "total_wins": total_wins,
         "total_losses": total_losses,
@@ -2065,7 +2182,7 @@ def stats_view(request):
         "lesson_completion_percentage": lesson_completion_percentage,
 
         "puzzle_stats": puzzle_stats,
-        
+
         "completed_openings": completed_openings,
         "average_opening_accuracy": round(
             average_accuracy,
@@ -2456,29 +2573,29 @@ def _classify_move(is_best, played_mv, best_mv, game_state):
     """Classifies a move by simulating it and comparing material difference."""
     if is_best:
         return 'Best'
-        
+
     if not best_mv or not played_mv:
         return 'Mistake'
-        
+
     piece_vals = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0}
-    
+
     def _simulate_and_evaluate(mv):
         # Calculate material score for the player who just moved
         board_copy = [row[:] for row in game_state.board]
-        
+
         # Apply the move
         f_r, f_c = mv.get('from_row'), mv.get('from_col')
         t_r, t_c = mv.get('to_row'), mv.get('to_col')
-        
+
         if f_r is not None and f_c is not None:
             piece = board_copy[f_r][f_c]
             board_copy[t_r][t_c] = piece
             board_copy[f_r][f_c] = ''
-        
+
         # Simple material evaluation
         score = 0
         is_white = game_state.current_turn == 'white'
-        
+
         for r in range(8):
             for c in range(8):
                 p = board_copy[r][c]
@@ -2488,14 +2605,14 @@ def _classify_move(is_best, played_mv, best_mv, game_state):
                         score += val
                     else:
                         score -= val
-                        
+
         return score
 
     played_eval = _simulate_and_evaluate(played_mv)
     best_eval = _simulate_and_evaluate(best_mv)
-    
+
     diff = best_eval - played_eval
-    
+
     if diff >= 3:
         return 'Blunder'
     elif diff >= 1:
@@ -2533,7 +2650,7 @@ def analyze_game_view(request):
 
         if not isinstance(moves, list):
             return JsonResponse({'error': 'Moves must be a list'}, status=400)
-            
+
         if len(moves) > MAX_ANALYSIS_MOVES:
             return JsonResponse({'error': f'Moves list cannot exceed {MAX_ANALYSIS_MOVES} entries'}, status=400)
 
@@ -2563,7 +2680,7 @@ def analyze_game_view(request):
 
             actual_from = actual_to = None
             clean_notation = notation.replace('+', '').replace('#', '')
-            
+
             for r in range(8):
                 for c in range(8):
                     piece = game.board[r][c]
@@ -2672,7 +2789,7 @@ _LESSON_NAMES = (
     "Piece Values",
     "En Passant",
     "Pawn Promotion",
-    
+
     "Forks",
     "Pins",
     "Skewers",
@@ -2746,9 +2863,9 @@ def get_unlocked_lessons(completed_lessons):
     unlocked = set()
 
     for level_index, level in enumerate(LESSON_LEVELS):
-        
+
         lessons = level["lessons"]
-        
+
         previous_level_complete = True
 
         if level_index > 0:
@@ -2770,7 +2887,7 @@ def get_unlocked_lessons(completed_lessons):
     return unlocked
 
 def lessons_view(request):
-    
+
     completed_lessons = []
 
     if request.user.is_authenticated:
@@ -2783,12 +2900,12 @@ def lessons_view(request):
                 flat=True
             )
         )
-        
+
     total_lessons = sum(
         len(level["lessons"])
         for level in LESSON_LEVELS
     )
-    
+
     unlocked_lessons = get_unlocked_lessons(
         completed_lessons
     )
@@ -3238,7 +3355,7 @@ def lesson_detail_view(request, lesson_name):
                 "g7": "P"
             }
         },
-        
+
         "Forks": {
             "title": "Forks",
             "description": "Attack multiple pieces with one move.",
@@ -3603,7 +3720,7 @@ def lesson_detail_view(request, lesson_name):
                 "h8": "K"
             }
         },
-        
+
         "Pawn Structures": {
             "title": "Pawn Structures",
             "description": "Understand how pawns shape the game.",
@@ -3648,20 +3765,20 @@ def lesson_detail_view(request, lesson_name):
                     ]
                 }
             ],
-            
+
             "lesson_steps": [
                 {
                     "instruction": "Advance the passed pawn from d5 to d6.",
                     "expected_move": "d5-d6"
                 }
             ],
-            
+
             "practice_position": {
                 "d5": "P",
                 "e1": "K"
             },
         },
-        
+
         "King Safety": {
             "title": "King Safety",
             "description": "Keep your king protected throughout the game.",
@@ -3858,7 +3975,7 @@ def lesson_detail_view(request, lesson_name):
         "Removing the Defender",
         "Deflection",
         "Decoy",
-        
+
     ]:
         difficulty = "Intermediate"
 
@@ -3920,7 +4037,7 @@ def complete_lesson(request, lesson_name):
             request.user,
             25
         )
-    
+
     return redirect(
         "lesson_detail",
         lesson_name=slugify(lesson_name)
@@ -4212,7 +4329,7 @@ def download_badge(request, achievement_id):
         return HttpResponseServerError(
             "Badge generation failed."
         )
-    
+
 def apply_discussion_sort(queryset, sort_by):
     queryset = queryset.annotate(
         reply_count=Count("replies", distinct=True),

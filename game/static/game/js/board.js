@@ -350,6 +350,8 @@
     let turn = 'white';
     let selected = null;
     let hints = [];
+    let remainingHints = 3;
+    let hintTimeout = null;
     let lastMove = null;
     let premoveQueue = [];
     let lastPremoveQueueStr = '';
@@ -421,7 +423,7 @@
     }
 
     // =============================================
-    // Daily Puzzle 
+    // Daily Puzzle
     // =============================================
     // Daily puzzles are fetched dynamically from the database.
 
@@ -440,8 +442,7 @@
                 longestStreak: 0
             };
         } catch (error) {
-            console.error("Failed to load puzzle streak:", error);
-
+            console.error("Failed to load puzzle streak:", error)
             return {
                 streak: 0,
                 lastCompleted: null,
@@ -449,6 +450,7 @@
             };
         }
     }
+
 
     function savePuzzleStreak(data) {
         try {
@@ -874,6 +876,7 @@
 
     }
 
+
     let playerColor = 'white';
     let flipped = false;
     let autoFlip = localStorage.getItem('autoFlip') === 'true';
@@ -903,6 +906,7 @@
         const wNameInput = document.getElementById('whiteNameInput');
         const bNameInput = document.getElementById('blackNameInput');
         const errorDiv = document.getElementById('nameError');
+
 
         const wName = wNameInput?.value.trim();
         const bName = bNameInput?.value.trim();
@@ -1052,6 +1056,7 @@
     const gameOverExitBtn = document.getElementById('gameOverExitBtn');
     const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
     const gameOverAIBtn = document.getElementById('gameOverAIBtn');
+    const hintBtn = document.getElementById('hintBtn');
 
     const replayControls = document.getElementById('replayControls');
     const firstReplayBtn = document.getElementById('firstReplayBtn');
@@ -1082,6 +1087,27 @@
             a11yAnnouncer.textContent = '';
             setTimeout(() => { a11yAnnouncer.textContent = msg; }, 50);
         }
+    }
+
+    function getServerRemainingHints(data) {
+        const remaining = Number(data?.remaining_hints);
+        if (Number.isFinite(remaining)) {
+            return Math.max(0, remaining);
+        }
+
+        const hintCount = Number(data?.hint_count);
+        if (Number.isFinite(hintCount)) {
+            return Math.max(0, 3 - hintCount);
+        }
+
+        return remainingHints;
+    }
+
+    function refreshHintButton(remaining) {
+        remainingHints = Math.max(0, Number.isFinite(remaining) ? remaining : remainingHints);
+        if (!hintBtn) return;
+        hintBtn.textContent = `Hint (${remainingHints})`;
+        hintBtn.disabled = remainingHints <= 0;
     }
 
     let flashTimeout = null;
@@ -1398,6 +1424,7 @@
                     const ghost = p.cloneNode(true);
                     ghost.classList.add('piece-ghost');
 
+
                     originSquare.appendChild(ghost);
 
                     ghost.addEventListener(
@@ -1405,6 +1432,7 @@
                         () => ghost.remove(),
                         { once: true }
                     );
+
                 }
 
                 p.classList.add('moving');
@@ -2289,6 +2317,20 @@
 
                             const streak = updatePuzzleStreak();
                             updateStreakDisplay();
+
+                            showConfirm(
+                                "🎉 Puzzle Solved!",
+                                `🔥 Current Streak: ${streak}<br>
+                                                    🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                                    Come back tomorrow for a new challenge.`,
+                                () => {
+                                    gameLayout.style.visibility = "hidden";
+                                    welcomeOverlay.classList.add("active");
+                                },
+                                "#f0c040"
+                            );
+                            return;
+
                             if (data.game_status === 'checkmate') {
                                 // Transition to standard game-over overlay for checkmates
                             } else {
@@ -2305,6 +2347,7 @@
                                 );
                                 return;
                             }
+
                         }
                     } else {
                         // Start Stockfish validation for alternative moves
@@ -2326,6 +2369,19 @@
                                     if (puzzleMoveIndex >= currentPuzzle.solution.length) {
                                         const streak = updatePuzzleStreak();
                                         updateStreakDisplay();
+
+                                        showConfirm(
+                                            "🎉 Puzzle Solved!",
+                                            `🔥 Current Streak: ${streak}<br>
+                                                                🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                                                Come back tomorrow for a new challenge.`,
+                                            () => {
+                                                gameLayout.style.visibility = "hidden";
+                                                welcomeOverlay.classList.add("active");
+                                            },
+                                            "#f0c040"
+                                        );
+
                                         if (data.game_status === 'checkmate') {
                                             lastMove = { from: [fr, fc], to: [tr, tc] };
                                             whiteTime = data.white_time;
@@ -2351,6 +2407,7 @@
                                                 "#f0c040"
                                             );
                                         }
+
                                     }
                                 } else {
                                     showConfirm(
@@ -2461,7 +2518,7 @@
         const seq = ++aiRequestSeq;
         aiThinking = true;
 
-       
+
         try {
             let piecesOnBoard = 0;
             for (let r = 0; r < 8; r++) {
@@ -2487,7 +2544,7 @@
             if (paused) return;
 
             const data = await post('/api/ai-move/', {});
-            
+
 
             // Abort if sequence is no longer current after API call completes
             if (seq !== aiRequestSeq) {
@@ -2810,14 +2867,71 @@
             }
 
             replayIndex = index;
-
             renderReplayPosition();
-
         } catch (e) {
-
             console.error("Replay move error:", e);
         }
     }
+
+
+            async function showHint() {
+                if (paused || gameOver) {
+                    showStatus('Hints unavailable right now.', true);
+                    return;
+                }
+                if (remainingHints <= 0) {
+                    showStatus('Hint limit reached for this round.', true);
+                    return;
+                }
+
+                if (gameMode === 'ai' && turn !== playerColor) {
+                    showStatus('Wait for your turn.', true);
+                    return;
+                }
+
+                try {
+                    showStatus('Analyzing best move...', false);
+                    const data = await post('/api/hint/', {});
+
+                    if (!data.valid) {
+                        refreshHintButton(getServerRemainingHints(data));
+                        if (data.message) {
+                            showStatus(data.message, true);
+                        }
+                        return;
+                    }
+
+                    const hint = data.hint;
+                    refreshHintButton(getServerRemainingHints(data));
+
+                    const sourceSquare = sq(hint.from_row, hint.from_col);
+                    const destinationSquare = sq(hint.to_row, hint.to_col);
+
+                    if (!sourceSquare || !destinationSquare) {
+                        showStatus('Hint display error.', true);
+                        return;
+                    }
+
+                    sourceSquare.classList.add("hint-source");
+                    destinationSquare.classList.add("hint-destination");
+
+                    if (hintTimeout) {
+                        clearTimeout(hintTimeout);
+                    }
+
+                    hintTimeout = setTimeout(() => {
+                        if (sourceSquare && destinationSquare) {
+                            sourceSquare.classList.remove("hint-source");
+                            destinationSquare.classList.remove("hint-destination");
+                        }
+                    }, 2500);
+
+                    showStatus('Suggested move highlighted.', false);
+
+                } catch (e) {
+                    showStatus('Hint connection error.', true);
+                }
+            }
 
     function rebuildGameFens(moveHistory, startingFen) {
         const tempChess = new window.Chess(startingFen || DEFAULT_START_FEN);
@@ -2922,6 +3036,7 @@ function updateStepperUI() {
         }
     }
 }
+
 
     /* ==========================================================
     UI UPDATES
@@ -4236,6 +4351,24 @@ function updateStepperUI() {
             playReplayBtn.textContent = '▶';
         }
 
+
+                if (replayControls) {
+                    replayControls.classList.add('hidden');
+                }
+                // Reset AI request sequence and thinking state on new game
+                aiRequestSeq = 0;
+                aiThinking = false;
+                premoveQueue = [];
+                refreshPremoveHighlight();
+                remainingHints = 3;
+                selected = null;
+                hints = [];
+                lastMove = null;
+                aiThinking = false;
+                clearInterval(timerInterval);
+
+                refreshHintButton(3);
+
         if (replayControls) {
             replayControls.classList.add('hidden');
         }
@@ -4245,6 +4378,7 @@ function updateStepperUI() {
         aiThinking = false;
         premoveQueue = [];
         refreshPremoveHighlight();
+
 
         clearTimeout(pgnDownloadTimeout);
         clearTimeout(fenCopyTimeout);
@@ -4326,6 +4460,9 @@ function updateStepperUI() {
             return false;
         }
 
+        if (welcomeOverlay) welcomeOverlay.classList.remove('active');
+        if (gameLayout) gameLayout.style.visibility = 'visible';
+
         board = d.board;
         turn = d.current_turn;
         if (d.fen) liveFen = d.fen;
@@ -4336,7 +4473,7 @@ function updateStepperUI() {
         incrementGameCounter();
 
         gameStartTime = Date.now();
-        
+
         if (!isPuzzle) {
             gameMode = d.mode;
         }
@@ -4698,6 +4835,8 @@ function updateStepperUI() {
     };
 
 
+            if (hintBtn) hintBtn.addEventListener('click', showHint);
+
     if (backToModes) backToModes.onclick = () => {
         prepareWelcomeForPvP(false);
 
@@ -4730,6 +4869,7 @@ function updateStepperUI() {
                 btn.classList.add('active');
                 btn.style.borderColor = '#f0c040';
                 selectedPveColor = btn.dataset.color;
+
             };
         });
     }
