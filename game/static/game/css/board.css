@@ -704,6 +704,11 @@ body {
     grid-column: 2;
     grid-row: 1;
 }
+/* Blur board and surrounding game UI while confirmation dialog is open */
+.board-container:has(#board.confirm-open) {
+    filter: blur(5px);
+    transition: filter 200ms ease;
+}
 
 .board-outer {
     display: flex;
@@ -3715,6 +3720,9 @@ body.blindfold-mode .capture-ring {
         animation: none !important;
         transform: none !important;
     }
+    .board-container:has(#board.confirm-open) {
+    transition: none;
+}
 }
 
 
