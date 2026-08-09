@@ -368,6 +368,8 @@
 
     let whiteTime = 0;
     let blackTime = 0;
+    let maxWhiteTime = 0;
+    let maxBlackTime = 0;
     let selectedMins = 10;
     let selectedIncrement = 0;
     let paused = false;
@@ -3915,7 +3917,24 @@ function updateStepperUI() {
         const bYou = document.getElementById('blackYouTag');
         if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
         if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
+        
+        if (whiteTime > maxWhiteTime) maxWhiteTime = whiteTime;
+        if (blackTime > maxBlackTime) maxBlackTime = blackTime;
+
+        updateClockTimerBar('whiteTimerBarFill', whiteTime, maxWhiteTime);
+        updateClockTimerBar('blackTimerBarFill', blackTime, maxBlackTime);
+
         updateThinkingDots();
+    }
+
+    function updateClockTimerBar(barFillId, currentTime, maxTime) {
+        const barFill = document.getElementById(barFillId);
+        if (!barFill) return;
+        const total = maxTime > 0 ? maxTime : (selectedMins * 60 || 600);
+        const pct = Math.min(100, Math.max(0, (currentTime / total) * 100));
+        barFill.style.width = `${pct}%`;
+        barFill.classList.toggle('timer-warning', currentTime <= 30 && currentTime > 10);
+        barFill.classList.toggle('timer-critical', currentTime <= 10 && currentTime > 0);
     }
 
             /* ==========================================================
