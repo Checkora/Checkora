@@ -1573,6 +1573,8 @@
         turn = data.current_turn;
         whiteTime = data.white_time;
         blackTime = data.black_time;
+        maxWhiteTime = Math.max(whiteTime || 0, Math.round(selectedMins * 60));
+        maxBlackTime = Math.max(blackTime || 0, Math.round(selectedMins * 60));
         paused = data.paused;
 
         gameMode = data.mode || 'pvp';
@@ -3918,8 +3920,9 @@ function updateStepperUI() {
         if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
         if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
         
-        if (whiteTime > maxWhiteTime) maxWhiteTime = whiteTime;
-        if (blackTime > maxBlackTime) maxBlackTime = blackTime;
+        const sessionMaxTime = Math.round(selectedMins * 60) || 600;
+        if (whiteTime > maxWhiteTime || maxWhiteTime === 0) maxWhiteTime = Math.max(whiteTime, sessionMaxTime);
+        if (blackTime > maxBlackTime || maxBlackTime === 0) maxBlackTime = Math.max(blackTime, sessionMaxTime);
 
         updateClockTimerBar('whiteTimerBarFill', whiteTime, maxWhiteTime);
         updateClockTimerBar('blackTimerBarFill', blackTime, maxBlackTime);
@@ -4215,6 +4218,8 @@ function updateStepperUI() {
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
         evaluationCache = {};
+        maxWhiteTime = 0;
+        maxBlackTime = 0;
         if (!isPuzzle) {
             dailyPuzzleMode = false;
             currentPuzzle = null;
@@ -4352,6 +4357,8 @@ function updateStepperUI() {
         gameOver = false;
         whiteAlertFired = false;
         blackAlertFired = false;
+        maxWhiteTime = Math.max(d.white_time || 0, Math.round(selectedMins * 60));
+        maxBlackTime = Math.max(d.black_time || 0, Math.round(selectedMins * 60));
         incrementGameCounter();
 
         gameStartTime = Date.now();
