@@ -11,9 +11,11 @@
     <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=15">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
 </head>
 <body class="login-page new-cyber-design">
     <!-- Animated background grid effect -->
+    <div class="cursor"></div>
     <div class="bg-grid-overlay"></div>
 
     {% include 'game/includes/navbar.html' %}
@@ -86,6 +88,7 @@
     <script src="{% static 'game/js/auth.js' %}?v=15"></script>
     <script src="{% static 'game/js/toast.js' %}"></script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <script src="{% static 'game/js/cursor.js' %}"></script>
 
 </body>
 </html>
