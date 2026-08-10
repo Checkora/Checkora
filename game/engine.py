@@ -17,12 +17,16 @@ is chosen at random to add variety.
 """
 
 import os
+import contextlib
 import random
 import subprocess
 import json
 import sys
 import time
+import threading
+import uuid
 from datetime import date
+
 
 class ChessGame:
     """Manage a single chess game: state, validation,
@@ -51,6 +55,7 @@ class ChessGame:
 
     # Class-level cache so the file is read only once per process
     _opening_book: dict | None = None
+    _opening_book_lock = threading.Lock()
 
     INITIAL_BOARD = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -67,7 +72,11 @@ class ChessGame:
     #  Construction / serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, time_limit=600):
+    def __init__(self, time_limit=600, increment=0, difficulty='medium',
+                 game_id=None, authkey=None):
+        self.difficulty = difficulty
+        self.game_id = game_id or str(uuid.uuid4())
+        self.authkey = authkey or os.urandom(16)
         self.board = [row[:] for row in self.INITIAL_BOARD]
         self.current_turn = 'white'
         self.move_history = []
@@ -76,6 +85,8 @@ class ChessGame:
         self.valid_moves_cache = {}
         self.white_time = time_limit
         self.black_time = time_limit
+        self.time_limit = time_limit
+        self.increment = increment
         self.last_ts = time.time()
         self.paused = False
         self.mode = 'pvp'
@@ -87,10 +98,16 @@ class ChessGame:
         # (row, col) of the square a pawn can capture en passant
         self.en_passant_target = None
         self.halfmove_clock = 0
+        self.initial_fullmove = 1
+        self.initial_turn_was_black = False
         self.repetition_history = [self.generate_position_key()]
         self.repetition_counts = {self.repetition_history[0]: 1}
-        self.game_status = 'active'
+        self._game_status = 'active'
         self.draw_reason = None
+        self.threefold_warning = False
+        self.opening_name = None
+        self.opening_moves = None
+        self.initial_fen = None
 
     def serialize_board(self):
         """Flatten the 2-D board into a 64-char string for the C++ engine."""
@@ -98,9 +115,6 @@ class ChessGame:
 
     def generate_pgn(self, white_name='White', black_name='Black'):
         """Generate a PGN string from move history."""
-        if not self.move_history:
-            return ""
-        
         # Compute result based on game status
         result = '*'
         if self.game_status == 'checkmate':
@@ -111,39 +125,82 @@ class ChessGame:
             result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
-        for i in range(0, len(self.move_history), 2):
-            move_number = i // 2 + 1
-            white_move = self.move_history[i]['notation']
-            if i + 1 < len(self.move_history):
-                black_move = self.move_history[i + 1]['notation']
-                pgn_moves.append(f"{move_number}. {white_move} {black_move}")
+        
+        def _fix_castling(move):
+            return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
+
+        fullmove = getattr(self, 'initial_fullmove', 1)
+        history = self.move_history or []
+        i = 0
+
+        # If Black moved first, write the first half-move as "N... move"
+        if getattr(self, 'initial_turn_was_black', False) and history:
+            black_move = _fix_castling(history[0]['notation'])
+            pgn_moves.append(f"{fullmove}... {black_move}")
+            fullmove += 1
+            i = 1
+
+        while i < len(history):
+            white_move = _fix_castling(history[i]['notation'])
+            if i + 1 < len(history):
+                black_move = _fix_castling(history[i + 1]['notation'])
+                pgn_moves.append(f"{fullmove}. {white_move} {black_move}")
             else:
-                pgn_moves.append(f"{move_number}. {white_move}")
+                pgn_moves.append(f"{fullmove}. {white_move}")
+            fullmove += 1
+            i += 2
         
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
+            '[Site "checkora.io"]',
+            f'[Date "{today}"]',
+            '[Round "?"]',
             f'[White "{white_name}"]',
             f'[Black "{black_name}"]',
-            f'[Date "{today}"]',
             f'[Result "{result}"]',
         ]
+        
+        initial_fen = getattr(self, 'initial_fen', None)
+        standard_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        if initial_fen and initial_fen.strip() != standard_fen:
+            headers.extend([
+                '[SetUp "1"]',
+                f'[FEN "{initial_fen.strip()}"]',
+            ])
+
         moves = " ".join(pgn_moves)
-        return "\n".join(headers) + "\n\n" + moves
+        moves_str = f"{moves} {result}" if moves else result
+        return "\n".join(headers) + "\n\n" + moves_str
+
+    @property
+    def game_status(self):
+        return self._game_status
+
+    @game_status.setter
+    def game_status(self, value):
+        self._game_status = value
+        if value != 'active':
+            self.cleanup_engine()
 
     def to_dict(self):
         """Serialise state for Django session storage.
 DP cache is intentionally excluded to save cookie space."""
         return {
+            'game_id': self.game_id,
+            'authkey': self.authkey.hex(),
             'board': self.board,
             'current_turn': self.current_turn,
             'move_history': self.move_history,
             'captured': self.captured,
             'white_time': self.white_time,
             'black_time': self.black_time,
+            'time_limit': self.time_limit,
+            'increment': self.increment,
             'last_ts': self.last_ts,
             'paused': self.paused,
             'mode': self.mode,
+            'difficulty': self.difficulty,
             'castling_rights': self.castling_rights,
             'en_passant_target': self.en_passant_target,
             'player_color': self.player_color,
@@ -151,12 +208,63 @@ DP cache is intentionally excluded to save cookie space."""
             'repetition_history': self.repetition_history,
             'game_status': self.game_status,
             'draw_reason': self.draw_reason,
+            'threefold_warning': self.threefold_warning,
+            'opening_name': getattr(self, 'opening_name', None),
+            'opening_moves': getattr(self, 'opening_moves', None),
+            'initial_fullmove': getattr(self, 'initial_fullmove', 1),
+            'initial_turn_was_black': getattr(
+                self, 'initial_turn_was_black', False
+            ),
+            'initial_fen': getattr(self, 'initial_fen', None),
         }
+
+    def cleanup_engine(self):
+        """Send SHUTDOWN to the persistent engine server for this game."""
+        game_id = getattr(self, 'game_id', None)
+        if not game_id:
+            return
+
+        import os
+        import tempfile
+        from multiprocessing.connection import Client
+
+        port_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+        )
+        if os.path.exists(port_path):
+            try:
+                with open(port_path, 'r') as f:
+                    port = int(f.read().strip())
+                address = ('127.0.0.1', port)
+                conn = Client(address, family='AF_INET', authkey=self.authkey)
+                conn.send("SHUTDOWN")
+                conn.recv()
+                conn.close()
+            except Exception:
+                pass
+
+        # Clean up files
+        lock_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+        )
+        pid_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.pid'
+        )
+        for path in (lock_path, port_path, pid_path):
+            if os.path.exists(path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     @classmethod
     def from_dict(cls, data):
         """Restore a game from a session dictionary."""
         game = cls.__new__(cls)
+        game.game_id = data.get('game_id') or str(uuid.uuid4())
+        authkey_hex = data.get('authkey')
+        game.authkey = (bytes.fromhex(authkey_hex) if authkey_hex
+                        else os.urandom(16))
         game.board = data['board']
         game.current_turn = data['current_turn']
         game.move_history = data.get('move_history', [])
@@ -164,17 +272,25 @@ DP cache is intentionally excluded to save cookie space."""
         game.paused = data.get('paused', False)
         game.white_time = data['white_time']
         game.black_time = data['black_time']
+        game.time_limit = data.get('time_limit', 600)
+        game.increment = data.get('increment', 0)
         game.last_ts = data['last_ts']
         game.mode = data.get('mode', 'pvp')
+        game.difficulty = data.get('difficulty', 'medium')
         game.player_color = data.get('player_color', 'white')
         game.castling_rights = data.get(
             'castling_rights',
             {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True})
         game.en_passant_target = data.get('en_passant_target', None)
         game.halfmove_clock = data.get('halfmove_clock', 0)
-        game.game_status = data.get('game_status', 'active')
+        game._game_status = data.get('game_status', 'active')
         game.draw_reason = data.get('draw_reason', None)
-
+        game.threefold_warning = data.get('threefold_warning', False)
+        game.opening_name = data.get('opening_name')
+        game.opening_moves = data.get('opening_moves')
+        game.initial_fullmove = data.get('initial_fullmove', 1)
+        game.initial_turn_was_black = data.get('initial_turn_was_black', False)
+        game.initial_fen = data.get('initial_fen', None)
         repetition_history = data.get('repetition_history')
         if isinstance(repetition_history, list) and repetition_history:
             game.repetition_history = repetition_history
@@ -187,7 +303,9 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @classmethod
-    def from_fen(cls, fen: str, time_limit=600):
+    def from_fen(
+        cls, fen: str, time_limit=600, increment=0, difficulty='medium'
+    ):
         """Create a new game state from a FEN string (board, side, castling)."""
         if not isinstance(fen, str):
             raise ValueError("FEN must be a string.")
@@ -214,12 +332,53 @@ DP cache is intentionally excluded to save cookie space."""
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
 
-        game = cls(time_limit=time_limit)
+        game = cls(
+            time_limit=time_limit, increment=increment, difficulty=difficulty
+        )
         game.board = board
         game.current_turn = 'white' if active_color == 'w' else 'black'
         game.castling_rights = castling_rights
-        game.en_passant_target = None
-        game.halfmove_clock = 0
+
+        # Parse en passant target (field 4)
+        if len(parts) >= 4 and parts[3] != '-':
+            ep_str = parts[3]
+            if len(ep_str) == 2 and ep_str[0] in 'abcdefgh' and ep_str[1] in '12345678':
+                col = ord(ep_str[0]) - ord('a')
+                row = 8 - int(ep_str[1])
+                game.en_passant_target = (row, col)
+            else:
+                game.en_passant_target = None
+        else:
+            game.en_passant_target = None
+
+        # Parse halfmove clock (field 5)
+        if len(parts) >= 5:
+            try:
+                game.halfmove_clock = max(0, int(parts[4]))
+            except ValueError:
+                game.halfmove_clock = 0
+        else:
+            game.halfmove_clock = 0
+
+        # Parse fullmove clock (field 6)
+        if len(parts) >= 6:
+            try:
+                game.initial_fullmove = max(1, int(parts[5]))
+            except ValueError:
+                game.initial_fullmove = 1
+        else:
+            game.initial_fullmove = 1
+
+        game.initial_turn_was_black = (active_color == 'b')
+        ep_square = (
+            f"{chr(ord('a') + game.en_passant_target[1])}{8 - game.en_passant_target[0]}"
+            if game.en_passant_target else "-"
+        )
+        game.initial_fen = (
+            f"{placement} {active_color} {game.serialize_castling_rights()} "
+            f"{ep_square} {game.halfmove_clock} {game.initial_fullmove}"
+        )
+
         game.move_history = []
         game.captured = {'white': [], 'black': []}
         game.valid_moves_cache = {}
@@ -227,6 +386,7 @@ DP cache is intentionally excluded to save cookie space."""
         game._rebuild_repetition_counts()
         game.game_status = 'active'
         game.draw_reason = None
+        game.threefold_warning = False
         game.last_ts = time.time()
         return game
 
@@ -299,7 +459,7 @@ DP cache is intentionally excluded to save cookie space."""
         """Build the subprocess command for either a binary
         or Python script."""
         if engine_path.endswith('.py'):
-            return [sys.executable, engine_path]
+            return [sys.executable, '-u', engine_path]
         return [engine_path]
 
     def _call_engine(self, command):
@@ -307,18 +467,187 @@ DP cache is intentionally excluded to save cookie space."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-        try:
-            proc = subprocess.Popen(
-                self._build_engine_command(engine_path),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, _ = proc.communicate(input=command, timeout=5)
-            return stdout.strip()
-        except (subprocess.TimeoutExpired, OSError):
+
+        game_id = getattr(self, 'game_id', None)
+        if not game_id:
+            self.game_id = str(uuid.uuid4())
+            game_id = self.game_id
+
+        import tempfile
+        from multiprocessing.connection import Client
+
+        port_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
+        )
+        lock_path = os.path.join(
+            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
+        )
+
+        def get_address():
+            if os.path.exists(port_path):
+                try:
+                    with open(port_path, 'r') as f:
+                        port = int(f.read().strip())
+                        return ('127.0.0.1', port)
+                except Exception:
+                    pass
             return None
+
+        # Try to connect if port file exists
+        conn = None
+        address = get_address()
+        if address:
+            try:
+                conn = Client(address, family='AF_INET', authkey=self.authkey)
+            except Exception:
+                pass
+
+        if not conn:
+            # Check for stale lock file and clean it up (5.0s TTL)
+            if os.path.exists(lock_path):
+                try:
+                    if time.time() - os.path.getmtime(lock_path) > 5.0:
+                        os.unlink(lock_path)
+                except OSError:
+                    pass
+
+            # Connection failed or not started. Attempt to acquire spawn lock.
+            lock_acquired = False
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
+                lock_acquired = True
+            except OSError:
+                pass
+
+            if lock_acquired:
+                # Spawn the server in the background
+                try:
+                    server_script = os.path.join(
+                        self.ENGINE_DIR, 'persistent_server.py'
+                    )
+                    engine_cmd_json = json.dumps(
+                        self._build_engine_command(engine_path)
+                    )
+                    authkey_hex = self.authkey.hex()
+
+                    creationflags = 0
+                    if os.name == 'nt':
+                        creationflags = subprocess.CREATE_NO_WINDOW
+
+                    if os.path.exists(port_path):
+                        try:
+                            os.unlink(port_path)
+                        except OSError:
+                            pass
+
+                    subprocess.Popen(
+                        [sys.executable, server_script, game_id,
+                         engine_cmd_json, authkey_hex],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        stdin=subprocess.DEVNULL,
+                        close_fds=True,
+                        creationflags=creationflags
+                    )
+                except Exception:
+                    pass
+
+                # Poll for the port file to be created, and then connect
+                start_time = time.time()
+                backoff = 0.01
+                while time.time() - start_time < 2.0:
+                    address = get_address()
+                    if address:
+                        try:
+                            conn = Client(address, family='AF_INET',
+                                          authkey=self.authkey)
+                            break
+                        except Exception:
+                            pass
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 0.1)
+
+                # Release the lock
+                try:
+                    os.unlink(lock_path)
+                except OSError:
+                    pass
+            else:
+                # Lock is held by someone else. Wait for lock release or
+                # connection to succeed
+                start_time = time.time()
+                backoff = 0.01
+                while time.time() - start_time < 2.0:
+                    address = get_address()
+                    if address:
+                        try:
+                            conn = Client(address, family='AF_INET',
+                                          authkey=self.authkey)
+                            break
+                        except Exception:
+                            pass
+                    if not os.path.exists(lock_path):
+                        # Lock file was deleted, try connecting one last time
+                        address = get_address()
+                        if address:
+                            try:
+                                conn = Client(address, family='AF_INET',
+                                              authkey=self.authkey)
+                            except Exception:
+                                pass
+                        break
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 0.1)
+
+        if not conn:
+            # Fallback to stateless spawning if the server failed to
+            # start or connect
+            proc = None
+            try:
+                proc = subprocess.Popen(
+                    self._build_engine_command(engine_path),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                timeout_secs = getattr(
+                    self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
+                )
+                stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
+                return stdout.strip()
+            except subprocess.TimeoutExpired:
+                if proc:
+                    try:
+                        proc.kill()
+                        proc.communicate()
+                    except Exception:
+                        pass
+                return None
+            except OSError:
+                return None
+
+        try:
+            conn.send(command)
+            timeout_secs = getattr(
+                self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
+            )
+            if conn.poll(timeout_secs):
+                return conn.recv()
+
+            with contextlib.suppress(OSError):
+                conn.close()
+            self.cleanup_engine()
+            return None
+        except Exception:
+            return None
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def _count_active_pieces(self):
         """Helper to count the total pieces currently alive
@@ -327,24 +656,10 @@ DP cache is intentionally excluded to save cookie space."""
                    for piece in row if piece is not None)
 
     def _get_ai_search_depth(self):
-        """Return appropriate search depth based on which
-        engine is available and game phase."""
-        engine_path = self._resolve_engine_path()
-        if not engine_path:
-            return self.AI_SEARCH_DEPTH_PYTHON
-        # C++ binary is much faster than Python, use deeper search
-        if engine_path.endswith('.py'):
-            return self.AI_SEARCH_DEPTH_PYTHON
-
-        piece_count = self._count_active_pieces()
-
-        # Adaptive Search Depth for C++ engine in endgame
-        if piece_count <= 6:
-            return self.AI_SEARCH_DEPTH_CPP + 2
-        elif piece_count <= 12:
-            return self.AI_SEARCH_DEPTH_CPP + 1
-
-        return self.AI_SEARCH_DEPTH_CPP
+        """Return appropriate search depth based on difficulty."""
+        if self.difficulty in self.DIFFICULTY_SETTINGS:
+            return self.DIFFICULTY_SETTINGS[self.difficulty]['max_depth']
+        return self.DIFFICULTY_SETTINGS['medium']['max_depth']
 
     def serialize_castling_rights(self):
         """Serialize castling rights to a string for the C++ engine."""
@@ -540,8 +855,15 @@ DP cache is intentionally excluded to save cookie space."""
         # Save who made this move before switching
         moved_by = self.current_turn
 
-        # Switch turn
+        # Apply increment to the player who just made the move
         is_white = self.current_turn == 'white'
+        if self.increment > 0:
+            if is_white:
+                self.white_time += self.increment
+            else:
+                self.black_time += self.increment
+
+        # Switch turn
         self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()
@@ -558,10 +880,12 @@ DP cache is intentionally excluded to save cookie space."""
         # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
         if game_status == 'checkmate':
-            notation += '#'
+            if not notation.endswith('#'):
+                notation += '#'
 
         elif game_status == 'check':
-            notation += '+'
+            if not notation.endswith('+') and not notation.endswith('#'):
+                notation += '+'
         self.move_history.append({
             'notation': notation,
             'piece': piece,
@@ -588,6 +912,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         repetition_count = self.repetition_counts.get(
             self.generate_position_key(), 1)
+        
+        # Warning on second occurrence
+        self.threefold_warning = (repetition_count == 2)
+
         if repetition_count >= 3:
             self.game_status = 'draw'
             self.draw_reason = 'threefold_repetition'
@@ -600,6 +928,10 @@ DP cache is intentionally excluded to save cookie space."""
 
         self.game_status = 'active'
         self.draw_reason = None
+        
+        if repetition_count != 2:
+            self.threefold_warning = False
+    
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
@@ -789,7 +1121,7 @@ DP cache is intentionally excluded to save cookie space."""
             else:
                 self.black_time = max(0, self.black_time - elapsed)
 
-        self.last_ts = now
+        self.last_ts += elapsed
 
     # ------------------------------------------------------------------
     #  Game status detection (check / checkmate / stalemate)
@@ -819,11 +1151,13 @@ DP cache is intentionally excluded to save cookie space."""
     def _load_opening_book(cls) -> dict:
         """Load the opening book JSON from disk (cached after first load)."""
         if cls._opening_book is None:
-            try:
-                with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
-                    cls._opening_book = json.load(fh)
-            except (OSError, json.JSONDecodeError):
-                cls._opening_book = {}  # Graceful fallback: no book
+            with cls._opening_book_lock:
+                if cls._opening_book is None:
+                    try:
+                        with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
+                            cls._opening_book = json.load(fh)
+                    except (OSError, json.JSONDecodeError):
+                        cls._opening_book = {}  # Graceful fallback: no book
         return cls._opening_book
 
     def generate_fen_key(self) -> str:
@@ -857,6 +1191,28 @@ DP cache is intentionally excluded to save cookie space."""
         castling = self.serialize_castling_rights()
 
         return f"{placement} {side} {castling}"
+
+    def generate_full_fen(self) -> str:
+        """Build a complete 6-field FEN string."""
+        base_fen = self.generate_fen_key()
+
+        # En Passant target
+        ep_str = '-'
+        if self.en_passant_target:
+            row, col = self.en_passant_target
+            file_char = chr(ord('a') + col)
+            rank_char = str(8 - row)
+            ep_str = f"{file_char}{rank_char}"
+
+        # Halfmove clock
+        halfmove = str(self.halfmove_clock)
+
+        # Fullmove clock
+        offset = 1 if getattr(self, 'initial_turn_was_black', False) else 0
+        fullmove_count = getattr(self, 'initial_fullmove', 1)
+        fullmove = str(fullmove_count + ((len(self.move_history) + offset) // 2))
+
+        return f"{base_fen} {ep_str} {halfmove} {fullmove}"
 
     def get_opening_book_move(self) -> dict | None:
         """Return a random book move for the current position, or ``None``.
@@ -903,7 +1259,16 @@ DP cache is intentionally excluded to save cookie space."""
     AI_SEARCH_DEPTH_CPP = 4  # C++ is much faster, can search deeper
     AI_SEARCH_DEPTH_PYTHON = 3  # Python engine needs conservative depth
 
-    def get_ai_move(self, depth=None):
+    # Max seconds for engine analysis before returning best move
+    ANALYSIS_TIMEOUT_SECONDS = 10
+
+    DIFFICULTY_SETTINGS = {
+        'easy': {'max_depth': 2, 'time_budget_ms': 500},
+        'medium': {'max_depth': 4, 'time_budget_ms': 1500},
+        'hard': {'max_depth': 6, 'time_budget_ms': 4000},
+    }
+
+    def get_ai_move(self, depth=None, difficulty=None):
         """Return the best move for the current position.
 
         Checks the opening book first for an instant theory response.
@@ -918,15 +1283,39 @@ DP cache is intentionally excluded to save cookie space."""
         if book_move:
             return book_move
 
-        # 2. Minimax search (slow path)
+        # 2. Map difficulty settings
+        if difficulty in self.DIFFICULTY_SETTINGS:
+            cfg = self.DIFFICULTY_SETTINGS[difficulty]
+            max_depth = cfg['max_depth']
+            time_budget_ms = cfg['time_budget_ms']
+        else:
+            # Map depth parameter if possible
+            if depth == 1:
+                cfg = self.DIFFICULTY_SETTINGS['easy']
+                max_depth = cfg['max_depth']
+                time_budget_ms = cfg['time_budget_ms']
+            elif depth == 2:
+                cfg = self.DIFFICULTY_SETTINGS['medium']
+                max_depth = cfg['max_depth']
+                time_budget_ms = cfg['time_budget_ms']
+            elif depth == 3:
+                cfg = self.DIFFICULTY_SETTINGS['hard']
+                max_depth = cfg['max_depth']
+                time_budget_ms = cfg['time_budget_ms']
+            else:
+                if depth is None:
+                    max_depth = self._get_ai_search_depth()
+                else:
+                    max_depth = depth
+                time_budget_ms = 2000  # Default budget
+
+        # 3. Minimax search (slow path)
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
-        if depth is None:
-            depth = self._get_ai_search_depth()
         ep_str = self._serialize_ep()
         cmd = (
             f"BESTMOVE {board_str} {rights_str}"
-            f" {self.current_turn} {ep_str} {depth}"
+            f" {self.current_turn} {ep_str} {max_depth} {time_budget_ms}"
         )
         resp = self._call_engine(cmd)
 
@@ -937,9 +1326,56 @@ DP cache is intentionally excluded to save cookie space."""
         if len(parts) < 5 or parts[1] == "NONE":
             return None
 
-        return {
+        move_data = {
             'from_row': int(parts[1]),
             'from_col': int(parts[2]),
             'to_row':   int(parts[3]),
             'to_col':   int(parts[4]),
+            'eval': None,
+            'alts': [],
+            'depth': 0,
+            'nodes': 0,
+            'tthits': 0,
+            'time': 0,
+            'engine': 'unknown',
+            'status': 'completed'
         }
+        
+        idx = 5
+        while idx < len(parts):
+            if parts[idx] == "EVAL" and idx + 1 < len(parts):
+                move_data['eval'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "ALTS":
+                idx += 1
+                while idx + 4 < len(parts) and parts[idx] not in ("EVAL", "ALTS", "DEPTH", "NODES", "TTHITS", "TIME", "ENGINE", "STATUS"):
+                    move_data['alts'].append({
+                        'from_row': int(parts[idx]),
+                        'from_col': int(parts[idx+1]),
+                        'to_row': int(parts[idx+2]),
+                        'to_col': int(parts[idx+3]),
+                        'eval': int(parts[idx+4])
+                    })
+                    idx += 5
+            elif parts[idx] == "DEPTH" and idx + 1 < len(parts):
+                move_data['depth'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "NODES" and idx + 1 < len(parts):
+                move_data['nodes'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "TTHITS" and idx + 1 < len(parts):
+                move_data['tthits'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "TIME" and idx + 1 < len(parts):
+                move_data['time'] = int(parts[idx + 1])
+                idx += 2
+            elif parts[idx] == "ENGINE" and idx + 1 < len(parts):
+                move_data['engine'] = parts[idx + 1]
+                idx += 2
+            elif parts[idx] == "STATUS" and idx + 1 < len(parts):
+                move_data['status'] = parts[idx + 1]
+                idx += 2
+            else:
+                idx += 1
+
+        return move_data

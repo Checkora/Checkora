@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify your Email | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=15">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <style>
         .otp-container {
@@ -42,11 +44,29 @@
         input[type=number] {
             -moz-appearance: textfield;
         }
+        .link-button {
+            background: none;
+            border: none;
+            color: #f0c040;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            font-family: inherit;
+            font-size: inherit;
+            display: inline;
+        }
+        .link-button:hover {
+            text-decoration: underline;
+        }
     </style>
+    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
 </head>
 <body>
+    <div class="cursor"></div>
+    {% include 'game/includes/navbar.html' %}
 
-    <div class="header">
+    <div class="header header--with-navbar">
         <h1>Verify your Email</h1>
         <p>We've sent a 6-digit code to {{ user_email|default:"your email address" }}.</p>
     </div>
@@ -69,7 +89,10 @@
         
         <div class="auth-footer">
             Didn't receive the code? 
-            <a href="{% url 'resend_otp' %}" id = "resend-link">Try again</a>
+            <form id="resend-form" method="POST" action="{% url 'resend_otp' %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" id="resend-link" class="link-button">Try again</button>
+            </form>
             <span id="timer" data-remaining-time="{{ remaining_time|default:0 }}"></span>
         </div>
     </div>
@@ -80,6 +103,7 @@
 
     function updateTimer() {
         if (remainingTime > 0) {
+            resendLink.disabled = true;
             resendLink.style.pointerEvents = "none";
             resendLink.style.opacity = "0.5";
             timer.textContent = ` (${remainingTime}s)`;
@@ -88,6 +112,7 @@
 
             setTimeout(updateTimer, 1000);
         } else {
+            resendLink.disabled = false;
             resendLink.style.pointerEvents = "auto";
             resendLink.style.opacity = "1";
             timer.textContent = "";
@@ -95,5 +120,8 @@
     }
     updateTimer();
 </script>
+<script src="{% static 'game/js/theme.js' %}?v=1"></script>
+<script src="{% static 'game/js/cursor.js' %}"></script>
+
 </body>
 </html>

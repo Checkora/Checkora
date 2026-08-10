@@ -1,0 +1,37 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<div style="display:flex; gap:20px; margin-bottom:20px;">
+    <div style="background:white;padding:15px;border-radius:8px;color:black;">
+        👥 Total Users: {{ stats.users }}
+    </div>
+
+    <div style="background:white;padding:15px;border-radius:8px;color:black;">
+        🧩 Total Puzzles: {{ stats.puzzles }}
+    </div>
+</div>
+
+<h1>System Health Dashboard</h1>
+
+<div style="
+    background:#f8f9fa;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+    color:black;
+">
+
+    {% for name, status in health_status.items %}
+        <div style="padding:8px 0; font-size:16px;">
+            {% if status %}
+                🟢 {{ name }} (Healthy)
+            {% else %}
+                🔴 {{ name }} (Unhealthy)
+            {% endif %}
+        </div>
+    {% endfor %}
+
+</div>
+
+{% endblock %}

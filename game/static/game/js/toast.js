@@ -2,9 +2,13 @@
  * Checkora Toast System
  * Replaces default alerts with modern, floating toast notifications.
  */
-
+console.log("showToast called", {
+    message,
+    key
+});
 (function() {
     'use strict';
+
 
     // Create toast container if it doesn't exist
     function ensureContainer() {
@@ -23,17 +27,44 @@
      * @param {string} type - success, error, warning, info
      * @param {number} duration - in milliseconds
      */
-    window.showToast = function(message, type = 'info', duration = 5000) {
+    window.showToast = function(message, type = 'info', duration = 5000, key = null) {
         const container = ensureContainer();
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        
+
+        let toast = null;
+        if (key) {
+            toast = container.querySelector(`[data-toast-key="${key}"]`);
+            console.log("Existing toast:", toast);
+        }
+
         const icons = {
             success: '✅',
             error: '❌',
             warning: '⚠️',
             info: 'ℹ️'
         };
+
+        if (toast) {
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            clearTimeout(toast.dismissTimer);
+
+            toast.dismissTimer = setTimeout(() => {
+                hideToast(toast);
+            }, duration);
+
+            return;
+        }
+
+        toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        if (key) {
+            toast.dataset.toastKey = key;
+        }
 
         toast.innerHTML = `
             <span class="toast-icon">${icons[type] || icons.info}</span>
@@ -43,23 +74,33 @@
         container.appendChild(toast);
 
         // Auto remove
-        const timeout = setTimeout(() => {
-            hideToast(toast);
-        }, duration);
+        toast.dismissTimer = setTimeout(() => {
+        hideToast(toast);
+    }, duration);
 
         // Allow manual dismissal on click
         toast.onclick = () => {
-            clearTimeout(timeout);
+            clearTimeout(toast.dismissTimer);
             hideToast(toast);
         };
     };
 
     function hideToast(toast) {
-        toast.classList.add('hiding');
-        toast.addEventListener('animationend', () => {
+    clearTimeout(toast.dismissTimer);
+
+    toast.classList.add("hiding");
+
+    toast.addEventListener(
+        "animationend",
+        () => {
+            const key = toast.dataset.toastKey;
+
+
             toast.remove();
-        });
-    }
+        },
+        { once: true }
+    );
+}
 
     // Override window.alert
     const originalAlert = window.alert;

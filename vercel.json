@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "ignoreCommand": "python3 .github/scripts/pr_assignee_check.py vercel || exit 1",
   "installCommand": "echo 'Python deps handled by runtime'",
   "buildCommand": "if command -v g++ >/dev/null; then g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main && chmod +x game/engine/main; else echo 'No g++, using Python engine'; fi && mkdir -p public && echo '' > public/placeholder.html",
   "outputDirectory": "public",

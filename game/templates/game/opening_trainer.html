@@ -1,0 +1,61 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opening Trainer</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'game/css/opening_trainer.css' %}"
+    >
+</head>
+
+<body>
+
+<a href="{% url 'landing' %}" class="back-btn">
+    ← Back to Home
+</a>
+
+<div class="container">
+
+    <h1>♟ Opening Trainer</h1>
+
+    <p>
+        Practice popular chess openings move by move.
+    </p>
+
+    <div class="opening-grid">
+
+        {% for opening in openings %}
+
+        <div class="lesson-card">
+
+            <h2>{{ opening.name }}</h2>
+
+            <p>{{ opening.description }}</p>
+
+            <p>
+                <strong>Difficulty:</strong>
+                {{ opening.difficulty }}
+            </p>
+
+            <a
+                href="{% url 'opening_detail' opening.slug %}"
+                class="start-btn"
+            >
+                Start Training
+            </a>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -17,19 +17,31 @@ BOLD = "\033[1m"
 
 
 def log_ok(msg):
-    print(f"  {GREEN}✅ {msg}{RESET}")
+    try:
+        print(f"  {GREEN}✅ {msg}{RESET}")
+    except UnicodeEncodeError:
+        print(f"  {GREEN}[OK] {msg}{RESET}")
 
 
 def log_fail(msg):
-    print(f"  {RED}❌ {msg}{RESET}")
+    try:
+        print(f"  {RED}❌ {msg}{RESET}")
+    except UnicodeEncodeError:
+        print(f"  {RED}[FAIL] {msg}{RESET}")
 
 
 def log_info(msg):
-    print(f"  {CYAN}ℹ  {msg}{RESET}")
+    try:
+        print(f"  {CYAN}ℹ  {msg}{RESET}")
+    except UnicodeEncodeError:
+        print(f"  {CYAN}[INFO] {msg}{RESET}")
 
 
 def log_warn(msg):
-    print(f"  {YELLOW}⚠  {msg}{RESET}")
+    try:
+        print(f"  {YELLOW}⚠  {msg}{RESET}")
+    except UnicodeEncodeError:
+        print(f"  {YELLOW}[WARN] {msg}{RESET}")
 
 
 class BaseE2ETest(StaticLiveServerTestCase):
@@ -40,7 +52,7 @@ class BaseE2ETest(StaticLiveServerTestCase):
         super().setUpClass()
 
         chrome_options = Options()
-        chrome_options.add_argument("--headless")
+        chrome_options.add_argument('--headless=new')
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")

@@ -1,0 +1,276 @@
+# Labels, comments, and closes PRs that bypass issue assignment rules.
+# Uses pull_request_target so GITHUB_TOKEN can write on all PRs (incl. forks).
+name: PR Guardian
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  enforce:
+    name: PR assignee check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check assignee, then label, comment, and close if needed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
+            const author = pr.user.login;
+            const body = pr.body || '';
+            const title = pr.title || '';
+
+            const guardianLabels = [
+              { name: 'assignee-mismatch', color: 'd73a4a', description: 'PR author is not assigned to the linked issue' },
+              { name: 'no-issue-linked', color: 'fbca04', description: 'PR does not reference an issue with Fixes/Closes' },
+            ];
+
+            for (const label of guardianLabels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label.name });
+              } catch (err) {
+                if (err.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                } else {
+                  throw err;
+                }
+              }
+            }
+
+            function parseIssueNumbers(text) {
+              const nums = new Set();
+              const patterns = [
+                /\b(?:fix(?:e)?s?|close[sd]?|resolve[sd]?)\s+(?:[^\n#]*)?#(\d+)/gi,
+                /fixes\s+#(\d+)/gi,
+                /related issue[^\n]*#(\d+)/gi,
+              ];
+              for (const pattern of patterns) {
+                for (const match of text.matchAll(pattern)) {
+                  nums.add(parseInt(match[1], 10));
+                }
+              }
+              return [...nums].sort((a, b) => a - b);
+            }
+
+            async function evaluatePr() {
+              try {
+                const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner,
+                  repo,
+                  username: author,
+                });
+                if (perm.permission === 'admin' || perm.permission === 'maintain') {
+                  return { allowed: true, reason: 'maintainer_bypass' };
+                }
+              } catch (e) {
+                core.info(`Permission lookup skipped: ${e.message}`);
+              }
+
+              const { data: files } = await github.rest.pulls.listFiles({
+                owner,
+                repo,
+                pull_number: prNumber,
+                per_page: 100,
+              });
+              if (
+                files.length > 0 &&
+                files.every((f) => f.filename.startsWith('.github/') || f.filename === 'vercel.json')
+              ) {
+                return { allowed: true, reason: 'infra_only' };
+              }
+
+              if (/#\s*\(\s*issue\s+number\s*\)/i.test(body)) {
+                return { allowed: false, reason: 'template_not_filled' };
+              }
+
+              const issueNumbers = parseIssueNumbers(`${title}\n${body}`);
+              if (!issueNumbers.length) {
+                return { allowed: false, reason: 'no_issue_linked' };
+              }
+
+              for (const num of issueNumbers) {
+                const { data: issue } = await github.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number: num,
+                });
+                if (issue.pull_request) continue;
+                const assignees = (issue.assignees || []).map((u) => u.login);
+                if (!assignees.length) {
+                  return { allowed: false, reason: `issue_${num}_unassigned` };
+                }
+                if (!assignees.includes(author)) {
+                  return { allowed: false, reason: `issue_${num}_assignee_mismatch` };
+                }
+              }
+
+              return { allowed: true, reason: 'ok' };
+            }
+
+            function buildViolationComment(reason) {
+              const discordInvite = 'https://discord.gg/DvW3xVXw8g';
+              const readmeDiscord = `https://github.com/${owner}/${repo}#-1-join-our-discord-community`;
+
+              let reasonTitle;
+              let reasonQuote;
+              let steps = [];
+
+              if (reason === 'template_not_filled') {
+                reasonTitle = 'PR template not filled in';
+                reasonQuote =
+                  'The description still contains the placeholder **`Fixes #(issue number)`**. Replace it with a real issue number, e.g. **`Fixes #123`**.';
+                steps = [
+                  'Edit the PR description and replace **`Fixes #(issue number)`** with a real issue, e.g. **`Fixes #123`**.',
+                  'Get **assigned** to that issue on GitHub.',
+                  'Save the description so PR Guardian can re-check.',
+                ];
+              } else if (reason === 'no_issue_linked') {
+                reasonTitle = 'No linked issue';
+                reasonQuote =
+                  'This pull request does not reference an issue. Use the PR template format, e.g. **`Fixes #123`**, in the description.';
+                steps = [
+                  'Pick an **open issue** you want to work on (or ask a maintainer for one).',
+                  'Get **assigned** to that issue on GitHub.',
+                  'Open a **new PR** with `Fixes #<issue-number>` and confirm you appear under **Assignees**.',
+                ];
+              } else if (reason.includes('unassigned')) {
+                const issueNum = reason.match(/issue_(\d+)_/)?.[1] || '?';
+                reasonTitle = `Issue #${issueNum} has no assignee`;
+                reasonQuote =
+                  `Linked issue **#${issueNum}** is not assigned to anyone yet. PRs should only be opened for issues that are assigned.`;
+                steps = [
+                  `Comment on **issue #${issueNum}** and request assignment (or wait for a maintainer).`,
+                  `After you are listed under **Assignees**, open a **new PR** with \`Fixes #${issueNum}\`.`,
+                ];
+              } else {
+                const issueNum = reason.match(/issue_(\d+)_/)?.[1] || '?';
+                reasonTitle = 'Assignee mismatch';
+                reasonQuote =
+                  `@${author} is **not assigned** to issue **#${issueNum}**. Only the person assigned to an issue should open a PR for it.`;
+                steps = [
+                  `Get assigned to **issue #${issueNum}** before opening a PR.`,
+                  'Verify your username appears under **Assignees** on the issue page.',
+                  `Then open a **new PR** with \`Fixes #${issueNum}\` in the description.`,
+                ];
+              }
+
+              const stepsBlock = steps.map((step, i) => `${i + 1}. ${step}`).join('\n');
+              const marker = '<!-- pr-guardian -->';
+
+              return [
+                marker,
+                '## 🛡️ PR closed by PR Guardian',
+                '',
+                '| | |',
+                '|:---|:---|',
+                '| **Status** | Closed automatically |',
+                `| **Reason** | ${reasonTitle} |`,
+                `| **Author** | @${author} |`,
+                '',
+                '### 📋 What happened',
+                '',
+                `> ${reasonQuote}`,
+                '',
+                '### ✅ What to do next',
+                '',
+                stepsBlock,
+                '',
+                '### ⚙️ CI & previews',
+                '',
+                '> CI checks and Vercel preview deployments are **not** run for pull requests that bypass issue assignment rules.',
+                '',
+                '---',
+                '',
+                '### 💬 Think this closure is wrong?',
+                '',
+                `If you believe this message was posted **by mistake**, please reach out on **Discord** — the invite link is in our [README](${readmeDiscord}) (Community section).`,
+                '',
+                `[Join Checkora on Discord](${discordInvite})`,
+                '',
+                '<sub>🤖 Automated message from PR Guardian · do not reply to this thread for assignment requests — use the issue or Discord instead.</sub>',
+              ].join('\n');
+            }
+
+            async function removeGuardianLabels() {
+              for (const name of ['assignee-mismatch', 'no-issue-linked']) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    name,
+                  });
+                } catch (err) {
+                  if (err.status !== 404) throw err;
+                }
+              }
+            }
+
+            const { allowed, reason } = await evaluatePr();
+            core.info(`PR #${prNumber} by @${author}: allowed=${allowed} reason=${reason}`);
+
+            if (allowed) {
+              await removeGuardianLabels();
+              return;
+            }
+
+            const labelName =
+              reason === 'no_issue_linked' || reason === 'template_not_filled'
+                ? 'no-issue-linked'
+                : 'assignee-mismatch';
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: prNumber,
+              labels: [labelName],
+            });
+
+            const commentBody = buildViolationComment(reason);
+            const marker = '<!-- pr-guardian -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: prNumber,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: commentBody,
+              });
+            }
+
+            if (pr.state === 'open') {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: prNumber,
+                state: 'closed',
+              });
+              core.info(`Closed PR #${prNumber} (${reason})`);
+            }
