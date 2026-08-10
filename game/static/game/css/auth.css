@@ -284,7 +284,7 @@ body {
 .auth-layout {
     flex: 1;
     display: flex;
-    justify-content: center;
+    justify-content: safe center;
     align-items: center;
 
     width: 100%;
@@ -570,7 +570,7 @@ body {
     position: fixed;
     top: 20px;
     left: 20px;
-    z-index: 1000;
+    z-index: 10010;
     color: #f0c040;
     text-decoration: none;
     font-size: 1.2rem;
@@ -865,6 +865,14 @@ body.login-page .helptext {
     border-color: var(--accent-gold);
     color: var(--text-primary);
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] body.new-cyber-design .forgot-link {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .forgot-link:hover {
+    color: var(--accent-gold) !important;
 }
 
 body.new-cyber-design .auth-home-link {
