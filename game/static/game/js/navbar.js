@@ -31,8 +31,14 @@ function initNavbar() {
         link.addEventListener("click", closeMenu);
     });
 
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && navLinks.classList.contains("active")) {
+            closeMenu();
+        }
+    });
+
     window.addEventListener("resize", () => {
-        if (window.innerWidth > 768) closeMenu();
+        if (window.innerWidth > 1024) closeMenu();
     });
 }
 

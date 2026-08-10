@@ -86,25 +86,7 @@ body {
     width: 100%;
 }
 
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 5%;
-    background-color: var(--nav-bg);
-
-    position: sticky;
-    top: 0;
-    z-index: 10002;
-    margin: 14px 22px;
-    border-radius: 18px;
-    background: rgba(15, 15, 25, 0.55);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-    transition: background 0.3s ease, box-shadow 0.3s ease;
-}
+/* Navbar styling handled globally by theme.css */
 
 .nav-left {
     display: flex;
@@ -3527,42 +3509,7 @@ body.hide-native-cursor * {
 }
 
 /* Mobile view */
-@media (max-width: 768px) {
-
-    .nav-toggle {
-        display: block;
-    }
-
-    .nav-links {
-    display: none;
-    position: absolute;
-    top: 100%;
-     left: 5%;
-    right: 5%;
-    flex-direction: column;
-    background: var(--nav-bg);
-    border-radius: 12px;
-    padding: 1rem;
-    gap: 1rem;
-     z-index: 10000;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-    /* THIS is the key fix */
-    .nav-links.active {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .nav-links a {
-        padding: 10px;
-        border-radius: 6px;
-    }
-
-    .nav-links a:hover {
-        background: rgba(255,255,255,0.08);
-    }
-}
+/* Navbar media queries and mobile drawer handled globally by theme.css */
 
 .nav-links a{
     padding:.75rem 0;

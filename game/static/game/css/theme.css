@@ -14,7 +14,7 @@
     --text-title: #ffffff;
     --text-secondary: #aaaaaa;
     --accent-gold: #f0c040;
-    --border-color: rgba(255,255,255,0.1);
+    --border-color: rgba(255, 255, 255, 0.1);
     --danger-red: #ff6b6b;
     --input-bg: #1a1a2e;
     --input-border: #444;
@@ -34,7 +34,7 @@
     --text-title: #000000;
     --text-secondary: #4b5563;
     --accent-gold: #b47505;
-    --border-color: rgba(0,0,0,0.1);
+    --border-color: rgba(0, 0, 0, 0.1);
     --input-bg: #ffffff;
     --input-border: #d1d5db;
     --input-text: #111827;
@@ -57,7 +57,7 @@
 [data-theme="light"] .btn-register,
 [data-theme="light"] .btn-primary {
     background: #f0c040 !important;
-    color: #0f0f1a !important; 
+    color: #0f0f1a !important;
     font-weight: bold !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
     box-shadow: 0 4px 10px rgba(240, 192, 64, 0.3) !important;
@@ -87,6 +87,7 @@
     color: #111827 !important;
     border-color: #d1d5db !important;
 }
+
 [data-theme="light"] .btn-signin:hover {
     background: #f3f4f6 !important;
     border-color: var(--accent-gold) !important;
@@ -96,10 +97,12 @@
 [data-theme="light"] .nav-links a {
     color: #4b5563 !important;
 }
+
 [data-theme="light"] .nav-links a:hover,
 [data-theme="light"] .nav-links a.active {
     color: var(--accent-gold) !important;
 }
+
 [data-theme="light"] .nav-links a::after {
     background-color: var(--accent-gold) !important;
 }
@@ -111,6 +114,7 @@
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
 }
+
 [data-theme="light"] .hero-board-vignette {
     box-shadow: inset 0 0 100px #f5f7fb !important;
 }
@@ -136,17 +140,21 @@
     border-color: #d1d5db !important;
     color: #111827 !important;
 }
+
 [data-theme="light"] .profile-btn:hover {
     background-color: #f3f4f6 !important;
 }
+
 [data-theme="light"] .profile-dropdown .dropdown-content {
     background: #ffffff !important;
     border: 1px solid #d1d5db !important;
 }
+
 [data-theme="light"] .profile-dropdown .dropdown-content a,
 [data-theme="light"] .profile-dropdown .dropdown-content button {
     color: #111827 !important;
 }
+
 [data-theme="light"] .profile-dropdown .dropdown-content a:hover,
 [data-theme="light"] .profile-dropdown .dropdown-content button:hover {
     background-color: #f3f4f6 !important;
@@ -156,6 +164,7 @@
 [data-theme="light"] .profile-dropdown .dropdown-content a.delete-option {
     color: #ef4444 !important;
 }
+
 [data-theme="light"] .profile-dropdown .dropdown-content a.delete-option:hover {
     background-color: rgba(239, 68, 68, 0.12) !important;
     color: #ef4444 !important;
@@ -164,6 +173,7 @@
 [data-theme="light"] .profile-dropdown .dropdown-content button * {
     color: #111827 !important;
 }
+
 [data-theme="light"] .profile-dropdown .dropdown-content button:hover * {
     color: var(--accent-gold) !important;
 }
@@ -172,7 +182,7 @@
 [data-theme="light"] .clock .label,
 [data-theme="light"] #whiteNameLabel,
 [data-theme="light"] #blackNameLabel {
-    color: var(--text-secondary) !important; 
+    color: var(--text-secondary) !important;
     font-weight: 700 !important;
 }
 
@@ -181,6 +191,7 @@
     border: 1px solid #d1d5db !important;
     color: #111827 !important;
 }
+
 [data-theme="light"] .m-fab-btn:hover {
     background: #f3f4f6 !important;
     color: var(--accent-gold) !important;
@@ -188,6 +199,7 @@
 
 /* Enable smooth transitions only during theme toggles (respecting reduced motion preferences) */
 @media (prefers-reduced-motion: no-preference) {
+
     html.theme-transition,
     html.theme-transition *,
     html.theme-transition ::before,
@@ -197,7 +209,7 @@
 }
 
 
-/* --- GLOBAL NAVBAR STYLES --- */
+/* --- GLOBAL ULTRACLEAN RESPONSIVE NAVBAR STYLES --- */
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -219,6 +231,7 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
 }
+
 .nav-left {
     display: flex;
     align-items: center;
@@ -261,6 +274,7 @@
     0% {
         filter: brightness(1.4) contrast(1.2) drop-shadow(0 0 4px rgba(0, 200, 255, 0.3));
     }
+
     100% {
         filter: brightness(1.5) contrast(1.3) drop-shadow(0 0 12px rgba(0, 200, 255, 0.8));
     }
@@ -496,6 +510,7 @@
     .nav-links {
         gap: 1rem;
     }
+
     .nav-links a {
         font-size: 0.88rem;
     }
@@ -576,7 +591,8 @@
         font-size: 0.85rem;
     }
 
-    .btn-signin, .btn-register {
+    .btn-signin,
+    .btn-register {
         padding: 7px 12px;
         font-size: 0.8rem;
     }
@@ -586,7 +602,9 @@
     .nav-username-text {
         display: none;
     }
+
     .cursor-btn {
-        display: none; /* Keep header concise on narrow mobile screens */
+        display: none;
+        /* Keep header concise on narrow mobile screens */
     }
-}
+}
