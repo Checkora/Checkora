@@ -10,44 +10,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
 </head>
 <body>
-    <nav class="forum-navbar">
-        <div class="nav-left">
-            <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
-                <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
-            </a>
-        </div>
-
-        <div class="nav-right">
-            {% if user.is_authenticated %}
-            <div class="profile-dropdown">
-                <button type="button" class="profile-btn">{{ user.username }} ⌄</button>
-
-                <div class="dropdown-content">
-                    <a href="{% url 'profile' %}"> Profile </a>
-                    <a href="/play/">Dashboard</a>
-                    <a href="{% url 'opening_trainer' %}">Opening Trainer</a>
-                    <a href="/stats/">Stats</a>
-                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
-                    <a href="{% url 'achievements' %}">Achievements</a>
-
-                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
-                        {% csrf_token %}
-                        <button type="submit" class="logout-option">Logout</button>
-                    </form>
-                </div>
-            </div>
-            {% else %}
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
-            {% endif %}
-        </div>
-    </nav>
+    {% include 'game/includes/navbar.html' %}
 
     <div class="forum-container">
         <a href="{% url 'forum' %}" class="forum-back-link">← Back to Forum</a>

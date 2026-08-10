@@ -8,29 +8,21 @@
         alt="Checkora Logo"
         class="logo-img"
       />
-      <span class="logo-text"
-        >CHECK<span class="logo-accent">ORA</span></span
-      >
+      <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
     </a>
-    <button
-      class="nav-toggle"
-      id="navToggle"
-      type="button"
-      aria-label="Menu"
-      aria-expanded="false"
-    >
-      ☰
-    </button>
     <span class="badge" id="modeBadge" style="display: none; margin-left: 8px; background: #f0c040; color: #111; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">PVP</span>
     <div class="nav-links" id="navLinks">
-      <a href="{% url 'landing' %}#about">About Us</a>
-      <a href="{% url 'landing' %}#features">Features</a>
-      <a href="{% url 'landing' %}#faq">FAQ</a>
+      <a href="{% url 'landing' %}">Home</a>
+      <a href="/play/">Play</a>
+      <a href="{% url 'lessons' %}">Lessons</a>
+      <a href="{% url 'puzzles' %}">Puzzles</a>
+      <a href="{% url 'leaderboard' %}">Leaderboard</a>
       <a href="{% url 'forum' %}">Forum</a>
+      <a href="{% url 'rules' %}">Rules</a>
     </div>
   </div>
   <div class="nav-right">
-    <button type="button" id="themeToggle" class="theme-toggle">
+    <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
         🌙
     </button>
     <div class="cursor-dropdown custom-dropdown">
@@ -57,58 +49,41 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </span>
         {% endif %}
-        {{ user.username }}
+        <span class="nav-username-text">{{ user.username }}</span>
         <svg class="profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
       </button>
       <div class="dropdown-content">
         <a href="{% url 'profile' %}"> Profile </a>
         <a href="/play/"> Dashboard </a>
-
-        <a href="{% url 'opening_trainer' %}">
-            Opening Trainer
-        </a>
-
+        <a href="{% url 'opening_trainer' %}"> Opening Trainer </a>
         <a href="/stats/"> Stats </a>
-
         <a href="{% url 'puzzles' %}"> Puzzles </a>
-
         <a href="{% url 'leaderboard' %}"> Leaderboard </a>
-
         <a href="{% url 'achievements' %}"> Achievements </a>
-
         <a href="{% url 'upload_avatar' %}"> Profile Picture </a>
-
-        <a
-          href="{% url 'delete_account' %}"
-          class="delete-option"
-        >
-          Delete Account
-        </a>
-
-        <form
-          method="post"
-          action="{% url 'logout' %}"
-          style="margin:0;"
-        >
+        <a href="{% url 'delete_account' %}" class="delete-option"> Delete Account </a>
+        <form method="post" action="{% url 'logout' %}" style="margin:0;">
           {% csrf_token %}
-
-          <button
-            type="submit"
-            class="logout-option"
-          >
-            Logout
-          </button>
-
+          <button type="submit" class="logout-option"> Logout </button>
         </form>
-
       </div>
-
     </div>
-
     {% else %}
     <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
     <a href="{% url 'register' %}" class="btn-register">Register</a>
     {% endif %}
+    <button
+      class="nav-toggle"
+      id="navToggle"
+      type="button"
+      aria-label="Menu"
+      aria-expanded="false"
+    >
+      ☰
+    </button>
   </div>
 </nav>
-<script src="{% static 'game/js/landing.js' %}"></script>
+<script src="{% static 'game/js/theme.js' %}"></script>
+<script src="{% static 'game/js/cursor.js' %}"></script>
+<script src="{% static 'game/js/dropdown.js' %}"></script>
+<script src="{% static 'game/js/navbar.js' %}"></script>

@@ -9,11 +9,16 @@
 
     <link
         rel="stylesheet"
+        href="{% static 'game/css/theme.css' %}?v=1"
+    >
+    <link
+        rel="stylesheet"
         href="{% static 'game/css/opening_trainer.css' %}"
     >
 </head>
 
 <body>
+{% include 'game/includes/navbar.html' %}
 
 <form style="display:none;">
     {% csrf_token %}

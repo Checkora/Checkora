@@ -102,10 +102,10 @@
             .stats-grid {
                 grid-template-columns: 1fr;
             }
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
 </head>
 <body>
+    {% include 'game/includes/navbar.html' %}
     <div class="container">
         <div class="header-title-row">
             <h1>User Profile</h1>

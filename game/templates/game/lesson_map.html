@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Learning Journey</title>
+<link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
 
 <style>
 body{
@@ -481,6 +482,7 @@ background-size:60px 60px;
 </head>
 
 <body>
+{% include 'game/includes/navbar.html' %}
 
 {% if not user.is_authenticated %}
 <div class="alert-banner" id="guest-alert">

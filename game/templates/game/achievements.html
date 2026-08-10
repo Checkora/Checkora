@@ -256,15 +256,12 @@
         .celebrate-btn:hover {
             background: rgba(240, 192, 64, 0.1);
         }
-    </style>
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
     <script src="{% static 'game/js/confetti.js' %}"></script>
 </head>
 <body>
-
-<a href="{% url 'stats' %}" class="back-btn">
-    ← Back to Statistics
-</a>
+{% include 'game/includes/navbar.html' %}
 
 <h1>🏆 Achievement Collection</h1>
 <p class="subtitle">

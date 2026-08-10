@@ -5,6 +5,7 @@
     <title>Chess Lessons - Checkora</title>
 
     <link rel="icon" href="{% static 'game/favicon.jpeg' %}?v=2">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
 
     <style>
         body {
@@ -358,6 +359,7 @@
 </head>
 
 <body>
+{% include 'game/includes/navbar.html' %}
 
 {% if not user.is_authenticated %}
 <div class="alert-banner" id="guest-alert">
