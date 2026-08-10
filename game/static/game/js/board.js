@@ -368,6 +368,8 @@
 
     let whiteTime = 0;
     let blackTime = 0;
+    let maxWhiteTime = 0;
+    let maxBlackTime = 0;
     let selectedMins = 10;
     let selectedIncrement = 0;
     let paused = false;
@@ -1571,6 +1573,8 @@
         turn = data.current_turn;
         whiteTime = data.white_time;
         blackTime = data.black_time;
+        maxWhiteTime = Math.max(whiteTime || 0, Math.round(selectedMins * 60));
+        maxBlackTime = Math.max(blackTime || 0, Math.round(selectedMins * 60));
         paused = data.paused;
 
         gameMode = data.mode || 'pvp';
@@ -3915,7 +3919,25 @@ function updateStepperUI() {
         const bYou = document.getElementById('blackYouTag');
         if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
         if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
+        
+        const sessionMaxTime = Math.round(selectedMins * 60) || 600;
+        if (whiteTime > maxWhiteTime || maxWhiteTime === 0) maxWhiteTime = Math.max(whiteTime, sessionMaxTime);
+        if (blackTime > maxBlackTime || maxBlackTime === 0) maxBlackTime = Math.max(blackTime, sessionMaxTime);
+
+        updateClockTimerBar('whiteTimerBarFill', whiteTime, maxWhiteTime);
+        updateClockTimerBar('blackTimerBarFill', blackTime, maxBlackTime);
+
         updateThinkingDots();
+    }
+
+    function updateClockTimerBar(barFillId, currentTime, maxTime) {
+        const barFill = document.getElementById(barFillId);
+        if (!barFill) return;
+        const total = maxTime > 0 ? maxTime : (selectedMins * 60 || 600);
+        const pct = Math.min(100, Math.max(0, (currentTime / total) * 100));
+        barFill.style.width = `${pct}%`;
+        barFill.classList.toggle('timer-warning', currentTime <= 30 && currentTime > 10);
+        barFill.classList.toggle('timer-critical', currentTime <= 10 && currentTime > 0);
     }
 
             /* ==========================================================
@@ -4196,6 +4218,8 @@ function updateStepperUI() {
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
         evaluationCache = {};
+        maxWhiteTime = 0;
+        maxBlackTime = 0;
         if (!isPuzzle) {
             dailyPuzzleMode = false;
             currentPuzzle = null;
@@ -4333,6 +4357,8 @@ function updateStepperUI() {
         gameOver = false;
         whiteAlertFired = false;
         blackAlertFired = false;
+        maxWhiteTime = Math.max(d.white_time || 0, Math.round(selectedMins * 60));
+        maxBlackTime = Math.max(d.black_time || 0, Math.round(selectedMins * 60));
         incrementGameCounter();
 
         gameStartTime = Date.now();
