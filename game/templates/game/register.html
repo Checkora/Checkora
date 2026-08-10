@@ -14,8 +14,10 @@
       href="{% static 'game/favicon.jpeg' %}"
     />
       <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+      <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
 </head>
 <body>
+    <div class="cursor"></div>
     {% include 'game/includes/navbar.html' %}
 
     <main class="auth-layout">
@@ -115,5 +117,6 @@
         }
     </script>
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <script src="{% static 'game/js/cursor.js' %}"></script>
 </body>
 </html>
