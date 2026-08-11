@@ -157,9 +157,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-lint-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-lint-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: 📥 Install flake8
         run: pip install flake8 flake8-django
@@ -195,6 +195,14 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
+
+      - name: 📦 Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
 
       - name: 📦 Install dependencies
         run: npm ci
@@ -372,9 +380,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-migrate-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-migrate-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: 📥 Install dependencies
         run: |
@@ -416,9 +424,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-audit-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-audit-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: 📥 Install pip-audit
         run: pip install pip-audit
@@ -461,9 +469,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-sast-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            pip-sast-${{ runner.os }}-
+            pip-${{ runner.os }}-
 
       - name: Install Bandit
         run: pip install bandit
