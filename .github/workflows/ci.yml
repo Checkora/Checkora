@@ -425,13 +425,29 @@ jobs:
 
       - name: 🔒 Run pip-audit security scan
         run: |
+          set -o pipefail
+
           pip-audit \
             --requirement requirements.txt \
             --format=columns \
-            --progress-spinner=off
+            --progress-spinner=off | tee pip-audit-report.txt
+
+          echo "## 🔒 Security Scan Results (pip-audit)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat pip-audit-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
         # Non-zero exit = vulnerabilities found → fails CI
         # Remove the next line if you want warnings-only mode:
         continue-on-error: false
+
+      - name: 📤 Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report-${{ github.run_id }}
+          path: pip-audit-report.txt
+          if-no-files-found: ignore
+          retention-days: 7
 
 # ───────────────────────────────────────────────────────────────────
 # JOB 6 — SAST (Bandit)

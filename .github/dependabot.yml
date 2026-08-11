@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Python dependencies (requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "type:security"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # JavaScript dependencies (package.json / package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "type:security"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions versions used in workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "type:security"
+    commit-message:
+      prefix: "chore(deps)"

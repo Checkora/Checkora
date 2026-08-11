@@ -234,6 +234,21 @@ python manage.py test game.selenium_tests --verbosity=2
 ```bash
 python manage.py makemigrations --check --dry-run
 ```
+
+### Security Checks
+```bash
+# Python dependency vulnerabilities
+pip install pip-audit
+pip-audit --requirement requirements.txt
+
+# Static analysis (flags insecure code patterns)
+pip install bandit
+bandit -r . --exclude ./.github
+
+# JavaScript dependency vulnerabilities
+npm audit --audit-level=high
+```
+If any of these fail, see [SECURITY.md](SECURITY.md#resolving-ci-security-findings) for how to resolve the finding.
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>
@@ -295,8 +310,11 @@ Every PR and push to `main` runs the following automated checks via GitHub Actio
 | 🗄️ **Migration Check** | `python manage.py migrate --check`  | ✅ Yes                 |
 | 🔒 **Security Scan**   | `pip-audit` on `requirements.txt`   | ✅ Yes                 |
 | 🛡️ **SAST (Bandit)**  | Static security analysis            | ✅ Yes                 |
+| 🃏 **JS Tests**        | `npm audit` + Jest                  | ✅ Yes                 |
 | 🖥️ **Selenium Tests**  | End-to-end browser tests            | ✅ Yes                 |
 | 🌐 **Deploy**          | Vercel production deploy            | 🔁 Push to `main` only |
+
+Outside of PR checks, **Dependabot** opens weekly PRs to patch vulnerable Python, npm, and GitHub Actions dependencies, and **CodeQL** (GitHub's default setup) scans the repo for common vulnerability patterns. See [SECURITY.md](SECURITY.md#resolving-ci-security-findings) for how to resolve a failing security check.
 
 All checks must pass before a maintainer can merge your PR.
 <p align="right">
