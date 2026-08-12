@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,18 +9,18 @@
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
 </head>
+
 <body>
     <nav class="forum-navbar">
         <div class="nav-left">
             <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}"
-                    alt="Checkora Logo"
-                    class="logo-img">
+                <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
 
                 <span class="logo-text">
                     CHECK<span class="logo-accent">ORA</span>
@@ -62,33 +63,126 @@
         <div class="forum-new-card">
             <h1 class="forum-detail-title">Start a New Discussion</h1>
 
-            <form method="post" class="forum-new-form">
+            <form method="post" class="forum-new-form" id="new-discussion-form">
                 {% csrf_token %}
                 <div class="forum-form-group">
                     <label for="{{ form.title.id_for_label }}">Title</label>
                     {{ form.title }}
                     {% if form.title.errors %}
-                        <p class="forum-error">{{ form.title.errors|first }}</p>
+                    <p class="forum-error">{{ form.title.errors|first }}</p>
                     {% endif %}
                 </div>
                 <div class="forum-form-group">
                     <label for="{{ form.category.id_for_label }}">Category</label>
                     {{ form.category }}
                     {% if form.category.errors %}
-                        <p class="forum-error">{{ form.category.errors|first }}</p>
+                    <p class="forum-error">{{ form.category.errors|first }}</p>
                     {% endif %}
                 </div>
                 <div class="forum-form-group">
                     <label for="{{ form.content.id_for_label }}">Content</label>
                     {{ form.content }}
                     {% if form.content.errors %}
-                        <p class="forum-error">{{ form.content.errors|first }}</p>
+                    <p class="forum-error">{{ form.content.errors|first }}</p>
                     {% endif %}
                 </div>
-                <button type="submit" class="forum-btn-submit">Create Discussion</button>
+                <div class="forum-draft-actions">
+                    <button type="button" id="discard-draft" class="forum-btn-secondary" style="display: none;">
+                        Discard Draft
+                    </button>
+
+                    <button type="submit" class="forum-btn-submit">
+                        Create Discussion
+                    </button>
+                </div>
+
+                <p id="draft-status" class="forum-draft-status" aria-live="polite"></p>
             </form>
         </div>
     </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById("new-discussion-form");
+
+            if (!form) return;
+
+            const title = document.getElementById("{{ form.title.id_for_label }}");
+            const category = document.getElementById("{{ form.category.id_for_label }}");
+            const content = document.getElementById("{{ form.content.id_for_label }}");
+
+            const discardButton = document.getElementById("discard-draft");
+            const draftStatus = document.getElementById("draft-status");
+
+            const DRAFT_KEY = "checkora_new_discussion_draft";
+
+            function saveDraft() {
+                const draft = {
+                    title: title ? title.value : "",
+                    category: category ? category.value : "",
+                    content: content ? content.value : ""
+                };
+
+                const hasContent = Object.values(draft).some(value => value.trim() !== "");
+
+                if (!hasContent) {
+                    return;
+                }
+
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+
+                draftStatus.textContent = "Draft saved.";
+                discardButton.style.display = "inline-block";
+            }
+
+            function restoreDraft() {
+                const savedDraft = localStorage.getItem(DRAFT_KEY);
+
+                if (!savedDraft) return;
+
+                try {
+                    const draft = JSON.parse(savedDraft);
+
+                    if (title) title.value = draft.title || "";
+                    if (category) category.value = draft.category || "";
+                    if (content) content.value = draft.content || "";
+
+                    draftStatus.textContent = "Draft restored successfully.";
+                    discardButton.style.display = "inline-block";
+                } catch (error) {
+                    localStorage.removeItem(DRAFT_KEY);
+                }
+            }
+
+            function discardDraft() {
+                localStorage.removeItem(DRAFT_KEY);
+
+                if (title) title.value = "";
+                if (category) category.value = "";
+                if (content) content.value = "";
+
+                draftStatus.textContent = "Draft discarded.";
+                discardButton.style.display = "none";
+            }
+
+            let saveTimeout;
+
+            form.addEventListener("input", function () {
+                clearTimeout(saveTimeout);
+
+                saveTimeout = setTimeout(saveDraft, 1000);
+            });
+
+            discardButton.addEventListener("click", discardDraft);
+
+            form.addEventListener("submit", function () {
+                localStorage.removeItem(DRAFT_KEY);
+            });
+
+            restoreDraft();
+        });
+    </script>
+
     <script src="{% static 'game/js/dropdown.js' %}"></script>
 </body>
+
 </html>
