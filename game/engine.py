@@ -18,6 +18,7 @@ is chosen at random to add variety.
 
 import os
 import contextlib
+import logging
 import random
 import subprocess
 import json
@@ -26,6 +27,9 @@ import time
 import threading
 import uuid
 from datetime import date
+
+
+logger = logging.getLogger(__name__)
 
 
 class ChessGame:
@@ -616,17 +620,40 @@ DP cache is intentionally excluded to save cookie space."""
                 timeout_secs = getattr(
                     self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
                 )
-                stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
+                stdout, stderr = proc.communicate(
+                    input=command, timeout=timeout_secs
+                )
+                if stderr:
+                    logger.warning(
+                        "Chess engine wrote to stderr while handling %s: %s",
+                        command.split(maxsplit=1)[0] if command else "<empty>",
+                        stderr.strip(),
+                    )
                 return stdout.strip()
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as exc:
                 if proc:
                     try:
                         proc.kill()
-                        proc.communicate()
+                        _, stderr = proc.communicate()
+                        stderr = stderr or getattr(exc, "stderr", None)
+                        if stderr:
+                            logger.warning(
+                                "Chess engine timed out while handling %s. "
+                                "stderr: %s",
+                                command.split(maxsplit=1)[0]
+                                if command else "<empty>",
+                                stderr.strip()
+                                if isinstance(stderr, str) else stderr,
+                            )
                     except Exception:
                         pass
                 return None
-            except OSError:
+            except OSError as exc:
+                logger.warning(
+                    "Failed to start chess engine while handling %s: %s",
+                    command.split(maxsplit=1)[0] if command else "<empty>",
+                    exc,
+                )
                 return None
 
         try:
