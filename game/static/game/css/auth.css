@@ -21,31 +21,7 @@
    Navbar Elements (Direct Tag Fixes for Alignment, Spacing & Width)
    ============================================================ */
 
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 5%;
-    background-color: var(--nav-bg);
 
-    position: sticky;
-    top: 0;
-    z-index: 10002;
-    margin: 14px 22px;
-    border-radius: 18px;
-    background: rgba(15, 15, 25, 0.55);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-    transition: background 0.3s ease, box-shadow 0.3s ease;
-}
-
-.nav-left {
-    display: flex;
-    align-items: center;
-    gap: 3rem;
-}
 
 .logo-link {
     display: inline-flex;
@@ -91,73 +67,7 @@
     color: var(--accent-gold);
 }
 
-.nav-links {
-    display: flex;
-    gap: 2rem;
-}
 
-.nav-links a {
-    position: relative;
-    text-decoration: none;
-    color: var(--text-primary);
-    font-size: 0.95rem;
-    font-weight: 500;
-    transition: color 0.3s ease;
-    padding-bottom: 6px;
-}
-
-.nav-links a::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -6px;
-    width: 0;
-    height: 0px;
-    background-color: var(--accent-gold);
-    transition: width 0.3s ease;
-    position: relative;
-    display: inline-block;
-    transition: color 0.3s ease;
-    padding-bottom: 4px;
-}
-
-.nav-links a:hover {
-    color: #C9A84C;
-}
-
-.nav-links a::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: linear-gradient(90deg, #C9A84C, #FFD700);
-    border-radius: 2px;
-    transition: width 0.3s ease;
-}
-
-.nav-links a:hover::after {
-    width: 100%;
-}
-
-.nav-links a.active {
-    color: #C9A84C;
-}
-
-.nav-links a.active::after {
-    width: 100%;
-}
-
-.nav-links a:hover::after {
-    width: 100%;
-}
-
-.nav-right {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
 
 .btn-signin,
 .theme-toggle {
@@ -276,8 +186,7 @@ body {
     overflow-x: hidden;
 }
 
-.navbar-container,
-.navbar {
+.navbar-container {
     width: 100%;
 }
 
@@ -812,6 +721,11 @@ body.login-page .helptext {
     .header {
         width: 100%;
         max-width: 100%;
+    }
+    
+    /* ADD THIS TO PUSH THE FORM DOWN */
+    .header--with-navbar {
+        margin-top: 140px !important;
     }
 }
 

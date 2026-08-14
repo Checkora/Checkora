@@ -19,6 +19,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Match History — Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
 
     <!-- chess.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
@@ -394,14 +395,7 @@
 
 <body>
 
-    <!-- ─── Header ──────────────────────────────────────────────────────── -->
-    <header class="page-header">
-        <span class="logo">♟ Checkora</span>
-        <nav>
-            <a href="/">Play</a>
-            <a href="/history/" style="color:var(--text)">History</a>
-        </nav>
-    </header>
+    {% include 'game/includes/navbar.html' %}
 
     <!-- ─── Main layout ─────────────────────────────────────────────────── -->
     <div class="layout">

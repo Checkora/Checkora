@@ -10,6 +10,7 @@
     
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
 
     <style>
         :root {
@@ -497,9 +498,8 @@
     </style>
 </head>
 <body>
-
+{% include 'game/includes/navbar.html' %}
 <div class="container">
-    <a href="{% url 'landing' %}" class="back-btn">← Back to Home</a>
     <header>
         <h1>🧩 Puzzle Browser</h1>
         <p class="subtitle">Filter and select from our curated collection of puzzles to sharpen your chess tactics and strategy.</p>

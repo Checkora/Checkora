@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkora - Game Stats</title>
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
     <style>
         body {
@@ -281,10 +282,8 @@
     </style>
 </head>
 <body>
+    {% include 'game/includes/navbar.html' %}
     <div class="container">
-        <div>
-            <a href="/" class="back-btn">← Back to Home</a>
-        </div>
         
         <h1>CHECK<span>ORA</span></h1>
         <div class="subtitle">Personal Game Statistics & History</div>

@@ -8,10 +8,12 @@
     <meta name="description" content="Checkora puzzle and chess rating leaderboards.">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'game/css/leaderboard.css' %}?v=2">
     <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </head>
 <body>
+    {% include 'game/includes/navbar.html' %}
 
     <div class="header-container">
         <div class="header-title-row">

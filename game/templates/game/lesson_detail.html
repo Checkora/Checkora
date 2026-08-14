@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ lesson.title }} - Checkora</title>
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
     <style>
         @media (max-width: 480px) {
@@ -107,6 +108,7 @@
     </style>
 </head>
 <body>
+{% include 'game/includes/navbar.html' %}
 
 <div class="container">
 

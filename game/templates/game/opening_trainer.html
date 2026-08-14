@@ -9,15 +9,16 @@
 
     <link
         rel="stylesheet"
+        href="{% static 'game/css/theme.css' %}?v=1"
+    >
+    <link
+        rel="stylesheet"
         href="{% static 'game/css/opening_trainer.css' %}"
     >
 </head>
 
 <body>
-
-<a href="{% url 'landing' %}" class="back-btn">
-    ← Back to Home
-</a>
+{% include 'game/includes/navbar.html' %}
 
 <div class="container">
 
