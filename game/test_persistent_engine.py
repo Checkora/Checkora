@@ -1,6 +1,7 @@
 import os
 import time
 import tempfile
+import subprocess
 from unittest import mock
 from django.test import TestCase
 from game.engine import ChessGame
@@ -225,3 +226,81 @@ class PersistentEngineTest(TestCase):
                 self.assertFalse(os.path.exists(lock_path),
                                  "Stale lock file should be deleted")
                 self.assertEqual(mock_client.call_count, 2)
+
+    def test_stateless_engine_logs_stderr_without_changing_response(self):
+        """Engine stderr is logged while stdout behavior is preserved."""
+        game = ChessGame()
+        game._analysis_timeout = 1
+
+        engine_proc = mock.MagicMock()
+        engine_proc.communicate.return_value = (
+            "STATUS OK\n",
+            "diagnostic details\n",
+        )
+
+        with (
+            mock.patch.object(game, '_resolve_engine_path',
+                              return_value='engine-binary'),
+            mock.patch('game.engine.os.path.exists', return_value=False),
+            mock.patch('game.engine.os.open', side_effect=OSError),
+            mock.patch('game.engine.time.sleep', return_value=None),
+            mock.patch('game.engine.subprocess.Popen',
+                       return_value=engine_proc),
+            self.assertLogs('game.engine', level='WARNING') as logs,
+        ):
+            resp = game._call_engine("STATUS")
+
+        self.assertEqual(resp, "STATUS OK")
+        self.assertTrue(
+            any("diagnostic details" in message for message in logs.output)
+        )
+
+    def test_stateless_engine_timeout_kills_process_and_logs_stderr(self):
+        """Timeout handling kills the process and logs drained stderr."""
+        game = ChessGame()
+        game._analysis_timeout = 1
+
+        engine_proc = mock.MagicMock()
+        engine_proc.communicate.side_effect = [
+            subprocess.TimeoutExpired(cmd='engine-binary', timeout=1),
+            ("", "timeout diagnostics\n"),
+        ]
+
+        with (
+            mock.patch.object(game, '_resolve_engine_path',
+                              return_value='engine-binary'),
+            mock.patch('game.engine.os.path.exists', return_value=False),
+            mock.patch('game.engine.os.open', side_effect=OSError),
+            mock.patch('game.engine.time.sleep', return_value=None),
+            mock.patch('game.engine.subprocess.Popen',
+                       return_value=engine_proc),
+            self.assertLogs('game.engine', level='WARNING') as logs,
+        ):
+            resp = game._call_engine("STATUS")
+
+        self.assertIsNone(resp)
+        engine_proc.kill.assert_called_once()
+        self.assertTrue(
+            any("timeout diagnostics" in message for message in logs.output)
+        )
+
+    def test_stateless_engine_start_failure_is_logged(self):
+        """Engine start failures are logged without surfacing raw errors."""
+        game = ChessGame()
+
+        with (
+            mock.patch.object(game, '_resolve_engine_path',
+                              return_value='engine-binary'),
+            mock.patch('game.engine.os.path.exists', return_value=False),
+            mock.patch('game.engine.os.open', side_effect=OSError),
+            mock.patch('game.engine.time.sleep', return_value=None),
+            mock.patch('game.engine.subprocess.Popen',
+                       side_effect=OSError("missing binary")),
+            self.assertLogs('game.engine', level='WARNING') as logs,
+        ):
+            resp = game._call_engine("STATUS")
+
+        self.assertIsNone(resp)
+        self.assertTrue(
+            any("missing binary" in message for message in logs.output)
+        )
