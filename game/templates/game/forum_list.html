@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
     <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
 </head>
 <body>
@@ -28,6 +29,12 @@
         </div>
 
         <div class="nav-right">
+            <button
+                type="button"
+                id="themeToggle"
+                class="theme-toggle"
+                title="Toggle light / dark theme">
+            </button>
             {% if user.is_authenticated %}
             <div class="profile-dropdown">
                 <button type="button" class="profile-btn">
@@ -206,5 +213,6 @@
     });
     </script>
     <script src="{% static 'game/js/dropdown.js' %}"></script>
+    <script src="{% static 'game/js/theme.js' %}"></script>
 </body>
 </html>
