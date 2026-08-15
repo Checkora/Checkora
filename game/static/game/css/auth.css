@@ -284,7 +284,7 @@ body {
 .auth-layout {
     flex: 1;
     display: flex;
-    justify-content: center;
+    justify-content: safe center;
     align-items: center;
 
     width: 100%;
@@ -570,7 +570,7 @@ body {
     position: fixed;
     top: 20px;
     left: 20px;
-    z-index: 1000;
+    z-index: 10010;
     color: #f0c040;
     text-decoration: none;
     font-size: 1.2rem;
@@ -853,6 +853,27 @@ body.login-page .helptext {
     background: var(--input-bg) !important;
     border-color: var(--accent-gold) !important;
 }
+[data-theme="light"] body.new-cyber-design .auth-home-link {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] body.new-cyber-design .auth-home-link:hover {
+    background: rgba(240, 192, 64, 0.12);
+    border-color: var(--accent-gold);
+    color: var(--text-primary);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] body.new-cyber-design .forgot-link {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] body.new-cyber-design .forgot-link:hover {
+    color: var(--accent-gold) !important;
+}
 
 body.new-cyber-design .auth-home-link {
     background: rgba(13, 17, 33, 0.9);
@@ -972,8 +993,8 @@ body.new-cyber-design .checkbox-checkmark {
     top: 50%; left: 0;
     transform: translateY(-50%);
     height: 18px; width: 18px;
-    background: #090c16;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     transition: all 0.2s ease;
 }
@@ -1004,7 +1025,7 @@ body.new-cyber-design .custom-checkbox-container input:checked ~ .checkbox-check
 }
 
 body.new-cyber-design .custom-checkbox-container:hover {
-    color: #ffffff;
+    color: var(--accent-gold);
 }
 
 body.new-cyber-design .modern-remember {
@@ -1056,8 +1077,8 @@ body.new-cyber-design .footer-link-highlight {
 }
 
 body.new-cyber-design .footer-link-highlight:hover {
-    color: #ffffff !important;
-    text-shadow: 0 0 8px rgba(0, 200, 255, 0.6);
+    color: var(--accent-gold) !important;
+    text-shadow: 0 0 8px rgba(240, 192, 64, 0.4); /* Optional: changed shadow to match gold */
 }
 
 body.new-cyber-design .footer-dot {

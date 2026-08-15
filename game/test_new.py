@@ -143,6 +143,68 @@ class NewGameEdgeCaseTest(TestCase):
         for row in board:
             self.assertEqual(len(row), 8)
 
+    def test_new_game_ai_difficulty_and_bot_names(self):
+        """Test that starting an AI game correctly assigns bot names based on difficulty."""
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai', 'difficulty': 'easy', 'player_color': 'white'
+            }),
+            content_type='application/json',
+        )
+        data = response.json()
+        self.assertEqual(data['black_name'], '♟️ Novice Pawn')
+        self.assertEqual(data['difficulty'], 'easy')
+
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai', 'difficulty': 'medium', 'player_color': 'white'
+            }),
+            content_type='application/json',
+        )
+        data = response.json()
+        self.assertEqual(data['black_name'], '♗ Tactical Bishop')
+
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai', 'difficulty': 'hard', 'player_color': 'white'
+            }),
+            content_type='application/json',
+        )
+        data = response.json()
+        self.assertEqual(data['black_name'], '♜ Grandmaster Rook')
+
+    def test_new_game_ai_invalid_difficulty_fallback(self):
+        """Test that invalid difficulty falls back to medium personality."""
+        response = self.client.post(
+            '/api/new-game/',
+            data=json.dumps({
+                'mode': 'ai',
+                'difficulty': 'invalid_level',
+                'player_color': 'white'
+            }),
+            content_type='application/json',
+        )
+        data = response.json()
+        self.assertEqual(data['black_name'], '♗ Tactical Bishop')
+
+    def test_ai_search_depth_mapping(self):
+        """Test that the engine properly maps difficulty to search depth."""
+
+        game = ChessGame(difficulty='easy')
+        self.assertEqual(game._get_ai_search_depth(), 2)
+
+        game = ChessGame(difficulty='medium')
+        self.assertEqual(game._get_ai_search_depth(), 4)
+
+        game = ChessGame(difficulty='hard')
+        self.assertEqual(game._get_ai_search_depth(), 6)
+
+        game = ChessGame(difficulty='invalid_level')
+        self.assertEqual(game._get_ai_search_depth(), 4)
+
 
 class PuzzleStatsTest(TestCase):
     """Test the /api/puzzle-stats/ endpoint."""

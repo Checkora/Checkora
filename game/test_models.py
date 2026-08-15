@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from game.models import validate_game_state
+from game.models import validate_game_state, GameRecord
+from game.engine import ChessGame
 import time
 
 class GameStateValidationTest(TestCase):
@@ -76,3 +77,64 @@ class GameStateValidationTest(TestCase):
         with self.assertRaises(ValidationError) as ctx:
             validate_game_state(invalid_state)
         self.assertEqual(ctx.exception.message, "board must be an 8x8 array")
+
+
+class GameRecordValidationTest(TestCase):
+    def test_game_record_blank_pgn_allowed(self):
+        record = GameRecord.objects.create(
+            session_key="test_session_123",
+            white_label="White",
+            black_label="Black",
+            result="0-1",
+            termination="resignation",
+            pgn=""
+        )
+        self.assertEqual(record.pgn, "")
+
+    def test_game_record_default_pgn_is_empty_string(self):
+        record = GameRecord.objects.create(
+            session_key="test_session_456",
+            white_label="White",
+            black_label="Black",
+            result="0-1",
+            termination="resignation"
+        )
+        self.assertEqual(record.pgn, "")
+
+    def test_generate_pgn_empty_history(self):
+        game = ChessGame()
+        game.game_status = "resignation"
+        game.current_turn = "white"
+        pgn = game.generate_pgn(white_name="Player1", black_name="Player2")
+        self.assertIn('[Event "Checkora Match"]', pgn)
+        self.assertIn('[White "Player1"]', pgn)
+        self.assertIn('[Black "Player2"]', pgn)
+        self.assertIn('[Result "0-1"]', pgn)
+        self.assertTrue(pgn.endswith("0-1"))
+
+    def test_generate_pgn_non_standard_initial_fen(self):
+        custom_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+        game = ChessGame.from_fen(custom_fen)
+        game.game_status = "resignation"
+        game.current_turn = "black"
+        pgn = game.generate_pgn(white_name="Player1", black_name="Player2")
+        self.assertIn('[SetUp "1"]', pgn)
+        self.assertIn(f'[FEN "{custom_fen}"]', pgn)
+        self.assertIn('[Result "1-0"]', pgn)
+
+    def test_session_roundtrip_preserves_initial_fullmove_and_fen(self):
+        custom_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 7"
+        game = ChessGame.from_fen(custom_fen)
+        game_dict = game.to_dict()
+        restored_game = ChessGame.from_dict(game_dict)
+        self.assertEqual(restored_game.initial_fullmove, 7)
+        self.assertEqual(restored_game.initial_fen, custom_fen)
+
+    def test_from_fen_canonical_six_field(self):
+        three_field_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq"
+        game = ChessGame.from_fen(three_field_fen)
+        expected_canonical = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+        self.assertEqual(game.initial_fen, expected_canonical)
+
+
+

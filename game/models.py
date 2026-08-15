@@ -497,7 +497,7 @@ class GameRecord(models.Model):
     black_label = models.CharField(max_length=64, default="Black")
     result = models.CharField(max_length=7, default="*")
     termination = models.CharField(max_length=32, default="unknown")
-    pgn = models.TextField()
+    pgn = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=_expires_at_default, db_index=True)
     
@@ -604,6 +604,13 @@ class ActiveGame(models.Model):
         super().save(*args, **kwargs)
 
 class Discussion(models.Model):
+    CATEGORY_CHOICES = [
+        ("general", "General"),
+        ("puzzles", "Puzzles"),
+        ("openings", "Openings"),
+        ("feedback", "Feedback"),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -611,12 +618,26 @@ class Discussion(models.Model):
     )
 
     title = models.CharField(max_length=200)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default="general",
+        db_index=True
+    )
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    category__in=["general", "puzzles", "openings", "feedback"]
+                ),
+                name="valid_discussion_category",
+            ),
+        ]
 
     def __str__(self):
         return self.title

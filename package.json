@@ -15,5 +15,9 @@
   "devDependencies": {
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0"
+  },
+
+  "overrides": {
+    "brace-expansion": "5.0.9"
   }
 }

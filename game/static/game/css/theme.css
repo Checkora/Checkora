@@ -427,7 +427,7 @@
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-    /* z-index 10000 keeps dropdown above the custom cursor (z-index: 9990) */
+/* The custom cursor sits above the navbar and dropdowns */
     z-index: 10000;
     transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
     transform: translateY(10px);

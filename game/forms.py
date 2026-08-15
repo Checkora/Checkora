@@ -100,14 +100,19 @@ class CustomPasswordResetForm(PasswordResetForm):
 class DiscussionForm(forms.ModelForm):
     class Meta:
         model = Discussion
-        fields = ["title", "content"]
+        fields = ["title", "category", "content"]
         widgets = {
             "title": forms.TextInput(attrs={
                 "placeholder": "Give your discussion a title",
                 "maxlength": "200",
             }),
+            "category": forms.Select(attrs={
+                "class": "forum-select-category",
+            }),
             "content": forms.Textarea(attrs={
-                "placeholder": "Share your thoughts, questions, or strategies...",
+                "placeholder": (
+                    "Share your thoughts, questions, or strategies..."
+                ),
                 "rows": 6,
             }),
         }

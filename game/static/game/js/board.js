@@ -370,11 +370,16 @@
 
     let whiteTime = 0;
     let blackTime = 0;
+    let maxWhiteTime = 0;
+    let maxBlackTime = 0;
     let selectedMins = 10;
     let selectedIncrement = 0;
     let paused = false;
     let timerInterval = null;
     let countdownInterval = null;
+    let pauseTimerInterval = null; // Issue #12: drives the "Paused for: MM:SS" overlay counter
+    let pauseElapsedSeconds = 0;
+    let pauseStartedAt = null; // Date.now() anchor for this client's pause — see PR discussion on cross-client sync
     let pendingPromo = null;
     let blindfoldMode = false;
     let illegalMoveCount = 0;
@@ -997,6 +1002,8 @@
     const wCapEl = document.getElementById('whiteCaptured');
     const bCapEl = document.getElementById('blackCaptured');
     const pauseBtn = document.getElementById('pauseBtn');
+    const pauseOverlayEl = document.getElementById('pauseOverlay');
+    const pauseTimerEl = document.getElementById('pause-timer');
     const flipBtn = document.getElementById('flipBtn');
     const promoOverlay = document.getElementById('promoOverlay');
     const promoChoices = document.getElementById('promoChoices');
@@ -1594,6 +1601,8 @@
         turn = data.current_turn;
         whiteTime = data.white_time;
         blackTime = data.black_time;
+        maxWhiteTime = Math.max(whiteTime || 0, Math.round(selectedMins * 60));
+        maxBlackTime = Math.max(blackTime || 0, Math.round(selectedMins * 60));
         paused = data.paused;
 
         gameMode = data.mode || 'pvp';
@@ -1645,6 +1654,7 @@
 
         updatePlayerNames(data);
         updateTurn();
+        updateOpeningDisplay(data.opening_name);
         updateMoves(data.move_history);
         updateCaptured(data.captured_pieces);
 
@@ -2444,6 +2454,7 @@
                 hints = [];
                 updatePlayerNames(data);
                 updateTurn();
+                updateOpeningDisplay(data.opening_name);
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 syncPieces();
@@ -2611,6 +2622,7 @@
                 hints = [];
                 updatePlayerNames(data);
                 updateTurn();
+                updateOpeningDisplay(data.opening_name);
                 updateMoves(data.move_history);
                 updateCaptured(data.captured_pieces);
                 syncPieces();
@@ -3065,6 +3077,15 @@ function updateStepperUI() {
         bCapEl.classList.toggle('active', turn === 'black');
     }
 
+    function updateOpeningDisplay(openingName) {
+        const openingDisplay = document.getElementById("openingDisplay");
+        if (!openingDisplay) return;
+
+        openingDisplay.textContent = openingName
+            ? `Opening: ${openingName}`
+            : "Opening: Custom Position";
+    }
+
     function updateMoves(history) {
     const startingFen = localStorage.getItem('checkora_starting_fen') || DEFAULT_START_FEN;
     gameFens = rebuildGameFens(history, startingFen);
@@ -3198,6 +3219,11 @@ function updateStepperUI() {
             replayMode = true;
             paused = true;
             clearInterval(timerInterval);
+
+            // Issue #12: hide the pause overlay and reset its timer — the
+            // game is over now, so "paused" no longer means an active pause.
+            stopPauseTimer();
+            if (pauseOverlayEl) pauseOverlayEl.classList.remove('active');
 
         if (blindfoldMode) {
             blindfoldMode = false;
@@ -4008,14 +4034,78 @@ function updateStepperUI() {
         const bYou = document.getElementById('blackYouTag');
         if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
         if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
+        
+        const sessionMaxTime = Math.round(selectedMins * 60) || 600;
+        if (whiteTime > maxWhiteTime || maxWhiteTime === 0) maxWhiteTime = Math.max(whiteTime, sessionMaxTime);
+        if (blackTime > maxBlackTime || maxBlackTime === 0) maxBlackTime = Math.max(blackTime, sessionMaxTime);
+
+        updateClockTimerBar('whiteTimerBarFill', whiteTime, maxWhiteTime);
+        updateClockTimerBar('blackTimerBarFill', blackTime, maxBlackTime);
+
         updateThinkingDots();
     }
+
+    function updateClockTimerBar(barFillId, currentTime, maxTime) {
+        const barFill = document.getElementById(barFillId);
+        if (!barFill) return;
+        const total = maxTime > 0 ? maxTime : (selectedMins * 60 || 600);
+        const pct = Math.min(100, Math.max(0, (currentTime / total) * 100));
+        barFill.style.width = `${pct}%`;
+        barFill.classList.toggle('timer-warning', currentTime <= 30 && currentTime > 10);
+        barFill.classList.toggle('timer-critical', currentTime <= 10 && currentTime > 0);
+    }
+
+            /* ==========================================================
+            PAUSE DURATION TIMER (Issue #12)
+            Live counter shown inside the pause overlay: "Paused for: MM:SS".
+            Starts at 00:00 when paused, counts up every second, and is
+            stopped/reset whenever the game is resumed or ends.
+            ========================================================== */
+            function formatPauseDuration(totalSeconds) {
+                const mins = Math.floor(totalSeconds / 60);
+                const secs = totalSeconds % 60;
+                return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+
+            function startPauseTimer() {
+                if (pauseTimerInterval) return; // already running — avoid double intervals
+                pauseStartedAt = Date.now();
+                pauseElapsedSeconds = 0;
+                if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(0);
+                announceMove('Game paused.');
+                pauseTimerInterval = setInterval(() => {
+                    // Derive from the anchor rather than incrementing, so a
+                    // throttled/backgrounded tab self-corrects instead of drifting.
+                    pauseElapsedSeconds = Math.floor((Date.now() - pauseStartedAt) / 1000);
+                    if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(pauseElapsedSeconds);
+                }, 1000);
+            }
+
+            function stopPauseTimer() {
+                const wasRunning = !!pauseTimerInterval;
+                clearInterval(pauseTimerInterval);
+                pauseTimerInterval = null;
+                pauseStartedAt = null;
+                pauseElapsedSeconds = 0;
+                if (pauseTimerEl) pauseTimerEl.textContent = formatPauseDuration(0);
+                if (wasRunning) announceMove('Game resumed.');
+            }
 
             function updatePauseUI() {
     pauseBtn.innerHTML =
     `${paused ? 'Resume' : 'Pause'}<span class="btn-shortcut">P</span>`;
     pauseBtn.classList.toggle('paused', paused);
     boardEl.classList.toggle('paused', paused);
+
+    // Issue #12: show/hide the pause overlay and drive its live timer.
+    // gameOver guards against the overlay reappearing right as a game ends
+    // while paused (e.g. a draw is accepted during a pause).
+    if (pauseOverlayEl) pauseOverlayEl.classList.toggle('active', paused && !gameOver);
+    if (paused && !gameOver) {
+        startPauseTimer();
+    } else {
+        stopPauseTimer();
+    }
 
     // Mobile FAB icon toggle
     const pauseFabIcon = document.getElementById('pauseFabIcon');
@@ -4243,6 +4333,8 @@ function updateStepperUI() {
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
         evaluationCache = {};
+        maxWhiteTime = 0;
+        maxBlackTime = 0;
         if (!isPuzzle) {
             dailyPuzzleMode = false;
             currentPuzzle = null;
@@ -4402,6 +4494,8 @@ function updateStepperUI() {
         gameOver = false;
         whiteAlertFired = false;
         blackAlertFired = false;
+        maxWhiteTime = Math.max(d.white_time || 0, Math.round(selectedMins * 60));
+        maxBlackTime = Math.max(d.black_time || 0, Math.round(selectedMins * 60));
         incrementGameCounter();
 
         gameStartTime = Date.now();
@@ -5483,6 +5577,12 @@ async function handleSanMove() {
         const tag = document.activeElement?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+        if (e.key === '?') {
+            e.preventDefault();
+            toggleShortcutsModal();
+            return;
+        }
+
         if (replayMode) {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
@@ -5515,7 +5615,8 @@ async function handleSanMove() {
             drawOverlay?.classList.contains('active') ||
             gameOverOverlay?.classList.contains('active') ||
             welcomeOverlay?.classList.contains('active') ||
-            leaveConfirmOverlay?.classList.contains('active');
+            leaveConfirmOverlay?.classList.contains('active') ||
+            shortcutsModal?.classList.contains('active');
 
         // Allow Escape to close overlays or mobile panel
         if (e.key === 'Escape') {
@@ -5533,7 +5634,10 @@ async function handleSanMove() {
             return;
         }
 
-        if (key === 'f' && flipBtn) {
+        if ((key === 'm' || e.key === '/') && sanMoveInput) {
+            e.preventDefault();
+            sanMoveInput.focus();
+        } else if (key === 'f' && flipBtn) {
             e.preventDefault();
             flipBtn.click();
         } else if (key === 'r' && resignBtn) {
@@ -5562,6 +5666,10 @@ async function handleSanMove() {
 
         } else if (key === 'escape') {
             e.preventDefault();
+
+            if (shortcutsModal?.classList.contains('active')) {
+                closeShortcutsModal();
+            }
 
             if (shareModal?.style.display === 'flex') {
                 shareModal.style.display = 'none';
@@ -5767,6 +5875,21 @@ async function handleSanMove() {
             });
         });
 
+        // Handle Random Theme button
+        const randomThemeBtn = document.getElementById('randomThemeBtn');
+        if (randomThemeBtn) {
+            randomThemeBtn.onclick = () => {
+                const themeValues = Array.from(boardRadios).map(radio => radio.value);
+                if (!themeValues.length) return;
+                const randomTheme = themeValues[Math.floor(Math.random() * themeValues.length)];
+                const targetRadio = themeSettingsModal.querySelector(`input[name="boardThemeRadio"][value="${randomTheme}"]`);
+                if (targetRadio) {
+                    targetRadio.checked = true;
+                    targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            };
+        }
+
         // Handle Piece Style swatch switches
         const pieceRadios = themeSettingsModal.querySelectorAll('input[name="pieceStyleRadio"]');
         pieceRadios.forEach(radio => {
@@ -5824,6 +5947,83 @@ async function handleSanMove() {
                 }
             });
         }
+    }
+
+    // ========== Keyboard Shortcuts Modal Logic ==========
+    const shortcutsModal = document.getElementById('shortcutsModal');
+    const shortcutsBtn = document.getElementById('shortcutsBtn');
+    const closeShortcutsModalBtn = document.getElementById('closeShortcutsModalBtn');
+    const saveShortcutsModalBtn = document.getElementById('saveShortcutsModalBtn');
+    let shortcutsModalFocusReturn = null;
+
+    function openShortcutsModal() {
+        if (!shortcutsModal) return;
+        shortcutsModalFocusReturn = document.activeElement;
+        shortcutsModal.classList.add('active');
+        shortcutsModal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => {
+            if (closeShortcutsModalBtn) {
+                closeShortcutsModalBtn.focus();
+            }
+        }, 50);
+    }
+
+    function closeShortcutsModal() {
+        if (!shortcutsModal) return;
+        shortcutsModal.classList.remove('active');
+        shortcutsModal.setAttribute('aria-hidden', 'true');
+        if (shortcutsModalFocusReturn && typeof shortcutsModalFocusReturn.focus === 'function') {
+            shortcutsModalFocusReturn.focus();
+        }
+        shortcutsModalFocusReturn = null;
+    }
+
+    function toggleShortcutsModal() {
+        if (!shortcutsModal) return;
+        if (shortcutsModal.classList.contains('active')) {
+            closeShortcutsModal();
+        } else {
+            openShortcutsModal();
+        }
+    }
+
+    if (shortcutsBtn) shortcutsBtn.onclick = toggleShortcutsModal;
+    if (closeShortcutsModalBtn) closeShortcutsModalBtn.onclick = closeShortcutsModal;
+    if (saveShortcutsModalBtn) saveShortcutsModalBtn.onclick = closeShortcutsModal;
+
+    if (shortcutsModal) {
+        shortcutsModal.addEventListener('click', (e) => {
+            if (e.target === shortcutsModal) {
+                closeShortcutsModal();
+            }
+        });
+
+        // Trap keyboard focus inside shortcutsModal while active
+        shortcutsModal.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab') return;
+            const focusable = Array.from(
+                shortcutsModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+            ).filter(el => !el.disabled && el.offsetWidth > 0 && el.offsetHeight > 0);
+
+            if (!focusable.length) {
+                e.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === first || !shortcutsModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last || !shortcutsModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
     }
 
     // Theme Switcher
