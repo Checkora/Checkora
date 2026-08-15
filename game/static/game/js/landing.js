@@ -36,15 +36,19 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", () => {
     const navbar = document.querySelector(".navbar");
 
-    window.addEventListener("scroll", () => {
-        if (!navbar) return;
+    if (!navbar) return;
 
+    const updateNavbar = () => {
         if (window.scrollY > 20) {
             navbar.classList.add("scrolled");
         } else {
             navbar.classList.remove("scrolled");
         }
-    });
+    };
+
+    updateNavbar();
+
+    window.addEventListener("scroll", updateNavbar);
 });
 
 // ── Random Chess Quote (Hero → Platform Capabilities) ──
