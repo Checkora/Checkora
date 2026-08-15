@@ -161,6 +161,10 @@ class NavigationTest(BaseE2ETest):
             self.driver.current_url,
             self.live_server_url + '/login/'
         )
+
+        back_home_link = self.driver.find_element(By.CLASS_NAME, 'auth-home-link')
+        self.assertIn('/home/', back_home_link.get_attribute('href'))
+        log_ok("Login page includes Back to Home link")
         log_ok(f"Login page loaded at {self.driver.current_url}")
 
     # ───────────────────────────────────────────────────────────────
@@ -179,6 +183,10 @@ class NavigationTest(BaseE2ETest):
             self.driver.current_url,
             self.live_server_url + '/register/'
         )
+
+        back_home_link = self.driver.find_element(By.CLASS_NAME, 'auth-home-link')
+        self.assertIn('/home/', back_home_link.get_attribute('href'))
+        log_ok("Register page includes Back to Home link")
         log_ok(f"Register page loaded at {self.driver.current_url}")
 
     # ───────────────────────────────────────────────────────────────

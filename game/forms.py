@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
-
+from .models import Discussion, Reply
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -11,16 +11,41 @@ class CustomUserCreationForm(UserCreationForm):
         fields = UserCreationForm.Meta.fields + ('email',)
 
     def clean_email(self):
+        """Clean and normalize the email field.
+
+        Duplicate-email checks are intentionally deferred to the view
+        layer, which returns a generic response regardless of whether
+        the address is already registered. This prevents user
+        enumeration through form-level error messages.
+        """
         email = self.cleaned_data.get('email')
         if email:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            if User.objects.filter(email__iexact=email).exists():
-                raise ValidationError(
-                    "A user with this email address already exists.",
-                    code='duplicate_email'
-                )
+            email = email.strip()
         return email
+
+    def clean_username(self):
+        """Clean and return the username.
+
+        The view layer handles username conflicts with a generic
+        response to prevent user enumeration.
+        """
+        return self.cleaned_data.get('username')
+
+    def validate_unique(self):
+        """Exclude username and email from uniqueness validation.
+
+        These constraints are enforced in the view layer to prevent user
+        enumeration, while other uniqueness checks remain active.
+        """
+        exclude = self._get_validation_exclusions()
+        if not isinstance(exclude, set):
+            exclude = set(exclude)
+        exclude.add('username')
+        exclude.add('email')
+        try:
+            self.instance.validate_unique(exclude=exclude)
+        except ValidationError as e:
+            self._update_errors(e)
 
 
 class CustomSetPasswordForm(SetPasswordForm):
@@ -71,3 +96,108 @@ class CustomPasswordResetForm(PasswordResetForm):
                 "Failed to send password reset email. "
                 "Please check your email configuration and try again."
             )
+        
+class DiscussionForm(forms.ModelForm):
+    class Meta:
+        model = Discussion
+        fields = ["title", "category", "content"]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "placeholder": "Give your discussion a title",
+                "maxlength": "200",
+            }),
+            "category": forms.Select(attrs={
+                "class": "forum-select-category",
+            }),
+            "content": forms.Textarea(attrs={
+                "placeholder": (
+                    "Share your thoughts, questions, or strategies..."
+                ),
+                "rows": 6,
+            }),
+        }
+
+    def clean_title(self):
+        title = self.cleaned_data.get("title", "").strip()
+        if len(title) < 5:
+            raise ValidationError("Title must be at least 5 characters long.")
+        return title
+
+    def clean_content(self):
+        content = self.cleaned_data.get("content", "").strip()
+        if len(content) < 10:
+            raise ValidationError("Content must be at least 10 characters long.")
+        return content
+
+
+class ReplyForm(forms.ModelForm):
+    class Meta:
+        model = Reply
+        fields = ["content"]
+        widgets = {
+            "content": forms.Textarea(attrs={
+                "placeholder": "Write a reply...",
+                "rows": 3,
+            }),
+        }
+
+    def clean_content(self):
+        content = self.cleaned_data.get("content", "").strip()
+
+        if len(content) < 2:
+            raise ValidationError("Reply cannot be empty.")
+
+        return content
+
+
+class AvatarUploadForm(forms.Form):
+    """Form for uploading a user avatar image.
+
+    Validates file format (PNG, JPEG, WEBP) and enforces a 5 MB size
+    limit before the image reaches any processing code.
+    """
+
+    avatar = forms.ImageField(
+        label="Profile Picture",
+        error_messages={"required": "Please select an image file to upload."},
+    )
+
+    ALLOWED_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+    MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get("avatar")
+        if avatar is None:
+            return avatar
+
+        if avatar.size > self.MAX_SIZE_BYTES:
+            raise ValidationError(
+                "Avatar file is too large. Maximum allowed size is 5 MB."
+            )
+
+        content_type = getattr(avatar, "content_type", "")
+        if content_type not in self.ALLOWED_MIME_TYPES:
+            raise ValidationError(
+                "Unsupported image format. "
+                "Please upload a PNG, JPG/JPEG, or WEBP file."
+            )
+
+        from PIL import Image
+        try:
+            # Pillow uses tell() to remember where it started reading
+            # but since Django's file object might be manipulated, we 
+            # make sure it starts at 0.
+            avatar.seek(0)
+            img = Image.open(avatar)
+            img.verify()  # verify checks the header without decoding the entire image
+            if img.format not in ("PNG", "JPEG", "MPO", "WEBP"):
+                raise ValidationError(
+                    "Unsupported image format. "
+                    "Please upload a PNG, JPG/JPEG, or WEBP file."
+                )
+        except Exception:
+            raise ValidationError("Invalid or corrupted image file.")
+        finally:
+            avatar.seek(0)
+
+        return avatar

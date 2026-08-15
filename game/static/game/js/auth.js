@@ -137,6 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     ];
 
+    const strengthMeter = document.createElement("div");
+    strengthMeter.className = "password-strength-meter";
+    strengthMeter.innerHTML = '<div class="strength-bar-fill"></div>';
+
     const checklist = document.createElement("ul");
     checklist.className = "password-checklist";
     checklist.setAttribute("role", "status");
@@ -149,9 +153,10 @@ document.addEventListener("DOMContentLoaded", () => {
       checklist.appendChild(li);
     });
 
-    // Insert checklist after the password input wrapper
+    // Insert strength meter and checklist after the password input wrapper
     const wrapper = passwordInput.closest(".pw-input-wrapper") || passwordInput.parentNode;
     wrapper.parentNode.insertBefore(checklist, wrapper.nextSibling);
+    wrapper.parentNode.insertBefore(strengthMeter, checklist);
 
 // Select the submit button inside the form
     const formBtn = passwordInput.closest("form").querySelector('button[type="submit"]');
@@ -160,13 +165,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const validatePassword = () => {
       const value = passwordInput.value;
       let allMet = true;
+      let score = 0;
 
       rules.forEach((rule) => {
         const li = document.getElementById(rule.id);
         const met = rule.test(value);
         li.classList.toggle("met", met);
-        if (!met) allMet = false;
+        if (met) score++;
+        else allMet = false;
       });
+
+      const fill = strengthMeter.querySelector(".strength-bar-fill");
+      if (fill) {
+        const pct = value.length > 0 ? (score / rules.length) * 100 : 0;
+        fill.style.width = pct + "%";
+        if (score <= 2) {
+          fill.style.background = "#ef4444"; // Red
+        } else if (score <= 4) {
+          fill.style.background = "#f59e0b"; // Orange/Yellow
+        } else {
+          fill.style.background = "#10b981"; // Green
+        }
+      }
 
       const isValid = allMet && value.length > 0;
       checklist.classList.toggle("all-met", isValid);
@@ -199,4 +219,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 5000);
     }
   });
+});
+// Enable Enter key submission for Authentication Forms safely after DOM loads
+document.addEventListener("DOMContentLoaded", function () {
+    const authInputs = document.querySelectorAll('.auth-container input, .login-form input, .signup-form input, input[type="password"]');
+    
+    authInputs.forEach(input => {
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                
+                const container = input.closest('form') || input.closest('.auth-container') || document;
+                const submitBtn = container.querySelector('button[type="submit"]') || container.querySelector('.submit-btn') || container.querySelector('#submit-btn');
+                
+                if (submitBtn) {
+                    submitBtn.click();
+                }
+            }
+        });
+    });
 });

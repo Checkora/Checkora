@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkora — Manage Avatar</title>
+    <meta name="description" content="Upload or remove your Checkora profile picture.">
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/avatar.css' %}">
+</head>
+<body>
+    <div class="page-wrapper">
+
+        <!-- ── Back navigation ── -->
+        <a href="{% url 'stats' %}" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Back to Stats
+        </a>
+
+        <div class="card">
+
+            <!-- ── Page title ── -->
+            <h1 class="page-title">
+                Profile Picture
+            </h1>
+            <p class="page-subtitle">Upload a PNG, JPG, or WEBP image (max 5 MB).</p>
+
+            <!-- ── Flash messages ── -->
+            {% if messages %}
+            <div class="messages" role="alert" aria-live="polite">
+                {% for message in messages %}
+                <div class="message message--{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- ── Current avatar preview ── -->
+            <div class="avatar-preview-wrap">
+                {% if profile.avatar %}
+                <img src="{{ profile.avatar }}"
+                     id="avatarPreview"
+                     class="avatar-img"
+                     alt="Your current profile picture">
+                {% else %}
+                <div class="avatar-placeholder" id="avatarPreview" aria-label="No avatar set">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.5"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </div>
+                {% endif %}
+
+                {% if profile.avatar %}
+                <div class="avatar-badge">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                    Active
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── Upload form ── -->
+            <form method="post"
+                  action="{% url 'upload_avatar' %}"
+                  enctype="multipart/form-data"
+                  id="avatarForm"
+                  class="upload-form">
+                {% csrf_token %}
+
+                <label for="id_avatar" class="file-label" id="fileLabel">
+                    <div class="file-label-inner" id="fileLabelInner">
+                        <svg class="upload-icon" width="28" height="28" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="1.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span class="file-label-text" id="fileLabelText">
+                            Click to choose a file
+                        </span>
+                        <span class="file-label-hint">PNG, JPG, JPEG, WEBP · Max 5 MB</span>
+                    </div>
+                </label>
+
+                <input type="file"
+                       name="avatar"
+                       id="id_avatar"
+                       accept="image/png,image/jpeg,image/webp"
+                       class="file-input"
+                       aria-label="Choose profile picture">
+
+                <div id="previewNewWrap" class="preview-new-wrap" style="display:none;">
+                    <img id="previewNewImg"
+                         class="preview-new-img"
+                         src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                         alt="Preview of selected image">
+                    <button type="button" id="clearFileBtn" class="btn-clear-file" aria-label="Clear selection">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <button type="submit"
+                        id="uploadBtn"
+                        class="btn btn--primary"
+                        disabled>
+                    Upload Avatar
+                </button>
+            </form>
+
+            <!-- ── Remove avatar ── -->
+            {% if profile.avatar %}
+            <form method="post"
+                  action="{% url 'remove_avatar' %}"
+                  class="remove-form"
+                  id="removeAvatarForm"
+                  onsubmit="return confirm('Remove your profile picture?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--danger">
+                    Remove Avatar
+                </button>
+            </form>
+            {% endif %}
+
+        </div><!-- /.card -->
+    </div><!-- /.page-wrapper -->
+
+    <script>
+        const fileInput   = document.getElementById('id_avatar');
+        const uploadBtn   = document.getElementById('uploadBtn');
+        const fileLabelText = document.getElementById('fileLabelText');
+        const previewWrap   = document.getElementById('previewNewWrap');
+        const previewImg    = document.getElementById('previewNewImg');
+        const clearBtn      = document.getElementById('clearFileBtn');
+        const fileLabel     = document.getElementById('fileLabel');
+
+        fileInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) {
+                resetFileUI();
+                return;
+            }
+
+            // Client-side size guard (5 MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File exceeds 5 MB. Please choose a smaller image.');
+                this.value = '';
+                resetFileUI();
+                return;
+            }
+
+            fileLabelText.textContent = file.name;
+            fileLabel.classList.add('has-file');
+            uploadBtn.disabled = false;
+
+            // Live preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewWrap.style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        clearBtn.addEventListener('click', function () {
+            fileInput.value = '';
+            resetFileUI();
+        });
+
+        function resetFileUI() {
+            fileLabelText.textContent = 'Click to choose a file';
+            fileLabel.classList.remove('has-file');
+            uploadBtn.disabled = true;
+            previewWrap.style.display = 'none';
+            previewImg.src = '';
+        }
+    </script>
+</body>
+</html>

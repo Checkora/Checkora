@@ -1,0 +1,210 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Forum | Checkora</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
+</head>
+<body>
+    <nav class="forum-navbar">
+        <div class="nav-left">
+            <a href="{% url 'landing' %}" class="logo-link">
+                <img src="{% static 'game/checkora_icon_only.png' %}"
+                    alt="Checkora Logo"
+                    class="logo-img">
+
+                <span class="logo-text">
+                    CHECK<span class="logo-accent">ORA</span>
+                </span>
+            </a>
+        </div>
+
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+            <div class="profile-dropdown">
+                <button type="button" class="profile-btn">
+                    {{ user.username }} ⌄
+                </button>
+
+                <div class="dropdown-content">
+                    <a href="{% url 'profile' %}"> Profile </a>
+                    <a href="/play/">Dashboard</a>
+                    <a href="/stats/">Stats</a>
+                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
+                    <a href="{% url 'achievements' %}">Achievements</a>
+
+                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-option">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
+            <a href="{% url 'register' %}" class="btn-register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="forum-container">
+        <div class="forum-header">
+            <a href="{% url 'landing' %}" class="forum-home-btn">← Back to Home</a>
+
+            <h1 class="forum-title">Community <span class="gold">Forum</span></h1>
+
+            <p class="forum-subtitle">
+                Discuss strategies, ask questions, and connect with fellow players.
+            </p>
+
+            <form method="get" class="forum-sort-form">
+                <div class="forum-search-box">
+                    <input type="text"
+                           name="q"
+                           value="{{ q }}"
+                           placeholder="Search discussions..."
+                           aria-label="Search discussions"
+                           class="forum-search-input">
+                </div>
+
+                <div class="forum-filter-group">
+                    <label for="forum-category">Category</label>
+                    <select name="category" id="forum-category" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        {% for cat_val, cat_name in categories %}
+                            <option value="{{ cat_val }}" {% if selected_category == cat_val %}selected{% endif %}>
+                                {{ cat_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="forum-filter-group">
+                    <label for="forum-sort">Sort by</label>
+
+                    <select name="sort" id="forum-sort" onchange="this.form.submit()">
+                        <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>
+                            Newest First
+                        </option>
+
+                        <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>
+                            Oldest First
+                        </option>
+
+                        <option value="most_replies" {% if sort_by == "most_replies" %}selected{% endif %}>
+                            Most Replies
+                        </option>
+
+                        <option value="most_bookmarked" {% if sort_by == "most_bookmarked" %}selected{% endif %}>
+                            Most Bookmarked
+                        </option>
+
+                        <option value="recently_active" {% if sort_by == "recently_active" %}selected{% endif %}>
+                            Recently Active
+                        </option>
+                    </select>
+                </div>
+
+                <button type="submit" class="forum-search-btn">Search</button>
+                {% if q or selected_category %}
+                    <a href="{% url 'forum' %}" class="forum-reset-btn">Clear</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="forum-tabs">
+            <button type="button" class="forum-tab active" data-tab="all">
+                All Discussions
+            </button>
+
+            {% if user.is_authenticated %}
+            <button type="button" class="forum-tab" data-tab="your">
+                Your Discussions
+            </button>
+
+            <button type="button" class="forum-tab" data-tab="bookmarked">
+                Bookmarked
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="forum-tab-panel active" id="tab-all">
+            <div class="forum-list">
+                {% for discussion in page_obj %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>No discussions found.</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="forum-pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">← Prev</a>
+                {% endif %}
+
+                <span class="forum-page-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">Next →</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        {% if user.is_authenticated %}
+        <div class="forum-tab-panel" id="tab-your">
+            <div class="forum-list">
+                {% for discussion in user_discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>You have not started or participated in any discussions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="forum-tab-panel" id="tab-bookmarked">
+            <div class="forum-list">
+                {% for discussion in bookmarked_discussions %}
+                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
+                {% empty %}
+                <div class="forum-empty">
+                    <p>No bookmarked discussions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if user.is_authenticated %}
+        <a href="{% url 'forum_new' %}" class="forum-fab-new">+ New Discussion</a>
+        {% endif %}
+    </div>
+    <script src="{% static 'game/js/forum.js' %}"></script>
+    <script>
+        // stamp next value with current path+hash before bookmark submit
+    document.querySelectorAll(".forum-bookmark-form").forEach((form) => {
+        form.addEventListener("submit", () => {
+            const nextInput = form.querySelector('input[name="next"]');
+            if (nextInput) {
+                nextInput.value = window.location.pathname + window.location.hash;
+            }
+        });
+    });
+    </script>
+    <script src="{% static 'game/js/dropdown.js' %}"></script>
+</body>
+</html>

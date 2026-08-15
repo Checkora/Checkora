@@ -1,0 +1,804 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puzzle Dashboard | Checkora Chess</title>
+    <meta name="description" content="Browse, search, and filter chess puzzles by difficulty level to sharpen your tactical skills on Checkora.">
+    <meta name="keywords" content="Chess Puzzles, Puzzle Browser, Chess Tactics, Checkora, Play Chess">
+    
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --page-bg: #09090e;
+            --card-bg: rgba(22, 22, 38, 0.7);
+            --accent-gold: #f0c040;
+            --accent-gold-hover: #ffd060;
+            --text-main: #ffffff;
+            --text-secondary: #aaaaaa;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(240, 192, 64, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--page-bg);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 40px 20px;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(240, 192, 64, 0.05) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(9, 9, 14, 0.5) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        header {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            margin-bottom: 24px;
+            background: rgba(22, 22, 42, 0.6);
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 30px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                        box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .back-btn:hover {
+            color: var(--accent-gold);
+            border-color: rgba(240, 192, 64, 0.3);
+            transform: translateX(-3px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .back-btn:focus-visible {
+            outline: 2px solid var(--accent-gold);
+            outline-offset: 3px;
+        }
+
+        .back-btn:active {
+            transform: translateX(-1px) translateY(1px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (min-width: 1024px) {
+            .back-btn {
+                position: absolute;
+                top: 2rem;
+                left: 2rem;
+                margin-bottom: 0;
+            }
+        }
+
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5rem;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(240, 192, 64, 0.2);
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+            line-height: 1.5;
+        }
+
+        /* Controls Section */
+        .controls-wrapper {
+            background: rgba(22, 22, 38, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .controls-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+        }
+
+        @media (min-width: 900px) {
+            .controls-group {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        .search-container {
+            position: relative;
+            flex: 1;
+            max-width: 450px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 42px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(10, 10, 18, 0.8);
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+            font-size: 1.1rem;
+        }
+
+        .filters-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-right: 6px;
+        }
+
+        .filter-btn {
+            background: rgba(10, 10, 18, 0.5);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .filter-btn.active {
+            background: var(--accent-gold);
+            border-color: var(--accent-gold);
+            color: #000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(240, 192, 64, 0.2);
+        }
+
+        /* Puzzle Grid */
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .puzzle-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+                        border-color 0.25s ease, 
+                        box-shadow 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 200px;
+        }
+
+        .puzzle-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(240, 192, 64, 0.4);
+            box-shadow: 0 12px 30px rgba(240, 192, 64, 0.08);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .puzzle-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.4;
+        }
+
+        /* Badges */
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-easy {
+            background: rgba(46, 204, 113, 0.12);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.25);
+        }
+
+        .badge-medium {
+            background: rgba(241, 196, 15, 0.12);
+            color: #f1c40f;
+            border: 1px solid rgba(241, 196, 15, 0.25);
+        }
+
+        .badge-hard {
+            background: rgba(231, 76, 60, 0.12);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.25);
+        }
+
+        .puzzle-fen {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 20px;
+        }
+
+        .solve-btn {
+            width: 100%;
+            background: var(--accent-gold);
+            color: #000;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .solve-btn:hover {
+            background-color: var(--accent-gold-hover);
+        }
+
+        .solve-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Empty State */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            background: var(--card-bg);
+            border: 1px dashed var(--border-color);
+            border-radius: 16px;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+
+        .empty-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Loader */
+        .loader-container {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 0;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(240, 192, 64, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--accent-gold);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Filter elements styling */
+        .filter-select {
+            background: rgba(10, 10, 18, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
+        }
+
+        .rating-input {
+            width: 100px;
+            background: rgba(10, 10, 18, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .rating-input:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
+        }
+        
+        .rating-range-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badges-container {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .badge-rating {
+            background: rgba(240, 192, 64, 0.1);
+            color: var(--accent-gold);
+            border: 1px solid rgba(240, 192, 64, 0.25);
+        }
+
+        .puzzle-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 20px;
+            margin-top: 10px;
+        }
+
+        .tag-pill {
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .tag-pill:hover {
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Pagination Styling */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 40px;
+        }
+
+        .pagination-btn {
+            background: rgba(10, 10, 18, 0.5);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--accent-gold);
+            border-color: var(--accent-gold);
+            color: #000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(240, 192, 64, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="{% url 'landing' %}" class="back-btn">← Back to Home</a>
+    <header>
+        <h1>🧩 Puzzle Browser</h1>
+        <p class="subtitle">Filter and select from our curated collection of puzzles to sharpen your chess tactics and strategy.</p>
+    </header>
+
+    <div class="controls-wrapper">
+        <div class="controls-group">
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" class="search-input" placeholder="Search puzzles by title..." aria-label="Search puzzles by title">
+            </div>
+
+            <div class="filters-container">
+                <span class="filter-label">Difficulty:</span>
+                <button class="filter-btn active" data-difficulty="">All</button>
+                <button class="filter-btn" data-difficulty="easy">Easy</button>
+                <button class="filter-btn" data-difficulty="medium">Medium</button>
+                <button class="filter-btn" data-difficulty="hard">Hard</button>
+            </div>
+        </div>
+
+        <div class="controls-group">
+            <div class="filters-container">
+                <span class="filter-label">Motif:</span>
+                <select id="tag-filter" class="filter-select" aria-label="Filter by motif">
+                    <option value="">All Motifs</option>
+                    <option value="Mate in 1">Mate in 1</option>
+                    <option value="Mate in 2">Mate in 2</option>
+                    <option value="Endgame">Endgame</option>
+                    <option value="Fork">Fork</option>
+                    <option value="Pin">Pin</option>
+                    <option value="Tactics">Tactics</option>
+                </select>
+            </div>
+
+            <div class="filters-container">
+                <span class="filter-label">Rating:</span>
+                <div class="rating-range-container">
+                    <input type="number" id="min-rating" class="rating-input" placeholder="Min" min="0" max="3000" aria-label="Minimum rating">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">to</span>
+                    <input type="number" id="max-rating" class="rating-input" placeholder="Max" min="0" max="3000" aria-label="Maximum rating">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="puzzle-grid" id="puzzle-grid">
+        <!-- Puzzles will be loaded dynamically here -->
+    </div>
+
+    <div class="pagination-container" id="pagination-container">
+        <!-- Pagination controls will be loaded dynamically here -->
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('search-input');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const tagFilter = document.getElementById('tag-filter');
+        const minRatingInput = document.getElementById('min-rating');
+        const maxRatingInput = document.getElementById('max-rating');
+        const puzzleGrid = document.getElementById('puzzle-grid');
+        const paginationContainer = document.getElementById('pagination-container');
+
+        let currentDifficulty = '';
+        let currentSearch = '';
+        let currentTag = '';
+        let currentMinRating = '';
+        let currentMaxRating = '';
+        let currentPage = 1;
+        
+        let searchDebounceTimeout;
+        let ratingDebounceTimeout;
+
+        // Fetch and render puzzles
+        async function loadPuzzles() {
+            puzzleGrid.innerHTML = `
+                <div class="loader-container">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-secondary)">Loading puzzles...</p>
+                </div>
+            `;
+            paginationContainer.innerHTML = '';
+
+            try {
+                const params = new URLSearchParams();
+                if (currentDifficulty) params.append('difficulty', currentDifficulty);
+                if (currentSearch) params.append('search', currentSearch);
+                if (currentTag) params.append('tag', currentTag);
+                if (currentMinRating) params.append('min_rating', currentMinRating);
+                if (currentMaxRating) params.append('max_rating', currentMaxRating);
+                params.append('page', currentPage);
+                params.append('per_page', 9);
+
+                const response = await fetch(`/api/puzzles/?${params.toString()}`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                renderPuzzles(data.puzzles);
+                renderPagination(data);
+            } catch (error) {
+                console.error('Error fetching puzzles:', error);
+                puzzleGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <div class="empty-title">Failed to load puzzles</div>
+                        <p class="empty-desc">Please try refreshing the page or check your connection.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Render puzzles into grid
+        function renderPuzzles(puzzles) {
+            puzzleGrid.innerHTML = '';
+
+            if (puzzles.length === 0) {
+                puzzleGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">♟️</div>
+                        <div class="empty-title">No puzzles found</div>
+                        <p class="empty-desc">Try adjusting your filters or search query.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            puzzles.forEach(puzzle => {
+                const difficultyClass = `badge-${puzzle.difficulty.toLowerCase()}`;
+                
+                // Truncate FEN to make it look clean
+                const fenParts = puzzle.fen.split(' ');
+                const cleanFen = fenParts[0];
+
+                const card = document.createElement('div');
+                card.className = 'puzzle-card';
+                
+                // Construct tags pill list
+                const tagsHtml = puzzle.tags && puzzle.tags.length > 0 
+                    ? `<div class="puzzle-tags">
+                        ${puzzle.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}
+                       </div>`
+                    : '';
+
+                card.innerHTML = `
+                    <div>
+                        <div class="card-header">
+                            <span class="puzzle-title">${escapeHtml(puzzle.title)}</span>
+                            <div class="badges-container">
+                                <span class="badge ${difficultyClass}">${escapeHtml(puzzle.difficulty)}</span>
+                                <span class="badge badge-rating">⭐ ${puzzle.rating}</span>
+                            </div>
+                        </div>
+                        <div class="puzzle-fen" title="${escapeHtml(puzzle.fen)}">
+                            FEN: ${escapeHtml(cleanFen)}
+                        </div>
+                        ${tagsHtml}
+                    </div>
+                    <a href="/play/?puzzle_id=${puzzle.id}" class="solve-btn">Solve Puzzle</a>
+                `;
+                puzzleGrid.appendChild(card);
+            });
+        }
+
+        // Render Pagination buttons
+        function renderPagination(data) {
+            paginationContainer.innerHTML = '';
+            
+            if (data.total_pages <= 1) return;
+
+            // Previous Button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'pagination-btn';
+            prevBtn.innerText = '← Previous';
+            prevBtn.disabled = !data.has_previous;
+            prevBtn.addEventListener('click', () => {
+                currentPage--;
+                loadPuzzles();
+            });
+            paginationContainer.appendChild(prevBtn);
+
+            // Page info/numbers
+            function addPageBtn(i) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `pagination-btn ${i === data.page ? 'active' : ''}`;
+                pageBtn.innerText = i;
+                pageBtn.addEventListener('click', () => {
+                    currentPage = i;
+                    loadPuzzles();
+                });
+                paginationContainer.appendChild(pageBtn);
+            }
+
+            const totalPages = data.total_pages;
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                addPageBtn(1);
+                if (startPage > 2) {
+                    const dots = document.createElement('span');
+                    dots.className = 'pagination-info';
+                    dots.innerText = '…';
+                    paginationContainer.appendChild(dots);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                addPageBtn(i);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const dots = document.createElement('span');
+                    dots.className = 'pagination-info';
+                    dots.innerText = '…';
+                    paginationContainer.appendChild(dots);
+                }
+                addPageBtn(totalPages);
+            }
+
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'pagination-btn';
+            nextBtn.innerText = 'Next →';
+            nextBtn.disabled = !data.has_next;
+            nextBtn.addEventListener('click', () => {
+                currentPage++;
+                loadPuzzles();
+            });
+            paginationContainer.appendChild(nextBtn);
+        }
+
+        // Helper to escape HTML to prevent XSS
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Reset page to 1 and reload
+        function resetAndReload() {
+            currentPage = 1;
+            loadPuzzles();
+        }
+
+        // Search input event handling (with debounce)
+        searchInput.addEventListener('input', (e) => {
+            currentSearch = e.target.value.trim();
+            clearTimeout(searchDebounceTimeout);
+            searchDebounceTimeout = setTimeout(resetAndReload, 300);
+        });
+
+        // Filter button event handling
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDifficulty = btn.dataset.difficulty;
+                resetAndReload();
+            });
+        });
+
+        // Tag filter change handling
+        tagFilter.addEventListener('change', (e) => {
+            currentTag = e.target.value;
+            resetAndReload();
+        });
+
+        // Min/Max rating range handlers (with debounce)
+        const onRatingChange = () => {
+            currentMinRating = minRatingInput.value.trim();
+            currentMaxRating = maxRatingInput.value.trim();
+            resetAndReload();
+        };
+
+        minRatingInput.addEventListener('input', () => {
+            clearTimeout(ratingDebounceTimeout);
+            ratingDebounceTimeout = setTimeout(onRatingChange, 400);
+        });
+
+        maxRatingInput.addEventListener('input', () => {
+            clearTimeout(ratingDebounceTimeout);
+            ratingDebounceTimeout = setTimeout(onRatingChange, 400);
+        });
+
+        // Initial Load
+        loadPuzzles();
+    });
+</script>
+
+</body>
+</html>

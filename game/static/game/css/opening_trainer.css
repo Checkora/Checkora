@@ -1,0 +1,327 @@
+:root {
+    --classic-light: #f0d9b5;
+    --classic-dark: #b58863;
+}
+
+body{
+    background:#111;
+    color:white;
+    font-family:"Segoe UI", sans-serif;
+    padding:30px;
+}
+
+.container{
+    max-width:800px;
+    margin:auto;
+}
+
+.back-btn{
+    color:#f0c040;
+    text-decoration:none;
+}
+
+#trainer-feedback{
+    margin-top:20px;
+    padding:15px;
+    background:#222;
+    border-radius:10px;
+}
+
+#move-progress{
+    margin-top:10px;
+    color:#f0c040;
+}
+
+.opening-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:20px;
+    margin-top:30px;
+}
+
+.lesson-card{
+    background:#1a1a1a;
+    border:1px solid #333;
+    border-radius:12px;
+    padding:20px;
+}
+
+.start-btn{
+    display:inline-block;
+    margin-top:10px;
+    padding:10px 16px;
+    background:#f0c040;
+    color:black;
+    text-decoration:none;
+    border-radius:8px;
+    font-weight:bold;
+}
+
+#move-input {
+    padding: 10px;
+    width: 250px;
+    margin-top: 15px;
+}
+
+#check-move-btn {
+    padding: 10px 15px;
+    margin-left: 8px;
+    cursor: pointer;
+}
+
+/* Color Toggle Buttons */
+.color-toggle-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.toggle-label {
+    font-size: 0.95rem;
+    color: #ccc;
+    font-weight: 500;
+}
+
+.toggle-btn {
+    padding: 8px 18px;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background: #2a2a2a;
+    border-color: #555;
+}
+
+.toggle-btn.active {
+    background: #f0c040;
+    color: #000;
+    border-color: #f0c040;
+}
+
+/* Chess Board Layout */
+.board-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 25px 0;
+}
+
+.chess-board {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border: 4px solid #f0c040;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.square {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+}
+
+.square.light {
+    background: var(--light-square, var(--classic-light));
+}
+
+.square.dark {
+    background: var(--dark-square, var(--classic-dark));
+}
+
+/* Board Themes */
+.chess-board.theme-classic {
+    --light-square: var(--classic-light);
+    --dark-square: var(--classic-dark);
+}
+
+.chess-board.theme-wood {
+    --light-square: #d7b899;
+    --dark-square: #85583f;
+}
+
+.chess-board.theme-green {
+    --light-square: #eeeed2;
+    --dark-square: #769656;
+}
+
+.chess-board.theme-blue {
+    --light-square: #dee3e6;
+    --dark-square: #4b7399;
+}
+
+/* Theme Dropdown Selector */
+.theme-select {
+    padding: 8px 12px;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.theme-select:hover, .theme-select:focus {
+    border-color: #f0c040;
+    background: #2a2a2a;
+}
+
+.square img {
+    width: 85%;
+    height: 85%;
+    object-fit: contain;
+    touch-action: none;
+}
+
+/* Selection and Move Highlights */
+.square.selected {
+    background: rgba(240, 192, 64, 0.6) !important;
+}
+
+.square.highlight-from {
+    background: rgba(129, 199, 132, 0.4) !important;
+}
+
+.square.highlight-to {
+    background: rgba(129, 199, 132, 0.75) !important;
+}
+
+/* Navigation Controls Container */
+.nav-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 15px auto 25px auto;
+    max-width: 480px;
+    background: rgba(30, 30, 30, 0.45);
+    border: 1px solid rgba(240, 192, 64, 0.15);
+    border-radius: 12px;
+    padding: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Glassmorphic Nav Buttons */
+.nav-btn {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f0c040;
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.25);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    outline: none;
+}
+
+.nav-btn:focus-visible {
+    outline: 2px solid #f0c040;
+    outline-offset: 2px;
+}
+
+.nav-btn:hover:not(:disabled) {
+    background: rgba(240, 192, 64, 0.18);
+    border-color: rgba(240, 192, 64, 0.45);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(240, 192, 64, 0.1);
+}
+
+.nav-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.nav-btn:disabled {
+    color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.05);
+    cursor: not-allowed;
+}
+
+/* Reset button specific override */
+#reset-trainer-btn {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #e0e0e0;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#reset-trainer-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}
+
+/* Get Hint Button */
+#get-hint-btn {
+    padding: 10px 15px;
+    margin-left: 8px;
+    cursor: pointer;
+    background: #f0c040;
+    color: black;
+    border: 1px solid #f0c040;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+#get-hint-btn:hover:not(:disabled) {
+    background: #e0b030;
+    border-color: #e0b030;
+}
+
+#get-hint-btn:disabled {
+    background: #444;
+    color: #888;
+    border-color: #444;
+    cursor: not-allowed;
+}
+
+/* Pulse effect for the start (from) square of the hint */
+@keyframes hint-pulse {
+    0% {
+        background-color: rgba(240, 192, 64, 0.4);
+        box-shadow: inset 0 0 10px rgba(240, 192, 64, 0.6);
+    }
+    50% {
+        background-color: rgba(240, 192, 64, 0.7);
+        box-shadow: inset 0 0 20px rgba(240, 192, 64, 1);
+    }
+    100% {
+        background-color: rgba(240, 192, 64, 0.4);
+        box-shadow: inset 0 0 10px rgba(240, 192, 64, 0.6);
+    }
+}
+
+.square.hint-from {
+    animation: hint-pulse 2s infinite ease-in-out;
+}
+
+/* Dashed border highlighting the target (to) square */
+.square.hint-to {
+    border: 3px dashed #f0c040 !important;
+    box-sizing: border-box;
+}

@@ -5,64 +5,62 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Register | Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=7" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1" />
+    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=15" />
     <link
       rel="icon"
       type="image/jpeg"
       href="{% static 'game/favicon.jpeg' %}"
     />
       <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
+      <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
 </head>
-  <body>
-    <!-- Upgraded Back-to-home Button -->
-    <a href="{% url 'landing' %}" class="back-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-             <line x1="19" y1="12" x2="5" y2="12"></line>
-             <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        <span>Back to Home</span>
-    </a>
+<body>
+    <div class="cursor"></div>
+    {% include 'game/includes/navbar.html' %}
 
-    <div class="header">
-           <div class="logo-container">
-               <img src="{% static 'game/checkora_icon_only.png' %}" class="logo-icon-img" alt="Checkora">
-               <span class="logo-text">
-    <span class="logo-white">CHECK</span><span class="logo-gold">ORA</span>
-</span>
-           </div>
-      <p>Create an account to track your stats</p>
-    </div>
+    <main class="auth-layout">
+      <a href="{% url 'landing' %}" class="auth-home-link" aria-label="Back to home">
+          <span aria-hidden="true" class="auth-home-link__arrow">←</span>
+          <span>Back to Home</span>
+      </a>
 
-    <div class="auth-card">
-        <form method="POST">
-            {% csrf_token %}
+      <div class="header header--with-navbar">
+        <p>Create an account to track your stats</p>
+      </div>
 
-            {% include 'game/includes/messages.html' %}
+      <div class="auth-card">
+          <form method="POST">
+              {% csrf_token %}
 
-            {% if form.non_field_errors %}
-                {{ form.non_field_errors }}
-            {% endif %}
-            
-            {% for field in form %}
-                <div class="form-group">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <span class="helptext">{{ field.help_text}}</span>
-                    {% endif %}
-                    {% if field.errors %}
-                        {{ field.errors }}
-                    {% endif %}
-                </div>
-            {% endfor %}
-            
-            <button type="submit" class="btn btn-gold">Create Account</button>
-        </form>
-        
-        <div class="auth-footer">
-            Already have an account? <a href="{% url 'login' %}">Sign In</a>
+              {% include 'game/includes/messages.html' %}
+
+              {% if form.non_field_errors %}
+                  {{ form.non_field_errors }}
+              {% endif %}
+              
+              {% for field in form %}
+                  <div class="form-group">
+                      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}
+                          <span class="helptext">{{ field.help_text}}</span>
+                      {% endif %}
+                      {% if field.errors %}
+                          {{ field.errors }}
+                      {% endif %}
+                  </div>
+              {% endfor %}
+              
+              <button type="submit" class="btn btn-gold">Create Account</button>
+          </form>
+          
+          <div class="auth-footer">
+              Already have an account? <a href="{% url 'login' %}">Sign In</a>
+          </div>
         </div>
-    </div>
+    </main>
 
     <script src="{% static 'game/js/auth.js' %}?v=7"></script>
       <script src="{% static 'game/js/toast.js' %}"></script>
@@ -118,5 +116,7 @@
             });
         }
     </script>
+    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+    <script src="{% static 'game/js/cursor.js' %}"></script>
 </body>
 </html>
