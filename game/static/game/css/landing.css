@@ -134,7 +134,7 @@ body {
     gap: 0.8rem;
     text-decoration: none;
     color: var(--text-primary);
-    font-family: 'Cinzel', serif;
+    font-family: Cinzel, serif;
     font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: 2px;
@@ -355,7 +355,7 @@ body {
 
 .cursor-dropdown.active .cursor-dropdown-arrow,
 .profile-dropdown.active .profile-arrow {
-    transform: rotate(-90deg);
+    transform: rotate(0deg);
 }
 
 /* Keyboard accessibility */
@@ -3576,13 +3576,11 @@ body.hide-native-cursor * {
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
-
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
         transform: translateY(-8px) scale(0.98);
         transform-origin: top center;
-
         transition:
             opacity 0.25s ease,
             visibility 0.25s ease,
@@ -3669,7 +3667,8 @@ body.hide-native-cursor * {
     .cursor-btn,
     .profile-btn,
     .nav-toggle,
-    .nav-backdrop {
+    .nav-backdrop,
+    .dropdown-content {
         transition: none !important;
         animation: none !important;
     }
