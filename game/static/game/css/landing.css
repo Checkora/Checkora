@@ -3668,7 +3668,9 @@ body.hide-native-cursor * {
     .profile-btn,
     .nav-toggle,
     .nav-backdrop,
-    .dropdown-content {
+    .dropdown-content,
+    .cursor-dropdown-arrow,
+    .profile-arrow {
         transition: none !important;
         animation: none !important;
     }
