@@ -782,24 +782,85 @@ body.login-page .helptext {
    ============================================================ */
 @media (max-width: 600px) {
     body {
-        padding: 20px;
+        padding: 12px;
+    }
+    .navbar {
+        margin: 4px;
+        padding: 0.5rem 0.6rem;
+        border-radius: 10px;
+    }
+    .nav-left {
+        gap: 1rem;
+    }
+    .logo-img {
+        height: 28px;
+    }
+    .logo-text {
+        font-size: 1rem;
     }
     .auth-home-link {
-        padding: 0.72rem 0.9rem;
-        font-size: 0.9rem;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+        margin-top: 4px;
     }
-    .auth-card {
-        padding: 30px 20px;
+    .header {
+        padding: 6px 0 4px;
+        width: 100%;
         max-width: 100%;
     }
+    .header--with-navbar {
+        margin-top: 0;
+    }
+    .auth-card {
+        padding: 20px 16px;
+        max-width: 100%;
+        width: 100%;
+        border-radius: 10px;
+    }
     .header h1 {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
+    }
+    .auth-layout {
+        padding: 12px 8px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .navbar {
+        margin: 2px;
+        padding: 0.4rem 0.5rem;
+    }
+    .logo-text {
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+    }
+    .logo-img {
+        height: 22px;
+    }
+    .nav-right {
+        gap: 0.5rem;
+    }
+    .btn-signin, .btn-register {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.7rem;
+    }
+    .auth-home-link {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.8rem;
+    }
+    .auth-card {
+        padding: 16px 12px;
+    }
+    .form-group input {
+        padding: 12px 14px;
+        font-size: 0.95rem;
     }
 }
 
 @media (max-width: 768px) {
     body {
-        padding: 20px 16px;
+        padding: 16px 12px;
         justify-content: center;
     }
     .auth-home-link {
