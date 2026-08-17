@@ -625,32 +625,49 @@ def generate_badge(user_achievement):
 
     draw = ImageDraw.Draw(badge)
 
-    try:
-        title_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            85
-        )
+    import os
+    import platform
 
-        desc_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgia.ttf",
-            38
-        )
+    def _find_font(preferred_names, size):
+        """Try to load a font by name from common OS locations, falling back to PIL default."""
+        system = platform.system()
+        search_dirs = []
+        if system == "Windows":
+            search_dirs.append(os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts"))
+        elif system == "Darwin":
+            search_dirs.append("/Library/Fonts")
+            search_dirs.append(os.path.expanduser("~/Library/Fonts"))
+        else:  # Linux
+            search_dirs.append("/usr/share/fonts")
+            search_dirs.append("/usr/local/share/fonts")
+            fb = os.environ.get("FONTCONFIG_PATH", "")
+            if fb:
+                search_dirs.append(fb)
 
-        award_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            32
-        )
+        for name in preferred_names:
+            for d in search_dirs:
+                path = os.path.join(d, name)
+                if os.path.isfile(path):
+                    try:
+                        return ImageFont.truetype(path, size)
+                    except Exception:
+                        continue
 
-        name_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiai.ttf",
-            60
-        )
+        # Also try the exact Windows path (works on Windows)
+        for name in preferred_names:
+            win_path = os.path.join("C:\\Windows", "Fonts", name)
+            if os.path.isfile(win_path):
+                try:
+                    return ImageFont.truetype(win_path, size)
+                except Exception:
+                    continue
 
-    except Exception:
-        title_font = ImageFont.load_default()
-        desc_font = ImageFont.load_default()
-        award_font = ImageFont.load_default()
-        name_font = ImageFont.load_default()
+        return ImageFont.load_default()
+
+    title_font = _find_font(["georgiab.ttf", "Georgia Bold.ttf", "DejaVuSans-Bold.ttf", "Arial Bold.ttf"], 85)
+    desc_font = _find_font(["georgia.ttf", "Georgia.ttf", "DejaVuSans.ttf", "Arial.ttf"], 38)
+    award_font = _find_font(["georgiab.ttf", "Georgia Bold.ttf", "DejaVuSans-Bold.ttf", "Arial Bold.ttf"], 32)
+    name_font = _find_font(["georgiai.ttf", "Georgia Italic.ttf", "DejaVuSans-Oblique.ttf", "Arial Italic.ttf"], 60)
 
     title = achievement.title.upper()
     username = user_achievement.user.username
