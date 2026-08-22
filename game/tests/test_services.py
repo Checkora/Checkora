@@ -153,7 +153,7 @@ class TestAchievementServices(TestCase):
         )
 
         # FAST_WIN should unlock only when the game is won in < 20 moves
-        GameResult.objects.create(
+        game = GameResult.objects.create(
             user=self.user,
             mode="pvp",
             winner="white",
@@ -161,7 +161,7 @@ class TestAchievementServices(TestCase):
             player_color="white",
             moves=["e4"] * 19
         )
-        check_game_achievements(self.user)
+        check_game_achievements(self.user, latest_game=game)
         self.assertTrue(
             UserAchievement.objects.filter(
                 user=self.user, achievement__code="FAST_WIN"
@@ -171,7 +171,7 @@ class TestAchievementServices(TestCase):
         # Validate that >= 20 moves does not unlock FAST_WIN
         UserAchievement.objects.all().delete()
         GameResult.objects.all().delete()
-        GameResult.objects.create(
+        game = GameResult.objects.create(
             user=self.user,
             mode="pvp",
             winner="white",
@@ -179,7 +179,7 @@ class TestAchievementServices(TestCase):
             player_color="white",
             moves=["e4"] * 20
         )
-        check_game_achievements(self.user)
+        check_game_achievements(self.user, latest_game=game)
         self.assertFalse(
             UserAchievement.objects.filter(
                 user=self.user, achievement__code="FAST_WIN"

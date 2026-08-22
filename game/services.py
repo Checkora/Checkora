@@ -239,7 +239,7 @@ def process_game_completion(user, mode, winner, reason, player_color='white', mo
             player_color
         )
         
-        check_game_achievements(user)
+        check_game_achievements(user, latest_game=result)
         
     return result
 
@@ -401,7 +401,7 @@ def unlock_achievement(user, code):
         pass
 
 
-def check_game_achievements(user):
+def check_game_achievements(user, latest_game=None):
     """Check and award achievements based on game statistics."""
     if not user:
         return
@@ -426,12 +426,6 @@ def check_game_achievements(user):
         user=user,
         end_reason="stalemate"
     ).count()
-
-    fast_wins = GameResult.objects.filter(
-        user=user
-    ).filter(
-        winner=F("player_color")
-    )
 
     # First Win
     if wins >= 1:
@@ -490,10 +484,25 @@ def check_game_achievements(user):
         unlock_achievement(user, "STALEMATE_DRAW")
 
     # Win in under 20 moves
-    for game in fast_wins:
-        if len(game.moves) < 20:
+    has_fast_win = UserAchievement.objects.filter(
+        user=user,
+        achievement__code="FAST_WIN"
+    ).exists()
+
+    if not has_fast_win:
+        if latest_game and latest_game.winner == latest_game.player_color and len(latest_game.moves) < 20:
             unlock_achievement(user, "FAST_WIN")
-            break
+        else:
+            # Fallback for retroactive achievement unlocking
+            # Use iterator to prevent loading all JSON payloads into memory at once
+            fast_wins = GameResult.objects.filter(
+                user=user, winner=F("player_color")
+            ).only('id', 'moves')
+            
+            for game in fast_wins.iterator(chunk_size=100):
+                if len(game.moves) < 20:
+                    unlock_achievement(user, "FAST_WIN")
+                    break
 
 
 def check_puzzle_achievements(user, stats):
