@@ -4169,3 +4169,8 @@ body.blindfold-mode .capture-ring {
 
 .board-container.flipped .top-player { order: 4; }
 .board-container.flipped .bottom-player { order: 2; }
+
+.btn-warning:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
