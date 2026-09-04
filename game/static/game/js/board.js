@@ -862,6 +862,7 @@
             null,
             true
         );
+        initThemeSwitcher();
         currentPuzzleFen = currentPuzzle.fen;
         expectedMoveEval = null;
         initStockfish();
@@ -5140,17 +5141,20 @@ function updateStepperUI() {
     // Theme Switcher
     function initThemeSwitcher() {
         const themeBtns = document.querySelectorAll('.theme-btn');
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
-        document.documentElement.setAttribute('data-theme', currentTheme);
+        const currentTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
+        document.documentElement.setAttribute('data-board-theme', currentTheme);
+
+        const boardThemeRadio = document.querySelector(`input[name="boardThemeRadio"][value="${currentTheme}"]`);
+        if (boardThemeRadio) boardThemeRadio.checked = true;
 
         themeBtns.forEach(btn => {
-            if (btn.dataset.theme === currentTheme) {
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            }
+            const isActive = btn.dataset.theme === currentTheme;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', String(isActive));
             btn.onclick = () => {
                 const theme = btn.dataset.theme;
-                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-board-theme', theme);
+                localStorage.setItem('boardTheme', theme);
                 localStorage.setItem('chessBoardTheme', theme);
                 themeBtns.forEach(b => {
                     b.classList.remove('active');
@@ -5883,32 +5887,6 @@ async function handleSanMove() {
                     first.focus();
                 }
             }
-        });
-    }
-
-    // Theme Switcher
-    function initThemeSwitcher() {
-        const themeBtns = document.querySelectorAll('.theme-btn');
-        const currentTheme = document.documentElement.getAttribute('data-board-theme') || 'classic';
-        document.documentElement.setAttribute('data-board-theme', currentTheme);
-
-        themeBtns.forEach(btn => {
-            if (btn.dataset.theme === currentTheme) {
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            }
-            btn.onclick = () => {
-                const theme = btn.dataset.theme;
-                document.documentElement.setAttribute('data-board-theme', theme);
-                localStorage.setItem('boardTheme', theme);
-                localStorage.setItem('chessBoardTheme', theme);
-                themeBtns.forEach(b => {
-                    b.classList.remove('active');
-                    b.setAttribute('aria-pressed', 'false');
-                });
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            };
         });
     }
 
