@@ -75,6 +75,20 @@
             border-radius: 4px;
             border: 1px solid rgba(255, 107, 107, 0.3);
         }
+        /* Exit to Home button hover feedback */
+        .exit-home-btn {
+            transition: background-color 0.2s ease,
+                        border-color 0.2s ease,
+                        box-shadow 0.2s ease,
+                        transform 0.2s ease;
+        }
+
+        .exit-home-btn:hover {
+            background-color: #3a1b1b !important;
+            border-color: #ff6b6b !important;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.2);
+            transform: translateY(-1px);
+        }
     </style>
 
     <!-- Vercel Web Analytics -->
@@ -564,7 +578,7 @@
                     <button type="button" class="btn btn-gold board-controls" id="shortcutsBtn" title="Keyboard Shortcuts (?)">⌨️ Shortcuts<span class="btn-shortcut">?</span></button>
                     <button type="button" class="btn btn-gold controls-grid-full" onclick="document.getElementById('rulebookModal').style.display='flex'">📖 Rulebook</button>
                 </div>
-                <a href="/" class="btn controls-grid-full" style="background: #2a1414; color: #ff6b6b;margin-top: 1rem;margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">EXIT TO HOME</a>
+                  <a href="/" class="btn controls-grid-full exit-home-btn" style="background: #2a1414; color: #ff6b6b; margin-top: 1rem; margin-bottom: 1.5rem; border: 1px solid #632424; text-decoration: none; text-align: center; display: block; line-height: 2.5;">EXIT TO HOME</a>
             </div>
 
             <div class="card" id="emotePanel" style="display: none;">
