@@ -1806,16 +1806,27 @@ body {
         color: #fed7aa;
     }
 
-/* Low time warning — stage 3: 10s–1s (red + scale pulse animation) */
+/* Low time warning — under 30 seconds (turns red) */
 @keyframes low-time-pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.04); }
 }
 
+.clock.low-1,
+.clock.low-2,
+.clock.low-3 {
+    background: linear-gradient(135deg, rgba(61, 0, 0, 0.4), rgba(32, 0, 0, 0.4));
+    border-color: #ef4444 !important;
+}
+
+.clock.low-1 .time,
+.clock.low-2 .time,
+.clock.low-3 .time {
+    color: #ef4444 !important;
+}
+
 .clock.low-3 {
     background: linear-gradient(135deg, #3d0000, #200000);
-    border-color: #ef4444;
-    color: #fca5a5;
     animation: low-time-pulse 0.8s ease-in-out infinite;
 }
 
@@ -1856,8 +1867,8 @@ body {
 
 /* Timer Bar Warning State (<= 30s) */
 .clock-timer-bar-fill.timer-warning {
-    background: linear-gradient(90deg, #f59e0b, #eab308);
-    box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+    background: linear-gradient(90deg, #f87171, #ef4444);
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 }
 
 /* Timer Bar Critical State (<= 10s) */

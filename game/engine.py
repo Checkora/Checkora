@@ -179,6 +179,8 @@ class ChessGame:
 
     @property
     def game_status(self):
+        if self._game_status == 'active' and (self.white_time == 0 or self.black_time == 0):
+            return 'timeout'
         return self._game_status
 
     @game_status.setter
@@ -784,8 +786,10 @@ DP cache is intentionally excluded to save cookie space."""
         # Check timeout BEFORE mutating board state
         self.update_clock()
         if self.white_time == 0:
+            self.game_status = 'timeout'
             return False, "White ran out of time", None, 'timeout'
         if self.black_time == 0:
+            self.game_status = 'timeout'
             return False, "Black ran out of time", None, 'timeout'
 
         captured = self.board[tr][tc]
@@ -1150,6 +1154,9 @@ DP cache is intentionally excluded to save cookie space."""
 
         self.last_ts += elapsed
 
+        if self.game_status == 'active' and (self.white_time == 0 or self.black_time == 0):
+            self.game_status = 'timeout'
+
     # ------------------------------------------------------------------
     #  Game status detection (check / checkmate / stalemate)
     # ------------------------------------------------------------------
@@ -1157,8 +1164,11 @@ DP cache is intentionally excluded to save cookie space."""
     def check_game_status(self):
         """Ask the C++ engine for the game status of the current side.
 
-        Returns one of: 'checkmate', 'stalemate', 'check', 'ok'.
+        Returns one of: 'checkmate', 'stalemate', 'draw', 'check', 'timeout', 'ok'.
         """
+        if self.game_status == 'timeout' or self.white_time == 0 or self.black_time == 0:
+            self.game_status = 'timeout'
+            return 'timeout'
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()

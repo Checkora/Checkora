@@ -3087,6 +3087,11 @@ function updateStepperUI() {
             endGame('draw', turn, drawReason).catch(e => console.error("Error in endGame:", e));
             return true;
         }
+        if (status === 'timeout') {
+            const loser = (whiteTime <= 0) ? 'white' : (blackTime <= 0 ? 'black' : turn);
+            endGame('timeout', loser).catch(e => console.error("Error in endGame:", e));
+            return true;
+        }
         return false;
     }
 

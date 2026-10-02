@@ -165,6 +165,46 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     return process_game_completion(user, mode, winner, reason, player_color, moves)
 
 
+def handle_timeout_finalization(request, game, active_game=None, version=None):
+    """Finalize a game that ended by timeout (flag-fall)."""
+    game.game_status = 'timeout'
+    winner = 'black' if game.white_time == 0 else 'white'
+    if active_game is not None:
+        save_game_state_helper(request, active_game, game.to_dict(), version)
+    else:
+        active_game_loaded, _, loaded_version = load_game_state_helper(request)
+        if active_game_loaded:
+            save_game_state_helper(request, active_game_loaded, game.to_dict(), loaded_version)
+        request.session['game'] = game.to_dict()
+        request.session.modified = True
+
+    try:
+        game_result = record_game_result(
+            request, game.mode, winner, 'timeout', game.player_color, moves=game.move_history
+        )
+        pgn_str = game.generate_pgn(
+            request.session.get('white_name', 'White'),
+            request.session.get('black_name', 'Black')
+        )
+        pgn_result = '1-0' if winner == 'white' else '0-1'
+        replay_record = save_game_record(
+            request,
+            pgn=pgn_str,
+            result=pgn_result,
+            termination='timeout',
+            white_label=request.session.get('white_name', 'White'),
+            black_label=request.session.get('black_name', 'Black')
+        )
+        if game_result is not None:
+            game_result.replay_record = replay_record
+            game_result.save(update_fields=['replay_record'])
+    except Exception as e:
+        logger.error('Failed to record timeout result: %s', e)
+
+    delete_active_game(request)
+    return winner
+
+
 @require_POST
 def make_move(request):
     """Validate and execute a chess move via the C++ engine."""
@@ -232,6 +272,8 @@ def make_move(request):
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
             delete_active_game(request)
+    elif game_status == 'timeout':
+        handle_timeout_finalization(request, game, active_game, version)
 
     res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
@@ -490,6 +532,9 @@ def get_state(request):
         else:
             game.update_clock()
 
+        if game_data.get('game_status') == 'active' and (game.game_status == 'timeout' or game.white_time == 0 or game.black_time == 0):
+            handle_timeout_finalization(request, game)
+
     request.session['game'] = game.to_dict()
     request.session.modified = True
 
@@ -624,6 +669,21 @@ def ai_move(request):
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
         )
+
+    game.update_clock()
+    if game.game_status == 'timeout' or (game.white_time == 0 or game.black_time == 0):
+        winner = handle_timeout_finalization(request, game, active_game, version)
+        return JsonResponse({
+            'valid': False,
+            'message': f"{'White' if game.white_time == 0 else 'Black'} ran out of time.",
+            'winner': winner,
+            'game_status': 'timeout',
+            'board': game.board,
+            'current_turn': game.current_turn,
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+            'version': 0
+        })
     opening = request.session.get('opening', '')
     book_move = None
     if opening:
@@ -801,6 +861,10 @@ def ai_move(request):
                 game_result.replay_record = replay_record
                 game_result.save(update_fields=['replay_record'])
             delete_active_game(request)
+        elif game_status == 'timeout':
+            handle_timeout_finalization(request, game, active_game, version)
+    elif game_status == 'timeout':
+        handle_timeout_finalization(request, game, active_game, version)
 
     res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 

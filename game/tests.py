@@ -2392,6 +2392,104 @@ class TimeControlIncrementTest(TestCase):
         self.assertEqual(game.white_time, 600 - int(total_elapsed))
         self.assertEqual(game.last_ts, float(int(total_elapsed)))
 
+    def test_clock_reaching_zero_sets_timeout_status(self):
+        """When clock reaches zero during update_clock, status becomes timeout."""
+        game = ChessGame(time_limit=60)
+        game.last_ts = 1000.0
+        game.white_time = 5
+        game.current_turn = 'white'
+        game.paused = False
+
+        with mock.patch('game.engine.time.time', return_value=1010.0):
+            game.update_clock()
+
+        self.assertEqual(game.white_time, 0)
+        self.assertEqual(game.game_status, 'timeout')
+        self.assertEqual(game.check_game_status(), 'timeout')
+
+    def test_make_move_on_flag_fall_finalizes_timeout_server_side(self):
+        """Making a move after clock runs out must persist timeout result and delete active game."""
+        from game.models import GameResult, ActiveGame
+        self.client.get('/play/')
+        session = self.client.session
+        game = ChessGame(time_limit=60)
+        game.white_time = 0
+        game.last_ts = 1000.0
+        session['game'] = game.to_dict()
+        session.save()
+
+        response = self.client.post(
+            '/api/move/',
+            data=json.dumps({
+                'from_row': 6,
+                'from_col': 4,
+                'to_row': 4,
+                'to_col': 4
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['valid'])
+        self.assertEqual(data['game_status'], 'timeout')
+
+        # Verify GameResult was recorded
+        results = GameResult.objects.filter(end_reason='timeout')
+        self.assertEqual(results.count(), 1)
+        self.assertEqual(results.first().winner, 'black')
+
+        # Verify ActiveGame row was cleaned up
+        self.assertEqual(ActiveGame.objects.count(), 0)
+
+    def test_passive_polling_finalizes_flag_fall(self):
+        """Passive state polling on expired clock must finalize timeout and record result."""
+        from game.models import GameResult, ActiveGame
+        self.client.get('/play/')
+        session = self.client.session
+        game = ChessGame(time_limit=60)
+        game.white_time = 2
+        game.last_ts = 1000.0
+        game.paused = False
+        session['game'] = game.to_dict()
+        session.save()
+
+        with mock.patch('time.time', return_value=1005.0):
+            response = self.client.get('/api/state/')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['white_time'], 0)
+        self.assertEqual(data['game_status'], 'timeout')
+
+        # Verify GameResult was recorded
+        results = GameResult.objects.filter(end_reason='timeout')
+        self.assertEqual(results.count(), 1)
+        self.assertEqual(results.first().winner, 'black')
+        self.assertEqual(ActiveGame.objects.count(), 0)
+
+    def test_ai_move_finalizes_flag_fall(self):
+        """ai_move view on an expired clock must finalize timeout and record result."""
+        from game.models import GameResult, ActiveGame
+        self.client.get('/play/')
+        session = self.client.session
+        game = ChessGame(time_limit=60)
+        game.mode = 'ai'
+        game.white_time = 0
+        game.last_ts = 1000.0
+        game.paused = False
+        session['game'] = game.to_dict()
+        session.save()
+
+        response = self.client.post('/api/ai-move/', data=json.dumps({}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['valid'])
+        self.assertEqual(data['game_status'], 'timeout')
+
+        results = GameResult.objects.filter(end_reason='timeout')
+        self.assertEqual(results.count(), 1)
+        self.assertEqual(ActiveGame.objects.count(), 0)
+
 
 class GameResultMoveHistoryTest(TestCase):
     """Test suite for verifying persistent move history storage in GameResult."""
