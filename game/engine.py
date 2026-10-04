@@ -453,8 +453,30 @@ DP cache is intentionally excluded to save cookie space."""
     @classmethod
     def _resolve_engine_path(cls):
         """Return the first available engine entrypoint for this platform."""
+        if cls._resolved_engine_path is not None:
+            return cls._resolved_engine_path
+
         for path in cls.ENGINE_CANDIDATES:
             if os.path.exists(path):
+                # Serverless workaround: copy the Linux C++ binary to the writable /tmp directory
+                # and restore the execute (+x) permission.
+                if os.name != 'nt' and not path.endswith('.py'):
+                    tmp_path = '/tmp/checkora_main'
+                    staging_path = '/tmp/checkora_main.tmp'
+                    try:
+                        import shutil
+                        # Only copy if it doesn't exist or if the source is newer
+                        if not os.path.exists(tmp_path) or os.path.getmtime(path) > os.path.getmtime(tmp_path):
+                            shutil.copy(path, staging_path)
+                            os.chmod(staging_path, 0o755)
+                            os.replace(staging_path, tmp_path)
+                        cls._resolved_engine_path = tmp_path
+                        return tmp_path
+                    except (OSError, shutil.Error) as e:
+                        logger.error("Failed to copy/setup engine binary to /tmp: %s", e)
+                        # If copying or chmod fails, fall back to the next candidate (e.g. main.py)
+                        continue
+                cls._resolved_engine_path = path
                 return path
         return None
 
