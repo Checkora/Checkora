@@ -427,6 +427,7 @@
         main {
             padding: 3rem 4rem;
             max-width: 900px;
+            width: 100%;
         }
 
         /* ── Rule Card ── */
@@ -434,6 +435,8 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
+            width: 100%;
+
             padding: 2rem;
             margin-bottom: 2rem;
             display: none;
@@ -478,6 +481,8 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 1.5rem;
+
+             
         }
 
         .demo-label {
@@ -515,12 +520,18 @@
         }
 
         /* ── Mini Chess Board ── */
-        .mini-board-container {
-            display: flex;
-            gap: 2rem;
-            align-items: flex-start;
-            flex-wrap: wrap;
-        }
+       .mini-board-container {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .mini-board-container {
+        flex-wrap: wrap;
+    }
+}
 
         .mini-board {
             display: grid;
