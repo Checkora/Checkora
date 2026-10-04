@@ -568,10 +568,10 @@ def update_opening_progress(
             progress.openings_started = 1
     
         if correct_move:
-            progress.correct_moves += 1
+            progress.correct_moves += int(correct_move)
 
         if incorrect_move:
-            progress.incorrect_moves += 1
+            progress.incorrect_moves += int(incorrect_move)
 
         if checkpoint is not None:
             progress.last_checkpoint = checkpoint

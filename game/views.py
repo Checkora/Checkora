@@ -4030,7 +4030,8 @@ def update_opening_stats(request):
 
     opening_name = data.get("opening_name")
     completed = data.get("completed", False)
-    accuracy = data.get("accuracy", 0)
+    correct_move = data.get("correct_move", 0)
+    incorrect_move = data.get("incorrect_move", 0)
 
     if not opening_name:
         return JsonResponse(
@@ -4055,20 +4056,26 @@ def update_opening_stats(request):
             status=400,
         )
 
-    if not isinstance(accuracy, (int, float)):
+    if not isinstance(correct_move, int) or not isinstance(incorrect_move, int):
         return JsonResponse(
             {
                 "success": False,
-                "error": "Invalid accuracy",
+                "error": "Invalid move counts",
             },
             status=400,
         )
 
-    accuracy = max(0, min(100, accuracy))
+    correct_move = max(0, correct_move)
+    incorrect_move = max(0, incorrect_move)
+
+    total_moves = correct_move + incorrect_move
+    accuracy = round((correct_move / total_moves) * 100, 2) if total_moves > 0 else 0
 
     progress, first_completion = update_opening_progress(
         request.user,
         opening_name,
+        correct_move=correct_move,
+        incorrect_move=incorrect_move,
         completed=completed,
     )
 
