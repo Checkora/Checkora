@@ -552,7 +552,7 @@ def update_opening_progress(
     checkpoint=None,
 ):
     if not user:
-        return None
+        return None, False
 
     with transaction.atomic():
         progress, created = (
@@ -605,14 +605,13 @@ def update_opening_progress(
 def generate_badge(user_achievement):
     achievement = user_achievement.achievement
 
-    template_path = (
-        BASE_DIR
-        / "static"
-        / "game"
-        / "badges"
-        / "templates"
-        / f"{achievement.rarity}.png"
-    )
+    template_candidates = [
+        BASE_DIR / "static" / "game" / "badges" / "templates" / f"{achievement.rarity}.png",
+        BASE_DIR.parent / "game" / "static" / "game" / "badges" / "templates" / f"{achievement.rarity}.png",
+        BASE_DIR.parent / "staticfiles" / "game" / "badges" / "templates" / f"{achievement.rarity}.png",
+        BASE_DIR / "static" / "game" / "badges" / "templates" / "common.png",
+    ]
+    template_path = next((p for p in template_candidates if p.exists()), template_candidates[0])
 
     if not template_path.exists():
         raise FileNotFoundError(

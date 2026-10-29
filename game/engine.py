@@ -990,13 +990,16 @@ DP cache is intentionally excluded to save cookie space."""
             parts = resp.split()[1:]
             # C++ returns 4 fields per move:
             # row col is_capture is_promotion
-            for i in range(0, len(parts), 4):
-                moves.append({
-                    'row': int(parts[i]),
-                    'col': int(parts[i+1]),
-                    'is_capture': bool(int(parts[i+2])),
-                    'is_promotion': bool(int(parts[i+3])),
-                })
+            for i in range(0, len(parts) - 3, 4):
+                try:
+                    moves.append({
+                        'row': int(parts[i]),
+                        'col': int(parts[i+1]),
+                        'is_capture': bool(int(parts[i+2])),
+                        'is_promotion': bool(int(parts[i+3])),
+                    })
+                except (ValueError, IndexError):
+                    continue
         return moves
 
     # ------------------------------------------------------------------

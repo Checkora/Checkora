@@ -23,14 +23,11 @@ the "game over" response), call:
 That's the only change needed in views.py.
 """
 
-import json
-from datetime import timedelta
-
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 
 from game.models import GameRecord
 
@@ -124,15 +121,20 @@ def api_history(request):
     }
     """
     if request.user.is_authenticated:
-        query = Q(user=request.user) | Q(session_key=request.session.session_key)
+        if request.session.session_key:
+            query = Q(user=request.user) | Q(session_key=request.session.session_key)
+        else:
+            query = Q(user=request.user)
     else:
+        if not request.session.session_key:
+            return JsonResponse({"games": []})
         query = Q(session_key=request.session.session_key)
 
     now = timezone.now()
     records = GameRecord.objects.filter(
         query,
         expires_at__gt=now,
-    )[:20]
+    ).order_by("-created_at")[:20]
 
     games = [
         {
