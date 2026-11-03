@@ -2137,7 +2137,7 @@ body {
 .shortcuts-modal-title {
     font-family: Cinzel, serif;
     font-size: 1.6rem;
-    color: #f0c040;
+    color: var(--accent-gold);
     text-align: center;
     margin-bottom: 24px;
     padding-right: 20px;
@@ -2151,8 +2151,8 @@ body {
 }
 
 .shortcuts-section {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
     border-radius: 10px;
     padding: 14px 18px;
 }
@@ -2161,12 +2161,12 @@ body {
     font-family: Outfit, sans-serif;
     font-size: 0.95rem;
     font-weight: 600;
-    color: #f0c040;
+    color: var(--accent-gold);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 12px;
     padding-bottom: 6px;
-    border-bottom: 1px solid rgba(240, 192, 64, 0.2);
+    border-bottom: 1px solid var(--accent-gold);
 }
 
 .shortcut-row {
@@ -2185,14 +2185,14 @@ body {
 .shortcut-desc {
     font-family: Outfit, sans-serif;
     font-size: 0.9rem;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .shortcut-keys {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 0.85rem;
 }
 
@@ -2203,9 +2203,9 @@ kbd {
     font-size: 0.82rem;
     font-weight: 700;
     line-height: 1;
-    color: #f0c040;
-    background: #141728;
-    border: 1px solid rgba(240, 192, 64, 0.4);
+    color: var(--accent-gold);
+    background: var(--card-bg);
+    border: 1px solid var(--accent-gold);
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     min-width: 24px;
@@ -2229,8 +2229,8 @@ kbd {
 .promo-overlay.active { display: flex; }
 
 .promo-dialog {
-    background: #1a1a30;
-    border: 2px solid #f0c040;
+    background: var(--card-bg);
+    border: 2px solid var(--accent-gold);
     border-radius: 12px;
     padding: clamp(16px, 5vw, 32px);
     text-align: center;
@@ -2246,7 +2246,7 @@ kbd {
 .promo-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #f0c040;
+    color: var(--accent-gold);
     margin-bottom: 16px;
     letter-spacing: 1px;
     text-transform: uppercase;
