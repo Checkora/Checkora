@@ -2030,7 +2030,7 @@ body {
     border-radius: 50%;
 
     background: transparent;
-    color: #ffffff;
+    color: var(--text-title);
 
     font-size: 24px;
     cursor: pointer;
@@ -2039,11 +2039,11 @@ body {
 }
 
 .modal-close-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--text-title) 8%, transparent);
 }
 
 .modal-close-btn:focus-visible {
-    outline: 2px solid #f0c040;
+    outline: 2px solid var(--accent-gold);
 }
 
 .theme-modal-title {
