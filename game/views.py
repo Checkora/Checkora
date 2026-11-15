@@ -499,9 +499,16 @@ def get_state(request):
         else:
             game.update_clock()
 
-    save_game_state_helper(request, active_game, game.to_dict(), version)
+    _success_save, saved_ag = save_game_state_helper(request, active_game, game.to_dict(), version)
+    if not _success_save:
+        active_game, game_data, version = load_game_state_helper(request)
+        if game_data:
+            game = ChessGame.from_dict(game_data)
+        saved_ag = active_game
+    res_version = saved_ag.version if (saved_ag and request.user.is_authenticated) else 0
 
     response_data = {
+        'version': res_version,
         'board': game.board,
         'current_turn': game.current_turn,
         'white_time': game.white_time,
@@ -866,7 +873,9 @@ def offer_draw(request):
             )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
-        save_game_state_helper(request, active_game, game.to_dict(), version)
+        saved, _ = save_game_state_helper(request, active_game, game.to_dict(), version)
+        if not saved:
+            return JsonResponse({'error': 'State conflict, please retry'}, status=409)
         delete_active_game(request)
 
         record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)

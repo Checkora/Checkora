@@ -278,8 +278,8 @@ class TestOpeningServices(TestCase):
         progress2, _ = update_opening_progress(self.user, "Ruy Lopez")
         self.assertEqual(progress2.openings_started, 1)
 
-        # Verify no-op when user is None
-        self.assertIsNone(update_opening_progress(None, "Sicilian Defense"))
+        # Verify no-op when user is None (returns (None, False) tuple)
+        self.assertEqual(update_opening_progress(None, "Sicilian Defense"), (None, False))
 
 
 class TestActiveGameServices(TestCase):

@@ -77,8 +77,14 @@ def save_game_record(request, pgn: str, result: str, termination: str,
         session.create()
         session_key = _get_session_key(request)
 
+    if not session_key:
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            session_key = f"user_{request.user.pk}_record"
+        else:
+            session_key = "anonymous_session"
+
     record_data = {
-        'session_key': session_key or '',
+        'session_key': session_key,
         'white_label': white_label,
         'black_label': black_label,
         'result': result,

@@ -159,6 +159,7 @@ class SecurityAndFixesTest(TestCase):
         from django.test import RequestFactory
         from game.views import record_game_result
         from game.services import load_game_state_helper, save_game_state_helper
+        from game.engine import ChessGame
 
         factory = RequestFactory()
         req = factory.post('/api/move/')
@@ -172,11 +173,8 @@ class SecurityAndFixesTest(TestCase):
         self.assertEqual(ver, 0)
 
         # save_game_state_helper should also succeed without crash
-        saved, new_ag = save_game_state_helper(req, None, {
-            'board': [['' for _ in range(8)] for _ in range(8)],
-            'current_turn': 'white',
-            'game_status': 'active'
-        }, 0)
+        valid_state = ChessGame().to_dict()
+        saved, new_ag = save_game_state_helper(req, None, valid_state, 0)
         self.assertTrue(saved)
         self.assertIsNotNone(new_ag)
 
