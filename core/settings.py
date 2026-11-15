@@ -105,6 +105,7 @@ DATABASES = {
 }
 
 if 'sqlite' in DATABASES['default'].get('ENGINE', ''):
+    # Take the SQLite write lock at BEGIN, not on the first write. Helps with lock diagnosis.
     DATABASES['default'].setdefault('OPTIONS', {})['transaction_mode'] = 'IMMEDIATE'
 
 

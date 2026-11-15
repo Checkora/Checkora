@@ -81,7 +81,8 @@ def save_game_record(request, pgn: str, result: str, termination: str,
         if hasattr(request, 'user') and request.user.is_authenticated:
             session_key = f"user_{request.user.pk}_record"
         else:
-            session_key = "anonymous_session"
+            # Anonymous requests require a real session key to query or replay history later.
+            return None
 
     record_data = {
         'session_key': session_key,
