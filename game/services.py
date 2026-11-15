@@ -28,6 +28,17 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+def _get_session_key(request):
+    """Safely extract session_key from request.session if present."""
+    session = getattr(request, 'session', None)
+    if session is None:
+        return None
+    session_key = getattr(session, 'session_key', None)
+    if not session_key and isinstance(session, dict):
+        session_key = session.get('session_key')
+    return session_key
+
+
 def load_game_state_helper(request):
     """
     Load game state for current request.
@@ -35,31 +46,35 @@ def load_game_state_helper(request):
     For authenticated users, loads from ActiveGame database record.
     For anonymous users, loads from request.session['game'].
     """
+    session = getattr(request, 'session', None)
+    session_key = _get_session_key(request)
+
     if hasattr(request, 'user') and request.user.is_authenticated:
         active_game = ActiveGame.objects.filter(user=request.user, status="active").first()
-        if not active_game and request.session.session_key:
-            active_game = ActiveGame.objects.filter(session_key=request.session.session_key, status="active").first()
+        if not active_game and session_key:
+            active_game = ActiveGame.objects.filter(session_key=session_key, status="active").first()
             if active_game:
                 active_game.user = request.user
                 active_game.save(update_fields=['user'])
         
         if active_game:
-            if request.session.session_key and active_game.session_key != request.session.session_key:
-                ActiveGame.objects.filter(session_key=request.session.session_key).exclude(pk=active_game.pk).delete()
-                active_game.session_key = request.session.session_key
+            if session_key and active_game.session_key != session_key:
+                ActiveGame.objects.filter(session_key=session_key).exclude(pk=active_game.pk).delete()
+                active_game.session_key = session_key
                 active_game.save(update_fields=['session_key'])
             # Restore session metadata from the persisted game_state so that
             # cross-device resumes receive the correct difficulty, opening, and
             # player names even on a brand-new session with no prior context.
             metadata = (active_game.game_state or {}).get('metadata') if active_game.game_state else None
-            if metadata and isinstance(metadata, dict):
+            if metadata and isinstance(metadata, dict) and session is not None:
                 for key in ('difficulty', 'opening', 'white_name', 'black_name'):
-                    if key in metadata and key not in request.session:
-                        request.session[key] = metadata[key]
+                    if key in metadata and key not in session:
+                        session[key] = metadata[key]
             return active_game, active_game.game_state, active_game.version
         return None, None, 0
     else:
-        return None, request.session.get('game'), 0
+        game_data = session.get('game') if session is not None and hasattr(session, 'get') else None
+        return None, game_data, 0
 
 
 def save_game_state_helper(request, active_game, game_dict, current_version):
@@ -69,19 +84,23 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
     Returns True if successfully saved, False if optimistic locking conflict occurred.
     For anonymous users, saves to request.session['game'] and updates metadata tracker.
     """
+    session = getattr(request, 'session', None)
+    session_key = _get_session_key(request)
+
     # Carry forward session metadata if it exists and hasn't been explicitly provided.
     # This prevents mutations (like moves) from wiping out the metadata dictionary.
     if 'metadata' not in game_dict:
         if active_game and active_game.game_state and 'metadata' in active_game.game_state:
             game_dict['metadata'] = active_game.game_state['metadata']
-        elif 'game' in request.session and isinstance(request.session['game'], dict) and 'metadata' in request.session['game']:
-            game_dict['metadata'] = request.session['game']['metadata']
+        elif session is not None and 'game' in session and isinstance(session['game'], dict) and 'metadata' in session['game']:
+            game_dict['metadata'] = session['game']['metadata']
 
     validate_game_state(game_dict)
     
     if hasattr(request, 'user') and request.user.is_authenticated:
-        if not request.session.session_key:
-            request.session.save()
+        if session is not None and hasattr(session, 'save') and not session_key:
+            session.save()
+            session_key = _get_session_key(request)
         
         if not active_game:
             with transaction.atomic():
@@ -89,16 +108,17 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
                 User.objects.select_for_update().get(pk=request.user.pk)
 
                 ActiveGame.objects.filter(user=request.user).delete()
-                ActiveGame.objects.filter(session_key=request.session.session_key).delete()
+                if session_key:
+                    ActiveGame.objects.filter(session_key=session_key).delete()
                 active_game = ActiveGame.objects.create(
                     user=request.user,
-                    session_key=request.session.session_key,
+                    session_key=session_key or f"user_{request.user.pk}_session",
                     game_state=game_dict,
                     version=1,
                     status="active"
                 )
-                if 'game' in request.session:
-                    del request.session['game']
+                if session is not None and 'game' in session:
+                    del session['game']
                 return True, active_game
 
         updated = ActiveGame.objects.filter(
@@ -116,27 +136,31 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
         active_game.game_state = game_dict
         active_game.last_activity_at = timezone.now()
         
-        if 'game' in request.session:
-            del request.session['game']
+        if session is not None and 'game' in session:
+            del session['game']
         return True, active_game
     else:
-        request.session['game'] = game_dict
-        request.session.modified = True
+        if session is not None:
+            session['game'] = game_dict
+            if hasattr(session, 'modified'):
+                session.modified = True
         
         game_status = game_dict.get("game_status", "active")
         if game_status != "active":
             delete_active_game(request)
         else:
-            if not request.session.session_key:
-                request.session.save()
-            ActiveGame.objects.update_or_create(
-                session_key=request.session.session_key,
-                defaults={
-                    "user": None,
-                    "status": "active",
-                    "last_activity_at": timezone.now(),
-                },
-            )
+            if session is not None and hasattr(session, 'save') and not session_key:
+                session.save()
+                session_key = _get_session_key(request)
+            if session_key:
+                ActiveGame.objects.update_or_create(
+                    session_key=session_key,
+                    defaults={
+                        "user": None,
+                        "status": "active",
+                        "last_activity_at": timezone.now(),
+                    },
+                )
         return True, None
 
 
@@ -156,9 +180,10 @@ def delete_active_game(request):
     """Remove the active game record."""
     if hasattr(request, 'user') and request.user.is_authenticated:
         ActiveGame.objects.filter(user=request.user).delete()
-    if request.session.session_key:
+    session_key = _get_session_key(request)
+    if session_key:
         ActiveGame.objects.filter(
-            session_key=request.session.session_key
+            session_key=session_key
         ).delete()
 
 @transaction.atomic

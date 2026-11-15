@@ -153,3 +153,34 @@ class SecurityAndFixesTest(TestCase):
         self.client.login(username='chess_master', password='Password123!')
         resp = self.client.get('/api/analyze-game/')
         self.assertEqual(resp.status_code, 405)
+
+    def test_request_with_plain_dict_session(self):
+        """Verify load_game_state_helper and record_game_result handle plain dict session."""
+        from django.test import RequestFactory
+        from game.views import record_game_result
+        from game.services import load_game_state_helper, save_game_state_helper
+
+        factory = RequestFactory()
+        req = factory.post('/api/move/')
+        req.user = self.user
+        req.session = {}
+
+        # load_game_state_helper should not crash with AttributeError
+        ag, game_dict, ver = load_game_state_helper(req)
+        self.assertIsNone(ag)
+        self.assertIsNone(game_dict)
+        self.assertEqual(ver, 0)
+
+        # save_game_state_helper should also succeed without crash
+        saved, new_ag = save_game_state_helper(req, None, {
+            'board': [['' for _ in range(8)] for _ in range(8)],
+            'current_turn': 'white',
+            'game_status': 'active'
+        }, 0)
+        self.assertTrue(saved)
+        self.assertIsNotNone(new_ag)
+
+        # record_game_result should succeed
+        res = record_game_result(req, 'pvp', 'white', 'checkmate', 'white')
+        self.assertEqual(res.winner, 'white')
+

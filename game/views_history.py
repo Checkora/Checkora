@@ -36,6 +36,17 @@ def _normalize_pgn(pgn: str) -> str:
     return pgn.replace('++', '+').replace('##', '#').replace('+#', '#').replace('#+', '#')
 
 
+def _get_session_key(request):
+    """Safely get session_key from request.session if present."""
+    session = getattr(request, 'session', None)
+    if session is None:
+        return None
+    session_key = getattr(session, 'session_key', None)
+    if not session_key and isinstance(session, dict):
+        session_key = session.get('session_key')
+    return session_key
+
+
 # ---------------------------------------------------------------------------
 # Internal helper — call this when a game ends
 # ---------------------------------------------------------------------------
@@ -60,11 +71,14 @@ def save_game_record(request, pgn: str, result: str, termination: str,
     GameRecord instance (already saved).
     """
     # Make sure the session exists so we have a key.
-    if not request.session.session_key:
-        request.session.create()
+    session = getattr(request, 'session', None)
+    session_key = _get_session_key(request)
+    if not session_key and session is not None and hasattr(session, 'create'):
+        session.create()
+        session_key = _get_session_key(request)
 
     record_data = {
-        'session_key': request.session.session_key,
+        'session_key': session_key or '',
         'white_label': white_label,
         'black_label': black_label,
         'result': result,
@@ -120,15 +134,16 @@ def api_history(request):
         ]
     }
     """
+    session_key = _get_session_key(request)
     if request.user.is_authenticated:
-        if request.session.session_key:
-            query = Q(user=request.user) | Q(session_key=request.session.session_key)
+        if session_key:
+            query = Q(user=request.user) | Q(session_key=session_key)
         else:
             query = Q(user=request.user)
     else:
-        if not request.session.session_key:
+        if not session_key:
             return JsonResponse({"games": []})
-        query = Q(session_key=request.session.session_key)
+        query = Q(session_key=session_key)
 
     now = timezone.now()
     records = GameRecord.objects.filter(
@@ -170,12 +185,16 @@ def api_replay_pgn(request, game_id: int):
     ---------------------------------
     { "error": "Game not found or has expired." }
     """
+    session_key = _get_session_key(request)
     if request.user.is_authenticated:
-        query = Q(user=request.user) | Q(session_key=request.session.session_key)
+        if session_key:
+            query = Q(user=request.user) | Q(session_key=session_key)
+        else:
+            query = Q(user=request.user)
     else:
-        if not request.session.session_key:
+        if not session_key:
             return JsonResponse({"error": "Game not found or has expired."}, status=404)
-        query = Q(session_key=request.session.session_key)
+        query = Q(session_key=session_key)
 
     now = timezone.now()
     try:
@@ -203,12 +222,16 @@ def api_download_pgn(request, game_id: int):
     Streams the game's PGN as a downloadable .pgn file.
     Returns 404 if the game doesn't belong to this session or has expired.
     """
+    session_key = _get_session_key(request)
     if request.user.is_authenticated:
-        query = Q(user=request.user) | Q(session_key=request.session.session_key)
+        if session_key:
+            query = Q(user=request.user) | Q(session_key=session_key)
+        else:
+            query = Q(user=request.user)
     else:
-        if not request.session.session_key:
+        if not session_key:
             return HttpResponse("Game not found or has expired.", status=404)
-        query = Q(session_key=request.session.session_key)
+        query = Q(session_key=session_key)
 
     now = timezone.now()
     try:
