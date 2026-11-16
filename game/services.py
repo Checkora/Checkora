@@ -71,7 +71,7 @@ def load_game_state_helper(request):
         return None, game_data, 0
 
 
-def save_game_state_helper(request, active_game, game_dict, current_version):
+def save_game_state_helper(request, active_game, game_dict, current_version, bump_version=True):
     """
     Save game state for current request.
     For authenticated users, updates database ActiveGame record with optimistic locking.
@@ -110,18 +110,19 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
                     del request.session['game']
                 return True, active_game
 
+        target_version = current_version + 1 if bump_version else current_version
         updated = ActiveGame.objects.filter(
             pk=active_game.pk,
             version=current_version
         ).update(
             game_state=game_dict,
-            version=current_version + 1,
+            version=target_version,
             last_activity_at=timezone.now()
         )
         if updated == 0:
             return False, None
         
-        active_game.version = current_version + 1
+        active_game.version = target_version
         active_game.game_state = game_dict
         active_game.last_activity_at = timezone.now()
         

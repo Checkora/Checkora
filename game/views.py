@@ -487,7 +487,6 @@ def get_state(request):
     if not game_data:
         game_data = request.session.get('game')
 
-    res_version = version
     if not game_data:
         game = ChessGame()
     else:
@@ -497,11 +496,20 @@ def get_state(request):
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
             game.paused = True  # pause without deducting lost time
-            _success_save, saved_ag = save_game_state_helper(request, active_game, game.to_dict(), version)
-            if saved_ag and request.user.is_authenticated:
-                res_version = saved_ag.version
         else:
             game.update_clock()
+
+    _success_save, saved_ag = save_game_state_helper(
+        request, active_game, game.to_dict(), version, bump_version=False
+    )
+    if not _success_save and active_game:
+        # If a concurrent move updated the version, reload the authoritative state
+        active_game, game_data, version = load_game_state_helper(request)
+        if game_data:
+            game = ChessGame.from_dict(game_data)
+        saved_ag = active_game
+
+    res_version = saved_ag.version if (saved_ag and request.user.is_authenticated) else version
 
     response_data = {
         'version': res_version,
