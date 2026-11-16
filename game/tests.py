@@ -3952,10 +3952,12 @@ class GameResultRatingTest(TestCase):
 
     def test_record_game_result_updates_rating_and_achievements_for_ai(self):
         from game.views import record_game_result
+        from django.contrib.sessions.middleware import SessionMiddleware
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        request.session = {}
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
 
         record_game_result(request, 'ai', 'white', 'checkmate', 'white')
 
@@ -3971,10 +3973,12 @@ class GameResultRatingTest(TestCase):
 
     def test_record_game_result_does_not_update_rating_or_achievements_for_pvp(self):
         from game.views import record_game_result
+        from django.contrib.sessions.middleware import SessionMiddleware
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        request.session = {}
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
 
         record_game_result(request, 'pvp', 'white', 'checkmate', 'white')
 

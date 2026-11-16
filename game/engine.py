@@ -990,6 +990,12 @@ DP cache is intentionally excluded to save cookie space."""
             parts = resp.split()[1:]
             # C++ returns 4 fields per move:
             # row col is_capture is_promotion
+            rem = len(parts) % 4
+            if rem != 0:
+                logger.warning(
+                    "get_valid_moves: skipped %d trailing tokens from engine: %s",
+                    rem, parts[-rem:]
+                )
             for i in range(0, len(parts) - 3, 4):
                 try:
                     moves.append({
@@ -998,7 +1004,11 @@ DP cache is intentionally excluded to save cookie space."""
                         'is_capture': bool(int(parts[i+2])),
                         'is_promotion': bool(int(parts[i+3])),
                     })
-                except (ValueError, IndexError):
+                except ValueError as err:
+                    logger.warning(
+                        "get_valid_moves: invalid move tokens at index %d (%s): %s",
+                        i, parts[i:i+4], err
+                    )
                     continue
         return moves
 

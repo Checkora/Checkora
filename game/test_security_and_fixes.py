@@ -106,8 +106,8 @@ class SecurityAndFixesTest(TestCase):
         res = update_opening_progress(None, "Italian Game")
         self.assertEqual(res, (None, False))
 
-    def test_award_xp_atomicity(self):
-        """Verify award_xp correctly updates progress under atomic transaction."""
+    def test_award_xp_progression_level_calculation(self):
+        """Verify award_xp correctly updates progress and calculates level."""
         prog = award_xp(self.user, 150)
         self.assertEqual(prog.xp, 150)
         self.assertEqual(prog.level, 2)
@@ -120,8 +120,9 @@ class SecurityAndFixesTest(TestCase):
         self.assertEqual(resp.json(), {"games": []})
 
     def test_api_history_authenticated_ordered(self):
-        """Authenticated client receives history ordered by newest first."""
+        """Authenticated client receives history ordered by newest created_at and id descending."""
         self.client.login(username='chess_master', password='Password123!')
+        now = timezone.now()
         rec1 = GameRecord.objects.create(
             user=self.user,
             session_key="test-session-1",
@@ -129,7 +130,8 @@ class SecurityAndFixesTest(TestCase):
             black_label="AI",
             result="1-0",
             termination="checkmate",
-            pgn="1. e4"
+            pgn="1. e4",
+            created_at=now
         )
         rec2 = GameRecord.objects.create(
             user=self.user,
@@ -138,7 +140,8 @@ class SecurityAndFixesTest(TestCase):
             black_label="AI",
             result="0-1",
             termination="resignation",
-            pgn="1. d4"
+            pgn="1. d4",
+            created_at=now
         )
 
         resp = self.client.get('/api/history/')
@@ -154,9 +157,10 @@ class SecurityAndFixesTest(TestCase):
         resp = self.client.get('/api/analyze-game/')
         self.assertEqual(resp.status_code, 405)
 
-    def test_request_with_plain_dict_session(self):
-        """Verify load_game_state_helper and record_game_result handle plain dict session."""
+    def test_request_with_session_middleware(self):
+        """Verify load_game_state_helper and record_game_result handle standard session middleware."""
         from django.test import RequestFactory
+        from django.contrib.sessions.middleware import SessionMiddleware
         from game.views import record_game_result
         from game.services import load_game_state_helper, save_game_state_helper
         from game.engine import ChessGame
@@ -164,15 +168,16 @@ class SecurityAndFixesTest(TestCase):
         factory = RequestFactory()
         req = factory.post('/api/move/')
         req.user = self.user
-        req.session = {}
+        SessionMiddleware(lambda r: None).process_request(req)
+        req.session.save()
 
-        # load_game_state_helper should not crash with AttributeError
+        # load_game_state_helper should return cleanly
         ag, game_dict, ver = load_game_state_helper(req)
         self.assertIsNone(ag)
         self.assertIsNone(game_dict)
         self.assertEqual(ver, 0)
 
-        # save_game_state_helper should also succeed without crash
+        # save_game_state_helper should succeed
         valid_state = ChessGame().to_dict()
         saved, new_ag = save_game_state_helper(req, None, valid_state, 0)
         self.assertTrue(saved)

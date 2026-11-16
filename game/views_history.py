@@ -30,21 +30,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from game.models import GameRecord
+from game.services import _get_session_key
 
 
 def _normalize_pgn(pgn: str) -> str:
     return pgn.replace('++', '+').replace('##', '#').replace('+#', '#').replace('#+', '#')
-
-
-def _get_session_key(request):
-    """Safely get session_key from request.session if present."""
-    session = getattr(request, 'session', None)
-    if session is None:
-        return None
-    session_key = getattr(session, 'session_key', None)
-    if not session_key and isinstance(session, dict):
-        session_key = session.get('session_key')
-    return session_key
 
 
 # ---------------------------------------------------------------------------
@@ -73,16 +63,12 @@ def save_game_record(request, pgn: str, result: str, termination: str,
     # Make sure the session exists so we have a key.
     session = getattr(request, 'session', None)
     session_key = _get_session_key(request)
-    if not session_key and session is not None and hasattr(session, 'create'):
-        session.create()
+    if not session_key and session is not None and hasattr(session, 'save'):
+        session.save()
         session_key = _get_session_key(request)
 
     if not session_key:
-        if hasattr(request, 'user') and request.user.is_authenticated:
-            session_key = f"user_{request.user.pk}_record"
-        else:
-            # Anonymous requests require a real session key to query or replay history later.
-            return None
+        return None
 
     record_data = {
         'session_key': session_key,
@@ -156,7 +142,7 @@ def api_history(request):
     records = GameRecord.objects.filter(
         query,
         expires_at__gt=now,
-    ).order_by("-created_at")[:20]
+    ).order_by("-created_at", "-id")[:20]
 
     games = [
         {
