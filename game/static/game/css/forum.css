@@ -132,7 +132,6 @@
 
     padding: 0 2rem;
     min-height: 80px;
-
     background: var(--nav-bg);
     border-bottom: 1px solid var(--border-color);
 
@@ -279,7 +278,7 @@
 }
 
 .forum-date {
-    color: var(--text-secondary);;
+    color: var(--text-secondary);
 }
 
 .forum-detail-content {
@@ -389,7 +388,7 @@
     left: 0;
     right: 0;
     background: var(--nav-bg);
-    border-top: 1px solid rgba(240, 192, 64, 0.2);
+    border-top: 1px solid var(--border-color);
     padding: 1rem 1.5rem;
     display: flex;
     gap: 1rem;
@@ -432,7 +431,7 @@
     left: 0;
     right: 0;
     background: var(--nav-bg);
-    border-top: 1px solid rgba(240, 192, 64, 0.2);
+    border-top: 1px solid var(--border-color);
     text-align: center;
     color: var(--text-secondary);
     padding: 1.25rem 0;
