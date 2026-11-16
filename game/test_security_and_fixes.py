@@ -155,7 +155,7 @@ class SecurityAndFixesTest(TestCase):
         self.client.login(username='chess_master', password='Password123!')
         move_resp = self.client.post(
             '/api/move/',
-            json.dumps({'from': 'e2', 'to': 'e4'}),
+            json.dumps({'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4}),
             content_type='application/json'
         )
         self.assertEqual(move_resp.status_code, 200)
