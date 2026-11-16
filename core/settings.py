@@ -104,6 +104,10 @@ DATABASES = {
     )
 }
 
+if 'sqlite' in DATABASES['default'].get('ENGINE', ''):
+    # Take the SQLite write lock at BEGIN, not on the first write. Helps with lock diagnosis.
+    DATABASES['default'].setdefault('OPTIONS', {})['transaction_mode'] = 'IMMEDIATE'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

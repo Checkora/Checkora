@@ -497,9 +497,7 @@
     pointer-events: auto;
 }
 
-
-
-@media (max-width: 599.98px) {
+@media (max-width: 768px) {
     .navbar {
         flex-direction: column;
         padding: 0.8rem;

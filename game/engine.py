@@ -18,6 +18,7 @@ is chosen at random to add variety.
 
 import os
 import contextlib
+import logging
 import random
 import subprocess
 import json
@@ -26,6 +27,9 @@ import time
 import threading
 import uuid
 from datetime import date
+
+
+logger = logging.getLogger(__name__)
 
 
 class ChessGame:
@@ -616,17 +620,40 @@ DP cache is intentionally excluded to save cookie space."""
                 timeout_secs = getattr(
                     self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
                 )
-                stdout, _ = proc.communicate(input=command, timeout=timeout_secs)
+                stdout, stderr = proc.communicate(
+                    input=command, timeout=timeout_secs
+                )
+                if stderr:
+                    logger.warning(
+                        "Chess engine wrote to stderr while handling %s: %s",
+                        command.split(maxsplit=1)[0] if command else "<empty>",
+                        stderr.strip(),
+                    )
                 return stdout.strip()
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as exc:
                 if proc:
                     try:
                         proc.kill()
-                        proc.communicate()
+                        _, stderr = proc.communicate()
+                        stderr = stderr or getattr(exc, "stderr", None)
+                        if stderr:
+                            logger.warning(
+                                "Chess engine timed out while handling %s. "
+                                "stderr: %s",
+                                command.split(maxsplit=1)[0]
+                                if command else "<empty>",
+                                stderr.strip()
+                                if isinstance(stderr, str) else stderr,
+                            )
                     except Exception:
                         pass
                 return None
-            except OSError:
+            except OSError as exc:
+                logger.warning(
+                    "Failed to start chess engine while handling %s: %s",
+                    command.split(maxsplit=1)[0] if command else "<empty>",
+                    exc,
+                )
                 return None
 
         try:
@@ -963,13 +990,26 @@ DP cache is intentionally excluded to save cookie space."""
             parts = resp.split()[1:]
             # C++ returns 4 fields per move:
             # row col is_capture is_promotion
-            for i in range(0, len(parts), 4):
-                moves.append({
-                    'row': int(parts[i]),
-                    'col': int(parts[i+1]),
-                    'is_capture': bool(int(parts[i+2])),
-                    'is_promotion': bool(int(parts[i+3])),
-                })
+            rem = len(parts) % 4
+            if rem != 0:
+                logger.warning(
+                    "get_valid_moves: skipped %d trailing tokens from engine: %s",
+                    rem, parts[-rem:]
+                )
+            for i in range(0, len(parts) - 3, 4):
+                try:
+                    moves.append({
+                        'row': int(parts[i]),
+                        'col': int(parts[i+1]),
+                        'is_capture': bool(int(parts[i+2])),
+                        'is_promotion': bool(int(parts[i+3])),
+                    })
+                except ValueError as err:
+                    logger.warning(
+                        "get_valid_moves: invalid move tokens at index %d (%s): %s",
+                        i, parts[i:i+4], err
+                    )
+                    continue
         return moves
 
     # ------------------------------------------------------------------

@@ -2403,11 +2403,13 @@ class GameResultMoveHistoryTest(TestCase):
 
     def test_record_game_result_saves_moves_explicitly(self):
         from game.views import record_game_result
+        from django.contrib.sessions.middleware import SessionMiddleware
         # Setup dummy request
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        request.session = {}
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
 
         moves = [{'notation': 'e4', 'piece': 'P', 'from': [6, 4], 'to': [4, 4], 'color': 'white'}]
         record_game_result(request, 'pvp', 'white', 'checkmate', 'white', moves=moves)
@@ -2418,12 +2420,15 @@ class GameResultMoveHistoryTest(TestCase):
 
     def test_record_game_result_falls_back_to_session(self):
         from game.views import record_game_result
+        from django.contrib.sessions.middleware import SessionMiddleware
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
+        SessionMiddleware(lambda req: None).process_request(request)
 
         moves = [{'notation': 'd4', 'piece': 'P', 'from': [6, 3], 'to': [4, 3], 'color': 'white'}]
-        request.session = {'game': {'move_history': moves}}
+        request.session['game'] = {'move_history': moves}
+        request.session.save()
 
         record_game_result(request, 'ai', 'black', 'resign', 'white')
 
@@ -3952,10 +3957,12 @@ class GameResultRatingTest(TestCase):
 
     def test_record_game_result_updates_rating_and_achievements_for_ai(self):
         from game.views import record_game_result
+        from django.contrib.sessions.middleware import SessionMiddleware
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        request.session = {}
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
 
         record_game_result(request, 'ai', 'white', 'checkmate', 'white')
 
@@ -3971,10 +3978,12 @@ class GameResultRatingTest(TestCase):
 
     def test_record_game_result_does_not_update_rating_or_achievements_for_pvp(self):
         from game.views import record_game_result
+        from django.contrib.sessions.middleware import SessionMiddleware
         factory = RequestFactory()
         request = factory.post('/dummy/')
         request.user = self.user
-        request.session = {}
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
 
         record_game_result(request, 'pvp', 'white', 'checkmate', 'white')
 

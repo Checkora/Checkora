@@ -60,8 +60,10 @@
             text-decoration: underline;
         }
     </style>
+    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
 </head>
 <body>
+    <div class="cursor"></div>
     {% include 'game/includes/navbar.html' %}
 
     <div class="header header--with-navbar">
@@ -119,6 +121,7 @@
     updateTimer();
 </script>
 <script src="{% static 'game/js/theme.js' %}?v=1"></script>
+<script src="{% static 'game/js/cursor.js' %}"></script>
 
 </body>
 </html>

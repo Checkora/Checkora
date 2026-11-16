@@ -28,6 +28,12 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+def _get_session_key(request):
+    """Safely get session_key from request.session if present."""
+    session = getattr(request, 'session', None)
+    return getattr(session, 'session_key', None)
+
+
 def load_game_state_helper(request):
     """
     Load game state for current request.
@@ -35,34 +41,37 @@ def load_game_state_helper(request):
     For authenticated users, loads from ActiveGame database record.
     For anonymous users, loads from request.session['game'].
     """
+    session_key = _get_session_key(request)
+
     if hasattr(request, 'user') and request.user.is_authenticated:
         active_game = ActiveGame.objects.filter(user=request.user, status="active").first()
-        if not active_game and request.session.session_key:
-            active_game = ActiveGame.objects.filter(session_key=request.session.session_key, status="active").first()
+        if not active_game and session_key:
+            active_game = ActiveGame.objects.filter(session_key=session_key, status="active").first()
             if active_game:
                 active_game.user = request.user
                 active_game.save(update_fields=['user'])
         
         if active_game:
-            if request.session.session_key and active_game.session_key != request.session.session_key:
-                ActiveGame.objects.filter(session_key=request.session.session_key).exclude(pk=active_game.pk).delete()
-                active_game.session_key = request.session.session_key
+            if session_key and active_game.session_key != session_key:
+                ActiveGame.objects.filter(session_key=session_key).exclude(pk=active_game.pk).delete()
+                active_game.session_key = session_key
                 active_game.save(update_fields=['session_key'])
             # Restore session metadata from the persisted game_state so that
             # cross-device resumes receive the correct difficulty, opening, and
             # player names even on a brand-new session with no prior context.
             metadata = (active_game.game_state or {}).get('metadata') if active_game.game_state else None
-            if metadata and isinstance(metadata, dict):
+            if metadata and isinstance(metadata, dict) and hasattr(request, 'session') and request.session is not None:
                 for key in ('difficulty', 'opening', 'white_name', 'black_name'):
                     if key in metadata and key not in request.session:
                         request.session[key] = metadata[key]
             return active_game, active_game.game_state, active_game.version
         return None, None, 0
     else:
-        return None, request.session.get('game'), 0
+        game_data = request.session.get('game') if hasattr(request, 'session') and request.session is not None else None
+        return None, game_data, 0
 
 
-def save_game_state_helper(request, active_game, game_dict, current_version):
+def save_game_state_helper(request, active_game, game_dict, current_version, bump_version=True):
     """
     Save game state for current request.
     For authenticated users, updates database ActiveGame record with optimistic locking.
@@ -74,7 +83,7 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
     if 'metadata' not in game_dict:
         if active_game and active_game.game_state and 'metadata' in active_game.game_state:
             game_dict['metadata'] = active_game.game_state['metadata']
-        elif 'game' in request.session and isinstance(request.session['game'], dict) and 'metadata' in request.session['game']:
+        elif hasattr(request, 'session') and 'game' in request.session and isinstance(request.session['game'], dict) and 'metadata' in request.session['game']:
             game_dict['metadata'] = request.session['game']['metadata']
 
     validate_game_state(game_dict)
@@ -84,6 +93,9 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
             request.session.save()
         
         if not active_game:
+            if game_dict.get("game_status", "active") != "active":
+                return True, None
+
             with transaction.atomic():
                 # Lock the user row to serialize concurrent replacements
                 User.objects.select_for_update().get(pk=request.user.pk)
@@ -101,18 +113,19 @@ def save_game_state_helper(request, active_game, game_dict, current_version):
                     del request.session['game']
                 return True, active_game
 
+        target_version = current_version + 1 if bump_version else current_version
         updated = ActiveGame.objects.filter(
             pk=active_game.pk,
             version=current_version
         ).update(
             game_state=game_dict,
-            version=current_version + 1,
+            version=target_version,
             last_activity_at=timezone.now()
         )
         if updated == 0:
             return False, None
         
-        active_game.version = current_version + 1
+        active_game.version = target_version
         active_game.game_state = game_dict
         active_game.last_activity_at = timezone.now()
         
@@ -156,9 +169,10 @@ def delete_active_game(request):
     """Remove the active game record."""
     if hasattr(request, 'user') and request.user.is_authenticated:
         ActiveGame.objects.filter(user=request.user).delete()
-    if request.session.session_key:
+    session_key = _get_session_key(request)
+    if session_key:
         ActiveGame.objects.filter(
-            session_key=request.session.session_key
+            session_key=session_key
         ).delete()
 
 @transaction.atomic
@@ -552,7 +566,7 @@ def update_opening_progress(
     checkpoint=None,
 ):
     if not user:
-        return None
+        return None, False
 
     with transaction.atomic():
         progress, created = (
