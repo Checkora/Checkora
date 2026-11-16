@@ -100,10 +100,6 @@ def save_game_state_helper(request, active_game, game_dict, current_version, bum
                 # Lock the user row to serialize concurrent replacements
                 User.objects.select_for_update().get(pk=request.user.pk)
 
-                existing = ActiveGame.objects.filter(user=request.user, status="active").first()
-                if existing:
-                    return False, existing
-
                 ActiveGame.objects.filter(user=request.user).delete()
                 ActiveGame.objects.filter(session_key=request.session.session_key).delete()
                 active_game = ActiveGame.objects.create(

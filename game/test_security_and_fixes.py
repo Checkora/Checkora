@@ -131,7 +131,6 @@ class SecurityAndFixesTest(TestCase):
             result="1-0",
             termination="checkmate",
             pgn="1. e4",
-            created_at=now
         )
         rec2 = GameRecord.objects.create(
             user=self.user,
@@ -141,8 +140,8 @@ class SecurityAndFixesTest(TestCase):
             result="0-1",
             termination="resignation",
             pgn="1. d4",
-            created_at=now
         )
+        GameRecord.objects.filter(pk__in=[rec1.pk, rec2.pk]).update(created_at=now)
 
         resp = self.client.get('/api/history/')
         self.assertEqual(resp.status_code, 200)
@@ -150,6 +149,32 @@ class SecurityAndFixesTest(TestCase):
         self.assertEqual(len(games), 2)
         self.assertEqual(games[0]['id'], rec2.id)
         self.assertEqual(games[1]['id'], rec1.id)
+
+    def test_logged_in_new_game_replaces_active_game(self):
+        """Logged in user starting a new game replaces the active game and resets history."""
+        self.client.login(username='chess_master', password='Password123!')
+        move_resp = self.client.post(
+            '/api/move/',
+            json.dumps({'from': 'e2', 'to': 'e4'}),
+            content_type='application/json'
+        )
+        self.assertEqual(move_resp.status_code, 200)
+
+        state_resp = self.client.get('/api/state/')
+        self.assertEqual(state_resp.status_code, 200)
+        self.assertEqual(len(state_resp.json().get('move_history', [])), 1)
+
+        new_game_resp = self.client.post(
+            '/api/new-game/',
+            json.dumps({'mode': 'pvp'}),
+            content_type='application/json'
+        )
+        self.assertEqual(new_game_resp.status_code, 200)
+        self.assertTrue(new_game_resp.json().get('valid'))
+
+        state_after = self.client.get('/api/state/')
+        self.assertEqual(state_after.status_code, 200)
+        self.assertEqual(state_after.json().get('move_history', []), [])
 
     def test_analyze_game_view_requires_post(self):
         """GET request to /api/analyze-game/ must return 405 Method Not Allowed."""
