@@ -88,7 +88,7 @@ def in_bounds(row, col):
 
 
 def is_promotion_move(piece, to_row):
-    return (piece == 'P' and to_row == 0) or (piece == 'p' and to_row == 7)
+    return piece == 'P' and to_row == 0 or (piece == 'p' and to_row == 7)
 
 
 def resolve_promotion(pawn, choice):
@@ -183,13 +183,13 @@ def valid_pawn(color, fr, fc, tr, tc):
 
 
 def valid_rook(fr, fc, tr, tc):
-    return (fr == tr or fc == tc) and path_clear(fr, fc, tr, tc)
+    return fr == tr or fc == tc and path_clear(fr, fc, tr, tc)
 
 
 def valid_knight(fr, fc, tr, tc):
     row_delta = abs(tr - fr)
     col_delta = abs(tc - fc)
-    return (row_delta == 2 and col_delta == 1) or (row_delta == 1 and col_delta == 2)
+    return row_delta == 2 and col_delta == 1 or (row_delta == 1 and col_delta == 2)
 
 
 def valid_bishop(fr, fc, tr, tc):
