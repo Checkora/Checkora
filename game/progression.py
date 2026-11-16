@@ -1,3 +1,4 @@
+from django.db import transaction
 from .models import UserProgress
 
 LEVEL_THRESHOLDS = {
@@ -32,16 +33,15 @@ def award_xp(user, amount: int) -> UserProgress:
         raise ValueError(
             f"amount must be positive, got {amount}"
         )
-        
-    progress, _ = UserProgress.objects.get_or_create(
-        user=user
-    )
 
-    progress.xp += amount
-    progress.level = calculate_level(
-        progress.xp
-    )
-    
-    progress.save()
+    with transaction.atomic():
+        progress, _ = UserProgress.objects.select_for_update().get_or_create(
+            user=user
+        )
+        progress.xp += amount
+        progress.level = calculate_level(
+            progress.xp
+        )
+        progress.save()
 
     return progress

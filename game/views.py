@@ -139,7 +139,7 @@ def index(request):
     if 'game' in request.session:
         game_data = request.session['game']
         status = game_data.get('game_status', 'active')
-        if status in ['checkmate', 'draw', 'resign', 'stalemate', 'timeout']:
+        if status != 'active':
             del request.session['game']
     if 'game' not in request.session:
         game = ChessGame()
@@ -156,7 +156,9 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
     if moves is None:
-        game_data = request.session.get('game')
+        _, game_data, _ = load_game_state_helper(request)
+        if not game_data:
+            game_data = request.session.get('game')
         if game_data and isinstance(game_data, dict):
             moves = game_data.get('move_history', [])
         else:
@@ -272,7 +274,9 @@ def valid_moves(request):
     if not (0 <= row < 8 and 0 <= col < 8):
         return JsonResponse({'valid_moves': []}, status=400)
 
-    game_data = request.session.get('game')
+    _, game_data, _ = load_game_state_helper(request)
+    if not game_data:
+        game_data = request.session.get('game')
     if not game_data:
         return JsonResponse({'valid_moves': []})
 
@@ -464,7 +468,9 @@ def check_promotion(request):
     if not (0 <= from_row < 8 and 0 <= from_col < 8 and 0 <= to_row < 8):
         return JsonResponse({'is_promotion': False})
 
-    game_data = request.session.get('game')
+    _, game_data, _ = load_game_state_helper(request)
+    if not game_data:
+        game_data = request.session.get('game')
     if not game_data:
         return JsonResponse({'is_promotion': False})
 
@@ -477,7 +483,11 @@ def check_promotion(request):
 @require_GET
 def get_state(request):
     """Return the full current game state without mutating pause state."""
-    game_data = request.session.get('game')
+    active_game, game_data, version = load_game_state_helper(request)
+    auto_paused = False
+    if not game_data:
+        game_data = request.session.get('game')
+
     if not game_data:
         game = ChessGame()
     else:
@@ -487,18 +497,24 @@ def get_state(request):
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
             game.paused = True  # pause without deducting lost time
+            auto_paused = True
         else:
             game.update_clock()
 
-    request.session['game'] = game.to_dict()
-    request.session.modified = True
-
-    create_or_update_active_game(
-        request,
-        request.session['game']
+    _success_save, saved_ag = save_game_state_helper(
+        request, active_game, game.to_dict(), version, bump_version=auto_paused
     )
+    if not _success_save:
+        # If a concurrent move updated the version, reload the authoritative state
+        active_game, game_data, version = load_game_state_helper(request)
+        if game_data:
+            game = ChessGame.from_dict(game_data)
+        saved_ag = active_game
+
+    res_version = saved_ag.version if (saved_ag and request.user.is_authenticated) else version
 
     response_data = {
+        'version': res_version,
         'board': game.board,
         'current_turn': game.current_turn,
         'white_time': game.white_time,
@@ -833,7 +849,9 @@ def ai_move(request):
 @require_POST
 def offer_draw(request):
     """Handle draw offers and agreements."""
-    game_data = request.session.get('game')
+    active_game, game_data, version = load_game_state_helper(request)
+    if not game_data:
+        game_data = request.session.get('game')
     if not game_data:
         return JsonResponse(
             {'success': False, 'message': 'No active game.'}, status=400
@@ -861,13 +879,10 @@ def offer_draw(request):
             )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
-        request.session['game'] = game.to_dict()
-        request.session.modified = True
-
-        create_or_update_active_game(
-            request,
-            request.session['game']
-        )
+        saved, _ = save_game_state_helper(request, active_game, game.to_dict(), version)
+        if not saved:
+            return JsonResponse({'error': 'State conflict, please retry'}, status=409)
+        delete_active_game(request)
 
         record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
         return JsonResponse({
@@ -1272,7 +1287,7 @@ def verify_otp(request):
                     email = EmailMultiAlternatives(
                         subject='Welcome to Checkora 🎉',
                         body='Welcome to Checkora! Your account has been successfully activated.',
-                        from_email=settings.EMAIL_HOST_USER,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         to=[user.email],
                     )
                     email.attach_alternative(html_content, "text/html")
@@ -2387,7 +2402,7 @@ Click the link below to permanently delete your account:
 
 If this wasn't you, ignore this email.
 """,
-                    from_email=settings.EMAIL_HOST_USER,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
                     fail_silently=False,
                 )
