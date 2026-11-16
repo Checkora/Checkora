@@ -3653,6 +3653,27 @@ body.hide-native-cursor * {
     }
 }
 
+/* Around 600px the stacked navbar is wide enough that Sign In and Register
+   stretch across the bar. Keep them at their natural size instead. */
+@media (min-width: 600px) and (max-width: 768px) {
+    .nav-right {
+        gap: 0.5rem;
+    }
+
+    .custom-dropdown,
+    .profile-dropdown,
+    .btn-signin,
+    .btn-register,
+    .theme-toggle {
+        flex-grow: 0;
+    }
+
+    .cursor-btn,
+    .profile-btn {
+        width: auto;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .navbar,
     .logo-link,
