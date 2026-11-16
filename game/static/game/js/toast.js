@@ -69,6 +69,7 @@ console.log("showToast called", {
         toast.innerHTML = `
             <span class="toast-icon">${icons[type] || icons.info}</span>
             <span class="toast-message">${message}</span>
+            <button class="toast-close">&times;</button>
         `;
 
         container.appendChild(toast);
@@ -79,6 +80,14 @@ console.log("showToast called", {
     }, duration);
 
         // Allow manual dismissal on click
+        const closeBtn = toast.querySelector('.toast-close');
+
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            clearTimeout(timeout);
+            hideToast(toast);
+        };
+
         toast.onclick = () => {
             clearTimeout(toast.dismissTimer);
             hideToast(toast);
