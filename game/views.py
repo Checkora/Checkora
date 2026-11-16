@@ -139,7 +139,7 @@ def index(request):
     if 'game' in request.session:
         game_data = request.session['game']
         status = game_data.get('game_status', 'active')
-        if status in ['checkmate', 'draw', 'resign', 'stalemate', 'timeout']:
+        if status != 'active':
             del request.session['game']
     if 'game' not in request.session:
         game = ChessGame()
@@ -484,6 +484,7 @@ def check_promotion(request):
 def get_state(request):
     """Return the full current game state without mutating pause state."""
     active_game, game_data, version = load_game_state_helper(request)
+    auto_paused = False
     if not game_data:
         game_data = request.session.get('game')
 
@@ -496,13 +497,14 @@ def get_state(request):
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
             game.paused = True  # pause without deducting lost time
+            auto_paused = True
         else:
             game.update_clock()
 
     _success_save, saved_ag = save_game_state_helper(
-        request, active_game, game.to_dict(), version, bump_version=False
+        request, active_game, game.to_dict(), version, bump_version=auto_paused
     )
-    if not _success_save and active_game:
+    if not _success_save:
         # If a concurrent move updated the version, reload the authoritative state
         active_game, game_data, version = load_game_state_helper(request)
         if game_data:
