@@ -8,4 +8,4 @@ Disallow: /confirm-delete/
 Disallow: /api
 Disallow: /api/
 
-Sitemap: https://checkora.vercel.app/sitemap.xml
+Sitemap: https://checkora.edward7780.com/sitemap.xml

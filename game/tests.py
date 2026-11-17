@@ -4956,4 +4956,4 @@ class DeploymentFilesTest(SimpleTestCase):
         img_src = [part for part in policy.split('; ') if part.startswith('img-src')][0]
 
         self.assertNotIn('chesscomfiles', policy)
-        self.assertEqual(img_src, "img-src 'self' data: https://checkora.vercel.app")
+        self.assertEqual(img_src, "img-src 'self' data: https://checkora.edward7780.com")

@@ -196,7 +196,7 @@ Page templates extend `game/templates/game/base.html` and fill its blocks. The b
 
 Styling comes from the design system in `game/static/game/css/app.css`. Use its CSS variables and component classes, and keep a page stylesheet to that page's layout, loaded through the `styles` block. [docs/design-system.md](docs/design-system.md) lists the blocks, the tokens and the components, and shows how to put a 3D piece on a page. [docs/frontend-guide.md](docs/frontend-guide.md) says what each JavaScript module does.
 
-Piece images are the project's own SVG sets in `game/static/game/pieces/`, in the styles `classic`, `wood` and `outline`. Do not load piece images from another site: `img-src` in the Content-Security-Policy set by `game/middleware.py` allows the site itself, `data:` URLs and `checkora.vercel.app`, and nothing else.
+Piece images are the project's own, in `game/static/game/pieces/`: the default `staunton` set (WebP pictures of the 3D models, made with `scripts/render_pieces.mjs`) and the SVG styles `classic`, `wood` and `outline`. Do not load piece images from another site: `img-src` in the Content-Security-Policy set by `game/middleware.py` allows the site itself, `data:` URLs and `checkora.edward7780.com`, and nothing else.
 <p align="right">
   <a href="#top">Back to top</a>
 </p>

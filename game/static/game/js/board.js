@@ -6686,7 +6686,7 @@ ${message}
 ⚪ ${whiteName} vs ⚫ ${blackName}
 🔢 Moves played: ${moveCount}
 ─────────────────
-🎮 Play at: https://checkora.vercel.app`;
+🎮 Play at: https://checkora.edward7780.com`;
 
             const modal = document.getElementById('shareModal');
             if (modal) modal.style.display = 'flex';
@@ -6704,7 +6704,7 @@ ${message}
             const copyLinkBtn = document.getElementById('copyLinkBtn');
             if (copyLinkBtn) {
                 copyLinkBtn.onclick = function () {
-                    navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
+                    navigator.clipboard.writeText('https://checkora.edward7780.com').then(() => {
                         this.innerText = 'Link copied!';
                         setTimeout(() => this.innerText = 'Copy link', 2000);
                     });
