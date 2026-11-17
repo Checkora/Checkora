@@ -1143,23 +1143,29 @@ describe("Client-side legal move computation (Issue #1445)", () => {
   });
 
   describe("Customizable Piece Styles Theme", () => {
-    it("offers the three local piece sets", () => {
-      expect(VALID_PIECE_STYLES).toEqual(["classic", "wood", "outline"]);
+    it("offers the rendered set first and the three flat ones", () => {
+      expect(VALID_PIECE_STYLES).toEqual(["staunton", "classic", "wood", "outline"]);
     });
 
-    it("points PIECE_IMG at the local SVGs for the chosen style", () => {
+    it("points PIECE_IMG at the local images for the chosen style", () => {
+      updatePieceStyle("staunton");
+      expect(PIECE_IMG["wk"]).toBe("/static/game/pieces/staunton/wk.webp");
+      expect(PIECE_IMG["bn"]).toBe("/static/game/pieces/staunton/bn.webp");
+      expect(document.documentElement.dataset.pieceStyle).toBe("staunton");
+
       updatePieceStyle("wood");
       expect(PIECE_IMG["wk"]).toBe("/static/game/pieces/wood/wk.svg");
       expect(PIECE_IMG["bp"]).toBe("/static/game/pieces/wood/bp.svg");
 
       updatePieceStyle("outline");
       expect(PIECE_IMG["wk"]).toBe("/static/game/pieces/outline/wk.svg");
+      expect(document.documentElement.dataset.pieceStyle).toBe("outline");
     });
 
-    it("falls back to classic for a style saved by an older version", () => {
+    it("falls back to staunton for a style saved by an older version", () => {
       for (const old of ["neo", "alpha", "cburnett", "invalid_theme_name"]) {
         updatePieceStyle(old);
-        expect(PIECE_IMG["wk"]).toBe("/static/game/pieces/classic/wk.svg");
+        expect(PIECE_IMG["wk"]).toBe("/static/game/pieces/staunton/wk.webp");
       }
     });
   });

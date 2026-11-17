@@ -25,7 +25,7 @@
             <p class="lede" data-reveal style="--i: 2">Nine short chapters. Each one has a board that shows the rule, and most let you step through it.</p>
         </div>
         <div class="learn-head__piece" aria-hidden="true">
-            <img src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+            <img src="{% static 'game/pieces/staunton-single/wk.webp' %}" alt="">
             <canvas data-piece3d="k"></canvas>
         </div>
     </header>
@@ -89,27 +89,27 @@
                     <div class="label demo-label">Select a piece</div>
                     <div class="piece-grid">
                         <button type="button" class="piece-card active" id="pc-king" data-show-piece="king" aria-pressed="true">
-                            <img src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+                            <img src="{% static 'game/pieces/staunton-single/wk.webp' %}" alt="">
                             <span class="piece-name">King</span>
                         </button>
                         <button type="button" class="piece-card" id="pc-queen" data-show-piece="queen" aria-pressed="false">
-                            <img src="{% static 'game/pieces/classic/wq.svg' %}" alt="">
+                            <img src="{% static 'game/pieces/staunton-single/wq.webp' %}" alt="">
                             <span class="piece-name">Queen</span>
                         </button>
                         <button type="button" class="piece-card" id="pc-rook" data-show-piece="rook" aria-pressed="false">
-                            <img src="{% static 'game/pieces/classic/wr.svg' %}" alt="">
+                            <img src="{% static 'game/pieces/staunton-single/wr.webp' %}" alt="">
                             <span class="piece-name">Rook</span>
                         </button>
                         <button type="button" class="piece-card" id="pc-bishop" data-show-piece="bishop" aria-pressed="false">
-                            <img src="{% static 'game/pieces/classic/wb.svg' %}" alt="">
+                            <img src="{% static 'game/pieces/staunton-single/wb.webp' %}" alt="">
                             <span class="piece-name">Bishop</span>
                         </button>
                         <button type="button" class="piece-card" id="pc-knight" data-show-piece="knight" aria-pressed="false">
-                            <img src="{% static 'game/pieces/classic/wn.svg' %}" alt="">
+                            <img src="{% static 'game/pieces/staunton-single/wn.webp' %}" alt="">
                             <span class="piece-name">Knight</span>
                         </button>
                         <button type="button" class="piece-card" id="pc-pawn" data-show-piece="pawn" aria-pressed="false">
-                            <img src="{% static 'game/pieces/classic/wp.svg' %}" alt="">
+                            <img src="{% static 'game/pieces/staunton-single/wp.webp' %}" alt="">
                             <span class="piece-name">Pawn</span>
                         </button>
                     </div>
@@ -144,32 +144,32 @@
                     </div>
                     <div class="value-grid" role="table" aria-label="Chess piece values and scoring">
                         <div class="value-row" role="row">
-                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/classic/wp.svg' %}" alt=""> Pawn</div>
+                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/staunton-single/wp.webp' %}" alt=""> Pawn</div>
                             <div class="value-score" role="cell">1 point<i style="--v: 1"></i></div>
                             <div class="value-note" role="cell">The basic unit of material. Often used to build space, structure, and promotion chances.</div>
                         </div>
                         <div class="value-row" role="row">
-                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/classic/wn.svg' %}" alt=""> Knight</div>
+                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/staunton-single/wn.webp' %}" alt=""> Knight</div>
                             <div class="value-score" role="cell">3 points<i style="--v: 3"></i></div>
                             <div class="value-note" role="cell">Strong in closed positions and can jump over pieces.</div>
                         </div>
                         <div class="value-row" role="row">
-                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/classic/wb.svg' %}" alt=""> Bishop</div>
+                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/staunton-single/wb.webp' %}" alt=""> Bishop</div>
                             <div class="value-score" role="cell">3 points<i style="--v: 3"></i></div>
                             <div class="value-note" role="cell">Usually equal to a knight, but can become stronger on open diagonals.</div>
                         </div>
                         <div class="value-row" role="row">
-                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/classic/wr.svg' %}" alt=""> Rook</div>
+                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/staunton-single/wr.webp' %}" alt=""> Rook</div>
                             <div class="value-score" role="cell">5 points<i style="--v: 5"></i></div>
                             <div class="value-note" role="cell">More powerful in open files and often dominates the late game.</div>
                         </div>
                         <div class="value-row" role="row">
-                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/classic/wq.svg' %}" alt=""> Queen</div>
+                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/staunton-single/wq.webp' %}" alt=""> Queen</div>
                             <div class="value-score" role="cell">9 points<i style="--v: 9"></i></div>
                             <div class="value-note" role="cell">The most mobile attacking piece. Avoid trading it lightly.</div>
                         </div>
                         <div class="value-row" role="row">
-                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/classic/wk.svg' %}" alt=""> King</div>
+                            <div class="value-piece" role="cell"><img src="{% static 'game/pieces/staunton-single/wk.webp' %}" alt=""> King</div>
                             <div class="value-score" role="cell">Infinite<i style="--v: 9"></i></div>
                             <div class="value-note" role="cell">Ultimate value. If the King is checkmated, the game is over immediately.</div>
                         </div>
@@ -362,7 +362,7 @@
 
 {% block scripts %}
 <script>
-const pieceImages = document.documentElement.dataset.static + 'pieces/classic/';
+const pieceImages = document.documentElement.dataset.static + 'pieces/staunton/';
 const P = {
     wK: 'wk', wQ: 'wq', wR: 'wr', wB: 'wb', wN: 'wn', wP: 'wp',
     bK: 'bk', bQ: 'bq', bR: 'br', bB: 'bb', bN: 'bn', bP: 'bp'
@@ -385,7 +385,7 @@ function place(id, r, c, piece) {
     const sq = document.getElementById(`${id}-${r}-${c}`);
     if (!sq) return;
     const img = document.createElement('img');
-    img.src = `${pieceImages}${piece}.svg`;
+    img.src = `${pieceImages}${piece}.webp`;
     img.alt = '';
     sq.replaceChildren(img);
 }

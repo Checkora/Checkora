@@ -726,6 +726,24 @@ body:has(#welcomeOverlay.active) {
     pointer-events: none;
 }
 
+/* Registered so that they can be animated: the board's turn when it is
+   flipped, the tint of a square's state, and the glow of a king in check. */
+@property --spin {
+    syntax: '<angle>';
+    inherits: true;
+    initial-value: 0deg;
+}
+@property --sq-tint {
+    syntax: '<color>';
+    inherits: false;
+    initial-value: transparent;
+}
+@property --glow {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+}
+
 .board-grid-wrap {
     position: relative;
     width: 100%;
@@ -743,13 +761,15 @@ body:has(#welcomeOverlay.active) {
 }
 
 .chessboard {
+    /* The width of the frame round the squares. */
+    --frame: clamp(4px, calc(var(--board) / 84), 9px);
     position: relative;
     display: grid;
     grid-template: repeat(8, minmax(0, 1fr)) / repeat(8, minmax(0, 1fr));
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    border: clamp(4px, calc(var(--board) / 84), 9px) solid var(--board-base);
+    border: var(--frame) solid var(--board-base);
     border-radius: 8px;
     background: var(--board-base);
     box-shadow: 0 0 0 1px var(--board-rim), 0 34px 60px -30px rgba(0, 0, 0, 0.85);
@@ -757,8 +777,29 @@ body:has(#welcomeOverlay.active) {
     -webkit-user-select: none;
     /* A finger on the board moves a piece; it never scrolls the page. */
     touch-action: none;
+    /* --spin is the board's turn while it is being flipped (see .turning). */
+    rotate: var(--spin);
     transition: transform 0.8s var(--ease-out), box-shadow 0.8s;
 }
+
+/* Where each square is on screen (column and row, 0 to 7), for the light
+   that falls across the board and for the order pieces arrive in. */
+.square:nth-child(8n + 1) { --vc: 0; }
+.square:nth-child(8n + 2) { --vc: 1; }
+.square:nth-child(8n + 3) { --vc: 2; }
+.square:nth-child(8n + 4) { --vc: 3; }
+.square:nth-child(8n + 5) { --vc: 4; }
+.square:nth-child(8n + 6) { --vc: 5; }
+.square:nth-child(8n + 7) { --vc: 6; }
+.square:nth-child(8n + 8) { --vc: 7; }
+.square { --vr: 0; }
+.square:nth-child(n + 9) { --vr: 1; }
+.square:nth-child(n + 17) { --vr: 2; }
+.square:nth-child(n + 25) { --vr: 3; }
+.square:nth-child(n + 33) { --vr: 4; }
+.square:nth-child(n + 41) { --vr: 5; }
+.square:nth-child(n + 49) { --vr: 6; }
+.square:nth-child(n + 57) { --vr: 7; }
 
 .square {
     position: relative;
@@ -768,10 +809,13 @@ body:has(#welcomeOverlay.active) {
     min-width: 0;
     min-height: 0;
     background-color: var(--sq);
-    background-image: var(--sq-mark, none), var(--sq-shadow, none);
+    /* From the top: the glow of a king in check, the shadow of a standing
+       piece (3D view) and the tint of the square's state. */
+    background-image: var(--sq-mark, none), var(--sq-shadow, none), linear-gradient(var(--sq-tint), var(--sq-tint));
+    background-repeat: no-repeat;
     cursor: default;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.18s;
+    transition: background-color 0.18s, --sq-tint 0.2s;
 }
 .square.light {
     --sq: var(--sq-light);
@@ -797,6 +841,84 @@ body:has(#welcomeOverlay.active) {
     border-bottom-right-radius: 3px;
 }
 
+/* ---------- the gilded board: maple and walnut in a walnut frame ----------
+   The default board. The squares are real wood (scripts/render_wood.mjs
+   draws it), each square cut from its own part of the plank so the board
+   does not repeat, under a soft light from above with a faint shine of
+   varnish across it. The light is the same turned half round, so flipping
+   the board does not move it. */
+
+[data-board-theme='gilded'] .chessboard {
+    --frame: clamp(12px, calc(var(--board) / 23), 34px);
+    border-color: #3b2415;
+    border-image: url('../board/frame.webp') 96 / var(--frame) stretch;
+    border-radius: 2px;
+    background: #24150b;
+    box-shadow:
+        0 0 0 1px rgba(14, 8, 3, 0.9),
+        0 2px 3px rgba(0, 0, 0, 0.45),
+        0 18px 34px -12px rgba(0, 0, 0, 0.75),
+        0 46px 80px -40px rgba(0, 0, 0, 0.9);
+}
+[data-theme='light'][data-board-theme='gilded'] .chessboard {
+    box-shadow:
+        0 0 0 1px rgba(40, 22, 10, 0.7),
+        0 2px 3px rgba(60, 35, 15, 0.35),
+        0 18px 34px -12px rgba(60, 35, 15, 0.45),
+        0 46px 80px -40px rgba(60, 35, 15, 0.55);
+}
+
+/* Which part of the plank a square is cut from. The numbers come from the
+   square's own file and rank, so a square keeps its grain wherever it is
+   drawn; flipped, it shows the same piece of wood turned round. */
+[data-board-theme='gilded'] .square[data-c='0'] { --cx: 0.62; --cy: 0.27; }
+[data-board-theme='gilded'] .square[data-c='1'] { --cx: 0.08; --cy: 0.83; }
+[data-board-theme='gilded'] .square[data-c='2'] { --cx: 0.91; --cy: 0.12; }
+[data-board-theme='gilded'] .square[data-c='3'] { --cx: 0.37; --cy: 0.58; }
+[data-board-theme='gilded'] .square[data-c='4'] { --cx: 0.74; --cy: 0.95; }
+[data-board-theme='gilded'] .square[data-c='5'] { --cx: 0.19; --cy: 0.41; }
+[data-board-theme='gilded'] .square[data-c='6'] { --cx: 0.53; --cy: 0.06; }
+[data-board-theme='gilded'] .square[data-c='7'] { --cx: 0.03; --cy: 0.7; }
+[data-board-theme='gilded'] .square[data-r='0'] { --rx: 0.33; --ry: 0.71; }
+[data-board-theme='gilded'] .square[data-r='1'] { --rx: 0.87; --ry: 0.18; }
+[data-board-theme='gilded'] .square[data-r='2'] { --rx: 0.05; --ry: 0.9; }
+[data-board-theme='gilded'] .square[data-r='3'] { --rx: 0.61; --ry: 0.36; }
+[data-board-theme='gilded'] .square[data-r='4'] { --rx: 0.22; --ry: 0.02; }
+[data-board-theme='gilded'] .square[data-r='5'] { --rx: 0.96; --ry: 0.64; }
+[data-board-theme='gilded'] .square[data-r='6'] { --rx: 0.48; --ry: 0.29; }
+[data-board-theme='gilded'] .square[data-r='7'] { --rx: 0.14; --ry: 0.85; }
+
+[data-board-theme='gilded'] .square {
+    /* The wood image is six squares wide and three high: the plank on the
+       left, the same plank turned half round on the right. */
+    --grain-x: calc((var(--cx) + var(--rx)) / 5 * 100%);
+    --grain-y: calc((var(--cy) + var(--ry)) / 2 * 100%);
+    --lit: calc(var(--vc) / 7 * 100%) calc(var(--vr) / 7 * 100%);
+    background-image:
+        var(--sq-mark, none),
+        var(--sq-shadow, none),
+        linear-gradient(var(--sq-tint), var(--sq-tint)),
+        radial-gradient(ellipse 64% 60% at 50% 50%, rgba(255, 238, 208, 0.15), rgba(255, 238, 208, 0) 100%),
+        linear-gradient(122deg, rgba(255, 250, 238, 0) 37%, rgba(255, 250, 238, 0.085) 50%, rgba(255, 250, 238, 0) 63%),
+        radial-gradient(ellipse 74% 74% at 50% 50%, rgba(24, 12, 2, 0) 52%, rgba(24, 12, 2, 0.24) 100%),
+        var(--wood);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 800% 800%, 800% 800%, 800% 800%, 600% 300%;
+    background-position: center, center, center, var(--lit), var(--lit), var(--lit), var(--grain-x) var(--grain-y);
+}
+[data-board-theme='gilded'] .square.light {
+    --wood: url('../board/maple.webp');
+}
+[data-board-theme='gilded'] .square.dark {
+    --wood: url('../board/walnut.webp');
+}
+[data-board-theme='gilded'] .flipped .square {
+    --grain-x: calc(100% - (var(--cx) + var(--rx)) / 5 * 100%);
+    --grain-y: calc(100% - (var(--cy) + var(--ry)) / 2 * 100%);
+}
+[data-board-theme='gilded'] .square:nth-child(n) {
+    border-radius: 0;
+}
+
 /* Coordinates sit inside the edge squares, so they stay with the board
    when it is flipped or tilted. The rank is written in the first square of
    each row, the file in each square of the last row. */
@@ -810,6 +932,7 @@ body:has(#welcomeOverlay.active) {
     color: var(--coord, var(--sq-ink));
     opacity: 0.9;
     pointer-events: none;
+    transition: opacity 0.2s;
 }
 .square:nth-child(8n + 1)::before {
     top: 6%;
@@ -839,33 +962,72 @@ body:has(#welcomeOverlay.active) {
 .chessboard.hide-coordinates .square::after {
     content: none;
 }
+/* On the gilded board they are cut into the frame and gilded, the ranks
+   down the left rail and the files along the bottom one. */
+[data-board-theme='gilded'] .square:nth-child(8n + 1)::before,
+[data-board-theme='gilded'] .square:nth-child(n + 57)::after {
+    font-size: clamp(8px, calc(var(--frame) * 0.44), 13px);
+    font-weight: 600;
+    color: #e2c48c;
+    opacity: 0.88;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 226, 170, 0.18);
+}
+[data-board-theme='gilded'] .square:nth-child(8n + 1)::before {
+    top: 50%;
+    left: calc(var(--frame) * -0.5);
+    translate: -50% -50%;
+}
+[data-board-theme='gilded'] .square:nth-child(n + 57)::after {
+    right: auto;
+    bottom: calc(var(--frame) * -0.5);
+    left: 50%;
+    translate: -50% 50%;
+}
+/* While the board turns the labels would be upside down for a moment. */
+.chessboard.turning .square::before,
+.chessboard.turning .square::after {
+    opacity: 0;
+}
 
-/* Square states. */
+/* Square states. Each is a tint laid over the square, so the wood shows
+   through it. */
 .square.last-move {
-    background-color: color-mix(in srgb, var(--sq) 50%, var(--board-hl));
+    --sq-tint: color-mix(in srgb, var(--board-hl) 50%, transparent);
 }
 .square.custom-highlight {
-    background-color: color-mix(in srgb, var(--sq) 45%, var(--board-info));
+    --sq-tint: color-mix(in srgb, var(--board-info) 55%, transparent);
 }
 .square.selected {
-    background-color: color-mix(in srgb, var(--sq) 28%, var(--board-hl));
+    --sq-tint: color-mix(in srgb, var(--board-hl) 72%, transparent);
     box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--board-hl) 70%, white);
 }
 .square.premove {
-    background-color: color-mix(in srgb, var(--sq) 55%, var(--board-info));
+    --sq-tint: color-mix(in srgb, var(--board-info) 45%, transparent);
     outline: 2px dashed var(--board-info);
     outline-offset: -4px;
 }
+[data-board-theme='gilded'] .square.last-move {
+    --sq-tint: rgba(250, 196, 66, 0.4);
+}
+[data-board-theme='gilded'] .square.selected {
+    --sq-tint: rgba(255, 204, 82, 0.55);
+    box-shadow: inset 0 0 0 2px rgba(255, 232, 168, 0.95), inset 0 0 18px rgba(255, 210, 110, 0.55);
+}
+[data-board-theme='gilded'] .square.custom-highlight {
+    --sq-tint: rgba(90, 160, 255, 0.45);
+}
 .square.in-check {
-    --sq-mark: radial-gradient(circle at 50% 50%, var(--board-check) 0%, color-mix(in srgb, var(--board-check) 60%, transparent) 42%, transparent 74%);
-    animation: check-pulse 0.9s ease-in-out infinite alternate;
+    --sq-mark: radial-gradient(circle at 50% 52%, rgb(255 84 60 / calc(0.6 + var(--glow) * 0.35)) 0%, rgb(255 60 40 / calc(0.32 + var(--glow) * 0.3)) 42%, transparent 74%);
+    animation: check-pulse 0.85s ease-in-out infinite alternate;
 }
 @keyframes check-pulse {
     from {
+        --glow: 0;
         box-shadow: inset 0 0 0 0 var(--board-check);
     }
     to {
-        box-shadow: inset 0 0 0 4px var(--board-check);
+        --glow: 1;
+        box-shadow: inset 0 0 0 4px var(--board-check), inset 0 0 22px rgb(255 70 50 / 0.6);
     }
 }
 .square.in-check > .piece {
@@ -901,25 +1063,29 @@ body:has(#welcomeOverlay.active) {
     z-index: 2;
 }
 
-/* Where the selected piece can go. */
+/* Where the selected piece can go. board.js gives each mark --n, how many
+   squares it is from the piece, so they come up in a ripple outwards. */
 .move-dot {
     position: absolute;
     width: 30%;
     height: 30%;
     border-radius: 50%;
-    background: rgba(20, 16, 10, 0.4);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.32);
+    background: radial-gradient(circle at 50% 42%, rgba(14, 9, 4, 0.5), rgba(14, 9, 4, 0.34) 64%, rgba(14, 9, 4, 0.22));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 240, 212, 0.34);
     pointer-events: none;
-    animation: dot-in 0.2s var(--ease-spring) backwards;
+    animation: dot-in 0.26s var(--ease-spring) backwards;
+    animation-delay: calc(var(--n, 0) * 32ms);
     transition: scale 0.18s var(--ease-spring);
 }
 .capture-ring {
     position: absolute;
     inset: 5%;
-    border: clamp(3px, calc(var(--board) / 130), 6px) solid color-mix(in srgb, var(--board-check) 80%, transparent);
+    border: clamp(3px, calc(var(--board) / 130), 6px) solid color-mix(in srgb, var(--board-check) 82%, transparent);
     border-radius: 50%;
+    box-shadow: 0 0 10px rgb(255 70 50 / 0.35), inset 0 0 10px rgb(255 70 50 / 0.3);
     pointer-events: none;
-    animation: dot-in 0.2s var(--ease-spring) backwards;
+    animation: dot-in 0.26s var(--ease-spring) backwards;
+    animation-delay: calc(var(--n, 0) * 32ms);
 }
 @keyframes dot-in {
     from {
@@ -928,53 +1094,211 @@ body:has(#welcomeOverlay.active) {
     }
 }
 
-/* Pieces. Hover and selection move a piece with the translate and scale
-   properties and leave transform alone: board.js slides a piece by writing
-   an inline transform, and the two must not fight. */
-.square > .piece {
-    width: 88%;
-    height: 88%;
+/* ---------- pieces ----------
+   A piece is placed with top, left and its size, and moved with translate,
+   scale, rotate and transform, so a move, a lift and a fall never fight over
+   one property. --foot is the point (from the top of the image) where the
+   piece stands on the board, which is what it turns and squashes about;
+   --hub is the middle of the square, in the same terms.
+   The flat sets fill 88% of the square. The Staunton photographs are framed
+   for the tallest piece, so they are drawn a little larger than the square
+   and set high, with the foot in the lower part of the square and room for
+   a king's cross to rise over the square behind, as a real one would. */
+.square > .piece,
+.piece-debris > img {
+    --size: 88%;
+    --top: 6%;
+    --foot: 94%;
+    --hub: 50%;
+    position: absolute;
+    top: var(--top);
+    left: calc((100% - var(--size)) / 2);
+    width: var(--size);
+    max-width: none;
+    height: var(--size);
     object-fit: contain;
     pointer-events: none;
     -webkit-user-drag: none;
-    transform-origin: 50% 88%;
+    transform-origin: 50% var(--foot);
     filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.35));
-    transition: translate 0.22s var(--ease-out), scale 0.25s var(--ease-spring), rotate 0.8s var(--ease-out), filter 0.22s, opacity 0.3s;
+    transition: translate 0.22s var(--ease-out), scale 0.25s var(--ease-spring), rotate 0.8s var(--ease-out), transform 0.8s var(--ease-out), top 0.8s var(--ease-out), filter 0.22s, opacity 0.3s;
+}
+[data-piece-style='staunton'] .square > .piece,
+[data-piece-style='staunton'] .piece-debris > img {
+    --size: 108%;
+    --top: -15.2%;
+    --foot: 90%;
+    --hub: 60.4%;
+    filter: none;
 }
 .square.selected > .piece {
     translate: 0 -7%;
     scale: 1.1;
     filter: drop-shadow(0 9px 6px rgba(0, 0, 0, 0.45));
 }
-/* The piece that has just arrived settles onto its square. */
-.square.last-move > .piece {
-    animation: piece-land 0.34s var(--ease-spring);
+[data-piece-style='staunton'] .square.selected > .piece {
+    translate: 0 -8%;
+    scale: 1.08;
+    filter: drop-shadow(0 14px 7px rgba(0, 0, 0, 0.42));
+    animation: piece-held 1.4s ease-in-out 0.25s infinite alternate;
 }
-@keyframes piece-land {
-    from {
-        scale: 1.16;
-        filter: drop-shadow(0 12px 8px rgba(0, 0, 0, 0.5));
+/* A piece held in the hand never keeps quite still. */
+@keyframes piece-held {
+    to {
+        translate: 0 -10%;
     }
 }
-.square > .piece.moving {
-    translate: none;
-    scale: none;
+/* The piece that has just arrived settles onto its square: it lands a
+   little squashed and springs back. */
+.square.last-move > .piece {
+    animation: piece-settle 0.42s var(--ease-out);
+}
+@keyframes piece-settle {
+    0% {
+        scale: 1.07 0.9;
+    }
+    40% {
+        scale: 0.97 1.04;
+    }
+    70% {
+        scale: 1.01 0.99;
+    }
+}
+
+/* A move: board.js puts .moving on the piece with --move-x and --move-y,
+   the distance to the new square in the board's own plane, and --move-dist
+   in squares. The piece lifts, travels in an arc and comes down; a longer
+   move takes a little longer and goes a little higher, and a knight jumps.
+   A shadow (.move-shadow, also from board.js) stays on the board below it,
+   spreading and fading as the piece rises. board.js waits for the travel to
+   end before it draws the new position. */
+.square > .piece.moving,
+.move-shadow {
+    --travel: calc(260ms + min(var(--move-dist, 2), 6) * 42ms);
+    --hop: calc(-10% - min(var(--move-dist, 2), 5) * 3.5%);
+}
+.square > .piece.moving[src*='n.'] {
+    --hop: -42%;
+}
+.chessboard .square > .piece.moving {
     z-index: 5;
-    animation: none;
+    scale: none;
+    animation:
+        piece-travel var(--travel) cubic-bezier(0.42, 0, 0.32, 1) forwards,
+        piece-hop var(--travel) linear forwards;
+}
+@keyframes piece-travel {
+    to {
+        translate: var(--move-x) var(--move-y);
+    }
+}
+@keyframes piece-hop {
+    0% {
+        transform: none;
+        filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.3));
+        animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+    }
+    50% {
+        transform: translateY(var(--hop)) scale(1.14);
+        filter: drop-shadow(0 26px 10px rgba(0, 0, 0, 0.32));
+        animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+    }
+    100% {
+        transform: none;
+        filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.3));
+    }
+}
+.move-shadow {
+    position: absolute;
+    top: 70%;
+    left: 18%;
+    width: 64%;
+    height: 24%;
+    z-index: 4;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.22) 60%, transparent);
+    pointer-events: none;
+    opacity: 0;
+    animation:
+        piece-travel var(--travel) cubic-bezier(0.42, 0, 0.32, 1) forwards,
+        shadow-spread var(--travel) ease-in-out forwards;
+}
+@keyframes shadow-spread {
+    0%,
+    100% {
+        opacity: 0;
+        scale: 0.85;
+    }
+    50% {
+        opacity: 1;
+        scale: 1.45;
+    }
+}
+
+/* A taken piece is knocked off its square by the one arriving. board.js
+   takes it out of the square into .piece-debris, so it can finish falling
+   after the new position is drawn; --knock-x and --knock-y point the way the
+   attacker was going, --knock-turn which way it tips. */
+.piece-debris {
+    position: absolute;
+    z-index: 4;
+    pointer-events: none;
+    transform-style: preserve-3d;
+}
+.piece-debris > img {
+    --impact: calc((260ms + min(var(--move-dist, 2), 6) * 42ms) * 0.62);
+    animation: piece-knocked 0.62s cubic-bezier(0.25, 0.4, 0.45, 1) var(--impact) forwards;
+}
+@keyframes piece-knocked {
+    0% {
+        translate: 0 0;
+        rotate: 0deg;
+        opacity: 1;
+    }
+    40% {
+        opacity: 1;
+    }
+    100% {
+        translate: calc(var(--knock-x) * 70%) calc(var(--knock-y) * 70% + 14%);
+        rotate: calc(var(--knock-turn) * 88deg);
+        opacity: 0;
+        scale: 0.86;
+    }
 }
 .square > .piece.captured {
-    animation: piece-taken 0.26s ease-in forwards;
+    opacity: 0;
+    transition: none;
 }
-@keyframes piece-taken {
-    to {
-        opacity: 0;
-        scale: 0.4;
-        rotate: 24deg;
+
+/* Checkmate: the beaten king goes over. */
+.square.king-fallen > .piece {
+    transform-origin: 74% var(--foot);
+    animation: king-topple 0.95s cubic-bezier(0.5, 0, 0.75, 0.3) 0.15s forwards;
+}
+@keyframes king-topple {
+    0% {
+        rotate: 0deg;
+    }
+    14% {
+        rotate: -5deg;
+        animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5);
+    }
+    72% {
+        rotate: 88deg;
+        animation-timing-function: ease-out;
+    }
+    84% {
+        rotate: 80deg;
+        animation-timing-function: ease-in;
+    }
+    100% {
+        rotate: 86deg;
+        translate: 0 5%;
     }
 }
+
 /* The copy board.js leaves on the square a piece has just left. */
 .square > .piece-ghost {
-    position: absolute;
     animation: ghost-fade 0.3s ease-out forwards;
 }
 @keyframes ghost-fade {
@@ -985,8 +1309,45 @@ body:has(#welcomeOverlay.active) {
         opacity: 0;
     }
 }
+[data-piece-style='staunton'] .square > .piece-ghost {
+    animation-duration: 0.01s;
+    visibility: hidden;
+}
 .square > .piece.touch-dragging-original {
     opacity: 0.3;
+}
+
+/* A new game: the pieces are set out rank by rank, from your side to the
+   far side, while the countdown runs. */
+.chessboard.countdown-active .square > .piece {
+    animation: piece-arrive 0.55s var(--ease-spring) backwards;
+    animation-delay: calc((7 - var(--vr)) * 95ms + var(--vc) * 26ms + 0.15s);
+}
+@keyframes piece-arrive {
+    0% {
+        opacity: 0;
+        translate: 0 -70%;
+        scale: 1.2;
+    }
+    45% {
+        opacity: 1;
+    }
+}
+
+/* Flipping: the board turns round on the table, the pieces turning the
+   other way so they stay upright, and is then drawn the other way up. */
+.chessboard.turning {
+    animation: board-turn 0.8s cubic-bezier(0.62, 0, 0.32, 1) forwards;
+}
+@keyframes board-turn {
+    to {
+        --spin: 180deg;
+    }
+}
+.chessboard.turning .square > .piece {
+    transform-origin: 50% var(--hub);
+    rotate: calc(var(--spin) * -1);
+    transition: none;
 }
 
 .chessboard.flash-error {
@@ -1037,9 +1398,18 @@ body.blindfold-mode .capture-ring {
         scale: 1.07;
         filter: drop-shadow(0 8px 6px rgba(0, 0, 0, 0.42));
     }
+    [data-piece-style='staunton'] .square:hover > .piece.playable:not(.moving) {
+        translate: 0 -4%;
+        scale: 1.05;
+        filter: drop-shadow(0 10px 6px rgba(0, 0, 0, 0.36));
+    }
     .square.selected:hover > .piece.playable:not(.moving) {
         translate: 0 -7%;
         scale: 1.1;
+    }
+    [data-piece-style='staunton'] .square.selected:hover > .piece.playable:not(.moving) {
+        translate: 0 -8%;
+        scale: 1.08;
     }
     .square:hover > .move-dot {
         scale: 1.35;
@@ -1048,9 +1418,9 @@ body.blindfold-mode .capture-ring {
 
 /* ---------- the 3D view ----------
    play_view.js puts .board-3d on <html>. The board is still the same grid
-   of squares: it is tilted back as one plane, and every piece is turned
-   up by the same angle so it faces you. .board-3d-leaving keeps the 3D
-   space alive for the moment it takes to lie flat again. */
+   of squares: it is tilted back as one plane, and every piece is stood up
+   on the middle of its square, turned to face you. .board-3d-leaving keeps
+   the 3D space alive for the moment it takes to lie flat again. */
 
 .board-3d .board-grid-wrap,
 .board-3d-leaving .board-grid-wrap {
@@ -1063,9 +1433,20 @@ body.blindfold-mode .capture-ring {
 .board-3d-leaving .square {
     transform-style: preserve-3d;
 }
+.board-3d .chessboard,
+.board-3d-leaving .chessboard {
+    /* The turn of a flip happens in the board's own plane here. */
+    rotate: none;
+}
+.board-3d-leaving .chessboard {
+    transform: rotateZ(var(--spin));
+}
 .board-3d .chessboard {
-    transform: translateY(-2%) rotateX(var(--tilt)) scale(0.9);
+    transform: translateY(-2%) rotateX(var(--tilt)) scale(0.9) rotateZ(var(--spin));
     box-shadow: 0 0 0 1px var(--board-rim), 0 60px 50px -34px rgba(0, 0, 0, 0.9);
+}
+[data-board-theme='gilded'].board-3d .chessboard {
+    box-shadow: 0 0 0 1px rgba(14, 8, 3, 0.9), 0 30px 40px -18px rgba(0, 0, 0, 0.75), 0 70px 60px -40px rgba(0, 0, 0, 0.85);
 }
 /* In a 3D space the board's own surface and its squares lie in one plane,
    and the browser cannot tell which of the two a click landed on. So the
@@ -1101,10 +1482,10 @@ body.blindfold-mode .capture-ring {
     content: '';
     position: absolute;
     top: 100%;
-    left: calc(-1 * clamp(4px, calc(var(--board) / 84), 9px) - 1px);
-    right: calc(-1 * clamp(4px, calc(var(--board) / 84), 9px) - 1px);
+    left: calc(-1 * var(--frame) - 1px);
+    right: calc(-1 * var(--frame) - 1px);
     height: calc(var(--board) / 30);
-    margin-top: clamp(4px, calc(var(--board) / 84), 9px);
+    margin-top: var(--frame);
     border-radius: 0 0 6px 6px;
     background: linear-gradient(180deg, var(--board-rim), color-mix(in srgb, var(--board-rim) 30%, var(--board-base)) 28%, var(--board-base));
     transform-origin: 50% 0;
@@ -1113,88 +1494,189 @@ body.blindfold-mode .capture-ring {
     pointer-events: none;
     transition: opacity 0.5s;
 }
+[data-board-theme='gilded'] .chessboard::after {
+    left: calc(-1 * var(--frame));
+    right: calc(-1 * var(--frame));
+    height: calc(var(--board) / 24);
+    border-radius: 0 0 3px 3px;
+    background:
+        linear-gradient(180deg, rgba(255, 222, 170, 0.5), rgba(255, 222, 170, 0) 9%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55)),
+        repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 9px, rgba(255, 230, 190, 0.05) 9px 11px, transparent 11px 23px),
+        linear-gradient(90deg, #4a2c18, #6b4328 30%, #5a3720 62%, #4a2c18);
+}
 .board-3d .chessboard::after {
     opacity: 1;
 }
 
-.board-3d .square > .piece {
-    rotate: x calc(var(--tilt) * -1);
-    translate: 0 -15%;
+/* Standing up. The image turns about its foot, which is set on the middle
+   of the square; while the board turns (--spin) the piece turns back, so it
+   always faces you. Hover, selection and moves lift it along the board's
+   own upward direction, the third value of translate. */
+.board-3d .square > .piece,
+.board-3d .piece-debris > img {
+    --top: calc(50% - 0.94 * 88%);
+    transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1));
     filter: none;
 }
-/* Each standing piece throws a soft shadow on its square. Not in blindfold
+[data-piece-style='staunton'].board-3d .square > .piece,
+[data-piece-style='staunton'].board-3d .piece-debris > img {
+    --size: 132%;
+    --top: calc(50% - 0.955 * 132%);
+    --foot: 95.5%;
+}
+/* A standing picture is mostly empty round the piece, and that space would
+   take clicks meant for the square behind it. Each piece is clipped to its
+   own outline (measured from the pictures), which also drops the shadow
+   drawn on the ground in the photograph: here the square has its own. */
+[data-piece-style='staunton'].board-3d .square > .piece[src$='k.webp'] { clip-path: inset(0 25% 1% 25%); }
+[data-piece-style='staunton'].board-3d .square > .piece[src$='q.webp'] { clip-path: inset(12.5% 25.5% 1% 25.5%); }
+[data-piece-style='staunton'].board-3d .square > .piece[src$='r.webp'] { clip-path: inset(31.5% 26% 1% 26%); }
+[data-piece-style='staunton'].board-3d .square > .piece[src$='b.webp'] { clip-path: inset(19% 27% 1% 27%); }
+[data-piece-style='staunton'].board-3d .square > .piece[src$='n.webp'] { clip-path: inset(24.5% 25.5% 1% 25%); }
+[data-piece-style='staunton'].board-3d .square > .piece[src$='p.webp'] { clip-path: inset(38% 27.5% 1.5% 27.5%); }
+.board-3d .chessboard.turning .square > .piece {
+    rotate: none;
+    transform-origin: 50% var(--foot);
+}
+/* Each standing piece throws a soft shadow round its foot. Not in blindfold
    mode, where the shadows would give the position away. */
-.board-3d body:not(.blindfold-mode) .chessboard:not(.paused) .square:has(> .piece:not(.moving)) {
-    --sq-shadow: radial-gradient(ellipse 31% 15% at 50% 70%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.22) 55%, transparent 100%);
+.board-3d body:not(.blindfold-mode) .chessboard:not(.paused, .countdown-active) .square:has(> .piece:not(.moving, .captured, .piece-ghost)) {
+    --sq-shadow: radial-gradient(ellipse 37% 33% at 50% 52%, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.3) 55%, rgba(0, 0, 0, 0) 100%);
 }
 .board-3d .square.selected > .piece {
-    translate: 0 -15% calc(var(--board) / 36);
+    translate: 0 0 calc(var(--board) / 30);
     scale: 1.06;
+    animation: piece-held-3d 1.4s ease-in-out 0.25s infinite alternate;
 }
-/* In 3D a move is a lift and a drop. board.js would slide the piece along
-   its own, upright, plane, which is not the plane of the board, so its
-   inline transform is switched off here: the one !important this needs. */
-.board-3d .chessboard .square > .piece.moving {
-    transform: none !important;
-    translate: 0 -15%;
-    animation: piece-lift 0.28s var(--ease-out) forwards;
-}
-@keyframes piece-lift {
+@keyframes piece-held-3d {
     to {
-        translate: 0 -15% calc(var(--board) / 9);
-        opacity: 0;
+        translate: 0 0 calc(var(--board) / 24);
     }
 }
 .board-3d .square.last-move > .piece {
-    animation: piece-drop 0.42s var(--ease-spring);
+    animation: piece-settle-3d 0.42s var(--ease-out);
 }
-@keyframes piece-drop {
-    from {
-        translate: 0 -15% calc(var(--board) / 9);
+@keyframes piece-settle-3d {
+    0% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) scale(1.07, 0.9);
+    }
+    40% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) scale(0.97, 1.04);
+    }
+    70% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) scale(1.01, 0.99);
+    }
+}
+.board-3d .chessboard .square > .piece.moving {
+    --hop: calc(var(--board) / 14 + min(var(--move-dist, 2), 5) * var(--board) / 70);
+    animation:
+        piece-travel var(--travel) cubic-bezier(0.42, 0, 0.32, 1) forwards,
+        piece-hop-3d var(--travel) linear forwards;
+}
+.board-3d .chessboard .square > .piece.moving[src*='n.'] {
+    --hop: calc(var(--board) / 6);
+}
+@keyframes piece-hop-3d {
+    0% {
+        transform: translateZ(0) rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1));
+        animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+    }
+    50% {
+        transform: translateZ(var(--hop)) rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) scale(1.04);
+        animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+    }
+    100% {
+        transform: translateZ(0) rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1));
+    }
+}
+.board-3d .move-shadow {
+    top: 18%;
+    left: 13%;
+    width: 74%;
+    height: 66%;
+}
+@keyframes shadow-spread-3d {
+    0%,
+    100% {
+        opacity: 1;
+        scale: 1;
+    }
+    50% {
+        opacity: 0.45;
+        scale: 1.5;
+    }
+}
+.board-3d .move-shadow {
+    animation:
+        piece-travel var(--travel) cubic-bezier(0.42, 0, 0.32, 1) forwards,
+        shadow-spread-3d var(--travel) ease-in-out forwards;
+}
+.board-3d .piece-debris > img {
+    animation-name: piece-knocked-3d;
+}
+@keyframes piece-knocked-3d {
+    0% {
+        translate: 0 0 0;
+        opacity: 1;
+    }
+    40% {
+        opacity: 1;
+    }
+    100% {
+        translate: calc(var(--knock-x) * 75%) calc(var(--knock-y) * 75%) 0;
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(calc(var(--knock-turn) * 88deg));
         opacity: 0;
+    }
+}
+.board-3d .square.king-fallen > .piece {
+    animation-name: king-topple-3d;
+}
+@keyframes king-topple-3d {
+    0% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(0deg);
+    }
+    14% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(-5deg);
+        animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5);
+    }
+    72% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(88deg);
+        animation-timing-function: ease-out;
+    }
+    84% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(80deg);
+        animation-timing-function: ease-in;
+    }
+    100% {
+        transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(86deg);
+    }
+}
+.board-3d .chessboard.countdown-active .square > .piece {
+    animation-name: piece-arrive-3d;
+}
+@keyframes piece-arrive-3d {
+    0% {
+        opacity: 0;
+        translate: 0 0 calc(var(--board) / 4);
     }
     45% {
         opacity: 1;
     }
 }
-.board-3d .square > .piece.captured {
-    animation: piece-toppled 0.28s ease-in forwards;
-}
-@keyframes piece-toppled {
-    to {
-        rotate: x 28deg;
-        opacity: 0;
-    }
-}
 .board-3d .square > .piece-ghost {
     display: none;
 }
-.board-3d .square.in-check > .piece {
-    animation: check-shake-3d 0.5s ease-in-out;
-}
-@keyframes check-shake-3d {
-    20% {
-        translate: -7% -15%;
-    }
-    40% {
-        translate: 6% -15%;
-    }
-    60% {
-        translate: -4% -15%;
-    }
-    80% {
-        translate: 2% -15%;
-    }
-}
 @media (hover: hover) {
     .board-3d .square:hover > .piece.playable:not(.moving),
-    .board-3d .square.selected:hover > .piece.playable:not(.moving) {
-        translate: 0 -15% calc(var(--board) / 50);
+    .board-3d .square.selected:hover > .piece.playable:not(.moving),
+    [data-piece-style='staunton'].board-3d .square:hover > .piece.playable:not(.moving) {
+        translate: 0 0 calc(var(--board) / 50);
         scale: 1.05;
         filter: none;
     }
-    .board-3d .square.selected:hover > .piece.playable:not(.moving) {
-        translate: 0 -15% calc(var(--board) / 36);
+    .board-3d .square.selected:hover > .piece.playable:not(.moving),
+    [data-piece-style='staunton'].board-3d .square.selected:hover > .piece.playable:not(.moving) {
+        translate: 0 0 calc(var(--board) / 30);
     }
 }
 
@@ -2494,11 +2976,12 @@ body.blindfold-mode .blindfold-btn {
     margin-top: -45%;
     aspect-ratio: 1;
     box-sizing: border-box;
-    border: 9px solid var(--board-base);
-    border-radius: 8px;
-    background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 25% 25%, var(--board-base);
+    border: 14px solid #3b2415;
+    border-image: url('../board/frame.webp') 96 / 14px stretch;
+    /* Walnut under the whole board; the maple squares are laid over it. */
+    background: url('../board/walnut.webp') 0 0 / 300% 150%;
     /* No offset: the board turns, and its shadow must not turn with it. */
-    box-shadow: 0 0 0 1px var(--board-rim), 0 0 70px -18px rgba(0, 0, 0, 0.75);
+    box-shadow: 0 0 0 1px rgba(14, 8, 3, 0.9), 0 0 70px -18px rgba(0, 0, 0, 0.75);
     transform: rotateX(56deg) rotateZ(0deg);
     transform-style: preserve-3d;
     transition: transform 1.2s var(--ease-out);
@@ -2510,15 +2993,27 @@ body.blindfold-mode .blindfold-btn {
         transform: rotateX(72deg) rotateZ(-24deg) scale(0.84);
     }
 }
+.seat__board::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 64% 60% at 50% 50%, rgba(255, 238, 208, 0.14), rgba(255, 238, 208, 0) 100%),
+        url('../board/maple.webp') 40% 0 / 300% 150%;
+    -webkit-mask: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%) 0 0 / 25% 25%;
+    mask: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%) 0 0 / 25% 25%;
+}
 /* A piece turns with the board about the middle of its square, then stands
-   up about its own base, so it faces you from any side. */
+   up about its own foot, set on the middle of the square, so it faces you
+   from any side. The pictures are a little larger than a square. */
 .seat__piece {
     position: absolute;
-    left: calc(var(--f) * 12.5%);
-    top: calc(var(--r) * 12.5%);
-    width: 12.5%;
-    height: 12.5%;
-    transform: rotateZ(0deg) translateY(30%) rotateX(-56deg) translateY(-38%);
+    left: calc(var(--f) * 12.5% - 2.19%);
+    top: calc(var(--r) * 12.5% - 2.19%);
+    width: 16.875%;
+    max-width: none;
+    height: 16.875%;
+    transform: rotateZ(0deg) rotateX(-56deg) translateY(-45.5%);
     transition: transform 1.2s var(--ease-out);
     animation: seat-drop 0.7s var(--ease-spring) backwards;
     animation-delay: calc(0.35s + var(--i) * 22ms);
@@ -2533,13 +3028,13 @@ body.blindfold-mode .blindfold-btn {
     transform: rotateX(56deg) rotateZ(180deg);
 }
 .seat[data-seat='black'] .seat__piece {
-    transform: rotateZ(-180deg) translateY(30%) rotateX(-56deg) translateY(-38%);
+    transform: rotateZ(-180deg) rotateX(-56deg) translateY(-45.5%);
 }
 .seat[data-seat='random'] .seat__board {
     transform: rotateX(56deg) rotateZ(90deg);
 }
 .seat[data-seat='random'] .seat__piece {
-    transform: rotateZ(-90deg) translateY(30%) rotateX(-56deg) translateY(-38%);
+    transform: rotateZ(-90deg) rotateX(-56deg) translateY(-45.5%);
 }
 .seat__row {
     display: flex;
@@ -2635,7 +3130,7 @@ body.blindfold-mode .blindfold-btn {
     gap: 12px 10px;
 }
 .theme-swatches-grid--pieces {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .theme-swatch-label {
     position: relative;
@@ -2666,6 +3161,13 @@ body.blindfold-mode .blindfold-btn {
 }
 .glass-swatch {
     --board-base: #1d2436;
+}
+/* The gilded board is real wood: walnut, with the light squares a maple
+   wash over it that lets a little of the grain through. */
+.gilded-swatch {
+    background:
+        repeating-conic-gradient(rgb(64 38 22 / 0) 0% 25%, rgb(238 216 172 / 0.9) 0% 50%) 0 0 / 50% 100%,
+        url('../board/walnut.webp') 20% 30% / 300% 300%;
 }
 .theme-swatch-label:hover .theme-swatch {
     transform: translateY(-3px) rotate(-2deg);
@@ -2724,6 +3226,17 @@ body.blindfold-mode .blindfold-btn {
 }
 .theme-swatch-label:hover .piece-swatch img {
     transform: translateY(-3px) scale(1.08);
+}
+/* The rendered set is shown on its own wood, a little larger: its pictures
+   leave room round each piece for the shadow. */
+.piece-swatch--photo {
+    background:
+        url('../board/walnut.webp') left top / 50% 100% no-repeat,
+        url('../board/maple.webp') right center / 100% 200% no-repeat;
+}
+.piece-swatch--photo img {
+    width: 100%;
+    margin-top: -12%;
 }
 
 .pref-switch-row {
@@ -4002,12 +4515,36 @@ body:has(#tourOverlay[style*='block'])::after {
     filter: none;
 }
 [data-perf='low'] .square > .piece {
-    transition: translate 0.15s var(--ease-out), scale 0.15s var(--ease-out), rotate 0.3s var(--ease-out), opacity 0.2s;
+    transition: translate 0.15s var(--ease-out), scale 0.15s var(--ease-out), rotate 0.3s var(--ease-out), transform 0.3s var(--ease-out), top 0.3s var(--ease-out), opacity 0.2s;
 }
-/* The landing bounce is dropped in the flat view. In 3D the lift and the
-   drop are the move itself, so they stay. */
-[data-perf='low']:not(.board-3d) .square.last-move > .piece {
+/* A move is a short, straight slide: no hop, no shadow growing under it,
+   no filter. The landing squash, the bob of a held piece and the pieces
+   arriving at the start go; a flip is drawn at once; a taken piece fades
+   where it stands and a beaten king goes over quickly. */
+[data-perf='low'] .square.last-move > .piece,
+[data-perf='low'] .square.selected > .piece,
+[data-perf='low'] .chessboard.countdown-active .square > .piece,
+[data-perf='low'] .chessboard.turning {
     animation: none;
+}
+[data-perf='low'] .chessboard .square > .piece.moving,
+[data-perf='low'].board-3d .chessboard .square > .piece.moving {
+    animation: piece-travel 0.2s var(--ease-out) forwards;
+}
+[data-perf='low'] .move-shadow {
+    display: none;
+}
+[data-perf='low'] .piece-debris > img {
+    animation: piece-gone 0.18s ease-out forwards;
+}
+@keyframes piece-gone {
+    to {
+        opacity: 0;
+    }
+}
+[data-perf='low'] .square.king-fallen > .piece {
+    animation-duration: 0.3s;
+    animation-delay: 0s;
 }
 
 /* Things that pulsed for as long as they were on screen now hold still.
@@ -4089,4 +4626,57 @@ body:has(#tourOverlay[style*='block'])::after {
 [data-perf='low'] .confetti:nth-child(n + 13),
 [data-perf='low'] .sparkle {
     display: none;
+}
+
+/* Reduced motion. app.css already cuts every animation short; here the
+   pieces that would wait for their turn to appear are simply there, and a
+   king in check is marked without the pulse. board.js does not fly the
+   pieces or turn the board at all in this case. */
+@media (prefers-reduced-motion: reduce) {
+    .chessboard.countdown-active .square > .piece,
+    .move-dot,
+    .capture-ring {
+        animation: none;
+    }
+    .square.in-check {
+        animation: none;
+        box-shadow: inset 0 0 0 4px var(--board-check);
+    }
+    .square.king-fallen > .piece {
+        animation-delay: 0s;
+    }
+}
+
+
+/* ---------- view angle ---------- */
+
+/* The slider under the 3D button. It is only there while the board is tilted. */
+.view-angle {
+    grid-column: 1 / -1;
+    display: none;
+    grid-template-columns: auto minmax(0, 1fr) 3.2em;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px 2px;
+    font-size: 13.5px;
+    color: var(--muted);
+}
+.board-3d .view-angle {
+    display: grid;
+}
+.view-angle input {
+    width: 100%;
+    accent-color: var(--gold);
+    cursor: ew-resize;
+}
+.view-angle output {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    text-align: right;
+    color: var(--title);
+}
+.board-3d .play.is-angling .chessboard,
+.board-3d .play.is-angling .square > .piece,
+.board-3d .play.is-angling .chessboard::after {
+    transition-duration: 0.06s;
 }

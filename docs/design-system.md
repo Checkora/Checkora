@@ -113,7 +113,25 @@ else showFlatPiece();
 
 ## Piece images
 
-The 2D pieces are Checkora's own SVG set in `game/static/game/pieces/<style>/<colour><type>.svg`, for example `pieces/classic/wn.svg`. Styles: `classic`, `wood`, `outline`. In a template use `{% static 'game/pieces/classic/wn.svg' %}`; in JavaScript read the prefix from `document.documentElement.dataset.static`.
+The pieces you see on the flat boards are photographs of the 3D set in `scene3d.js`: ivory and ebony Staunton pieces, rendered in Chrome and saved as WebP with transparency. There are two sets of the same twelve pieces:
+
+- `game/static/game/pieces/staunton/<colour><type>.webp` (256 px) is for boards. Every piece is framed the same, so a king stands taller than a pawn, and each picture carries the soft shadow the piece throws. The picture is framed for the king, so on a board it is drawn a little larger than its square and set high; see `.square > .piece` in `play.css` and the boards in `learn.css`.
+- `game/static/game/pieces/staunton-single/<colour><type>.webp` (192 px) is for a piece on its own: icons, the pieces taken in a game, the promotion choice, and the flat stand-in shown where a turning 3D piece is not drawn. Each piece fills its picture.
+
+In a template use `{% static 'game/pieces/staunton-single/wn.webp' %}`; in JavaScript read the prefix from `document.documentElement.dataset.static`. Knights face left in both colours.
+
+The play page still offers the older flat SVG sets as choices in its settings, in `game/static/game/pieces/<style>/<colour><type>.svg` with styles `classic`, `wood` and `outline`. board.js picks the extension per style.
+
+To change a piece, change its model in `scene3d.js` and render the sets again (Playwright and Google Chrome are needed; Playwright is not a project dependency, so point `PLAYWRIGHT` at a copy of it):
+
+```sh
+PLAYWRIGHT=/path/to/node_modules/playwright node scripts/render_pieces.mjs
+PLAYWRIGHT=/path/to/node_modules/playwright node scripts/render_pieces.mjs --single
+```
+
+## The wooden board
+
+The default board ("gilded") and every board outside the play page are maple and walnut in a walnut frame. The wood is drawn from seeded noise by `scripts/render_wood.mjs` into `game/static/game/board/` (`maple.webp`, `walnut.webp`, `frame.webp`). Each square shows its own part of the plank, so the board does not look tiled; a square's state (last move, selection, a hint) is a tint laid over the wood, not a new colour. The square textures hold the plank twice, the second copy turned half round, which is what a flipped board shows.
 
 ## Rules of thumb
 

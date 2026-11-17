@@ -21,19 +21,6 @@ const OPERA_GAME = [
     ['b3b8', 'Qb8+'], ['d7b8', 'Nxb8'], ['d1d8', 'Rd8#'],
 ];
 
-// Half-outlines turned on a lathe. Units are board squares.
-const PROFILES = {
-    p: [[0, 0], [0.27, 0], [0.28, 0.05], [0.2, 0.1], [0.13, 0.16], [0.1, 0.36], [0.16, 0.42], [0.08, 0.46], [0.15, 0.56], [0.16, 0.64], [0.1, 0.73], [0, 0.76]],
-    r: [[0, 0], [0.3, 0], [0.31, 0.06], [0.23, 0.12], [0.19, 0.2], [0.17, 0.5], [0.24, 0.56], [0.24, 0.74], [0.16, 0.74], [0.16, 0.66], [0, 0.66]],
-    b: [[0, 0], [0.29, 0], [0.3, 0.06], [0.21, 0.12], [0.13, 0.2], [0.1, 0.5], [0.17, 0.56], [0.09, 0.6], [0.15, 0.72], [0.13, 0.84], [0.05, 0.95], [0.07, 0.99], [0, 1.02]],
-    q: [[0, 0], [0.31, 0], [0.32, 0.06], [0.23, 0.13], [0.15, 0.22], [0.11, 0.62], [0.2, 0.68], [0.1, 0.72], [0.19, 0.9], [0.21, 1], [0.13, 0.98], [0.09, 1.06], [0, 1.1]],
-    k: [[0, 0], [0.32, 0], [0.33, 0.06], [0.24, 0.13], [0.16, 0.22], [0.12, 0.66], [0.21, 0.72], [0.11, 0.76], [0.18, 0.96], [0.2, 1.04], [0.06, 1.06], [0.06, 1.2], [0, 1.22]],
-};
-const KNIGHT_OUTLINE = [
-    [-0.3, 0], [0.3, 0], [0.3, 0.1], [0.22, 0.16], [0.26, 0.5], [0.2, 0.82], [0.08, 1], [0.02, 0.88], [-0.12, 0.84],
-    [-0.34, 0.62], [-0.36, 0.5], [-0.26, 0.44], [-0.1, 0.52], [-0.04, 0.42], [-0.18, 0.22], [-0.24, 0.16], [-0.3, 0.1],
-];
-
 // The tier perf.js chose. Without perf.js everything runs as "high".
 const tier = () => window.checkoraPerf;
 const onLowTier = () => Boolean(tier()?.low);
@@ -47,25 +34,604 @@ const squareIndex = (name) => FILES.indexOf(name[0]) + (Number(name[1]) - 1) * 8
 const squareX = (index) => (index % 8) - 3.5;
 const squareZ = (index) => 3.5 - Math.floor(index / 8);
 
-function buildGeometry(segments = 40) {
-    const set = {};
-    for (const [type, profile] of Object.entries(PROFILES)) {
-        set[type] = new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), segments);
+/* ---------- the chess set ----------
+   Each piece is turned on a lathe from a half outline, as a wooden Staunton
+   set is, and the carved parts are added to it: the rook's battlements, the
+   cut in the bishop's mitre, the queen's coronet, the king's cross and the
+   knight's head. Units are board squares and every piece stands on y = 0.
+   The knight looks along -x. scripts/render_pieces.mjs photographs these
+   same models for the flat boards, so a change here shows up there too once
+   the set is rendered again. */
+
+const v2 = (x, y) => new THREE.Vector2(x, y);
+const ramp = (a, b, x) => {
+    const t = clamp01((x - a) / (b - a));
+    return t * t * (3 - 2 * t);
+};
+const bump = (dx, dy, r) => Math.exp(-(dx * dx + dy * dy) / (r * r));
+
+// A half outline written as pen moves, from the axis at the foot to the axis
+// at the top: ['L', x, y] a straight line, ['Q', cx, cy, x, y] and
+// ['C', ax, ay, bx, by, x, y] curves, ['A', cx, cy, r, from, to] an arc in
+// degrees that starts where the pen is. A last value of true leaves a crisp
+// edge at the end of the move; everywhere else the turning is smooth.
+function outline(moves, detail) {
+    const points = [v2(moves[0][0], moves[0][1])];
+    for (const [kind, ...a] of moves.slice(1)) {
+        const from = points[points.length - 1];
+        let sharp = false;
+        if (kind === 'A') {
+            const [cx, cy, r, start, end] = a;
+            const steps = Math.max(3, Math.round((detail * Math.abs(end - start)) / 60));
+            for (let i = 1; i <= steps; i++) {
+                const t = ((start + ((end - start) * i) / steps) * Math.PI) / 180;
+                points.push(v2(cx + r * Math.cos(t), cy + r * Math.sin(t)));
+            }
+            sharp = a[5];
+        } else {
+            let curve;
+            if (kind === 'L') curve = new THREE.LineCurve(from, v2(a[0], a[1]));
+            else if (kind === 'Q') curve = new THREE.QuadraticBezierCurve(from, v2(a[0], a[1]), v2(a[2], a[3]));
+            else curve = new THREE.CubicBezierCurve(from, v2(a[0], a[1]), v2(a[2], a[3]), v2(a[4], a[5]));
+            // A curve may ask for more points than the rest of the outline.
+            const steps = kind === 'L' ? 1 : a[kind === 'Q' ? 5 : 7] || detail;
+            for (let i = 1; i <= steps; i++) points.push(curve.getPoint(i / steps));
+            sharp = a[kind === 'L' ? 2 : kind === 'Q' ? 4 : 6];
+        }
+        // A point given twice splits the normals, so the edge stays crisp.
+        if (sharp) points.push(points[points.length - 1].clone());
     }
-    const shape = new THREE.Shape();
-    shape.moveTo(...KNIGHT_OUTLINE[0]);
-    KNIGHT_OUTLINE.slice(1).forEach((point) => shape.lineTo(...point));
-    shape.closePath();
-    set.n = new THREE.ExtrudeGeometry(shape, { depth: 0.26, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.03, bevelSegments: 3 });
-    set.n.translate(0, 0, -0.13);
-    set.n.scale(0.84, 0.84, 0.84);
-    return set;
+    points.forEach((point) => {
+        point.x = Math.max(0, point.x);
+    });
+    return points;
 }
 
-function buildMaterials() {
+// The lathe's seam is put at the back, and its two copies of each point are
+// given one normal between them so the seam does not show.
+function lathe(points, segments) {
+    const geometry = new THREE.LatheGeometry(points, segments, Math.PI, Math.PI * 2);
+    return geometry;
+}
+function mendSeam(geometry, segments, rows) {
+    const normal = geometry.attributes.normal;
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    for (let j = 0; j < rows; j++) {
+        a.fromBufferAttribute(normal, j);
+        b.fromBufferAttribute(normal, segments * rows + j);
+        a.add(b).normalize();
+        normal.setXYZ(j, a.x, a.y, a.z);
+        normal.setXYZ(segments * rows + j, a.x, a.y, a.z);
+    }
+    normal.needsUpdate = true;
+}
+
+// Every part carries a colour per vertex, used as shade: 1 is the bare
+// wood, less is a hollow the light reaches less (the bishop's cut, the
+// knight's eye and nostril, the grooves of the mane).
+function shaded(geometry, shade = () => 1) {
+    const position = geometry.attributes.position;
+    const colour = new Float32Array(position.count * 3);
+    for (let i = 0; i < position.count; i++) {
+        const s = shade(position.getX(i), position.getY(i), position.getZ(i));
+        colour[i * 3] = colour[i * 3 + 1] = colour[i * 3 + 2] = s;
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colour, 3));
+    return geometry;
+}
+
+// Joins parts into one geometry (positions, normals and shade).
+function join(parts) {
+    const flat = parts.map((part) => {
+        if (!part.attributes.normal) part.computeVertexNormals();
+        if (!part.attributes.color) shaded(part);
+        return part.index ? part.toNonIndexed() : part;
+    });
+    const size = flat.reduce((sum, part) => sum + part.attributes.position.count, 0);
+    const merged = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'color']) {
+        const array = new Float32Array(size * 3);
+        let offset = 0;
+        for (const part of flat) {
+            array.set(part.attributes[name].array, offset);
+            offset += part.attributes[name].count * 3;
+        }
+        merged.setAttribute(name, new THREE.BufferAttribute(array, 3));
+    }
+    merged.computeBoundingSphere();
+    return merged;
+}
+
+// The foot every piece shares: a flat plinth, a rounded bead, a cove and a
+// second, smaller bead, ending where the stem starts at (stemX, stemY).
+function foot(radius, stemX, stemY) {
+    const r = radius;
+    return [
+        [0, 0],
+        ['L', r - 0.012, 0],
+        ['Q', r + 0.004, 0.002, r + 0.002, 0.03],
+        ['Q', r + 0.002, 0.07, r - 0.035, 0.078, true],
+        ['L', r - 0.045, 0.092],
+        ['Q', r - 0.09, 0.098, r - 0.1, 0.118],
+        ['Q', r - 0.085, 0.13, r - 0.098, 0.146],
+        ['Q', stemX + 0.02, stemY - 0.02, stemX, stemY],
+    ];
+}
+
+function pawnOutline(detail) {
+    return outline([
+        ...foot(0.3, 0.13, 0.2),
+        ['Q', 0.098, 0.3, 0.092, 0.39],
+        ['Q', 0.17, 0.392, 0.182, 0.41],
+        ['Q', 0.188, 0.428, 0.17, 0.44, true],
+        ['Q', 0.115, 0.45, 0.083, 0.468],
+        ['A', 0, 0.598, 0.152, -58.6, 90],
+    ], detail);
+}
+
+function rookOutline(detail) {
+    return outline([
+        ...foot(0.32, 0.215, 0.18),
+        ['Q', 0.17, 0.36, 0.185, 0.52],
+        ['Q', 0.235, 0.528, 0.24, 0.548],
+        ['Q', 0.242, 0.57, 0.215, 0.575, true],
+        ['Q', 0.225, 0.6, 0.252, 0.64],
+        ['L', 0.252, 0.7, true],
+        ['L', 0.19, 0.7, true],
+        ['L', 0.19, 0.668, true],
+        ['L', 0, 0.668],
+    ], detail);
+}
+
+function bishopOutline(detail) {
+    return outline([
+        ...foot(0.31, 0.15, 0.19),
+        ['Q', 0.1, 0.36, 0.088, 0.53],
+        ['Q', 0.16, 0.532, 0.172, 0.552],
+        ['Q', 0.178, 0.572, 0.15, 0.58, true],
+        ['Q', 0.135, 0.592, 0.142, 0.605],
+        ['Q', 0.146, 0.622, 0.11, 0.628, true],
+        ['Q', 0.085, 0.634, 0.09, 0.65],
+        // The mitre is turned finely: the cut across it needs the points.
+        ['C', 0.19, 0.7, 0.175, 0.86, 0.06, 0.94, false, detail * 6],
+        ['Q', 0.03, 0.958, 0.034, 0.966],
+        ['A', 0, 0.998, 0.04, -53, 90],
+    ], detail);
+}
+
+function queenOutline(detail) {
+    return outline([
+        ...foot(0.33, 0.165, 0.2),
+        ['Q', 0.105, 0.42, 0.098, 0.62],
+        ['Q', 0.185, 0.622, 0.196, 0.642],
+        ['Q', 0.2, 0.664, 0.17, 0.67, true],
+        ['Q', 0.125, 0.676, 0.13, 0.69],
+        ['Q', 0.134, 0.705, 0.1, 0.71, true],
+        ['Q', 0.098, 0.8, 0.15, 0.88],
+        ['Q', 0.185, 0.93, 0.205, 0.975],
+        ['Q', 0.208, 0.99, 0.196, 0.992, true],
+        ['Q', 0.15, 0.97, 0.11, 0.975],
+        ['Q', 0.06, 0.985, 0.05, 1.03],
+        ['Q', 0.04, 1.045, 0.03, 1.05],
+        ['A', 0, 1.085, 0.046, -50, 90],
+    ], detail);
+}
+
+function kingOutline(detail) {
+    return outline([
+        ...foot(0.34, 0.175, 0.2),
+        ['Q', 0.11, 0.45, 0.104, 0.66],
+        ['Q', 0.195, 0.662, 0.205, 0.684],
+        ['Q', 0.208, 0.706, 0.178, 0.712, true],
+        ['Q', 0.13, 0.718, 0.136, 0.732],
+        ['Q', 0.14, 0.748, 0.104, 0.754, true],
+        ['Q', 0.1, 0.86, 0.165, 0.95],
+        ['Q', 0.198, 0.99, 0.2, 1.02],
+        ['Q', 0.2, 1.036, 0.186, 1.04, true],
+        ['Q', 0.17, 1.045, 0.14, 1.05],
+        ['Q', 0.1, 1.06, 0.075, 1.1],
+        ['Q', 0.06, 1.12, 0.03, 1.122, true],
+        ['L', 0, 1.122],
+    ], detail);
+}
+
+function knightFoot(detail) {
+    return outline([
+        ...foot(0.33, 0.24, 0.165),
+        ['Q', 0.235, 0.18, 0.2, 0.19, true],
+        ['L', 0, 0.19],
+    ], detail);
+}
+
+// The knight's head, drawn as its side view. The outline is inflated into a
+// rounded solid, thick at the neck and thin at the muzzle, and then carved:
+// eye, nostril, mouth, the line of the jaw and the strands of the mane.
+const KNIGHT_SIDE = [
+    [0.205, 0.13], [0.225, 0.22], [0.232, 0.31], [0.226, 0.4], [0.208, 0.49], [0.18, 0.575], [0.145, 0.65],
+    [0.108, 0.715], [0.07, 0.775], [0.04, 0.83], [0.022, 0.868], [-0.004, 0.892], [-0.045, 0.896],
+    [-0.09, 0.884], [-0.14, 0.858], [-0.195, 0.818], [-0.25, 0.765], [-0.296, 0.708], [-0.334, 0.652],
+    [-0.36, 0.605], [-0.368, 0.572], [-0.36, 0.548], [-0.335, 0.536], [-0.318, 0.532], [-0.334, 0.518],
+    [-0.33, 0.5], [-0.3, 0.488], [-0.25, 0.49], [-0.19, 0.505], [-0.13, 0.528], [-0.075, 0.548],
+    [-0.05, 0.52], [-0.06, 0.47], [-0.085, 0.41], [-0.12, 0.35], [-0.16, 0.29], [-0.19, 0.22], [-0.195, 0.13],
+];
+// Where the mane runs: the stretch of the outline from the withers to the poll.
+const MANE = { from: 1, to: 10 };
+
+function knightSilhouette(samples) {
+    const curve = new THREE.CatmullRomCurve3(KNIGHT_SIDE.map(([x, y]) => new THREE.Vector3(x, y, 0)), true, 'centripetal');
+    return curve.getSpacedPoints(samples).slice(0, -1).map((p) => [p.x, p.y]);
+}
+
+function knightHead(cell) {
+    const ring = knightSilhouette(Math.round(1.6 / cell));
+    const count = ring.length;
+    // Arc length at each outline point, for the mane's strands.
+    const along = [0];
+    for (let i = 1; i < count; i++) along.push(along[i - 1] + Math.hypot(ring[i][0] - ring[i - 1][0], ring[i][1] - ring[i - 1][1]));
+    const maneFrom = Math.round((MANE.from / KNIGHT_SIDE.length) * count);
+    const maneTo = Math.round((MANE.to / KNIGHT_SIDE.length) * count);
+
+    // Signed distance to the outline (positive inside) and the nearest point.
+    function probe(x, y) {
+        let best = Infinity;
+        let nearest = 0;
+        let inside = false;
+        for (let i = 0, j = count - 1; i < count; j = i++) {
+            const [ax, ay] = ring[j];
+            const [bx, by] = ring[i];
+            if ((ay > y) !== (by > y) && x < ((bx - ax) * (y - ay)) / (by - ay) + ax) inside = !inside;
+            const ex = bx - ax;
+            const ey = by - ay;
+            const t = clamp01(((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey));
+            const dx = x - (ax + ex * t);
+            const dy = y - (ay + ey * t);
+            const d = dx * dx + dy * dy;
+            if (d < best) {
+                best = d;
+                nearest = t < 0.5 ? j : i;
+            }
+        }
+        const d = Math.sqrt(best);
+        return { d: inside ? d : -d, nearest };
+    }
+
+    // How far the surface stands out from the middle plane, and its shade.
+    function carve(x, y, d, nearest) {
+        // Thickness: a full neck, a rounder jowl, a narrow muzzle and brow.
+        let half = 0.118;
+        half *= 1 - 0.42 * ramp(-0.1, -0.36, x) * ramp(0.46, 0.6, y);
+        half *= 1 - 0.22 * ramp(0.76, 0.9, y);
+        half += 0.022 * bump(x + 0.01, y - 0.63, 0.085);
+        half += 0.012 * bump(x - 0.06, y - 0.3, 0.12);
+        let z = half * Math.sqrt(1 - Math.exp(-d / 0.045));
+        let shade = 1;
+
+        // The eye: a rounded ball in a socket, under a brow.
+        const ex = x + 0.098;
+        const ey = y - 0.792;
+        const er = Math.hypot(ex * 1.15, ey);
+        z += 0.009 * bump(ex * 1.15, ey, 0.016) - 0.006 * Math.exp(-((er - 0.026) ** 2) / 0.00007);
+        z += 0.007 * bump(x + 0.075, y - 0.83, 0.03);
+        shade -= 0.45 * Math.exp(-((er - 0.022) ** 2) / 0.00005);
+
+        // The nostril and the line of the mouth.
+        z -= 0.013 * bump(x + 0.322, y - 0.6, 0.016);
+        shade -= 0.5 * bump(x + 0.322, y - 0.6, 0.013);
+        const mouth = Math.abs(y - (0.532 + (x + 0.318) * 0.12));
+        const onMouth = ramp(-0.21, -0.25, x) * ramp(-0.37, -0.33, x);
+        z -= 0.008 * onMouth * Math.exp(-(mouth * mouth) / 0.00004);
+        shade -= 0.4 * onMouth * Math.exp(-(mouth * mouth) / 0.00003);
+
+        // The edge of the jaw, a shallow crease round the jowl.
+        const jaw = Math.hypot(x + 0.01, y - 0.63) - 0.1;
+        const onJaw = ramp(0.5, 0.56, y) * ramp(0.1, 0.02, x);
+        z -= 0.005 * onJaw * Math.exp(-(jaw * jaw) / 0.00012);
+        shade -= 0.18 * onJaw * Math.exp(-(jaw * jaw) / 0.0001);
+
+        // The mane: a raised band along the back of the neck, cut in strands.
+        if (nearest >= maneFrom && nearest <= maneTo) {
+            const reach = ramp(0.09, 0.035, d) * ramp(maneFrom, maneFrom + 6, nearest) * ramp(maneTo, maneTo - 4, nearest);
+            const phase = along[nearest] * 21 + d * 9;
+            const groove = Math.pow(0.5 + 0.5 * Math.cos(phase * Math.PI * 2), 3);
+            z += reach * (0.013 - 0.011 * groove);
+            shade -= reach * 0.45 * groove;
+        }
+        return { z: Math.max(z, 0.0015), shade: Math.max(0.35, shade) };
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    ring.forEach(([x, y]) => {
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+    });
+    const nx = Math.ceil((maxX - minX) / cell) + 2;
+    const ny = Math.ceil((maxY - minY) / cell) + 2;
+    const x0 = minX - cell;
+    const y0 = minY - cell;
+
+    const positions = [];
+    const shades = [];
+    const indices = [];
+    const field = new Array((nx + 1) * (ny + 1));
+    const front = new Int32Array((nx + 1) * (ny + 1)).fill(-1);
+    const back = new Int32Array((nx + 1) * (ny + 1)).fill(-1);
+    const rim = new Map();
+    const at = (i, j) => j * (nx + 1) + i;
+
+    for (let j = 0; j <= ny; j++) {
+        for (let i = 0; i <= nx; i++) {
+            const x = x0 + i * cell;
+            const y = y0 + j * cell;
+            const hit = probe(x, y);
+            field[at(i, j)] = hit.d;
+            if (hit.d > 0) {
+                const { z, shade } = carve(x, y, hit.d, hit.nearest);
+                front[at(i, j)] = positions.length / 3;
+                positions.push(x, y, z);
+                shades.push(shade);
+                back[at(i, j)] = positions.length / 3;
+                positions.push(x, y, -z);
+                shades.push(shade);
+            }
+        }
+    }
+    // Where the outline crosses a grid edge both faces meet, at z = 0.
+    function crossing(a, b, ai, aj, bi, bj) {
+        const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+        if (rim.has(key)) return rim.get(key);
+        const da = field[a];
+        const db = field[b];
+        const t = da / (da - db);
+        const index = positions.length / 3;
+        positions.push(x0 + (ai + (bi - ai) * t) * cell, y0 + (aj + (bj - aj) * t) * cell, 0);
+        shades.push(1);
+        rim.set(key, index);
+        return index;
+    }
+    for (let j = 0; j < ny; j++) {
+        for (let i = 0; i < nx; i++) {
+            const corners = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]];
+            const ids = corners.map(([ci, cj]) => at(ci, cj));
+            if (ids.every((id) => field[id] <= 0)) continue;
+            const ringFront = [];
+            const ringBack = [];
+            for (let k = 0; k < 4; k++) {
+                const a = ids[k];
+                const b = ids[(k + 1) % 4];
+                if (field[a] > 0) {
+                    ringFront.push(front[a]);
+                    ringBack.push(back[a]);
+                }
+                if ((field[a] > 0) !== (field[b] > 0)) {
+                    const c = crossing(a, b, corners[k][0], corners[k][1], corners[(k + 1) % 4][0], corners[(k + 1) % 4][1]);
+                    ringFront.push(c);
+                    ringBack.push(c);
+                }
+            }
+            for (let k = 1; k < ringFront.length - 1; k++) {
+                indices.push(ringFront[0], ringFront[k], ringFront[k + 1]);
+                indices.push(ringBack[0], ringBack[k + 1], ringBack[k]);
+            }
+        }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const colour = new Float32Array(shades.length * 3);
+    shades.forEach((s, i) => {
+        colour[i * 3] = colour[i * 3 + 1] = colour[i * 3 + 2] = s;
+    });
+    geometry.setAttribute('color', new THREE.BufferAttribute(colour, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+function knightEar(side, segments) {
+    const ear = lathe(outline([
+        [0, 0],
+        ['Q', 0.036, 0, 0.034, 0.036],
+        ['Q', 0.03, 0.075, 0.006, 0.108],
+        ['L', 0, 0.112],
+    ], 6), Math.max(10, segments / 2));
+    ear.scale(0.62, 1, 1);
+    ear.rotateX(side * 0.16);
+    ear.rotateZ(0.32);
+    ear.translate(-0.012, 0.842, side * 0.044);
+    return ear;
+}
+
+function buildKnight(segments, cell) {
+    const base = knightFoot(Math.max(4, segments / 6));
+    const footing = lathe(base, segments);
+    return join([footing, knightHead(cell), knightEar(1, segments), knightEar(-1, segments)]);
+}
+
+// The rook's battlements: six merlons round the hollow top.
+function buildRook(segments, detail) {
+    const body = lathe(rookOutline(detail), segments);
+    const parts = [body];
+    const gap = 0.36;
+    const span = (Math.PI * 2) / 6 - gap;
+    for (let k = 0; k < 6; k++) {
+        const shape = new THREE.Shape();
+        shape.absarc(0, 0, 0.244, -span / 2, span / 2, false);
+        shape.absarc(0, 0, 0.198, span / 2, -span / 2, true);
+        shape.closePath();
+        const merlon = new THREE.ExtrudeGeometry(shape, {
+            depth: 0.07,
+            bevelEnabled: true,
+            bevelThickness: 0.008,
+            bevelSize: 0.007,
+            bevelSegments: 3,
+            curveSegments: Math.max(4, segments / 8),
+        });
+        merlon.rotateX(-Math.PI / 2);
+        // A merlon faces the front, and the cuts fall either side of it.
+        merlon.rotateY(Math.PI / 2 + (k * Math.PI) / 3);
+        merlon.translate(0, 0.692, 0);
+        parts.push(merlon);
+    }
+    return join(parts);
+}
+
+// The bishop's mitre, with its slanting cut across the front.
+function buildBishop(segments, detail) {
+    const points = bishopOutline(detail);
+    const geometry = lathe(points, segments);
+    const position = geometry.attributes.position;
+    // A V-shaped cut, sawn in from the front down to just past the middle.
+    const tilt = (40 * Math.PI) / 180;
+    const nx = Math.sin(tilt);
+    const ny = Math.cos(tilt);
+    const width = 0.017;
+    const floor = -0.02;
+    const depthAt = new Float32Array(position.count);
+    for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i);
+        const y = position.getY(i);
+        const z = position.getZ(i);
+        if (y < 0.67 || y > 0.93 || z <= floor) continue;
+        const d = Math.abs(x * nx + (y - 0.81) * ny);
+        // Dark a little past the lip too: the edge of a cut is in its shadow.
+        depthAt[i] = 1 - ramp(width * 0.3, width * 1.3, d);
+        if (d < width) position.setZ(i, z + (floor - z) * Math.pow(1 - d / width, 0.85));
+    }
+    geometry.computeVertexNormals();
+    mendSeam(geometry, segments, points.length);
+    // The cut is narrow and deep, so little light gets into it.
+    let vertex = 0;
+    return shaded(geometry, () => 1 - 0.9 * depthAt[vertex++]);
+}
+
+// The queen's coronet: the rim rises in eight points, each with a pearl.
+function buildQueen(segments, detail) {
+    const points = queenOutline(detail);
+    const geometry = lathe(points, segments);
+    const position = geometry.attributes.position;
+    for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i);
+        const y = position.getY(i);
+        const z = position.getZ(i);
+        const r = Math.hypot(x, z);
+        if (y < 0.9 || r < 0.1) continue;
+        const angle = Math.atan2(x, z);
+        const peak = Math.pow(0.5 + 0.5 * Math.cos(angle * 8), 2.2);
+        const reach = ramp(0.9, 0.985, y) * ramp(0.1, 0.17, r);
+        position.setY(i, y + reach * (0.05 * peak - 0.018));
+    }
+    geometry.computeVertexNormals();
+    mendSeam(geometry, segments, points.length);
+    const parts = [geometry];
+    for (let k = 0; k < 8; k++) {
+        const angle = (k * Math.PI) / 4;
+        const pearl = new THREE.SphereGeometry(0.024, Math.max(8, segments / 3), Math.max(6, segments / 5));
+        pearl.translate(Math.sin(angle) * 0.2, 1.03, Math.cos(angle) * 0.2);
+        parts.push(pearl);
+    }
+    return join(parts);
+}
+
+// The king's crown and its cross pattée, which faces the front.
+function buildKing(segments, detail) {
+    const body = lathe(kingOutline(detail), segments);
+    const shape = new THREE.Shape();
+    const cross = [
+        [-0.022, 0], [0.022, 0], [0.017, 0.082], [0.07, 0.074], [0.076, 0.132], [0.017, 0.124],
+        [0.024, 0.2], [-0.024, 0.2], [-0.017, 0.124], [-0.076, 0.132], [-0.07, 0.074], [-0.017, 0.082],
+    ];
+    shape.moveTo(...cross[0]);
+    cross.slice(1).forEach((point) => shape.lineTo(...point));
+    shape.closePath();
+    const top = new THREE.ExtrudeGeometry(shape, {
+        depth: 0.03,
+        bevelEnabled: true,
+        bevelThickness: 0.011,
+        bevelSize: 0.008,
+        bevelSegments: 4,
+    });
+    top.translate(0, 1.108, -0.015);
+    const knob = new THREE.SphereGeometry(0.036, Math.max(10, segments / 2), 8);
+    knob.scale(1, 0.7, 1);
+    knob.translate(0, 1.118, 0);
+    return join([body, knob, top]);
+}
+
+/**
+ * The six pieces as geometries. segments is the number of faces round a
+ * turned piece; cell is the size of the grid the knight's head is carved on
+ * (smaller is finer and slower to build).
+ */
+export function buildGeometry(segments = 40, cell = 0.011) {
+    const detail = Math.max(4, Math.round(segments / 5));
     return {
-        w: new THREE.MeshPhysicalMaterial({ color: 0xf3ead6, metalness: 0, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.22 }),
-        b: new THREE.MeshPhysicalMaterial({ color: 0x101014, metalness: 0.55, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.08 }),
+        p: join([lathe(pawnOutline(detail), segments)]),
+        r: buildRook(segments, detail),
+        b: buildBishop(segments, detail),
+        q: buildQueen(segments, detail),
+        k: buildKing(segments, detail),
+        n: buildKnight(segments, cell),
+    };
+}
+
+// Turned boxwood and ebony. A little noise along the growth rings of the
+// wood darkens the colour here and there, so the pieces look turned from a
+// log and not cast; it is too faint to notice from across the board.
+const GRAIN = `
+varying vec3 vGrainAt;
+uniform float grainDepth;
+float grainHash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float grainNoise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+        mix(mix(grainHash(i), grainHash(i + vec3(1, 0, 0)), f.x), mix(grainHash(i + vec3(0, 1, 0)), grainHash(i + vec3(1, 1, 0)), f.x), f.y),
+        mix(mix(grainHash(i + vec3(0, 0, 1)), grainHash(i + vec3(1, 0, 1)), f.x), mix(grainHash(i + vec3(0, 1, 1)), grainHash(i + vec3(1, 1, 1)), f.x), f.y),
+        f.z);
+}
+float woodGrain(vec3 p) {
+    vec2 c = p.xz - vec2(0.85, 0.4);
+    float r = length(c) + 0.04 * grainNoise(p * vec3(4.0, 1.0, 4.0)) + 0.01 * grainNoise(p * 26.0);
+    float ring = fract(r * 30.0);
+    float late = smoothstep(0.62, 0.9, ring) * (1.0 - smoothstep(0.9, 1.0, ring));
+    float fleck = grainNoise(p * vec3(120.0, 9.0, 120.0));
+    return 1.0 - grainDepth * (0.75 * late + 0.25 * fleck);
+}
+`;
+function withGrain(material, depth) {
+    material.onBeforeCompile = (shader) => {
+        shader.uniforms.grainDepth = { value: depth };
+        shader.vertexShader = `varying vec3 vGrainAt;\n${shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n    vGrainAt = position;')}`;
+        // The vertex shade darkens the colour (three.js does that) and here
+        // also dulls the gloss, so a hollow does not catch the light.
+        shader.fragmentShader = GRAIN + shader.fragmentShader
+            .replace('#include <color_fragment>', '#include <color_fragment>\n    diffuseColor.rgb *= woodGrain(vGrainAt);')
+            .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n    material.specularColor *= vColor.r * vColor.r;\n    material.specularF90 *= vColor.r;\n    #ifdef USE_CLEARCOAT\n    material.clearcoat *= vColor.r * vColor.r;\n    #endif');
+    };
+    material.customProgramCacheKey = () => `grain-${depth}`;
+    return material;
+}
+
+export function buildMaterials() {
+    return {
+        w: withGrain(new THREE.MeshPhysicalMaterial({
+            color: 0xf0e2c4, vertexColors: true, metalness: 0, roughness: 0.42,
+            clearcoat: 0.55, clearcoatRoughness: 0.3, sheen: 0.25, sheenRoughness: 0.6, sheenColor: 0xfff4dc,
+        }), 0.09),
+        b: withGrain(new THREE.MeshPhysicalMaterial({
+            color: 0x1c1512, vertexColors: true, metalness: 0, roughness: 0.34,
+            clearcoat: 1, clearcoatRoughness: 0.12,
+        }), 0.22),
     };
 }
 

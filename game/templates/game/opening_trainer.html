@@ -20,7 +20,7 @@
             <p class="lede" data-reveal style="--i: 2">Practice popular chess openings move by move. Pick a line, choose a colour, and play it out on the board.</p>
         </div>
         <div class="learn-head__piece" aria-hidden="true">
-            <img src="{% static 'game/pieces/classic/wb.svg' %}" alt="">
+            <img src="{% static 'game/pieces/staunton-single/wb.webp' %}" alt="">
             <canvas data-piece3d="b"></canvas>
         </div>
     </header>
@@ -31,7 +31,7 @@
         {% cycle 'n' 'b' 'q' 'r' 'k' as corner_piece silent %}
         <div class="reveal-cell" data-reveal style="--i: {{ forloop.counter0 }}">
             <a href="{% url 'opening_detail' opening.slug %}" class="panel panel--link opening" data-tilt="5">
-                <img class="opening__piece" src="{% static 'game/pieces/classic/' %}w{{ corner_piece }}.svg" alt="">
+                <img class="opening__piece" src="{% static 'game/pieces/staunton-single/' %}w{{ corner_piece }}.webp" alt="">
                 {% if opening.difficulty == 'Beginner' %}
                 <span class="chip chip--good">{{ opening.difficulty }}</span>
                 {% elif opening.difficulty == 'Advanced' %}

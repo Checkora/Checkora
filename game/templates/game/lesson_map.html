@@ -20,7 +20,7 @@
             <p class="lede" data-reveal style="--i: 2">Every lesson has a board to practise on. Complete a lesson to unlock the next one.</p>
         </div>
         <div class="learn-head__piece" aria-hidden="true">
-            <img src="{% static 'game/pieces/classic/wp.svg' %}" alt="">
+            <img src="{% static 'game/pieces/staunton-single/wp.webp' %}" alt="">
             <canvas data-piece3d="p"></canvas>
         </div>
     </header>
@@ -66,7 +66,7 @@
 
                     {% if lesson in completed_lessons %}
                     <a href="{% url 'lesson_detail' lesson|slugify %}" class="node completed roadmap-node" tabindex="-1" aria-hidden="true">
-                        <img src="{% static 'game/pieces/classic/' %}w{{ level_piece }}.svg" alt="">
+                        <img src="{% static 'game/pieces/staunton-single/' %}w{{ level_piece }}.webp" alt="">
                     </a>
                     <div class="lesson-card" data-reveal>
                         <span class="label">Lesson {{ level.id }}.{{ forloop.counter }}</span>
@@ -76,7 +76,7 @@
 
                     {% elif lesson in unlocked_lessons %}
                     <a href="{% url 'lesson_detail' lesson|slugify %}" class="node current roadmap-node" tabindex="-1" aria-hidden="true">
-                        <img src="{% static 'game/pieces/classic/' %}w{{ level_piece }}.svg" alt="">
+                        <img src="{% static 'game/pieces/staunton-single/' %}w{{ level_piece }}.webp" alt="">
                     </a>
                     <div class="lesson-card" data-reveal>
                         <span class="label">Lesson {{ level.id }}.{{ forloop.counter }}</span>
@@ -86,7 +86,7 @@
 
                     {% else %}
                     <div class="node locked roadmap-node" aria-hidden="true">
-                        <img src="{% static 'game/pieces/outline/' %}w{{ level_piece }}.svg" alt="">
+                        <img src="{% static 'game/pieces/staunton-single/' %}w{{ level_piece }}.webp" alt="">
                     </div>
                     <div class="lesson-card is-locked" data-reveal>
                         <span class="label">Lesson {{ level.id }}.{{ forloop.counter }}</span>

@@ -2057,24 +2057,22 @@ html:has(.section-nav.is-docked) {
     max-width: 100%;
 }
 .replay-board {
-    --sq-light: color-mix(in srgb, var(--title) 80%, var(--gold-deep));
-    --sq-dark: color-mix(in srgb, var(--gold-deep) 62%, var(--ink-0));
-    padding: 6px;
-    border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
-    border-radius: 12px;
-    background: var(--ink-0);
-    box-shadow: var(--shadow);
+    /* The board you play on: maple and walnut in a walnut frame
+       (scripts/render_wood.mjs), the same in both themes. */
+    --sq-light: #ecd7aa;
+    --sq-dark: #5e3b24;
+    --frame: clamp(10px, 2.4vw, 15px);
+    border: var(--frame) solid #3b2415;
+    border-image: url('../board/frame.webp') 96 / var(--frame) stretch;
+    background: #24150b;
+    box-shadow: 0 0 0 1px rgba(14, 8, 3, 0.9), 0 2px 3px rgba(0, 0, 0, 0.4), 0 22px 38px -16px rgba(0, 0, 0, 0.75);
 }
 [data-theme='light'] .replay-board {
-    --sq-light: var(--ink-1);
-    --sq-dark: color-mix(in srgb, var(--gold-bright) 58%, var(--ink-3));
-    background: var(--gold-deep);
+    box-shadow: 0 0 0 1px rgba(40, 22, 10, 0.7), 0 2px 3px rgba(60, 35, 15, 0.3), 0 22px 38px -16px rgba(60, 35, 15, 0.45);
 }
 .replay-board__inner {
     position: relative;
     aspect-ratio: 1;
-    border-radius: 6px;
-    overflow: hidden;
 }
 .replay-board__squares {
     position: absolute;
@@ -2082,15 +2080,38 @@ html:has(.section-nav.is-docked) {
     display: grid;
     grid-template: repeat(8, 1fr) / repeat(8, 1fr);
 }
+/* A soft light from above, brightest in the middle of the board. */
+.replay-board__squares::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 64% 60% at 50% 50%, rgba(255, 238, 208, 0.13), rgba(255, 238, 208, 0) 100%),
+        radial-gradient(ellipse 74% 74% at 50% 50%, rgba(24, 12, 2, 0) 55%, rgba(24, 12, 2, 0.2) 100%);
+    pointer-events: none;
+}
 .sq {
     position: relative;
-    background: var(--sq-dark);
+    background: url('../board/walnut.webp') var(--gx, 0%) var(--gy, 0%) / 600% 300% no-repeat, var(--sq-dark);
     color: var(--sq-light);
 }
 .sq--light {
-    background: var(--sq-light);
+    background: url('../board/maple.webp') var(--gx, 0%) var(--gy, 0%) / 600% 300% no-repeat, var(--sq-light);
     color: var(--sq-dark);
 }
+/* Each square shows its own part of the plank. */
+.sq:nth-child(7n + 1) { --gx: 6%; }
+.sq:nth-child(7n + 2) { --gx: 61%; }
+.sq:nth-child(7n + 3) { --gx: 23%; }
+.sq:nth-child(7n + 4) { --gx: 88%; }
+.sq:nth-child(7n + 5) { --gx: 40%; }
+.sq:nth-child(7n + 6) { --gx: 74%; }
+.sq:nth-child(7n) { --gx: 14%; }
+.sq:nth-child(5n + 1) { --gy: 12%; }
+.sq:nth-child(5n + 2) { --gy: 70%; }
+.sq:nth-child(5n + 3) { --gy: 33%; }
+.sq:nth-child(5n + 4) { --gy: 92%; }
+.sq:nth-child(5n) { --gy: 51%; }
 .sq::before,
 .sq::after {
     position: absolute;
@@ -2115,7 +2136,7 @@ html:has(.section-nav.is-docked) {
     box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--gold-bright) 48%, transparent);
 }
 .sq.is-check {
-    background-image: radial-gradient(circle, var(--check) 18%, transparent 72%);
+    box-shadow: inset 0 0 0 100vmax rgb(255 70 50 / 0.42), inset 0 0 0 3px rgb(255 70 50 / 0.9);
 }
 .replay-board__pieces {
     position: absolute;
@@ -2129,7 +2150,12 @@ html:has(.section-nav.is-docked) {
     width: 12.5%;
     height: 12.5%;
     max-width: none;
-    transform: translate(calc(var(--x) * 100%), calc(var(--y) * 100%));
+    /* The pictures are framed for a king; drawn a little larger and set a
+       little high, a piece stands with its foot in the lower part of its
+       square, as on the board you play on. That goes last in the list, so
+       it does not stretch the move to the square. */
+    transform: translate(calc(var(--x) * 100%), calc(var(--y) * 100%)) translateY(-8%) scale(1.12);
+    transform-origin: 50% 90%;
     transition: transform 0.34s var(--ease-out), opacity 0.22s, scale 0.22s;
     will-change: transform;
 }

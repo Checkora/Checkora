@@ -84,7 +84,45 @@
         });
     }
 
+    // How far the 3D board leans back, in degrees. play.css reads it as
+    // --tilt on .play; the pieces lean the other way by the same amount so
+    // they keep standing up.
+    const TILT_KEY = 'checkoraBoardTilt';
+    function initViewAngle() {
+        const slider = byId('viewAngle');
+        const value = byId('viewAngleValue');
+        const play = document.querySelector('.play');
+        if (!slider || !play) return;
+        const min = Number(slider.min);
+        const max = Number(slider.max);
+        const apply = (degrees) => {
+            const angle = Math.min(max, Math.max(min, Math.round(degrees)));
+            slider.value = String(angle);
+            play.style.setProperty('--tilt', `${angle}deg`);
+            if (value) value.textContent = `${angle}°`;
+            slider.setAttribute('aria-valuetext', `${angle} degrees`);
+            return angle;
+        };
+        const saved = Number(store.get(TILT_KEY));
+        apply(Number.isFinite(saved) && saved ? saved : Number(slider.value));
+
+        // While the slider moves the board follows it at once; the usual
+        // slow tilt is for switching the 3D view on and off.
+        let settle = 0;
+        slider.addEventListener('input', () => {
+            play.classList.add('is-angling');
+            window.clearTimeout(settle);
+            settle = window.setTimeout(() => play.classList.remove('is-angling'), 200);
+            store.set(TILT_KEY, String(apply(Number(slider.value))));
+        });
+        // A double click puts it back to where it started.
+        slider.addEventListener('dblclick', () => {
+            store.set(TILT_KEY, String(apply(40)));
+        });
+    }
+
     function init3d() {
+        initViewAngle();
         const button = byId('view3dBtn');
         if (!button) return;
         button.setAttribute('aria-pressed', root.classList.contains('board-3d') ? 'true' : 'false');
@@ -264,8 +302,8 @@
         const overlay = byId('welcomeOverlay');
         if (!stage || !overlay) return;
 
-        // An illustration, so it always uses the classic set.
-        const base = `${root.dataset.static || '/static/game/'}pieces/classic/`;
+        // An illustration, so it always uses the rendered wooden set.
+        const base = `${root.dataset.static || '/static/game/'}pieces/staunton/`;
         const backRank = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
 
         const seat = document.createElement('div');
@@ -279,7 +317,8 @@
                 const piece = document.createElement('img');
                 piece.className = 'seat__piece';
                 piece.alt = '';
-                piece.src = `${base}${colour}${type || backRank[file]}.svg`;
+                piece.src = `${base}${colour}${type || backRank[file]}.webp`;
+                piece.decoding = 'async';
                 piece.style.setProperty('--f', file);
                 piece.style.setProperty('--r', rank);
                 piece.style.setProperty('--i', order++);

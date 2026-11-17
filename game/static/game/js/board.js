@@ -16,17 +16,35 @@
     // The page sets data-static on <html> to the static prefix, ending in 'game/'.
     const STATIC_BASE = document.documentElement.dataset.static || '/static/game/';
 
-    const VALID_PIECE_STYLES = ['classic', 'wood', 'outline'];
-    const PIECE_IMG = {};
+    // staunton is the rendered wooden set (WebP); the other three are flat SVGs.
+    // The flip animation's timer (see turnBoard).
+    let turnTimer = 0;
+    // Where the king beaten by checkmate lies, for as long as that game is
+    // on the board (play.css lays it on its side).
+    let fallenKing = null;
 
-    // A style saved by an older version (neo, alpha, cburnett) falls back to classic.
+    const VALID_PIECE_STYLES = ['staunton', 'classic', 'wood', 'outline'];
+    const PIECE_EXT = { staunton: 'webp' };
+    const PIECE_IMG = {};
+    // A piece shown on its own (taken pieces, the promotion choice). The
+    // rendered set has its own pictures for that, each piece filling its
+    // frame; a flat set uses the same pictures as on the board.
+    const PIECE_ICON = {};
+
+    // A style saved by an older version (neo, alpha, cburnett) falls back to staunton.
     function buildPieceImg(style) {
-        const targetStyle = VALID_PIECE_STYLES.includes(style) ? style : 'classic';
+        const targetStyle = VALID_PIECE_STYLES.includes(style) ? style : 'staunton';
+        const ext = PIECE_EXT[targetStyle] || 'svg';
         for (const c of ['w', 'b']) {
             for (const t of ['k', 'q', 'r', 'b', 'n', 'p']) {
-                PIECE_IMG[c + t] = `${STATIC_BASE}pieces/${targetStyle}/${c}${t}.svg`;
+                PIECE_IMG[c + t] = `${STATIC_BASE}pieces/${targetStyle}/${c}${t}.${ext}`;
+                PIECE_ICON[c + t] = targetStyle === 'staunton'
+                    ? `${STATIC_BASE}pieces/staunton-single/${c}${t}.webp`
+                    : PIECE_IMG[c + t];
             }
         }
+        // play.css sizes and stands the pieces differently for each set.
+        document.documentElement.dataset.pieceStyle = targetStyle;
     }
 
     // Initialize piece style on page load
@@ -43,8 +61,8 @@
         // Re-draw captured list pieces dynamically
         document.querySelectorAll('.captured-img').forEach(img => {
             const key = img.dataset.piece;
-            if (key && PIECE_IMG[key]) {
-                img.src = PIECE_IMG[key];
+            if (key && PIECE_ICON[key]) {
+                img.src = PIECE_ICON[key];
             }
         });
     }
@@ -1490,6 +1508,10 @@
         return s ? s.getBoundingClientRect().width : 60;
     }
 
+    // A move on screen. play.css flies the piece (.moving) using the lengths
+    // set here, and this waits until it has landed; the caller then draws the
+    // new position, which replaces the piece. Until then the piece stays on
+    // the square it landed on.
     async function animateMove(fr, fc, tr, tc) {
 
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1497,10 +1519,22 @@
         const animations = [];
         const size = getSquareSize();
         const mult = flipped ? -1 : 1;
+        const moverDistance = Math.hypot(tr - fr, tc - fc);
+
+        // The move as two lengths in the board's own plane, and its length in
+        // squares (play.css times the flight by it). The measured size is the
+        // square as drawn on screen, which a tilted board shrinks, so the
+        // square's laid-out width is used.
+        function setMove(el, dRow, dCol, cell) {
+            el.style.setProperty('--move-x', `${dCol * cell * mult}px`);
+            el.style.setProperty('--move-y', `${dRow * cell * mult}px`);
+            el.style.setProperty('--move-dist', Math.hypot(dRow, dCol).toFixed(2));
+        }
 
         function createAnim(p, dRow, dCol) {
             return new Promise(resolve => {
                 const originSquare = p.parentElement;
+                const cell = originSquare ? parseFloat(getComputedStyle(originSquare).width) || size : size;
 
                 if (originSquare) {
                     const ghost = p.cloneNode(true);
@@ -1513,31 +1547,60 @@
                         () => ghost.remove(),
                         { once: true }
                     );
+
+                    // A shadow that stays on the board under the piece in flight.
+                    const shadow = document.createElement('span');
+                    shadow.className = 'move-shadow';
+                    setMove(shadow, dRow, dCol, cell);
+                    originSquare.appendChild(shadow);
                 }
 
-                // The same move as two lengths in the board's own plane, for a
-                // stylesheet that animates .moving itself (the tilted 3D view
-                // cannot use the transform below). The measured size is the
-                // square as drawn on screen, so the square's laid-out width
-                // is used here.
-                const cell = originSquare ? parseFloat(getComputedStyle(originSquare).width) || size : size;
-                p.style.setProperty('--move-x', `${dCol * cell * mult}px`);
-                p.style.setProperty('--move-y', `${dRow * cell * mult}px`);
-
+                setMove(p, dRow, dCol, cell);
                 p.classList.add('moving');
-                p.style.transition = 'transform 0.25s ease-in-out, opacity 0.2s ease';
-                p.style.transform = `translate(${dCol * size * mult}px, ${dRow * size * mult}px)`;
 
-                const onEnd = () => {
-                    p.removeEventListener('transitionend', onEnd);
-                    p.classList.remove('moving');
-                    p.style.transform = 'none';
-                    p.style.transition = '';
+                // How long the flight takes is up to the stylesheet.
+                const seconds = parseFloat(getComputedStyle(p).animationDuration);
+                const wait = Number.isFinite(seconds) ? seconds * 1000 : 0;
+                let landed = false;
+                const onEnd = (event) => {
+                    if (landed) return;
+                    if (event && (event.target !== p || event.animationName !== 'piece-travel')) return;
+                    landed = true;
+                    p.removeEventListener('animationend', onEnd);
                     resolve();
                 };
-                p.addEventListener('transitionend', onEnd);
-                setTimeout(onEnd, 300);
+                p.addEventListener('animationend', onEnd);
+                setTimeout(onEnd, wait + 60);
             });
+        }
+
+        // The taken piece is knocked off its square by the one arriving. A
+        // copy of it goes into a box of its own on the board, so it can go on
+        // falling after the new position is drawn; the box removes itself.
+        function knockAway(target, square) {
+            const dRow = tr - fr;
+            const dCol = tc - fc;
+            const length = Math.hypot(dRow, dCol) || 1;
+            const debris = document.createElement('div');
+            debris.className = 'piece-debris';
+            debris.setAttribute('aria-hidden', 'true');
+            debris.style.left = `${square.offsetLeft}px`;
+            debris.style.top = `${square.offsetTop}px`;
+            debris.style.width = `${square.offsetWidth}px`;
+            debris.style.height = `${square.offsetHeight}px`;
+            debris.style.setProperty('--knock-x', ((dCol * mult) / length).toFixed(3));
+            debris.style.setProperty('--knock-y', ((dRow * mult) / length).toFixed(3));
+            debris.style.setProperty('--knock-turn', dCol * mult < 0 ? '-1' : '1');
+            debris.style.setProperty('--move-dist', moverDistance.toFixed(2));
+            const copy = document.createElement('img');
+            copy.src = target.src;
+            copy.alt = '';
+            copy.draggable = false;
+            debris.appendChild(copy);
+            boardEl.appendChild(debris);
+            const clear = () => debris.remove();
+            copy.addEventListener('animationend', clear, { once: true });
+            setTimeout(clear, 2500);
         }
 
         const piece = sq(fr, fc).querySelector('.piece');
@@ -1567,6 +1630,7 @@
 
         const targetPiece = capturedSq.querySelector('.piece');
         if (targetPiece) {
+            knockAway(targetPiece, capturedSq);
             targetPiece.classList.add('captured');
         }
 
@@ -1626,6 +1690,7 @@
         aiRequestSeq++;
         analysisRequestSeq++;
         aiThinking = false;
+        fallenKing = null;
         premoveQueue = [];
         refreshPremoveHighlight();
         whiteAlertFired = false;
@@ -1882,12 +1947,17 @@
     BOARD RENDERING
     ========================================================== */
     function buildBoard() {
+        clearTimeout(turnTimer);
+        boardEl.classList.remove('turning');
         updateEvalBarVisibility();
         const bc = document.querySelector('.board-container');
         if (bc) bc.classList.toggle('flipped', flipped);
         // The squares are about to be replaced; note keyboard focus so it can be put back.
         const hadFocus = boardEl.contains(document.activeElement);
-        boardEl.innerHTML = '';
+        // Only the squares go. A piece still falling after a capture stays,
+        // and the new squares go in front of it so they keep their order.
+        boardEl.querySelectorAll(':scope > .square').forEach(square => square.remove());
+        const keptAfterSquares = boardEl.firstElementChild;
         for (let vr = 0; vr < 8; vr++) {
             for (let vc = 0; vc < 8; vc++) {
                 const r = flipped ? 7 - vr : vr;
@@ -1958,7 +2028,7 @@
                 d.setAttribute('aria-label', getSquareLabel(r, c));
                 d.onkeydown = (e) => handleSquareKeydown(e, r, c);
 
-                boardEl.appendChild(d);
+                boardEl.insertBefore(d, keptAfterSquares);
             }
         }
         syncPieces();
@@ -2023,9 +2093,11 @@
 
     function refreshHighlights() {
         const checked = checkedSquare();
+        const fallen = fallenKing && stepperIndex >= gameFens.length - 1 ? sq(fallenKing.r, fallenKing.c) : null;
         boardEl.querySelectorAll('.square').forEach(el => {
             el.classList.remove('selected', 'last-move', 'custom-highlight');
             el.classList.toggle('in-check', el === checked);
+            el.classList.toggle('king-fallen', el === fallen);
             el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
         });
 
@@ -2043,6 +2115,8 @@
                 const el = sq(h.row, h.col);
                 const d = document.createElement('div');
                 d.className = h.is_capture ? 'capture-ring' : 'move-dot';
+                // How far from the piece, so the marks come up in a ripple outwards.
+                d.style.setProperty('--n', Math.max(Math.abs(h.row - selected.r), Math.abs(h.col - selected.c)) - 1);
                 el.appendChild(d);
             });
         }
@@ -2273,7 +2347,7 @@
             btn.setAttribute('aria-label', `${label} (${key})`);
             
             const img = document.createElement('img');
-            img.src = PIECE_IMG[prefix + key];
+            img.src = PIECE_ICON[prefix + key];
             img.alt = '';
             img.setAttribute('aria-hidden', 'true');
             btn.appendChild(img);
@@ -2316,6 +2390,9 @@
         if (!pendingPromo) return;
         hidePromoModal();
         deselect();
+        // The pawn was flown to the last rank before the question; draw it
+        // back on its own square.
+        syncPieces();
     }
 
     async function tryMove(fr, fc, tr, tc) {
@@ -2573,8 +2650,10 @@
                 lastMove = { from: [fr, fc], to: [tr, tc] };
 
                 if (gameMode === 'pvp' && autoFlip) {
+                    const turnRound = flipped !== (turn === 'black');
                     flipped = (turn === 'black');
-                    buildBoard();
+                    if (turnRound) turnBoard();
+                    else buildBoard();
                 }
                 whiteTime = data.white_time;
                 blackTime = data.black_time;
@@ -3199,7 +3278,7 @@ function updateStepperUI() {
         const makeImg = (p) => {
             const img = document.createElement('img');
             const key = pKey(p);
-            img.src = PIECE_IMG[key];
+            img.src = PIECE_ICON[key];
             img.className = 'captured-img';
             img.dataset.piece = key; // Save key for live piece style switching
             const name = pieceNames[p.toLowerCase()] || p;
@@ -3259,6 +3338,15 @@ function updateStepperUI() {
     async function endGame(reason, loserColor, drawReason = null) {
         if (gameOver) return;
         gameOver = true;
+
+        // The beaten king goes over.
+        if (reason === 'checkmate') {
+            const king = loserColor === 'white' ? 'K' : 'k';
+            for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+                if (board[r] && board[r][c] === king) fallenKing = { r, c };
+            }
+            if (fallenKing) refreshHighlights();
+        }
 
         let title = '', message = '';
         let isCelebration = false;
@@ -3811,7 +3899,9 @@ function updateStepperUI() {
             isCelebration = false;
         }
 
-        // Delay the overlay and celebration effects by 0.5 seconds
+        // Delay the overlay and celebration effects by 0.5 seconds; after a
+        // checkmate a little longer, so the beaten king is seen to fall.
+        const kingFalls = reason === 'checkmate' && fallenKing && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         setTimeout(() => {
             const overlayEl = gameOverOverlay || document.getElementById('gameOverOverlay');
             if (!overlayEl) return;
@@ -3833,7 +3923,7 @@ function updateStepperUI() {
             setTimeout(() => {
                 if (overlayEl) overlayEl.style.opacity = '1';
             }, 500);
-        }, 500);
+        }, kingFalls ? 1250 : 500);
 
         showStatus(title + ': ' + message, false);
 
@@ -4307,6 +4397,23 @@ function updateStepperUI() {
 
     function toggleBoardOrientation() {
         flipped = !flipped;
+        turnBoard();
+    }
+
+    // Flipping turns the board round on screen first (.turning in play.css)
+    // and then draws it the other way up. buildBoard() cancels a turn that
+    // is still going, so any other redraw wins.
+    function turnBoard() {
+        clearTimeout(turnTimer);
+        boardEl.classList.remove('turning');
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && boardEl.children.length) {
+            boardEl.classList.add('turning');
+            const seconds = parseFloat(getComputedStyle(boardEl).animationDuration);
+            if (seconds > 0) {
+                turnTimer = setTimeout(buildBoard, seconds * 1000);
+                return;
+            }
+        }
         buildBoard();
     }
 
@@ -4625,6 +4732,7 @@ function updateStepperUI() {
         forfeitAccepted = false;
         paused = false;
         gameOver = false;
+        fallenKing = null;
         whiteAlertFired = false;
         blackAlertFired = false;
         maxWhiteTime = Math.max(d.white_time || 0, Math.round(selectedMins * 60));
@@ -5886,7 +5994,7 @@ async function handleSanMove() {
 
             // Sync Piece Style radio
             const savedPieceStyle = localStorage.getItem('pieceStyle');
-            const currentPieceStyle = VALID_PIECE_STYLES.includes(savedPieceStyle) ? savedPieceStyle : 'classic';
+            const currentPieceStyle = VALID_PIECE_STYLES.includes(savedPieceStyle) ? savedPieceStyle : 'staunton';
             const pieceStyleRadio = themeSettingsModal.querySelector(`input[name="pieceStyleRadio"][value="${currentPieceStyle}"]`);
             if (pieceStyleRadio) pieceStyleRadio.checked = true;
 

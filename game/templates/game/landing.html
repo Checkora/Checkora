@@ -39,6 +39,7 @@
         <canvas id="heroCanvas"></canvas>
         <div class="hero__fallback"></div>
     </div>
+    <canvas class="hero__dust" id="heroDust" aria-hidden="true"></canvas>
 
     <div class="hero__copy wrap wrap--wide">
         <p class="eyebrow hero-in" style="--i: 0">Open-source chess platform</p>
@@ -63,6 +64,11 @@
     </div>
 </section>
 
+<div class="ribbon" aria-hidden="true">
+    <div class="ribbon__row"><div class="ribbon__track"><span>1. e4 e5</span><i></i><span>2. Nf3 d6</span><i></i><span>3. d4 Bg4</span><i></i><span>4. dxe5 Bxf3</span><i></i><span>5. Qxf3 dxe5</span><i></i><span>6. Bc4 Nf6</span><i></i><span>7. Qb3 Qe7</span><i></i><span>8. Nc3 c6</span><i></i><span>9. Bg5 b5</span><i></i><span>10. Nxb5 cxb5</span><i></i><span>11. Bxb5+ Nbd7</span><i></i><span>12. O-O-O Rd8</span><i></i><span>13. Rxd7 Rxd7</span><i></i><span>14. Rd1 Qe6</span><i></i><span>15. Bxd7+ Nxd7</span><i></i><span>16. Qb8+ Nxb8</span><i></i><span>17. Rd8#</span><i></i><span>1. e4 e5</span><i></i><span>2. Nf3 d6</span><i></i><span>3. d4 Bg4</span><i></i><span>4. dxe5 Bxf3</span><i></i><span>5. Qxf3 dxe5</span><i></i><span>6. Bc4 Nf6</span><i></i><span>7. Qb3 Qe7</span><i></i><span>8. Nc3 c6</span><i></i><span>9. Bg5 b5</span><i></i><span>10. Nxb5 cxb5</span><i></i><span>11. Bxb5+ Nbd7</span><i></i><span>12. O-O-O Rd8</span><i></i><span>13. Rxd7 Rxd7</span><i></i><span>14. Rd1 Qe6</span><i></i><span>15. Bxd7+ Nxd7</span><i></i><span>16. Qb8+ Nxb8</span><i></i><span>17. Rd8#</span><i></i></div></div>
+    <div class="ribbon__row ribbon__row--reverse"><div class="ribbon__track"><span>Back-rank mate</span><i></i><span>Smothered mate</span><i></i><span>Arabian mate</span><i></i><span>Epaulette mate</span><i></i><span>Opera mate</span><i></i><span>Fork</span><i></i><span>Pin</span><i></i><span>Skewer</span><i></i><span>Discovered attack</span><i></i><span>Zugzwang</span><i></i><span>En passant</span><i></i><span>Castling</span><i></i><span>Promotion</span><i></i><span>Back-rank mate</span><i></i><span>Smothered mate</span><i></i><span>Arabian mate</span><i></i><span>Epaulette mate</span><i></i><span>Opera mate</span><i></i><span>Fork</span><i></i><span>Pin</span><i></i><span>Skewer</span><i></i><span>Discovered attack</span><i></i><span>Zugzwang</span><i></i><span>En passant</span><i></i><span>Castling</span><i></i><span>Promotion</span><i></i></div></div>
+</div>
+
 <section class="section wrap" aria-labelledby="modesTitle">
     <div class="spread" style="margin-bottom: 32px">
         <div class="stack" style="--gap: 14px">
@@ -72,18 +78,21 @@
     </div>
     <div class="grid" style="--min: 280px">
         <a href="{% url 'index' %}" class="panel panel--link mode" data-tilt="6" data-reveal style="--i: 0">
+            <span class="mode__num" aria-hidden="true">01</span>
             <span class="mode__art mode__art--ai" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
             <h3>Play the engine</h3>
             <p>Easy, medium or hard. Choose your colour, your clock and, if you like, the opening it should steer for.</p>
             <span class="mode__go mono">Start a game →</span>
         </a>
         <a href="{% url 'index' %}" class="panel panel--link mode" data-tilt="6" data-reveal style="--i: 1">
+            <span class="mode__num" aria-hidden="true">02</span>
             <span class="mode__art mode__art--pvp" aria-hidden="true"><i></i><i></i></span>
             <h3>Pass and play</h3>
             <p>Two players, one screen. The board can turn itself round after every move.</p>
             <span class="mode__go mono">Set up the board →</span>
         </a>
         <a href="{% url 'puzzles' %}" class="panel panel--link mode" data-tilt="6" data-reveal style="--i: 2">
+            <span class="mode__num" aria-hidden="true">03</span>
             <span class="mode__art mode__art--puzzle" aria-hidden="true"><i></i><i></i><i></i></span>
             <h3>Solve puzzles</h3>
             <p>A daily puzzle, plus a library you can filter by difficulty, motif and rating.</p>
@@ -92,7 +101,9 @@
     </div>
 </section>
 
-<section class="section wrap" id="features" aria-labelledby="featuresTitle">
+{% include 'game/includes/ornament.html' %}
+
+<section class="section wrap section--checker" id="features" aria-labelledby="featuresTitle">
     <div class="stack" style="--gap: 14px; margin-bottom: 36px">
         <p class="eyebrow" data-reveal>What's on the board</p>
         <h2 id="featuresTitle" data-reveal style="--i: 1">Everything a club night has, <span class="serif">minus the travel.</span></h2>
@@ -130,6 +141,34 @@
     </div>
 </section>
 
+{% include 'game/includes/ornament.html' %}
+
+<section class="section wrap pieces" id="pieces" aria-labelledby="piecesTitle">
+    <div class="stack" style="--gap: 14px; margin-bottom: 36px">
+        <p class="eyebrow" data-reveal>Meet the pieces</p>
+        <h2 id="piecesTitle" data-reveal style="--i: 1">Six pieces, <span class="serif">endless lines.</span></h2>
+    </div>
+    <div class="pieces__grid" data-reveal="scale" style="--i: 2">
+        <div class="pieces__list" role="group" aria-label="Choose a piece">
+            <button type="button" class="piece-pick" data-piece="k" aria-pressed="true"><img src="{% static 'game/pieces/staunton-single/wk.webp' %}" alt=""><span>King</span><small>the game</small></button>
+            <button type="button" class="piece-pick" data-piece="q" aria-pressed="false"><img src="{% static 'game/pieces/staunton-single/wq.webp' %}" alt=""><span>Queen</span><small>9</small></button>
+            <button type="button" class="piece-pick" data-piece="r" aria-pressed="false"><img src="{% static 'game/pieces/staunton-single/wr.webp' %}" alt=""><span>Rook</span><small>5</small></button>
+            <button type="button" class="piece-pick" data-piece="b" aria-pressed="false"><img src="{% static 'game/pieces/staunton-single/wb.webp' %}" alt=""><span>Bishop</span><small>3</small></button>
+            <button type="button" class="piece-pick" data-piece="n" aria-pressed="false"><img src="{% static 'game/pieces/staunton-single/wn.webp' %}" alt=""><span>Knight</span><small>3</small></button>
+            <button type="button" class="piece-pick" data-piece="p" aria-pressed="false"><img src="{% static 'game/pieces/staunton-single/wp.webp' %}" alt=""><span>Pawn</span><small>1</small></button>
+        </div>
+        <div class="pieces__stage panel panel--raised">
+            <div class="mini-board" id="miniBoard" aria-hidden="true"></div>
+            <div class="pieces__text" aria-live="polite">
+                <h3 id="pieceName">King</h3>
+                <p id="pieceRule">One square in any direction, never onto a square that is attacked. Once a game it can castle with a rook.</p>
+                <p class="mono muted" id="pieceMeta">Worth the game</p>
+                <a class="text-link mono" href="{% url 'rules' %}">Read the rulebook →</a>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="section engine" id="about" aria-labelledby="engineTitle">
     <div class="wrap engine__grid">
         <div class="stack" style="--gap: 18px">
@@ -162,6 +201,8 @@
         </figure>
     </div>
 </section>
+
+{% include 'game/includes/ornament.html' %}
 
 <section class="section wrap" aria-labelledby="openTitle">
     <div class="panel panel--raised open" data-reveal>
@@ -204,6 +245,8 @@
     </div>
 </section>
 
+{% include 'game/includes/ornament.html' %}
+
 <section class="section wrap wrap--narrow" id="faq" aria-labelledby="faqTitle">
     <div class="stack" style="--gap: 14px; margin-bottom: 28px">
         <p class="eyebrow" data-reveal>Questions</p>
@@ -233,7 +276,9 @@
     </div>
 </section>
 
-<section class="section wrap closing" aria-labelledby="closingTitle">
+<section class="section wrap closing section--checker" aria-labelledby="closingTitle">
+    <img class="closing__king closing__king--white" src="{% static 'game/pieces/staunton-single/wk.webp' %}" alt="" aria-hidden="true">
+    <img class="closing__king closing__king--black" src="{% static 'game/pieces/staunton-single/bk.webp' %}" alt="" aria-hidden="true">
     <h2 class="display" id="closingTitle" data-reveal>Your <span class="serif">move.</span></h2>
     <div class="cluster" data-reveal style="--i: 1; justify-content: center">
         <a href="{% url 'index' %}" class="button button--primary button--lg">Play now</a>

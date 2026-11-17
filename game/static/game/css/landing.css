@@ -2,6 +2,8 @@
 
 .landing {
     padding-top: 0;
+    /* The tilted ribbon reaches past the edges of the window. */
+    overflow-x: clip;
 }
 
 /* ---------- hero ---------- */
@@ -631,4 +633,430 @@
     translate: none;
     transition: opacity 0.2s linear;
     transition-delay: calc(var(--i, 0) * 0.15s);
+}
+
+/* ---------- decoration ---------- */
+
+/* Gold dust drifting up through the hero. */
+.hero__dust {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* Two bands of notation crossing the page under the hero. */
+.ribbon {
+    position: relative;
+    z-index: 1;
+    margin: clamp(8px, 2vw, 24px) 0 0;
+    padding: 10px 0;
+    overflow: hidden;
+    rotate: -1.6deg;
+    background: linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright), var(--gold), var(--gold-deep));
+    box-shadow: 0 18px 40px -22px var(--gold);
+}
+.ribbon__row {
+    overflow: hidden;
+    white-space: nowrap;
+}
+.ribbon__row + .ribbon__row {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--on-gold) 22%, transparent);
+}
+.ribbon__track {
+    display: inline-flex;
+    align-items: center;
+    gap: 18px;
+    padding-right: 18px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--on-gold);
+    animation: ribbon-run 70s linear infinite;
+}
+.ribbon__row--reverse .ribbon__track {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 18px;
+    letter-spacing: 0;
+    animation-direction: reverse;
+    animation-duration: 90s;
+}
+.ribbon__track i {
+    width: 7px;
+    height: 7px;
+    rotate: 45deg;
+    background: var(--on-gold);
+    opacity: 0.55;
+}
+.ribbon:hover .ribbon__track {
+    animation-play-state: paused;
+}
+@keyframes ribbon-run {
+    to {
+        translate: -50% 0;
+    }
+}
+
+/* Crown dividers between sections. */
+.ornament {
+    display: flex;
+    justify-content: center;
+    padding-block: 8px;
+    color: var(--gold);
+}
+.ornament svg {
+    width: min(600px, 100%);
+    height: auto;
+    overflow: visible;
+}
+.ornament__line,
+.ornament__base {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-dasharray: 260;
+    stroke-dashoffset: 260;
+    transition: stroke-dashoffset 1.4s var(--ease-out) 0.2s;
+}
+.ornament__line {
+    opacity: 0.8;
+}
+.ornament__gem,
+.ornament__crown {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    transform-box: fill-box;
+    transform-origin: center;
+    scale: 0.4;
+    opacity: 0;
+    transition: scale 0.7s var(--ease-spring) 0.5s, opacity 0.4s 0.5s, fill 0.6s 1s;
+}
+.ornament.is-in .ornament__line,
+.ornament.is-in .ornament__base {
+    stroke-dashoffset: 0;
+}
+.ornament.is-in .ornament__gem,
+.ornament.is-in .ornament__crown {
+    scale: 1;
+    opacity: 1;
+}
+.ornament.is-in .ornament__crown {
+    fill: var(--gold-wash);
+}
+.no-js .ornament__line,
+.no-js .ornament__base {
+    stroke-dashoffset: 0;
+}
+.no-js .ornament__gem,
+.no-js .ornament__crown {
+    scale: 1;
+    opacity: 1;
+}
+
+/* A faint board pattern behind a section, fading out at its edges. */
+.section--checker {
+    position: relative;
+    isolation: isolate;
+}
+.section--checker::before {
+    content: '';
+    position: absolute;
+    inset: 0 calc(-1 * var(--pad));
+    z-index: -1;
+    pointer-events: none;
+    background: repeating-conic-gradient(color-mix(in srgb, var(--gold) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 72px 72px;
+    -webkit-mask-image: radial-gradient(60% 55% at 50% 50%, #000 0%, transparent 75%);
+    mask-image: radial-gradient(60% 55% at 50% 50%, #000 0%, transparent 75%);
+}
+
+/* The three ways in: a large numeral behind each card, and gold corners on hover. */
+.mode {
+    position: relative;
+}
+.mode__num {
+    position: absolute;
+    top: 6px;
+    right: 18px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 96px;
+    line-height: 1;
+    color: var(--gold);
+    opacity: 0.12;
+    pointer-events: none;
+    transition: opacity 0.3s, translate 0.5s var(--ease-out);
+}
+.mode:hover .mode__num {
+    opacity: 0.28;
+    translate: -6px 4px;
+}
+.mode::before {
+    content: '';
+    position: absolute;
+    inset: 14px;
+    pointer-events: none;
+    opacity: 0;
+    background:
+        linear-gradient(var(--gold), var(--gold)) top left / 20px 1.5px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) top left / 1.5px 20px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) top right / 20px 1.5px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) top right / 1.5px 20px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) bottom left / 20px 1.5px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) bottom left / 1.5px 20px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) bottom right / 20px 1.5px no-repeat,
+        linear-gradient(var(--gold), var(--gold)) bottom right / 1.5px 20px no-repeat;
+    transition: opacity 0.3s, inset 0.45s var(--ease-spring);
+}
+.mode:hover::before,
+.mode:focus-visible::before {
+    opacity: 1;
+    inset: 8px;
+}
+
+/* ---------- meet the pieces ---------- */
+
+.pieces__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(18px, 3vw, 36px);
+    align-items: start;
+}
+.pieces__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.piece-pick {
+    position: relative;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--ink-1);
+    text-align: left;
+    transition: border-color 0.2s, background 0.2s, translate 0.35s var(--ease-spring);
+}
+.piece-pick img {
+    grid-row: span 2;
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    transition: scale 0.45s var(--ease-spring), rotate 0.45s var(--ease-spring);
+}
+.piece-pick span {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--title);
+    align-self: end;
+}
+.piece-pick small {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    align-self: start;
+}
+.piece-pick:hover {
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    translate: 0 -2px;
+}
+.piece-pick:hover img {
+    scale: 1.08;
+    rotate: -6deg;
+}
+.piece-pick[aria-pressed='true'] {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+}
+.piece-pick[aria-pressed='true'] img {
+    scale: 1.12;
+}
+.pieces__stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    gap: clamp(18px, 3vw, 32px);
+    align-items: center;
+}
+.pieces__text {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pieces__text h3 {
+    font-size: clamp(26px, 2.6vw, 34px);
+}
+.pieces__text p {
+    color: var(--text);
+}
+.mini-board {
+    --mini-light: #d9c39b;
+    --mini-dark: #6b4f36;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    aspect-ratio: 1;
+    width: 100%;
+    padding: 6px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #4a3523, #2a1d12);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent), var(--shadow);
+}
+.mini-board span {
+    position: relative;
+    display: grid;
+    place-items: center;
+    background: var(--mini-light) url('../board/maple.webp') center / 800% auto;
+}
+.mini-board span.is-dark {
+    background: var(--mini-dark) url('../board/walnut.webp') center / 800% auto;
+}
+.mini-board span:first-child {
+    border-top-left-radius: 6px;
+}
+.mini-board span:nth-child(8) {
+    border-top-right-radius: 6px;
+}
+.mini-board span:nth-child(57) {
+    border-bottom-left-radius: 6px;
+}
+.mini-board span:last-child {
+    border-bottom-right-radius: 6px;
+}
+.mini-board img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    animation: mini-land 0.5s var(--ease-spring) both;
+}
+@keyframes mini-land {
+    from {
+        translate: 0 -40%;
+        opacity: 0;
+    }
+}
+/* A square the piece can move to: a dot that pops in, nearer squares first. */
+.mini-board .is-target::after {
+    content: '';
+    width: 30%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 30%, transparent);
+    animation: mini-dot 0.35s var(--ease-spring) both;
+    animation-delay: calc(var(--d, 0) * 70ms + 200ms);
+}
+/* A capture square: a ring round the piece standing there. */
+.mini-board .is-capture::after {
+    content: '';
+    position: absolute;
+    inset: 6%;
+    border: 3px solid var(--check);
+    border-radius: 50%;
+    animation: mini-dot 0.35s var(--ease-spring) both;
+    animation-delay: calc(var(--d, 0) * 70ms + 200ms);
+}
+@keyframes mini-dot {
+    from {
+        scale: 0;
+        opacity: 0;
+    }
+}
+
+@media (max-width: 960px) {
+    .pieces__grid,
+    .pieces__stage {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pieces__list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+@media (max-width: 560px) {
+    .pieces__list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .piece-pick {
+        grid-template-columns: 44px 1fr;
+        padding: 10px;
+    }
+    .piece-pick img {
+        width: 44px;
+        height: 44px;
+    }
+    .mode__num {
+        font-size: 72px;
+    }
+}
+
+/* ---------- closing ---------- */
+
+.closing {
+    overflow: hidden;
+}
+.closing__king {
+    position: absolute;
+    top: 50%;
+    width: clamp(120px, 16vw, 220px);
+    opacity: 0.3;
+    pointer-events: none;
+    filter: drop-shadow(0 30px 30px rgba(0, 0, 0, 0.5));
+    animation: king-float 7s ease-in-out infinite;
+}
+.closing__king--white {
+    left: 4%;
+    translate: 0 -50%;
+    rotate: -8deg;
+}
+.closing__king--black {
+    right: 4%;
+    translate: 0 -50%;
+    rotate: 8deg;
+    animation-delay: -3.5s;
+}
+@keyframes king-float {
+    50% {
+        translate: 0 calc(-50% - 14px);
+    }
+}
+@media (max-width: 760px) {
+    .closing__king {
+        display: none;
+    }
+}
+
+/* Low tier and reduced motion: the decoration stays, the motion goes. */
+[data-perf='low'] .ribbon__track,
+[data-perf='low'] .closing__king {
+    animation: none;
+}
+[data-perf='low'] .ribbon {
+    box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .ribbon__track,
+    .closing__king {
+        animation: none;
+    }
+    .ornament__line,
+    .ornament__base {
+        stroke-dashoffset: 0;
+    }
+    .ornament__gem,
+    .ornament__crown {
+        scale: 1;
+        opacity: 1;
+    }
 }

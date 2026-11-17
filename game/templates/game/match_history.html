@@ -54,7 +54,7 @@
                 <div id="placeholder-ready">
                     <div class="piece-stage" data-piece="r" data-piece-color="w" aria-hidden="true">
                         <canvas></canvas>
-                        <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wr.svg' %}" alt="">
+                        <img class="piece-stage__flat" src="{% static 'game/pieces/staunton-single/wr.webp' %}" alt="">
                     </div>
                     <h2>Pick a game</h2>
                     <p>Select a game to replay it.</p>
@@ -62,7 +62,7 @@
                 <div id="placeholder-empty" hidden>
                     <div class="piece-stage" data-piece="k" data-piece-color="w" data-piece-fallen aria-hidden="true">
                         <canvas></canvas>
-                        <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+                        <img class="piece-stage__flat" src="{% static 'game/pieces/staunton-single/wk.webp' %}" alt="">
                     </div>
                     <h2>Nothing to replay yet</h2>
                     <p>Finish a game and it will be here, or import a PGN file.</p>
@@ -149,7 +149,7 @@
     const API = "{% url 'api_history' %}";
     const STATIC = document.documentElement.dataset.static || '/static/game/';
     const FILES = 'abcdefgh';
-    const pieceUrl = (code) => `${STATIC}pieces/classic/${code}.svg`;
+    const pieceUrl = (code) => `${STATIC}pieces/staunton/${code}.webp`;
 
     // ─── DOM refs ────────────────────────────────────────────────────────────
     const listLoading = document.getElementById('list-loading');

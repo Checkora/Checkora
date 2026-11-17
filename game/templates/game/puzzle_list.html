@@ -20,7 +20,7 @@
             <p class="lede" data-reveal style="--i: 2">Search the puzzle library by title, or narrow it down by difficulty, motif and rating.</p>
         </div>
         <div class="learn-head__piece" aria-hidden="true">
-            <img src="{% static 'game/pieces/classic/wq.svg' %}" alt="">
+            <img src="{% static 'game/pieces/staunton-single/wq.webp' %}" alt="">
             <canvas data-piece3d="q"></canvas>
         </div>
     </header>
@@ -85,7 +85,8 @@
         const puzzleGrid = document.getElementById('puzzle-grid');
         const paginationContainer = document.getElementById('pagination-container');
         const countLine = document.getElementById('puzzle-count');
-        const pieceImages = document.documentElement.dataset.static + 'pieces/classic/';
+        const pieceImages = document.documentElement.dataset.static + 'pieces/staunton/';
+        const singleImages = document.documentElement.dataset.static + 'pieces/staunton-single/';
 
         let currentDifficulty = '';
         let currentSearch = '';
@@ -106,7 +107,7 @@
         function showMessage(title, text) {
             puzzleGrid.innerHTML = `
                 <div class="empty">
-                    <img src="${pieceImages}wp.svg" alt="">
+                    <img src="${singleImages}wp.webp" alt="">
                     <h3>${title}</h3>
                     <p>${text}</p>
                 </div>`;
@@ -180,7 +181,8 @@
             squares.forEach((code, index) => {
                 if (!/^[wb][kqrbnp]$/.test(code)) return;
                 const piece = document.createElement('img');
-                piece.src = `${pieceImages}${code}.svg`;
+                piece.src = `${pieceImages}${code}.webp`;
+                piece.decoding = 'async';
                 piece.alt = '';
                 piece.style.gridArea = `${Math.floor(index / 8) + 1} / ${(index % 8) + 1}`;
                 board.appendChild(piece);

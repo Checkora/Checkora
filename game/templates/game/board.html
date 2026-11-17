@@ -415,6 +415,11 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings
                         </button>
                     </div>
+                    <label class="view-angle ctl-wide" for="viewAngle">
+                        <span>View angle</span>
+                        <input type="range" id="viewAngle" min="15" max="65" step="1" value="40">
+                        <output id="viewAngleValue" for="viewAngle">40°</output>
+                    </label>
                 </div>
             </section>
 
@@ -621,6 +626,14 @@
         <div class="theme-modal-section">
             <h3 class="section-title">Pieces</h3>
             <div class="theme-swatches-grid theme-swatches-grid--pieces">
+                <label class="theme-swatch-label">
+                    <input type="radio" name="pieceStyleRadio" value="staunton" class="theme-radio-input">
+                    <span class="theme-swatch piece-swatch piece-swatch--photo piece-style-btn" data-piece-style="staunton" title="Staunton">
+                        <img src="{% static 'game/pieces/staunton/wn.webp' %}" alt="" width="45" height="45" decoding="async">
+                        <img src="{% static 'game/pieces/staunton/bq.webp' %}" alt="" width="45" height="45" decoding="async">
+                    </span>
+                    <span class="theme-swatch-name">Staunton</span>
+                </label>
                 <label class="theme-swatch-label">
                     <input type="radio" name="pieceStyleRadio" value="classic" class="theme-radio-input">
                     <span class="theme-swatch piece-swatch piece-style-btn" data-piece-style="classic" title="Classic">

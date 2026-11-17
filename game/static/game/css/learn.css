@@ -224,37 +224,69 @@
     border-color: var(--gold);
 }
 
-/* ---------- boards ---------- */
+/* ---------- boards ----------
+   Every board on these pages is the board you play on, made smaller: maple
+   and walnut squares (scripts/render_wood.mjs) in a walnut frame, under a
+   soft light from above, with the rendered Staunton pieces standing on
+   them. A square's state (a move, a hint, a choice) is a tint laid over the
+   wood, so the grain shows through it. */
 
-/* Every board on these pages is an 8 by 8 grid that takes its size from
-   the box it sits in. */
 .lesson-board,
 #demo-board,
 .mini-board,
 .chess-board {
+    --frame: clamp(9px, 2.2vw, 15px);
+    position: relative;
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     grid-template-rows: repeat(8, minmax(0, 1fr));
+    box-sizing: border-box;
     aspect-ratio: 1;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px var(--line-strong), var(--shadow);
+    border: var(--frame) solid #3b2415;
+    border-image: url('../board/frame.webp') 96 / var(--frame) stretch;
+    border-radius: 2px;
+    background: #24150b;
+    box-shadow: 0 0 0 1px rgba(14, 8, 3, 0.9), 0 2px 3px rgba(0, 0, 0, 0.4), 0 20px 36px -16px rgba(0, 0, 0, 0.75);
+}
+[data-theme='light'] :is(.lesson-board, #demo-board, .mini-board, .chess-board) {
+    box-shadow: 0 0 0 1px rgba(40, 22, 10, 0.7), 0 2px 3px rgba(60, 35, 15, 0.3), 0 20px 36px -16px rgba(60, 35, 15, 0.45);
+}
+/* The light: brighter in the middle of the board, falling off to the frame. */
+.lesson-board::after,
+#demo-board::after,
+.mini-board::after,
+.chess-board::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        radial-gradient(ellipse 64% 60% at 50% 50%, rgba(255, 238, 208, 0.13), rgba(255, 238, 208, 0) 100%),
+        linear-gradient(122deg, rgba(255, 250, 238, 0) 38%, rgba(255, 250, 238, 0.06) 50%, rgba(255, 250, 238, 0) 62%),
+        radial-gradient(ellipse 74% 74% at 50% 50%, rgba(24, 12, 2, 0) 55%, rgba(24, 12, 2, 0.2) 100%);
+    pointer-events: none;
 }
 .lesson-square,
 .demo-square,
 .mini-sq,
 .chess-board .square {
     --sq: var(--sq-light);
+    --tint: transparent;
     position: relative;
     display: grid;
     place-items: center;
     min-width: 0;
     min-height: 0;
     background-color: var(--sq);
+    background-image: linear-gradient(var(--tint), var(--tint)), var(--wood, none);
+    background-size: 100% 100%, 600% 300%;
+    background-position: 0 0, var(--gx, 0%) var(--gy, 0%);
+    background-repeat: no-repeat;
     color: var(--sq-ink);
     line-height: 1;
     user-select: none;
     -webkit-user-select: none;
+    transition: background-color 0.2s;
 }
 .lesson-square.dark,
 .demo-square.demo-dark,
@@ -262,11 +294,53 @@
 .chess-board .square.dark {
     --sq: var(--sq-dark);
 }
+/* Maple and walnut, unless the opening trainer has been asked for one of
+   its flat boards. Each square shows its own part of the plank. */
+.lesson-square.light,
+.demo-square.demo-light,
+.mini-sq.light,
+.chess-board:not(.theme-wood, .theme-green, .theme-blue) .square.light {
+    --wood: url('../board/maple.webp');
+}
+.lesson-square.dark,
+.demo-square.demo-dark,
+.mini-sq.dark,
+.chess-board:not(.theme-wood, .theme-green, .theme-blue) .square.dark {
+    --wood: url('../board/walnut.webp');
+}
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n + 1) { --gx: 6%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n + 2) { --gx: 61%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n + 3) { --gx: 23%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n + 4) { --gx: 88%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n + 5) { --gx: 40%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n + 6) { --gx: 74%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(7n) { --gx: 14%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(5n + 1) { --gy: 12%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(5n + 2) { --gy: 70%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(5n + 3) { --gy: 33%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(5n + 4) { --gy: 92%; }
+:is(.lesson-square, .demo-square, .mini-sq, .chess-board .square):nth-child(5n) { --gy: 51%; }
+
+/* A piece stands on its square, a little larger than it and set high, so
+   its foot is in the lower part of the square, as on the board you play
+   on. The picture carries its own shadow. */
+.chess-board .square img,
+.mini-sq img {
+    position: absolute;
+    left: -6%;
+    top: -16%;
+    width: 112%;
+    max-width: none;
+    height: 112%;
+    object-fit: contain;
+    transform-origin: 50% 90%;
+}
 
 /* The lesson boards. Their scripts write a chess glyph into the square;
-   the page tags the square with data-piece so the drawn piece can be
-   shown in its place. */
+   the page tags the square with data-piece, and the piece is drawn over
+   the square from that. */
 .lesson-board-aligned {
+    --frame: clamp(9px, 2.2vw, 15px);
     width: min(508px, 100%);
 }
 .lesson-board-row {
@@ -279,10 +353,12 @@
     width: 28px;
     display: flex;
     flex-direction: column;
+    /* In line with the squares, inside the frame. */
+    padding-block: var(--frame);
 }
 .lesson-files {
     display: flex;
-    padding: 8px 0 0 28px;
+    padding: 8px var(--frame) 0 calc(28px + var(--frame));
 }
 .lesson-ranks span,
 .lesson-files span {
@@ -318,45 +394,70 @@
 .lesson-square,
 .demo-square {
     font-size: 9cqw;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 86%;
 }
 /* The black pawn glyph is drawn as an emoji on some systems, and colour
    does not hide an emoji; a zero font size hides either kind. */
 .lesson-square[data-piece],
 .demo-square[data-piece] {
     font-size: 0;
-    animation: piece-land 0.3s var(--ease-spring);
 }
+.lesson-square[data-piece]::before,
+.demo-square[data-piece]::before {
+    content: '';
+    position: absolute;
+    left: -6%;
+    top: -16%;
+    width: 112%;
+    height: 112%;
+    background: var(--piece) center / contain no-repeat;
+    transform-origin: 50% 90%;
+    pointer-events: none;
+    transition: translate 0.25s var(--ease-out), scale 0.25s var(--ease-spring), filter 0.25s;
+    animation: piece-land 0.42s var(--ease-spring);
+}
+/* A piece that arrives on a square drops onto it and settles. */
 @keyframes piece-land {
-    from {
-        background-size: 58%;
+    0% {
+        opacity: 0;
+        translate: 0 -24%;
+        scale: 1.08;
+    }
+    55% {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1.04 0.93;
+    }
+    80% {
+        scale: 0.99 1.02;
     }
 }
-[data-piece='wk'] { background-image: url('../pieces/classic/wk.svg'); }
-[data-piece='wq'] { background-image: url('../pieces/classic/wq.svg'); }
-[data-piece='wr'] { background-image: url('../pieces/classic/wr.svg'); }
-[data-piece='wb'] { background-image: url('../pieces/classic/wb.svg'); }
-[data-piece='wn'] { background-image: url('../pieces/classic/wn.svg'); }
-[data-piece='wp'] { background-image: url('../pieces/classic/wp.svg'); }
-[data-piece='bk'] { background-image: url('../pieces/classic/bk.svg'); }
-[data-piece='bq'] { background-image: url('../pieces/classic/bq.svg'); }
-[data-piece='br'] { background-image: url('../pieces/classic/br.svg'); }
-[data-piece='bb'] { background-image: url('../pieces/classic/bb.svg'); }
-[data-piece='bn'] { background-image: url('../pieces/classic/bn.svg'); }
-[data-piece='bp'] { background-image: url('../pieces/classic/bp.svg'); }
+[data-piece='wk'] { --piece: url('../pieces/staunton/wk.webp'); }
+[data-piece='wq'] { --piece: url('../pieces/staunton/wq.webp'); }
+[data-piece='wr'] { --piece: url('../pieces/staunton/wr.webp'); }
+[data-piece='wb'] { --piece: url('../pieces/staunton/wb.webp'); }
+[data-piece='wn'] { --piece: url('../pieces/staunton/wn.webp'); }
+[data-piece='wp'] { --piece: url('../pieces/staunton/wp.webp'); }
+[data-piece='bk'] { --piece: url('../pieces/staunton/bk.webp'); }
+[data-piece='bq'] { --piece: url('../pieces/staunton/bq.webp'); }
+[data-piece='br'] { --piece: url('../pieces/staunton/br.webp'); }
+[data-piece='bb'] { --piece: url('../pieces/staunton/bb.webp'); }
+[data-piece='bn'] { --piece: url('../pieces/staunton/bn.webp'); }
+[data-piece='bp'] { --piece: url('../pieces/staunton/bp.webp'); }
 
 .lesson-square {
     cursor: pointer;
 }
 .lesson-square:hover {
-    background-color: color-mix(in srgb, var(--gold) 22%, var(--sq));
+    --tint: color-mix(in srgb, var(--gold) 24%, transparent);
+}
+.lesson-square[data-piece]:hover::before {
+    translate: 0 -4%;
+    scale: 1.04;
 }
 /* A square a piece may go to: tinted, with a dot. */
 .highlight-square,
 .valid-move {
-    background-color: color-mix(in srgb, var(--good) 42%, var(--sq));
+    --tint: rgba(69, 209, 154, 0.36);
 }
 .highlight-square::after,
 .valid-move::after {
@@ -364,7 +465,8 @@
     width: 26%;
     aspect-ratio: 1;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--sq-ink) 42%, transparent);
+    background: radial-gradient(circle at 50% 42%, rgba(14, 9, 4, 0.5), rgba(14, 9, 4, 0.32));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 240, 212, 0.34);
     animation: dot-in 0.35s var(--ease-spring) both;
 }
 .highlight-square[data-piece]::after,
@@ -377,8 +479,15 @@
     }
 }
 .selected-square {
-    background-color: color-mix(in srgb, var(--gold) 62%, var(--sq));
-    box-shadow: inset 0 0 0 3px var(--sq-ink);
+    --tint: rgba(255, 204, 82, 0.55);
+    box-shadow: inset 0 0 0 2px rgba(255, 232, 168, 0.95), inset 0 0 18px rgba(255, 210, 110, 0.55);
+}
+/* The piece picked up rises from its square. */
+.selected-square[data-piece]::before,
+.selected-square[data-piece]:hover::before {
+    translate: 0 -8%;
+    scale: 1.08;
+    filter: drop-shadow(0 12px 6px rgba(0, 0, 0, 0.4));
 }
 .lesson-square:focus-visible {
     z-index: 1;
@@ -1154,39 +1263,50 @@ a.node:hover img,
     cursor: pointer;
 }
 .chess-board .square img {
-    width: 86%;
-    height: 86%;
-    object-fit: contain;
     touch-action: none;
-    transition: scale 0.25s var(--ease-spring);
+    transition: translate 0.25s var(--ease-out), scale 0.25s var(--ease-spring), filter 0.25s;
+    animation: trainer-piece-in 0.38s var(--ease-spring) backwards;
+}
+/* The board is drawn again after every move; the pieces settle onto it. */
+@keyframes trainer-piece-in {
+    from {
+        scale: 1.04 0.94;
+    }
 }
 .chess-board .square:hover img {
+    translate: 0 -4%;
+    scale: 1.05;
+}
+.chess-board .square.selected img {
+    translate: 0 -8%;
     scale: 1.08;
+    filter: drop-shadow(0 12px 6px rgba(0, 0, 0, 0.4));
 }
 .chess-board .square.selected {
-    background-color: color-mix(in srgb, var(--gold) 62%, var(--sq));
+    --tint: rgba(255, 204, 82, 0.55);
+    box-shadow: inset 0 0 0 2px rgba(255, 232, 168, 0.95), inset 0 0 18px rgba(255, 210, 110, 0.55);
 }
 .chess-board .square.highlight-from {
-    background-color: color-mix(in srgb, var(--gold) 26%, var(--sq));
+    --tint: rgba(250, 196, 66, 0.26);
 }
 .chess-board .square.highlight-to {
-    background-color: color-mix(in srgb, var(--gold) 46%, var(--sq));
+    --tint: rgba(250, 196, 66, 0.42);
 }
 .chess-board .square.hint-from {
     animation: hint-glow 1.6s ease-in-out infinite;
 }
 .chess-board .square.hint-to {
-    background-color: color-mix(in srgb, var(--good) 40%, var(--sq));
-    outline: 3px dashed var(--sq-ink);
+    --tint: rgba(69, 209, 154, 0.38);
+    outline: 3px dashed rgba(255, 244, 220, 0.85);
     outline-offset: -7px;
 }
 @keyframes hint-glow {
     0%,
     100% {
-        background-color: color-mix(in srgb, var(--good) 30%, var(--sq));
+        box-shadow: inset 0 0 0 0 rgba(69, 209, 154, 0);
     }
     50% {
-        background-color: color-mix(in srgb, var(--good) 70%, var(--sq));
+        box-shadow: inset 0 0 0 4px rgba(69, 209, 154, 0.9), inset 0 0 22px rgba(69, 209, 154, 0.6);
     }
 }
 .nav-controls {
@@ -1348,27 +1468,45 @@ a.node:hover img,
         translate: 0 22px;
     }
 }
-/* The position, drawn small. The squares are one gradient; only the
-   pieces are elements. */
+/* The position, drawn small: the same wooden board in a thin frame. The
+   squares are walnut with maple laid over it in a chequer; only the pieces
+   are elements. */
 .pos {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     grid-template-rows: repeat(8, minmax(0, 1fr));
+    box-sizing: border-box;
     aspect-ratio: 1;
-    border-radius: 8px;
-    overflow: hidden;
-    background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 25% 25%;
-    box-shadow: 0 0 0 1px var(--line-strong);
+    border: 7px solid #3b2415;
+    border-image: url('../board/frame.webp') 96 / 7px stretch;
+    border-radius: 2px;
+    background: url('../board/walnut.webp') 30% 20% / 300% 150%;
+    box-shadow: 0 0 0 1px rgba(14, 8, 3, 0.85), 0 14px 26px -14px rgba(0, 0, 0, 0.7);
     transition: translate 0.5s var(--ease-out), box-shadow 0.4s;
 }
+.pos::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 64% 60% at 50% 50%, rgba(255, 238, 208, 0.14), rgba(255, 238, 208, 0) 100%),
+        url('../board/maple.webp') 70% 60% / 300% 150%;
+    -webkit-mask: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%) 0 0 / 25% 25%;
+    mask: repeating-conic-gradient(#000 0% 25%, transparent 0% 50%) 0 0 / 25% 25%;
+    pointer-events: none;
+}
 .pos img {
+    position: relative;
     place-self: center;
-    width: 88%;
-    height: 88%;
+    width: 116%;
+    max-width: none;
+    height: 116%;
+    translate: 0 -9%;
 }
 .puzzle-card:hover .pos {
     translate: 0 -4px;
-    box-shadow: 0 0 0 1px var(--gold), var(--shadow);
+    box-shadow: 0 0 0 1px var(--gold), 0 22px 34px -14px rgba(0, 0, 0, 0.75);
 }
 .puzzle-card__body {
     display: flex;
@@ -1597,34 +1735,40 @@ a.node:hover img,
     transition: background-color 0.25s;
 }
 .mini-sq img {
-    width: 86%;
-    height: 86%;
-    animation: piece-in 0.35s var(--ease-spring) both;
+    animation: piece-in 0.45s var(--ease-spring) both;
 }
 @keyframes piece-in {
     from {
         opacity: 0;
-        scale: 0.6;
+        translate: 0 -24%;
+        scale: 1.06;
+    }
+    60% {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1.03 0.94;
     }
 }
 .mini-sq.hl {
-    background-color: color-mix(in srgb, var(--gold) 55%, var(--sq));
+    --tint: rgba(250, 196, 66, 0.5);
 }
 .mini-sq.last {
-    background-color: color-mix(in srgb, var(--good) 45%, var(--sq));
+    --tint: rgba(69, 209, 154, 0.4);
 }
 .mini-sq.check {
-    background-image: radial-gradient(circle, var(--check) 0%, color-mix(in srgb, var(--check) 45%, transparent) 55%, transparent 78%);
+    background-image: radial-gradient(circle, rgb(255 84 60 / 0.9) 0%, rgb(255 60 40 / 0.45) 50%, transparent 76%), var(--wood, none);
+    background-size: 100% 100%, 600% 300%;
+    box-shadow: inset 0 0 0 3px rgb(255 70 50 / 0.85);
 }
 .mini-sq.is-threat {
-    background-color: color-mix(in srgb, var(--check) 42%, var(--sq));
+    --tint: rgb(255 70 50 / 0.4);
 }
 .mini-sq.is-safe {
-    background-color: color-mix(in srgb, var(--good) 42%, var(--sq));
+    --tint: rgba(69, 209, 154, 0.4);
 }
 /* A square that is ruled out, or a piece that has just been taken. */
 .mini-sq.is-barred {
-    background-color: color-mix(in srgb, var(--check) 42%, var(--sq));
+    --tint: rgb(255 70 50 / 0.42);
     font-size: 16px;
     font-weight: 700;
     color: var(--sq-ink);
@@ -1636,7 +1780,7 @@ a.node:hover img,
 .mini-sq.is-choice {
     z-index: 1;
     border-radius: 8px;
-    background-color: var(--sq-light);
+    --tint: rgba(255, 236, 196, 0.35);
     box-shadow: 0 0 0 2px var(--gold), 0 0 18px var(--gold);
     scale: 1.05;
 }
@@ -1648,7 +1792,8 @@ a.node:hover img,
     width: 28%;
     aspect-ratio: 1;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--sq-ink) 55%, transparent);
+    background: radial-gradient(circle at 50% 42%, rgba(14, 9, 4, 0.55), rgba(14, 9, 4, 0.35));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 240, 212, 0.34);
     animation: hint-pulse 1.6s ease-in-out infinite;
 }
 .capture-hint {

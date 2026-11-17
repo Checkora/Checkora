@@ -537,7 +537,7 @@ function renderBoard() {
     boardElement.innerHTML = "";
     const isFlipped = userColor === "b";
     // The page sets data-static on <html> to the static prefix, ending in 'game/'.
-    const pieceBase = (document.documentElement.dataset.static || "/static/game/") + "pieces/classic/";
+    const pieceBase = (document.documentElement.dataset.static || "/static/game/") + "pieces/staunton/";
 
     for (let r = 0; r < 8; r++) {
         const actualRow = isFlipped ? 7 - r : r;
@@ -573,7 +573,7 @@ function renderBoard() {
             const piece = boardState[actualRow][actualCol];
             if (piece) {
                 const img = document.createElement("img");
-                img.src = `${pieceBase}${piece}.svg`;
+                img.src = `${pieceBase}${piece}.webp`;
                 img.alt = piece;
                 img.draggable = true;
                 img.addEventListener("dragstart", (e) => handleDragStart(e, actualRow, actualCol));
