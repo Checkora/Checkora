@@ -1,474 +1,440 @@
+{% extends 'game/base.html' %}
 {% load static %}
 {% load forum_extras %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ discussion.title }} | Checkora Forum</title>
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
-    <script src="{% static 'game/js/theme.js' %}"></script>
-</head>
-<body>
-    <nav class="forum-navbar">
-        <div class="nav-left">
-            <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}" alt="Checkora Logo" class="logo-img">
-                <span class="logo-text">CHECK<span class="logo-accent">ORA</span></span>
-            </a>
-        </div>
 
-        <div class="nav-right">
-            <button
-                type="button"
-                id="themeToggle"
-                class="theme-toggle"
-                title="Toggle light / dark theme">
-            </button>
-            {% if user.is_authenticated %}
-            <div class="profile-dropdown">
-                <button type="button" class="profile-btn">{{ user.username }} ⌄</button>
+{% block title %}{{ discussion.title }} · Checkora forum{% endblock %}
 
-                <div class="dropdown-content">
-                    <a href="{% url 'profile' %}"> Profile </a>
-                    <a href="/play/">Dashboard</a>
-                    <a href="{% url 'opening_trainer' %}">Opening Trainer</a>
-                    <a href="/stats/">Stats</a>
-                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
-                    <a href="{% url 'achievements' %}">Achievements</a>
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/community.css' %}">{% endblock %}
 
-                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
-                        {% csrf_token %}
-                        <button type="submit" class="logout-option">Logout</button>
-                    </form>
-                </div>
-            </div>
-            {% else %}
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
-            {% endif %}
-        </div>
-    </nav>
+{% block content %}
+<div class="wrap wrap--narrow page forum-container thread">
+    <a class="back-link forum-back-link" href="{% url 'forum' %}">Forum</a>
 
-    <div class="forum-container">
-        <a href="{% url 'forum' %}" class="forum-back-link">← Back to Forum</a>
-
-        <div class="forum-discussion-card">
-            <div class="forum-discussion-meta">
-                <span class="forum-meta-label">Started by</span>
-                <span class="forum-author">{{ discussion.user.username }}</span>
-                <span class="forum-dot">•</span>
-                <span class="forum-meta-label">On</span>
+    <article class="panel panel--raised thread__post forum-discussion-card" data-reveal>
+        <div class="byline forum-discussion-meta">
+            <span class="avatar avatar--md" aria-hidden="true">{{ discussion.user.username|slice:':1' }}</span>
+            <div class="byline__who">
+                <span><span class="forum-meta-label">Started by</span> <span class="forum-author">{{ discussion.user.username }}</span></span>
                 <span class="forum-date">{{ discussion.created_at|date:"M d, Y H:i" }}</span>
             </div>
 
-            <div class="forum-topic-row">
-                <h1 class="forum-detail-title">{{ discussion.title }}</h1>
+            {% if user.is_authenticated %}
+            <form method="post"
+                  action="{% url 'toggle_discussion_bookmark' discussion.id %}"
+                  class="forum-bookmark-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
 
-                {% if user.is_authenticated %}
+                <button type="submit"
+                        class="icon-button forum-bookmark-btn {% if is_bookmarked or discussion.id in bookmarked_ids %}bookmarked{% endif %}"
+                        title="{% if is_bookmarked or discussion.id in bookmarked_ids %}Remove bookmark{% else %}Bookmark{% endif %}"
+                        aria-label="{% if is_bookmarked or discussion.id in bookmarked_ids %}Remove bookmark{% else %}Bookmark this discussion{% endif %}"
+                        aria-pressed="{% if is_bookmarked or discussion.id in bookmarked_ids %}true{% else %}false{% endif %}">
+                    <svg class="bookmark-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>
+                    </svg>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <div class="thread__head forum-topic-row">
+            <span class="chip chip--gold forum-category-badge">{{ discussion.get_category_display }}</span>
+            <h1 class="thread__title forum-detail-title">{{ discussion.title }}</h1>
+        </div>
+
+        <div class="prose forum-detail-content">
+            {{ discussion.content|linebreaks }}
+        </div>
+    </article>
+
+    <section class="thread__replies forum-replies-section" aria-labelledby="repliesTitle">
+        <h2 class="thread__count forum-replies-title" id="repliesTitle">
+            Replies <span class="chip">{{ replies.count }}</span>
+        </h2>
+
+        {% for reply in replies %}
+        <article class="reply forum-reply-card{% if reply.is_deleted %} is-deleted{% endif %}" id="reply-{{ reply.id }}" data-reveal style="--i: {% if forloop.counter0 < 5 %}{{ forloop.counter0 }}{% else %}0{% endif %}">
+            <span class="avatar avatar--md avatar--soft" aria-hidden="true">{{ reply.user.username|slice:':1' }}</span>
+
+            <div class="reply__body forum-reply-body">
+                <div class="reply__head forum-reply-top">
+                    <div class="reply__meta forum-discussion-meta">
+                        <span class="forum-author">{{ reply.user.username }}</span>
+
+                        {% if reply.reply_to %}
+                        <span class="forum-meta-label">replying to</span>
+                        <a href="#reply-{{ reply.reply_to.id }}" class="text-link forum-reply-reference">{{ reply.reply_to.user.username }}</a>
+                        {% endif %}
+
+                        <span class="forum-date">{{ reply.created_at|date:"M d, Y H:i" }}</span>
+
+                        {% if reply.is_edited and not reply.is_deleted %}
+                        <span class="chip forum-edited-label">Edited</span>
+                        {% endif %}
+                    </div>
+
+                    {% if user.is_authenticated and reply.user == user and not reply.is_deleted %}
+                    <div class="menu reply-actions" data-menu>
+                        <button type="button"
+                                class="icon-button reply-menu-btn"
+                                data-menu-button
+                                aria-haspopup="true"
+                                aria-label="Reply options">
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+                        </button>
+
+                        <div class="menu__panel reply-menu" id="reply-menu-{{ reply.id }}" role="menu">
+                            <button type="button" role="menuitem" data-reply-edit="{{ reply.id }}">Edit</button>
+
+                            <form method="post" action="{% url 'forum_reply_delete' reply.id %}">
+                                {% csrf_token %}
+                                <button type="button"
+                                        class="is-danger"
+                                        role="menuitem"
+                                        data-reply-delete="{% url 'forum_reply_delete' reply.id %}">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if reply.is_deleted %}
+                <div class="forum-deleted-reply">
+                    This comment was deleted by {{ reply.user.username }}
+                </div>
+                {% else %}
+                <div class="prose forum-reply-content" id="reply-content-{{ reply.id }}">
+                    {{ reply.content|linebreaks }}
+                </div>
+
+                {% if user.is_authenticated and reply.user == user %}
                 <form method="post"
-                    action="{% url 'toggle_discussion_bookmark' discussion.id %}"
-                    class="forum-bookmark-form">
+                      action="{% url 'forum_reply_edit' reply.id %}"
+                      class="forum-edit-form"
+                      id="edit-form-{{ reply.id }}"
+                      hidden>
                     {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.path }}">
 
-                    <button type="submit"
-                            class="forum-bookmark-btn {% if is_bookmarked %}bookmarked{% endif %}"
-                            title="{% if is_bookmarked %}Remove bookmark{% else %}Bookmark{% endif %}"
-                            aria-label="{% if is_bookmarked %}remove bookmark{% else %}bookmark discussion{% endif %}"
-                            aria-pressed="{% if is_bookmarked %}true{% else %}false{% endif %}">
-                        <svg class="bookmark-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>
-                        </svg>
-                    </button>
+                    <label class="sr-only" for="edit-text-{{ reply.id }}">Edit your reply</label>
+                    <textarea name="content" id="edit-text-{{ reply.id }}" class="input" required>{{ reply.content }}</textarea>
+
+                    <div class="forum-edit-actions">
+                        <button type="submit" class="button button--primary button--sm forum-btn-small">Save</button>
+                        <button type="button" class="button button--ghost button--sm forum-btn-small secondary" data-reply-cancel="{{ reply.id }}">Cancel</button>
+                    </div>
                 </form>
                 {% endif %}
-            </div>
 
-            <div class="forum-detail-content">
-                {{ discussion.content|linebreaks }}
-            </div>
-        </div>
-
-        <div class="forum-replies-section">
-            <h2 class="forum-replies-title">
-                Discussion Replies ({{ replies.count }})
-            </h2>
-
-            {% for reply in replies %}
-            <div class="forum-reply-card" id="reply-{{ reply.id }}">
-                <div class="forum-reply-main-layout">
-
-                    <div class="forum-reply-body">
-                        <div class="forum-reply-top">
-                            <div class="forum-discussion-meta">
-                                <span class="forum-meta-label">Posted by</span>
-                                <span class="forum-author">{{ reply.user.username }}</span>
-
-                                {% if reply.reply_to %}
-                                <span class="forum-dot">•</span>
-                                <span class="forum-meta-label">Replying to</span>
-                                <a href="#reply-{{ reply.reply_to.id }}" class="forum-reply-reference">
-                                    {{ reply.reply_to.user.username }}
-                                </a>
-                                {% endif %}
-
-                                <span class="forum-dot">•</span>
-
-                                <span class="forum-date">
-                                    {{ reply.created_at|date:"M d, Y H:i" }}
-                                </span>
-
-                                {% if reply.is_edited and not reply.is_deleted %}
-                                <span class="forum-edited-label">Edited</span>
-                                {% endif %}
-                            </div>
-
-                            {% if user.is_authenticated and reply.user == user and not reply.is_deleted %}
-                            <div class="reply-actions">
-                                <button type="button"
-                                        class="reply-menu-btn"
-                                        onclick="toggleReplyMenu('{{ reply.id }}')">
-                                    ⋮
-                                </button>
-
-                                <div class="reply-menu" id="reply-menu-{{ reply.id }}">
-                                    <button type="button" onclick="showEditForm('{{ reply.id }}')">
-                                        Edit
-                                    </button>
-
-                                    <form method="post" action="{% url 'forum_reply_delete' reply.id %}">
-                                        {% csrf_token %}
-                                        <button type="button"
-                                                onclick="openDeleteModal('{% url 'forum_reply_delete' reply.id %}')">
-                                            Delete
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-
-                        {% if reply.is_deleted %}
-                        <div class="forum-deleted-reply">
-                            This comment was deleted by {{ reply.user.username }}
-                        </div>
+                {% if user.is_authenticated %}
+                <div class="reply-footer">
+                    {# Votes. The author of a reply cannot vote it down. #}
+                    {% with user_vote=user_reply_votes|get_item:reply.id %}
+                    <div class="reply-vote-inline">
+                        <button type="button"
+                                class="rvi-btn upvote-btn {% if user_vote == 1 %}active{% endif %}"
+                                data-reply-id="{{ reply.id }}"
+                                data-vote="up"
+                                title="Upvote"
+                                aria-pressed="{% if user_vote == 1 %}true{% else %}false{% endif %}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+                            <span class="sr-only rvi-label">Upvotes</span>
+                            <span class="rvi-count upvote-count" id="reply-upvotes-{{ reply.id }}">{{ reply.upvote_count|default:0 }}</span>
+                        </button>
+                        <span class="rvi-divider" aria-hidden="true"></span>
+                        {% if reply.user == user %}
+                        <button type="button" class="rvi-btn downvote-btn" disabled title="Cannot downvote own reply">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
+                            <span class="sr-only rvi-label">Downvotes</span>
+                            <span class="rvi-count downvote-count" id="reply-downvotes-{{ reply.id }}">{{ reply.downvote_count|default:0 }}</span>
+                        </button>
                         {% else %}
-                        <div class="forum-reply-content" id="reply-content-{{ reply.id }}">
-                            {{ reply.content|linebreaks }}
-                        </div>
-
-                        <form method="post"
-                            action="{% url 'forum_reply_edit' reply.id %}"
-                            class="forum-edit-form"
-                            id="edit-form-{{ reply.id }}">
-                            {% csrf_token %}
-
-                            <textarea name="content" required>{{ reply.content }}</textarea>
-
-                            <div class="forum-edit-actions">
-                                <button type="submit" class="forum-btn-small">
-                                    Save
-                                </button>
-
-                                <button type="button"
-                                        class="forum-btn-small secondary"
-                                        onclick="hideEditForm('{{ reply.id }}')">
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-
-                        {% if user.is_authenticated %}
-                        <div class="reply-footer">
-                            {# ── Vote controls ── #}
-                            {% if not reply.is_deleted %}
-                            {% if reply.user == user %}
-                                {# Owner: upvote only #}
-                                {% with user_vote=user_reply_votes|get_item:reply.id %}
-                                <div class="reply-vote-inline">
-                                    <button type="button"
-                                            class="rvi-btn upvote-btn {% if user_vote == 1 %}active{% endif %}"
-                                            data-reply-id="{{ reply.id }}"
-                                            data-vote="up"
-                                            title="Upvote">
-                                        ▲ <span class="rvi-label">Upvotes</span>
-                                        <span class="rvi-count upvote-count" id="reply-upvotes-{{ reply.id }}">{{ reply.upvote_count|default:0 }}</span>
-                                    </button>
-                                    <span class="rvi-divider">|</span>
-                                    <button type="button" class="rvi-btn downvote-btn" disabled title="Cannot downvote own reply">
-                                        ▼ <span class="rvi-label">Downvotes</span>
-                                        <span class="rvi-count downvote-count" id="reply-downvotes-{{ reply.id }}">{{ reply.downvote_count|default:0 }}</span>
-                                    </button>
-                                </div>
-                                {% endwith %}
-                            {% else %}
-                                {# Non-owner: full voting #}
-                                {% with user_vote=user_reply_votes|get_item:reply.id %}
-                                <div class="reply-vote-inline">
-                                    <button type="button"
-                                            class="rvi-btn upvote-btn {% if user_vote == 1 %}active{% endif %}"
-                                            data-reply-id="{{ reply.id }}"
-                                            data-vote="up"
-                                            title="Upvote">
-                                        ▲ <span class="rvi-label">Upvotes</span>
-                                        <span class="rvi-count upvote-count" id="reply-upvotes-{{ reply.id }}">{{ reply.upvote_count|default:0 }}</span>
-                                    </button>
-                                    <span class="rvi-divider">|</span>
-                                    <button type="button"
-                                            class="rvi-btn downvote-btn {% if user_vote == -1 %}active{% endif %}"
-                                            data-reply-id="{{ reply.id }}"
-                                            data-vote="down"
-                                            title="Downvote">
-                                        ▼ <span class="rvi-label">Downvotes</span>
-                                        <span class="rvi-count downvote-count" id="reply-downvotes-{{ reply.id }}">{{ reply.downvote_count|default:0 }}</span>
-                                    </button>
-                                </div>
-                                {% endwith %}
-                            {% endif %}
-                            {% endif %}
-
-                            {# ── Reply button ── #}
-                            <button type="button"
-                                    class="forum-reply-to-btn"
-                                    onclick="setReplyTo('{{ reply.id }}', '{{ reply.user.username|escapejs }}')">↪ Reply
-                            </button>
-                        </div>
-                        {% else %}
-                        {# Unauthenticated: show read-only counts #}
-                        {% if not reply.is_deleted %}
-                        <div class="reply-footer">
-                            <div class="reply-vote-inline">
-                                <span class="rvi-btn" style="cursor:default;">
-                                    ▲ <span class="rvi-label">Upvotes</span>
-                                    <span class="rvi-count upvote-count">{{ reply.upvote_count|default:0 }}</span>
-                                </span>
-                                <span class="rvi-divider">|</span>
-                                <span class="rvi-btn" style="cursor:default;">
-                                    ▼ <span class="rvi-label">Downvotes</span>
-                                    <span class="rvi-count downvote-count">{{ reply.downvote_count|default:0 }}</span>
-                                </span>
-                            </div>
-                        </div>
+                        <button type="button"
+                                class="rvi-btn downvote-btn {% if user_vote == -1 %}active{% endif %}"
+                                data-reply-id="{{ reply.id }}"
+                                data-vote="down"
+                                title="Downvote"
+                                aria-pressed="{% if user_vote == -1 %}true{% else %}false{% endif %}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
+                            <span class="sr-only rvi-label">Downvotes</span>
+                            <span class="rvi-count downvote-count" id="reply-downvotes-{{ reply.id }}">{{ reply.downvote_count|default:0 }}</span>
+                        </button>
                         {% endif %}
-                        {% endif %}
-                        {% endif %}{# /if reply.is_deleted #}
+                    </div>
+                    {% endwith %}
+
+                    <button type="button"
+                            class="button button--ghost button--sm forum-reply-to-btn"
+                            data-reply-to="{{ reply.id }}"
+                            data-reply-user="{{ reply.user.username }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v4"/></svg>
+                        Reply
+                    </button>
+                </div>
+                {% else %}
+                {# Signed out: the counts, without the buttons. #}
+                <div class="reply-footer">
+                    <div class="reply-vote-inline">
+                        <span class="rvi-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+                            <span class="sr-only rvi-label">Upvotes</span>
+                            <span class="rvi-count upvote-count">{{ reply.upvote_count|default:0 }}</span>
+                        </span>
+                        <span class="rvi-divider" aria-hidden="true"></span>
+                        <span class="rvi-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
+                            <span class="sr-only rvi-label">Downvotes</span>
+                            <span class="rvi-count downvote-count">{{ reply.downvote_count|default:0 }}</span>
+                        </span>
                     </div>
                 </div>
+                {% endif %}
+                {% endif %}{# /if reply.is_deleted #}
             </div>
-            {% empty %}
-            <div class="forum-empty">
-                No replies yet. Be the first to contribute!
-            </div>
-            {% endfor %}
+        </article>
+        {% empty %}
+        <div class="empty forum-empty">
+            <h3>No replies yet</h3>
+            <p>Be the first to contribute!</p>
         </div>
-    </div>
+        {% endfor %}
+    </section>
 
     {% if user.is_authenticated %}
-    <form method="post" action="{% url 'forum_reply' discussion.id %}" class="forum-reply-bar">
+    <form method="post" action="{% url 'forum_reply' discussion.id %}" class="composer forum-reply-bar">
         {% csrf_token %}
 
         <input type="hidden" name="reply_to" id="reply-to-input">
 
-        <div class="forum-reply-compose">
+        <div class="composer__box forum-reply-compose">
             <div class="forum-replying-banner" id="replying-banner">
-                <span>
-                    Replying to <span id="replying-to-name"></span>
-                </span>
-                <button type="button" onclick="clearReplyTo()">×</button>
+                <span>Replying to <b id="replying-to-name"></b></span>
+                <button type="button" aria-label="Cancel replying to this person" data-reply-clear>×</button>
             </div>
 
+            <label class="sr-only" for="{{ form.content.id_for_label }}">Your reply</label>
             {{ form.content }}
         </div>
 
-        <button type="submit" class="forum-btn-submit">
-            Post
-        </button>
+        <button type="submit" class="button button--primary forum-btn-submit">Post</button>
     </form>
     {% else %}
-    <div class="forum-login-prompt">
-        <a href="{% url 'login' %}">Login</a> to join the discussion.
+    <div class="panel forum-login-prompt">
+        <span><a href="{% url 'login' %}" class="text-link">Log in</a> to join the discussion.</span>
+        <a href="{% url 'register' %}" class="button button--sm">Create an account</a>
     </div>
     {% endif %}
+</div>
 
-    <script>
-        function toggleReplyMenu(replyId) {
-            const menu = document.getElementById(`reply-menu-${replyId}`);
+<dialog class="modal modal--confirm forum-delete-modal" id="delete-modal" aria-labelledby="deleteTitle">
+    <div class="modal__head">
+        <h3 id="deleteTitle">Delete reply?</h3>
+        <button type="button" class="icon-button" data-close-dialog aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+    </div>
+    <div class="modal__body forum-delete-box">
+        <p>This reply will be removed from the discussion content, but a deleted comment placeholder will remain.</p>
 
-            document.querySelectorAll(".reply-menu").forEach((item) => {
-                if (item !== menu) {
-                    item.classList.remove("active");
-                }
-            });
+        <div class="modal__actions forum-delete-actions">
+            <button type="button" class="button forum-delete-cancel" data-close-dialog>Cancel</button>
 
-            menu.classList.toggle("active");
-        }
-
-        function showEditForm(replyId) {
-            document.getElementById(`reply-content-${replyId}`).style.display = "none";
-            document.getElementById(`edit-form-${replyId}`).style.display = "block";
-
-            const menu = document.getElementById(`reply-menu-${replyId}`);
-            if (menu) {
-                menu.classList.remove("active");
-            }
-        }
-
-        function hideEditForm(replyId) {
-            document.getElementById(`reply-content-${replyId}`).style.display = "block";
-            document.getElementById(`edit-form-${replyId}`).style.display = "none";
-        }
-
-        function setReplyTo(replyId, username) {
-            document.getElementById("reply-to-input").value = replyId;
-            document.getElementById("replying-to-name").textContent = username;
-            document.getElementById("replying-banner").classList.add("active");
-
-            const textarea = document.querySelector(".forum-reply-bar textarea");
-            if (textarea) {
-                textarea.focus();
-            }
-        }
-
-        function clearReplyTo() {
-            document.getElementById("reply-to-input").value = "";
-            document.getElementById("replying-to-name").textContent = "";
-            document.getElementById("replying-banner").classList.remove("active");
-        }
-
-        document.addEventListener("click", function(event) {
-            if (!event.target.closest(".reply-actions")) {
-                document.querySelectorAll(".reply-menu").forEach((menu) => {
-                    menu.classList.remove("active");
-                });
-            }
-        });
-
-        window.addEventListener("hashchange", highlightReply);
-        window.addEventListener("load", highlightReply);
-
-        function highlightReply() {
-            if (!window.location.hash.startsWith("#reply-")) {
-                return;
-            }
-
-            const targetId = window.location.hash.slice(1);
-            if (!/^reply-\d$/.test(targetId)) {
-                return;
-            }
-            const reply = document.getElementById(targetId);
-
-            if (reply) {
-                reply.classList.add("reply-highlight");
-
-                setTimeout(() => {
-                    reply.classList.remove("reply-highlight");
-                }, 1500);
-            }
-        }
-
-        function openDeleteModal(deleteUrl) {
-            const modal = document.getElementById("delete-modal");
-            const form = document.getElementById("delete-form");
-
-            form.action = deleteUrl;
-            modal.classList.add("active");
-        }
-
-        function closeDeleteModal() {
-            const modal = document.getElementById("delete-modal");
-            const form = document.getElementById("delete-form");
-
-            form.action = "";
-            modal.classList.remove("active");
-        }
-
-        document.addEventListener("keydown", function(event) {
-            if (event.key === "Escape") {
-                closeDeleteModal();
-            }
-        });
-
-        document.getElementById("delete-modal").addEventListener("click", function(event) {
-            if (event.target === this) {
-                closeDeleteModal();
-            }
-        });
-
-        function getCSRFToken() {
-            const csrfInput = document.querySelector("[name=csrfmiddlewaretoken]");
-            return csrfInput ? csrfInput.value : "";
-        }
-
-        // Delegated handler — catches every .rvi-btn[data-reply-id] click,
-        // no matter when or where it appears in the DOM.
-        document.addEventListener("click", function (event) {
-            const button = event.target.closest(".rvi-btn[data-reply-id]");
-            if (!button || button.disabled) return;
-
-            const replyId  = button.dataset.replyId;
-            const voteType = button.dataset.vote;
-
-            fetch(`/forum/reply/${replyId}/vote/`, {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": getCSRFToken(),
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({ vote: voteType })
-            })
-            .then((r) => r.json())
-            .then((data) => {
-                if (!data.success) return;
-
-                const upvoteEl   = document.getElementById(`reply-upvotes-${replyId}`);
-                const downvoteEl = document.getElementById(`reply-downvotes-${replyId}`);
-                if (upvoteEl)   upvoteEl.textContent   = data.upvotes;
-                if (downvoteEl) downvoteEl.textContent = data.downvotes;
-
-                const replyCard = document.getElementById(`reply-${replyId}`);
-                const upBtn   = replyCard.querySelector(".upvote-btn");
-                const downBtn = replyCard.querySelector(".downvote-btn");
-
-                if (upBtn)   upBtn.classList.remove("active");
-                if (downBtn) downBtn.classList.remove("active");
-
-                if (data.user_vote === 1  && upBtn)   upBtn.classList.add("active");
-                if (data.user_vote === -1 && downBtn) downBtn.classList.add("active");
-            })
-            .catch(() => console.error("Vote request failed."));
-        });
-    </script>
-    <div class="forum-delete-modal" id="delete-modal">
-        <div class="forum-delete-box">
-            <h3>Delete reply?</h3>
-
-            <p>
-                This reply will be removed from the discussion content, but a deleted comment placeholder will remain.
-            </p>
-
-            <div class="forum-delete-actions">
-                <button type="button"
-                        class="forum-delete-cancel"
-                        onclick="closeDeleteModal()">
-                    Cancel
-                </button>
-
-                <form method="post" id="delete-form">
-                    {% csrf_token %}
-                    <button type="submit" class="forum-delete-confirm">
-                        Delete
-                    </button>
-                </form>
-            </div>
+            <form method="post" id="delete-form">
+                {% csrf_token %}
+                <button type="submit" class="button button--danger forum-delete-confirm">Delete</button>
+            </form>
         </div>
     </div>
-</body>
-</html>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function closeReplyMenus() {
+        document.querySelectorAll('.reply-actions.is-open').forEach((menu) => {
+            menu.classList.remove('is-open');
+            menu.querySelector('[data-menu-button]')?.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function showEditForm(replyId) {
+        const form = document.getElementById(`edit-form-${replyId}`);
+        document.getElementById(`reply-content-${replyId}`).hidden = true;
+        form.hidden = false;
+        closeReplyMenus();
+
+        const textarea = form.querySelector('textarea');
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+
+    function hideEditForm(replyId) {
+        document.getElementById(`reply-content-${replyId}`).hidden = false;
+        document.getElementById(`edit-form-${replyId}`).hidden = true;
+    }
+
+    function setReplyTo(replyId, username) {
+        document.getElementById('reply-to-input').value = replyId;
+        document.getElementById('replying-to-name').textContent = username;
+        document.getElementById('replying-banner').classList.add('active');
+
+        const textarea = document.querySelector('.forum-reply-bar textarea');
+        if (textarea) {
+            textarea.focus();
+        }
+    }
+
+    function clearReplyTo() {
+        document.getElementById('reply-to-input').value = '';
+        document.getElementById('replying-to-name').textContent = '';
+        document.getElementById('replying-banner').classList.remove('active');
+    }
+
+    function openDeleteModal(deleteUrl) {
+        const modal = document.getElementById('delete-modal');
+        const form = document.getElementById('delete-form');
+
+        form.action = deleteUrl;
+        closeReplyMenus();
+        modal.showModal();
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('delete-modal').close();
+    }
+
+    // Escape and a click outside both close the dialog, so the form is
+    // cleared whenever it closes, however that happened.
+    document.getElementById('delete-modal').addEventListener('close', () => {
+        document.getElementById('delete-form').removeAttribute('action');
+    });
+
+    function highlightReply() {
+        if (!window.location.hash.startsWith('#reply-')) {
+            return;
+        }
+
+        const targetId = window.location.hash.slice(1);
+        if (!/^reply-\d+$/.test(targetId)) {
+            return;
+        }
+        const reply = document.getElementById(targetId);
+
+        if (reply) {
+            reply.classList.remove('reply-highlight');
+            void reply.offsetWidth;
+            reply.classList.add('reply-highlight');
+
+            setTimeout(() => {
+                reply.classList.remove('reply-highlight');
+            }, 1500);
+        }
+    }
+
+    window.addEventListener('hashchange', highlightReply);
+    window.addEventListener('load', highlightReply);
+
+    // The vote address for reply 0; the real id is swapped in when voting.
+    const VOTE_URL = "{% url 'toggle_reply_vote' 0 %}";
+
+    function getCSRFToken() {
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
+    function showVote(replyId, data) {
+        const counts = {
+            [`reply-upvotes-${replyId}`]: data.upvotes,
+            [`reply-downvotes-${replyId}`]: data.downvotes,
+        };
+        Object.entries(counts).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (!element || element.textContent.trim() === String(value)) return;
+            element.textContent = value;
+            element.classList.remove('is-bumped');
+            void element.offsetWidth;
+            element.classList.add('is-bumped');
+        });
+
+        const replyCard = document.getElementById(`reply-${replyId}`);
+        const upBtn = replyCard.querySelector('.upvote-btn');
+        const downBtn = replyCard.querySelector('.downvote-btn');
+
+        if (upBtn) {
+            upBtn.classList.toggle('active', data.user_vote === 1);
+            upBtn.setAttribute('aria-pressed', data.user_vote === 1 ? 'true' : 'false');
+        }
+        if (downBtn && !downBtn.disabled) {
+            downBtn.classList.toggle('active', data.user_vote === -1);
+            downBtn.setAttribute('aria-pressed', data.user_vote === -1 ? 'true' : 'false');
+        }
+    }
+
+    // One listener for the page: every button in a reply is found by its
+    // data attribute, wherever it sits.
+    document.addEventListener('click', function(event) {
+        const edit = event.target.closest('[data-reply-edit]');
+        if (edit) return showEditForm(edit.dataset.replyEdit);
+
+        const cancel = event.target.closest('[data-reply-cancel]');
+        if (cancel) return hideEditForm(cancel.dataset.replyCancel);
+
+        const remove = event.target.closest('[data-reply-delete]');
+        if (remove) return openDeleteModal(remove.dataset.replyDelete);
+
+        const replyTo = event.target.closest('[data-reply-to]');
+        if (replyTo) return setReplyTo(replyTo.dataset.replyTo, replyTo.dataset.replyUser);
+
+        if (event.target.closest('[data-reply-clear]')) return clearReplyTo();
+
+        const button = event.target.closest('.rvi-btn[data-reply-id]');
+        if (!button || button.disabled) return;
+
+        const replyId = button.dataset.replyId;
+        const voteType = button.dataset.vote;
+
+        fetch(VOTE_URL.replace('/0/', `/${replyId}/`), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({ vote: voteType }),
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.success) {
+                    if (data.error && window.showToast) window.showToast(data.error, 'warning');
+                    return;
+                }
+                showVote(replyId, data);
+            })
+            .catch(() => {
+                console.error('Vote request failed.');
+                if (window.showToast) window.showToast('Your vote could not be saved. Try again.', 'error');
+            });
+    });
+
+    // The reply box grows with what is typed, and Ctrl or Cmd with Enter posts.
+    (function() {
+        const textarea = document.querySelector('.forum-reply-bar textarea');
+        if (!textarea) return;
+        if (!CSS.supports('field-sizing', 'content')) {
+            const grow = () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = `${textarea.scrollHeight + 2}px`;
+            };
+            textarea.addEventListener('input', grow);
+            grow();
+        }
+        textarea.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                textarea.form.requestSubmit();
+            }
+        });
+    })();
+</script>
+{% endblock %}

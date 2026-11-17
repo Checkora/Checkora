@@ -1,0 +1,73 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{# The page the emailed deletion link opens. Nothing is deleted until the form below is posted. #}
+
+{% block title %}Confirm account deletion · Checkora{% endblock %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
+{% block head %}
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
+
+{# Messages are printed inside the card, above the form. #}
+{% block messages %}{% endblock %}
+
+{% block content %}
+<div class="wrap page account">
+    <div class="account__main">
+        <header class="account__head">
+            <p class="eyebrow eyebrow--check" data-reveal>Last step</p>
+            <h1 data-reveal style="--i: 1">Delete this account <span class="serif">for good?</span></h1>
+            {% if user.is_authenticated %}
+            <p class="lede" data-reveal style="--i: 2">You are signed in as <b>{{ user.username }}</b>.</p>
+            {% endif %}
+        </header>
+
+        <div class="panel auth-card" data-reveal style="--i: 3">
+            <div class="notice notice--error">
+                <p><strong>This cannot be undone.</strong> Once you confirm, the account and everything stored with it are permanently removed from Checkora:</p>
+            </div>
+
+            <ul class="loss-list">
+                <li>Your rating and match history</li>
+                <li>Lesson, puzzle and opening progress</li>
+                <li>Achievements and featured badges</li>
+                <li>Forum discussions and replies you posted</li>
+                <li>Your profile picture</li>
+            </ul>
+
+            {% include 'game/includes/messages.html' %}
+
+            {% if user.is_authenticated %}
+            {# No action: the form posts back to this same link. #}
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" class="button button--danger button--block">Delete my account permanently</button>
+                <a href="{% url 'profile' %}" class="button button--primary button--block">Keep my account</a>
+            </form>
+            {% else %}
+            <div class="notice notice--warning">Sign in as the owner of this account to confirm. Nothing has been deleted.</div>
+            <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="button button--primary button--block">Sign in to continue</a>
+            <a href="{% url 'landing' %}" class="button button--block">Keep my account</a>
+            {% endif %}
+
+            <p class="field__hint">Changed your mind? Close this page or choose to keep your account, and nothing happens.</p>
+        </div>
+    </div>
+
+    <figure class="stage stage--fallen" data-reveal="scale">
+        <div class="stage__frame">
+            <canvas data-piece="k" data-piece-fallen aria-hidden="true"></canvas>
+            <img class="stage__flat" src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+        </div>
+        <figcaption class="stage__caption"><b>The king, on its side</b> How a player resigns.</figcaption>
+    </figure>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'game/js/account.js' %}"></script>
+{% endblock %}

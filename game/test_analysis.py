@@ -328,6 +328,8 @@ class AiMoveRateLimitTest(TestCase):
         from game.engine import ChessGame
         game = ChessGame()
         game.mode = 'ai'
+        # The engine has White, so the first move is its own.
+        game.player_color = 'black'
         game.paused = False
         session = self.client.session
         session['game'] = game.to_dict()

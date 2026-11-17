@@ -30,11 +30,15 @@ except KeyError:
     raise ImproperlyConfigured('SECRET_KEY environment variable is required')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-IS_PRODUCTION = os.environ.get('VERCEL_ENV') == 'production'
-if IS_PRODUCTION:
+VERCEL_ENV = os.environ.get('VERCEL_ENV')
+IS_PRODUCTION = VERCEL_ENV == 'production'
+# Production and preview deployments are both public and served over HTTPS.
+IS_DEPLOYED = VERCEL_ENV in ('production', 'preview')
+if IS_DEPLOYED:
     DEBUG = False
 else:
-    DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+    # Off unless a developer turns it on, for example in .env.
+    DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = ['.vercel.app']
 
@@ -71,7 +75,16 @@ MIDDLEWARE = [
     'game.middleware.SecurityHeadersMiddleware',
 ]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    # Not the manifest variant: templates call {% static %} on directory
+    # prefixes, which a manifest storage refuses.
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 WHITENOISE_USE_FINDERS = True
 
 ROOT_URLCONF = 'core.urls'
@@ -245,18 +258,18 @@ SESSION_COOKIE_AGE = 1209600
 # Expire session when browser closes unless overridden via set_expiry()
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-# Session and CSRF cookie security (production only — local runserver is HTTP).
+# Session and CSRF cookie security (deployments only — local runserver is HTTP).
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = IS_PRODUCTION
+SESSION_COOKIE_SECURE = IS_DEPLOYED
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SECURE = IS_DEPLOYED
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# SSL redirect and HSTS only on Vercel; avoids local HTTP→HTTPS redirect loops.
-SECURE_SSL_REDIRECT = IS_PRODUCTION
-if IS_PRODUCTION:
+# SSL redirect only on Vercel; avoids local HTTP→HTTPS redirect loops.
+SECURE_SSL_REDIRECT = IS_DEPLOYED
+if IS_DEPLOYED:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
@@ -287,7 +300,6 @@ LOGIN_REDIRECT_URL = 'landing'
 PASSWORD_RESET_TIMEOUT = 300
 
 # SECURITY SETTINGS (Implemented via GSSoC Audit)
-SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_SECONDS = 31536000 if IS_PRODUCTION else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = IS_PRODUCTION
@@ -320,10 +332,5 @@ if _invalid_trusted_proxies:
 
 TRUSTED_PROXY_IPS = _trusted_proxies
 TRUSTED_PROXIES = TRUSTED_PROXY_IPS
-
-if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
-    raise ImproperlyConfigured(
-        'TRUSTED_PROXY_IPS must be set in production'
-    )
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

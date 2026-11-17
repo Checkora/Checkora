@@ -137,6 +137,11 @@
             return;
         }
 
+        // On the low performance tier the burst is a small one.
+        if (window.checkoraPerf && window.checkoraPerf.low) {
+            options = { ...options, count: Math.min(options.count ?? 100, 24) };
+        }
+
         initCanvas();
         createParticles(options);
 

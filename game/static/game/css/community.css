@@ -1,0 +1,2611 @@
+/* ==========================================================================
+   The community pages: forum, leaderboard, achievements, stats and match
+   history. They are built from the tokens and components in app.css; this
+   file adds only what those pages need on top.
+   ========================================================================== */
+
+:root {
+    /* Dark in both themes, for the shadow under a piece or a board. */
+    --shade: var(--ink-0);
+    /* Light in both themes, for the face of a badge. */
+    --paper: var(--title);
+    /* The fourth rarity colour, mixed from two tokens. */
+    --epic: color-mix(in oklch, var(--info) 55%, var(--check));
+}
+[data-theme='light'] {
+    --shade: var(--title);
+    --paper: var(--ink-1);
+}
+
+/* The 3D pieces are drawn a little past their boxes; this keeps that from
+   ever widening the page. */
+.community {
+    overflow-x: clip;
+}
+
+/* ---------- shared ---------- */
+
+.ico {
+    width: 18px;
+    height: 18px;
+    flex: none;
+}
+/* Words that only fit, or are only needed, at one size of screen. */
+.narrow-only {
+    display: none;
+}
+
+/* A page title with a 3D piece standing next to it. */
+.hero-split {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(200px, 22vw, 290px);
+    align-items: center;
+    gap: clamp(20px, 4vw, 56px);
+}
+.hero-split__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+.hero-split__copy .cluster {
+    margin-top: 8px;
+}
+
+/* The piece is a flat SVG until community.js swaps in the 3D one. */
+.piece-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    isolation: isolate;
+}
+.piece-stage::before {
+    content: '';
+    position: absolute;
+    inset: 4% -10% -6%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--gold-wash), transparent);
+}
+/* On the light theme an ivory piece needs something warmer behind it. */
+[data-theme='light'] .piece-stage::before {
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--gold) 34%, transparent), transparent);
+}
+.piece-stage::after {
+    content: '';
+    position: absolute;
+    left: 16%;
+    right: 16%;
+    bottom: 7%;
+    height: 10%;
+    z-index: -1;
+    border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--ink-3), var(--ink-1));
+    box-shadow: 0 18px 30px -10px color-mix(in srgb, var(--shade) 70%, transparent);
+    transition: opacity 0.5s;
+}
+/* The canvas is drawn larger than its box, so the piece fills the stage
+   without the stage taking more room in the layout. */
+.piece-stage canvas {
+    position: absolute;
+    inset: -18% -14% -10%;
+    width: 128%;
+    height: 128%;
+    max-width: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.7s;
+}
+.piece-stage__flat {
+    position: absolute;
+    left: 50%;
+    bottom: 12%;
+    width: 70%;
+    translate: -50% 0;
+    filter: drop-shadow(0 14px 14px color-mix(in srgb, var(--shade) 45%, transparent));
+    transition: opacity 0.5s;
+    animation: piece-bob 5s ease-in-out infinite;
+}
+.piece-stage[data-piece-fallen] .piece-stage__flat {
+    bottom: 4%;
+    rotate: -84deg;
+    animation: none;
+}
+.piece-stage.is-live canvas {
+    opacity: 1;
+}
+.piece-stage.is-live .piece-stage__flat,
+.piece-stage.is-live::after {
+    opacity: 0;
+}
+@keyframes piece-bob {
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+.avatar--md {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    font-size: 16px;
+}
+.avatar--soft {
+    border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+
+/* Tabs on these pages are switched by scripts that set .active. */
+.tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+.tabs button,
+.tabs a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    white-space: nowrap;
+}
+.tabs .active,
+.tabs .active:hover {
+    background: var(--gold);
+    color: var(--on-gold);
+}
+.tabs__count {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+}
+.tabs .active .tabs__count {
+    background: color-mix(in srgb, var(--on-gold) 14%, transparent);
+    color: var(--on-gold);
+}
+
+/* A row of filters above a list. */
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+}
+.toolbar .field {
+    flex: 1 1 170px;
+}
+.toolbar .field--grow {
+    flex: 3 1 260px;
+}
+.toolbar__actions {
+    display: flex;
+    gap: 8px;
+}
+.toolbar .button {
+    min-height: 48px;
+}
+
+.select {
+    position: relative;
+    display: block;
+}
+.select select {
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 42px;
+    cursor: pointer;
+}
+.select::after {
+    content: '';
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin-top: -7px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+.search-box {
+    position: relative;
+    flex: 0 1 320px;
+    min-width: min(220px, 100%);
+}
+.search-box .ico {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    translate: 0 -50%;
+    color: var(--muted);
+    pointer-events: none;
+}
+.search-box .input {
+    padding-left: 44px;
+    border-radius: 999px;
+}
+
+.pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 28px;
+}
+.pager__now {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* Text a user wrote. */
+.prose {
+    font-size: 16.5px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+.prose p + p {
+    margin-top: 0.9em;
+}
+
+.block {
+    margin-top: clamp(40px, 6vw, 72px);
+}
+.block__head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+.block__head p {
+    max-width: 60ch;
+    color: var(--muted);
+}
+.table-note {
+    margin-top: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.spinner {
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--line-strong);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+}
+
+.modal--confirm {
+    width: min(440px, calc(100vw - 32px));
+}
+.modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+}
+.modal__actions form {
+    margin: 0;
+}
+
+/* ---------- forum: the list ---------- */
+
+.forum-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+}
+.forum-tools .toolbar {
+    align-self: stretch;
+}
+.forum-tab-panel {
+    display: none;
+}
+.forum-tab-panel.active {
+    display: block;
+    animation: panel-in 0.45s var(--ease-out);
+}
+.forum-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
+}
+.forum-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px 18px;
+    padding: 20px 22px;
+    transition: transform 0.5s var(--ease-out), border-color 0.25s, background 0.25s;
+}
+.forum-card:hover,
+.forum-card:focus-within {
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    background: var(--ink-2);
+}
+.forum-card__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 8px;
+}
+.forum-card-title {
+    font-size: clamp(18px, 1.7vw, 21px);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+/* The title link covers the card, so the whole card opens the discussion. */
+.forum-card-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+.forum-card-link:focus-visible {
+    outline: none;
+}
+.forum-card:has(.forum-card-link:focus-visible) {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+}
+.forum-card:hover .forum-card-link {
+    color: var(--gold);
+}
+.forum-card-link {
+    transition: color 0.2s;
+}
+.forum-card-excerpt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin-top: 6px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+.forum-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+}
+.forum-author {
+    font-weight: 600;
+    color: var(--title);
+}
+.forum-card__side {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+}
+.forum-card-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 68px;
+    padding: 9px 10px 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--ink-2);
+    transition: border-color 0.25s, background 0.25s;
+}
+.forum-card:hover .forum-card-stats {
+    border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+    background: var(--gold-wash);
+}
+.forum-reply-count {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+.forum-reply-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.forum-bookmark-form {
+    margin: 0;
+}
+.forum-bookmark-btn .bookmark-icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    transition: fill 0.2s, transform 0.35s var(--ease-spring);
+}
+.icon-button.forum-bookmark-btn:hover {
+    transform: none;
+}
+.forum-bookmark-btn:hover .bookmark-icon {
+    transform: translateY(-2px) scale(1.12);
+}
+.forum-bookmark-btn:active .bookmark-icon {
+    transform: scale(0.8);
+}
+.forum-bookmark-btn.bookmarked {
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.forum-bookmark-btn.bookmarked .bookmark-icon {
+    fill: currentColor;
+}
+
+/* ---------- forum: writing a discussion ---------- */
+
+.forum-new-form {
+    --gap: 20px;
+}
+.field__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+.field__count {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+.forum-new-form .field textarea {
+    min-height: 220px;
+}
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ---------- forum: one discussion ---------- */
+
+.thread__post {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 18px;
+    padding: clamp(20px, 3.4vw, 36px);
+    background: radial-gradient(90% 130% at 100% 0%, var(--gold-wash), transparent 62%), var(--ink-2);
+}
+.thread__head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+}
+.thread__title {
+    font-size: clamp(26px, 3.6vw, 40px);
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+}
+.byline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.byline__who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-right: auto;
+    line-height: 1.35;
+}
+.byline__who .forum-author {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.forum-date {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+}
+.forum-meta-label {
+    color: var(--muted);
+}
+
+.thread__replies {
+    margin-top: clamp(28px, 4vw, 44px);
+}
+.thread__count {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: clamp(20px, 2.2vw, 26px);
+}
+.reply {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 0 14px;
+    padding-bottom: 18px;
+    scroll-margin-top: 8px;
+}
+/* The line that joins one reply to the next. */
+.reply::before {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 48px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--line);
+}
+.reply:last-of-type::before {
+    display: none;
+}
+.reply__body {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--ink-1);
+    transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+}
+.reply:hover .reply__body {
+    border-color: var(--line-strong);
+}
+.reply__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.reply__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+    min-height: 32px;
+    font-size: 14.5px;
+}
+.reply .forum-edited-label {
+    padding: 1px 8px;
+    font-size: 11px;
+}
+.reply-actions .icon-button {
+    width: 32px;
+    height: 32px;
+    border-color: transparent;
+    color: var(--muted);
+}
+/* An open menu sits over the reply box, not under it. */
+.reply-actions.is-open {
+    z-index: 30;
+}
+.reply-actions .menu__panel {
+    min-width: 160px;
+}
+.reply-actions .menu__panel form {
+    margin: 0;
+}
+.forum-reply-content {
+    margin-top: 6px;
+    font-size: 15.5px;
+}
+.forum-deleted-reply {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    font-style: italic;
+    color: var(--muted);
+}
+.reply.is-deleted .reply__body {
+    border-style: dashed;
+    background: none;
+}
+.reply.is-deleted .avatar {
+    opacity: 0.4;
+}
+/* A reply reached from a "replying to" link lights up for a moment. */
+.reply-highlight .reply__body {
+    animation: reply-flash 1.5s var(--ease-out);
+}
+@keyframes reply-flash {
+    0%,
+    45% {
+        border-color: var(--gold);
+        background: var(--gold-wash);
+        box-shadow: 0 0 0 4px var(--gold-wash);
+    }
+}
+.forum-edit-form {
+    margin-top: 10px;
+}
+.forum-edit-form textarea {
+    min-height: 110px;
+    resize: vertical;
+    line-height: 1.5;
+}
+.forum-edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+.reply-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+}
+.reply-vote-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--ink-2);
+}
+.rvi-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+    transition: color 0.2s, background 0.2s, transform 0.25s var(--ease-spring);
+}
+.rvi-btn svg {
+    width: 14px;
+    height: 14px;
+}
+button.rvi-btn:hover:not(:disabled) {
+    background: var(--ink-3);
+    color: var(--title);
+}
+button.rvi-btn:active:not(:disabled) {
+    transform: scale(0.9);
+}
+.rvi-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.upvote-btn.active,
+button.upvote-btn.active:hover {
+    background: var(--good-wash);
+    color: var(--good);
+}
+.downvote-btn.active,
+button.downvote-btn.active:hover {
+    background: var(--check-wash);
+    color: var(--check);
+}
+.rvi-count {
+    display: inline-block;
+    min-width: 1ch;
+    font-variant-numeric: tabular-nums;
+}
+.rvi-count.is-bumped {
+    animation: count-bump 0.45s var(--ease-spring);
+}
+@keyframes count-bump {
+    40% {
+        transform: translateY(-4px) scale(1.3);
+    }
+}
+.rvi-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--line);
+}
+
+/* The reply box stays in reach at the bottom of the window. */
+.composer {
+    position: sticky;
+    bottom: 14px;
+    z-index: 20;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+    padding: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--ink-1) 88%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: var(--shadow);
+}
+.composer__box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+.composer textarea {
+    display: block;
+    width: 100%;
+    min-height: 46px;
+    max-height: 40vh;
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: var(--ink-2);
+    color: var(--title);
+    line-height: 1.5;
+    resize: none;
+    field-sizing: content;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.composer textarea::placeholder {
+    color: var(--muted);
+}
+.composer textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 4px var(--gold-wash);
+}
+.forum-replying-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 6px 4px 14px;
+    border-radius: 12px;
+    background: var(--gold-wash);
+    font-size: 13.5px;
+    color: var(--title);
+}
+.forum-replying-banner.active {
+    display: flex;
+    animation: panel-in 0.3s var(--ease-out);
+}
+.forum-replying-banner b {
+    color: var(--gold);
+}
+.forum-replying-banner button {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--muted);
+}
+.forum-replying-banner button:hover {
+    background: var(--ink-3);
+    color: var(--title);
+}
+/* Toasts rise clear of the reply box. */
+body:has(.composer) #toast-container {
+    bottom: 100px;
+}
+/* When the browser brings something into view from below the window, it
+   stops above the reply box and not underneath it. */
+html:has(.composer) {
+    scroll-padding-bottom: 104px;
+}
+/* While a reply is being edited the reply box goes back to its place at the
+   end of the thread, so it cannot sit on top of the text being edited or
+   the Save button under it. */
+.thread:has(.forum-edit-form:not([hidden])) .composer {
+    position: static;
+}
+.forum-login-prompt {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+/* ---------- leaderboard ---------- */
+
+.board-controls {
+    align-items: center;
+}
+.tab-panel {
+    display: none;
+}
+.tab-panel.active {
+    display: block;
+    animation: panel-in 0.45s var(--ease-out);
+}
+
+.podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 22px);
+    max-width: 720px;
+    margin: clamp(36px, 5vw, 60px) auto clamp(24px, 4vw, 40px);
+    padding: 0;
+    border-bottom: 1px solid var(--line-strong);
+    list-style: none;
+}
+.podium__place {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 220px;
+    text-align: center;
+}
+.podium__place--1 {
+    order: 2;
+}
+.podium__place--2 {
+    order: 1;
+}
+.podium__place--3 {
+    order: 3;
+}
+.podium__who {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding-bottom: 14px;
+}
+.podium__face {
+    position: relative;
+    margin-bottom: 4px;
+}
+.podium .avatar {
+    width: 60px;
+    height: 60px;
+    border: 2px solid var(--line-strong);
+    background: var(--ink-3);
+    font-size: 24px;
+    color: var(--title);
+}
+.podium__place--1 .avatar {
+    width: 84px;
+    height: 84px;
+    border-color: var(--gold);
+    background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep));
+    box-shadow: 0 0 0 6px var(--gold-wash), 0 18px 40px -14px var(--gold);
+    font-size: 34px;
+    color: var(--on-gold);
+}
+.podium__crown {
+    position: absolute;
+    left: 50%;
+    top: -30px;
+    width: 38px;
+    height: 30px;
+    translate: -50% 0;
+    color: var(--gold);
+    animation: crown-bob 3.2s ease-in-out infinite;
+}
+@keyframes crown-bob {
+    50% {
+        transform: translateY(-4px) rotate(-5deg);
+    }
+}
+.podium__name {
+    max-width: 100%;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--title);
+}
+.podium__score {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+.podium__score b {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gold);
+}
+.podium__block {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 76px;
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: linear-gradient(180deg, var(--ink-3), var(--ink-1));
+    font-family: var(--font-serif);
+    font-size: clamp(34px, 5vw, 56px);
+    font-style: italic;
+    line-height: 1;
+    color: var(--muted);
+    transform-origin: bottom;
+}
+.podium__place--2 .podium__block {
+    height: 108px;
+}
+.podium__place--1 .podium__block {
+    height: 150px;
+    border-color: transparent;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    color: var(--on-gold);
+}
+/* The blocks rise third place first, then the players land on them. */
+.podium.is-in .podium__block {
+    animation: podium-rise 0.8s var(--ease-out) both;
+    animation-delay: calc(var(--n, 0) * 0.16s);
+}
+.podium.is-in .podium__who {
+    animation: podium-land 0.6s var(--ease-spring) both;
+    animation-delay: calc(0.35s + var(--n, 0) * 0.16s);
+}
+.podium__place--3 {
+    --n: 0;
+}
+.podium__place--2 {
+    --n: 1;
+}
+.podium__place--1 {
+    --n: 2;
+}
+@keyframes podium-rise {
+    from {
+        transform: scaleY(0);
+    }
+}
+@keyframes podium-land {
+    from {
+        opacity: 0;
+        transform: translateY(-22px);
+    }
+}
+
+.rank {
+    width: 1%;
+}
+.rank__n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+}
+.player-row:nth-child(-n + 3) .rank__n {
+    border: 1px solid var(--line-strong);
+    background: var(--ink-3);
+    color: var(--title);
+}
+.player-row:nth-child(1) .rank__n {
+    border-color: transparent;
+    background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep));
+    font-weight: 700;
+    color: var(--on-gold);
+}
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.user-cell .avatar {
+    flex: none;
+}
+.user-cell .username {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    color: var(--title);
+}
+.data-table .is-me td:first-child {
+    box-shadow: inset 3px 0 0 var(--gold);
+}
+.data-table .empty-row td {
+    padding: 36px 18px;
+    text-align: center;
+    white-space: normal;
+    color: var(--muted);
+}
+.data-table .empty-row:hover {
+    background: none;
+}
+.data-table .only-narrow {
+    display: none;
+}
+
+/* ---------- achievements ---------- */
+
+/* Each rarity has a colour. It rings the badge and tints its card. */
+[data-rarity] {
+    --ring: var(--muted);
+}
+[data-rarity='rare'] {
+    --ring: var(--info);
+}
+[data-rarity='epic'] {
+    --ring: var(--epic);
+}
+[data-rarity='legendary'] {
+    --ring: var(--gold);
+}
+@media (hover: none) {
+    .hover-hint {
+        display: none;
+    }
+}
+
+.cabinet {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(100%, 420px);
+    margin-top: 8px;
+}
+.cabinet__count {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+/* "13 / 31" stays on one line; on a narrow phone it is the label beside it
+   that wraps. */
+.cabinet__count .stat__value {
+    font-size: clamp(40px, 5vw, 64px);
+    white-space: nowrap;
+}
+.cabinet__count .stat__value span {
+    color: var(--muted);
+}
+.cabinet .progress > span {
+    animation: bar-grow 1.2s var(--ease-out) 0.3s both;
+}
+@keyframes bar-grow {
+    from {
+        clip-path: inset(0 100% 0 0 round 999px);
+    }
+    to {
+        clip-path: inset(0 0 0 0 round 999px);
+    }
+}
+
+.featured {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.featured h2 {
+    font-size: clamp(20px, 2vw, 26px);
+}
+.featured-badges {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.featured-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+    border-radius: var(--radius);
+    background: var(--gold-wash);
+}
+.featured-badge .medal {
+    width: 48px;
+    height: 48px;
+}
+.featured-badge .medal__face {
+    font-size: 22px;
+}
+.featured-badge__title {
+    min-width: 0;
+    margin-right: auto;
+    font-weight: 600;
+    color: var(--title);
+}
+.featured-badge form {
+    margin: 0;
+}
+
+.badge-filter {
+    margin-top: clamp(28px, 4vw, 44px);
+    align-items: center;
+}
+.badge-group {
+    margin-top: clamp(28px, 4vw, 44px);
+}
+.badge-group__title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.badge-group__title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+}
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    gap: 18px;
+}
+.badge-slot {
+    display: flex;
+}
+.badge-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    transition: transform 0.5s var(--ease-out), border-color 0.25s;
+}
+.badge-card.is-unlocked {
+    border-color: color-mix(in srgb, var(--ring) 38%, var(--line));
+    background: radial-gradient(110% 80% at 0% 0%, color-mix(in srgb, var(--ring) 13%, transparent), transparent 60%), var(--ink-1);
+}
+.badge-card.is-unlocked:hover {
+    border-color: color-mix(in srgb, var(--ring) 70%, transparent);
+}
+.badge-card.is-locked {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--ink-1) 55%, transparent);
+}
+.badge-card.is-locked .title {
+    color: var(--text);
+}
+.badge-card__head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.badge-card .title {
+    font-size: 18px;
+    line-height: 1.25;
+}
+.badge-card .description {
+    color: var(--muted);
+}
+.badge-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+.badge-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 6px;
+}
+.badge-card__actions form {
+    margin: 0;
+}
+.rarity {
+    border-color: color-mix(in srgb, var(--ring) 45%, transparent);
+    background: color-mix(in srgb, var(--ring) 12%, transparent);
+    color: var(--ring);
+}
+
+/* A badge is a coin. A locked one turns over to show what it will be;
+   an unlocked one spins once and catches the light. */
+.medal {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    flex: none;
+    perspective: 400px;
+}
+.medal__coin {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.9s var(--ease-out);
+}
+.medal__face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 25%, var(--ink-3), var(--ink-1));
+    box-shadow: inset 0 0 0 2px var(--ring), inset 0 0 0 5px var(--ink-1), inset 0 0 0 6px color-mix(in srgb, var(--ring) 45%, transparent);
+    font-size: 28px;
+    line-height: 1;
+    color: var(--ring);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+.medal__face svg {
+    width: 24px;
+    height: 24px;
+}
+/* An earned badge has a pale face, so a dark icon reads on it in either theme. */
+.is-unlocked .medal__face,
+.featured-badge .medal__face,
+.is-locked .medal__face--back {
+    background: radial-gradient(circle at 30% 25%, var(--paper), color-mix(in srgb, var(--paper) 78%, var(--gold-deep)));
+    box-shadow: inset 0 0 0 2px var(--ring), inset 0 0 0 5px var(--paper), inset 0 0 0 6px color-mix(in srgb, var(--ring) 45%, transparent);
+}
+.medal__face--back {
+    transform: rotateY(180deg);
+}
+.is-locked .medal__face--back {
+    filter: grayscale(1);
+}
+.badge-card.is-locked:hover .medal__coin,
+.badge-card.is-locked:focus-within .medal__coin {
+    transform: rotateY(180deg);
+}
+.badge-card.is-unlocked:hover .medal__coin,
+.badge-card.is-unlocked:focus-within .medal__coin {
+    transform: rotateY(360deg);
+}
+.is-unlocked .medal::after,
+.featured-badge .medal::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(115deg, transparent 38%, color-mix(in srgb, var(--gold-bright) 60%, transparent) 50%, transparent 62%) 150% 0 / 300% 100% no-repeat;
+    pointer-events: none;
+    animation: medal-shine 4.2s ease-in-out infinite;
+}
+@keyframes medal-shine {
+    0%,
+    55% {
+        background-position: 150% 0;
+    }
+    100% {
+        background-position: -50% 0;
+    }
+}
+.celebrate-effect {
+    animation: celebrate-pulse 0.8s var(--ease-out);
+}
+@keyframes celebrate-pulse {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 70%, transparent);
+        border-color: var(--gold);
+        scale: 1;
+    }
+    50% {
+        box-shadow: 0 0 0 18px transparent;
+        border-color: var(--gold);
+        scale: 1.04;
+    }
+    100% {
+        box-shadow: 0 0 0 0 transparent;
+        scale: 1;
+    }
+}
+
+/* ---------- stats ---------- */
+
+.profile-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 18px;
+    width: 100%;
+    margin-top: 12px;
+}
+.profile-card .avatar--lg {
+    flex: none;
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 0 5px var(--gold-wash);
+}
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    margin-right: auto;
+}
+.profile-username {
+    overflow: hidden;
+    font-size: 20px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--title);
+}
+.profile-avatar-link {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    transition: color 0.2s;
+}
+.profile-avatar-link:hover {
+    color: var(--gold);
+}
+
+.section-nav-slot {
+    min-height: 46px;
+    margin-top: 22px;
+}
+.section-nav {
+    display: flex;
+    width: fit-content;
+}
+.section-nav.is-docked {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    z-index: 60;
+    max-width: calc(100vw - 24px);
+    translate: -50% 0;
+    border-color: var(--line-strong);
+    background: color-mix(in srgb, var(--ink-1) 90%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+    animation: dock-in 0.45s var(--ease-spring);
+}
+@keyframes dock-in {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+}
+/* When the browser brings something into view from below the window, it
+   stops above the dock and not behind it. */
+html:has(.section-nav.is-docked) {
+    scroll-padding-bottom: 84px;
+}
+
+/* A number card lifts on hover. It may also be a data-reveal element, so
+   its transition names the reveal's properties too, each with its own
+   delay: the entrance is staggered, the hover is not. */
+.stat,
+.side-card {
+    transition: opacity 0.7s var(--ease-out), translate 0.8s var(--ease-out), border-color 0.25s, transform 0.4s var(--ease-out);
+    transition-delay: calc(var(--i, 0) * 70ms), calc(var(--i, 0) * 70ms), 0s, 0s;
+}
+.stat:hover {
+    border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+    transform: translateY(-3px);
+}
+.stat__value.is-up {
+    color: var(--good);
+}
+.stat__value.is-down {
+    color: var(--check);
+}
+
+.rating-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2.2fr) minmax(220px, 1fr);
+    gap: 18px;
+    align-items: stretch;
+}
+.rating-layout__side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-content: stretch;
+}
+.rating-now {
+    grid-column: 1 / -1;
+    background: radial-gradient(120% 120% at 100% 0%, var(--gold-wash), transparent 60%), var(--ink-1);
+}
+.rating-now .stat__value {
+    font-size: clamp(44px, 5vw, 68px);
+    color: var(--gold);
+}
+.chart-card {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+.chart-card h3 {
+    font-size: 18px;
+}
+.chart-card__plot {
+    position: relative;
+    flex: 1;
+    min-height: clamp(240px, 30vw, 320px);
+}
+.chart-card__plot canvas {
+    position: absolute;
+    inset: 0;
+}
+.chart-card__note {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: 6px;
+    padding: 0 24px;
+    text-align: center;
+    color: var(--muted);
+}
+.chart-card__note b {
+    font-size: 17px;
+    color: var(--title);
+}
+.chart-card__note .button {
+    justify-self: center;
+    margin-top: 10px;
+}
+.rating-table {
+    margin-top: 18px;
+}
+.games-grid {
+    --min: 270px;
+    --gap: 14px;
+    margin-top: 14px;
+}
+.profile-chips {
+    --gap: 6px;
+}
+/* The line a chart will follow once there is something to plot. */
+.chart-card__ghost {
+    position: absolute;
+    inset: 8% 0 12%;
+    width: 100%;
+    height: 80%;
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 2;
+    stroke-dasharray: 5 8;
+    stroke-linecap: round;
+    animation: ghost-drift 22s linear infinite;
+}
+@keyframes ghost-drift {
+    to {
+        stroke-dashoffset: -260;
+    }
+}
+
+.scoreboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px clamp(12px, 3vw, 36px);
+    text-align: center;
+    background: radial-gradient(70% 120% at 50% 0%, var(--gold-wash), transparent 70%), var(--ink-1);
+}
+.scoreboard__side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.scoreboard__side .num {
+    font-size: clamp(52px, 9vw, 96px);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+.scoreboard__side--you .num {
+    color: var(--gold);
+}
+.scoreboard__who {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.scoreboard__who span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.scoreboard__dash {
+    font-family: var(--font-serif);
+    font-size: clamp(30px, 4vw, 48px);
+    font-style: italic;
+    line-height: 1;
+    color: var(--muted);
+}
+.scoreboard__foot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    margin-top: 10px;
+}
+.mini-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.mini-stat .num,
+.mini-stat b {
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+
+.record {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px clamp(18px, 4vw, 44px);
+}
+.record__main {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+.record__bar {
+    display: flex;
+    gap: 3px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--ink-3);
+    overflow: hidden;
+}
+.record__bar span {
+    flex: var(--n, 0) 1 0;
+    min-width: 0;
+}
+.record__bar .is-win {
+    background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright));
+}
+.record__bar .is-loss {
+    background: var(--check);
+}
+.record__bar .is-draw {
+    background: var(--muted);
+}
+.is-in .record__bar {
+    animation: bar-grow 1.2s var(--ease-out) 0.2s both;
+}
+.record__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px clamp(18px, 4vw, 44px);
+}
+.record__item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.record__item .num {
+    font-size: clamp(26px, 3vw, 36px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+.record__key {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.record__key::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--dot, var(--line-strong));
+}
+.record__key--win {
+    --dot: var(--gold);
+}
+.record__key--loss {
+    --dot: var(--check);
+}
+.record__key--draw {
+    --dot: var(--muted);
+}
+
+/* A percentage drawn as a ring. --p is the number, 0 to 100. */
+@property --p {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+}
+.ring {
+    position: relative;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 2px;
+    width: clamp(120px, 14vw, 150px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: conic-gradient(var(--gold) calc(var(--p) * 1%), var(--ink-3) 0);
+    text-align: center;
+}
+.ring::before {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    background: var(--ink-1);
+}
+.ring > * {
+    position: relative;
+}
+.ring__value {
+    font-size: clamp(22px, 2.4vw, 28px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+.ring__label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.is-in .ring {
+    animation: ring-fill 1.3s var(--ease-out) 0.2s both;
+}
+@keyframes ring-fill {
+    from {
+        --p: 0;
+    }
+}
+
+.side-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.side-card:hover {
+    border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+    transform: translateY(-3px);
+}
+.side-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.side-card__head h3 {
+    font-size: 18px;
+}
+.side-card img {
+    width: 52px;
+    height: 52px;
+    filter: drop-shadow(0 8px 8px color-mix(in srgb, var(--shade) 45%, transparent));
+    transition: transform 0.5s var(--ease-spring);
+}
+.side-card:hover img {
+    transform: translateY(-4px) rotate(-7deg);
+}
+.side-card__nums {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.side-card__nums > div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.side-card .num,
+.side-card__nums b {
+    font-size: clamp(26px, 2.8vw, 34px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+.side-card__nums b {
+    color: var(--gold);
+}
+.side-card .progress {
+    height: 6px;
+    margin-top: auto;
+}
+.side-card .progress > span,
+.training .progress > span {
+    animation: bar-grow 1.2s var(--ease-out) 0.3s both;
+}
+
+.training {
+    --gap: 18px;
+    --min: 300px;
+}
+.training__card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.training__card h3 {
+    font-size: 18px;
+}
+.training__row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.training__row > div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+.training__row .stat__value {
+    font-size: clamp(24px, 2.6vw, 32px);
+}
+.training__row--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.training__note {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.training__note b {
+    font-size: 17px;
+    color: var(--title);
+    overflow-wrap: anywhere;
+}
+.training__go {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--gold);
+}
+
+.result {
+    text-transform: capitalize;
+}
+.result--win {
+    border-color: transparent;
+    background: var(--good-wash);
+    color: var(--good);
+}
+.result--loss {
+    border-color: transparent;
+    background: var(--check-wash);
+    color: var(--check);
+}
+.delta--up {
+    color: var(--good);
+}
+.delta--down {
+    color: var(--check);
+}
+
+/* ---------- match history ---------- */
+
+.history__layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    align-items: start;
+    gap: 18px;
+}
+.sidebar {
+    position: sticky;
+    top: calc(var(--nav-height) + 16px);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - var(--nav-height) - 32px);
+    min-height: 260px;
+    padding: 0;
+    overflow: hidden;
+}
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.state-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 12px;
+    padding: 36px 20px;
+    text-align: center;
+    color: var(--muted);
+}
+.game-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 2px;
+    margin: 0;
+    padding: 6px;
+    overflow-y: auto;
+    list-style: none;
+}
+.game-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 8px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    animation: panel-in 0.4s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+}
+.game-item:hover {
+    background: var(--ink-2);
+}
+.game-item.active {
+    border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+    background: var(--gold-wash);
+}
+.game-item__open {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 12px;
+    min-width: 0;
+    padding: 10px;
+    border: 0;
+    border-radius: inherit;
+    background: none;
+    text-align: left;
+}
+.result-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    min-width: 62px;
+    height: 34px;
+    padding: 0 9px 0 5px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--title);
+}
+.result-badge img {
+    width: 22px;
+    height: 22px;
+}
+.result-badge.draw {
+    justify-content: center;
+    padding: 0 9px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--muted);
+}
+.game-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+}
+.game-meta .players {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--title);
+}
+.game-meta .detail {
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+}
+.game-item .icon-button {
+    flex: none;
+    width: 34px;
+    height: 34px;
+}
+
+.replay-panel {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    min-height: 460px;
+    padding: 0;
+    overflow: hidden;
+}
+.replay-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 6px;
+    padding: 36px 20px 44px;
+    text-align: center;
+    color: var(--muted);
+}
+.replay-placeholder > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+.replay-placeholder .piece-stage {
+    width: min(230px, 60%);
+    margin-bottom: 10px;
+}
+.replay-placeholder h2 {
+    font-size: clamp(20px, 2.2vw, 26px);
+}
+.replay-active {
+    display: flex;
+    flex-direction: column;
+    animation: panel-in 0.45s var(--ease-out);
+}
+.replay-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+}
+.replay-title {
+    margin-right: auto;
+    font-size: clamp(18px, 1.8vw, 22px);
+    overflow-wrap: anywhere;
+}
+.replay-body {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(200px, 1fr);
+    gap: 20px 24px;
+    padding: 20px;
+}
+.board-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: clamp(280px, 100vh - 380px, 560px);
+    max-width: 100%;
+}
+.replay-board {
+    --sq-light: color-mix(in srgb, var(--title) 80%, var(--gold-deep));
+    --sq-dark: color-mix(in srgb, var(--gold-deep) 62%, var(--ink-0));
+    padding: 6px;
+    border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+    border-radius: 12px;
+    background: var(--ink-0);
+    box-shadow: var(--shadow);
+}
+[data-theme='light'] .replay-board {
+    --sq-light: var(--ink-1);
+    --sq-dark: color-mix(in srgb, var(--gold-bright) 58%, var(--ink-3));
+    background: var(--gold-deep);
+}
+.replay-board__inner {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.replay-board__squares {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template: repeat(8, 1fr) / repeat(8, 1fr);
+}
+.sq {
+    position: relative;
+    background: var(--sq-dark);
+    color: var(--sq-light);
+}
+.sq--light {
+    background: var(--sq-light);
+    color: var(--sq-dark);
+}
+.sq::before,
+.sq::after {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.6cqi, 11px);
+    font-weight: 700;
+    line-height: 1;
+}
+.sq[data-rank]::before {
+    content: attr(data-rank);
+    left: 3px;
+    top: 3px;
+}
+.sq[data-file]::after {
+    content: attr(data-file);
+    right: 3px;
+    bottom: 3px;
+}
+/* The move just played, and a king in check. */
+.sq.is-from,
+.sq.is-to {
+    box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--gold-bright) 48%, transparent);
+}
+.sq.is-check {
+    background-image: radial-gradient(circle, var(--check) 18%, transparent 72%);
+}
+.replay-board__pieces {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.replay-board__pieces img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 12.5%;
+    height: 12.5%;
+    max-width: none;
+    transform: translate(calc(var(--x) * 100%), calc(var(--y) * 100%));
+    transition: transform 0.34s var(--ease-out), opacity 0.22s, scale 0.22s;
+    will-change: transform;
+}
+.replay-board__pieces img.is-leaving,
+.replay-board__pieces img.is-entering {
+    opacity: 0;
+    scale: 0.6;
+}
+.replay-board.is-instant img {
+    transition: none;
+}
+.scrub {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--gold);
+    cursor: pointer;
+}
+.replay-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.replay-controls .icon-button:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+.replay-controls .icon-button:hover {
+    transform: translateY(-2px);
+}
+.icon-button.play-pause {
+    width: 52px;
+    height: 52px;
+    border: 0;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    box-shadow: 0 10px 30px -12px var(--gold);
+    color: var(--on-gold);
+}
+.icon-button.play-pause:hover {
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    transform: scale(1.07);
+}
+.play-pause svg {
+    width: 20px;
+    height: 20px;
+}
+.play-pause .icon-pause,
+.play-pause.is-playing .icon-play {
+    display: none;
+}
+.play-pause.is-playing .icon-pause {
+    display: block;
+}
+.move-counter {
+    min-width: 76px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    color: var(--muted);
+}
+.movelist-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+}
+.movelist-col h3 {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.move-list {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+    align-content: start;
+    gap: 2px 6px;
+    flex: 1 1 0;
+    min-height: 180px;
+    padding-right: 6px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+}
+.move-row {
+    display: contents;
+}
+.move-num {
+    padding: 6px 4px;
+    text-align: right;
+    color: var(--muted);
+}
+.move-san {
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    text-align: left;
+    color: var(--text);
+    transition: background 0.12s, color 0.12s;
+}
+.move-san:hover {
+    background: var(--ink-3);
+    color: var(--title);
+}
+.move-san.active {
+    background: var(--gold);
+    font-weight: 700;
+    color: var(--on-gold);
+}
+.replay-footer .button {
+    font-family: var(--font-sans);
+}
+.replay-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 14px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+/* The replay stacks when its own panel is narrow, whatever the window is. */
+@container (max-width: 760px) {
+    .replay-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .board-col {
+        width: min(100%, 560px);
+        margin-inline: auto;
+    }
+    .move-list {
+        flex: none;
+        max-height: 220px;
+        min-height: 0;
+    }
+}
+
+/* A phone on its side is wide and short. A board as wide as the panel would
+   be taller than the window, so here the board keeps to the height of the
+   window, and where the panel has the width the moves stay beside it. */
+@media (orientation: landscape) and (max-height: 540px) {
+    @container (max-width: 760px) {
+        .board-col {
+            width: min(100%, clamp(220px, 100vh - var(--nav-height) - 24px, 560px));
+        }
+    }
+    @container (min-width: 520px) and (max-width: 760px) {
+        .replay-body {
+            grid-template-columns: minmax(0, auto) minmax(200px, 1fr);
+        }
+        .board-col {
+            margin-inline: 0;
+        }
+        .move-list {
+            flex: 1 1 0;
+            max-height: none;
+            min-height: 180px;
+        }
+    }
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 1000px) {
+    .history__layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    /* The list of games is never taller than the window it scrolls in. */
+    .sidebar {
+        position: static;
+        max-height: min(380px, 100vh - var(--nav-height) - 32px);
+        min-height: 0;
+    }
+    .rating-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Up to a small tablet the chess rating table folds its four counts into
+   one column, as it does on a phone. In both leaderboards the name is the
+   column that gives way: it is cut with an ellipsis before any number is
+   pushed off the side of the table. */
+@media (max-width: 900px) {
+    .tab-panel .data-table .only-wide {
+        display: none;
+    }
+    .tab-panel .data-table .only-narrow {
+        display: table-cell;
+    }
+    .player-row td:nth-child(2) {
+        width: 100%;
+        max-width: 0;
+    }
+}
+
+@media (max-width: 760px) {
+    /* The piece moves up beside the title; everything under the title
+       takes the full width again. */
+    .hero-split {
+        grid-template-columns: minmax(0, 1fr) 100px;
+        align-items: start;
+        justify-items: start;
+        gap: 12px 6px;
+    }
+    .hero-split__copy {
+        display: contents;
+    }
+    .hero-split__copy > * {
+        grid-column: 1;
+    }
+    .hero-split__copy > :nth-child(n + 4) {
+        grid-column: 1 / -1;
+    }
+    .hero-split > .piece-stage {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+        align-self: center;
+    }
+    .toolbar .field,
+    .toolbar .field--grow {
+        flex: 1 1 100%;
+    }
+    .toolbar__actions {
+        flex: 1 1 100%;
+    }
+    .toolbar__actions .button {
+        flex: 1;
+    }
+    .record {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+    }
+    .record__main {
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .wide-only,
+    .data-table .only-wide {
+        display: none;
+    }
+    .narrow-only {
+        display: inline;
+    }
+    .data-table .button--sm {
+        padding: 0 10px;
+    }
+    .forum-dot {
+        display: none;
+    }
+    .data-table .only-narrow {
+        display: table-cell;
+    }
+    .data-table th,
+    .data-table td {
+        padding: 12px 10px;
+    }
+    /* Recent games: the winner's name gives way, so the replay button at
+       the end of the row stays on screen. */
+    #recent .data-table td:nth-child(2) {
+        width: 100%;
+        max-width: 0;
+    }
+    #recent .data-table .chip {
+        display: inline-block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+    }
+    .board-controls .search-box {
+        flex: 1 1 100%;
+    }
+    .podium .avatar {
+        width: 48px;
+        height: 48px;
+        font-size: 19px;
+    }
+    .podium__place--1 .avatar {
+        width: 64px;
+        height: 64px;
+        font-size: 26px;
+    }
+    .podium__name {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 560px) {
+    .forum-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 16px;
+    }
+    .forum-card > .avatar {
+        display: none;
+    }
+    .forum-card-stats {
+        min-width: 56px;
+    }
+    .reply {
+        grid-template-columns: 32px minmax(0, 1fr);
+        gap: 0 10px;
+    }
+    .reply > .avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+    }
+    .reply::before {
+        left: 15px;
+        top: 40px;
+    }
+    .rvi-btn {
+        padding: 0 10px;
+    }
+    .composer {
+        bottom: 8px;
+    }
+    .training__row {
+        gap: 8px;
+    }
+    .replay-body {
+        padding: 14px;
+    }
+    .replay-top,
+    .replay-footer {
+        padding-inline: 14px;
+    }
+}
+
+@media (max-width: 420px) {
+    /* In the leaderboards and the list of recent games the cells close up,
+       and the "You" chip steps aside (its row is already marked in gold),
+       so a name keeps most of its letters. */
+    .tab-panel .data-table th,
+    .tab-panel .data-table td,
+    #recent .data-table th,
+    #recent .data-table td {
+        padding-inline: 6px;
+    }
+    .data-table .is-me .chip {
+        display: none;
+    }
+}
+
+@media (max-width: 374px) {
+    /* Pictures leave the leaderboard rows: the room goes to the names. */
+    .data-table .user-cell .avatar {
+        display: none;
+    }
+    /* A strip of three or four tabs is wider than the screen here. It
+       scrolls, but the last tab was cut in half. Closed up, they all fit. */
+    .tabs button,
+    .tabs a {
+        gap: 6px;
+        padding-inline: 10px;
+    }
+    .tabs__count {
+        padding-inline: 5px;
+    }
+    .section-nav a {
+        padding-inline: 9px;
+    }
+    /* In the list of games the names and the time wrap. Cut to one line
+       here, every row read "localtester vs ..." and nothing else. */
+    .game-meta .players,
+    .game-meta .detail {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 350px) {
+    /* The leaderboard headings close up, which is worth a letter of every
+       name. */
+    .tab-panel .data-table th {
+        letter-spacing: 0.04em;
+    }
+    /* The mode leaves the list of recent games, which leaves room for the
+       winner's name. */
+    #recent .data-table th:first-child,
+    #recent .data-table td:first-child {
+        display: none;
+    }
+    /* Three labels in a row stop running into each other. */
+    .training__row .stat__label {
+        letter-spacing: 0.04em;
+    }
+    /* The two buttons under a form take a row each. */
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+    .form-actions .button {
+        width: 100%;
+    }
+}
+
+/* ---------- touch screens ---------- */
+
+/* app.css gives buttons, tabs and tick boxes room for a finger. These are
+   the smaller controls of the community pages. */
+@media (hover: none) and (pointer: coarse) {
+    button.rvi-btn {
+        min-height: 40px;
+    }
+    .reply-actions .icon-button,
+    .game-item .icon-button,
+    .forum-replying-banner button {
+        width: 40px;
+        height: 40px;
+    }
+    .move-san {
+        min-height: 40px;
+    }
+    .move-num {
+        align-self: center;
+    }
+    /* The slider is a thin line. The space above and below it takes the
+       touch as well, and the margin keeps everything where it was. */
+    .scrub {
+        height: 40px;
+        margin-block: -12px;
+    }
+}
+
+/* ---------- the low performance tier ----------
+   data-perf="low" is set by perf.js; see the end of app.css. community.js
+   leaves the 3D pieces out, so the flat ones stay, standing still. */
+
+[data-perf='low'] .piece-stage canvas {
+    display: none;
+}
+[data-perf='low'] .piece-stage__flat,
+[data-perf='low'] .piece-stage::after {
+    opacity: 1;
+}
+[data-perf='low'] .piece-stage__flat,
+[data-perf='low'] .podium__crown,
+[data-perf='low'] .chart-card__ghost,
+[data-perf='low'] .is-unlocked .medal::after,
+[data-perf='low'] .featured-badge .medal::after {
+    animation: none;
+}
+/* Solid colour where there was blur. */
+[data-perf='low'] .composer,
+[data-perf='low'] .section-nav.is-docked {
+    background: var(--ink-1);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+/* Bars, rings and the podium are drawn finished, not grown. */
+[data-perf='low'] .cabinet .progress > span,
+[data-perf='low'] .side-card .progress > span,
+[data-perf='low'] .training .progress > span,
+[data-perf='low'] .is-in .record__bar,
+[data-perf='low'] .is-in .ring,
+[data-perf='low'] .podium.is-in .podium__block,
+[data-perf='low'] .podium.is-in .podium__who {
+    animation: none;
+}
+/* Rings stay, glows go. */
+[data-perf='low'] .podium__place--1 .avatar {
+    box-shadow: 0 0 0 6px var(--gold-wash);
+}
+[data-perf='low'] .icon-button.play-pause {
+    box-shadow: none;
+}

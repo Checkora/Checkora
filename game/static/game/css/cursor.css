@@ -1,7 +1,7 @@
 .cursor {
     position: fixed;
     pointer-events: none;
-    z-index: 9990;
+    z-index: 100000;
     width: 18px;
     height: 18px;
     border-radius: 50%;
@@ -188,4 +188,14 @@ body.hide-native-cursor * {
 #disclaimerModal button, #disclaimerModal a,
 #shortcutsModal button, #shortcutsModal a {
     cursor: pointer !important;
+}
+/* On the low performance tier (data-perf="low", set by perf.js) the cursor
+   is the system's own. cursor.js switches the effect off; this covers the
+   moment before it runs. */
+[data-perf='low'] .cursor {
+    display: none !important;
+}
+[data-perf='low'] body.hide-native-cursor,
+[data-perf='low'] body.hide-native-cursor * {
+    cursor: auto !important;
 }

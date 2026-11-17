@@ -1,0 +1,45 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en" class="no-js" data-theme="dark" data-static="{% static 'game/' %}" data-auth="{{ user.is_authenticated|yesno:'1,0' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Checkora{% endblock %}</title>
+    <meta name="description" content="{% block description %}Checkora is an open-source chess platform: play a C++ engine, solve puzzles, learn openings and review your games.{% endblock %}">
+    <meta name="theme-color" content="#08080a">
+    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&display=swap">
+    {# The theme and the performance tier are applied here, before the first paint. #}
+    <script src="{% static 'game/js/theme.js' %}"></script>
+    <script src="{% static 'game/js/perf.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'game/css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
+    {% block styles %}{% endblock %}
+    {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="cursor" aria-hidden="true"></div>
+
+    {% block nav %}{% include 'game/includes/navbar.html' %}{% endblock %}
+
+    <main id="main" class="site-main{% block main_class %}{% endblock %}">
+        {% block messages %}
+        {% if messages %}
+        <div class="wrap" style="padding-top: 20px;">
+            {% include 'game/includes/messages.html' %}
+        </div>
+        {% endif %}
+        {% endblock %}
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block footer %}{% include 'game/includes/footer.html' %}{% endblock %}
+
+    <script src="{% static 'game/js/toast.js' %}"></script>
+    <script src="{% static 'game/js/app.js' %}"></script>
+    <script src="{% static 'game/js/cursor.js' %}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

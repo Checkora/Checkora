@@ -1,1414 +1,1896 @@
 /**
  * Checkora Chess Engine
  *
- * Validates chess moves and computes legal move sets.
- * Communicates with the Django backend via stdin/stdout.
+ * Validates chess moves, computes legal move sets and searches for the
+ * best move. Communicates with the Django backend via stdin/stdout.
+ * game/engine/main.py implements the same protocol, rules, evaluation
+ * and search and must be kept in step with this file.
  *
- * Protocol:
- * VALIDATE <board64> <turn> <fr> <fc> <tr> <tc>
+ * Protocol: one command per line, exactly one reply line per command.
+ * <board64> is 64 characters, rank 8 first, "." for an empty square.
+ * <rights> is a subset of "KQkq" or "-", <turn> is "white" or "black",
+ * <epRow> <epCol> is the en passant target square or "-1 -1".
+ *
+ * VERSION
+ * -> VERSION <protocolVersion>
+ *
+ * VALIDATE <board64> <rights> <turn> <epRow> <epCol> <fr> <fc> <tr> <tc>
  * -> VALID | INVALID <reason>
  *
- * MOVES <board64> <turn> <row> <col>
+ * MOVES <board64> <rights> <turn> <epRow> <epCol> <row> <col>
  * -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
  *
- * ATTACKED <board64> <attackerColor> <row> <col>
+ * ATTACKED <board64> <rights> <attackerColor> <row> <col>
  * -> YES | NO
  *
- * PROMOTE <board64> <turn> <fr> <fc> <tr> <tc> <promoPiece>
- * -> PROMOTE <newBoard64>
- *    Validates the promotion move, applies it to the board,
- *    and returns the resulting 64-char board string.
- *    Returns INVALID if the move is not a legal promotion.
+ * PROMOTE <board64> <rights> <turn> <epRow> <epCol> <fr> <fc> <tr> <tc> [promoPiece]
+ * -> PROMOTE <newBoard64>   | INVALID <reason>
+ *
+ * STATUS <board64> <rights> <turn> <epRow> <epCol>
+ * -> STATUS CHECK | CHECKMATE | STALEMATE | DRAW | OK
+ *
+ * NOTATION <board64> <rights> <turn> <epRow> <epCol> <fr> <fc> <tr> <tc> [promoPiece]
+ * -> NOTATION <san>
+ *
+ * EVAL <board64> <rights> <turn> <epRow> <epCol>
+ * -> EVAL <centipawns, positive is good for White>
+ *
+ * PERFT <board64> <rights> <turn> <epRow> <epCol> <depth>
+ * -> PERFT <leaf nodes>
+ *
+ * BESTMOVE <board64> <rights> <turn> <epRow> <epCol> <depth> [timeLimitMs
+ *          [halfmoveClock [alternatives [<placement> <w|b> <rights> <ep>]...]]]
+ * -> BESTMOVE <fr> <fc> <tr> <tc> EVAL <cp> [ALTS (<fr> <fc> <tr> <tc> <cp>)...]
+ *    DEPTH <d> NODES <n> TTHITS <n> TIME <ms> ENGINE cpp STATUS completed|timeout
+ * -> BESTMOVE NONE            (no legal moves)
+ *    The trailing groups of four tokens are the earlier positions of the
+ *    game since the last capture or pawn move (FEN piece placement, side,
+ *    castling rights, en passant square as "row,col" or "-"); they let the
+ *    search see repetitions. A promotion is always to a queen.
+ *
+ * A line that cannot be parsed is answered with "ERROR <reason>".
  */
 
-#include <iostream>
-#include <string>
-#include <cmath>
-#include <cctype>
-#include <vector>
-#include <climits>
 #include <algorithm>
-#include <cstdint>
+#include <cctype>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
 
 using namespace std;
+
+static const int PROTOCOL_VERSION = 2;
 
 // ============================================================
 //  Board representation
 // ============================================================
+//
+// 10x12 mailbox: the 64 squares sit inside a border of OFFBOARD cells so a
+// piece stepping off the board lands on a sentinel instead of needing a
+// bounds check. Row 0 is rank 8, as in the protocol.
 
-char board[8][8];
-bool W_K_CASTLE = false;
-bool W_Q_CASTLE = false;
-bool B_K_CASTLE = false;
-bool B_Q_CASTLE = false;
-int EN_PASSANT_R = -1;
-int EN_PASSANT_C = -1;
+enum { EMPTY, WP, WN, WB, WR, WQ, WK, BP, BN, BB, BR, BQ, BK, OFFBOARD };
+enum { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
+enum { WHITE, BLACK };
+enum { CASTLE_WK = 1, CASTLE_WQ = 2, CASTLE_BK = 4, CASTLE_BQ = 8 };
 
-void loadBoard(const string &s) {
-    for (int i = 0; i < 64 && i < (int)s.length(); i++) {
-        board[i / 8][i % 8] = s[i];
-    }
+static const char PIECE_CHARS[] = ".PNBRQKpnbrqk";
+
+static inline int SQ(int row, int col) { return 21 + row * 10 + col; }
+static inline int rowOf(int sq) { return sq / 10 - 2; }
+static inline int colOf(int sq) { return sq % 10 - 1; }
+static inline int colorOf(int piece) { return piece >= BP ? BLACK : WHITE; }
+static inline int typeOf(int piece) { return (piece - 1) % 6; }
+static inline int makePiece(int color, int type) { return color * 6 + type + 1; }
+
+static const int A1 = 91, B1 = 92, C1 = 93, D1 = 94, E1 = 95, F1 = 96, G1 = 97, H1 = 98;
+static const int A8 = 21, B8 = 22, C8 = 23, D8 = 24, E8 = 25, F8 = 26, G8 = 27, H8 = 28;
+
+static const int KNIGHT_DIRS[8] = {-21, -19, -12, -8, 8, 12, 19, 21};
+static const int KING_DIRS[8] = {-11, -10, -9, -1, 1, 9, 10, 11};
+static const int BISHOP_DIRS[4] = {-11, -9, 9, 11};
+static const int ROOK_DIRS[4] = {-10, -1, 1, 10};
+
+static int board[120];
+static int side;            // side to move
+static int castling;        // CASTLE_* bits
+static int epSquare;        // en passant target, 0 if none can be captured
+static int halfmove;        // plies since the last capture or pawn move
+static int kingSq[2];
+static int pieceCount[13];
+static uint64_t hashKey;
+// Material plus piece-square score, kept up to date by every move.
+// Positive is good for White. phase runs from 24 (all pieces) to 0.
+static int psqMg, psqEg, phase;
+
+// A move packs from, to, the promotion piece type and a flag.
+enum { FLAG_NONE, FLAG_DOUBLE, FLAG_EP, FLAG_CASTLE };
+static inline int makeMoveCode(int from, int to, int promo, int flag) {
+    return from | (to << 7) | (promo << 14) | (flag << 17);
+}
+static inline int FROM(int m) { return m & 127; }
+static inline int TO(int m) { return (m >> 7) & 127; }
+static inline int PROMO(int m) { return (m >> 14) & 7; }
+static inline int FLAG(int m) { return (m >> 17) & 3; }
+
+struct MoveList {
+    int moves[256];
+    int scores[256];
+    int count = 0;
+};
+
+struct Undo {
+    int move, captured, castling, epSquare, halfmove, psqMg, psqEg, phase;
+    uint64_t hash;
+};
+
+static const int MAX_PLY = 96;
+static const int MAX_GAME = 1024;
+static Undo undoStack[MAX_PLY + 8];
+static int undoTop = 0;
+// Hashes of the positions before the current one: first the game history
+// sent with BESTMOVE, then the moves made by the search.
+static uint64_t repStack[MAX_GAME + MAX_PLY + 8];
+static int repTop = 0;
+
+// ============================================================
+//  Evaluation tables
+// ============================================================
+
+static const int MATERIAL_MG[6] = {100, 320, 330, 500, 900, 0};
+static const int MATERIAL_EG[6] = {120, 310, 330, 520, 940, 0};
+static const int PHASE_WEIGHT[6] = {0, 1, 1, 2, 4, 0};
+
+// Piece-square tables from White's side, row 0 = rank 8. Black mirrors them.
+// clang-format off
+static const int PST_MG[6][64] = {
+  { // pawn
+      0,  0,  0,  0,  0,  0,  0,  0,
+     50, 50, 50, 50, 50, 50, 50, 50,
+     10, 10, 20, 30, 30, 20, 10, 10,
+      5,  5, 10, 25, 25, 10,  5,  5,
+      0,  0,  0, 20, 20,  0,  0,  0,
+      5, -5,-10,  0,  0,-10, -5,  5,
+      5, 10, 10,-20,-20, 10, 10,  5,
+      0,  0,  0,  0,  0,  0,  0,  0 },
+  { // knight
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50 },
+  { // bishop
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0, 10, 10, 10, 10,  0,-10,
+    -10,  5,  5, 10, 10,  5,  5,-10,
+    -10,  0,  5, 10, 10,  5,  0,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5,  0,  0,  0,  0,  5,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20 },
+  { // rook
+      0,  0,  0,  0,  0,  0,  0,  0,
+      5, 10, 10, 10, 10, 10, 10,  5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+     -5,  0,  0,  0,  0,  0,  0, -5,
+      0,  0,  0,  5,  5,  0,  0,  0 },
+  { // queen
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+      0,  0,  5,  5,  5,  5,  0, -5,
+    -10,  5,  5,  5,  5,  5,  0,-10,
+    -10,  0,  5,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20 },
+  { // king, middlegame: stay behind the pawns
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -10,-20,-20,-20,-20,-20,-20,-10,
+     20, 20,  0,  0,  0,  0, 20, 20,
+     20, 30, 10,  0,  0, 10, 30, 20 }
+};
+
+static const int PST_EG[6][64] = {
+  { // pawn: advancing matters more than the file
+      0,  0,  0,  0,  0,  0,  0,  0,
+     60, 60, 60, 60, 60, 60, 60, 60,
+     35, 35, 35, 35, 35, 35, 35, 35,
+     20, 20, 20, 20, 20, 20, 20, 20,
+     10, 10, 10, 10, 10, 10, 10, 10,
+      5,  5,  5,  5,  5,  5,  5,  5,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0 },
+  { // knight
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50 },
+  { // bishop
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0, 10, 10, 10, 10,  0,-10,
+    -10,  5,  5, 10, 10,  5,  5,-10,
+    -10,  0,  5, 10, 10,  5,  0,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5,  0,  0,  0,  0,  5,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20 },
+  { // rook
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0 },
+  { // queen
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20 },
+  { // king, endgame: come to the centre
+    -50,-30,-30,-30,-30,-30,-30,-50,
+    -30,-10,-10,-10,-10,-10,-10,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-20,-10,  0,  0,-10,-20,-30,
+    -50,-40,-30,-20,-20,-30,-40,-50 }
+};
+// clang-format on
+
+// Evaluation weights (centipawns, middlegame / endgame)
+static const int BISHOP_PAIR_MG = 30, BISHOP_PAIR_EG = 50;
+static const int DOUBLED_MG = 8, DOUBLED_EG = 16;
+static const int ISOLATED_MG = 12, ISOLATED_EG = 14;
+// Passed pawn bonus by how far the pawn has come (index 1 = still at home)
+static const int PASSED_MG[8] = {0, 0, 5, 10, 20, 35, 60, 0};
+static const int PASSED_EG[8] = {0, 5, 10, 20, 40, 70, 120, 0};
+static const int MOBILITY_BASE[6] = {0, 4, 6, 7, 13, 0};
+static const int MOBILITY_MG[6] = {0, 4, 5, 2, 1, 0};
+static const int MOBILITY_EG[6] = {0, 4, 5, 4, 2, 0};
+static const int ROOK_OPEN_MG = 20, ROOK_OPEN_EG = 10;
+static const int ROOK_SEMI_MG = 10, ROOK_SEMI_EG = 5;
+static const int ROOK_SEVENTH_MG = 15, ROOK_SEVENTH_EG = 25;
+static const int SHIELD_NEAR = 12, SHIELD_FAR = 6, SHIELD_MISSING = 10, KING_OPEN_FILE = 15;
+static const int TEMPO = 10;
+
+// pstMg/pstEg[piece][sq120]: material + table value, signed for the colour
+static int pstMg[13][120], pstEg[13][120];
+static int castleMask[120];
+static bool aligned[120][120];  // same rank, file or diagonal
+static int lmrTable[64][64];
+
+static uint64_t zPiece[13][120], zSide, zCastle[16], zEp[8];
+
+static uint64_t prngState = 0x123456789ABCDEFULL;
+static uint64_t nextRandom() {
+    prngState ^= (prngState << 13);
+    prngState ^= (prngState >> 7);
+    prngState ^= (prngState << 17);
+    return prngState;
 }
 
-void loadCastlingRights(const string &rightsStr) {
-    W_K_CASTLE = W_Q_CASTLE = B_K_CASTLE = B_Q_CASTLE = false;
-    for (char c : rightsStr) {
-        if (c == 'K') W_K_CASTLE = true;
-        else if (c == 'Q') W_Q_CASTLE = true;
-        else if (c == 'k') B_K_CASTLE = true;
-        else if (c == 'q') B_Q_CASTLE = true;
+static void initTables() {
+    for (int p = WP; p <= BK; p++)
+        for (int r = 0; r < 8; r++)
+            for (int c = 0; c < 8; c++)
+                zPiece[p][SQ(r, c)] = nextRandom();
+    zSide = nextRandom();
+    for (int i = 0; i < 16; i++) zCastle[i] = nextRandom();
+    for (int i = 0; i < 8; i++) zEp[i] = nextRandom();
+
+    for (int p = WP; p <= BK; p++) {
+        int type = typeOf(p);
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                int idx = (colorOf(p) == WHITE ? r : 7 - r) * 8 + c;
+                int sign = colorOf(p) == WHITE ? 1 : -1;
+                pstMg[p][SQ(r, c)] = sign * (MATERIAL_MG[type] + PST_MG[type][idx]);
+                pstEg[p][SQ(r, c)] = sign * (MATERIAL_EG[type] + PST_EG[type][idx]);
+            }
+        }
     }
+
+    for (int i = 0; i < 120; i++) castleMask[i] = 15;
+    castleMask[E1] = 15 & ~(CASTLE_WK | CASTLE_WQ);
+    castleMask[H1] = 15 & ~CASTLE_WK;
+    castleMask[A1] = 15 & ~CASTLE_WQ;
+    castleMask[E8] = 15 & ~(CASTLE_BK | CASTLE_BQ);
+    castleMask[H8] = 15 & ~CASTLE_BK;
+    castleMask[A8] = 15 & ~CASTLE_BQ;
+
+    for (int a = 0; a < 64; a++) {
+        for (int b = 0; b < 64; b++) {
+            int ar = a / 8, ac = a % 8, br = b / 8, bc = b % 8;
+            aligned[SQ(ar, ac)][SQ(br, bc)] =
+                ar == br || ac == bc || abs(ar - br) == abs(ac - bc);
+        }
+    }
+
+    for (int d = 1; d < 64; d++)
+        for (int n = 1; n < 64; n++)
+            lmrTable[d][n] = static_cast<int>(0.75 + log(d) * log(n) / 2.25);
 }
 
-string serializeBoard() {
+// ============================================================
+//  Position set-up and updates
+// ============================================================
+
+static inline void addPiece(int piece, int sq) {
+    board[sq] = piece;
+    hashKey ^= zPiece[piece][sq];
+    psqMg += pstMg[piece][sq];
+    psqEg += pstEg[piece][sq];
+    phase += PHASE_WEIGHT[typeOf(piece)];
+    pieceCount[piece]++;
+    if (piece == WK) kingSq[WHITE] = sq;
+    else if (piece == BK) kingSq[BLACK] = sq;
+}
+
+static inline void removePiece(int sq) {
+    int piece = board[sq];
+    board[sq] = EMPTY;
+    hashKey ^= zPiece[piece][sq];
+    psqMg -= pstMg[piece][sq];
+    psqEg -= pstEg[piece][sq];
+    phase -= PHASE_WEIGHT[typeOf(piece)];
+    pieceCount[piece]--;
+}
+
+static void clearBoard() {
+    for (int i = 0; i < 120; i++) board[i] = OFFBOARD;
+    for (int r = 0; r < 8; r++)
+        for (int c = 0; c < 8; c++) board[SQ(r, c)] = EMPTY;
+    memset(pieceCount, 0, sizeof(pieceCount));
+    side = WHITE;
+    castling = 0;
+    epSquare = 0;
+    halfmove = 0;
+    kingSq[WHITE] = kingSq[BLACK] = 0;
+    hashKey = 0;
+    psqMg = psqEg = phase = 0;
+    undoTop = 0;
+    repTop = 0;
+}
+
+static int pieceFromChar(char ch) {
+    const char *p = strchr(PIECE_CHARS, ch);
+    return (p && ch != '\0') ? static_cast<int>(p - PIECE_CHARS) : -1;
+}
+
+/**
+ * Finish loading: side, castling rights and en passant square.
+ * A castling right only counts while king and rook are at home, and an en
+ * passant square only if the pawn that double-stepped is there and one of
+ * the mover's pawns stands beside it. The hash follows the same rule, so a
+ * position reached again compares equal.
+ */
+static void finishSetup(int turn, const string &rights, int epRow, int epCol) {
+    // A second king of the same colour is not chess; keep the first one.
+    kingSq[WHITE] = kingSq[BLACK] = 0;
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            int p = board[SQ(r, c)];
+            if (p == WK && !kingSq[WHITE]) kingSq[WHITE] = SQ(r, c);
+            if (p == BK && !kingSq[BLACK]) kingSq[BLACK] = SQ(r, c);
+        }
+    }
+
+    side = turn;
+    castling = 0;
+    for (char ch : rights) {
+        if (ch == 'K' && board[E1] == WK && board[H1] == WR) castling |= CASTLE_WK;
+        else if (ch == 'Q' && board[E1] == WK && board[A1] == WR) castling |= CASTLE_WQ;
+        else if (ch == 'k' && board[E8] == BK && board[H8] == BR) castling |= CASTLE_BK;
+        else if (ch == 'q' && board[E8] == BK && board[A8] == BR) castling |= CASTLE_BQ;
+    }
+
+    epSquare = 0;
+    if (epCol >= 0 && epCol < 8 && epRow == (side == WHITE ? 2 : 5)) {
+        int target = SQ(epRow, epCol);
+        int pawnSq = target + (side == WHITE ? 10 : -10);
+        int mine = side == WHITE ? WP : BP, theirs = side == WHITE ? BP : WP;
+        if (board[target] == EMPTY && board[pawnSq] == theirs &&
+            (board[pawnSq - 1] == mine || board[pawnSq + 1] == mine))
+            epSquare = target;
+    }
+
+    if (side == BLACK) hashKey ^= zSide;
+    hashKey ^= zCastle[castling];
+    if (epSquare) hashKey ^= zEp[colOf(epSquare)];
+}
+
+/** Load a position from the protocol fields. Returns false on bad input. */
+static bool loadPosition(const string &b, const string &rights, int turn,
+                         int epRow, int epCol) {
+    if (b.length() != 64) return false;
+    clearBoard();
+    for (int i = 0; i < 64; i++) {
+        int piece = pieceFromChar(b[i]);
+        if (piece < 0) return false;
+        if (piece != EMPTY) addPiece(piece, SQ(i / 8, i % 8));
+    }
+    finishSetup(turn, rights, epRow, epCol);
+    return true;
+}
+
+static string serializeBoard() {
     string s;
     s.reserve(64);
     for (int r = 0; r < 8; r++)
-        for (int c = 0; c < 8; c++)
-            s += board[r][c];
+        for (int c = 0; c < 8; c++) s += PIECE_CHARS[board[SQ(r, c)]];
     return s;
 }
 
 // ============================================================
-//  Piece helpers
+//  Attacks
 // ============================================================
 
-bool isWhite(char c)  { return c >= 'A' && c <= 'Z'; }
-bool isBlack(char c)  { return c >= 'a' && c <= 'z'; }
-bool isEmpty(char c)  { return c == '.'; }
-
-string colorOf(char c) {
-    if (isWhite(c)) return "white";
-    if (isBlack(c)) return "black";
-    return "none";
-}
-
-bool inBounds(int r, int c) {
-    return r >= 0 && r < 8 && c >= 0 && c < 8;
-}
-
-// ============================================================
-//  Promotion helpers
-// ============================================================
-
-/**
- * Returns true when a pawn is moving to its promotion rank.
- * White pawns promote at row 0, black pawns at row 7.
- */
-bool isPromotionMove(char piece, int toRow) {
-    if (piece == 'P' && toRow == 0) return true;
-    if (piece == 'p' && toRow == 7) return true;
+/** Is the square attacked by any piece of colour `by`? */
+static bool attacked(int sq, int by) {
+    if (by == WHITE) {
+        if (board[sq + 11] == WP || board[sq + 9] == WP) return true;
+    } else {
+        if (board[sq - 11] == BP || board[sq - 9] == BP) return true;
+    }
+    int knight = makePiece(by, KNIGHT), king = makePiece(by, KING);
+    for (int d : KNIGHT_DIRS)
+        if (board[sq + d] == knight) return true;
+    for (int d : KING_DIRS)
+        if (board[sq + d] == king) return true;
+    int bishop = makePiece(by, BISHOP), rook = makePiece(by, ROOK), queen = makePiece(by, QUEEN);
+    for (int d : BISHOP_DIRS) {
+        int t = sq + d;
+        while (board[t] == EMPTY) t += d;
+        if (board[t] == bishop || board[t] == queen) return true;
+    }
+    for (int d : ROOK_DIRS) {
+        int t = sq + d;
+        while (board[t] == EMPTY) t += d;
+        if (board[t] == rook || board[t] == queen) return true;
+    }
     return false;
 }
 
-/**
- * Resolves the promoted piece character.
- * Accepts q/r/b/n (case-insensitive), defaults to queen.
- * Preserves the colour of the original pawn.
- */
-char resolvePromotion(char pawn, char choice) {
-    char lower = tolower(choice);
-    if (lower != 'q' && lower != 'r' && lower != 'b' && lower != 'n')
-        lower = 'q';                       // default to queen
-    return isWhite(pawn) ? toupper(lower) : lower;
+static inline bool inCheckNow() {
+    return kingSq[side] && attacked(kingSq[side], side ^ 1);
 }
 
 // ============================================================
-//  Path obstruction check (rook / bishop / queen lines)
+//  Move generation
 // ============================================================
 
-bool pathClear(int fr, int fc, int tr, int tc) {
-    int dr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
-    int dc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
-    int r = fr + dr, c = fc + dc;
-    while (r != tr || c != tc) {
-        if (!isEmpty(board[r][c])) return false;
-        r += dr;
-        c += dc;
+enum { PROMO_QUEEN_ONLY, PROMO_QUEEN_KNIGHT, PROMO_ALL };
+
+static inline void addMove(MoveList &ml, int from, int to, int promo, int flag) {
+    ml.moves[ml.count++] = makeMoveCode(from, to, promo, flag);
+}
+
+static void addPawnMove(MoveList &ml, int from, int to, int flag, int promoMode) {
+    int row = rowOf(to);
+    if (row == 0 || row == 7) {
+        addMove(ml, from, to, QUEEN, flag);
+        if (promoMode != PROMO_QUEEN_ONLY) addMove(ml, from, to, KNIGHT, flag);
+        if (promoMode == PROMO_ALL) {
+            addMove(ml, from, to, ROOK, flag);
+            addMove(ml, from, to, BISHOP, flag);
+        }
+    } else {
+        addMove(ml, from, to, 0, flag);
+    }
+}
+
+/**
+ * Pseudo-legal moves for the side to move: every rule except "do not leave
+ * your own king in check", which the caller tests after making the move.
+ * Castling is only generated when it is fully legal. With noisyOnly, only
+ * captures and promotions are produced (for the quiescence search).
+ */
+static void generateMoves(MoveList &ml, bool noisyOnly, int promoMode) {
+    ml.count = 0;
+    int us = side, them = side ^ 1;
+    int forward = us == WHITE ? -10 : 10;
+    int startRow = us == WHITE ? 6 : 1;
+    int promoFrom = us == WHITE ? 1 : 6;
+
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            int from = SQ(r, c);
+            int piece = board[from];
+            if (piece == EMPTY || colorOf(piece) != us) continue;
+
+            switch (typeOf(piece)) {
+            case PAWN: {
+                int to = from + forward;
+                if (board[to] == EMPTY) {
+                    if (!noisyOnly || r == promoFrom)
+                        addPawnMove(ml, from, to, FLAG_NONE, promoMode);
+                    if (!noisyOnly && r == startRow && board[to + forward] == EMPTY)
+                        addMove(ml, from, to + forward, 0, FLAG_DOUBLE);
+                }
+                for (int side_step = -1; side_step <= 1; side_step += 2) {
+                    to = from + forward + side_step;
+                    int target = board[to];
+                    if (target != EMPTY && target != OFFBOARD && colorOf(target) == them)
+                        addPawnMove(ml, from, to, FLAG_NONE, promoMode);
+                    else if (to == epSquare && epSquare)
+                        addMove(ml, from, to, 0, FLAG_EP);
+                }
+                break;
+            }
+            case KNIGHT:
+            case KING: {
+                const int *dirs = typeOf(piece) == KNIGHT ? KNIGHT_DIRS : KING_DIRS;
+                for (int i = 0; i < 8; i++) {
+                    int to = from + dirs[i];
+                    int target = board[to];
+                    if (target == EMPTY) {
+                        if (!noisyOnly) addMove(ml, from, to, 0, FLAG_NONE);
+                    } else if (target != OFFBOARD && colorOf(target) == them) {
+                        addMove(ml, from, to, 0, FLAG_NONE);
+                    }
+                }
+                break;
+            }
+            default: {
+                bool diagonal = typeOf(piece) != ROOK;
+                bool straight = typeOf(piece) != BISHOP;
+                for (int i = 0; i < 8; i++) {
+                    int d = KING_DIRS[i];
+                    bool isDiagonal = (d == -11 || d == -9 || d == 9 || d == 11);
+                    if (isDiagonal ? !diagonal : !straight) continue;
+                    int to = from + d;
+                    while (board[to] == EMPTY) {
+                        if (!noisyOnly) addMove(ml, from, to, 0, FLAG_NONE);
+                        to += d;
+                    }
+                    if (board[to] != OFFBOARD && colorOf(board[to]) == them)
+                        addMove(ml, from, to, 0, FLAG_NONE);
+                }
+                break;
+            }
+            }
+        }
+    }
+
+    if (noisyOnly) return;
+
+    // Castling: right held, rook at home, squares between empty, and the
+    // king neither in check nor passing over or landing on an attacked square.
+    if (us == WHITE && board[E1] == WK) {
+        if ((castling & CASTLE_WK) && board[H1] == WR && board[F1] == EMPTY && board[G1] == EMPTY &&
+            !attacked(E1, BLACK) && !attacked(F1, BLACK) && !attacked(G1, BLACK))
+            addMove(ml, E1, G1, 0, FLAG_CASTLE);
+        if ((castling & CASTLE_WQ) && board[A1] == WR && board[D1] == EMPTY && board[C1] == EMPTY &&
+            board[B1] == EMPTY && !attacked(E1, BLACK) && !attacked(D1, BLACK) && !attacked(C1, BLACK))
+            addMove(ml, E1, C1, 0, FLAG_CASTLE);
+    } else if (us == BLACK && board[E8] == BK) {
+        if ((castling & CASTLE_BK) && board[H8] == BR && board[F8] == EMPTY && board[G8] == EMPTY &&
+            !attacked(E8, WHITE) && !attacked(F8, WHITE) && !attacked(G8, WHITE))
+            addMove(ml, E8, G8, 0, FLAG_CASTLE);
+        if ((castling & CASTLE_BQ) && board[A8] == BR && board[D8] == EMPTY && board[C8] == EMPTY &&
+            board[B8] == EMPTY && !attacked(E8, WHITE) && !attacked(D8, WHITE) && !attacked(C8, WHITE))
+            addMove(ml, E8, C8, 0, FLAG_CASTLE);
+    }
+}
+
+// ============================================================
+//  Make / unmake: the only place where the position changes
+// ============================================================
+
+static void makeMove(int m) {
+    Undo &u = undoStack[undoTop++];
+    u.move = m;
+    u.castling = castling;
+    u.epSquare = epSquare;
+    u.halfmove = halfmove;
+    u.psqMg = psqMg;
+    u.psqEg = psqEg;
+    u.phase = phase;
+    u.hash = hashKey;
+    repStack[repTop++] = hashKey;
+
+    int from = FROM(m), to = TO(m), promo = PROMO(m), flag = FLAG(m);
+    int piece = board[from];
+    int captured = board[to];
+
+    if (epSquare) hashKey ^= zEp[colOf(epSquare)];
+    hashKey ^= zCastle[castling];
+    halfmove++;
+
+    if (flag == FLAG_EP) {
+        int capSq = to + (side == WHITE ? 10 : -10);
+        captured = board[capSq];
+        removePiece(capSq);
+    } else if (captured != EMPTY) {
+        removePiece(to);
+    }
+    u.captured = captured;
+    if (captured != EMPTY || typeOf(piece) == PAWN) halfmove = 0;
+
+    removePiece(from);
+    addPiece(promo ? makePiece(side, promo) : piece, to);
+
+    if (flag == FLAG_CASTLE) {
+        int rookFrom = to > from ? to + 1 : to - 2;
+        int rookTo = to > from ? to - 1 : to + 1;
+        int rook = board[rookFrom];
+        removePiece(rookFrom);
+        addPiece(rook, rookTo);
+    }
+
+    castling &= castleMask[from] & castleMask[to];
+    epSquare = 0;
+    if (flag == FLAG_DOUBLE) {
+        int enemyPawn = side == WHITE ? BP : WP;
+        if (board[to - 1] == enemyPawn || board[to + 1] == enemyPawn)
+            epSquare = (from + to) / 2;
+    }
+    hashKey ^= zCastle[castling];
+    if (epSquare) hashKey ^= zEp[colOf(epSquare)];
+
+    side ^= 1;
+    hashKey ^= zSide;
+}
+
+static void unmakeMove() {
+    Undo &u = undoStack[--undoTop];
+    repTop--;
+    side ^= 1;
+
+    int m = u.move;
+    int from = FROM(m), to = TO(m), flag = FLAG(m);
+
+    if (flag == FLAG_CASTLE) {
+        int rookFrom = to > from ? to + 1 : to - 2;
+        int rookTo = to > from ? to - 1 : to + 1;
+        int rook = board[rookTo];
+        removePiece(rookTo);
+        addPiece(rook, rookFrom);
+    }
+
+    int piece = board[to];
+    removePiece(to);
+    addPiece(PROMO(m) ? makePiece(side, PAWN) : piece, from);
+
+    if (u.captured != EMPTY) {
+        int capSq = flag == FLAG_EP ? to + (side == WHITE ? 10 : -10) : to;
+        addPiece(u.captured, capSq);
+    }
+
+    castling = u.castling;
+    epSquare = u.epSquare;
+    halfmove = u.halfmove;
+    psqMg = u.psqMg;
+    psqEg = u.psqEg;
+    phase = u.phase;
+    hashKey = u.hash;
+}
+
+/** Pass the turn (used by null-move pruning only). */
+static void makeNull() {
+    Undo &u = undoStack[undoTop++];
+    u.epSquare = epSquare;
+    u.halfmove = halfmove;
+    u.hash = hashKey;
+    repStack[repTop++] = hashKey;
+    if (epSquare) hashKey ^= zEp[colOf(epSquare)];
+    epSquare = 0;
+    halfmove = 0;  // a repetition cannot reach across a pass
+    side ^= 1;
+    hashKey ^= zSide;
+}
+
+static void unmakeNull() {
+    Undo &u = undoStack[--undoTop];
+    repTop--;
+    side ^= 1;
+    epSquare = u.epSquare;
+    halfmove = u.halfmove;
+    hashKey = u.hash;
+}
+
+/** Make the move if it is legal. Returns false (and changes nothing) if not. */
+static bool makeIfLegal(int m) {
+    makeMove(m);
+    if (kingSq[side ^ 1] && attacked(kingSq[side ^ 1], side)) {
+        unmakeMove();
+        return false;
     }
     return true;
 }
 
-// ============================================================
-//  ATTACKED Logic (For Check/Checkmate detection)
-// ============================================================
-
-/**
- * Checks if a specific square (tr, tc) is being attacked by ANY piece
- * of the attackerColor.
- */
-bool isSquareAttacked(int tr, int tc, string attackerColor) {
-    char pKnight = (attackerColor == "white") ? 'N' : 'n';
-    // char pRook   = (attackerColor == "white") ? 'R' : 'r';
-    // char pBishop = (attackerColor == "white") ? 'B' : 'b';
-    // char pQueen  = (attackerColor == "white") ? 'Q' : 'q';
-    char pPawn   = (attackerColor == "white") ? 'P' : 'p';
-    char pKing   = (attackerColor == "white") ? 'K' : 'k';
-
-    // Knight
-    int nr[] = {-2, -2, -1, -1, 1, 1, 2, 2}, nc[] = {-1, 1, -2, 2, -2, 2, -1, 1};
-    for (int i = 0; i < 8; i++) {
-        int r = tr + nr[i], c = tc + nc[i];
-        if (inBounds(r, c) && board[r][c] == pKnight) return true;
-    }
-
-    // Sliders
-    int dr[] = {0, 0, 1, -1, 1, 1, -1, -1}, dc[] = {1, -1, 0, 0, 1, -1, 1, -1};
-    for (int i = 0; i < 8; i++) {
-        int r = tr + dr[i], c = tc + dc[i];
-        while (inBounds(r, c)) {
-            char p = board[r][c];
-            if (p != '.') {
-                if (colorOf(p) == attackerColor) {
-                    char type = tolower(p);
-                    if (i < 4 && (type == 'r' || type == 'q')) return true;
-                    if (i >= 4 && (type == 'b' || type == 'q')) return true;
-                }
-                break;
-            }
-            r += dr[i]; c += dc[i];
+/** All legal moves of the side to move. */
+static void generateLegal(MoveList &legal, int promoMode) {
+    MoveList ml;
+    generateMoves(ml, false, promoMode);
+    legal.count = 0;
+    for (int i = 0; i < ml.count; i++) {
+        if (makeIfLegal(ml.moves[i])) {
+            unmakeMove();
+            legal.moves[legal.count++] = ml.moves[i];
         }
     }
-
-    // Pawn
-    int dir = (attackerColor == "white") ? 1 : -1;
-    if (inBounds(tr + dir, tc - 1) && board[tr + dir][tc - 1] == pPawn) return true;
-    if (inBounds(tr + dir, tc + 1) && board[tr + dir][tc + 1] == pPawn) return true;
-
-    // King
-    for (int r = tr - 1; r <= tr + 1; r++)
-        for (int c = tc - 1; c <= tc + 1; c++)
-            if (inBounds(r, c) && (r != tr || c != tc) && board[r][c] == pKing) return true;
-
-    return false;
 }
 
-// ============================================================
-//  Piece-specific movement rules
-// ============================================================
-
-bool validPawn(const string &color, int fr, int fc, int tr, int tc) {
-    int dir      = (color == "white") ? -1 : 1;
-    int startRow = (color == "white") ?  6 : 1;
-    int dr = tr - fr;
-    int dc = tc - fc;
-
-    if (dc == 0 && dr == dir && isEmpty(board[tr][tc]))
-        return true;
-
-    if (dc == 0 && dr == 2 * dir && fr == startRow)
-        if (isEmpty(board[fr + dir][fc]) && isEmpty(board[tr][tc]))
+static bool hasLegalMove() {
+    MoveList ml;
+    generateMoves(ml, false, PROMO_QUEEN_ONLY);
+    for (int i = 0; i < ml.count; i++) {
+        if (makeIfLegal(ml.moves[i])) {
+            unmakeMove();
             return true;
-
-    if (abs(dc) == 1 && dr == dir && !isEmpty(board[tr][tc]))
-        return true;
-
-    // En Passant
-    if (abs(dc) == 1 && dr == dir && tr == EN_PASSANT_R && tc == EN_PASSANT_C)
-        return true;
-
-    return false;
-}
-
-bool validRook(int fr, int fc, int tr, int tc) {
-    return (fr == tr || fc == tc) && pathClear(fr, fc, tr, tc);
-}
-
-bool validKnight(int fr, int fc, int tr, int tc) {
-    int dr = abs(tr - fr), dc = abs(tc - fc);
-    return (dr == 2 && dc == 1) || (dr == 1 && dc == 2);
-}
-
-bool validBishop(int fr, int fc, int tr, int tc) {
-    return (abs(tr - fr) == abs(tc - fc)) && pathClear(fr, fc, tr, tc);
-}
-
-bool validQueen(int fr, int fc, int tr, int tc) {
-    return validRook(fr, fc, tr, tc) || validBishop(fr, fc, tr, tc);
-}
-
-bool validKing(const string &color, int fr, int fc, int tr, int tc) {
-    if (abs(tr - fr) <= 1 && abs(tc - fc) <= 1) return true;
-
-    if (fr == tr && abs(tc - fc) == 2) {
-        if (color == "white" && fr == 7 && fc == 4) {
-            if (tc == 6 && W_K_CASTLE && isEmpty(board[7][5]) && isEmpty(board[7][6])) {
-                if (!isSquareAttacked(7, 4, "black") && !isSquareAttacked(7, 5, "black") && !isSquareAttacked(7, 6, "black"))
-                    return true;
-            }
-            if (tc == 2 && W_Q_CASTLE && isEmpty(board[7][3]) && isEmpty(board[7][2]) && isEmpty(board[7][1])) {
-                if (!isSquareAttacked(7, 4, "black") && !isSquareAttacked(7, 3, "black") && !isSquareAttacked(7, 2, "black"))
-                    return true;
-            }
-        } else if (color == "black" && fr == 0 && fc == 4) {
-            if (tc == 6 && B_K_CASTLE && isEmpty(board[0][5]) && isEmpty(board[0][6])) {
-                if (!isSquareAttacked(0, 4, "white") && !isSquareAttacked(0, 5, "white") && !isSquareAttacked(0, 6, "white"))
-                    return true;
-            }
-            if (tc == 2 && B_Q_CASTLE && isEmpty(board[0][3]) && isEmpty(board[0][2]) && isEmpty(board[0][1])) {
-                if (!isSquareAttacked(0, 4, "white") && !isSquareAttacked(0, 3, "white") && !isSquareAttacked(0, 2, "white"))
-                    return true;
-            }
         }
     }
     return false;
 }
 
-// ============================================================
-//  Core validation
-// ============================================================
-
-bool validateMove(const string &turn, int fr, int fc, int tr, int tc, bool silent = false) {
-    char piece = board[fr][fc];
-    if (isEmpty(piece)) return false;
-    if (colorOf(piece) != turn) return false;
-    if (fr == tr && fc == tc) return false;
-
-    char target = board[tr][tc];
-    if (!isEmpty(target) && colorOf(target) == turn) return false;
-
-    char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
-    bool ok = false;
-
-    switch (type) {
-        case 'p': ok = validPawn(turn, fr, fc, tr, tc); break;
-        case 'r': ok = validRook(fr, fc, tr, tc);       break;
-        case 'n': ok = validKnight(fr, fc, tr, tc);     break;
-        case 'b': ok = validBishop(fr, fc, tr, tc);     break;
-        case 'q': ok = validQueen(fr, fc, tr, tc);      break;
-        case 'k': ok = validKing(turn, fr, fc, tr, tc); break;
-    }
-
-    if (ok && !silent) cout << "VALID" << endl;
-    else if (!ok && !silent) cout << "INVALID Illegal move" << endl;
-
-    return ok;
-}
-
-// ============================================================
-//  Move struct & legality filter (forward declarations)
-// ============================================================
-
-struct Move {
-    int fr, fc, tr, tc;
-    char promoPiece;  // '\0' if not a promotion
-};
-
-enum BoundType {
-    EXACT = 0,
-    LOWER_BOUND = 1,
-    UPPER_BOUND = 2
-};
-
-struct TTEntry {
-    uint64_t hash;
-    int depth;
-    int score;
-    Move bestMove;
-    BoundType bound;
-    bool isValid;
-};
-
-const int TT_SIZE = 524288;
-TTEntry transpositionTable[TT_SIZE];
-
-uint64_t zobristPieces[64][12];
-uint64_t zobristBlackToMove;
-uint64_t zobristCastling[16];
-uint64_t zobristEnPassant[8];
-
-uint64_t prng_state = 0x123456789ABCDEFULL;
-uint64_t nextRandom() {
-    prng_state ^= (prng_state << 13);
-    prng_state ^= (prng_state >> 7);
-    prng_state ^= (prng_state << 17);
-    return prng_state;
-}
-
-void initZobrist() {
-    prng_state = 0x123456789ABCDEFULL;
-    for (int s = 0; s < 64; s++) {
-        for (int p = 0; p < 12; p++) {
-            zobristPieces[s][p] = nextRandom();
-        }
-    }
-    zobristBlackToMove = nextRandom();
-    for (int i = 0; i < 16; i++) {
-        zobristCastling[i] = nextRandom();
-    }
-    for (int i = 0; i < 8; i++) {
-        zobristEnPassant[i] = nextRandom();
-    }
-}
-
-int getPieceIndex(char p) {
-    switch (p) {
-        case 'P': return 0;
-        case 'N': return 1;
-        case 'B': return 2;
-        case 'R': return 3;
-        case 'Q': return 4;
-        case 'K': return 5;
-        case 'p': return 6;
-        case 'n': return 7;
-        case 'b': return 8;
-        case 'r': return 9;
-        case 'q': return 10;
-        case 'k': return 11;
-        default:  return -1;
-    }
-}
-
-uint64_t computeHash(const string &turn) {
-    uint64_t h = 0;
-    for (int r = 0; r < 8; r++) {
-        for (int c = 0; c < 8; c++) {
-            char p = board[r][c];
-            if (p != '.') {
-                int idx = getPieceIndex(p);
-                if (idx != -1) {
-                    h ^= zobristPieces[r * 8 + c][idx];
-                }
-            }
-        }
-    }
-    if (turn == "black") {
-        h ^= zobristBlackToMove;
-    }
-    int castlingIdx = (W_K_CASTLE ? 1 : 0) |
-                     (W_Q_CASTLE ? 2 : 0) |
-                     (B_K_CASTLE ? 4 : 0) |
-                     (B_Q_CASTLE ? 8 : 0);
-    h ^= zobristCastling[castlingIdx];
-    if (EN_PASSANT_C >= 0 && EN_PASSANT_C < 8) {
-        h ^= zobristEnPassant[EN_PASSANT_C];
-    }
-    return h;
-}
-
-// Search control variables
-std::chrono::steady_clock::time_point startTime;
-int timeLimitMs = -1;
-bool searchAborted = false;
-int nodesSearched = 0;
-int tthits = 0;
-
-bool isTimeout() {
-    if (timeLimitMs <= 0) return false;
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-    return elapsed >= timeLimitMs;
-}
-
-bool movesEqual(const Move &a, const Move &b) {
-    return a.fr == b.fr && a.fc == b.fc && a.tr == b.tr && a.tc == b.tc && a.promoPiece == b.promoPiece;
-}
-
-pair<int,int> findKing(const string &color);
-bool leavesKingInCheck(const Move &m, const string &side);
-
-// ============================================================
-//  Command Handlers
-// ============================================================
-
-void handleMoves(const string &turn, int row, int col) {
-    char piece = board[row][col];
-    if (isEmpty(piece) || colorOf(piece) != turn) {
-        cout << "MOVES" << endl;
-        return;
-    }
-    cout << "MOVES";
-    for (int tr = 0; tr < 8; tr++) {
-        for (int tc = 0; tc < 8; tc++) {
-            if (validateMove(turn, row, col, tr, tc, true)) {
-                // Filter out moves that leave own king in check
-                Move m;
-                m.fr = row; m.fc = col;
-                m.tr = tr;  m.tc = tc;
-                m.promoPiece = isPromotionMove(piece, tr)
-                    ? (isWhite(piece) ? 'Q' : 'q') : '\0';
-                if (leavesKingInCheck(m, turn)) continue;
-
-                bool isEP = (tolower(piece) == 'p' && col != tc && isEmpty(board[tr][tc]));
-                int cap = (!isEmpty(board[tr][tc]) || isEP) ? 1 : 0;
-                int promo = isPromotionMove(piece, tr) ? 1 : 0;
-                cout << " " << tr << " " << tc << " " << cap << " " << promo;
-            }
-        }
-    }
-    cout << endl;
-}
-
-// ============================================================
-//  PROMOTE handler
-// ============================================================
-
-/**
- * Validates a promotion move, applies it on the board, and returns
- * the new 64-char board string so the Python layer stays in sync.
- *
- * Protocol:
- *   PROMOTE <board64> <turn> <fr> <fc> <tr> <tc> <promoPiece>
- *   -> PROMOTE <newBoard64>   (on success)
- *   -> INVALID <reason>       (on failure)
- */
-void handlePromote(const string &turn, int fr, int fc, int tr, int tc,
-                   char promoPiece) {
-    char piece = board[fr][fc];
-
-    // 1. The source must be a pawn of the current player
-    if (isEmpty(piece) || colorOf(piece) != turn || tolower(piece) != 'p') {
-        cout << "INVALID Not a pawn" << endl;
-        return;
-    }
-
-    // 2. The move itself must be legal (single-push or diagonal capture)
-    if (!validateMove(turn, fr, fc, tr, tc, true)) {
-        cout << "INVALID Illegal move" << endl;
-        return;
-    }
-
-    // 3. The target row must be the promotion rank
-    if (!isPromotionMove(piece, tr)) {
-        cout << "INVALID Not a promotion square" << endl;
-        return;
-    }
-
-    // 4. Apply the move and promote
-    board[tr][tc] = resolvePromotion(piece, promoPiece);
-    board[fr][fc] = '.';
-
-    cout << "PROMOTE " << serializeBoard() << endl;
-}
-
-// ============================================================
-//  Minimax AI -- Evaluation + Alpha-Beta Search
-// ============================================================
-
-/**
- * Material values (centipawns).
- * Standard chess piece values used by most engines.
- */
-int pieceValue(char p) {
-    switch (tolower(p)) {
-        case 'p': return 100;
-        case 'n': return 320;
-        case 'b': return 330;
-        case 'r': return 500;
-        case 'q': return 900;
-        case 'k': return 20000;
-        default:  return 0;
-    }
-}
-
-/**
- * Piece-square tables for positional scoring.
- * Values are from White's perspective (row 0 = rank 8).
- * For black pieces the table is mirrored vertically.
- */
-
-// clang-format off
-static const int pawnTable[8][8] = {
-    {  0,  0,  0,  0,  0,  0,  0,  0},
-    { 50, 50, 50, 50, 50, 50, 50, 50},
-    { 10, 10, 20, 30, 30, 20, 10, 10},
-    {  5,  5, 10, 25, 25, 10,  5,  5},
-    {  0,  0,  0, 20, 20,  0,  0,  0},
-    {  5, -5,-10,  0,  0,-10, -5,  5},
-    {  5, 10, 10,-20,-20, 10, 10,  5},
-    {  0,  0,  0,  0,  0,  0,  0,  0}
-};
-
-static const int knightTable[8][8] = {
-    {-50,-40,-30,-30,-30,-30,-40,-50},
-    {-40,-20,  0,  0,  0,  0,-20,-40},
-    {-30,  0, 10, 15, 15, 10,  0,-30},
-    {-30,  5, 15, 20, 20, 15,  5,-30},
-    {-30,  0, 15, 20, 20, 15,  0,-30},
-    {-30,  5, 10, 15, 15, 10,  5,-30},
-    {-40,-20,  0,  5,  5,  0,-20,-40},
-    {-50,-40,-30,-30,-30,-30,-40,-50}
-};
-
-static const int bishopTable[8][8] = {
-    {-20,-10,-10,-10,-10,-10,-10,-20},
-    {-10,  0,  0,  0,  0,  0,  0,-10},
-    {-10,  0, 10, 10, 10, 10,  0,-10},
-    {-10,  5,  5, 10, 10,  5,  5,-10},
-    {-10,  0,  5, 10, 10,  5,  0,-10},
-    {-10, 10, 10, 10, 10, 10, 10,-10},
-    {-10,  5,  0,  0,  0,  0,  5,-10},
-    {-20,-10,-10,-10,-10,-10,-10,-20}
-};
-
-static const int rookTable[8][8] = {
-    {  0,  0,  0,  0,  0,  0,  0,  0},
-    {  5, 10, 10, 10, 10, 10, 10,  5},
-    { -5,  0,  0,  0,  0,  0,  0, -5},
-    { -5,  0,  0,  0,  0,  0,  0, -5},
-    { -5,  0,  0,  0,  0,  0,  0, -5},
-    { -5,  0,  0,  0,  0,  0,  0, -5},
-    { -5,  0,  0,  0,  0,  0,  0, -5},
-    {  0,  0,  0,  5,  5,  0,  0,  0}
-};
-
-static const int queenTable[8][8] = {
-    {-20,-10,-10, -5, -5,-10,-10,-20},
-    {-10,  0,  0,  0,  0,  0,  0,-10},
-    {-10,  0,  5,  5,  5,  5,  0,-10},
-    { -5,  0,  5,  5,  5,  5,  0, -5},
-    {  0,  0,  5,  5,  5,  5,  0, -5},
-    {-10,  5,  5,  5,  5,  5,  0,-10},
-    {-10,  0,  5,  0,  0,  0,  0,-10},
-    {-20,-10,-10, -5, -5,-10,-10,-20}
-};
-
-static const int kingMiddleTable[8][8] = {
-    {-30,-40,-40,-50,-50,-40,-40,-30},
-    {-30,-40,-40,-50,-50,-40,-40,-30},
-    {-30,-40,-40,-50,-50,-40,-40,-30},
-    {-30,-40,-40,-50,-50,-40,-40,-30},
-    {-20,-30,-30,-40,-40,-30,-30,-20},
-    {-10,-20,-20,-20,-20,-20,-20,-10},
-    { 20, 20,  0,  0,  0,  0, 20, 20},
-    { 20, 30, 10,  0,  0, 10, 30, 20}
-};
-
-static const int kingEndgameTable[8][8] = {
-    {-50,-30,-30,-30,-30,-30,-30,-50},
-    {-30,-10,-10,-10,-10,-10,-10,-30},
-    {-30,-10, 20, 30, 30, 20,-10,-30},
-    {-30,-10, 30, 40, 40, 30,-10,-30},
-    {-30,-10, 30, 40, 40, 30,-10,-30},
-    {-30,-10, 20, 30, 30, 20,-10,-30},
-    {-30,-20,-10,  0,  0,-10,-20,-30},
-    {-50,-40,-30,-20,-20,-30,-40,-50}
-};
-// clang-format on
-
-/**
- * Positional bonus for a single piece at (row, col).
- * White reads the table top-down; black mirrors it.
- */
-int positionalBonus(char piece, int row, int col, bool isEndgame) {
-    char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
-    int r = isWhite(piece) ? row : (7 - row);
-
-    switch (type) {
-        case 'p': return pawnTable[r][col];
-        case 'n': return knightTable[r][col];
-        case 'b': return bishopTable[r][col];
-        case 'r': return rookTable[r][col];
-        case 'q': return queenTable[r][col];
-        case 'k': return isEndgame ? kingEndgameTable[r][col] : kingMiddleTable[r][col];
-        default:  return 0;
-    }
-}
-
-/**
- * Static evaluation of the current board.
- * Positive => white advantage, negative => black advantage.
- */
-int evaluate() {
-    int score = 0;
-    int queenCount = 0;
-    int minorCount = 0;
-
-    for (int r = 0; r < 8; r++) {
-        for (int c = 0; c < 8; c++) {
-            char p = board[r][c];
-            if (isEmpty(p)) continue;
-            char type = tolower(static_cast<unsigned char>(p));
-            if (type == 'q') {
-                queenCount++;
-            } else if (type == 'n' || type == 'b') {
-                minorCount++;
-            }
-        }
-    }
-
-    bool isEndgame = (queenCount == 0 || minorCount <= 6);
-
-    for (int r = 0; r < 8; r++) {
-        for (int c = 0; c < 8; c++) {
-            char p = board[r][c];
-            if (isEmpty(p)) continue;
-
-            int val = pieceValue(p) + positionalBonus(p, r, c, isEndgame);
-            score += isWhite(p) ? val : -val;
-        }
-    }
-    // 3. Check Bonus: Prioritize moves that put the opponent under pressure
-    pair<int, int> bKing = findKing("black");
-    if (bKing.first != -1 && isSquareAttacked(bKing.first, bKing.second, "white"))
-        score += 50;
-
-    pair<int, int> wKing = findKing("white");
-    if (wKing.first != -1 && isSquareAttacked(wKing.first, wKing.second, "black"))
-        score -= 50;
-
-    return score;
+static inline bool isCapture(int m) {
+    return board[TO(m)] != EMPTY || FLAG(m) == FLAG_EP;
 }
 
 /**
  * Checks if the current board state is a draw due to insufficient material.
- * Simple cases: K vs K, K+N vs K, K+B vs K.
+ * Cases: K vs K, K+N vs K, and kings with any number of bishops that all
+ * stand on squares of one colour (K+B vs K, K+B vs K+B same colour).
  */
-bool isInsufficientMaterial() {
-    int totalMinor = 0;
-    for (int r = 0; r < 8; r++) {
-        for (int c = 0; c < 8; c++) {
-            char p = board[r][c];
-            if (p == '.') continue;
-            char type = tolower(static_cast<unsigned char>(p));
-            if (type == 'k') continue;
-            // If there's a pawn, rook, or queen, checkmate is possible
-            if (type == 'p' || type == 'r' || type == 'q') return false;
-            totalMinor++;
-        }
+static bool isInsufficientMaterial() {
+    if (pieceCount[WP] || pieceCount[BP] || pieceCount[WR] || pieceCount[BR] ||
+        pieceCount[WQ] || pieceCount[BQ])
+        return false;
+    int knights = pieceCount[WN] + pieceCount[BN];
+    int bishops = pieceCount[WB] + pieceCount[BB];
+    if (knights == 0) {
+        if (bishops <= 1) return true;
+        int light = 0, dark = 0;
+        for (int r = 0; r < 8; r++)
+            for (int c = 0; c < 8; c++)
+                if (typeOf(board[SQ(r, c)]) == BISHOP && board[SQ(r, c)] != EMPTY)
+                    ((r + c) % 2 == 0 ? light : dark)++;
+        return light == 0 || dark == 0;
     }
-    // Draw if total non-king pieces is 0 or 1
-    return totalMinor <= 1;
+    // A single knight draws only against a bare king
+    return knights == 1 && bishops == 0;
+}
+
+static uint64_t perft(int depth) {
+    MoveList ml;
+    generateMoves(ml, false, PROMO_ALL);
+    uint64_t nodes = 0;
+    for (int i = 0; i < ml.count; i++) {
+        if (!makeIfLegal(ml.moves[i])) continue;
+        nodes += depth <= 1 ? 1 : perft(depth - 1);
+        unmakeMove();
+    }
+    return nodes;
+}
+
+// ============================================================
+//  Static evaluation
+// ============================================================
+
+/** Distance of a square from the four centre squares, 0 to 6. */
+static inline int centreDistance(int sq) {
+    int r = rowOf(sq), c = colOf(sq);
+    return max(3 - r, r - 4) + max(3 - c, c - 4);
 }
 
 /**
- * Generate all pseudo-legal moves for the given side.
- * Promotions automatically queen (keeping the search tree manageable).
+ * Static evaluation of the current board in centipawns.
+ * Positive => white advantage, negative => black advantage.
+ *
+ * Material and piece-square tables (kept incrementally), bishop pair,
+ * mobility, pawn structure (doubled, isolated, passed), rooks on open
+ * files and on the seventh rank, pawn shelter of the king, and for bare
+ * endgames a term that drives the losing king to the edge. Middlegame and
+ * endgame scores are blended by the material left on the board.
  */
-vector<Move> generateMoves(const string &side) {
-    vector<Move> moves;
-    moves.reserve(64);
+static int evaluate() {
+    if (isInsufficientMaterial()) return 0;
+
+    int mg = psqMg, eg = psqEg;
+
+    // Pawns per file; index 0 and 9 stand for the files beside a and h.
+    // blackRear / whiteRear: per file the row of the pawn nearest its own
+    // side. A white pawn is passed when no black pawn on its own or a
+    // neighbouring file stands on a row in front of it.
+    int pawns[2][10] = {{0}, {0}};
+    int blackRear[10], whiteRear[10];
+    for (int f = 0; f < 10; f++) { blackRear[f] = 8; whiteRear[f] = -1; }
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            int p = board[SQ(r, c)];
+            if (p == WP) {
+                pawns[WHITE][c + 1]++;
+                if (r > whiteRear[c + 1]) whiteRear[c + 1] = r;
+            } else if (p == BP) {
+                pawns[BLACK][c + 1]++;
+                if (r < blackRear[c + 1]) blackRear[c + 1] = r;
+            }
+        }
+    }
 
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
-            char p = board[r][c];
-            if (isEmpty(p) || colorOf(p) != side) continue;
+            int sq = SQ(r, c);
+            int piece = board[sq];
+            if (piece == EMPTY) continue;
+            int us = colorOf(piece), them = us ^ 1;
+            int type = typeOf(piece);
+            int sign = us == WHITE ? 1 : -1;
+            int f = c + 1;
 
-            for (int tr = 0; tr < 8; tr++) {
-                for (int tc = 0; tc < 8; tc++) {
-                    if (validateMove(side, r, c, tr, tc, true)) {
-                        Move m;
-                        m.fr = r; m.fc = c;
-                        m.tr = tr; m.tc = tc;
-                        m.promoPiece = isPromotionMove(p, tr) ? (isWhite(p) ? 'Q' : 'q') : '\0';
-                        moves.push_back(m);
+            if (type == PAWN) {
+                if (pawns[us][f] > 1) { mg -= sign * DOUBLED_MG; eg -= sign * DOUBLED_EG; }
+                if (!pawns[us][f - 1] && !pawns[us][f + 1]) {
+                    mg -= sign * ISOLATED_MG;
+                    eg -= sign * ISOLATED_EG;
+                }
+                bool passed;
+                int advance;  // 1 on the home row .. 6 one step from promotion
+                if (us == WHITE) {
+                    passed = blackRear[f - 1] >= r && blackRear[f] >= r && blackRear[f + 1] >= r;
+                    advance = 7 - r;
+                } else {
+                    passed = whiteRear[f - 1] <= r && whiteRear[f] <= r && whiteRear[f + 1] <= r;
+                    advance = r;
+                }
+                if (passed) { mg += sign * PASSED_MG[advance]; eg += sign * PASSED_EG[advance]; }
+                continue;
+            }
+
+            if (type == KING) {
+                // Pawn shelter, only while the king is on its two home rows
+                int homeRow = us == WHITE ? 7 : 0;
+                if (abs(r - homeRow) <= 1) {
+                    int ahead = us == WHITE ? -10 : 10;
+                    int pawn = makePiece(us, PAWN);
+                    int shelter = 0;
+                    for (int kc = max(0, c - 1); kc <= min(7, c + 1); kc++) {
+                        int s = SQ(r, kc);
+                        if (board[s + ahead] == pawn) shelter += SHIELD_NEAR;
+                        else if (board[s + 2 * ahead] == pawn) shelter += SHIELD_FAR;
+                        else {
+                            shelter -= SHIELD_MISSING;
+                            if (!pawns[us][kc + 1]) shelter -= KING_OPEN_FILE;
+                        }
                     }
+                    mg += sign * shelter;
+                }
+                continue;
+            }
+
+            // Mobility: squares the piece can move to
+            int mobility = 0;
+            if (type == KNIGHT) {
+                for (int d : KNIGHT_DIRS) {
+                    int t = board[sq + d];
+                    if (t == EMPTY || (t != OFFBOARD && colorOf(t) == them)) mobility++;
+                }
+            } else {
+                for (int d : KING_DIRS) {
+                    bool isDiagonal = (d == -11 || d == -9 || d == 9 || d == 11);
+                    if (isDiagonal ? type == ROOK : type == BISHOP) continue;
+                    int t = sq + d;
+                    while (board[t] == EMPTY) { mobility++; t += d; }
+                    if (board[t] != OFFBOARD && colorOf(board[t]) == them) mobility++;
+                }
+            }
+            mg += sign * MOBILITY_MG[type] * (mobility - MOBILITY_BASE[type]);
+            eg += sign * MOBILITY_EG[type] * (mobility - MOBILITY_BASE[type]);
+
+            if (type == ROOK) {
+                if (!pawns[us][f]) {
+                    if (!pawns[them][f]) { mg += sign * ROOK_OPEN_MG; eg += sign * ROOK_OPEN_EG; }
+                    else { mg += sign * ROOK_SEMI_MG; eg += sign * ROOK_SEMI_EG; }
+                }
+                // On the seventh with the enemy king cut off on the eighth
+                int seventh = us == WHITE ? 1 : 6;
+                int eighth = us == WHITE ? 0 : 7;
+                if (r == seventh && kingSq[them] && rowOf(kingSq[them]) == eighth) {
+                    mg += sign * ROOK_SEVENTH_MG;
+                    eg += sign * ROOK_SEVENTH_EG;
                 }
             }
         }
     }
-    return moves;
+
+    if (pieceCount[WB] >= 2) { mg += BISHOP_PAIR_MG; eg += BISHOP_PAIR_EG; }
+    if (pieceCount[BB] >= 2) { mg -= BISHOP_PAIR_MG; eg -= BISHOP_PAIR_EG; }
+
+    // Endgame knowledge
+    int material[2];
+    for (int s = 0; s < 2; s++) {
+        material[s] = 0;
+        for (int t = PAWN; t <= QUEEN; t++)
+            material[s] += pieceCount[makePiece(s, t)] * MATERIAL_EG[t];
+    }
+    int strong = material[WHITE] >= material[BLACK] ? WHITE : BLACK;
+    int weak = strong ^ 1;
+    int lead = material[strong] - material[weak];
+    int strongSign = strong == WHITE ? 1 : -1;
+    bool strongHasPawns = pieceCount[makePiece(strong, PAWN)] > 0;
+    bool weakHasPawns = pieceCount[makePiece(weak, PAWN)] > 0;
+
+    if (!strongHasPawns && !weakHasPawns && material[weak] == 0 &&
+        pieceCount[makePiece(strong, KNIGHT)] == 2 && material[strong] == 2 * MATERIAL_EG[KNIGHT]) {
+        return 0;  // two knights cannot force mate
+    }
+    if (lead >= 400 && !weakHasPawns && material[weak] <= MATERIAL_EG[BISHOP] &&
+        kingSq[WHITE] && kingSq[BLACK]) {
+        // Winning material against a nearly bare king: push that king to
+        // the edge and bring our own king up.
+        int kingsApart = abs(rowOf(kingSq[WHITE]) - rowOf(kingSq[BLACK])) +
+                         abs(colOf(kingSq[WHITE]) - colOf(kingSq[BLACK]));
+        eg += strongSign * (10 * centreDistance(kingSq[weak]) + 4 * (14 - kingsApart));
+    } else if (!strongHasPawns && !weakHasPawns && lead < 400) {
+        // Without pawns a small material lead rarely wins (R v B, R+B v R)
+        mg /= 4;
+        eg /= 4;
+    }
+
+    int p = phase > 24 ? 24 : phase;
+    int score = (mg * p + eg * (24 - p)) / 24;
+    return score + (side == WHITE ? TEMPO : -TEMPO);
 }
 
-/**
- * Simple move-ordering heuristic: captures first, then promotions.
- * Helps alpha-beta prune more effectively.
- */
-void orderMoves(vector<Move> &moves, const Move &ttMove = Move{-1, -1, -1, -1, '\0'}) {
-    sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {
-        if (ttMove.fr != -1) {
-            if (movesEqual(a, ttMove)) return true;
-            if (movesEqual(b, ttMove)) return false;
+static inline int evalForSide() {
+    int e = evaluate();
+    return side == WHITE ? e : -e;
+}
+
+// ============================================================
+//  Search
+// ============================================================
+
+static const int INF = 32000;
+static const int MATE = 31000;
+static const int MATE_BOUND = MATE - 512;  // scores beyond this are forced mates
+static const int MAX_DEPTH = 64;
+
+enum { BOUND_NONE, BOUND_EXACT, BOUND_LOWER, BOUND_UPPER };
+
+struct TTEntry {
+    uint64_t key;
+    int32_t move;
+    int16_t score;
+    int8_t depth;
+    uint8_t bound;
+};
+
+// Two entries per slot: the first keeps the deepest search of the slot,
+// the second is always replaced.
+static const int TT_SLOTS = 1 << 19;
+static TTEntry transpositionTable[TT_SLOTS * 2];
+
+static std::chrono::steady_clock::time_point startTime;
+static long long deadlineMs = -1;  // hard stop, measured from startTime
+static bool searchAborted = false;
+static long long nodesSearched = 0;
+static long long tthits = 0;
+static int killers[MAX_PLY + 2][2];
+static int historyTable[13][120];
+
+static long long elapsedMs() {
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+}
+
+static inline void countNode() {
+    if ((++nodesSearched & 1023) == 0 && deadlineMs >= 0 && elapsedMs() >= deadlineMs)
+        searchAborted = true;
+}
+
+// Mate scores are stored relative to the node, not to the root, so an
+// entry is still right when the position is reached at another depth.
+static inline int scoreToTT(int score, int ply) {
+    if (score >= MATE_BOUND) return score + ply;
+    if (score <= -MATE_BOUND) return score - ply;
+    return score;
+}
+static inline int scoreFromTT(int score, int ply) {
+    if (score >= MATE_BOUND) return score - ply;
+    if (score <= -MATE_BOUND) return score + ply;
+    return score;
+}
+
+static TTEntry *probeTT(uint64_t key) {
+    TTEntry *slot = &transpositionTable[(key & (TT_SLOTS - 1)) * 2];
+    if (slot[0].key == key && slot[0].bound != BOUND_NONE) return &slot[0];
+    if (slot[1].key == key && slot[1].bound != BOUND_NONE) return &slot[1];
+    return nullptr;
+}
+
+static void storeTT(uint64_t key, int move, int score, int depth, int bound, int ply) {
+    TTEntry *slot = &transpositionTable[(key & (TT_SLOTS - 1)) * 2];
+    TTEntry *e;
+    if (slot[0].key == key || slot[0].bound == BOUND_NONE || depth >= slot[0].depth) {
+        if (slot[0].key != key && slot[0].bound != BOUND_NONE) slot[1] = slot[0];
+        e = &slot[0];
+    } else {
+        e = &slot[1];
+    }
+    if (move == 0 && e->key == key) move = e->move;  // keep the known best move
+    e->key = key;
+    e->move = move;
+    e->score = static_cast<int16_t>(scoreToTT(score, ply));
+    e->depth = static_cast<int8_t>(depth);
+    e->bound = static_cast<uint8_t>(bound);
+}
+
+/** Has the current position occurred before, in the game or on this line? */
+static bool isRepetition() {
+    int limit = halfmove < repTop ? halfmove : repTop;
+    for (int back = 2; back <= limit; back += 2)
+        if (repStack[repTop - back] == hashKey) return true;
+    return false;
+}
+
+static inline bool hasNonPawnMaterial(int s) {
+    return pieceCount[makePiece(s, KNIGHT)] || pieceCount[makePiece(s, BISHOP)] ||
+           pieceCount[makePiece(s, ROOK)] || pieceCount[makePiece(s, QUEEN)];
+}
+
+// Knight and bishop count the same here, so that bishop takes knight
+// (or the reverse) is an even trade and not a loss of ten points.
+static const int SEE_VALUE[6] = {100, 325, 325, 500, 900, 20000};
+
+/** The least valuable piece of colour `by` that attacks sq, or 0. */
+static int leastAttacker(int sq, int by) {
+    int pawn = makePiece(by, PAWN);
+    if (by == WHITE) {
+        if (board[sq + 11] == pawn) return sq + 11;
+        if (board[sq + 9] == pawn) return sq + 9;
+    } else {
+        if (board[sq - 11] == pawn) return sq - 11;
+        if (board[sq - 9] == pawn) return sq - 9;
+    }
+    int knight = makePiece(by, KNIGHT);
+    for (int d : KNIGHT_DIRS)
+        if (board[sq + d] == knight) return sq + d;
+    int best = 0, bestType = KING + 1;
+    for (int d : KING_DIRS) {
+        bool isDiagonal = (d == -11 || d == -9 || d == 9 || d == 11);
+        int t = sq + d;
+        if (board[t] == makePiece(by, KING) && bestType > KING) { best = t; bestType = KING; }
+        while (board[t] == EMPTY) t += d;
+        int p = board[t];
+        if (p == OFFBOARD || colorOf(p) != by) continue;
+        int type = typeOf(p);
+        if ((type == QUEEN || type == (isDiagonal ? BISHOP : ROOK)) && type < bestType) {
+            best = t;
+            bestType = type;
         }
-        int sa = 0, sb = 0;
-
-        // Captures scored by victim value
-        if (!isEmpty(board[a.tr][a.tc])) sa += pieceValue(board[a.tr][a.tc]) + 1000;
-        if (!isEmpty(board[b.tr][b.tc])) sb += pieceValue(board[b.tr][b.tc]) + 1000;
-
-        // Promotions
-        if (a.promoPiece) sa += 900;
-        if (b.promoPiece) sb += 900;
-
-        return sa > sb;  // higher score first
-    });
+    }
+    return best;
 }
 
 /**
- * Find the king position for a given colour.
+ * Static exchange evaluation: the material balance of the capture
+ * sequence on the target square if both sides keep recapturing with their
+ * least valuable piece and stop when it no longer pays.
  */
-pair<int,int> findKing(const string &color) {
-    char target = (color == "white") ? 'K' : 'k';
-    for (int r = 0; r < 8; r++)
-        for (int c = 0; c < 8; c++)
-            if (board[r][c] == target) return {r, c};
-    return {-1, -1};
+static int see(int m) {
+    int from = FROM(m), to = TO(m);
+    int gain[32];
+    int removedSq[32], removedPiece[32];
+    int n = 0, removed = 0;
+
+    int target = board[to];
+    if (FLAG(m) == FLAG_EP) {
+        int capSq = to + (side == WHITE ? 10 : -10);
+        removedSq[removed] = capSq; removedPiece[removed++] = board[capSq];
+        board[capSq] = EMPTY;
+        gain[0] = SEE_VALUE[PAWN];
+    } else {
+        gain[0] = target == EMPTY ? 0 : SEE_VALUE[typeOf(target)];
+    }
+    int onSquare = SEE_VALUE[typeOf(board[from])];  // value now standing on `to`
+    if (PROMO(m)) {
+        gain[0] += SEE_VALUE[PROMO(m)] - SEE_VALUE[PAWN];
+        onSquare = SEE_VALUE[PROMO(m)];
+    }
+    removedSq[removed] = from; removedPiece[removed++] = board[from];
+    board[from] = EMPTY;
+
+    int by = side ^ 1;
+    while (n < 30) {
+        int attacker = leastAttacker(to, by);
+        if (!attacker) break;
+        n++;
+        gain[n] = onSquare - gain[n - 1];
+        onSquare = SEE_VALUE[typeOf(board[attacker])];
+        removedSq[removed] = attacker; removedPiece[removed++] = board[attacker];
+        board[attacker] = EMPTY;
+        by ^= 1;
+    }
+    for (int i = removed - 1; i >= 0; i--) board[removedSq[i]] = removedPiece[i];
+
+    while (n > 0) {
+        gain[n - 1] = -max(-gain[n - 1], gain[n]);
+        n--;
+    }
+    return gain[0];
+}
+
+static const int SCORE_TT = 1 << 30;
+static const int SCORE_GOOD_CAPTURE = 1 << 24;
+static const int SCORE_KILLER = 1 << 22;
+static const int SCORE_BAD_CAPTURE = -(1 << 24);
+
+/** Give every move an ordering score: best candidates first. */
+static void scoreMoves(MoveList &ml, int ttMove, int ply) {
+    for (int i = 0; i < ml.count; i++) {
+        int m = ml.moves[i];
+        int score;
+        if (m == ttMove) {
+            score = SCORE_TT;
+        } else if (isCapture(m) || PROMO(m)) {
+            int victim = FLAG(m) == FLAG_EP ? PAWN : (board[TO(m)] == EMPTY ? -1 : typeOf(board[TO(m)]));
+            int attacker = typeOf(board[FROM(m)]);
+            // Most valuable victim first, least valuable attacker first
+            int mvvLva = (victim >= 0 ? SEE_VALUE[victim] : 0) * 8 - SEE_VALUE[attacker] / 100;
+            if (PROMO(m) == QUEEN) mvvLva += 7000;
+            // A capture that may lose material is checked exactly
+            bool risky = victim < 0 || SEE_VALUE[victim] < SEE_VALUE[attacker];
+            if (risky && PROMO(m) != QUEEN && see(m) < 0) score = SCORE_BAD_CAPTURE + mvvLva;
+            else score = SCORE_GOOD_CAPTURE + mvvLva;
+        } else if (ply >= 0 && m == killers[ply][0]) {
+            score = SCORE_KILLER;
+        } else if (ply >= 0 && m == killers[ply][1]) {
+            score = SCORE_KILLER - 1;
+        } else {
+            score = historyTable[board[FROM(m)]][TO(m)];
+        }
+        ml.scores[i] = score;
+    }
+}
+
+/** Bring the best remaining move to position i. */
+static inline void pickMove(MoveList &ml, int i) {
+    int best = i;
+    for (int j = i + 1; j < ml.count; j++)
+        if (ml.scores[j] > ml.scores[best]) best = j;
+    if (best != i) {
+        swap(ml.moves[i], ml.moves[best]);
+        swap(ml.scores[i], ml.scores[best]);
+    }
 }
 
 /**
- * Check whether a move leaves the player's own king in check.
- * If it does, the move is illegal and should be skipped.
+ * Quiescence search: play out captures and promotions (and every reply
+ * while in check) until the position is quiet, so that the static
+ * evaluation is never taken in the middle of an exchange.
  */
-bool leavesKingInCheck(const Move &m, const string &side) {
-    char tempBoard[8][8];
-    for(int i=0; i<8; i++) for(int j=0; j<8; j++) tempBoard[i][j] = board[i][j];
+static int quiesce(int alpha, int beta, int ply, bool inCheck) {
+    if (searchAborted) return 0;
+    countNode();
+    if (ply >= MAX_PLY - 1) return evalForSide();
 
-    // Apply move
-    char p = board[m.fr][m.fc];
-    
-    // En Passant capture: diagonal pawn move to an empty square
-    if (tolower(static_cast<unsigned char>(p)) == 'p' && m.fc != m.tc && board[m.tr][m.tc] == '.') {
-        board[m.fr][m.tc] = '.'; 
+    int best = -INF;
+    int standPat = -INF;
+    if (!inCheck) {
+        standPat = evalForSide();
+        if (standPat >= beta) return standPat;
+        if (standPat > alpha) alpha = standPat;
+        best = standPat;
     }
 
-    board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : p;
-    board[m.fr][m.fc] = '.';
+    MoveList ml;
+    generateMoves(ml, !inCheck, PROMO_QUEEN_ONLY);
+    scoreMoves(ml, 0, -1);
 
-    // Castling rook move
-    if (tolower(p) == 'k' && abs(m.tc - m.fc) == 2) {
-        if (m.tc == 6) { board[m.fr][5] = board[m.fr][7]; board[m.fr][7] = '.'; }
-        else { board[m.fr][3] = board[m.fr][0]; board[m.fr][0] = '.'; }
+    int legal = 0;
+    for (int i = 0; i < ml.count; i++) {
+        pickMove(ml, i);
+        int m = ml.moves[i];
+        if (!inCheck) {
+            // Losing captures are not worth following, and neither is a
+            // capture that cannot bring the score back up to alpha.
+            if (ml.scores[i] < 0) break;
+            int victim = FLAG(m) == FLAG_EP ? PAWN : (board[TO(m)] == EMPTY ? -1 : typeOf(board[TO(m)]));
+            int gain = (victim >= 0 ? SEE_VALUE[victim] : 0) + (PROMO(m) ? 800 : 0);
+            if (standPat + gain + 200 <= alpha) continue;
+        }
+        if (!makeIfLegal(m)) continue;
+        legal++;
+        int score = -quiesce(-beta, -alpha, ply + 1, inCheckNow());
+        unmakeMove();
+        if (searchAborted) return 0;
+        if (score > best) {
+            best = score;
+            if (score > alpha) {
+                alpha = score;
+                if (alpha >= beta) break;
+            }
+        }
     }
 
-    pair<int, int> kpos = findKing(side);
-    bool inCheck = (kpos.first != -1) && isSquareAttacked(kpos.first, kpos.second, (side == "white" ? "black" : "white"));
-
-    // Restore
-    for(int i=0; i<8; i++) for(int j=0; j<8; j++) board[i][j] = tempBoard[i][j];
-    return inCheck;
+    if (inCheck && legal == 0) return -MATE + ply;
+    return best;
 }
 
 /**
- * Minimax with alpha-beta pruning.
+ * Principal variation search (negamax alpha-beta).
  *
  *   depth      : remaining plies to search
- *   alpha/beta : pruning window
- *   maximizing : true when it is White's turn (White maximises)
+ *   alpha/beta : window, from the point of view of the side to move
+ *   ply        : distance from the root
+ *   inCheck    : the side to move is in check
+ *   nullOk     : a null move may be tried here
  *
- * Returns the static evaluation at leaf nodes.
+ * Returns the score for the side to move.
  */
-int minimax(int depth, int alpha, int beta, bool maximizing) {
+static int search(int depth, int alpha, int beta, int ply, bool inCheck, bool nullOk) {
     if (searchAborted) return 0;
 
-    nodesSearched++;
-    if (nodesSearched % 1024 == 0) {
-        if (isTimeout()) {
-            searchAborted = true;
-            return 0;
+    bool pvNode = beta - alpha > 1;
+
+    // Draws: repetition, dead position, fifty-move rule (mate comes first)
+    if (isRepetition() || isInsufficientMaterial()) return 0;
+    if (halfmove >= 100 && (!inCheck || hasLegalMove())) return 0;
+
+    // A shorter mate found elsewhere makes this line pointless
+    alpha = max(alpha, -MATE + ply);
+    beta = min(beta, MATE - ply - 1);
+    if (alpha >= beta) return alpha;
+
+    if (ply >= MAX_PLY - 1) return evalForSide();
+
+    if (inCheck) depth++;  // never stop while in check
+    if (depth <= 0) return quiesce(alpha, beta, ply, false);
+
+    countNode();
+
+    int ttMove = 0;
+    TTEntry *entry = probeTT(hashKey);
+    if (entry) {
+        tthits++;
+        ttMove = entry->move;
+        if (!pvNode && entry->depth >= depth) {
+            int score = scoreFromTT(entry->score, ply);
+            if (entry->bound == BOUND_EXACT) return score;
+            if (entry->bound == BOUND_LOWER && score >= beta) return score;
+            if (entry->bound == BOUND_UPPER && score <= alpha) return score;
         }
     }
 
-    if (depth == 0) return evaluate();
+    int staticEval = inCheck ? -INF : evalForSide();
 
-    uint64_t hash = computeHash(maximizing ? "white" : "black");
-    int ttIndex = hash % TT_SIZE;
-    if (transpositionTable[ttIndex].isValid && transpositionTable[ttIndex].hash == hash) {
-        if (transpositionTable[ttIndex].depth >= depth) {
-            tthits++;
-            BoundType bound = transpositionTable[ttIndex].bound;
-            int score = transpositionTable[ttIndex].score;
-            if (bound == EXACT) return score;
-            if (bound == LOWER_BOUND && score >= beta) return score;
-            if (bound == UPPER_BOUND && score <= alpha) return score;
+    if (!pvNode && !inCheck && abs(beta) < MATE_BOUND) {
+        // Reverse futility: far above beta close to the horizon
+        if (depth <= 3 && staticEval - 120 * depth >= beta) return staticEval;
+
+        // Null move: if passing still holds beta, a real move will too.
+        // Not with only pawns left, where having to move can be a loss.
+        if (nullOk && depth >= 3 && staticEval >= beta && hasNonPawnMaterial(side)) {
+            int reduction = 2 + depth / 4;
+            makeNull();
+            int score = -search(depth - 1 - reduction, -beta, -beta + 1, ply + 1, false, false);
+            unmakeNull();
+            if (searchAborted) return 0;
+            if (score >= beta) return score >= MATE_BOUND ? beta : score;
         }
     }
 
-    string side = maximizing ? "white" : "black";
-    vector<Move> moves = generateMoves(side);
-    
-    Move ttMove = Move{-1, -1, -1, -1, '\0'};
-    if (transpositionTable[ttIndex].isValid && transpositionTable[ttIndex].hash == hash) {
-        ttMove = transpositionTable[ttIndex].bestMove;
-    }
-
-    orderMoves(moves, ttMove);
-
-    // Filter out moves that leave own king in check
-    vector<Move> legal;
-    legal.reserve(moves.size());
-    for (auto &m : moves) {
-        if (!leavesKingInCheck(m, side))
-            legal.push_back(m);
-    }
-
-    // No legal moves: checkmate or stalemate
-    if (legal.empty()) {
-        string opponent = maximizing ? "black" : "white";
-        pair<int,int> kpos = findKing(side);
-        if (kpos.first >= 0 && isSquareAttacked(kpos.first, kpos.second, opponent))
-            return maximizing ? (-99999 + (100 - depth))   // checkmate (bad for side)
-                              : ( 99999 - (100 - depth));
-        return 0;  // stalemate
-    }
+    MoveList ml;
+    generateMoves(ml, false, PROMO_QUEEN_KNIGHT);
+    scoreMoves(ml, ttMove, ply);
 
     int originalAlpha = alpha;
-    int originalBeta = beta;
-    Move bestMoveThisNode = Move{-1, -1, -1, -1, '\0'};
+    int bestScore = -INF;
+    int bestMove = 0;
+    int legal = 0;
+    int us = side;
 
-    if (maximizing) {
-        int maxEval = INT_MIN;
-        for (auto &m : legal) {
-            char src = board[m.fr][m.fc];
-            char dst = board[m.tr][m.tc];
-            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
-            board[m.fr][m.fc] = '.';
+    for (int i = 0; i < ml.count; i++) {
+        pickMove(ml, i);
+        int m = ml.moves[i];
+        int from = FROM(m);
+        int piece = board[from];
+        bool quiet = !isCapture(m) && !PROMO(m);
 
-            int ep_r = -1, ep_c = -1;
-            char ep_captured = '.';
-            if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
-                ep_r = m.fr; ep_c = m.tc;
-                ep_captured = board[ep_r][ep_c];
-                board[ep_r][ep_c] = '.';
+        // Only a king move, an en passant capture or a piece on a line
+        // with the king can expose the king when it is not in check.
+        bool mustVerify = inCheck || typeOf(piece) == KING || FLAG(m) == FLAG_EP ||
+                          aligned[from][kingSq[us]];
+        makeMove(m);
+        if (mustVerify && kingSq[us] && attacked(kingSq[us], side)) {
+            unmakeMove();
+            continue;
+        }
+        legal++;
+        bool givesCheck = inCheckNow();
+
+        // Futility: a quiet move that cannot lift a hopeless position
+        if (!pvNode && !inCheck && quiet && !givesCheck && legal > 1 && depth <= 2 &&
+            staticEval + 100 + 100 * depth <= alpha && abs(alpha) < MATE_BOUND) {
+            unmakeMove();
+            continue;
+        }
+
+        int score;
+        int newDepth = depth - 1;
+        if (legal == 1) {
+            score = -search(newDepth, -beta, -alpha, ply + 1, givesCheck, true);
+        } else {
+            // Late move reduction: moves ordered far back are searched
+            // shallower first and again at full depth only if they surprise.
+            int reduction = 0;
+            if (depth >= 3 && legal > (pvNode ? 5 : 3) && quiet && !inCheck && !givesCheck) {
+                reduction = lmrTable[min(depth, 63)][min(legal, 63)];
+                if (pvNode && reduction > 0) reduction--;
+                if (reduction > newDepth - 1) reduction = max(0, newDepth - 1);
             }
+            score = -search(newDepth - reduction, -alpha - 1, -alpha, ply + 1, givesCheck, true);
+            if (score > alpha && reduction > 0)
+                score = -search(newDepth, -alpha - 1, -alpha, ply + 1, givesCheck, true);
+            if (score > alpha && score < beta)
+                score = -search(newDepth, -beta, -alpha, ply + 1, givesCheck, true);
+        }
+        unmakeMove();
+        if (searchAborted) return 0;
 
-            int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
-            if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
-                if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
-                else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
-                if (rook_fr != -1) {
-                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
-                    board[rook_fr][rook_fc] = '.';
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = m;
+            if (score > alpha) {
+                alpha = score;
+                if (alpha >= beta) {
+                    if (quiet) {
+                        if (killers[ply][0] != m) {
+                            killers[ply][1] = killers[ply][0];
+                            killers[ply][0] = m;
+                        }
+                        int &h = historyTable[piece][TO(m)];
+                        h += depth * depth;
+                        if (h > (1 << 20)) {
+                            for (auto &row : historyTable)
+                                for (int &v : row) v /= 2;
+                        }
+                    }
+                    break;
                 }
             }
-
-            bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
-            if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
-            if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
-            if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
-            if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
-            if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
-            if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
-
-            int old_ep_r = EN_PASSANT_R;
-            int old_ep_c = EN_PASSANT_C;
-            if (tolower(src) == 'p' && abs(m.tr - m.fr) == 2) {
-                EN_PASSANT_R = (m.fr + m.tr) / 2;
-                EN_PASSANT_C = m.fc;
-            } else {
-                EN_PASSANT_R = -1;
-                EN_PASSANT_C = -1;
-            }
-
-            int eval = minimax(depth - 1, alpha, beta, false);
-
-            EN_PASSANT_R = old_ep_r;
-            EN_PASSANT_C = old_ep_c;
-            W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
-
-            if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
-            board[m.fr][m.fc] = src;
-            board[m.tr][m.tc] = dst;
-            if (rook_fr != -1) {
-                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
-                board[rook_tr][rook_tc] = '.';
-            }
-
-            if (searchAborted) return 0;
-
-            if (eval > maxEval) {
-                maxEval = eval;
-                bestMoveThisNode = m;
-            }
-            alpha = max(alpha, eval);
-            if (beta <= alpha) break;
-        }
-
-        if (!searchAborted) {
-            TTEntry entry;
-            entry.hash = hash;
-            entry.depth = depth;
-            entry.score = maxEval;
-            entry.bestMove = bestMoveThisNode;
-            entry.bound = (maxEval <= originalAlpha) ? UPPER_BOUND :
-                          (maxEval >= beta) ? LOWER_BOUND : EXACT;
-            entry.isValid = true;
-            transpositionTable[ttIndex] = entry;
-        }
-
-        return maxEval;
-    } else {
-        int minEval = INT_MAX;
-        for (auto &m : legal) {
-            char src = board[m.fr][m.fc];
-            char dst = board[m.tr][m.tc];
-            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
-            board[m.fr][m.fc] = '.';
-
-            int ep_r = -1, ep_c = -1;
-            char ep_captured = '.';
-            if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
-                ep_r = m.fr; ep_c = m.tc;
-                ep_captured = board[ep_r][ep_c];
-                board[ep_r][ep_c] = '.';
-            }
-
-            int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
-            if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
-                if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
-                else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
-                if (rook_fr != -1) {
-                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
-                    board[rook_fr][rook_fc] = '.';
-                }
-            }
-
-            bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
-            if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
-            if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
-            if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
-            if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
-            if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
-            if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
-
-            int old_ep_r = EN_PASSANT_R;
-            int old_ep_c = EN_PASSANT_C;
-            if (tolower(src) == 'p' && abs(m.tr - m.fr) == 2) {
-                EN_PASSANT_R = (m.fr + m.tr) / 2;
-                EN_PASSANT_C = m.fc;
-            } else {
-                EN_PASSANT_R = -1;
-                EN_PASSANT_C = -1;
-            }
-
-            int eval = minimax(depth - 1, alpha, beta, true);
-
-            EN_PASSANT_R = old_ep_r;
-            EN_PASSANT_C = old_ep_c;
-            W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
-
-            if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
-            board[m.fr][m.fc] = src;
-            board[m.tr][m.tc] = dst;
-            if (rook_fr != -1) {
-                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
-                board[rook_tr][rook_tc] = '.';
-            }
-
-            if (searchAborted) return 0;
-
-            if (eval < minEval) {
-                minEval = eval;
-                bestMoveThisNode = m;
-            }
-            beta = min(beta, eval);
-            if (beta <= alpha) break;
-        }
-
-        if (!searchAborted) {
-            TTEntry entry;
-            entry.hash = hash;
-            entry.depth = depth;
-            entry.score = minEval;
-            entry.bestMove = bestMoveThisNode;
-            entry.bound = (minEval <= alpha) ? UPPER_BOUND :
-                          (minEval >= originalBeta) ? LOWER_BOUND : EXACT;
-            entry.isValid = true;
-            transpositionTable[ttIndex] = entry;
-        }
-
-        return minEval;
-    }
-}
-
-// ============================================================
-//  STATUS handler - check / checkmate / stalemate detection
-// ============================================================
-
-/**
- * STATUS <board64> <turn>
- * -> STATUS CHECK        (king is in check but has legal moves)
- * -> STATUS CHECKMATE    (king is in check and no legal moves)
- * -> STATUS STALEMATE    (king is NOT in check but no legal moves)
- * -> STATUS OK           (normal position)
- */
-void handleStatus(const string &turn) {
-
-    string opponent = (turn == "white") ? "black" : "white";
-    pair<int,int> kpos = findKing(turn);
-    bool inCheck = (kpos.first >= 0) &&
-                   isSquareAttacked(kpos.first, kpos.second, opponent);
-
-    // Count legal moves for the side to move
-    vector<Move> moves = generateMoves(turn);
-    bool hasLegal = false;
-    for (auto &m : moves) {
-        if (!leavesKingInCheck(m, turn)) {
-            hasLegal = true;
-            break;
         }
     }
 
-    if (!hasLegal) {
-        if (inCheck) cout << "STATUS CHECKMATE" << endl;
-        else         cout << "STATUS STALEMATE" << endl;
-    } else {
-        if (inCheck) cout << "STATUS CHECK" << endl;
-        else if (isInsufficientMaterial()) cout << "STATUS DRAW" << endl;
-        else         cout << "STATUS OK" << endl;
-    }
+    if (legal == 0) return inCheck ? -MATE + ply : 0;  // checkmate or stalemate
+
+    int bound = bestScore >= beta ? BOUND_LOWER
+              : bestScore > originalAlpha ? BOUND_EXACT : BOUND_UPPER;
+    storeTT(hashKey, bestMove, bestScore, depth, bound, ply);
+    return bestScore;
 }
 
 /**
- * NOTATION handler.
- *
- * Protocol:
- *   NOTATION <board64> <rights> <color> <fr> <fc> <tr> <tc>
- *   -> NOTATION <san>
- *
- * Generates accurate Standard Algebraic Notation (SAN) for a move,
- * including full disambiguation support (e.g., Rfe1, N5f3).
+ * Search the root moves in the given order. Moves listed in `excluded`
+ * are skipped (used to find the next best alternatives).
+ * Returns the best score and sets bestMove; on abort the result is void.
  */
-void handleNotation(const string &turn, int fr, int fc, int tr, int tc, char promo = '\0') {
-    char piece = board[fr][fc];
-    if (isEmpty(piece)) {
-        cout << "NOTATION ?" << endl;
+static int searchRoot(int depth, int alpha, int beta, vector<int> &rootMoves,
+                      const vector<int> &excluded, int &bestMove) {
+    int bestScore = -INF;
+    bestMove = 0;
+    int searched = 0;
+    for (size_t i = 0; i < rootMoves.size(); i++) {
+        int m = rootMoves[i];
+        if (find(excluded.begin(), excluded.end(), m) != excluded.end()) continue;
+        makeMove(m);
+        bool givesCheck = inCheckNow();
+        int score;
+        if (searched == 0) {
+            score = -search(depth - 1, -beta, -alpha, 1, givesCheck, true);
+        } else {
+            score = -search(depth - 1, -alpha - 1, -alpha, 1, givesCheck, true);
+            if (score > alpha && score < beta)
+                score = -search(depth - 1, -beta, -alpha, 1, givesCheck, true);
+        }
+        unmakeMove();
+        if (searchAborted) return 0;
+        searched++;
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = m;
+            if (score > alpha) {
+                alpha = score;
+                // Try the new best move first in the next iteration
+                rotate(rootMoves.begin(), rootMoves.begin() + i, rootMoves.begin() + i + 1);
+                if (alpha >= beta) break;
+            }
+        }
+    }
+    return bestScore;
+}
+
+/** Score as sent to the bridge: from White's side, mates near +-99999. */
+static int reportScore(int score, int mover) {
+    if (score >= MATE_BOUND) score = 99999 - (MATE - score);
+    else if (score <= -MATE_BOUND) score = -99999 + (MATE + score);
+    return mover == WHITE ? score : -score;
+}
+
+/**
+ * BESTMOVE handler: iterative deepening with aspiration windows.
+ * Stops at maxDepth or when the time is used up, and always answers with
+ * the best move of the last iteration that was searched completely.
+ */
+static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives) {
+    if (maxDepth < 1) maxDepth = 1;  // depth 0 would return an unsearched move
+    if (maxDepth > MAX_DEPTH) maxDepth = MAX_DEPTH;
+    if (alternatives < 0) alternatives = 0;
+
+    startTime = std::chrono::steady_clock::now();
+    searchAborted = false;
+    nodesSearched = 0;
+    tthits = 0;
+    memset(transpositionTable, 0, sizeof(transpositionTable));
+    memset(killers, 0, sizeof(killers));
+    memset(historyTable, 0, sizeof(historyTable));
+
+    int mover = side;
+    MoveList legal;
+    generateLegal(legal, PROMO_QUEEN_ONLY);
+    if (legal.count == 0) {
+        cout << "BESTMOVE NONE" << endl;
         return;
     }
 
-    char type = static_cast<char>(tolower(static_cast<unsigned char>(piece)));
-    bool isCapture = !isEmpty(board[tr][tc]);
-    string files = "abcdefgh";
-
-    char promoChar = '\0';
-    if (isPromotionMove(piece, tr)) {
-        char lowerPromo = tolower(static_cast<unsigned char>(promo));
-        if (lowerPromo != 'q' && lowerPromo != 'r' && lowerPromo != 'b' && lowerPromo != 'n') {
-            lowerPromo = 'q';
-        }
-        promoChar = toupper(static_cast<unsigned char>(lowerPromo));
+    // Order the root moves once: captures first, as in the tree
+    scoreMoves(legal, 0, -1);
+    vector<int> rootMoves;
+    for (int i = 0; i < legal.count; i++) {
+        pickMove(legal, i);
+        rootMoves.push_back(legal.moves[i]);
     }
 
-    // 1. Castling
-    if (type == 'k') {
-        if (abs(tc - fc) == 2) {
-            if (tc == 6) { cout << "NOTATION O-O" << endl; return; }
-            if (tc == 2) { cout << "NOTATION O-O-O" << endl; return; }
-        }
-    }
+    // The main search may use most of the time; the rest is kept for the
+    // alternatives. A tenth of the limit is left unused, so that the reply
+    // is still on time when the machine is busy and this process is not
+    // run for a moment.
+    long long hardLimit = timeLimitMs > 0 ? max(1LL, timeLimitMs - max(10LL, timeLimitMs / 10)) : -1;
+    long long mainLimit = hardLimit;
+    if (hardLimit > 0 && alternatives > 0 && rootMoves.size() > 1)
+        mainLimit = hardLimit * 9 / 10;
+    deadlineMs = mainLimit;
 
-    string res = "";
-    if (type == 'p') {
-        // Diagonal move for a pawn is always a capture (handles future En Passant support)
-        if (fc != tc) {
-            res += files[static_cast<string::size_type>(fc)];
-            res += 'x';
-        }
-        res += files[static_cast<string::size_type>(tc)];
-        res += to_string(8 - tr);
+    int best = rootMoves[0];
+    int bestScore = 0;
+    int depthReached = 0;
+    bool completedAll = true;
+    vector<int> none;
+    long long iterationStart = 0;
 
-        if (promoChar != '\0') {
-            res += '=';
-            res += promoChar;
-        }
-
-    } else {
-        res += static_cast<char>(toupper(static_cast<unsigned char>(type)));
-
-        // Disambiguation: Check if other pieces of the same type can move to the same square
-        vector<pair<int, int>> others;
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                if (r == fr && c == fc) continue;
-                if (board[r][c] == piece) {
-                    if (validateMove(turn, r, c, tr, tc, true)) {
-                        Move m = {r, c, tr, tc, '\0'};
-                        if (!leavesKingInCheck(m, turn)) {
-                            others.push_back({r, c});
-                        }
-                    }
-                }
+    for (int d = 1; d <= maxDepth; d++) {
+        int move = 0;
+        int score;
+        iterationStart = elapsedMs();
+        if (d >= 4) {
+            // Aspiration window around the previous score
+            int window = 40;
+            int alpha = max(-INF, bestScore - window), beta = min(INF, bestScore + window);
+            while (true) {
+                score = searchRoot(d, alpha, beta, rootMoves, none, move);
+                if (searchAborted) break;
+                if (score <= alpha) alpha = max(-INF, alpha - window);
+                else if (score >= beta) beta = min(INF, beta + window);
+                else break;
+                window *= 2;
+                if (window > 600) { alpha = -INF; beta = INF; }
             }
+        } else {
+            score = searchRoot(d, -INF, INF, rootMoves, none, move);
+        }
+        if (searchAborted) {
+            completedAll = false;
+            break;
         }
 
-        if (!others.empty()) {
-            bool sameFile = false;
-            bool sameRank = false;
-            for (auto &p : others) {
-                if (p.second == fc) sameFile = true;
-                if (p.first == fr) sameRank = true;
-            }
+        best = move;
+        bestScore = score;
+        depthReached = d;
 
-            if (!sameFile) {
-                res += files[static_cast<string::size_type>(fc)];
-            } else if (!sameRank) {
-                res += to_string(8 - fr);
-            } else {
-                res += files[static_cast<string::size_type>(fc)];
-                res += to_string(8 - fr);
-            }
-        }
-
-        if (isCapture) res += 'x';
-        res += files[static_cast<string::size_type>(tc)];
-        res += to_string(8 - tr);
-    }
-
-    // Apply move temporarily to check for Check/Checkmate
-    char src = board[fr][fc];
-    char dst = board[tr][tc];
-    if (promoChar != '\0') {
-        board[tr][tc] = (turn == "white") ? promoChar : tolower(static_cast<unsigned char>(promoChar));
-    } else {
-        board[tr][tc] = src;
-    }
-    board[fr][fc] = '.';
-
-    string opponent = (turn == "white") ? "black" : "white";
-    pair<int, int> kpos = findKing(opponent);
-    if (kpos.first != -1 && isSquareAttacked(kpos.first, kpos.second, turn)) {
-        vector<Move> oppMoves = generateMoves(opponent);
-        bool hasLegal = false;
-        for (auto &m : oppMoves) {
-            if (!leavesKingInCheck(m, opponent)) {
-                hasLegal = true;
+        if (rootMoves.size() == 1) break;
+        // A forced mate will not get shorter by looking deeper than its length
+        if (abs(score) >= MATE_BOUND && MATE - abs(score) <= d) break;
+        if (mainLimit > 0 && d < maxDepth) {
+            // The next iteration costs at least about twice the last
+            // one; do not start it if it cannot finish.
+            long long now = elapsedMs();
+            if (now + 2 * (now - iterationStart) >= mainLimit) {
+                completedAll = false;
                 break;
             }
         }
-        res += hasLegal ? "+" : "#";
     }
 
-    // Undo move
-    board[fr][fc] = src;
-    board[tr][tc] = dst;
+    if (depthReached == 0) {
+        // Not even depth 1 was finished (a limit of a few milliseconds):
+        // fall back to the first move by capture ordering.
+        best = rootMoves[0];
+        searchAborted = false;
+        deadlineMs = -1;
+        makeMove(best);
+        bestScore = -quiesce(-INF, INF, 1, inCheckNow());
+        unmakeMove();
+    }
+
+    // The next best moves: the remaining root moves are searched again
+    // without the moves already chosen, deepening while time is left. The
+    // table filled by the main search makes this cheap.
+    vector<pair<int, int>> alts;
+    if (alternatives > 0 && rootMoves.size() > 1 && depthReached > 0) {
+        searchAborted = false;
+        deadlineMs = hardLimit;
+        int altDepth = depthReached <= 3 ? depthReached : depthReached - 2;
+        for (int d = 1; d <= altDepth; d++) {
+            vector<pair<int, int>> found;
+            vector<int> excluded(1, best);
+            while (static_cast<int>(found.size()) < alternatives &&
+                   excluded.size() < rootMoves.size()) {
+                int move = 0;
+                int score = searchRoot(d, -INF, INF, rootMoves, excluded, move);
+                if (searchAborted || move == 0) break;
+                found.push_back({move, score});
+                excluded.push_back(move);
+            }
+            if (searchAborted) break;
+            alts = found;
+        }
+        searchAborted = false;
+    }
+
+    cout << "BESTMOVE " << rowOf(FROM(best)) << " " << colOf(FROM(best))
+         << " " << rowOf(TO(best)) << " " << colOf(TO(best))
+         << " EVAL " << reportScore(bestScore, mover);
+    if (!alts.empty()) {
+        cout << " ALTS";
+        for (auto &alt : alts) {
+            cout << " " << rowOf(FROM(alt.first)) << " " << colOf(FROM(alt.first))
+                 << " " << rowOf(TO(alt.first)) << " " << colOf(TO(alt.first))
+                 << " " << reportScore(alt.second, mover);
+        }
+    }
+    cout << " DEPTH " << depthReached
+         << " NODES " << nodesSearched
+         << " TTHITS " << tthits
+         << " TIME " << elapsedMs()
+         << " ENGINE cpp"
+         << " STATUS " << (completedAll ? "completed" : "timeout")
+         << endl;
+}
+
+// ============================================================
+//  Command handlers
+// ============================================================
+
+/** Find the legal move from one square to another (queen if it promotes). */
+static int findLegalMove(int from, int to, int promoType) {
+    MoveList legal;
+    generateLegal(legal, PROMO_ALL);
+    for (int i = 0; i < legal.count; i++) {
+        int m = legal.moves[i];
+        if (FROM(m) == from && TO(m) == to && (!PROMO(m) || PROMO(m) == promoType)) return m;
+    }
+    return 0;
+}
+
+static void handleMoves(int row, int col) {
+    int from = SQ(row, col);
+    MoveList legal;
+    generateLegal(legal, PROMO_QUEEN_ONLY);
+    // One entry per target square, in board order
+    vector<pair<int, int>> targets;
+    for (int i = 0; i < legal.count; i++) {
+        int m = legal.moves[i];
+        if (FROM(m) == from) targets.push_back({TO(m), m});
+    }
+    sort(targets.begin(), targets.end());
+    cout << "MOVES";
+    for (auto &t : targets) {
+        cout << " " << rowOf(t.first) << " " << colOf(t.first)
+             << " " << (isCapture(t.second) ? 1 : 0)
+             << " " << (PROMO(t.second) ? 1 : 0);
+    }
+    cout << endl;
+}
+
+static int promoTypeFromChar(char ch) {
+    switch (tolower(static_cast<unsigned char>(ch))) {
+        case 'r': return ROOK;
+        case 'b': return BISHOP;
+        case 'n': return KNIGHT;
+        default:  return QUEEN;  // default to queen
+    }
+}
+
+/**
+ * Validates a promotion move, applies it on the board, and returns
+ * the new 64-char board string so the Python layer stays in sync.
+ */
+static void handlePromote(int fr, int fc, int tr, int tc, char promoPiece) {
+    int from = SQ(fr, fc), to = SQ(tr, tc);
+    int piece = board[from];
+    if (piece == EMPTY || colorOf(piece) != side || typeOf(piece) != PAWN) {
+        cout << "INVALID Not a pawn" << endl;
+        return;
+    }
+    if (tr != (side == WHITE ? 0 : 7)) {
+        cout << "INVALID Not a promotion square" << endl;
+        return;
+    }
+    int m = findLegalMove(from, to, promoTypeFromChar(promoPiece));
+    if (!m) {
+        cout << "INVALID Illegal move" << endl;
+        return;
+    }
+    makeMove(m);
+    cout << "PROMOTE " << serializeBoard() << endl;
+}
+
+/**
+ * STATUS -> CHECK (in check, has legal moves), CHECKMATE, STALEMATE,
+ * DRAW (legal moves exist but neither side can ever mate), OK.
+ */
+static void handleStatus() {
+    bool inCheck = inCheckNow();
+    if (!hasLegalMove()) {
+        cout << (inCheck ? "STATUS CHECKMATE" : "STATUS STALEMATE") << endl;
+    } else if (isInsufficientMaterial()) {
+        // A dead position is a draw even while the king is in check.
+        cout << "STATUS DRAW" << endl;
+    } else {
+        cout << (inCheck ? "STATUS CHECK" : "STATUS OK") << endl;
+    }
+}
+
+/**
+ * NOTATION handler: Standard Algebraic Notation for a move, with
+ * disambiguation (Rfe1, N5f3), promotion and the check or mate suffix.
+ */
+static void handleNotation(int fr, int fc, int tr, int tc, char promo) {
+    int from = SQ(fr, fc), to = SQ(tr, tc);
+    int piece = board[from];
+    if (piece == EMPTY) {
+        cout << "NOTATION ?" << endl;
+        return;
+    }
+    int type = typeOf(piece);
+    const string files = "abcdefgh";
+    bool promotes = type == PAWN && (tr == 0 || tr == 7);
+    int promoType = promotes ? promoTypeFromChar(promo) : 0;
+
+    // The move as the engine plays it. A move that is not legal still gets
+    // a notation, built from its shape.
+    int m = findLegalMove(from, to, promoType);
+    if (!m) {
+        int flag = FLAG_NONE;
+        if (type == KING && abs(tc - fc) == 2 && (tc == 6 || tc == 2)) flag = FLAG_CASTLE;
+        else if (type == PAWN && fc != tc && board[to] == EMPTY) flag = FLAG_EP;
+        else if (type == PAWN && abs(tr - fr) == 2) flag = FLAG_DOUBLE;
+        m = makeMoveCode(from, to, promoType, flag);
+    }
+
+    string res;
+    if (FLAG(m) == FLAG_CASTLE) {
+        res = tc == 6 ? "O-O" : "O-O-O";
+    } else if (type == PAWN) {
+        // A diagonal pawn move is always a capture
+        if (fc != tc) {
+            res += files[fc];
+            res += 'x';
+        }
+        res += files[tc];
+        res += to_string(8 - tr);
+        if (promotes) {
+            res += '=';
+            res += "PNBRQK"[promoType];
+        }
+    } else {
+        res += "PNBRQK"[type];
+
+        // Disambiguation: other pieces of the same kind that can legally
+        // move to the same square
+        MoveList legal;
+        generateLegal(legal, PROMO_QUEEN_ONLY);
+        bool others = false, sameFile = false, sameRank = false;
+        for (int i = 0; i < legal.count; i++) {
+            int o = legal.moves[i];
+            if (TO(o) != to || FROM(o) == from || board[FROM(o)] != piece) continue;
+            others = true;
+            if (colOf(FROM(o)) == fc) sameFile = true;
+            if (rowOf(FROM(o)) == fr) sameRank = true;
+        }
+        if (others) {
+            if (!sameFile) {
+                res += files[fc];
+            } else if (!sameRank) {
+                res += to_string(8 - fr);
+            } else {
+                res += files[fc];
+                res += to_string(8 - fr);
+            }
+        }
+
+        if (board[to] != EMPTY) res += 'x';
+        res += files[tc];
+        res += to_string(8 - tr);
+    }
+
+    // Play the move to see whether it gives check or mate
+    makeMove(m);
+    if (inCheckNow()) res += hasLegalMove() ? "+" : "#";
+    unmakeMove();
 
     cout << "NOTATION " << res << endl;
 }
 
 /**
- * BESTMOVE handler.
- *
- * Protocol:
- *   BESTMOVE <board64> <turn> <depth>
- *   -> BESTMOVE <fr> <fc> <tr> <tc>
- *   -> BESTMOVE NONE            (no legal moves)
- *
- * Runs minimax to the requested depth and returns the best move
- * for the given side.
+ * Read the earlier positions of the game that follow a BESTMOVE command
+ * and put their hashes on the repetition stack. The current position is
+ * loaded again afterwards by the caller.
  */
-void handleBestMove(const string &turn, int maxDepth, int timeLimitMs = -1) {
-    bool maximizing = (turn == "white");
-
-    // Clear transposition table
-    memset(transpositionTable, 0, sizeof(transpositionTable));
-
-    vector<Move> moves = generateMoves(turn);
-    orderMoves(moves, Move{-1, -1, -1, -1, '\0'});
-
-    vector<Move> legal;
-    legal.reserve(moves.size());
-    for (auto &m : moves) {
-        if (!leavesKingInCheck(m, turn))
-            legal.push_back(m);
-    }
-
-    if (legal.empty()) {
-        cout << "BESTMOVE NONE" << endl;
-        return;
-    }
-
-    // Initialize search variables
-    startTime = std::chrono::steady_clock::now();
-    ::timeLimitMs = timeLimitMs;
-    searchAborted = false;
-    nodesSearched = 0;
-    tthits = 0;
-
-    Move best = legal[0];
-    int bestVal = maximizing ? INT_MIN : INT_MAX;
-    int depthReached = 0;
-    bool completedAll = true;
-    vector<pair<Move, int>> lastCompletedEvaluated;
-
-    for (int d = 1; d <= maxDepth; d++) {
-        vector<pair<Move, int>> evaluated;
-        evaluated.reserve(legal.size());
-
-        // Order the best move from the last depth to the front if d > 1
-        orderMoves(legal, (d > 1) ? best : Move{-1, -1, -1, -1, '\0'});
-
-        bool currentDepthAborted = false;
-
-        for (auto &m : legal) {
-            char src = board[m.fr][m.fc];
-            char dst = board[m.tr][m.tc];
-            board[m.tr][m.tc] = m.promoPiece ? m.promoPiece : src;
-            board[m.fr][m.fc] = '.';
-
-            int ep_r = -1, ep_c = -1;
-            char ep_captured = '.';
-            if (tolower(src) == 'p' && m.fc != m.tc && dst == '.') {
-                ep_r = m.fr; ep_c = m.tc;
-                ep_captured = board[ep_r][ep_c];
-                board[ep_r][ep_c] = '.';
-            }
-
-            int rook_fr = -1, rook_fc = -1, rook_tr = -1, rook_tc = -1;
-            if (tolower(src) == 'k' && abs(m.tc - m.fc) == 2) {
-                if (m.tc == 6) { rook_fr = m.fr; rook_fc = 7; rook_tr = m.tr; rook_tc = 5; }
-                else if (m.tc == 2) { rook_fr = m.fr; rook_fc = 0; rook_tr = m.tr; rook_tc = 3; }
-                if (rook_fr != -1) {
-                    board[rook_tr][rook_tc] = board[rook_fr][rook_fc];
-                    board[rook_fr][rook_fc] = '.';
-                }
-            }
-
-            bool old_wk = W_K_CASTLE, old_wq = W_Q_CASTLE, old_bk = B_K_CASTLE, old_bq = B_Q_CASTLE;
-            if (src == 'K') { W_K_CASTLE = false; W_Q_CASTLE = false; }
-            if (src == 'k') { B_K_CASTLE = false; B_Q_CASTLE = false; }
-            if (src == 'R') { if (m.fr == 7 && m.fc == 0) W_Q_CASTLE = false; else if (m.fr == 7 && m.fc == 7) W_K_CASTLE = false; }
-            if (src == 'r') { if (m.fr == 0 && m.fc == 0) B_Q_CASTLE = false; else if (m.fr == 0 && m.fc == 7) B_K_CASTLE = false; }
-            if (dst == 'R') { if (m.tr == 7 && m.tc == 0) W_Q_CASTLE = false; else if (m.tr == 7 && m.tc == 7) W_K_CASTLE = false; }
-            if (dst == 'r') { if (m.tr == 0 && m.tc == 0) B_Q_CASTLE = false; else if (m.tr == 0 && m.tc == 7) B_K_CASTLE = false; }
-
-            int old_ep_r = EN_PASSANT_R;
-            int old_ep_c = EN_PASSANT_C;
-            if (tolower(src) == 'p' && abs(m.tr - m.fr) == 2) {
-                EN_PASSANT_R = (m.fr + m.tr) / 2;
-                EN_PASSANT_C = m.fc;
+static bool loadHistory(istringstream &in, vector<uint64_t> &hashes) {
+    string placement, turn, rights, ep;
+    while (in >> placement) {
+        if (!(in >> turn >> rights >> ep)) return false;
+        if (turn != "w" && turn != "b") return false;
+        clearBoard();
+        int r = 0, c = 0;
+        for (char ch : placement) {
+            if (ch == '/') {
+                if (c != 8) return false;
+                r++;
+                c = 0;
+            } else if (ch >= '1' && ch <= '8') {
+                c += ch - '0';
             } else {
-                EN_PASSANT_R = -1;
-                EN_PASSANT_C = -1;
+                int piece = pieceFromChar(ch);
+                if (piece <= EMPTY || r > 7 || c > 7) return false;
+                addPiece(piece, SQ(r, c));
+                c++;
             }
-
-            int eval = minimax(d - 1, INT_MIN, INT_MAX, !maximizing);
-
-            EN_PASSANT_R = old_ep_r;
-            EN_PASSANT_C = old_ep_c;
-            W_K_CASTLE = old_wk; W_Q_CASTLE = old_wq; B_K_CASTLE = old_bk; B_Q_CASTLE = old_bq;
-
-            if (ep_r != -1) board[ep_r][ep_c] = ep_captured;
-            board[m.fr][m.fc] = src;
-            board[m.tr][m.tc] = dst;
-            if (rook_fr != -1) {
-                board[rook_fr][rook_fc] = board[rook_tr][rook_tc];
-                board[rook_tr][rook_tc] = '.';
-            }
-
-            if (searchAborted) {
-                currentDepthAborted = true;
-                break;
-            }
-
-            evaluated.push_back({m, eval});
         }
-
-        if (currentDepthAborted) {
-            completedAll = false;
-            break;
-        }
-
-        if (maximizing) {
-            sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second > b.second; });
-        } else {
-            sort(evaluated.begin(), evaluated.end(), [](auto &a, auto &b) { return a.second < b.second; });
-        }
-
-        best = evaluated[0].first;
-        bestVal = evaluated[0].second;
-        depthReached = d;
-        lastCompletedEvaluated = evaluated;
-
-        if (legal.size() == 1) {
-            break;
-        }
-
-        if (isTimeout()) {
-            completedAll = false;
-            break;
-        }
+        if (r != 7 || c != 8) return false;
+        int epRow = -1, epCol = -1;
+        if (ep != "-" && sscanf(ep.c_str(), "%d,%d", &epRow, &epCol) != 2) return false;
+        finishSetup(turn == "w" ? WHITE : BLACK, rights, epRow, epCol);
+        hashes.push_back(hashKey);
+        if (hashes.size() > static_cast<size_t>(MAX_GAME)) return false;
     }
-
-    auto now = std::chrono::steady_clock::now();
-    int elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-
-    cout << "BESTMOVE " << best.fr << " " << best.fc
-         << " " << best.tr << " " << best.tc << " EVAL " << bestVal;
-
-    if (legal.size() > 1 && !lastCompletedEvaluated.empty()) {
-        cout << " ALTS";
-        int printed = 0;
-        for (size_t i = 1; i < lastCompletedEvaluated.size() && printed < 3; i++) {
-            Move am = lastCompletedEvaluated[i].first;
-            cout << " " << am.fr << " " << am.fc << " " << am.tr << " " << am.tc << " " << lastCompletedEvaluated[i].second;
-            printed++;
-        }
-    }
-
-    string statusStr = completedAll ? "completed" : "timeout";
-    cout << " DEPTH " << depthReached
-         << " NODES " << nodesSearched
-         << " TTHITS " << tthits
-         << " TIME " << elapsedTimeMs
-         << " ENGINE cpp"
-         << " STATUS " << statusStr
-         << endl;
+    return true;
 }
 
 int main() {
-    initZobrist();
-    string command;
-    while (cin >> command) {
+    initTables();
+    string line;
+    // One command per line and exactly one reply line per command, so the
+    // caller can never be left waiting and replies cannot get out of step.
+    while (getline(cin, line)) {
+        istringstream in(line);
+        string command;
+        if (!(in >> command)) continue;  // blank line
+
+        if (command == "VERSION") {
+            cout << "VERSION " << PROTOCOL_VERSION << endl;
+            continue;
+        }
+
+        bool known = command == "VALIDATE" || command == "MOVES" ||
+                     command == "ATTACKED" || command == "PROMOTE" ||
+                     command == "STATUS" || command == "BESTMOVE" ||
+                     command == "NOTATION" || command == "EVAL" ||
+                     command == "PERFT";
+        if (!known) {
+            cout << "ERROR unknown command" << endl;
+            continue;
+        }
+
+        // Every command starts with <board64> <rights> <colour> and two
+        // integers: the en passant target, or the square for ATTACKED.
+        string b, rights, t;
+        int n1, n2;
+        bool ok = static_cast<bool>(in >> b >> rights >> t >> n1 >> n2)
+                  && (t == "white" || t == "black");
+        int turn = t == "white" ? WHITE : BLACK;
+        int fr = 0, fc = 0, tr = 0, tc = 0, depth = 0;
+        auto onBoard = [](int r, int c) { return r >= 0 && r < 8 && c >= 0 && c < 8; };
+        if (ok && command == "ATTACKED") {
+            ok = onBoard(n1, n2);
+        } else if (ok && command == "MOVES") {
+            ok = static_cast<bool>(in >> fr >> fc) && onBoard(fr, fc);
+        } else if (ok && (command == "BESTMOVE" || command == "PERFT")) {
+            ok = static_cast<bool>(in >> depth);
+        } else if (ok && command != "STATUS" && command != "EVAL") {
+            ok = static_cast<bool>(in >> fr >> fc >> tr >> tc)
+                 && onBoard(fr, fc) && onBoard(tr, tc);
+        }
+        if (ok && command == "ATTACKED") ok = loadPosition(b, rights, WHITE, -1, -1);
+        else if (ok) ok = loadPosition(b, rights, turn, n1, n2);
+        if (!ok) {
+            cout << "ERROR malformed command" << endl;
+            continue;
+        }
+
         if (command == "VALIDATE") {
-            string b, rights, t; int epR, epC, fr, fc, tr, tc;
-            cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc;
-            loadBoard(b);
-            loadCastlingRights(rights);
-            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            validateMove(t, fr, fc, tr, tc);
-        } 
+            // Legal means: follows the piece's movement rules and does not
+            // leave the mover's own king in check.
+            bool legal = findLegalMove(SQ(fr, fc), SQ(tr, tc), QUEEN) != 0;
+            cout << (legal ? "VALID" : "INVALID Illegal move") << endl;
+        }
         else if (command == "MOVES") {
-            string b, rights, t; int epR, epC, r, c;
-            cin >> b >> rights >> t >> epR >> epC >> r >> c;
-            loadBoard(b);
-            loadCastlingRights(rights);
-            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleMoves(t, r, c);
-        } 
+            handleMoves(fr, fc);
+        }
         else if (command == "ATTACKED") {
-            string b, rights, attackerColor; int r, c;
-            cin >> b >> rights >> attackerColor >> r >> c;
-            loadBoard(b);
-            loadCastlingRights(rights);
-            if (isSquareAttacked(r, c, attackerColor)) cout << "YES" << endl;
-            else cout << "NO" << endl;
+            cout << (attacked(SQ(n1, n2), turn) ? "YES" : "NO") << endl;
         }
         else if (command == "PROMOTE") {
-            string b, rights, t; int epR, epC, fr, fc, tr, tc; char promo;
-            cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc >> promo;
-            loadBoard(b);
-            loadCastlingRights(rights);
-            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handlePromote(t, fr, fc, tr, tc, promo);
+            char promo = 'q', given;
+            if (in >> given) promo = given;  // missing piece: queen
+            handlePromote(fr, fc, tr, tc, promo);
         }
         else if (command == "STATUS") {
-            string b, rights, t; int epR, epC;
-            cin >> b >> rights >> t >> epR >> epC;
-            loadBoard(b);
-            loadCastlingRights(rights);
-            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleStatus(t);
-        }
-        else if (command == "BESTMOVE") {
-            string b, rights, t; int epR, epC, depth;
-            cin >> b >> rights >> t >> epR >> epC >> depth;
-            int limitMs = -1;
-            while (cin.peek() == ' ' || cin.peek() == '\t') {
-                cin.get();
-            }
-            if (cin.peek() != '\n' && cin.peek() != '\r' && cin.peek() != EOF) {
-                cin >> limitMs;
-            }
-            loadBoard(b);
-            loadCastlingRights(rights);
-            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleBestMove(t, depth, limitMs);
+            handleStatus();
         }
         else if (command == "NOTATION") {
-            string b, rights, t; int epR, epC, fr, fc, tr, tc;
-            cin >> b >> rights >> t >> epR >> epC >> fr >> fc >> tr >> tc;
-            char promo = '\0';
-            while (cin.peek() == ' ' || cin.peek() == '\t') {
-                cin.get();
+            char promo = 'q', given;
+            if (in >> given) promo = given;
+            handleNotation(fr, fc, tr, tc, promo);
+        }
+        else if (command == "EVAL") {
+            cout << "EVAL " << evaluate() << endl;
+        }
+        else if (command == "PERFT") {
+            if (depth > 6) depth = 6;  // keep a stray request bounded
+            cout << "PERFT " << (depth < 1 ? 1 : perft(depth)) << endl;
+        }
+        else if (command == "BESTMOVE") {
+            long long limitMs = -1;
+            int clock = 0, alternatives = 3;
+            long long given;
+            if (in >> given) {
+                limitMs = given;
+                if (in >> given) {
+                    clock = static_cast<int>(given);
+                    if (in >> given) alternatives = static_cast<int>(given);
+                }
             }
-            if (cin.peek() != '\n' && cin.peek() != '\r' && cin.peek() != EOF) {
-                cin >> promo;
+            vector<uint64_t> earlier;
+            if (!loadHistory(in, earlier)) {
+                cout << "ERROR malformed command" << endl;
+                continue;
             }
-            loadBoard(b);
-            loadCastlingRights(rights);
-            EN_PASSANT_R = epR; EN_PASSANT_C = epC;
-            handleNotation(t, fr, fc, tr, tc, promo);
+            loadPosition(b, rights, turn, n1, n2);
+            for (uint64_t h : earlier) repStack[repTop++] = h;
+            halfmove = clock < 0 ? 0 : clock;
+            handleBestMove(depth, limitMs, alternatives);
         }
     }
     return 0;

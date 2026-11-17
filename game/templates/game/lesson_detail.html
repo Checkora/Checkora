@@ -1,433 +1,268 @@
+{% extends 'game/base.html' %}
 {% load static %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ lesson.title }} - Checkora</title>
-    <link rel="stylesheet" href="{% static 'game/css/lesson.css' %}">
-    <style>
-        @media (max-width: 480px) {
-            #backToTopWrapper {
-                bottom: 1rem;
-                right: 1rem;
-            }
+{% block title %}{{ lesson.title }} · Lessons · Checkora{% endblock %}
+{% block description %}{{ lesson.description }}{% endblock %}
 
-            #backToTopBtn {
-                width: 44px;
-                height: 44px;
-                font-size: 1.1rem;
-            }
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/learn.css' %}">{% endblock %}
 
-            #backToTopTooltip {
-                font-size: 0.7rem;
-            }
-        }
-        
-        #backToTopWrapper {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity .3s ease;
-            z-index: 9999;
-        }
-
-        #backToTopWrapper.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        #backToTopTooltip {
-            background: rgba(15,15,26,.9);
-            color: #f0c040;
-            font-size: .75rem;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 20px;
-            border: 1px solid rgba(240,192,64,.3);
-            opacity: 0;
-            transform: translateY(4px);
-            transition: .2s;
-            white-space: nowrap;
-        }
-
-        #backToTopWrapper:hover #backToTopTooltip,
-        #backToTopWrapper:focus-within #backToTopTooltip {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        #backToTopBtn {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            border: 1.5px solid rgba(0,0,0,.4);
-            background: linear-gradient(135deg,#f0c040,#d4a020);
-            color: #111;
-            font-size: 1.3rem;
-            font-weight: 800;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 20px rgba(240,192,64,.35);
-            transition: .3s;
-        }
-
-        #backToTopBtn:focus-visible {
-            outline: 3px solid #ffffff;
-            outline-offset: 3px;
-        }
-
-        #backToTopBtn:hover {
-            background: linear-gradient(135deg,#f5cc55,#e0b030);
-            box-shadow: 0 6px 24px rgba(240,192,64,.6);
-        }
-
-        #backToTopBtn:hover .btn-arrow,
-        #backToTopBtn:focus-visible .btn-arrow {
-            animation: arrowBounce .6s infinite;
-        }
-
-        #backToTopBtn:active {
-            transform: scale(.92);
-        }
-
-        @keyframes arrowBounce {
-            0%,100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-
-    <a href="{% url 'lessons' %}" class="back-btn">
-        ← Back to Lessons
-    </a>
-
-    <div class="lesson-box">
-
-    <h1>{{ lesson.title }}</h1>
-
-    <p class="description">
-        {{ lesson.description }}
-    </p>
-
-    <h2>📖 Lesson Content</h2>
+{% block content %}
+<div class="wrap page lesson">
+    <header class="page-head">
+        <a class="back-link" href="{% url 'lessons' %}">Lessons</a>
+        <div class="cluster">
+            <span class="chip chip--gold">{{ difficulty }}</span>
+            {% if is_completed %}<span class="chip chip--good">Completed</span>{% endif %}
+        </div>
+        <h1 data-reveal>{{ lesson.title }}</h1>
+        <p class="lede" data-reveal style="--i: 1">{{ lesson.description }}</p>
+    </header>
 
     {% if lesson.content %}
-    <ul class="lesson-content">
-
-        {% for point in lesson.content %}
-        <li>{{ point }}</li>
-        {% endfor %}
-
-    </ul>
+    <section class="panel lesson-points" data-reveal style="--i: 2">
+        <h2>What to <span class="serif">know</span></h2>
+        <ol class="lesson-content">
+            {% for point in lesson.content %}
+            <li>{{ point }}</li>
+            {% endfor %}
+        </ol>
+    </section>
     {% endif %}
 
+    {% if board_examples or lesson_steps %}
     <div class="coord-toggle-container">
-        <input type="checkbox" id="lessonCoordToggle" class="custom-checkbox" checked>
-        <label for="lessonCoordToggle" class="coord-toggle-label">Show Coordinates</label>
+        <label class="check">
+            <input type="checkbox" id="lessonCoordToggle" checked>
+            Show coordinates
+        </label>
     </div>
+    {% endif %}
 
     {% if board_examples %}
-   
-    <div class="board-demo">
-
-        <h2>♟ Interactive Board Example</h2>
-
-        <h3 id="example-title"></h3>
-        
+    <section class="panel board-demo lesson-stage" data-reveal>
         <div class="lesson-board-aligned">
             <div class="lesson-board-row">
-                <div class="lesson-ranks">
+                <div class="lesson-ranks" aria-hidden="true">
                     <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
                 </div>
                 <div id="demo-board"></div>
             </div>
-            <div class="lesson-files">
+            <div class="lesson-files" aria-hidden="true">
                 <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
             </div>
         </div>
-        <button
-            id="next-example-btn"
-            class="complete-btn"
-        >
-            Next Example
-        </button>
-    </div>
+        <div class="lesson-stage__side">
+            <p class="eyebrow">On the board</p>
+            <h2>See it <span class="serif">first</span></h2>
+            <h3 id="example-title" aria-live="polite"></h3>
+            <p class="muted">The marked squares show what the example is about.</p>
+            <button type="button" id="next-example-btn" class="button">Next example</button>
+        </div>
+    </section>
 
     {{ board_examples|json_script:"board-examples-data" }}
-
     {% endif %}
 
     {% if lesson_steps %}
-
-    <div class="lesson-practice">
-
-        <h2>🎯 Practice Position</h2>
-
-        <p id="lesson-instruction"></p>
-
+    <section class="panel lesson-practice lesson-stage" data-reveal>
         <div class="lesson-board-aligned">
             <div class="lesson-board-row">
-                <div class="lesson-ranks">
+                <div class="lesson-ranks" aria-hidden="true">
                     <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
                 </div>
                 <div class="lesson-board-wrapper">
                     <div id="practice-board" class="lesson-board"></div>
                 </div>
             </div>
-            <div class="lesson-files">
+            <div class="lesson-files" aria-hidden="true">
                 <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
             </div>
         </div>
-
-        <p id="lesson-result"></p>
-
-        <button
-            type="button"
-            id="retry-btn"
-            class="complete-btn"
-            style="display:none; margin-top:10px;"
-        >
-            🔄 Retry
-        </button>
-
-    </div>
+        <div class="lesson-stage__side">
+            <p class="eyebrow">Your turn</p>
+            <h2>Practice <span class="serif">position</span></h2>
+            <p id="lesson-instruction" aria-live="polite"></p>
+            <p id="lesson-result" role="status"></p>
+            <button type="button" id="retry-btn" class="button">Retry</button>
+            <p class="muted">Click a piece, then the square it should go to. The arrow keys and Enter work as well.</p>
+        </div>
+    </section>
 
     {{ lesson_steps|json_script:"lesson-steps-data" }}
     {{ practice_position|json_script:"practice-position-data" }}
-
     {% endif %}
 
-    {% if lesson.practice_question %}
-    <div class="coming-soon">
+    {% if lesson.practice_question or lesson.quiz_question %}
+    <div class="lesson-extras">
+        {% if lesson.practice_question %}
+        <section class="panel" data-reveal>
+            <p class="eyebrow">Practice exercise</p>
+            <h3>{{ lesson.practice_question }}</h3>
+            <details class="answer">
+                <summary>Show answer</summary>
+                <p>{{ lesson.practice_answer }}</p>
+            </details>
+        </section>
+        {% endif %}
 
-        <h3>📝 Practice Exercise</h3>
-
-        <p><strong>Question:</strong> {{ lesson.practice_question }}</p>
-
-        <details>
-            <summary>Show Answer</summary>
-            <p>{{ lesson.practice_answer }}</p>
-        </details>
-
+        {% if lesson.quiz_question %}
+        <section class="panel" data-reveal style="--i: 1">
+            <p class="eyebrow">Quick quiz</p>
+            <h3>{{ lesson.quiz_question }}</h3>
+            <div class="quiz" data-answer="{{ lesson.quiz_answer }}">
+                {% for option in lesson.quiz_options %}
+                <button type="button" class="quiz-btn" data-option="{{ option }}">{{ option }}</button>
+                {% endfor %}
+            </div>
+            <p id="quiz-result" role="status"></p>
+        </section>
+        {% endif %}
     </div>
     {% endif %}
 
-
-    <div style="margin-top:25px;">
-    
-    {% if is_completed %}
-
-    <button
-        class="complete-btn"
-        disabled
-    >
-        ✓ Completed
-    </button>
-
-    {% else %}
-
-    <form
-        method="post"
-        action="{% url 'complete_lesson' lesson.title|slugify %}"
-    >
-        {% csrf_token %}
-
-        <button
-            type="submit"
-            class="complete-btn"
-        >
-            ✓ Mark Lesson Complete
+    <section class="panel lesson-done" data-reveal>
+        {% if is_completed %}
+        <div>
+            <h2>Lesson <span class="serif">done</span></h2>
+            <p>You have completed this lesson. Come back to it whenever you like.</p>
+        </div>
+        <button type="button" class="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            Completed
         </button>
-    </form>
-
-    {% endif %}
-
-    </div>
-
-    {% if lesson.quiz_question %}
-
-    <div class="coming-soon">
-
-        <h3>🎯 Quick Quiz</h3>
-
-        <p>{{ lesson.quiz_question }}</p>
-
-        {% for option in lesson.quiz_options %}
-
-            <button
-                class="quiz-btn"
-                onclick="checkAnswer(this, '{{ option|escapejs }}', '{{ lesson.quiz_answer|escapejs }}')"
-            >
-                {{ option }}
+        {% else %}
+        <div>
+            <h2>Got <span class="serif">it?</span></h2>
+            <p>
+                Mark the lesson complete to unlock the next one.
+                {% if not user.is_authenticated %}You will be asked to <a class="text-link" href="{% url 'login' %}">sign in</a> first.{% endif %}
+            </p>
+        </div>
+        <form method="post" action="{% url 'complete_lesson' lesson.title|slugify %}">
+            {% csrf_token %}
+            <button type="submit" class="button button--primary button--lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                Mark lesson complete
             </button>
+        </form>
+        {% endif %}
+    </section>
 
-            <br><br>
-
-        {% endfor %}
-
-        <p id="quiz-result"></p>
-
-    </div>
-
-    {% endif %}
-    <div class="lesson-navigation">
-
+    {% if previous_lesson or next_lesson %}
+    <nav class="lesson-navigation" aria-label="More lessons">
         {% if previous_lesson %}
-            <a href="{% url 'lesson_detail' previous_lesson|slugify %}">
-                ← {{ previous_lesson }}
-            </a>
+        <a class="panel panel--link" href="{% url 'lesson_detail' previous_lesson|slugify %}">
+            <span class="label">Previous</span>
+            <b>{{ previous_lesson }}</b>
+        </a>
         {% endif %}
 
         {% if next_lesson %}
-            <a href="{% url 'lesson_detail' next_lesson|slugify %}">
-                {{ next_lesson }} →
-            </a>
+        <a class="panel panel--link lesson-navigation__next" href="{% url 'lesson_detail' next_lesson|slugify %}">
+            <span class="label">Next</span>
+            <b>{{ next_lesson }}</b>
+        </a>
         {% endif %}
-    </div>
-
+    </nav>
+    {% endif %}
 </div>
 
-
+<div id="backToTopWrapper">
+    <span id="backToTopTooltip">Back to top</span>
+    <button type="button" id="backToTopBtn" class="icon-button" aria-label="Back to top">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+    </button>
 </div>
+{% endblock %}
 
-</div>
-
+{% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    const backToTop = document.getElementById("backToTopWrapper");
-
-    const toggleBackToTop = () => {
-        if (window.scrollY > 300) {
-            backToTop.classList.add("visible");
-        } else {
-            backToTop.classList.remove("visible");
-        }
+// lesson_demo.js and lesson_practice.js write a chess glyph into each
+// square and read it back to know which piece is there. This leaves the
+// glyph alone and tags the square, so the stylesheet can show the drawn
+// piece over it.
+(function() {
+    const glyphs = {
+        '♔': ['wk', 'white king'], '♕': ['wq', 'white queen'], '♖': ['wr', 'white rook'],
+        '♗': ['wb', 'white bishop'], '♘': ['wn', 'white knight'], '♙': ['wp', 'white pawn'],
+        '♚': ['bk', 'black king'], '♛': ['bq', 'black queen'], '♜': ['br', 'black rook'],
+        '♝': ['bb', 'black bishop'], '♞': ['bn', 'black knight'], '♟': ['bp', 'black pawn'],
     };
 
-    window.addEventListener("scroll", toggleBackToTop);
+    function dress(board) {
+        board.querySelectorAll('.lesson-square, .demo-square').forEach((square) => {
+            const [code, name] = glyphs[square.textContent.trim()] || [];
+            if (code) square.dataset.piece = code;
+            else delete square.dataset.piece;
+            if (square.dataset.square) {
+                square.setAttribute('role', 'button');
+                square.setAttribute('aria-label', name ? `${square.dataset.square}, ${name}` : square.dataset.square);
+            }
+        });
+    }
 
-    // Show immediately if page is already scrolled
+    document.querySelectorAll('#demo-board, #practice-board').forEach((board) => {
+        new MutationObserver(() => dress(board)).observe(board, { childList: true, subtree: true, characterData: true });
+        dress(board);
+    });
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+    const backToTop = document.getElementById('backToTopWrapper');
+    const toggleBackToTop = () => backToTop.classList.toggle('visible', window.scrollY > 300);
+    window.addEventListener('scroll', toggleBackToTop, { passive: true });
+    // A reload can restore a scrolled page.
     toggleBackToTop();
+    document.getElementById('backToTopBtn').addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.querySelectorAll('.quiz-btn').forEach((btn) => {
+        btn.addEventListener('click', () => checkAnswer(btn, btn.dataset.option, btn.closest('.quiz').dataset.answer));
+    });
 });
 
 function checkAnswer(btn, selected, correct) {
+    const result = document.getElementById('quiz-result');
+    const right = selected.trim() === correct.trim();
 
-    const result =
-        document.getElementById("quiz-result");
-    const buttons = document.querySelectorAll(".quiz-btn");
+    document.querySelectorAll('.quiz-btn').forEach((b) => b.classList.remove('correct', 'incorrect'));
+    // Read the width so the animation runs again on a second click.
+    void btn.offsetWidth;
+    btn.classList.add(right ? 'correct' : 'incorrect');
 
-    // Reset previous states
-    buttons.forEach(b => {
-        b.classList.remove("correct", "incorrect");
-    });
-
-    if (selected.trim() === correct.trim()) {
-
-        result.innerHTML =
-            "✅ Correct Answer!";
-
-        result.style.color = "#4caf50";
-        btn.classList.add("correct");
-
-        // Force re-trigger animation
-        btn.classList.remove("correct");
-        void btn.offsetWidth;
-        btn.classList.add("correct");
-
-        triggerCelebration(btn);
-
-    } else {
-
-        result.innerHTML =
-            "❌ Incorrect. Try Again.";
-
-        result.style.color = "#ff5252";
-        btn.classList.add("incorrect");
-
-        // Force re-trigger animation
-        btn.classList.remove("incorrect");
-        void btn.offsetWidth; // trigger reflow
-        btn.classList.add("incorrect");
-    }
+    result.textContent = right ? 'Correct.' : 'Not that one. Try again.';
+    result.dataset.state = right ? 'good' : 'bad';
+    if (right) triggerCelebration();
 }
 
-function triggerCelebration(btn) {
-    // Create confetti container if it doesn't exist
-    let confettiContainer = document.querySelector('.confetti-container');
-    if (!confettiContainer) {
-        confettiContainer = document.createElement('div');
-        confettiContainer.className = 'confetti-container';
-        document.body.appendChild(confettiContainer);
-    }
+function triggerCelebration() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    // Clear existing confetti
-    confettiContainer.innerHTML = '';
+    document.querySelector('.confetti-container')?.remove();
+    const container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
 
-    // Create confetti pieces
-    const colors = ['#ffd700', '#f0c040', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff9ff3'];
-    const confettiCount = 100; // More for fullscreen effect
+    const tokens = getComputedStyle(document.documentElement);
+    const colors = ['--gold', '--gold-bright', '--gold-deep', '--good', '--info', '--title']
+        .map((name) => tokens.getPropertyValue(name).trim());
 
-    for (let i = 0; i < confettiCount; i++) {
+    for (let i = 0; i < 100; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
-
-        // Random properties
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        const randomLeft = Math.random() * 100;
-        const randomDelay = Math.random() * 1.5; // Spread out the start
-        const randomDuration = 2.5 + Math.random() * 2;
-        const randomRotation = Math.random() * 360;
-
-        confetti.style.left = randomLeft + '%';
-        confetti.style.background = randomColor;
-        confetti.style.animationDelay = randomDelay + 's';
-        confetti.style.animationDuration = randomDuration + 's';
-        confetti.style.transform = `rotate(${randomRotation}deg)`;
-
-        // Random shapes
-        if (Math.random() > 0.5) {
-            confetti.style.borderRadius = '50%';
-        }
-
-        confettiContainer.appendChild(confetti);
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = Math.random() * 1.5 + 's';
+        confetti.style.animationDuration = 2.5 + Math.random() * 2 + 's';
+        if (Math.random() > 0.5) confetti.style.borderRadius = '50%';
+        container.appendChild(confetti);
     }
 
-    // Cleanup after animation
-    setTimeout(() => {
-        if (confettiContainer) {
-            confettiContainer.remove();
-        }
-    }, 6000);
+    setTimeout(() => container.remove(), 6000);
 }
-
 </script>
 <script src="{% static 'game/js/lesson_demo.js' %}"></script>
 <script src="{% static 'game/js/lesson_practice.js' %}"></script>
 <script src="{% static 'game/js/lesson_coordinates.js' %}"></script>
-<div id="backToTopWrapper">
-    <span id="backToTopTooltip">Back to Top</span>
-
-    <button
-        type="button"
-        id="backToTopBtn"
-        aria-label="Back to top"
-        onclick="window.scrollTo({top:0,behavior:'smooth'})"
-    >
-        <span class="btn-arrow">^</span>
-    </button>
-</div>
-</body>
-</html>
+{% endblock %}

@@ -40,13 +40,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const controlY = (y1 + y2) / 2;
                 const pathData = `M ${x1} ${y1} C ${x1} ${controlY}, ${x2} ${controlY}, ${x2} ${y2}`;
 
+                // The stylesheet gives the path its colour, width and dashes.
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 path.setAttribute("d", pathData);
-                path.setAttribute("stroke", "#36e6c5");
-                path.setAttribute("stroke-width", "4");
                 path.setAttribute("fill", "none");
-                path.setAttribute("stroke-dasharray", "8, 6");
-                path.setAttribute("opacity", "0.6");
                 path.setAttribute("stroke-linecap", "round");
 
                 svg.appendChild(path);
@@ -57,12 +54,18 @@ document.addEventListener("DOMContentLoaded", () => {
         drawConnectors();
         setTimeout(drawConnectors, 300);
 
-        // Instantly recalculate if the user rotates their phone or resizes the window
+        // Recalculate if the user rotates their phone or resizes the window,
+        // and whenever the road itself changes size: fonts and images that
+        // arrive late move the nodes without any window resize.
         let resizeTimeout;
-        window.addEventListener("resize", () => {
+        const redrawSoon = () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(drawConnectors, 50);
-        });
+        };
+        window.addEventListener("resize", redrawSoon);
+        if ("ResizeObserver" in window) {
+            new ResizeObserver(redrawSoon).observe(container);
+        }
 
     } catch (error) {
         console.error("Roadmap Draw Error:", error);

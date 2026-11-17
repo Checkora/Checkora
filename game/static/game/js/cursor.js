@@ -18,6 +18,9 @@ const CURSOR_STORAGE_KEY = 'checkora:cursor-type';
       // Skip the custom cursor entirely on touch-only devices.
       const isTouchDevice = window.matchMedia &&
         window.matchMedia('(pointer: coarse)').matches;
+      // On the low performance tier (see perf.js) the cursor is the
+      // system's own, whatever effect was saved.
+      const isLowTier = () => Boolean(window.checkoraPerf && window.checkoraPerf.low);
 
       let activeCursor = 'default';
       let mouseX = 0;
@@ -75,7 +78,7 @@ const CURSOR_STORAGE_KEY = 'checkora:cursor-type';
       function updateCursorType(type, persist) {
         if (VALID_CURSOR_TYPES.indexOf(type) < 0) type = 'default';
         // Auto-fallback for reduced-motion users (override non-default picks).
-        if ((isTouchDevice || prefersReducedMotion) && type !== 'default') type = 'default';
+        if ((isTouchDevice || prefersReducedMotion || isLowTier()) && type !== 'default') type = 'default';
 
         activeCursor = type;
         cursorOffset = CURSOR_OFFSETS[type] || CURSOR_OFFSETS.default;
@@ -119,6 +122,8 @@ const CURSOR_STORAGE_KEY = 'checkora:cursor-type';
         updateCursorType(initialType, false);
       }
       window.updateCursorType = updateCursorType;
+      // perf.js can move a page down to the low tier while it is open.
+      document.addEventListener('checkora:perf', () => updateCursorType('default', false));
 
       // ── Dropdown wiring ─────────────────────────────────────────────
       if (cursorDropdown && cursorTrigger) {

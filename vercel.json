@@ -11,5 +11,8 @@
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/wsgi" }
+  ],
+  "crons": [
+    { "path": "/api/cron/cleanup-stale-games/", "schedule": "0 3 * * *" }
   ]
 }

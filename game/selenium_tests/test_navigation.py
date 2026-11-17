@@ -162,8 +162,12 @@ class NavigationTest(BaseE2ETest):
             self.live_server_url + '/login/'
         )
 
-        back_home_link = self.driver.find_element(By.CLASS_NAME, 'auth-home-link')
-        self.assertIn('/home/', back_home_link.get_attribute('href'))
+        back_home_link = self.driver.find_element(By.CSS_SELECTOR, 'a.back-link')
+        # The landing page lives at the site root.
+        self.assertEqual(
+            back_home_link.get_attribute('href').rstrip('/'),
+            self.live_server_url.rstrip('/')
+        )
         log_ok("Login page includes Back to Home link")
         log_ok(f"Login page loaded at {self.driver.current_url}")
 
@@ -184,8 +188,12 @@ class NavigationTest(BaseE2ETest):
             self.live_server_url + '/register/'
         )
 
-        back_home_link = self.driver.find_element(By.CLASS_NAME, 'auth-home-link')
-        self.assertIn('/home/', back_home_link.get_attribute('href'))
+        back_home_link = self.driver.find_element(By.CSS_SELECTOR, 'a.back-link')
+        # The landing page lives at the site root.
+        self.assertEqual(
+            back_home_link.get_attribute('href').rstrip('/'),
+            self.live_server_url.rstrip('/')
+        )
         log_ok("Register page includes Back to Home link")
         log_ok(f"Register page loaded at {self.driver.current_url}")
 
@@ -255,6 +263,10 @@ class NavigationTest(BaseE2ETest):
     def test_11_name_validation_error_on_empty_submit(self):
         """Clicking PvP without entering names shows validation error."""
         log_info("Testing name validation...")
+        self.driver.get(self.live_server_url + '/play/')
+        # The page remembers the names typed in earlier tests, so forget
+        # them and load it again with empty fields.
+        self.driver.execute_script("window.localStorage.clear();")
         self.driver.get(self.live_server_url + '/play/')
 
         self.wait.until(

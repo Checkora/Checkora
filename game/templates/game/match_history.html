@@ -1,892 +1,756 @@
+{% extends 'game/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<!--
-  game/templates/game/match_history.html
 
-  Match History & Replay page for Checkora.
+{% block title %}Match history · Checkora{% endblock %}
+{% block description %}Replay your recent Checkora games move by move, or download them as PGN.{% endblock %}
 
-  Libraries loaded from cdnjs (no npm build step needed):
-    • chess.js  — move parsing and PGN loading
-    • chessboard.js — board rendering
-    • Font Awesome — icons
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-  Design language follows the dark chessboard aesthetic already used in
-  board.html (dark background, amber/gold accents, mono type for move lists).
--->
-<html lang="en">
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/community.css' %}">{% endblock %}
+{% block main_class %} community{% endblock %}
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Match History — Checkora</title>
-
-    <!-- chess.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-
-    <!-- chessboard.js -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
-
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
-
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-        }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            height: calc(100vh - 56px);
-            overflow: hidden;
-        }
-
-        .sidebar {
-            background: var(--card-bg);
-            border-right: 1px solid var(--card-border);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .sidebar-header {
-            padding: .85rem 1rem;
-            font-size: .78rem;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--card-border);
-        }
-
-        .game-list {
-            list-style: none;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .game-item {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            padding: .75rem 1rem;
-            border-bottom: 1px solid var(--card-border);
-            cursor: pointer;
-            transition: background .15s;
-        }
-
-        .game-item:hover {
-            background: var(--input-bg);
-        }
-
-        .game-item.active {
-            background: var(--input-bg);
-            border-left: 3px solid var(--accent-gold);
-        }
-
-        .result-badge {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: .75rem;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .result-badge.win {
-            background: #1e3a2f;
-            color: #27ae60;
-        }
-
-        .result-badge.loss {
-            background: #3a1e1e;
-            color: #c0392b;
-        }
-
-        .result-badge.draw {
-            background: #2a2a2a;
-            color: #7f8c8d;
-        }
-
-        .game-meta {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .game-meta .players {
-            font-size: .9rem;
-            font-weight: 600;
-            color: var(--text-title);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .game-meta .detail {
-            font-size: .78rem;
-            color: var(--text-secondary);
-            margin-top: .15rem;
-        }
-
-        .game-actions {
-            display: flex;
-            gap: .4rem;
-            flex-shrink: 0;
-        }
-
-        .btn-icon {
-            background: none;
-            border: 1px solid var(--card-border);
-            color: var(--text-secondary);
-            border-radius: 6px;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: .8rem;
-            transition: all .15s;
-            text-decoration: none;
-        }
-
-        .btn-icon:hover {
-            color: var(--accent-gold);
-            border-color: var(--accent-gold);
-        }
-
-        .state-msg {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            gap: .6rem;
-            font-size: .9rem;
-        }
-
-        .state-msg i {
-            font-size: 2rem;
-            opacity: .4;
-        }
-
-        .replay-panel {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: var(--bg-primary);
-        }
-
-        .replay-placeholder {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            gap: .8rem;
-        }
-
-        .replay-placeholder i {
-            font-size: 3.5rem;
-            opacity: .2;
-        }
-
-        .replay-active {
-            flex: 1;
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .replay-top {
-            padding: .7rem 1.2rem;
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-shrink: 0;
-        }
-
-        .replay-title {
-            font-weight: 600;
-            font-size: 1rem;
-            flex: 1;
-            color: var(--text-title);
-        }
-
-        .replay-result-tag {
-            font-size: .8rem;
-            padding: .2rem .6rem;
-            border-radius: 999px;
-            font-weight: 700;
-        }
-
-        .replay-result-tag.win {
-            background: #1e3a2f;
-            color: #27ae60;
-        }
-
-        .replay-result-tag.loss {
-            background: #3a1e1e;
-            color: #c0392b;
-        }
-
-        .replay-result-tag.draw {
-            background: #2a2a2a;
-            color: #7f8c8d;
-        }
-
-        .replay-body {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        .board-col {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem 1rem 1rem;
-            flex-shrink: 0;
-        }
-
-        #replay-board {
-            width: 560px;
-        }
-
-        .move-counter {
-            font-size: .8rem;
-            color: var(--text-secondary);
-            min-width: 80px;
-            text-align: center;
-        }
-
-        .movelist-col {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            padding: 1rem;
-        }
-
-        .movelist-col h3 {
-            font-size: .78rem;
-            text-transform: uppercase;
-            letter-spacing: .07em;
-            color: var(--text-secondary);
-            margin-bottom: .6rem;
-            flex-shrink: 0;
-        }
-
-        .move-list {
-            flex: 1;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: .85rem;
-            line-height: 1.8;
-            padding-right: .5rem;
-        }
-
-        .move-row {
-            display: flex;
-            gap: .25rem;
-            margin-bottom: .1rem;
-        }
-
-        .move-num {
-            color: var(--text-secondary);
-            min-width: 2.2rem;
-        }
-
-        .move-san {
-            padding: .05rem .4rem;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background .1s;
-            color: var(--text-primary);
-        }
-
-        .move-san:hover {
-            background: var(--input-bg);
-        }
-
-        .move-san.active {
-            background: var(--accent-gold);
-            color: #1a1a1a;
-            font-weight: 700;
-        }
-
-        .replay-footer {
-            padding: .6rem 1.2rem;
-            background: var(--card-bg);
-            border-top: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            font-size: .82rem;
-            color: var(--text-secondary);
-            flex-shrink: 0;
-        }
-
-        .btn-download {
-            margin-left: auto;
-            background: none;
-            border: 1px solid var(--card-border);
-            color: var(--text-primary);
-            border-radius: 6px;
-            padding: .3rem .8rem;
-            cursor: pointer;
-            font-size: .82rem;
-            display: flex;
-            align-items: center;
-            gap: .4rem;
-            transition: all .15s;
-        }
-
-        .btn-download:hover {
-            border-color: var(--accent-gold);
-            color: var(--accent-gold);
-        }
-
-        .page-header {
-            padding: 12px 1.5rem;
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .page-header .logo {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--accent-gold);
-        }
-
-        .page-header nav {
-            margin-left: auto;
-            display: flex;
-            gap: 1.2rem;
-            font-size: .9rem;
-        }
-
-        .page-header nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-        }
-
-        .page-header nav a:hover {
-            color: var(--accent-gold);
-        }
-    </style>
-</head>
-
-<body>
-
-    <!-- ─── Header ──────────────────────────────────────────────────────── -->
-    <header class="page-header">
-        <span class="logo">♟ Checkora</span>
-        <nav>
-            <a href="/">Play</a>
-            <a href="/history/" style="color:var(--text)">History</a>
-        </nav>
+{% block content %}
+<div class="wrap wrap--wide page history">
+    <header class="page-head">
+        <a class="back-link" href="{% url 'index' %}">Play</a>
+        <span class="eyebrow">Match history</span>
+        <div class="spread">
+            <h1>Replay <span class="serif">every move.</span></h1>
+            <button type="button" class="button" id="btn-import" title="Import PGN">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5M7 9l5-5 5 5M5 20h14"/></svg>
+                Import PGN
+            </button>
+        </div>
+        <p>Finished games wait here for 48 hours. Step through one move by move, or download its PGN.</p>
     </header>
 
-    <!-- ─── Main layout ─────────────────────────────────────────────────── -->
-    <div class="layout">
+    <div class="history__layout layout">
 
-        <!-- ── Sidebar: game list ──────────────────────────────────────── -->
-        <aside class="sidebar">
-            <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>Recent games &nbsp;·&nbsp; last 48 hours</span>
-                <button type="button" class="btn-icon" style="width:auto; padding:4px 8px; font-size:0.75rem; border:none;" onclick="importPgn()" title="Import PGN">
-                    <i class="fa-solid fa-file-import"></i> Import
-                </button>
+        {# ---------- the list of games ---------- #}
+        <aside class="panel sidebar" aria-label="Recent games" data-reveal>
+            <div class="sidebar-header">
+                <span>Recent games · last 48 hours</span>
             </div>
 
-            <!-- Loading state -->
-            <div id="list-loading" class="state-msg" style="display:flex;">
-                <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <div id="list-loading" class="state-msg" role="status">
+                <span class="spinner" aria-hidden="true"></span>
                 <span>Loading games…</span>
             </div>
 
-            <!-- Empty state -->
-            <div id="list-empty" class="state-msg" style="display:none;">
-                <i class="fa-solid fa-chess-board"></i>
+            <div id="list-empty" class="state-msg" hidden>
                 <span>No games recorded yet.</span>
-                <a href="/">Play a game to see it here.</a>
+                <a href="{% url 'index' %}" class="button button--primary button--sm">Play a game to see it here</a>
             </div>
 
-            <!-- Game list -->
-            <ul class="game-list" id="game-list" style="display:none;"></ul>
+            <ul class="game-list" id="game-list" hidden></ul>
         </aside>
 
-        <!-- ── Replay panel ────────────────────────────────────────────── -->
-        <main class="replay-panel">
+        {# ---------- the replay ---------- #}
+        <section class="panel panel--raised replay-panel" aria-label="Replay" data-reveal style="--i: 1">
 
-            <!-- Placeholder -->
             <div class="replay-placeholder" id="replay-placeholder">
-                <i class="fa-solid fa-chess-knight"></i>
-                <p>Select a game to replay it.</p>
+                <div id="placeholder-ready">
+                    <div class="piece-stage" data-piece="r" data-piece-color="w" aria-hidden="true">
+                        <canvas></canvas>
+                        <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wr.svg' %}" alt="">
+                    </div>
+                    <h2>Pick a game</h2>
+                    <p>Select a game to replay it.</p>
+                </div>
+                <div id="placeholder-empty" hidden>
+                    <div class="piece-stage" data-piece="k" data-piece-color="w" data-piece-fallen aria-hidden="true">
+                        <canvas></canvas>
+                        <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+                    </div>
+                    <h2>Nothing to replay yet</h2>
+                    <p>Finish a game and it will be here, or import a PGN file.</p>
+                </div>
             </div>
 
-            <!-- Active replay (hidden until a game is chosen) -->
-            <div class="replay-active" id="replay-active">
+            <div class="replay-active" id="replay-active" hidden>
 
                 <div class="replay-top">
-                    <span class="replay-title" id="replay-title">White vs Black</span>
-                    <span class="replay-result-tag" id="replay-result-tag">—</span>
-                    <span style="font-size:.8rem;color:var(--text-muted)" id="replay-term"></span>
+                    <h2 class="replay-title" id="replay-title">White vs Black</h2>
+                    <span class="result-badge replay-result-tag" id="replay-result-tag">—</span>
+                    <span class="chip" id="replay-term"></span>
                 </div>
 
                 <div class="replay-body">
 
-                    <!-- Board + controls -->
                     <div class="board-col">
-                        <div id="replay-board"></div>
+                        <div class="replay-board" id="replay-board" role="img" aria-label="Chess board"></div>
+
+                        <input type="range" class="scrub" id="replay-scrub" min="0" max="0" value="0" step="1" aria-label="Move through the game">
 
                         <div class="replay-controls">
-                            <button id="btn-start" title="Start">
-                                <i class="fa-solid fa-backward-fast"></i>
+                            <button type="button" class="icon-button" id="btn-start" title="Start" aria-label="Go to the start">
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 5h2v14H5zM19 5.5v13l-10-6.5z"/></svg>
                             </button>
-                            <button id="btn-prev" title="Previous">
-                                <i class="fa-solid fa-backward-step"></i>
+                            <button type="button" class="icon-button" id="btn-prev" title="Previous" aria-label="Previous move">
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 5.5v13l-10-6.5z"/></svg>
                             </button>
-                            <button class="ctrl-btn play-pause" id="btn-play" title="Play / Pause">
-                                <i class="fa-solid fa-play" id="play-icon"></i>
+                            <button type="button" class="icon-button ctrl-btn play-pause" id="btn-play" title="Play / Pause" aria-label="Play or pause">
+                                <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                                <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
                             </button>
-                            <button id="btn-next" title="Next">
-                                <i class="fa-solid fa-forward-step"></i>
+                            <button type="button" class="icon-button" id="btn-next" title="Next" aria-label="Next move">
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5.5v13l10-6.5z"/></svg>
                             </button>
-                            <button id="btn-end" title="End">
-                                <i class="fa-solid fa-forward-fast"></i>
+                            <button type="button" class="icon-button" id="btn-end" title="End" aria-label="Go to the end">
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 5h2v14h-2zM5 5.5v13l10-6.5z"/></svg>
                             </button>
                             <span class="move-counter" id="move-counter">0 / 0</span>
+                            <button type="button" class="icon-button" id="btn-flip" title="Flip board" aria-label="Flip the board">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Move list -->
                     <div class="movelist-col">
                         <h3>Move list</h3>
                         <div class="move-list" id="move-list"></div>
                     </div>
 
-                </div><!-- /replay-body -->
+                </div>
 
                 <div class="replay-footer">
-                    <i class="fa-regular fa-clock"></i>
                     <span id="footer-expires">Expires in — hours</span>
-                    <button class="btn-download" id="btn-download">
-                        <i class="fa-solid fa-download"></i> Download PGN
+                    <button type="button" class="button button--sm btn-download" id="btn-download">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+                        Download PGN
                     </button>
                 </div>
 
-            </div><!-- /replay-active -->
+            </div>
 
-        </main><!-- /replay-panel -->
+        </section>
 
-    </div><!-- /layout -->
-
-    <!-- ─── Script ──────────────────────────────────────────────────────── -->
-    <script>
-        // ─── State ──────────────────────────────────────────────────────────────
-        let board = null;   // chessboard.js instance
-        let chess = null;   // chess.js instance
-        let moves = [];     // flat array of SAN strings (ply order)
-        let currentPly = 0;      // 0 = start position
-        let autoTimer = null;   // setInterval handle for auto-play
-        let activeGameId = null;
-
-        // ─── DOM refs ────────────────────────────────────────────────────────────
-        const listLoading = document.getElementById('list-loading');
-        const listEmpty = document.getElementById('list-empty');
-        const gameListEl = document.getElementById('game-list');
-        const placeholder = document.getElementById('replay-placeholder');
-        const replayActive = document.getElementById('replay-active');
-        const replayTitle = document.getElementById('replay-title');
-        const replayResultTag = document.getElementById('replay-result-tag');
-        const replayTerm = document.getElementById('replay-term');
-        const moveListEl = document.getElementById('move-list');
-        const moveCounter = document.getElementById('move-counter');
-        const footerExpires = document.getElementById('footer-expires');
-        const btnStart = document.getElementById('btn-start');
-        const btnPrev = document.getElementById('btn-prev');
-        const btnPlay = document.getElementById('btn-play');
-        const btnNext = document.getElementById('btn-next');
-        const btnEnd = document.getElementById('btn-end');
-        const btnDownload = document.getElementById('btn-download');
-        const playIcon = document.getElementById('play-icon');
-
-        // ─── Fetch game list ─────────────────────────────────────────────────────
-        async function loadGameList() {
-            try {
-                const res = await fetch('/api/history/');
-                const data = await res.json();
-                listLoading.style.display = 'none';
-
-                if (!data.games || data.games.length === 0) {
-                    listEmpty.style.display = 'flex';
-                    return;
-                }
-
-                gameListEl.style.display = 'block';
-                data.games.forEach(g => {
-                    const li = buildGameItem(g);
-                    gameListEl.appendChild(li);
-                });
-            } catch (err) {
-                listLoading.style.display = 'none';
-                listEmpty.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Could not load games.</span>';
-                listEmpty.style.display = 'flex';
-                console.error(err);
-            }
-        }
-
-        function resultClass(result) {
-            if (result === '1-0') return 'win';
-            if (result === '0-1') return 'loss';
-            return 'draw';
-        }
-
-        function resultLabel(result) {
-            if (result === '1-0') return '1-0';
-            if (result === '0-1') return '0-1';
-            return '½-½';
-        }
-
-        function formatDate(isoStr) {
-            const d = new Date(isoStr);
-            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        }
-
-        function buildGameItem(g) {
-            const li = document.createElement('li');
-            li.className = 'game-item';
-            li.dataset.id = g.id;
-
-            const rc = resultClass(g.result);
-            li.innerHTML = `
-    <div class="result-badge ${rc}">${resultLabel(g.result)}</div>
-    <div class="game-meta">
-      <div class="players">${escHtml(g.white)} vs ${escHtml(g.black)}</div>
-      <div class="detail">${escHtml(g.termination)} · ${formatDate(g.played_at)}</div>
     </div>
-    <div class="game-actions">
-      <button class="btn-icon btn-replay-item" title="Replay" data-id="${g.id}">
-        <i class="fa-solid fa-play"></i>
-      </button>
-      <a href="/api/history/${g.id}/download/" class="btn-icon" title="Download PGN" download>
-        <i class="fa-solid fa-download"></i>
-      </a>
-    </div>
-  `;
+</div>
+{% endblock %}
 
-            // click anywhere on the row loads the replay
-            li.addEventListener('click', (e) => {
-                if (e.target.closest('a')) return;  // let download link work normally
-                loadReplay(g);
-            });
+{% block scripts %}
+{# chess.js reads the PGN and knows the rules; the board below is drawn by this page. #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" integrity="sha512-xRllwz2gdZciIB+AkEbeq+gVhX8VB8XsfqeFbUh+SzHlN96dEduwtTuVuc2u9EROlmW9+yhRlxjif66ORpsgVA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function() {
+    // ─── State ──────────────────────────────────────────────────────────────
+    let chess = null;        // chess.js instance
+    let moves = [];          // flat array of SAN strings (ply order)
+    let startFen = null;     // set when a game began from a custom position
+    let currentPly = 0;      // 0 = start position
+    let autoTimer = null;    // setInterval handle for auto-play
+    let activeGameId = null;
+    let flipped = false;
+    let pieceEls = new Map(); // square name -> the <img> standing on it
 
-            return li;
-        }
+    const API = "{% url 'api_history' %}";
+    const STATIC = document.documentElement.dataset.static || '/static/game/';
+    const FILES = 'abcdefgh';
+    const pieceUrl = (code) => `${STATIC}pieces/classic/${code}.svg`;
 
-        // ─── Load & display a replay ─────────────────────────────────────────────
-        async function loadReplay(gameMeta) {
-            stopAutoPlay();
-            activeGameId = gameMeta.id;
+    // ─── DOM refs ────────────────────────────────────────────────────────────
+    const listLoading = document.getElementById('list-loading');
+    const listEmpty = document.getElementById('list-empty');
+    const gameListEl = document.getElementById('game-list');
+    const placeholder = document.getElementById('replay-placeholder');
+    const replayPanel = document.querySelector('.replay-panel');
+    const replayActive = document.getElementById('replay-active');
+    const replayTitle = document.getElementById('replay-title');
+    const replayResultTag = document.getElementById('replay-result-tag');
+    const replayTerm = document.getElementById('replay-term');
+    const boardEl = document.getElementById('replay-board');
+    const scrub = document.getElementById('replay-scrub');
+    const moveListEl = document.getElementById('move-list');
+    const moveCounter = document.getElementById('move-counter');
+    const footerExpires = document.getElementById('footer-expires');
+    const btnStart = document.getElementById('btn-start');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnPlay = document.getElementById('btn-play');
+    const btnNext = document.getElementById('btn-next');
+    const btnEnd = document.getElementById('btn-end');
+    const btnFlip = document.getElementById('btn-flip');
+    const btnDownload = document.getElementById('btn-download');
+    const btnImport = document.getElementById('btn-import');
 
-            // Mark active row
-            document.querySelectorAll('.game-item').forEach(el => el.classList.remove('active'));
-            const activeRow = document.querySelector(`.game-item[data-id="${gameMeta.id}"]`);
-            if (activeRow) activeRow.classList.add('active');
+    const ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>';
 
-            // Show panel
-            placeholder.style.display = 'none';
-            replayActive.style.display = 'flex';
+    function notify(message, type) {
+        if (window.showToast) window.showToast(message, type || 'warning');
+        else window.alert(message);
+    }
 
-            // Header metadata
-            replayTitle.textContent = `${gameMeta.white} vs ${gameMeta.black}`;
+    // ─── Fetch game list ─────────────────────────────────────────────────────
+    async function loadGameList() {
+        try {
+            const res = await fetch(API);
+            const data = await res.json();
+            listLoading.hidden = true;
 
-            const rc = resultClass(gameMeta.result);
-            replayResultTag.textContent = resultLabel(gameMeta.result);
-            replayResultTag.className = `replay-result-tag ${rc}`;
-
-            replayTerm.textContent = gameMeta.termination;
-            footerExpires.textContent = `Expires in ${gameMeta.hours_remaining} hour${gameMeta.hours_remaining !== 1 ? 's' : ''}`;
-
-            btnDownload.onclick = () => {
-                window.location.href = `/api/history/${gameMeta.id}/download/`;
-            };
-
-            // Fetch PGN
-            try {
-                const res = await fetch(`/api/history/${gameMeta.id}/pgn/`);
-                const data = await res.json();
-                if (data.error) { alert(data.error); return; }
-                initViewer(data.pgn);
-            } catch (err) {
-                alert('Failed to load game PGN.');
-                console.error(err);
-            }
-        }
-
-        function importPgn() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.pgn';
-            input.onchange = e => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = event => {
-                    let pgn = event.target.result;
-                    
-                    // Sanitize old Checkora files (strip BOM and fix double checks/mates)
-                    pgn = pgn.trim().replace(/^\uFEFF/, '');
-                    pgn = pgn.replace(/\+\+/g, '+').replace(/##/g, '#').replace(/\+#/g, '#').replace(/#\+/g, '#');
-
-                    const tempChess = new Chess();
-                    if (!tempChess.load_pgn(pgn, { sloppy: true })) {
-                        alert("please enter valid pgn file");
-                        return;
-                    }
-
-                    stopAutoPlay();
-                    activeGameId = null;
-
-                    document.querySelectorAll('.game-item').forEach(el => el.classList.remove('active'));
-
-                    placeholder.style.display = 'none';
-                    replayActive.style.display = 'flex';
-
-                    replayTitle.textContent = "Imported PGN Game";
-                    replayResultTag.textContent = "—";
-                    replayResultTag.className = "replay-result-tag draw";
-                    replayTerm.textContent = "Imported";
-                    footerExpires.textContent = "Local Import";
-
-                    btnDownload.onclick = () => {
-                        const blob = new Blob([pgn], { type: 'text/plain' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = file.name || 'imported_game.pgn';
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    };
-
-                    initViewer(pgn);
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        }
-
-        // ─── Viewer initialisation ────────────────────────────────────────────────
-        function initViewer(pgn) {
-            // Parse PGN with chess.js
-            chess = new Chess();
-            const loaded = chess.load_pgn(pgn, { sloppy: true });
-            if (!loaded) {
-                alert('Could not parse the PGN for this game.');
+            if (!data.games || data.games.length === 0) {
+                listEmpty.hidden = false;
+                document.getElementById('placeholder-ready').hidden = true;
+                document.getElementById('placeholder-empty').hidden = false;
                 return;
             }
 
-            // Collect moves
-            moves = chess.history();
-
-            // Reset board to start
-            chess.reset();
-            currentPly = 0;
-
-            // Init or update chessboard.js
-            const boardSize = document.getElementById('replay-board').offsetWidth || 400;
-            if (board) {
-                board.destroy();
-            }
-            board = Chessboard('replay-board', {
-                position: 'start',
-                pieceTheme: function (piece) {
-                    const c = piece[0].toLowerCase();
-                    const t = piece[1].toLowerCase();
-                    return `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${c}${t}.png`;
-                },
-                showNotation: true,
+            gameListEl.hidden = false;
+            data.games.forEach((g, index) => {
+                const li = buildGameItem(g);
+                li.style.setProperty('--i', Math.min(index, 12));
+                gameListEl.appendChild(li);
             });
-
-            buildMoveList();
-            updateControls();
+        } catch (err) {
+            listLoading.hidden = true;
+            const message = document.createElement('span');
+            message.textContent = 'Could not load games.';
+            listEmpty.replaceChildren(message);
+            listEmpty.hidden = false;
+            console.error(err);
         }
+    }
 
-        // ─── Move list rendering ──────────────────────────────────────────────────
-        function buildMoveList() {
-            moveListEl.innerHTML = '';
-            for (let i = 0; i < moves.length; i += 2) {
-                const moveNum = Math.floor(i / 2) + 1;
-                const row = document.createElement('div');
-                row.className = 'move-row';
+    function resultClass(result) {
+        if (result === '1-0') return 'win';
+        if (result === '0-1') return 'loss';
+        return 'draw';
+    }
 
-                const numSpan = document.createElement('span');
-                numSpan.className = 'move-num';
-                numSpan.textContent = `${moveNum}.`;
-                row.appendChild(numSpan);
+    function resultLabel(result) {
+        if (result === '1-0') return '1-0';
+        if (result === '0-1') return '0-1';
+        return '½-½';
+    }
 
-                // White move
-                row.appendChild(makeMoveSpan(moves[i], i + 1));
+    // The badge shows the king of the side that won, so it reads the same
+    // whichever colour you played.
+    function fillResultBadge(badge, result, label) {
+        const rc = resultClass(result);
+        badge.className = `result-badge ${rc}`;
+        badge.replaceChildren();
+        if (rc !== 'draw') {
+            const king = document.createElement('img');
+            king.src = pieceUrl(rc === 'win' ? 'wk' : 'bk');
+            king.alt = '';
+            badge.append(king);
+        }
+        badge.append(label || resultLabel(result));
+        badge.title = rc === 'win' ? 'White won' : rc === 'loss' ? 'Black won' : 'Draw';
+    }
 
-                // Black move (if it exists)
-                if (moves[i + 1]) {
-                    row.appendChild(makeMoveSpan(moves[i + 1], i + 2));
+    function formatDate(isoStr) {
+        const d = new Date(isoStr);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function buildGameItem(g) {
+        const li = document.createElement('li');
+        li.className = 'game-item';
+        li.dataset.id = g.id;
+
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'game-item__open btn-replay-item';
+        open.title = 'Replay';
+        open.dataset.id = g.id;
+
+        const badge = document.createElement('span');
+        fillResultBadge(badge, g.result);
+
+        const meta = document.createElement('span');
+        meta.className = 'game-meta';
+        const players = document.createElement('span');
+        players.className = 'players';
+        players.textContent = `${g.white} vs ${g.black}`;
+        const detail = document.createElement('span');
+        detail.className = 'detail';
+        detail.textContent = `${g.termination} · ${formatDate(g.played_at)}`;
+        meta.append(players, detail);
+        open.append(badge, meta);
+
+        const download = document.createElement('a');
+        download.href = `${API}${g.id}/download/`;
+        download.className = 'icon-button btn-icon';
+        download.title = 'Download PGN';
+        download.setAttribute('aria-label', 'Download PGN');
+        download.setAttribute('download', '');
+        download.innerHTML = ICON_DOWNLOAD;
+
+        li.append(open, download);
+
+        // click anywhere on the row loads the replay
+        li.addEventListener('click', (e) => {
+            if (e.target.closest('a')) return;  // let download link work normally
+            loadReplay(g);
+        });
+
+        return li;
+    }
+
+    function showReplay() {
+        placeholder.hidden = true;
+        replayActive.hidden = false;
+    }
+
+    // Brings the board up if part of it is off screen. On a narrow screen
+    // the replay sits under the list, so this is what shows it. It runs
+    // once the board is drawn, when the page has its full height.
+    function bringReplayIntoView() {
+        const box = replayPanel.getBoundingClientRect();
+        if (box.top < 0 || box.bottom > window.innerHeight) {
+            replayPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // ─── Load & display a replay ─────────────────────────────────────────────
+    async function loadReplay(gameMeta) {
+        stopAutoPlay();
+        activeGameId = gameMeta.id;
+
+        // Mark active row
+        document.querySelectorAll('.game-item').forEach(el => el.classList.remove('active'));
+        const activeRow = document.querySelector(`.game-item[data-id="${gameMeta.id}"]`);
+        if (activeRow) activeRow.classList.add('active');
+
+        showReplay();
+
+        // Header metadata
+        replayTitle.textContent = `${gameMeta.white} vs ${gameMeta.black}`;
+        fillResultBadge(replayResultTag, gameMeta.result);
+        replayResultTag.classList.add('replay-result-tag');
+
+        replayTerm.textContent = gameMeta.termination;
+        footerExpires.textContent = `Expires in ${gameMeta.hours_remaining} hour${gameMeta.hours_remaining !== 1 ? 's' : ''}`;
+
+        btnDownload.onclick = () => {
+            window.location.href = `${API}${gameMeta.id}/download/`;
+        };
+
+        // Fetch PGN
+        try {
+            const res = await fetch(`${API}${gameMeta.id}/pgn/`);
+            const data = await res.json();
+            if (data.error) { notify(data.error, 'error'); return; }
+            if (activeGameId !== gameMeta.id) return;  // another game was chosen meanwhile
+            initViewer(data.pgn);
+        } catch (err) {
+            notify('Failed to load game PGN.', 'error');
+            console.error(err);
+        }
+    }
+
+    function importPgn() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pgn';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = event => {
+                let pgn = event.target.result;
+
+                // Sanitize old Checkora files (strip BOM and fix double checks/mates)
+                pgn = pgn.trim().replace(/^﻿/, '');
+                pgn = pgn.replace(/\+\+/g, '+').replace(/##/g, '#').replace(/\+#/g, '#').replace(/#\+/g, '#');
+
+                const tempChess = new Chess();
+                if (!tempChess.load_pgn(pgn, { sloppy: true })) {
+                    notify('That file is not a valid PGN.', 'error');
+                    return;
                 }
 
-                moveListEl.appendChild(row);
+                stopAutoPlay();
+                activeGameId = null;
+
+                document.querySelectorAll('.game-item').forEach(el => el.classList.remove('active'));
+
+                showReplay();
+
+                replayTitle.textContent = 'Imported PGN game';
+                fillResultBadge(replayResultTag, '*', '—');
+                replayResultTag.classList.add('replay-result-tag');
+                replayResultTag.title = 'Imported game';
+                replayTerm.textContent = 'Imported';
+                footerExpires.textContent = 'Local import';
+
+                btnDownload.onclick = () => {
+                    const blob = new Blob([pgn], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.name || 'imported_game.pgn';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                initViewer(pgn);
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    // ─── The board ────────────────────────────────────────────────────────────
+    // Sixty-four squares with a layer of piece images over them. A piece is
+    // placed by two numbers, its column and row, and slides when they change.
+    let squaresEl = null;
+    let piecesEl = null;
+
+    function buildBoard() {
+        const inner = document.createElement('div');
+        inner.className = 'replay-board__inner';
+        squaresEl = document.createElement('div');
+        squaresEl.className = 'replay-board__squares';
+        piecesEl = document.createElement('div');
+        piecesEl.className = 'replay-board__pieces';
+
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const file = flipped ? 7 - col : col;
+                const rank = flipped ? row + 1 : 8 - row;
+                const square = document.createElement('span');
+                square.className = (file + rank) % 2 ? 'sq' : 'sq sq--light';
+                square.dataset.square = FILES[file] + rank;
+                if (col === 0) square.dataset.rank = rank;
+                if (row === 7) square.dataset.file = FILES[file];
+                squaresEl.append(square);
             }
         }
 
-        function makeMoveSpan(san, ply) {
-            const span = document.createElement('span');
-            span.className = 'move-san';
-            span.textContent = san;
-            span.dataset.ply = ply;
-            span.addEventListener('click', () => jumpToPly(ply));
-            return span;
-        }
+        inner.append(squaresEl, piecesEl);
+        boardEl.replaceChildren(inner);
+        pieceEls = new Map();
+    }
 
-        // ─── Navigation ──────────────────────────────────────────────────────────
-        function jumpToPly(targetPly) {
-            stopAutoPlay();
-            chess.reset();
-            for (let i = 0; i < targetPly; i++) {
-                chess.move(moves[i]);
-            }
-            currentPly = targetPly;
-            board.position(chess.fen(), false);
-            updateControls();
-        }
+    function place(el, square) {
+        const file = FILES.indexOf(square[0]);
+        const rank = Number(square[1]);
+        el.style.setProperty('--x', flipped ? 7 - file : file);
+        el.style.setProperty('--y', flipped ? rank - 1 : 8 - rank);
+    }
 
-        function stepForward() {
-            if (currentPly >= moves.length) return false;
-            chess.move(moves[currentPly]);
-            currentPly++;
-            board.position(chess.fen(), true);   // animated
-            updateControls();
-            return currentPly < moves.length;   // returns false when we reach the end
-        }
-
-        function stepBack() {
-            if (currentPly <= 0) return;
-            chess.undo();
-            currentPly--;
-            board.position(chess.fen(), false);
-            updateControls();
-        }
-
-        function goToStart() {
-            stopAutoPlay();
-            chess.reset();
-            currentPly = 0;
-            board.position('start', false);
-            updateControls();
-        }
-
-        function goToEnd() {
-            stopAutoPlay();
-            chess.reset();
-            moves.forEach(m => chess.move(m));
-            currentPly = moves.length;
-            board.position(chess.fen(), false);
-            updateControls();
-        }
-
-        // ─── Auto-play ────────────────────────────────────────────────────────────
-        function startAutoPlay() {
-            if (currentPly >= moves.length) goToStart();
-            autoTimer = setInterval(() => {
-                const hasMore = stepForward();
-                if (!hasMore) stopAutoPlay();
-            }, 1000);
-            playIcon.className = 'fa-solid fa-pause';
-        }
-
-        function stopAutoPlay() {
-            if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
-            playIcon.className = 'fa-solid fa-play';
-        }
-
-        function toggleAutoPlay() {
-            if (autoTimer) stopAutoPlay();
-            else startAutoPlay();
-        }
-
-        // ─── UI updates ──────────────────────────────────────────────────────────
-        function updateControls() {
-            moveCounter.textContent = `${currentPly} / ${moves.length}`;
-            btnStart.disabled = currentPly === 0;
-            btnPrev.disabled = currentPly === 0;
-            btnNext.disabled = currentPly >= moves.length;
-            btnEnd.disabled = currentPly >= moves.length;
-
-            // Highlight active move in the list
-            document.querySelectorAll('.move-san').forEach(el => {
-                el.classList.toggle('active', parseInt(el.dataset.ply) === currentPly);
+    function positionOf(game) {
+        const position = {};
+        game.board().forEach((row, r) => {
+            row.forEach((cell, f) => {
+                if (cell) position[FILES[f] + (8 - r)] = cell.color + cell.type;
             });
+        });
+        return position;
+    }
 
-            // Scroll active move into view
-            const activeSan = moveListEl.querySelector('.move-san.active');
-            if (activeSan) activeSan.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
+    const distance = (a, b) => Math.abs(a.charCodeAt(0) - b.charCodeAt(0)) + Math.abs(a[1] - b[1]);
 
-        // ─── Control button wiring ────────────────────────────────────────────────
-        btnStart.addEventListener('click', goToStart);
-        btnPrev.addEventListener('click', stepBack);
-        btnPlay.addEventListener('click', toggleAutoPlay);
-        btnNext.addEventListener('click', () => { stopAutoPlay(); stepForward(); });
-        btnEnd.addEventListener('click', goToEnd);
+    // Moves the pieces on screen to a new position. A piece that is needed on
+    // another square slides there; a captured one fades; a new one fades in.
+    function drawPosition(position, animate) {
+        if (!animate) boardEl.classList.add('is-instant');
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (!replayActive.style.display || replayActive.style.display === 'none') return;
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            switch (e.key) {
-                case 'ArrowLeft': e.preventDefault(); stopAutoPlay(); stepBack(); break;
-                case 'ArrowRight': e.preventDefault(); stopAutoPlay(); stepForward(); break;
-                case 'Home': e.preventDefault(); goToStart(); break;
-                case 'End': e.preventDefault(); goToEnd(); break;
-                case ' ': e.preventDefault(); toggleAutoPlay(); break;
+        const wanted = new Map(Object.entries(position));
+        const spare = [];
+        const kept = new Map();
+        pieceEls.forEach((el, square) => {
+            if (wanted.get(square) === el.dataset.piece) {
+                kept.set(square, el);
+                wanted.delete(square);
+            } else {
+                spare.push({ square, el });
             }
         });
 
-        // ─── Utilities ────────────────────────────────────────────────────────────
-        function escHtml(str) {
-            return String(str)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        wanted.forEach((code, square) => {
+            let best = -1;
+            let bestDistance = Infinity;
+            spare.forEach((item, index) => {
+                if (item.el.dataset.piece !== code) return;
+                const d = distance(item.square, square);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    best = index;
+                }
+            });
+
+            let el;
+            if (best >= 0) {
+                el = spare.splice(best, 1)[0].el;
+                place(el, square);
+            } else {
+                el = document.createElement('img');
+                el.src = pieceUrl(code);
+                el.alt = '';
+                el.draggable = false;
+                el.dataset.piece = code;
+                el.classList.add('is-entering');
+                place(el, square);
+                piecesEl.append(el);
+                void el.offsetWidth;
+                el.classList.remove('is-entering');
+            }
+            kept.set(square, el);
+        });
+
+        spare.forEach(({ el }) => {
+            el.classList.add('is-leaving');
+            window.setTimeout(() => el.remove(), animate ? 240 : 0);
+        });
+        pieceEls = kept;
+
+        if (!animate) {
+            void boardEl.offsetWidth;
+            boardEl.classList.remove('is-instant');
+        }
+    }
+
+    // Lights the squares of the move just played, and a king in check.
+    function markSquares() {
+        squaresEl.querySelectorAll('.is-from, .is-to, .is-check').forEach((square) => {
+            square.classList.remove('is-from', 'is-to', 'is-check');
+        });
+        const find = (name) => squaresEl.querySelector(`[data-square="${name}"]`);
+
+        const played = chess.history({ verbose: true });
+        const last = played[played.length - 1];
+        if (last) {
+            find(last.from)?.classList.add('is-from');
+            find(last.to)?.classList.add('is-to');
+        }
+        if (chess.in_check()) {
+            const position = positionOf(chess);
+            const king = Object.keys(position).find((square) => position[square] === chess.turn() + 'k');
+            if (king) find(king)?.classList.add('is-check');
+        }
+    }
+
+    function render(animate) {
+        drawPosition(positionOf(chess), animate);
+        markSquares();
+        updateControls();
+    }
+
+    // Puts the game back at its first position: the standard one, or the
+    // custom position the game was started from.
+    function toStart() {
+        if (!startFen || !chess.load(startFen)) {
+            chess.reset();
+        }
+    }
+
+    // ─── Viewer initialisation ────────────────────────────────────────────────
+    function initViewer(pgn) {
+        // Parse PGN with chess.js
+        const game = new Chess();
+        const loaded = game.load_pgn(pgn, { sloppy: true });
+        if (!loaded) {
+            notify('Could not parse the PGN for this game.', 'error');
+            return;
         }
 
-        // ─── Boot ──────────────────────────────────────────────────────────────────
-        loadGameList().then(() => {
-  const params = new URLSearchParams(window.location.search);
-  const gameId = params.get('game');
-  if (gameId && /^\d+$/.test(gameId)) {
-    setTimeout(()=>{
-        const row = document.querySelector(`.game-item[data-id="${gameId}"]`);
-        if (row) row.click();
-    }, 150)
-  }
-});
-    </script>
-</body>
+        // Collect moves, and the starting position if the PGN names one
+        moves = game.history();
+        const header = game.header();
+        startFen = header.SetUp === '1' && header.FEN ? header.FEN : null;
 
-</html>
+        // Reset board to start
+        chess = game;
+        toStart();
+        currentPly = 0;
+        scrub.max = moves.length;
+
+        buildBoard();
+        buildMoveList();
+        render(false);
+        bringReplayIntoView();
+    }
+
+    // ─── Move list rendering ──────────────────────────────────────────────────
+    function buildMoveList() {
+        moveListEl.replaceChildren();
+
+        // A game from a custom position can start with Black to move, and at
+        // a move number other than one.
+        const fen = startFen ? startFen.split(/\s+/) : [];
+        const blackFirst = fen[1] === 'b';
+        let moveNum = Number(fen[5]) || 1;
+        let ply = 0;
+
+        while (ply < moves.length) {
+            const row = document.createElement('div');
+            row.className = 'move-row';
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'move-num';
+            numSpan.textContent = `${moveNum}.`;
+            row.appendChild(numSpan);
+
+            if (ply === 0 && blackFirst) {
+                const gap = document.createElement('span');
+                gap.className = 'move-num';
+                gap.textContent = '…';
+                row.appendChild(gap);
+            } else {
+                row.appendChild(makeMoveSpan(moves[ply], ply + 1));
+                ply++;
+            }
+
+            // Black move (if it exists)
+            if (ply < moves.length) {
+                row.appendChild(makeMoveSpan(moves[ply], ply + 1));
+                ply++;
+            }
+
+            moveListEl.appendChild(row);
+            moveNum++;
+        }
+
+        if (!moves.length) {
+            const none = document.createElement('span');
+            none.className = 'move-num';
+            none.textContent = 'No moves were played.';
+            moveListEl.appendChild(none);
+        }
+    }
+
+    function makeMoveSpan(san, ply) {
+        const span = document.createElement('button');
+        span.type = 'button';
+        span.className = 'move-san';
+        span.textContent = san;
+        span.dataset.ply = ply;
+        span.addEventListener('click', () => jumpToPly(ply));
+        return span;
+    }
+
+    // ─── Navigation ──────────────────────────────────────────────────────────
+    function jumpToPly(targetPly) {
+        stopAutoPlay();
+        toStart();
+        for (let i = 0; i < targetPly; i++) {
+            chess.move(moves[i]);
+        }
+        currentPly = targetPly;
+        render(true);
+    }
+
+    function stepForward() {
+        if (currentPly >= moves.length) return false;
+        chess.move(moves[currentPly]);
+        currentPly++;
+        render(true);
+        return currentPly < moves.length;   // returns false when we reach the end
+    }
+
+    function stepBack() {
+        if (currentPly <= 0) return;
+        chess.undo();
+        currentPly--;
+        render(true);
+    }
+
+    function goToStart() {
+        stopAutoPlay();
+        toStart();
+        currentPly = 0;
+        render(true);
+    }
+
+    function goToEnd() {
+        jumpToPly(moves.length);
+    }
+
+    // ─── Auto-play ────────────────────────────────────────────────────────────
+    function startAutoPlay() {
+        if (!chess || !moves.length) return;
+        if (currentPly >= moves.length) goToStart();
+        autoTimer = setInterval(() => {
+            const hasMore = stepForward();
+            if (!hasMore) stopAutoPlay();
+        }, 1000);
+        btnPlay.classList.add('is-playing');
+    }
+
+    function stopAutoPlay() {
+        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+        btnPlay.classList.remove('is-playing');
+    }
+
+    function toggleAutoPlay() {
+        if (autoTimer) stopAutoPlay();
+        else startAutoPlay();
+    }
+
+    // ─── UI updates ──────────────────────────────────────────────────────────
+    function updateControls() {
+        moveCounter.textContent = `${currentPly} / ${moves.length}`;
+        scrub.value = currentPly;
+        btnStart.disabled = currentPly === 0;
+        btnPrev.disabled = currentPly === 0;
+        btnNext.disabled = currentPly >= moves.length;
+        btnEnd.disabled = currentPly >= moves.length;
+
+        // Highlight active move in the list
+        document.querySelectorAll('.move-san').forEach(el => {
+            el.classList.toggle('active', parseInt(el.dataset.ply) === currentPly);
+        });
+
+        // Keep the active move in view. Only the list is scrolled, never the
+        // page, so stepping through a game on a phone does not move the board.
+        const activeSan = moveListEl.querySelector('.move-san.active');
+        const box = moveListEl.getBoundingClientRect();
+        let top = moveListEl.scrollTop;
+        if (!activeSan) {
+            top = 0;
+        } else {
+            const item = activeSan.getBoundingClientRect();
+            if (item.top < box.top) top += item.top - box.top - 8;
+            else if (item.bottom > box.bottom) top += item.bottom - box.bottom + 8;
+        }
+        if (top !== moveListEl.scrollTop) moveListEl.scrollTo({ top, behavior: 'smooth' });
+    }
+
+    // ─── Control button wiring ────────────────────────────────────────────────
+    btnStart.addEventListener('click', goToStart);
+    btnPrev.addEventListener('click', () => { stopAutoPlay(); stepBack(); });
+    btnPlay.addEventListener('click', toggleAutoPlay);
+    btnNext.addEventListener('click', () => { stopAutoPlay(); stepForward(); });
+    btnEnd.addEventListener('click', goToEnd);
+    btnImport.addEventListener('click', importPgn);
+    scrub.addEventListener('input', () => {
+        if (chess) jumpToPly(Number(scrub.value));
+    });
+    btnFlip.addEventListener('click', () => {
+        if (!chess) return;
+        flipped = !flipped;
+        buildBoard();
+        render(false);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (replayActive.hidden || !chess) return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        switch (e.key) {
+            case 'ArrowLeft': e.preventDefault(); stopAutoPlay(); stepBack(); break;
+            case 'ArrowRight': e.preventDefault(); stopAutoPlay(); stepForward(); break;
+            case 'Home': e.preventDefault(); goToStart(); break;
+            case 'End': e.preventDefault(); goToEnd(); break;
+            case ' ': e.preventDefault(); toggleAutoPlay(); break;
+        }
+    });
+
+    // ─── Boot ──────────────────────────────────────────────────────────────────
+    loadGameList().then(() => {
+        const params = new URLSearchParams(window.location.search);
+        const gameId = params.get('game');
+        if (gameId && /^\d+$/.test(gameId)) {
+            const row = document.querySelector(`.game-item[data-id="${gameId}"]`);
+            if (row) row.click();
+        }
+    });
+})();
+</script>
+<script type="module" src="{% static 'game/js/community.js' %}"></script>
+{% endblock %}

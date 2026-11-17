@@ -1,7 +1,9 @@
+import io
 import time
 import json
 import logging
 import os
+from datetime import timedelta
 from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -11,7 +13,10 @@ from django.utils import timezone
 
 from game.models import (
     ActiveGame,
+    ChessPuzzle,
+    GameRecord,
     GameResult,
+    PuzzleSolve,
     PuzzleStats,
     Achievement,
     UserAchievement,
@@ -27,6 +32,21 @@ from django.db.models import F
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+# Placement, side to move, castling and en passant of the normal start.
+STANDARD_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+
+# A win is "fast" when it took fewer full moves than this.
+FAST_WIN_MOVES = 20
+
+
+def is_rated_game(mode, initial_fen=None):
+    """Only AI games played from the normal starting position are rated."""
+    if mode != 'ai':
+        return False
+    fen = (initial_fen or '').strip()
+    return not fen or ' '.join(fen.split()[:4]) == STANDARD_START
+
 
 def _get_session_key(request):
     """Safely get session_key from request.session if present."""
@@ -226,18 +246,26 @@ def update_player_rating(user, winner, player_color):
     )
 
 @transaction.atomic
-def process_game_completion(user, mode, winner, reason, player_color='white', moves=None):
-    """Shared logic to finalize a game and update progressions."""
+def process_game_completion(user, mode, winner, reason, player_color='white', moves=None, rated=None):
+    """Shared logic to finalize a game and update progressions.
+
+    Only AI games can be rated. Callers pass rated=False for AI games that
+    must not move the rating, such as games from a custom position.
+    """
     if moves is None:
         moves = []
-        
+    if rated is None:
+        rated = True
+    rated = bool(user) and mode == 'ai' and bool(rated)
+
     result = GameResult(
         user=user,
         mode=mode,
         winner=winner,
         end_reason=reason,
         player_color=player_color,
-        moves=moves
+        moves=moves,
+        rated=rated,
     )
     result.full_clean()
     result.save()
@@ -246,15 +274,15 @@ def process_game_completion(user, mode, winner, reason, player_color='white', mo
         progress, _ = UserProgress.objects.select_for_update().get_or_create(user=user)
         progress.update_streak()
 
-    if user and mode == 'ai':
+    if rated:
         update_player_rating(
             user,
             winner,
             player_color
         )
-        
+
         check_game_achievements(user)
-        
+
     return result
 
 
@@ -312,7 +340,8 @@ def cleanup_stale_games():
                         winner=winner,
                         reason='resign',
                         player_color=player_color,
-                        moves=game_data.get('move_history', [])
+                        moves=game_data.get('move_history', []),
+                        rated=is_rated_game(mode, game_data.get('initial_fen')),
                     )
 
                     active_game.delete()
@@ -394,6 +423,14 @@ def cleanup_stale_games():
     return deleted_count, resigned_count
 
 
+def purge_expired_records():
+    """Delete rows nothing can reach any more: expired replays and sessions."""
+    now = timezone.now()
+    records, _ = GameRecord.objects.filter(expires_at__lte=now).delete()
+    sessions, _ = Session.objects.filter(expire_date__lt=now).delete()
+    return records, sessions
+
+
 # ==========================
 # Achievement System
 # ==========================
@@ -424,26 +461,28 @@ def check_game_achievements(user):
         user=user
     ).count()
 
-    wins = GameResult.objects.filter(
-        user=user
-    ).filter(
+    # Results only count from rated games against the engine. In a
+    # two-player game on one board the account plays both sides.
+    rated_games = GameResult.objects.filter(
+        user=user,
+        mode="ai",
+        rated=True
+    )
+
+    wins = rated_games.filter(
         winner=F("player_color")
     ).count()
 
-    checkmates = GameResult.objects.filter(
-        user=user,
+    checkmates = rated_games.filter(
         end_reason="checkmate",
         winner=F("player_color")
     ).count()
 
-    stalemates = GameResult.objects.filter(
-        user=user,
+    stalemates = rated_games.filter(
         end_reason="stalemate"
     ).count()
 
-    fast_wins = GameResult.objects.filter(
-        user=user
-    ).filter(
+    fast_wins = rated_games.filter(
         winner=F("player_color")
     )
 
@@ -503,9 +542,9 @@ def check_game_achievements(user):
     if stalemates >= 1:
         unlock_achievement(user, "STALEMATE_DRAW")
 
-    # Win in under 20 moves
+    # Win in under 20 moves. `moves` holds one entry per half-move.
     for game in fast_wins:
-        if len(game.moves) < 20:
+        if (len(game.moves) + 1) // 2 < FAST_WIN_MOVES:
             unlock_achievement(user, "FAST_WIN")
             break
 
@@ -555,6 +594,56 @@ def check_puzzle_achievements(user, stats):
         unlock_achievement(user, "STREAK_100")
 
 
+def daily_puzzle_for(day):
+    """Return the puzzle served as the daily puzzle on `day`, or None."""
+    puzzle = ChessPuzzle.objects.filter(date=day).first()
+    if not puzzle:
+        total_puzzles = ChessPuzzle.objects.count()
+        if total_puzzles > 0:
+            index = day.toordinal() % total_puzzles
+            puzzle = ChessPuzzle.objects.order_by('id')[index]
+    return puzzle
+
+
+def record_puzzle_solve(user, puzzle):
+    """Count a solved puzzle once and keep the daily streak.
+
+    Returns (stats, newly_solved). The totals are worked out here so the
+    client never reports its own numbers.
+    """
+    today = timezone.localdate()
+
+    with transaction.atomic():
+        stats, _ = PuzzleStats.objects.select_for_update().get_or_create(
+            user=user
+        )
+        _, newly_solved = PuzzleSolve.objects.get_or_create(
+            user=user,
+            puzzle=puzzle,
+        )
+        if newly_solved:
+            stats.puzzles_solved += 1
+
+        # A missed day ends the streak before today's solve is counted.
+        if stats.last_daily_date and stats.last_daily_date < today - timedelta(days=1):
+            stats.current_streak = 0
+
+        daily = daily_puzzle_for(today)
+        if daily and daily.pk == puzzle.pk and stats.last_daily_date != today:
+            if stats.last_daily_date == today - timedelta(days=1):
+                stats.current_streak += 1
+            else:
+                stats.current_streak = 1
+            stats.best_streak = max(stats.best_streak, stats.current_streak)
+            stats.daily_completions += 1
+            stats.last_daily_date = today
+
+        stats.save()
+
+    check_puzzle_achievements(user, stats)
+    return stats, newly_solved
+
+
 BASE_DIR = Path(__file__).resolve().parent
 
 def update_opening_progress(
@@ -564,6 +653,7 @@ def update_opening_progress(
     incorrect_move=False,
     completed=False,
     checkpoint=None,
+    accuracy=None,
 ):
     if not user:
         return None, False
@@ -580,7 +670,10 @@ def update_opening_progress(
 
         if created:
             progress.openings_started = 1
-    
+        elif completed:
+            # Every finished run after the first counts as one more practice.
+            progress.openings_started += 1
+
         if correct_move:
             progress.correct_moves += 1
 
@@ -605,18 +698,33 @@ def update_opening_progress(
                 (progress.correct_moves / total_moves) * 100,
                 2
             )
+        elif accuracy is not None:
+            # No per-move counts: keep the accuracy reported for this run.
+            progress.accuracy_percentage = accuracy
 
         first_completion = False
 
-        if completed and progress.openings_completed == 0:
-            progress.openings_completed = 1
-            first_completion = True
+        if completed:
+            progress.completion_percentage = 100
+
+            if progress.openings_completed == 0:
+                progress.openings_completed = 1
+                first_completion = True
 
         progress.save()
 
         return progress, first_completion
 
+def _badge_font(size):
+    """Pillow's built-in font at the given size, so no font file is needed."""
+    return ImageFont.load_default(size=size)
+
+
 def generate_badge(user_achievement):
+    """Render the badge for an unlocked achievement and return it as PNG bytes.
+
+    The image is drawn in memory: the deployment has no writable app directory.
+    """
     achievement = user_achievement.achievement
 
     template_path = (
@@ -639,59 +747,23 @@ def generate_badge(user_achievement):
 
     draw = ImageDraw.Draw(badge)
 
-    try:
-        title_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            85
-        )
-
-        desc_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgia.ttf",
-            38
-        )
-
-        award_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiab.ttf",
-            32
-        )
-
-        name_font = ImageFont.truetype(
-            "C:/Windows/Fonts/georgiai.ttf",
-            60
-        )
-
-    except Exception:
-        title_font = ImageFont.load_default()
-        desc_font = ImageFont.load_default()
-        award_font = ImageFont.load_default()
-        name_font = ImageFont.load_default()
-
     title = achievement.title.upper()
     username = user_achievement.user.username
 
     # Handle long achievement names
-    try:
-        if len(title) > 15:
-            title_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiab.ttf",
-                60
-            )
+    title_size = 85
+    if len(title) > 22:
+        title_size = 50
+    elif len(title) > 15:
+        title_size = 60
 
-        if len(title) > 22:
-            title_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiab.ttf",
-                50
-            )
+    # Handle long usernames
+    name_size = 45 if len(username) > 15 else 60
 
-        # Handle long usernames
-        if len(username) > 15:
-            name_font = ImageFont.truetype(
-                "C:/Windows/Fonts/georgiai.ttf",
-                45
-            )
-
-    except Exception:
-        pass
+    title_font = _badge_font(title_size)
+    desc_font = _badge_font(38)
+    award_font = _badge_font(32)
+    name_font = _badge_font(name_size)
 
     center_x = badge.width // 2
 
@@ -731,17 +803,11 @@ def generate_badge(user_achievement):
         anchor="mm"
     )
 
-    output_dir = BASE_DIR / "generated_badges"
-    output_dir.mkdir(exist_ok=True)
+    buffer = io.BytesIO()
+    badge.save(buffer, format="PNG")
+    buffer.seek(0)
 
-    output_path = (
-        output_dir /
-        f"badge_{user_achievement.id}.png"
-    )
-
-    badge.save(output_path)
-
-    return output_path
+    return buffer
 
 
 _NAMED_LINES_CACHE = None
@@ -763,6 +829,8 @@ def get_opening_line(name):
     """return full move list for a named opening, or empty list if not found"""
     lines = _load_named_lines()
     opening = lines.get(name, {})
+    if not isinstance(opening, dict):
+        return []
     return opening.get('moves', [])[:]  # [:] copies so callers can't mutate the cache
 
 
@@ -783,4 +851,8 @@ def get_opening_reply(name, move_index, played_moves):
 
 def get_valid_openings():
     """return the set of opening names available in the book"""
-    return set(_load_named_lines().keys())
+    # The book also carries a "_named_lines_comment" string next to the lines.
+    return {
+        name for name, line in _load_named_lines().items()
+        if isinstance(line, dict)
+    }

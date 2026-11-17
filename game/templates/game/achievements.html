@@ -1,391 +1,226 @@
-<!DOCTYPE html>
+{% extends 'game/base.html' %}
 {% load static %}
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkora Achievements</title>
 
-    <style>
-        body {
-            background: #0f0f1a;
-            color: #d0d0d0;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 30px;
-        }
+{% block title %}Achievements · Checkora{% endblock %}
+{% block description %}Your Checkora achievements: the badges you have unlocked and the ones still to earn.{% endblock %}
 
-        h1 {
-            text-align: center;
-            color: #f0c040;
-            margin-bottom: 10px;
-        }
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-        .subtitle {
-            text-align: center;
-            color: #8a8aaa;
-            margin-bottom: 40px;
-        }
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/community.css' %}">{% endblock %}
+{% block main_class %} community{% endblock %}
 
-        .achievement-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 20px;
-        }
+{% block content %}
+<div class="wrap page">
+    <header class="page-head hero-split">
+        <div class="hero-split__copy">
+            <a class="back-link back-btn" href="{% url 'stats' %}">Stats</a>
+            <span class="eyebrow">Achievement collection</span>
+            <h1>Your trophy <span class="serif">cabinet.</span></h1>
+            <p class="subtitle">Track your chess milestones and unlock exclusive achievements.</p>
 
-        .achievement-card {
-            background: #16162a;
-            border: 1px solid #252545;
-            border-radius: 12px;
-            padding: 20px;
-            transition: 0.3s ease;
-        }
-
-        .achievement-card:hover {
-            transform: translateY(-4px);
-            border-color: #f0c040;
-        }
-
-        .achievement-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-
-        .icon {
-            font-size: 34px;
-        }
-
-        .title {
-            font-size: 20px;
-            font-weight: bold;
-            color: white;
-        }
-
-        .description {
-            color: #b0b0c0;
-            margin: 15px 0;
-        }
-
-        .status {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        .unlocked {
-            background: rgba(46, 204, 113, 0.2);
-            color: #2ecc71;
-            border: 1px solid #2ecc71;
-        }
-
-        .locked {
-            background: rgba(231, 76, 60, 0.2);
-            color: #e74c3c;
-            border: 1px solid #e74c3c;
-        }
-
-        .back-btn {
-            display: inline-block;
-            margin-bottom: 25px;
-            color: #f0c040;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .stats-banner {
-            background: #16162a;
-            border: 1px solid #252545;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 35px;
-        }
-
-        .stats-banner h2 {
-            color: #f0c040;
-            margin: 0;
-        }
-
-        .stats-banner p {
-            color: #8a8aaa;
-        }
-
-        .feature-btn {
-            margin-top: 12px;
-            padding: 8px 14px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            background: #f0c040;
-            color: #111;
-            font-weight: bold;
-        }
-
-        .feature-btn:hover {
-            opacity: 0.9;
-        }
-
-        .featured-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: center;
-            margin-top: 15px;
-        }
-
-        .featured-badge {
-            background: #252545;
-            border: 1px solid #f0c040;
-            border-radius: 10px;
-            padding: 10px 15px;
-            font-weight: bold;
-        }
-
-        .category {
-            color: #f0c040;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-
-        .rarity {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            margin-top: 5px;
-            margin-bottom: 10px;
-        }
-
-        .rarity-common { background: #444; }
-        .rarity-rare { background: #1e88e5; }
-        .rarity-epic { background: #8e24aa; }
-        .rarity-legendary { background: #ff9800; }
-
-        .remove-btn {
-            margin-top: 8px;
-            padding: 6px 10px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .download-btn {
-            display: inline-block;
-            margin-top: 12px;
-            margin-right: 10px;
-            padding: 8px 14px;
-            border-radius: 8px;
-            background: #2ecc71;
-            color: white;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .download-btn:hover {
-            opacity: 0.9;
-        }
-
-        /* Light Theme Overrides */
-        [data-theme="light"] body {
-            background: #f5f7fb;
-            color: #111827;
-        }
-        [data-theme="light"] h1 {
-            color: #111827;
-        }
-        [data-theme="light"] .subtitle {
-            color: #6b7280;
-        }
-        [data-theme="light"] .achievement-card, [data-theme="light"] .stats-banner {
-            background: #ffffff;
-            border: 1px solid #d1d5db;
-        }
-        [data-theme="light"] .achievement-card:hover {
-            border-color: #b47505;
-            box-shadow: 0 4px 15px rgba(180, 117, 5, 0.1);
-        }
-        [data-theme="light"] .title, [data-theme="light"] .stats-banner h2 {
-            color: #111827;
-        }
-        [data-theme="light"] .description, [data-theme="light"] .stats-banner p {
-            color: #4b5563;
-        }
-        [data-theme="light"] .back-btn {
-            color: #6b7280;
-        }
-        [data-theme="light"] .back-btn:hover {
-            color: #b47505;
-        }
-        [data-theme="light"] .featured-badge {
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
-            color: #111827;
-        }
-        [data-theme="light"] .category {
-            color: #b47505;
-        }
-        [data-theme="light"] .rarity-common { background: #e5e7eb; color: #4b5563; }
-        [data-theme="light"] .rarity-rare { background: #dbeafe; color: #1e40af; }
-        [data-theme="light"] .rarity-epic { background: #f3e8ff; color: #6b21a8; }
-        [data-theme="light"] .rarity-legendary { background: #ffedd5; color: #9a3412; }
-
-        @keyframes celebrate-pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.7); border-color: #f0c040; }
-            50% { transform: scale(1.05); box-shadow: 0 0 20px 10px rgba(240, 192, 64, 0); border-color: #f0c040; }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 192, 64, 0); }
-        }
-        .celebrate-effect {
-            animation: celebrate-pulse 0.8s ease-out;
-        }
-        .celebrate-btn {
-            margin-top: 12px;
-            margin-left: 10px;
-            padding: 8px 14px;
-            border: 1px solid #f0c040;
-            border-radius: 8px;
-            cursor: pointer;
-            background: transparent;
-            color: #f0c040;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-        .celebrate-btn:hover {
-            background: rgba(240, 192, 64, 0.1);
-        }
-    </style>
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
-    <script src="{% static 'game/js/confetti.js' %}"></script>
-</head>
-<body>
-
-<a href="{% url 'stats' %}" class="back-btn">
-    ← Back to Statistics
-</a>
-
-<h1>🏆 Achievement Collection</h1>
-<p class="subtitle">
-    Track your chess milestones and unlock exclusive achievements.
-</p>
-
-<div class="stats-banner">
-    <h2>{{ unlocked|length }} / {{ achievements|length }}</h2>
-    <p>Achievements Unlocked</p>
-</div>
-
-<div class="stats-banner">
-    <h2>⭐ Featured Badges</h2>
-
-    {% if featured_badges %}
-        <div class="featured-badges">
-            {% for badge in featured_badges %}
-                <div class="featured-badge">
-                    {{ badge.achievement.icon }}
-                    {{ badge.achievement.title }}
-
-                    <form method="post"
-                        action="{% url 'remove_featured_badge' badge.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="remove-btn">
-                            ❌ Remove
-                        </button>
-                    </form>
+            <div class="cabinet stats-banner">
+                <div class="cabinet__count">
+                    <span class="stat__value"><b data-count>{{ unlocked|length }}</b> <span>/ {{ achievements|length }}</span></span>
+                    <span class="stat__label">Achievements Unlocked</span>
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p>No featured badges selected yet.</p>
-    {% endif %}
-</div>
-
-<div class="achievement-grid">
-
-{% for achievement in achievements %}
-
-    <div class="achievement-card">
-
-        <div class="achievement-header">
-            <div class="icon">
-                {{ achievement.icon }}
-            </div>
-
-            <div class="title">
-                {{ achievement.title }}
+                <div class="progress" role="progressbar" aria-label="Achievements unlocked" aria-valuemin="0" aria-valuemax="{{ achievements|length }}" aria-valuenow="{{ unlocked|length }}">
+                    <span style="width: {% widthratio unlocked|length achievements|length 100 %}%"></span>
+                </div>
             </div>
         </div>
+        <div class="piece-stage" data-piece="q" data-piece-color="w" aria-hidden="true">
+            <canvas></canvas>
+            <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wq.svg' %}" alt="">
+        </div>
+    </header>
 
-        <div class="category">
-            {{ achievement.get_category_display }}
+    <section class="panel featured stats-banner" aria-labelledby="featuredTitle" data-reveal>
+        <div class="spread">
+            <h2 id="featuredTitle">Featured <span class="serif">badges</span></h2>
+            <span class="mono muted">Pick up to three</span>
         </div>
 
-        <div class="rarity rarity-{{ achievement.rarity }}">
-            {{ achievement.get_rarity_display }}
-        </div>
+        {% if featured_badges %}
+            <ul class="featured-badges">
+                {% for badge in featured_badges %}
+                    <li class="featured-badge" data-rarity="{{ badge.achievement.rarity }}">
+                        <span class="medal" aria-hidden="true">
+                            <span class="medal__coin"><span class="medal__face">{{ badge.achievement.icon }}</span></span>
+                        </span>
+                        <span class="featured-badge__title">{{ badge.achievement.title }}</span>
 
-        <div class="description">
-            {{ achievement.description }}
-        </div>
-
-        {% if achievement.id in unlocked %}
-            <span class="status unlocked">
-                ✅ Unlocked
-            </span>
-
-            <a
-                href="{% url 'download_badge' achievement.id %}"
-                class="download-btn"
-            >
-                ⬇ Download Badge
-            </a>
-            
-            <form method="post"
-                action="{% url 'feature_badge' achievement.id %}" style="display:inline-block;">
-                {% csrf_token %}
-                <button type="submit" class="feature-btn">
-                    ⭐ Feature Badge
-                </button>
-            </form>
-
-            <button type="button" class="celebrate-btn" onclick="triggerCelebration(this)" aria-label="Celebrate achievement">
-                🎉 Celebrate
-            </button>
-
+                        <form method="post"
+                            action="{% url 'remove_featured_badge' badge.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="button button--ghost button--sm remove-btn">Remove</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
         {% else %}
-            <span class="status locked">
-                🔒 Locked
-            </span>
+            <p class="muted">No featured badges selected yet. Unlock a badge, then choose "Feature" on its card.</p>
         {% endif %}
+    </section>
 
+    {% if achievements %}
+    <div class="spread badge-filter" data-reveal>
+        <div class="tabs" role="group" aria-label="Show achievements">
+            <button type="button" class="active" data-filter="all" aria-pressed="true">All <span class="tabs__count">{{ achievements|length }}</span></button>
+            <button type="button" data-filter="unlocked" aria-pressed="false">Unlocked <span class="tabs__count">{{ unlocked|length }}</span></button>
+            <button type="button" data-filter="locked" aria-pressed="false">Locked</button>
+        </div>
+        <span class="mono muted hover-hint">Hover a badge to turn it over</span>
     </div>
 
-{% endfor %}
+    <p class="empty" id="badgeFilterEmpty" hidden>Nothing here yet.</p>
 
+    {% regroup achievements by get_category_display as groups %}
+    {% for group in groups %}
+    <section class="badge-group" aria-label="{{ group.grouper }}">
+        <h2 class="badge-group__title">{{ group.grouper }}</h2>
+
+        <div class="achievement-grid">
+            {% for achievement in group.list %}
+            <div class="badge-slot" data-reveal style="--i: {% if forloop.counter0 < 6 %}{{ forloop.counter0 }}{% else %}0{% endif %}">
+                <article class="panel achievement-card badge-card {% if achievement.id in unlocked %}is-unlocked{% else %}is-locked{% endif %}"
+                         data-rarity="{{ achievement.rarity }}"
+                         data-state="{% if achievement.id in unlocked %}unlocked{% else %}locked{% endif %}"
+                         data-tilt="5">
+                    <div class="achievement-header badge-card__head">
+                        <span class="medal" aria-hidden="true">
+                            <span class="medal__coin">
+                                {% if achievement.id in unlocked %}
+                                <span class="medal__face icon">{{ achievement.icon }}</span>
+                                <span class="medal__face medal__face--back">
+                                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>
+                                </span>
+                                {% else %}
+                                <span class="medal__face">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                                </span>
+                                <span class="medal__face medal__face--back icon">{{ achievement.icon }}</span>
+                                {% endif %}
+                            </span>
+                        </span>
+
+                        <div>
+                            <h3 class="title">{{ achievement.title }}</h3>
+                            <div class="badge-card__tags">
+                                <span class="chip rarity rarity-{{ achievement.rarity }}">{{ achievement.get_rarity_display }}</span>
+                                {% if achievement.id in unlocked %}
+                                <span class="chip chip--good status unlocked">Unlocked</span>
+                                {% else %}
+                                <span class="chip status locked">Locked</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="description">{{ achievement.description }}</p>
+
+                    {% if achievement.id in unlocked %}
+                    <div class="badge-card__actions">
+                        <form method="post"
+                            action="{% url 'feature_badge' achievement.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="button button--sm feature-btn">Feature</button>
+                        </form>
+
+                        <a href="{% url 'download_badge' achievement.id %}" class="button button--ghost button--sm download-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+                            Download
+                        </a>
+
+                        <button type="button" class="button button--ghost button--sm celebrate-btn" aria-label="Celebrate achievement">Celebrate</button>
+                    </div>
+                    {% endif %}
+                </article>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+    {% else %}
+    <div class="empty block" data-reveal>
+        <h3>The cabinet is empty</h3>
+        <p>No achievements have been set up on this site yet.</p>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
 
+{% block scripts %}
+<script src="{% static 'game/js/confetti.js' %}"></script>
 <script>
-function triggerCelebration(btn) {
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        return;
+    function triggerCelebration(btn) {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        const card = btn.closest('.achievement-card');
+        card.classList.remove('celebrate-effect');
+        // Trigger reflow to restart animation
+        void card.offsetWidth;
+        card.classList.add('celebrate-effect');
+
+        if (window.triggerConfetti) {
+            // The confetti takes its colours from the theme and starts at the card.
+            const styles = getComputedStyle(document.documentElement);
+            const colors = ['--gold', '--gold-bright', '--gold-deep', '--title', '--good', '--info']
+                .map((name) => styles.getPropertyValue(name).trim())
+                .filter(Boolean);
+            const box = card.getBoundingClientRect();
+            window.triggerConfetti({
+                count: 150,
+                spread: 80,
+                colors: colors,
+                origin: {
+                    x: (box.left + box.width / 2) / window.innerWidth,
+                    y: (box.top + box.height / 2) / window.innerHeight,
+                },
+            });
+        }
     }
 
-    const card = btn.closest('.achievement-card');
-    card.classList.remove('celebrate-effect');
-    // Trigger reflow to restart animation
-    void card.offsetWidth;
-    card.classList.add('celebrate-effect');
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest('.celebrate-btn');
+        if (button) triggerCelebration(button);
+    });
 
-    if (window.triggerConfetti) {
-        window.triggerConfetti({
-            count: 150,
-            spread: 80,
-            colors: ["#ffd700", "#ff6b6b", "#4facfe", "#00f2fe", "#43e97b", "#38f9d7"]
-        });
-    }
-}
+    // All, unlocked or locked: hide the cards that do not match, and any
+    // category left with nothing in it.
+    (function() {
+        const buttons = document.querySelectorAll('[data-filter]');
+        const empty = document.getElementById('badgeFilterEmpty');
+        if (!buttons.length) return;
+
+        function show(filter) {
+            let shown = 0;
+            document.querySelectorAll('.badge-group').forEach((group) => {
+                let inGroup = 0;
+                group.querySelectorAll('.badge-slot').forEach((slot) => {
+                    const match = filter === 'all' || slot.firstElementChild.dataset.state === filter;
+                    slot.hidden = !match;
+                    if (match) inGroup += 1;
+                });
+                group.hidden = inGroup === 0;
+                shown += inGroup;
+            });
+            if (empty) {
+                empty.hidden = shown > 0;
+                empty.textContent = filter === 'unlocked' ? 'Nothing unlocked yet.' : 'Nothing left to unlock.';
+            }
+            buttons.forEach((button) => {
+                const on = button.dataset.filter === filter;
+                button.classList.toggle('active', on);
+                button.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+
+        buttons.forEach((button) => button.addEventListener('click', () => show(button.dataset.filter)));
+    })();
 </script>
-
-</body>
-</html>
+<script type="module" src="{% static 'game/js/community.js' %}"></script>
+{% endblock %}

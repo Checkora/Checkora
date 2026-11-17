@@ -13,14 +13,18 @@
         k: 0
     };
 
-    const VALID_PIECE_STYLES = ['neo', 'classic', 'alpha', 'cburnett'];
+    // The page sets data-static on <html> to the static prefix, ending in 'game/'.
+    const STATIC_BASE = document.documentElement.dataset.static || '/static/game/';
+
+    const VALID_PIECE_STYLES = ['classic', 'wood', 'outline'];
     const PIECE_IMG = {};
 
+    // A style saved by an older version (neo, alpha, cburnett) falls back to classic.
     function buildPieceImg(style) {
-        const targetStyle = VALID_PIECE_STYLES.includes(style) ? style : 'neo';
+        const targetStyle = VALID_PIECE_STYLES.includes(style) ? style : 'classic';
         for (const c of ['w', 'b']) {
             for (const t of ['k', 'q', 'r', 'b', 'n', 'p']) {
-                PIECE_IMG[c + t] = `https://images.chesscomfiles.com/chess-themes/pieces/${targetStyle}/150/${c}${t}.png`;
+                PIECE_IMG[c + t] = `${STATIC_BASE}pieces/${targetStyle}/${c}${t}.svg`;
             }
         }
     }
@@ -136,6 +140,15 @@
 
     let tourStepIndex = 0;
     let tourActiveTarget = null;
+    // Set once a step has been on screen. A tour that could show nothing is
+    // not marked as seen, so the next visit offers it again.
+    let tourStepShown = false;
+    // The phone's controls drawer, while the tour is the one holding it open.
+    let tourOpenedDrawer = false;
+    // The new game's start countdown, held here until the tour closes.
+    let afterTour = null;
+    // Where the page was scrolled to when the tour opened; null while it is closed.
+    let tourStartScroll = null;
 
     function hasTourAlreadyBeenSeen() {
         try {
@@ -154,6 +167,11 @@
     }
 
     let tourHasBeenTriggeredThisPageLoad = false;
+
+    // True until the tour has had its one start on this page load.
+    function isTourDue() {
+        return !tourHasBeenTriggeredThisPageLoad && !hasTourAlreadyBeenSeen();
+    }
 
     // Call this right after the welcome/setup screen closes, from any
     // game-start path. Safe to call multiple times — only runs once.
@@ -188,15 +206,33 @@
         tooltip.style.left = `${left}px`;
     }
 
+    // Drawn and not hidden. Where it sits is not asked here: showTourStep
+    // opens the drawer and scrolls to the target before it calls this.
     function isElementActuallyVisible(el) {
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return false;
-        return (
-            rect.right > 0 &&
-            rect.left < window.innerWidth &&
-            rect.bottom > 0 &&
-            rect.top < window.innerHeight
-        );
+        return getComputedStyle(el).visibility !== 'hidden';
+    }
+
+    // On a phone the controls sit in a drawer. A step that points into it
+    // opens it, and the next step outside it (or the end of the tour) puts it
+    // away. Returns true when the drawer has only just started sliding up.
+    function holdTourDrawer(targetEl) {
+        const drawer = document.getElementById('mobilePanel');
+        if (drawer && targetEl && drawer.contains(targetEl)) {
+            const toggle = document.getElementById('mobileControlsToggle');
+            // Only a phone shows the bar with the button that opens the drawer.
+            if (!toggle || !toggle.offsetParent || drawer.classList.contains('active')) return false;
+            toggle.click();
+            tourOpenedDrawer = true;
+            return true;
+        }
+        if (tourOpenedDrawer) {
+            tourOpenedDrawer = false;
+            const close = document.getElementById('mobileControlsClose');
+            if (close) close.click();
+        }
+        return false;
     }
 
     function showTourStep(index) {
@@ -213,16 +249,21 @@
         const step = TOUR_STEPS[index];
         const targetEl = document.querySelector(step.selector);
 
-        // Skip a step gracefully if that element isn't on the page right now,
-        // or if it's currently offscreen (e.g. inside a closed mobile drawer)
+        // Bring the target on screen before asking whether it shows: on a
+        // phone it is below the board or inside the closed drawer.
+        const drawerSliding = holdTourDrawer(targetEl);
+        if (targetEl) targetEl.scrollIntoView({ behavior: 'instant', block: 'center' });
+
+        // Skip a step gracefully if that element isn't on the page right now
         if (!targetEl || !isElementActuallyVisible(targetEl)) {
             showTourStep(index + 1);
             return;
         }
 
         targetEl.classList.add('tour-spotlight');
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         tourActiveTarget = targetEl;
+        tourStepIndex = index;
+        tourStepShown = true;
 
         document.getElementById('tourStepLabel').textContent =
             `Step ${index + 1} of ${TOUR_STEPS.length}`;
@@ -230,8 +271,11 @@
         document.getElementById('tourNextBtn').textContent =
             (index === TOUR_STEPS.length - 1) ? 'Finish' : 'Next →';
 
-        // Give the browser a moment to scroll before positioning the tooltip
-        setTimeout(() => positionTourTooltip(targetEl), 300);
+        // Give the page a moment to settle (longer while the drawer slides up)
+        // before positioning the tooltip
+        setTimeout(() => {
+            if (tourActiveTarget === targetEl) positionTourTooltip(targetEl);
+        }, drawerSliding ? 450 : 300);
     }
 
     let tourClickListenerAttached = false;
@@ -276,9 +320,14 @@
 
     function startTour() {
         const overlay = document.getElementById('tourOverlay');
-        if (!overlay) return;
+        if (!overlay) {
+            // No tour on this page; let go of whatever was waiting for it.
+            endTour();
+            return;
+        }
         attachTourClickListener();
         overlay.style.display = 'block';
+        tourStartScroll = window.scrollY;
         tourStepIndex = 0;
         showTourStep(tourStepIndex);
         const tooltip = document.getElementById('tourTooltip');
@@ -290,9 +339,20 @@
             tourActiveTarget.classList.remove('tour-spotlight');
             tourActiveTarget = null;
         }
+        holdTourDrawer(null);
         const overlay = document.getElementById('tourOverlay');
         if (overlay) overlay.style.display = 'none';
-        markTourAsSeen();
+        if (tourStepShown) markTourAsSeen();
+        // A step may have scrolled the page away from the board.
+        if (tourStartScroll !== null && window.scrollY !== tourStartScroll) {
+            window.scrollTo({ top: tourStartScroll });
+        }
+        tourStartScroll = null;
+
+        // The game that was started behind the tour gets its countdown now.
+        const next = afterTour;
+        afterTour = null;
+        if (next) next();
     }
 
     function initOnboardingTour() {
@@ -351,6 +411,8 @@
     let selected = null;
     let hints = [];
     let lastMove = null;
+    // The side to move is in check; refreshHighlights keeps its king marked.
+    let inCheck = false;
     let premoveQueue = [];
     let lastPremoveQueueStr = '';
     let highlightedSquare = null;
@@ -362,7 +424,6 @@
     let touchStartPos = null;
     let activeTouchPieceClone = null;
     let touchDragSrc = null;
-    let touchTapSquare = null;
     let touchDragging = false;
     let touchOffset = { x: 0, y: 0 };
 
@@ -370,8 +431,12 @@
     let blackTime = 0;
     let maxWhiteTime = 0;
     let maxBlackTime = 0;
+    // Time control of the game on the board. The welcome-screen picker keeps
+    // its own pair, so reloading the game state never changes what it starts.
     let selectedMins = 10;
     let selectedIncrement = 0;
+    let pickedMins = 10;
+    let pickedIncrement = 0;
     let paused = false;
     let timerInterval = null;
     let countdownInterval = null;
@@ -396,7 +461,6 @@
     let stockfishWorker = null;
     let stockfishEvalSeq = 0;
     let stockfishActiveReject = null;
-    let currentAnalysisData = null;
 
     let hintLevel = 0;
 
@@ -513,13 +577,53 @@
 
         return streakData.streak;
     }
-    function updateStreakDisplay() {
-        const streakData = getPuzzleStreak();
+    // The puzzle streak to show: the server's for a signed-in player once it
+    // has told us, the one kept in localStorage for guests.
+    function shownPuzzleStreak() {
+        if (serverPuzzleStreak) return serverPuzzleStreak;
+        const local = getPuzzleStreak();
+        return { streak: local.streak, longest: local.longestStreak };
+    }
 
-        const streakEl = document.getElementById("streak-count");
+    // #streak-count is the account's day streak (loadGame fills it); the
+    // puzzle streak is a different number and has its own element.
+    function updateStreakDisplay() {
+        const streakEl = document.getElementById("puzzle-streak-count");
         if (streakEl) {
-            streakEl.textContent = streakData.streak;
+            streakEl.textContent = shownPuzzleStreak().streak;
         }
+    }
+
+    async function refreshPuzzleStreak() {
+        if (!signedIn) return;
+        try {
+            const stats = await get('/api/puzzle-stats/');
+            if (typeof stats.streak === 'number') {
+                serverPuzzleStreak = { streak: stats.streak, longest: stats.longest_streak };
+            }
+        } catch (e) {
+            // keep showing the local figure
+        }
+        updateStreakDisplay();
+    }
+
+    // Called once, when the last solution move has been played. Signed-in
+    // players get their streak from the server's answer. Guests (401) and a
+    // server without this URL fall back to the streak kept in localStorage.
+    async function submitPuzzleSolution() {
+        if (currentPuzzle && currentPuzzle.id) {
+            try {
+                const data = await post(`/api/puzzles/${currentPuzzle.id}/solve/`, { moves: puzzleMoves });
+                if (data.success) {
+                    serverPuzzleStreak = { streak: data.streak, longest: data.longest_streak };
+                    return serverPuzzleStreak;
+                }
+            } catch (e) {
+                // an older server answers 404 with a page, not JSON
+            }
+        }
+        const streak = updatePuzzleStreak();
+        return { streak, longest: getPuzzleStreak().longestStreak };
     }
 
     function clearPuzzleHints() {
@@ -544,11 +648,13 @@
         const toFile = move.charCodeAt(2) - 97;
         const toRank = 8 - parseInt(move[3], 10);
 
+        // clearPuzzleHints resets the level, so read it first.
+        const level = hintLevel;
         clearPuzzleHints();
         const sourceSq = sq(fromRank, fromFile);
         const targetSq = sq(toRank, toFile);
 
-        if (hintLevel === 0) {
+        if (level === 0) {
 
             if (sourceSq) {
                 sourceSq.classList.add("hint-source")
@@ -556,7 +662,7 @@
 
             hintLevel = 1;
 
-        } else if (hintLevel === 1) {
+        } else {
 
             if (sourceSq) {
                 sourceSq.classList.add("hint-source");
@@ -574,7 +680,7 @@
 
     function initStockfish() {
         if (!stockfishWorker) {
-            stockfishWorker = new Worker('/static/game/js/stockfish.js');
+            stockfishWorker = new Worker(`${STATIC_BASE}js/stockfish.js`);
             stockfishWorker.postMessage('setoption name Hash value 16');
             stockfishWorker.postMessage('setoption name Contempt value 0');
         }
@@ -662,7 +768,7 @@
     function updateEvalBarVisibility() {
         if (!evalBarContainer) return;
         const isPuzzle = dailyPuzzleMode;
-        const show = (gameMode === 'ai' || gameMode === 'analysis' || replayMode) && !isPuzzle;
+        const show = (gameMode === 'ai' || replayMode) && !isPuzzle;
         if (show) {
             document.documentElement.classList.add('has-eval-bar');
             if (flipped) {
@@ -802,6 +908,7 @@
     }
 
     async function startDailyPuzzle() {
+        if (!(await confirmForfeit())) return false;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
@@ -839,7 +946,8 @@
         document.getElementById("whiteClock").style.display = "none";
         document.getElementById("blackClock").style.display = "none";
 
-        document.getElementById("streak-counter").style.display = "block";
+        const puzzleStreakEl = document.getElementById("puzzle-streak-counter");
+        if (puzzleStreakEl) puzzleStreakEl.style.display = "block";
         updateStreakDisplay();
 
         if (restartPuzzleBtn) {
@@ -867,8 +975,8 @@
         initStockfish();
         precalculateExpectedMoveEval();
         const today = new Date().toLocaleDateString();
-        const streakData = getPuzzleStreak();
-        updateStreakDisplay();
+        await refreshPuzzleStreak();
+        const streakData = shownPuzzleStreak();
         showStatus(
             `Daily Puzzle Challenge - ${today} | 🔥 Current Streak: ${streakData.streak}`,
             false
@@ -943,19 +1051,6 @@
         if (playback?.catch) playback.catch(() => { });
     }
 
-    function toggleMute() {
-        soundEnabled = !soundEnabled;
-        try {
-            localStorage.setItem('chessSoundEnabled', String(soundEnabled));
-        } catch (e) {
-            console.error("Failed to save sound settings", e);
-        }
-        if (muteBtn) {
-            muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
-            muteBtn.setAttribute('aria-pressed', String(soundEnabled));
-        }
-    }
-
     function playGameOverSound(reason, resultState) {
         if (!soundEnabled) return;
 
@@ -1004,11 +1099,8 @@
     const promoOverlay = document.getElementById('promoOverlay');
     const promoChoices = document.getElementById('promoChoices');
     const modeBadge = document.getElementById('modeBadge');
-    const autoFlipBtn = document.getElementById('autoFlipBtn');
-    const flipControls = document.getElementById('flipControls');
     const copyFenBtn = document.getElementById('copyFenBtn');
     const copyPgnBtn = document.getElementById('copyPgnBtn');
-    const muteBtn = document.getElementById('muteBtn');
     const evalBarContainer = document.getElementById('evalBarContainer');
     const evalBarWhite = document.getElementById('evalBarWhite');
     const evalBarScore = document.getElementById('evalBarScore');
@@ -1052,8 +1144,6 @@
     const gameOverMessage = document.getElementById('gameOverMessage');
     const gameOverStartBtn = document.getElementById('gameOverStartBtn');
     const gameOverExitBtn = document.getElementById('gameOverExitBtn');
-    const gameOverPvPBtn = document.getElementById('gameOverPvPBtn');
-    const gameOverAIBtn = document.getElementById('gameOverAIBtn');
 
     const replayControls = document.getElementById('replayControls');
     const firstReplayBtn = document.getElementById('firstReplayBtn');
@@ -1115,11 +1205,32 @@
     let gameOver = false;
     let aiThinking = false;
     let aiRequestSeq = 0; // Sequence token to cancel stale AI responses
+    let aiFailures = 0; // AI requests in a row that the server turned down
+    const AI_MAX_RETRIES = 3;
+    let moveInFlight = false; // a move request is out and not yet answered
+    let flagFallPending = false; // the server is being asked about a clock at zero
+    // Whether the server counts the game on the board towards rating, and how
+    // many half-moves it has. A rated AI game with 5 or more is recorded as a
+    // loss when a new game replaces it, so every path that does that asks first.
+    let ratedGame = false;
+    let halfMoves = 0;
+    let forfeitAccepted = false;
+    let signedIn = false;
+    let puzzleMoves = []; // moves played in the puzzle on the board
+    let serverPuzzleStreak = null; // { streak, longest } once the server has said
     let analysisRequestSeq = 0; // Sequence token to cancel stale analysis responses
     const DEFAULT_START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     // Tracks the full FEN of the current live position so legal moves can be
     // computed on the client without a server round-trip (Issue #1445).
     let liveFen = DEFAULT_START_FEN;
+    // Board and PGN as the server last sent them. The stepper shows liveBoard
+    // on the latest move, and the PGN export uses livePgn, because once a game
+    // is over the server may no longer have it.
+    let liveBoard = null;
+    let livePgn = '';
+    // Square holding the board's single tab stop.
+    let boardFocus = { r: 7, c: 4 };
+    let boardOrientationSet = false;
     let gameFens = [];
     let stepperIndex = 0;
     let viewingPastState = false;
@@ -1133,6 +1244,11 @@
     let isAutoReplaying = false;
     let pgnDownloadTimeout = null;
     let fenCopyTimeout = null;
+
+    // Full FEN the current game started from, saved by startNewGame.
+    function startingFen() {
+        return localStorage.getItem('checkora_starting_fen') || DEFAULT_START_FEN;
+    }
     /* ==========================================================
     CSRF & API HELPERS
     ========================================================== */
@@ -1200,31 +1316,21 @@
         return (await fetch(url)).json();
     }
 
-    async function post(url, body) {
-        return (await fetch(url, {
+    async function post(url, body, extra = {}) {
+        const res = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrf()
             },
-            body: JSON.stringify(body)
-        })).json();
+            body: JSON.stringify(body),
+            ...extra
+        });
+        const data = await res.json();
+        // Callers tell a rejected move from a busy engine by the status.
+        if (data && typeof data === 'object') data.httpStatus = res.status;
+        return data;
     }
-    async function withLoading(btn, asyncFn) {
-        if (!btn || btn.classList.contains('is-loading')) {
-            // Already loading (or no button passed) — don't double-fire.
-            return asyncFn ? asyncFn() : undefined;
-        }
-        btn.classList.add('is-loading');
-        btn.disabled = true;
-        try {
-            return await asyncFn();
-        } finally {
-            btn.classList.remove('is-loading');
-            btn.disabled = false;
-        }
-    }
-
     function isAITurn() {
         return gameMode === 'ai' && turn !== playerColor && !gameOver;
     }
@@ -1409,6 +1515,15 @@
                     );
                 }
 
+                // The same move as two lengths in the board's own plane, for a
+                // stylesheet that animates .moving itself (the tilted 3D view
+                // cannot use the transform below). The measured size is the
+                // square as drawn on screen, so the square's laid-out width
+                // is used here.
+                const cell = originSquare ? parseFloat(getComputedStyle(originSquare).width) || size : size;
+                p.style.setProperty('--move-x', `${dCol * cell * mult}px`);
+                p.style.setProperty('--move-y', `${dRow * cell * mult}px`);
+
                 p.classList.add('moving');
                 p.style.transition = 'transform 0.25s ease-in-out, opacity 0.2s ease';
                 p.style.transform = `translate(${dCol * size * mult}px, ${dRow * size * mult}px)`;
@@ -1444,7 +1559,8 @@
         }
 
         let capturedSq = sq(tr, tc);
-        const isEnPassant = piece && piece.src.includes('p.png') && fc !== tc && !board[tr][tc];
+        const mover = board[fr][fc];
+        const isEnPassant = piece && mover && mover.toLowerCase() === 'p' && fc !== tc && !board[tr][tc];
         if (isEnPassant) {
             capturedSq = sq(fr, tc);
         }
@@ -1491,12 +1607,23 @@
             }
         });
     }
+    // Enter in a name field starts the game the visible setup screen offers.
+    [whiteNameInput, blackNameInput].forEach(input => {
+        if (!input) return;
+        input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const aiSetup = pveOptions && pveOptions.style.display !== 'none';
+            (aiSetup ? startAIBtn : welcomePvPBtn)?.click();
+        });
+    });
     /* ==========================================================
     LOAD GAME STATE
     ========================================================== */
     async function loadGame() {
-        // Reset AI request sequence and thinking state on load/reconnect to cancel stale requests
-        aiRequestSeq = 0;
+        // Move the AI request sequence on, so a request from before this load is ignored.
+        // Setting it back to 0 would let the next request reuse a live number.
+        aiRequestSeq++;
         analysisRequestSeq++;
         aiThinking = false;
         premoveQueue = [];
@@ -1512,9 +1639,18 @@
             url.searchParams.delete('puzzle_id');
             window.history.replaceState({}, document.title, url.pathname + url.search);
 
+            // The puzzle replaces whatever game the server holds, so look at
+            // that game first and ask if leaving it would cost a rated loss.
+            const current = await get('/api/state/');
+            ratedGame = current.rated === true;
+            gameMode = current.mode || 'pvp';
+            halfMoves = current.move_history ? current.move_history.length : 0;
+            signedIn = current.day_streak !== undefined;
+            const startPuzzle = await confirmForfeit();
+
             try {
-                const response = await fetch(`/api/puzzles/${puzzleId}/`);
-                if (response.ok) {
+                const response = startPuzzle ? await fetch(`/api/puzzles/${puzzleId}/`) : null;
+                if (response && response.ok) {
                     currentPuzzle = await response.json();
                     const solResponse = await fetch(`/api/puzzles/${puzzleId}/solution/`);
                     if (solResponse.ok) {
@@ -1524,7 +1660,8 @@
                     dailyPuzzleMode = true;
                     document.getElementById("whiteClock").style.display = "none";
                     document.getElementById("blackClock").style.display = "none";
-                    document.getElementById("streak-counter").style.display = "block";
+                    const puzzleStreakEl = document.getElementById("puzzle-streak-counter");
+                    if (puzzleStreakEl) puzzleStreakEl.style.display = "block";
                     updateStreakDisplay();
                     if (restartPuzzleBtn) restartPuzzleBtn.style.display = 'block';
                     if (hintPuzzleBtn) hintPuzzleBtn.style.display = 'block';
@@ -1543,8 +1680,8 @@
                     expectedMoveEval = null;
                     initStockfish();
                     precalculateExpectedMoveEval();
-                    const streakData = getPuzzleStreak();
-                    updateStreakDisplay();
+                    await refreshPuzzleStreak();
+                    const streakData = shownPuzzleStreak();
                     showStatus(
                         `${currentPuzzle.title} | 🔥 Current Streak: ${streakData.streak}`,
                         false
@@ -1561,16 +1698,21 @@
 
         const data = await get('/api/state/');
 
-        if (data.time_limit !== undefined) {
+        // A puzzle's clock is not a time control anyone chose; keep the last game's for a rematch.
+        if (data.time_limit !== undefined && !dailyPuzzleMode) {
             selectedMins = data.time_limit / 60;
         }
-        if (data.increment !== undefined) {
+        if (data.increment !== undefined && !dailyPuzzleMode) {
             selectedIncrement = data.increment;
         }
 
         board = parseBoard(data.board);
+        liveBoard = board;
         if (data.fen) liveFen = data.fen;
+        if (data.pgn) livePgn = data.pgn;
         turn = data.current_turn;
+        // A reloaded game keeps the status "active"; in_check says the rest.
+        inCheck = data.game_status === 'check' || data.in_check === true;
         whiteTime = data.white_time;
         blackTime = data.black_time;
         maxWhiteTime = Math.max(whiteTime || 0, Math.round(selectedMins * 60));
@@ -1582,15 +1724,15 @@
         updateModeButtonsUI(gameMode);
         playerColor = data.player_color || 'white';
         currentDifficulty = data.difficulty || currentDifficulty;
+        ratedGame = data.rated === true;
+        // Only signed-in players get a day streak in the state.
+        signedIn = data.day_streak !== undefined;
 
-        if (flipControls) {
-            flipControls.style.display = (gameMode === 'pvp') ? 'flex' : 'none';
-        }
-
-        if (gameMode === 'ai') {
-            flipped = (playerColor === 'black');
-        } else {
-            flipped = false;
+        // Orientation is taken from the server once. A reload after a tab
+        // switch must not undo a manual flip, and startNewGame sets its own.
+        if (!boardOrientationSet) {
+            flipped = gameMode === 'ai' && playerColor === 'black';
+            boardOrientationSet = true;
         }
 
         if (modeBadge) {
@@ -1609,9 +1751,7 @@
         if (isResumable) {
             if (welcomeResumeBtn) {
                 welcomeResumeBtn.style.display = 'block';
-                welcomeResumeBtn.textContent = data.mode === 'ai'
-                    ? 'Replay Previous Game'
-                    : 'Resume Game';
+                welcomeResumeBtn.textContent = 'Resume Game';
             }
         } else {
             if (welcomeResumeBtn) welcomeResumeBtn.style.display = 'none';
@@ -1638,14 +1778,14 @@
         // Removed static styling for AI clock so it displays the countdown timer.
 
         // Restore check highlight if game was reloaded while in check
-        if (data.game_status === 'check') {
+        if (inCheck) {
             applyCheckHighlight();
         } else {
             highlightCheck();
         }
 
         if (data.game_status && data.game_status !== 'active' && data.game_status !== 'ok') {
-            handleGameStatus(data.game_status, data.draw_reason);
+            handleGameStatus(data.game_status, data.draw_reason, data.winner);
         }
         if (!welcomeOverlay.classList.contains('active')) {
             queueAIMoveIfNeeded();
@@ -1670,7 +1810,8 @@
 
         if (gameMode === 'ai') {
             const diffLabel = (currentDifficulty || 'medium').toUpperCase();
-            const humanName = currentWhiteName || document.getElementById('whiteNameInput')?.value?.trim()?.slice(0, 17) || 'Player';
+            const humanName = (playerColor === 'white' ? currentWhiteName : currentBlackName)
+                || document.getElementById('whiteNameInput')?.value?.trim()?.slice(0, 17) || 'Player';
             if (playerColor === 'white') {
                 wName = humanName;
                 bName = `AI (Black)`;
@@ -1689,7 +1830,8 @@
                     const textNode = document.createTextNode(`AI (${playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
                     const badge = document.createElement('span');
                     badge.textContent = diffLabel;
-                    badge.style.cssText = 'color:#f0c040 !important; font-weight:700; font-size:0.95em; letter-spacing:0.2px;';
+                    // easy, medium or hard: the stylesheet colours the badge by level
+                    badge.dataset.difficulty = diffLabel.toLowerCase();
                     badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
                     aiLabel.appendChild(textNode);
                     aiLabel.appendChild(badge);
@@ -1743,6 +1885,8 @@
         updateEvalBarVisibility();
         const bc = document.querySelector('.board-container');
         if (bc) bc.classList.toggle('flipped', flipped);
+        // The squares are about to be replaced; note keyboard focus so it can be put back.
+        const hadFocus = boardEl.contains(document.activeElement);
         boardEl.innerHTML = '';
         for (let vr = 0; vr < 8; vr++) {
             for (let vc = 0; vc < 8; vc++) {
@@ -1805,7 +1949,9 @@
                     dragSrc = null;
                 };
 
-                d.setAttribute('tabindex', '0');
+                // One tab stop for the whole board; the arrow keys move between squares.
+                d.setAttribute('tabindex', (r === boardFocus.r && c === boardFocus.c) ? '0' : '-1');
+                d.onfocus = () => moveBoardFocus(r, c);
                 d.setAttribute('role', 'gridcell');
                 d.setAttribute('data-row', r);
                 d.setAttribute('data-col', c);
@@ -1817,6 +1963,14 @@
         }
         syncPieces();
         updateLabels();
+        if (hadFocus) sq(boardFocus.r, boardFocus.c).focus();
+    }
+
+    function moveBoardFocus(r, c) {
+        if (boardFocus.r === r && boardFocus.c === c) return;
+        sq(boardFocus.r, boardFocus.c).setAttribute('tabindex', '-1');
+        sq(r, c).setAttribute('tabindex', '0');
+        boardFocus = { r, c };
     }
 
     function updateLabels() {
@@ -1846,6 +2000,7 @@
             img.draggable = false;
             // Keep this so drops work smoothly on occupied squares
             img.ondragover = e => e.preventDefault();
+            img.onerror = onPieceImageError;
             el.appendChild(img);
         }
         refreshHighlights();
@@ -1859,17 +2014,18 @@
             const r = parseInt(el.dataset.r);
             const c = parseInt(el.dataset.c);
             const p = board[r][c];
-            const isPlayable = p && (
-                pColor(p) === turn ||
-                (gameMode === 'ai' && pColor(p) === playerColor)
-            );
+            // Against the engine only the player's own pieces can be picked up
+            // (on the engine's turn too, to queue a premove); the engine's never.
+            const isPlayable = !!p && pColor(p) === (gameMode === 'ai' ? playerColor : turn);
             img.classList.toggle('playable', isPlayable);
         });
     }
 
     function refreshHighlights() {
+        const checked = checkedSquare();
         boardEl.querySelectorAll('.square').forEach(el => {
-            el.classList.remove('selected', 'last-move', 'in-check', 'custom-highlight');
+            el.classList.remove('selected', 'last-move', 'custom-highlight');
+            el.classList.toggle('in-check', el === checked);
             el.querySelectorAll('.move-dot, .capture-ring').forEach(n => n.remove());
         });
 
@@ -1909,6 +2065,7 @@
     }
 
     function highlightCheck() {
+        inCheck = false;
         boardEl.querySelectorAll('.square').forEach(el => {
             el.classList.remove('in-check');
         });
@@ -1916,17 +2073,24 @@
 
     function applyCheckHighlight() {
         highlightCheck();
+        inCheck = true;
+        const checked = checkedSquare();
+        if (checked) checked.classList.add('in-check');
+    }
+
+    // The square of the king in check, for as long as the board shows the
+    // live position. An earlier move or a replay is not marked.
+    function checkedSquare() {
+        if (!inCheck || replayMode || stepperIndex < gameFens.length - 1) return null;
         // Use turn to find the king that's in check
         // After AI moves, turn has switched back to the player being checked
         const kingPiece = turn === 'white' ? 'K' : 'k';
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
-                if (board[r][c] === kingPiece) {
-                    sq(r, c).classList.add('in-check');
-                    return;
-                }
+                if (board[r][c] === kingPiece) return sq(r, c);
             }
         }
+        return null;
     }
 
     // converts row/col to chess notation e.g. row=0,col=0 → "a8"
@@ -1941,11 +2105,14 @@
         let newRow = row;
         let newCol = col;
 
+        // Rows and columns count from White's side, so a flipped board reverses the arrows.
+        const step = flipped ? -1 : 1;
+
         switch (e.key) {
-            case 'ArrowUp': e.preventDefault(); newRow = row - 1; break;
-            case 'ArrowDown': e.preventDefault(); newRow = row + 1; break;
-            case 'ArrowLeft': e.preventDefault(); newCol = col - 1; break;
-            case 'ArrowRight': e.preventDefault(); newCol = col + 1; break;
+            case 'ArrowUp': e.preventDefault(); newRow = row - step; break;
+            case 'ArrowDown': e.preventDefault(); newRow = row + step; break;
+            case 'ArrowLeft': e.preventDefault(); newCol = col - step; break;
+            case 'ArrowRight': e.preventDefault(); newCol = col + step; break;
             case 'Enter':
             case ' ':
                 e.preventDefault();
@@ -2085,6 +2252,12 @@
         return (p === 'P' && tr === 0) || (p === 'p' && tr === 7);
     }
 
+    // False only when chess.js is loaded and says the piece cannot go there.
+    function isLegalTarget(fr, fc, tr, tc) {
+        const legal = computeLegalMovesClient(fr, fc);
+        return legal === null || legal.some(m => m.row === tr && m.col === tc);
+    }
+
     function showPromoModal(color) {
         const prefix = color === 'white' ? 'w' : 'b';
         const pieces = [
@@ -2138,6 +2311,13 @@
         await executeMove(fr, fc, tr, tc, choice, true);
     }
 
+    // Back out of a promotion: nothing has been sent yet, the pawn stays where it was.
+    function cancelPromotion() {
+        if (!pendingPromo) return;
+        hidePromoModal();
+        deselect();
+    }
+
     async function tryMove(fr, fc, tr, tc) {
         if (paused || gameOver) return;
 
@@ -2178,7 +2358,9 @@
             return;
         }
 
-        if (isPromotionMove(fr, fc, tr)) {
+        // Ask for a piece only when the pawn can really get there. Anything else
+        // goes to the server as a plain move and comes back with its message.
+        if (isPromotionMove(fr, fc, tr) && isLegalTarget(fr, fc, tr, tc)) {
             await animateMove(fr, fc, tr, tc);
 
             pendingPromo = { fr, fc, tr, tc };
@@ -2218,24 +2400,20 @@
         reconnecting = false;
     }
     
+    // Take the server's state after it refused a request. A state read reports
+    // "paused" whenever the clock has been idle for a while, and that must not
+    // stop a game nobody paused.
+    async function resync() {
+        const wasPaused = paused;
+        await loadGame();
+        if (paused && !wasPaused && !gameOver) await resumeGame();
+    }
+
     async function executeMove(fr, fc, tr, tc, promotionPiece, skipAnimation = false) {
+        // A second click while the first request is out would send the move twice.
+        if (moveInFlight) return { success: false, message: 'Move already in progress' };
+        moveInFlight = true;
         try {
-            // Opening Trainer validation (BEFORE backend update)
-            if (typeof openingTrainerMode !== 'undefined' && openingTrainerMode) {
-                const expectedMove = openingTrainerSteps[currentTrainerStep]?.expected_move;
-                if (expectedMove) {
-                    const playedMove =
-                        `${String.fromCharCode(97 + fc)}${8 - fr}` +
-                        `${String.fromCharCode(97 + tc)}${8 - tr}`;
-
-                    if (playedMove.toLowerCase() !== expectedMove.toLowerCase()) {
-                        showStatus(`Incorrect move. Expected: ${expectedMove}`, true);
-                        deselect();
-                        return { success: false, message: 'Incorrect move' };
-                    }
-                }
-            }
-
             const body = {
                 from_row: fr, from_col: fc,
                 to_row: tr, to_col: tc,
@@ -2244,22 +2422,26 @@
 
             const data = await post('/api/move/', body);
 
-            // Advance Opening Trainer step after successful backend move
-            if (typeof openingTrainerMode !== 'undefined' && openingTrainerMode && data.valid) {
-                currentTrainerStep++;
-                if (currentTrainerStep >= openingTrainerSteps.length) {
-                    openingTrainerMode = false;
-                    showStatus("Opening sequence completed!", false);
-                }
-            }
-
             if (data.valid) {
                 illegalMoveCount = 0;
                 playSound(data);
                 if (!skipAnimation) await animateMove(fr, fc, tr, tc);
                 board = parseBoard(data.board);
+                liveBoard = board;
                 if (data.fen) liveFen = data.fen;
+                if (data.pgn) livePgn = data.pgn;
                 turn = data.current_turn;
+                inCheck = data.game_status === 'check';
+
+                // The puzzle branches below return early, so they draw the move with this.
+                const showMove = () => {
+                    lastMove = { from: [fr, fc], to: [tr, tc] };
+                    selected = null;
+                    hints = [];
+                    updateTurn();
+                    updateMoves(data.move_history);
+                    updateCaptured(data.captured_pieces);
+                };
 
                 const hasThreefoldWarning = data.threefold_warning;
 
@@ -2275,7 +2457,8 @@
 
                     const playedMove =
                         `${String.fromCharCode(97 + fc)}${8 - fr}` +
-                        `${String.fromCharCode(97 + tc)}${8 - tr}`;
+                        `${String.fromCharCode(97 + tc)}${8 - tr}` +
+                        (promotionPiece || '');
 
                     const expectedMove =
                         currentPuzzle.solution[puzzleMoveIndex];
@@ -2283,6 +2466,7 @@
                     if (playedMove === expectedMove) {
 
                         clearPuzzleHints();
+                        puzzleMoves.push(playedMove);
 
                         puzzleMoveIndex++;
                         currentPuzzleFen = data.fen;
@@ -2291,44 +2475,47 @@
 
                         if (puzzleMoveIndex >= currentPuzzle.solution.length) {
 
-                            const streak = updatePuzzleStreak();
+                            const { streak, longest } = await submitPuzzleSolution();
                             updateStreakDisplay();
                             if (data.game_status === 'checkmate') {
                                 // Transition to standard game-over overlay for checkmates
                             } else {
+                                showMove();
                                 showConfirm(
                                     "🎉 Puzzle Solved!",
                                     `🔥 Current Streak: ${streak}<br> 
-                                                        🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                                        🏆 Best Streak: ${longest}<br>
                                                         Come back tomorrow for a new challenge.`,
                                     () => {
                                         gameLayout.style.visibility = "hidden";
                                         welcomeOverlay.classList.add("active");
                                     },
-                                    "#f0c040"
+                                    "gold"
                                 );
-                                return;
+                                return { success: true };
                             }
                         }
                     } else {
                         // Start Stockfish validation for alternative moves
+                        showMove();
                         puzzleAnalyzing = true;
                         const origStatus = document.getElementById("game-status") ? document.getElementById("game-status").textContent : "";
                         showStatus("Analyzing move with Stockfish...", false);
 
                         validateMoveWithStockfish(currentPuzzleFen, data.fen, expectedMove)
-                            .then((isCorrect) => {
+                            .then(async (isCorrect) => {
                                 puzzleAnalyzing = false;
                                 showStatus(origStatus, false);
 
                                 if (isCorrect) {
+                                    puzzleMoves.push(playedMove);
                                     puzzleMoveIndex++;
                                     currentPuzzleFen = data.fen;
                                     expectedMoveEval = null;
                                     precalculateExpectedMoveEval();
 
                                     if (puzzleMoveIndex >= currentPuzzle.solution.length) {
-                                        const streak = updatePuzzleStreak();
+                                        const { streak, longest } = await submitPuzzleSolution();
                                         updateStreakDisplay();
                                         if (data.game_status === 'checkmate') {
                                             lastMove = { from: [fr, fc], to: [tr, tc] };
@@ -2346,24 +2533,25 @@
                                             showConfirm(
                                                 "🎉 Puzzle Solved!",
                                                 `🔥 Current Streak: ${streak}<br> 
-                                                                    🏆 Best Streak: ${getPuzzleStreak().longestStreak}<br>
+                                                                    🏆 Best Streak: ${longest}<br>
                                                                     Come back tomorrow for a new challenge.`,
                                                 () => {
                                                     gameLayout.style.visibility = "hidden";
                                                     welcomeOverlay.classList.add("active");
                                                 },
-                                                "#f0c040"
+                                                "gold"
                                             );
                                         }
+                                    } else if (isAITurn()) {
+                                        // More moves to find: the opponent replies, as it does after the listed move.
+                                        requestAIMove();
                                     }
                                 } else {
                                     showConfirm(
                                         "❌ Incorrect Move!",
                                         "Would you like to try again?",
-                                        () => {
-                                            startDailyPuzzle();
-                                        },
-                                        "#ff4d4d"
+                                        restartCurrentPuzzle,
+                                        "danger"
                                     );
                                 }
                             })
@@ -2374,13 +2562,11 @@
                                 showConfirm(
                                     "❌ Incorrect Move!",
                                     "Would you like to try again?",
-                                    () => {
-                                        startDailyPuzzle();
-                                    },
-                                    "#ff4d4d"
+                                    restartCurrentPuzzle,
+                                    "danger"
                                 );
                             });
-                        return;
+                        return { success: true };
                     }
                 }
 
@@ -2415,9 +2601,6 @@
                     a11yMsg = `${capturer} captured ${capturedColor}'s ${pieceName} on ${targetSquare}. `;
                 } else if (data.move_history && data.move_history.length > 0) {
                     const lastMove = data.move_history[data.move_history.length - 1].notation;
-                    if (window.checkLessonMove && lastMove) {
-                        window.checkLessonMove(lastMove);
-                    }
                     a11yMsg = `${playedColor} played ${lastMove}. `;
                 }
 
@@ -2444,18 +2627,32 @@
                 }
                 return { success: true };
             } else {
-                showStatus(data.message, true);
+                const reason = data.message || data.error || 'Move rejected';
+                showStatus(reason, true);
                 flashBoard();
                 deselect();
                 if (premoveQueue.length > 0) {
                     premoveQueue = [];
                     refreshPremoveHighlight();
                 }
-                return { success: false, message: data.message };
+                if (data.game_status === 'timeout') {
+                    // The server found the mover's clock at zero and has closed the game.
+                    if (data.white_time !== undefined) whiteTime = data.white_time;
+                    if (data.black_time !== undefined) blackTime = data.black_time;
+                    renderClocks();
+                    handleGameStatus('timeout', null, data.winner);
+                } else if (data.httpStatus === 403 || data.httpStatus === 409) {
+                    // The server disagrees about the position or whose turn it is: take its state.
+                    await resync();
+                    showStatus(reason, true);
+                }
+                return { success: false, message: reason };
             }
         } catch (e) {
             await handleReconnect();
             return { success: false, message: 'Connection lost' };
+        } finally {
+            moveInFlight = false;
         }
     }
 
@@ -2499,58 +2696,24 @@
             }
 
             if (data.valid) {
-                playSound(data);
+                aiFailures = 0;
                 const mv = data.ai_move;
-                
-                if (gameMode === 'analysis' && data.ai_move.predicted_responses) {
-                    // Issue #1630: Show predicted responses in Analysis Mode
-                    const predPanel = document.getElementById('aiPredictionPanel');
-                    const predSuggestedMove = document.getElementById('predSuggestedMove');
-                    const predResponsesList = document.getElementById('predResponsesList');
-                    
-                    if (predPanel && predSuggestedMove && predResponsesList) {
-                        const formatEval = (val) => {
-                            if (val === undefined || val === null) return '';
-                            const v = (val / 100).toFixed(2);
-                            return `(${v > 0 ? '+' + v : v})`;
-                        };
-
-                        const moveText = mv.notation || getSquareLabel(mv.to_row, mv.to_col);
-                        predSuggestedMove.textContent = '';
-                        const smStrong = document.createElement('strong');
-                        smStrong.textContent = moveText;
-                        predSuggestedMove.appendChild(smStrong);
-                        predSuggestedMove.appendChild(document.createTextNode(` ${formatEval(mv.eval)}`));
-
-                        predResponsesList.textContent = '';
-                        if (data.ai_move.predicted_responses.length === 0) {
-                            const li = document.createElement('li');
-                            li.textContent = 'No opponent response available. The position may be terminal.';
-                            predResponsesList.appendChild(li);
-                        } else {
-                            data.ai_move.predicted_responses.forEach((resp, index) => {
-                                const li = document.createElement('li');
-                                const respStrong = document.createElement('strong');
-                                respStrong.textContent = `${index + 1}. ${resp.notation}`;
-                                li.appendChild(respStrong);
-                                li.appendChild(document.createTextNode(` ${formatEval(resp.eval)}`));
-                                li.style.marginBottom = '5px';
-                                predResponsesList.appendChild(li);
-                            });
-                        }
-                        
-                        predPanel.style.display = 'block';
-                    }
-                } else {
-                    const predPanel = document.getElementById('aiPredictionPanel');
-                    if (predPanel) predPanel.style.display = 'none';
+                if (!mv) {
+                    // Nothing to play: the game was already decided (mate, stalemate or a draw).
+                    handleGameStatus(data.game_status, data.draw_reason, data.winner);
+                    return;
                 }
-
+                playSound(data);
+                
                 await animateMove(mv.from_row, mv.from_col, mv.to_row, mv.to_col);
                 board = parseBoard(data.board);
+                liveBoard = board;
                 if (data.fen) liveFen = data.fen;
+                if (data.pgn) livePgn = data.pgn;
                 turn = data.current_turn;
-                if (data.threefold_warning) {
+                inCheck = data.game_status === 'check';
+                const hasThreefoldWarning = data.threefold_warning;
+                if (hasThreefoldWarning) {
                     showStatus(
                         '⚠️ This position has appeared twice. One more repetition will trigger a draw.',
                         false
@@ -2583,9 +2746,6 @@
                     a11yMsg = `${capturer} captured ${capturedColor}'s ${pieceName} on ${targetSquare}. `;
                 } else if (data.move_history && data.move_history.length > 0) {
                     const lastMove = data.move_history[data.move_history.length - 1].notation;
-                    if (window.checkLessonMove && lastMove) {
-                        window.checkLessonMove(lastMove);
-                    }
                     a11yMsg = `AI played ${lastMove}. `;
                 }
 
@@ -2623,8 +2783,30 @@
                         }
                     }
                 }
+            } else if (data.game_status === 'timeout') {
+                // A clock ran out while the engine was thinking; the server has closed the game.
+                if (data.white_time !== undefined) whiteTime = data.white_time;
+                if (data.black_time !== undefined) blackTime = data.black_time;
+                renderClocks();
+                handleGameStatus('timeout', null, data.winner);
             } else {
-                showStatus(data.message, true);
+                const reason = data.message || data.error || 'The AI could not move.';
+                aiFailures++;
+                if (data.httpStatus === 503 && aiFailures <= AI_MAX_RETRIES) {
+                    // The engine gave no answer and the game is untouched, so ask again.
+                    showStatus('The AI is taking longer than usual...', false);
+                    setTimeout(() => {
+                        if (seq === aiRequestSeq) queueAIMoveIfNeeded();
+                    }, 1000);
+                } else if (data.httpStatus === 429 || aiFailures > AI_MAX_RETRIES) {
+                    const stop = /[.!?]$/.test(reason) ? '' : '.';
+                    showStatus(`${reason}${stop} Pause and resume to ask the AI again.`, true);
+                } else {
+                    // Any other refusal means this page is out of step with the server
+                    // (paused there, or not the AI's turn). Taking its state settles it,
+                    // and loadGame asks again if the AI is still to move.
+                    await resync();
+                }
             }
             } catch (e) {
                 await handleReconnect();
@@ -2688,53 +2870,15 @@
             return deselect();
         }
 
-        // selecting initial piece
-        if (
-            piece &&
-            (
-                pColor(piece) === turn ||
-                (
-                    aiPremoveMode &&
-                    pColor(piece) === playerColor
-                )
-            )
-        ) {
+        // selecting initial piece: on the engine's turn only the player's own, for a premove
+        if (piece && pColor(piece) === (aiPremoveMode ? playerColor : turn)) {
             return selectPiece(r, c);
         }
     }
 
-    function onDragStart(e, r, c) {
-
-        const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
-        const vBoard = isPremoveMode ? getVirtualBoard() : board;
-        const piece = vBoard[r][c];
-        if (!piece) {
-            if (blindfoldMode) {
-                showStatus('No piece there', true);
-                flashBoard();
-            }
-            return e.preventDefault();
-        }
-        if (paused || gameOver) return e.preventDefault();
-
-        const isPremovedDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
-
-        // If it's the AI's turn, only allow dragging if it's a valid premove
-        if (gameMode === 'ai' && turn !== playerColor && !isPremovedDrag) {
-            return e.preventDefault();
-        }
-
-        // For all normal moves, you can only drag your own pieces on your turn
-        if (!isPremovedDrag && pColor(piece) !== turn) {
-            return e.preventDefault();
-        }
-
-        dragging = true;
-        dragSrc = { r, c };
-        selectPiece(r, c);
-    }
-
     async function onDrop(e, tr, tc) {
+        // Otherwise the browser may treat the dragged text as a link to open.
+        e.preventDefault();
         if (replayMode || viewingPastState) return;
         if (!dragSrc) return;
         await tryMove(dragSrc.r, dragSrc.c, tr, tc);
@@ -2743,7 +2887,7 @@
 
     function resetReplayBoard() {
         if (window.Chess) {
-            replayBoard = new window.Chess();
+            replayBoard = new window.Chess(startingFen());
         }
     }
 
@@ -2789,7 +2933,7 @@
                 if (replayBoard && replayBoard.fen() === fen) {
                     updateEvalBar(result, fen);
                 }
-            });
+            }).catch(() => { }); // rejected when a newer position replaces this request
         }
     }
     function goToReplayMove(index) {
@@ -2799,7 +2943,7 @@
             return;
         }
 
-        replayBoard = new window.Chess();
+        replayBoard = new window.Chess(startingFen());
 
         try {
 
@@ -2823,8 +2967,10 @@
         }
     }
 
-    function rebuildGameFens(moveHistory, startingFen) {
-        const tempChess = new window.Chess(startingFen || DEFAULT_START_FEN);
+    function rebuildGameFens(moveHistory, startFen) {
+        // Without chess.js there is nothing to replay with; the stepper only has the live position.
+        if (!window.Chess) return [liveFen];
+        const tempChess = new window.Chess(startFen || DEFAULT_START_FEN);
         const fens = [tempChess.fen()];
         if (moveHistory && moveHistory.length > 0) {
             for (let m of moveHistory) {
@@ -2867,41 +3013,25 @@ function renderStepperPosition(fen) {
 
 function updateStepperUI() {
     const fen = gameFens[stepperIndex];
-    if (fen) renderStepperPosition(fen);
+    // The latest move shows the board the server sent. The chess.js replay is
+    // only for looking back, and can be wrong if the starting FEN is not known here.
+    if (liveBoard && stepperIndex >= gameFens.length - 1) {
+        board = liveBoard.map(row => [...row]);
+        buildBoard();
+    } else if (fen) {
+        renderStepperPosition(fen);
+    }
 
     viewingPastState = (stepperIndex < gameFens.length - 1);
 
     updateEvalBarVisibility();
-    
-    if (gameMode === 'analysis' && currentAnalysisData) {
-        let scoreVal = null;
-        let isMate = false;
-        
-        if (stepperIndex < currentAnalysisData.move_analysis_details.length) {
-            scoreVal = currentAnalysisData.move_analysis_details[stepperIndex].eval;
-        } else if (stepperIndex === currentAnalysisData.move_analysis_details.length) {
-            scoreVal = currentAnalysisData.final_eval;
-        }
-        
-        if (scoreVal !== null && scoreVal !== undefined) {
-            if (Math.abs(scoreVal) > 90000) {
-                isMate = true;
-            }
-            const evalObj = {
-                type: isMate ? 'mate' : 'cp',
-                value: scoreVal,
-                absolute: true
-            };
-            updateEvalBar(evalObj, fen);
-        } else {
-            updateEvalBar(null, fen);
-        }
-    } else if (fen && (gameMode === 'ai' || gameMode === 'analysis') && !dailyPuzzleMode) {
+
+    if (fen && gameMode === 'ai' && !dailyPuzzleMode) {
         getStockfishEval(fen).then(result => {
             if (gameFens[stepperIndex] === fen) {
                 updateEvalBar(result, fen);
             }
-        });
+        }).catch(() => { }); // rejected when a newer position replaces this request
     }
 
     const resumeBtn = document.getElementById('resumeGameBtn');
@@ -2922,7 +3052,18 @@ function updateStepperUI() {
         const activeMoveEl = document.querySelector(`.moves-list span[data-move-index="${stepperIndex - 1}"]`);
         if (activeMoveEl) {
             activeMoveEl.classList.add('selected-move');
-            activeMoveEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Scroll the move list, and only the move list. scrollIntoView
+            // also scrolls the page, and where the list sits under the board
+            // (phones, tablets) that pushed the board up under the navbar
+            // after every move.
+            const list = activeMoveEl.closest('.moves-list');
+            if (list) {
+                const box = list.getBoundingClientRect();
+                const row = activeMoveEl.getBoundingClientRect();
+                const by = row.top < box.top ? row.top - box.top : Math.max(0, row.bottom - box.bottom);
+                if (by && typeof list.scrollBy === 'function') list.scrollBy({ top: by, behavior: 'smooth' });
+                else if (by) list.scrollTop += by;
+            }
         }
     }
 }
@@ -2955,8 +3096,14 @@ function updateStepperUI() {
                 label = "AI is thinking...";
             }
         }
-        badge.textContent = label;
-        if (turnBadgeText) turnBadgeText.textContent = pName;
+        // The label goes in the badge's own span, which is then its only
+        // child: the "'s Turn" the template leaves after it would repeat.
+        if (turnBadgeText) {
+            turnBadgeText.textContent = label;
+            badge.replaceChildren(turnBadgeText);
+        } else {
+            badge.textContent = label;
+        }
 
         wCapEl.classList.toggle('active', turn === 'white');
         bCapEl.classList.toggle('active', turn === 'black');
@@ -2972,8 +3119,9 @@ function updateStepperUI() {
     }
 
     function updateMoves(history) {
-    const startingFen = localStorage.getItem('checkora_starting_fen') || DEFAULT_START_FEN;
-    gameFens = rebuildGameFens(history, startingFen);
+    const startFen = startingFen();
+    halfMoves = history ? history.length : 0;
+    gameFens = rebuildGameFens(history, startFen);
 
     if (!viewingPastState) {
         stepperIndex = gameFens.length - 1;
@@ -2985,21 +3133,31 @@ function updateStepperUI() {
         return;
     }
     movesEl.innerHTML = '';
-    for (let i = history.length - 1; i >= 0; i -= 2) {
-        const whiteIdx = i % 2 === 0 ? i : i - 1;
+    // When the game was set up with Black to move, the first entry is Black's:
+    // White's column starts with a gap and numbering starts at the FEN's move number.
+    const fenParts = startFen.split(' ');
+    const blackFirst = fenParts[1] === 'b' ? 1 : 0;
+    const firstMoveNum = parseInt(fenParts[5], 10) || 1;
+    for (let slot = history.length - 1 + blackFirst; slot >= 0; slot -= 2) {
+        const whiteSlot = slot % 2 === 0 ? slot : slot - 1;
+        const whiteIdx = whiteSlot - blackFirst;
         const blackIdx = whiteIdx + 1;
-        const moveNum = Math.floor(whiteIdx / 2) + 1;
+        const moveNum = Math.floor(whiteSlot / 2) + firstMoveNum;
         const row = document.createElement('div');
         row.className = 'move-row';
 
         const whiteSpan = document.createElement('span');
         whiteSpan.className = 'move-white';
-        whiteSpan.textContent = history[whiteIdx]?.notation ?? '';
-        whiteSpan.dataset.moveIndex = whiteIdx;
-        whiteSpan.onclick = () => {
-            stepperIndex = whiteIdx + 1;
-            updateStepperUI();
-        };
+        if (whiteIdx < 0) {
+            whiteSpan.textContent = '...';
+        } else {
+            whiteSpan.textContent = history[whiteIdx]?.notation ?? '';
+            whiteSpan.dataset.moveIndex = whiteIdx;
+            whiteSpan.onclick = () => {
+                stepperIndex = whiteIdx + 1;
+                updateStepperUI();
+            };
+        }
 
         const numSpan = document.createElement('span');
         numSpan.className = 'move-num';
@@ -3069,7 +3227,7 @@ function updateStepperUI() {
         statusEl.className = 'status-bar' + (err ? ' error' : '');
     }
 
-    function handleGameStatus(status, drawReason) {
+    function handleGameStatus(status, drawReason, winner) {
         if (dailyPuzzleMode && status !== 'checkmate') {
             return false;
         }
@@ -3087,6 +3245,13 @@ function updateStepperUI() {
             endGame('draw', turn, drawReason).catch(e => console.error("Error in endGame:", e));
             return true;
         }
+        if (status === 'timeout') {
+            // An older server does not name the winner; then it is the side with time left.
+            let flagged = whiteTime <= 0 ? 'white' : (blackTime <= 0 ? 'black' : turn);
+            if (winner) flagged = winner === 'white' ? 'black' : 'white';
+            endGame('timeout', flagged).catch(e => console.error("Error in endGame:", e));
+            return true;
+        }
         return false;
     }
 
@@ -3094,8 +3259,7 @@ function updateStepperUI() {
     async function endGame(reason, loserColor, drawReason = null) {
         if (gameOver) return;
         gameOver = true;
-        currentAnalysisData = null;
-        
+
         let title = '', message = '';
         let isCelebration = false;
 
@@ -3215,9 +3379,6 @@ function updateStepperUI() {
             console.log("FINAL RAW MOVES:", rawAnalysisMoves);
         }
 
-        if (window.Chess) {
-            replayBoard = new window.Chess();
-        }
         resetReplayBoard();
 
         if (replayControls) {
@@ -3479,7 +3640,7 @@ function updateStepperUI() {
         let fenHistory = [];
         if (window.Chess) {
             try {
-                let tempChess = new window.Chess();
+                let tempChess = new window.Chess(startingFen());
                 fenHistory.push(tempChess.fen());
                 for (let move of replayMoves) {
                     let res = tempChess.move(move);
@@ -3495,16 +3656,21 @@ function updateStepperUI() {
         
         const currentAnalysisSeq = ++analysisRequestSeq;
 
-        post('/api/analyze-game/', {
-            moves: rawAnalysisMoves,
-            fen_history: fenHistory,
-            result: resultState,
-            reason: reason
-        }).then(analysisData => {
+        // The analysis is for signed-in players; a guest's request is refused with a 401.
+        // It replays the moves from the normal starting position, so it means
+        // nothing for a puzzle or a game set up from a FEN; those are skipped.
+        const fromStart = !dailyPuzzleMode && startingFen().split(' ')[0] === DEFAULT_START_FEN.split(' ')[0];
+        const analysis = document.documentElement.dataset.auth === '1' && fromStart
+            ? post('/api/analyze-game/', {
+                moves: rawAnalysisMoves,
+                fen_history: fenHistory,
+                result: resultState,
+                reason: reason
+            })
+            : Promise.resolve(null);
+        analysis.then(analysisData => {
             if (!analysisData) return;
             if (currentAnalysisSeq !== analysisRequestSeq) return;
-            
-            currentAnalysisData = analysisData;
 
             const openingNameEl = document.getElementById('resOpeningName');
             if (openingNameEl) {
@@ -3527,8 +3693,10 @@ function updateStepperUI() {
             const accuracyEl = document.getElementById('resAccuracyScore');
             const panelAccuracyEl = document.getElementById('panelAccuracyScore');
             if (accuracyEl && analysisData.accuracy !== undefined) {
-                accuracyEl.textContent = `${analysisData.accuracy}%`;
-                if (panelAccuracyEl) panelAccuracyEl.textContent = `${analysisData.accuracy}%`;
+                // null: no move could be classified
+                const accuracyText = analysisData.accuracy === null ? '-' : `${analysisData.accuracy}%`;
+                accuracyEl.textContent = accuracyText;
+                if (panelAccuracyEl) panelAccuracyEl.textContent = accuracyText;
             }
 
             const mistakesEl = document.getElementById('resMistakesCount');
@@ -3546,29 +3714,38 @@ function updateStepperUI() {
             const tbody = document.getElementById('postGameAnalysisTableBody');
             if (tbody && analysisData.move_analysis_details) {
                 tbody.innerHTML = '';
-                analysisData.move_analysis_details.forEach(detail => {
+                const panel = document.getElementById('postGameAnalysisPanel');
+                if (panel) {
+                    panel.style.display = analysisData.move_analysis_details.length ? 'block' : 'none';
+                    let cutShort = document.getElementById('analysisTruncatedNote');
+                    if (!cutShort) {
+                        cutShort = document.createElement('p');
+                        cutShort.id = 'analysisTruncatedNote';
+                        panel.appendChild(cutShort);
+                    }
+                    cutShort.textContent = analysisData.truncated
+                        ? 'The analysis ran out of time and covers only the first moves.'
+                        : '';
+                }
+                analysisData.move_analysis_details.forEach((detail, index) => {
                     const tr = document.createElement('tr');
-                    tr.style.borderBottom = '1px solid #333';
-                    
+                    // best, inaccuracy, mistake, blunder or unknown: the stylesheet colours the row's verdict
+                    tr.dataset.verdict = detail.class.toLowerCase();
+
                     const tdMove = document.createElement('td');
-                    tdMove.style.padding = '5px';
                     tdMove.textContent = detail.move_num;
                     tr.appendChild(tdMove);
 
                     const tdPlayed = document.createElement('td');
-                    tdPlayed.style.padding = '5px';
                     tdPlayed.textContent = detail.played;
                     tr.appendChild(tdPlayed);
 
                     const tdBest = document.createElement('td');
-                    tdBest.style.padding = '5px';
                     tdBest.textContent = detail.best;
                     tr.appendChild(tdBest);
 
                     const tdClass = document.createElement('td');
-                    tdClass.style.padding = '5px';
-                    tdClass.style.color = detail.class === 'Best' ? '#4caf50' : '#f44336';
-                    
+
                     let nextEval = null;
                     if (index + 1 < analysisData.move_analysis_details.length) {
                         nextEval = analysisData.move_analysis_details[index + 1].eval;
@@ -3602,10 +3779,10 @@ function updateStepperUI() {
                     } else if (rawAnalysisMoves.length > 2) {
                         bestMoveEl.textContent = `${rawAnalysisMoves[2]} (Book)`;
                     } else {
-                        bestMoveEl.textContent = 'Standard Game';
+                        bestMoveEl.textContent = '–';
                     }
                 } else {
-                    bestMoveEl.textContent = 'Standard Game';
+                    bestMoveEl.textContent = '–';
                 }
             }
 
@@ -4053,7 +4230,8 @@ function updateStepperUI() {
             function startTimer() {
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
-                    if (paused || gameOver) return;
+                    // Puzzles hide the clocks and are not timed.
+                    if (paused || gameOver || dailyPuzzleMode) return;
 
             // fix: in AI mode, tick only ONE clock exclusively
             if (gameMode === 'ai') {
@@ -4091,11 +4269,40 @@ function updateStepperUI() {
             }
 
             if (turn === 'white' && whiteTime === 0) {
-                endGame('timeout', 'white');
+                flagFall('white');
             } else if (turn === 'black' && blackTime === 0) {
-                endGame('timeout', 'black');
+                flagFall('black');
             }
         }, 1000);
+    }
+
+    // This page's clock reached zero. The server keeps its own clock and records
+    // the result, so ask it. While its clock still has time, the timer runs on
+    // from the server's figures and this is called again at the next zero.
+    async function flagFall(color) {
+        if (flagFallPending || gameOver) return;
+        flagFallPending = true;
+        try {
+            const data = await post('/api/timeout/', {});
+            if (data.valid) {
+                const loser = data.winner ? (data.winner === 'white' ? 'black' : 'white') : color;
+                endGame('timeout', loser);
+            } else if (data.white_time !== undefined) {
+                whiteTime = data.white_time;
+                blackTime = data.black_time;
+                renderClocks();
+            } else if (data.httpStatus !== 409) {
+                // No game there, or one that is already over: show the flag fall.
+                // (After a 409 the next tick simply asks again.)
+                endGame('timeout', color);
+            }
+        } catch (e) {
+            // A server without this URL answers with a page, and offline there is
+            // no answer at all. End the game here, as the page always did.
+            endGame('timeout', color);
+        } finally {
+            flagFallPending = false;
+        }
     }
 
     function toggleBoardOrientation() {
@@ -4103,12 +4310,15 @@ function updateStepperUI() {
         buildBoard();
     }
 
-    async function pauseGame() {
+    async function pauseGame(extra) {
         if (paused) return;
-        const d = await post('/api/pause/', { pause: true });
+        aiFailures = 0;
+        const d = await post('/api/pause/', { pause: true }, extra);
+        // An error body has none of these fields; leave the clocks as they are.
+        if (d.paused === undefined) return;
         paused = d.paused;
-        whiteTime = d.white_time;
-        blackTime = d.black_time;
+        if (d.white_time !== undefined) whiteTime = d.white_time;
+        if (d.black_time !== undefined) blackTime = d.black_time;
         updatePauseUI();
         renderClocks();
     }
@@ -4146,15 +4356,50 @@ function updateStepperUI() {
     WELCOME & CONFIRMATION LOGIC
     ========================================================== */
     let confirmCallback = null;
-    function showConfirm(title, msg, callback, titleColor = '#ff6b6b') {
+    let confirmCancel = null;
+    // tone is 'danger' for a question that gives something up and 'gold' for
+    // the rest. It goes on the title as data-tone, for the stylesheet.
+    function showConfirm(title, msg, callback, tone = 'danger', onCancel = null) {
         if (confirmTitle) {
             confirmTitle.textContent = title;
-            confirmTitle.style.color = titleColor;
+            confirmTitle.dataset.tone = tone;
         }
         if (confirmMessage) confirmMessage.innerHTML = msg;
+        // The time and difficulty pickers belong to the new-AI-game question only.
+        ['confirmTimerContainer', 'confirmDifficultyContainer'].forEach(id => {
+            const box = document.getElementById(id);
+            if (box) box.style.display = 'none';
+        });
         confirmCallback = callback;
+        confirmCancel = onCancel;
         boardEl.classList.add('confirm-open');
         confirmOverlay.classList.add('active');
+    }
+
+    function newGameForfeits() {
+        return ratedGame && gameMode === 'ai' && !gameOver && halfMoves >= 5;
+    }
+
+    // Added to the "start over?" questions when saying yes costs a rated game.
+    function forfeitNote() {
+        return newGameForfeits()
+            ? '<br><br><b>This game is rated. Leaving it now counts as a loss.</b>'
+            : '';
+    }
+
+    // Resolves true when the game on the board may be replaced. The buttons that
+    // already ask "start over?" set forfeitAccepted; any other way in is asked here.
+    function confirmForfeit() {
+        if (!newGameForfeits() || forfeitAccepted) return Promise.resolve(true);
+        return new Promise(resolve => {
+            showConfirm(
+                "Abandon Game?",
+                "Your game against the AI is rated. Starting a new game now counts it as a loss.<br>Start a new game anyway?",
+                () => { forfeitAccepted = true; resolve(true); },
+                'danger',
+                () => resolve(false)
+            );
+        });
     }
 
     function showSideSelectionModal(onChoose) {
@@ -4176,27 +4421,31 @@ function updateStepperUI() {
     }
 
     function requestNewGame(mode) {
-        const diffContainer = document.getElementById('confirmDifficultyContainer');
-        if (mode === 'ai') {
-            diffContainer.style.display = 'block';
-        } else {
-            diffContainer.style.display = 'none';
-        }
-
         showConfirm(
             "Abandon Game?",
-            "Your current progress will be lost.<br>Are you sure you want to start a new game?",
+            "Your current progress will be lost.<br>Are you sure you want to start a new game?" + forfeitNote(),
             () => {
+                forfeitAccepted = true;
                 const diff = document.getElementById('confirmDifficultySelect').value;
-                const timeLimitMins = parseInt(document.getElementById('confirmTimerSelect').value, 10);
+                // "minutes|increment"; startNewGame splits it
+                const timeControl = document.getElementById('confirmTimerSelect').value;
                 if (mode === 'ai') {
-                    showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeLimitMins));
+                    showSideSelectionModal(side => startNewGame('ai', side, diff, null, timeControl));
                 } else {
-                    startNewGame('pvp', 'white', diff, null, timeLimitMins);
+                    startNewGame('pvp', 'white', diff, null, timeControl);
                 }
             },
-            '#ff6b6b'
+            'danger'
         );
+
+        // Offer the time control of the game being left, when the list has it.
+        const timerSelect = document.getElementById('confirmTimerSelect');
+        const current = `${selectedMins}|${selectedIncrement}`;
+        if (Array.from(timerSelect.options).some(o => o.value === current)) {
+            timerSelect.value = current;
+        }
+        document.getElementById('confirmTimerContainer').style.display = 'block';
+        document.getElementById('confirmDifficultyContainer').style.display = (mode === 'ai') ? 'block' : 'none';
     }
 
     async function offerDraw() {
@@ -4212,11 +4461,12 @@ function updateStepperUI() {
                 drawOverlay.classList.add('active');
                 await pauseGame();
             },
-            '#f0c040'
+            'gold'
         );
     }
 
     async function startNewGame(mode, pColor = 'white', difficulty = 'medium', fen = null, timeLimitMins = null, overrideNames = null, isPuzzle = false) {
+        if (!(await confirmForfeit())) return false;
         evaluationCache = {};
         maxWhiteTime = 0;
         maxBlackTime = 0;
@@ -4229,15 +4479,23 @@ function updateStepperUI() {
                 stockfishWorker.terminate();
                 stockfishWorker = null;
             }
+            if (restartPuzzleBtn) restartPuzzleBtn.style.display = 'none';
+            if (hintPuzzleBtn) hintPuzzleBtn.style.display = 'none';
+            const puzzleStreakEl = document.getElementById("puzzle-streak-counter");
+            if (puzzleStreakEl) puzzleStreakEl.style.display = "none";
+        } else {
+            puzzleMoves = [];
         }
         const analysisPanel = document.getElementById('postGameAnalysisPanel');
         if (analysisPanel) analysisPanel.style.display = 'none';
         const tbody = document.getElementById('postGameAnalysisTableBody');
         if (tbody) tbody.innerHTML = '';
         replayMode = false;
-        // Show clocks for normal games
-        document.getElementById("whiteClock").style.display = "";
-        document.getElementById("blackClock").style.display = "";
+        // Show clocks for normal games. A puzzle has hidden them and is not timed.
+        if (!isPuzzle) {
+            document.getElementById("whiteClock").style.display = "";
+            document.getElementById("blackClock").style.display = "";
+        }
 
         const streakCounter =
             document.getElementById("streak-counter");
@@ -4263,8 +4521,9 @@ function updateStepperUI() {
         if (replayControls) {
             replayControls.classList.add('hidden');
         }
-        // Reset AI request sequence and thinking state on new game
-        aiRequestSeq = 0;
+        // Move the AI request sequence on so a request from the old game is ignored
+        aiRequestSeq++;
+        aiFailures = 0;
         analysisRequestSeq++;
         aiThinking = false;
         premoveQueue = [];
@@ -4289,16 +4548,24 @@ function updateStepperUI() {
         }
 
         const normalizeName = (name, fallback) => (name || fallback).trim().slice(0, 17);
-        const wName = normalizeName(
+        let wName = normalizeName(
             overrideNames ? overrideNames.white : document.getElementById('whiteNameInput')?.value,
             'White'
         );
-        const bName = normalizeName(
+        let bName = normalizeName(
             overrideNames ? overrideNames.black : document.getElementById('blackNameInput')?.value,
             'Black'
         );
-        let currentMins = selectedMins;
-        let currentInc = selectedIncrement;
+        if (mode === 'ai') {
+            // The server writes the bot's name over the AI's side, so send the
+            // player's name for both and it survives whichever colour they get.
+            // On a rematch the player's name is on the side they just played.
+            const human = (overrideNames && pColor === 'black') ? bName : wName;
+            wName = human;
+            bName = human;
+        }
+        let currentMins = pickedMins;
+        let currentInc = pickedIncrement;
 
         if (timeLimitMins !== null) {
             const strVal = String(timeLimitMins);
@@ -4312,8 +4579,9 @@ function updateStepperUI() {
             }
         }
 
-        const timeLimit = currentMins * 60;
-        const increment = currentInc;
+        // A puzzle has no clock on the page, so it gets the longest one the server accepts.
+        const timeLimit = isPuzzle ? 18000 : currentMins * 60;
+        const increment = isPuzzle ? 0 : currentInc;
 
         const payload = {
             mode: mode,
@@ -4327,12 +4595,6 @@ function updateStepperUI() {
         };
 
         const fenValue = (fen && fen.trim()) ? fen.trim() : null;
-        if (fenValue) {
-            localStorage.setItem('checkora_starting_fen', fenValue);
-        } else {
-            localStorage.setItem('checkora_starting_fen', DEFAULT_START_FEN);
-        }
-
         if (fenValue) payload.fen = fenValue;
 
         if (fenError) fenError.textContent = '';
@@ -4341,7 +4603,7 @@ function updateStepperUI() {
         const d = await post('/api/new-game/', payload);
 
         if (d.valid === false || !d.board) {
-            const message = d.message || 'Unable to start a new game.';
+            const message = d.message || d.error || 'Unable to start a new game.';
             if (fenError) fenError.textContent = message;
             if (welcomeFenError && welcomeOverlay?.classList.contains('active')) {
                 welcomeFenError.textContent = message;
@@ -4350,9 +4612,17 @@ function updateStepperUI() {
             return false;
         }
 
+        // Saved only once the game exists, and in the server's full six-field
+        // form, which is what chess.js needs to replay the moves.
+        localStorage.setItem('checkora_starting_fen', d.fen || fenValue || DEFAULT_START_FEN);
+
         board = d.board;
         turn = d.current_turn;
         if (d.fen) liveFen = d.fen;
+        livePgn = d.pgn || '';
+        ratedGame = d.rated === true;
+        halfMoves = 0;
+        forfeitAccepted = false;
         paused = false;
         gameOver = false;
         whiteAlertFired = false;
@@ -4383,6 +4653,7 @@ function updateStepperUI() {
         } else {
             flipped = false;
         }
+        boardOrientationSet = true;
 
         if (modeBadge) {
             if (isPuzzle) {
@@ -4400,6 +4671,8 @@ function updateStepperUI() {
         }
         movesEl.innerHTML = '<span class="placeholder">No moves yet</span>';
         wCapEl.innerHTML = bCapEl.innerHTML = '';
+        // The last game's result is still in the status line.
+        showStatus('Game started', false);
         lastMove = null;
         highlightedSquare = null;
         selected = null;
@@ -4413,15 +4686,31 @@ function updateStepperUI() {
         updatePauseUI();
 
         if (!isPuzzle) {
-            // Hold the clocks and lock the board until the countdown finishes
+            // Hold the clocks and lock the board until the countdown finishes.
+            // The server clock is held too, or the side to move pays for the countdown.
             clearInterval(timerInterval);
-            runStartCountdown(() => {
+            const holdServerClock = countdownOverlay && countdownNumberEl;
+            if (holdServerClock) post('/api/pause/', { pause: true }).catch(() => { });
+            const beginCountdown = () => runStartCountdown(async () => {
+                // If the player paused in the meantime (tab hidden), resuming releases the clock.
+                if (holdServerClock && !paused) {
+                    await post('/api/pause/', { pause: false }).catch(() => { });
+                }
                 startTimer();
                 // Auto-trigger AI if it's their turn
                 if (gameMode === 'ai' && turn !== playerColor) {
                     queueAIMoveIfNeeded();
                 }
             });
+            // A first-time player reads the tour before the clock matters:
+            // endTour starts the countdown. The tour is asked for here as well
+            // as by the callers, so a held countdown never waits for nothing.
+            if (isTourDue()) {
+                afterTour = beginCountdown;
+                maybeStartTourAfterWelcomeCloses();
+            } else {
+                beginCountdown();
+            }
         }
 
         return true;
@@ -4645,7 +4934,6 @@ function updateStepperUI() {
         pveOptions?.querySelectorAll('.color-choice').forEach(btn => {
             const isWhite = btn.dataset.color === 'white';
             btn.classList.toggle('active', isWhite);
-            btn.style.borderColor = isWhite ? '#f0c040' : '#444';
         });
 
         if (welcomeResumeBtn && gameOver) {
@@ -4688,7 +4976,7 @@ function updateStepperUI() {
     if (welcomeDailyPuzzleBtn) {
         welcomeDailyPuzzleBtn.onclick = async () => {
 
-            await startDailyPuzzle();
+            if (await startDailyPuzzle() === false) return;
 
             welcomeOverlay.classList.remove('active');
                     maybeStartTourAfterWelcomeCloses();
@@ -4749,12 +5037,8 @@ function updateStepperUI() {
         const colorBtns = pveOptions.querySelectorAll('.color-choice');
         colorBtns.forEach(btn => {
             btn.onclick = () => {
-                colorBtns.forEach(b => {
-                    b.classList.remove('active');
-                    b.style.borderColor = '#444';
-                });
+                colorBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                btn.style.borderColor = '#f0c040';
                 selectedPveColor = btn.dataset.color;
             };
         });
@@ -4792,20 +5076,13 @@ function updateStepperUI() {
         gameLayout.style.visibility = 'visible';
     };
 
-    if (autoFlipBtn) autoFlipBtn.onclick = () => {
-        autoFlip = !autoFlip;
-        autoFlipBtn.textContent = 'Auto-Flip: ' + (autoFlip ? 'ON' : 'OFF');
-        autoFlipBtn.style.background = autoFlip ? 'linear-gradient(135deg, #40c0f0, #2080d4)' : '';
-        if (autoFlip && gameMode === 'pvp') {
-            flipped = (turn === 'black');
-            buildBoard();
-        }
-    };
     if (copyPgnBtn) copyPgnBtn.onclick = async () => {
-        const data = await get('/api/state/');
+        // Once a game is over the server may not have it any more, so use
+        // the PGN that came with the last move.
+        const pgn = livePgn || (await get('/api/state/')).pgn;
 
-        if (data.pgn) {
-            const blob = new Blob([data.pgn], { type: 'text/plain' });
+        if (pgn) {
+            const blob = new Blob([pgn], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -4830,18 +5107,15 @@ function updateStepperUI() {
         }
     };
 
-    if (copyFenBtn) copyFenBtn.onclick = async () => {
-        const data = await get('/api/state/');
-        if (data.fen) {
-            navigator.clipboard.writeText(data.fen);
+    if (copyFenBtn) copyFenBtn.onclick = () => {
+        navigator.clipboard.writeText(liveFen);
 
-            copyFenBtn.textContent = 'Copied!';
-            clearTimeout(fenCopyTimeout);
+        copyFenBtn.textContent = 'Copied!';
+        clearTimeout(fenCopyTimeout);
 
-            fenCopyTimeout = setTimeout(() => {
-                copyFenBtn.textContent = 'Copy FEN';
-            }, 2000);
-        }
+        fenCopyTimeout = setTimeout(() => {
+            copyFenBtn.textContent = 'Copy FEN';
+        }, 2000);
     };
 
     if (welcomeResumeBtn) welcomeResumeBtn.onclick = async () => {
@@ -4850,6 +5124,7 @@ function updateStepperUI() {
             welcomeResumeBtn.style.display = 'none';
             return;
         }
+        forfeitAccepted = false;
         welcomeOverlay.classList.remove('active');
                     maybeStartTourAfterWelcomeCloses();
         gameLayout.style.visibility = 'visible';
@@ -4864,16 +5139,21 @@ function updateStepperUI() {
 
         confirmOverlay.classList.remove('active');
 
-        if (confirmCallback) confirmCallback();
-
+        // Cleared first: the callback may open the next question.
+        const callback = confirmCallback;
         confirmCallback = null;
+        confirmCancel = null;
+        if (callback) callback();
     };
     if (confirmNoBtn) confirmNoBtn.onclick = () => {
         boardEl.classList.remove('confirm-open');
 
         confirmOverlay.classList.remove('active');
 
+        const cancel = confirmCancel;
         confirmCallback = null;
+        confirmCancel = null;
+        if (cancel) cancel();
     };
 
     if (newPvPBtn) newPvPBtn.onclick = () => {
@@ -4887,11 +5167,12 @@ function updateStepperUI() {
 
         showConfirm(
             "Abandon Game?",
-            "Your current progress will be lost.<br>Are you sure you want to start a new game?",
+            "Your current progress will be lost.<br>Are you sure you want to start a new game?" + forfeitNote(),
             () => {
+                forfeitAccepted = true;
                 openWelcomeForNewGame();
             },
-            '#ff6b6b'
+            'danger'
         );
     };
 
@@ -4911,43 +5192,46 @@ function updateStepperUI() {
 
             showConfirm(
                 "Start Daily Puzzle?",
-                "Your current game will be lost.",
+                "Your current game will be lost." + forfeitNote(),
                 async () => {
 
+                    forfeitAccepted = true;
                     await startDailyPuzzle();
 
                 },
-                "#f0c040"
+                "gold"
             );
         };
 
-    if (restartPuzzleBtn)
-        restartPuzzleBtn.onclick = async () => {
+    // Also the "try again" after a wrong move, so a puzzle opened from the
+    // puzzle list restarts itself and not the daily one.
+    async function restartCurrentPuzzle() {
+        if (!currentPuzzle) return;
 
-            if (!currentPuzzle) return;
+        puzzleMoveIndex = 0;
+        clearPuzzleHints();
 
-            puzzleMoveIndex = 0;
-            clearPuzzleHints();
+        await startNewGame(
+            "ai",
+            "white",
+            currentPuzzle.difficulty || "medium",
+            currentPuzzle.fen,
+            null,
+            null,
+            true
+        );
+        currentPuzzleFen = currentPuzzle.fen;
+        expectedMoveEval = null;
+        initStockfish();
+        precalculateExpectedMoveEval();
 
-            await startNewGame(
-                "ai",
-                "white",
-                currentPuzzle.difficulty || "medium",
-                currentPuzzle.fen,
-                null,
-                null,
-                true
-            );
-            currentPuzzleFen = currentPuzzle.fen;
-            expectedMoveEval = null;
-            initStockfish();
-            precalculateExpectedMoveEval();
+        showStatus(
+            "Puzzle Restarted",
+            false
+        );
+    }
 
-            showStatus(
-                "Puzzle Restarted",
-                false
-            );
-        };
+    if (restartPuzzleBtn) restartPuzzleBtn.onclick = restartCurrentPuzzle;
 
     if (hintPuzzleBtn)
         hintPuzzleBtn.onclick = () => {
@@ -4957,13 +5241,14 @@ function updateStepperUI() {
     if (newFenBtn) newFenBtn.onclick = () => {
         showConfirm(
             "Load from FEN?",
-            "Your current progress will be lost.<br>Do you want to continue?",
+            "Your current progress will be lost.<br>Do you want to continue?" + forfeitNote(),
             () => {
+                forfeitAccepted = true;
                 if (fenError) fenError.textContent = '';
                 if (fenInput) fenInput.value = '';
                 fenOverlay.classList.add('active');
             },
-            '#ff6b6b'
+            'danger'
         );
     };
 
@@ -4998,8 +5283,16 @@ function updateStepperUI() {
     }
 
     if (pauseBtn) pauseBtn.onclick = () => paused ? resumeGame() : pauseGame();
-    if (muteBtn) muteBtn.onclick = toggleMute;
     if (flipBtn) flipBtn.onclick = toggleBoardOrientation;
+
+    // Ways out of the promotion dialog besides choosing a piece.
+    if (promoOverlay) {
+        promoOverlay.addEventListener('click', (e) => {
+            if (e.target === promoOverlay) cancelPromotion();
+        });
+    }
+    const promoCancelBtn = document.getElementById('promoCancelBtn');
+    if (promoCancelBtn) promoCancelBtn.onclick = cancelPromotion;
 
     const blindfoldBtn = document.getElementById('blindfoldBtn');
     if (blindfoldBtn) {
@@ -5081,6 +5374,10 @@ function updateStepperUI() {
         if (data.success) {
             if (soundEnabled) { sounds.draw.currentTime = 0; sounds.draw.play().catch(() => { }); }
             endGame('draw', turn, data.draw_reason);
+        } else {
+            // The offer paused the game; with no draw it goes on.
+            showStatus(data.message || data.error || 'The draw was not accepted.', true);
+            resumeGame();
         }
     };
     if (drawDeclineBtn) drawDeclineBtn.onclick = () => {
@@ -5117,96 +5414,32 @@ function updateStepperUI() {
         if (confettiContainer) confettiContainer.remove();
     });
 
-    // ========== Exit to Menu Logic ==========
-    const exitToMenuBtn = document.getElementById('exitToMenuBtn');
-    if (exitToMenuBtn) {
-        exitToMenuBtn.onclick = () => {
-            // 1. Hide the Game Over modal and clear celebrations
-            gameOverOverlay.classList.remove('active', 'game-over-celebration');
-            const confettiContainer = gameOverOverlay.querySelector('.confetti-container');
-            if (confettiContainer) {
-                confettiContainer.remove();
-            }
-
-            // 2. Hide the chess board layout
-            gameLayout.style.visibility = 'hidden';
-
-            // 3. Reset and show the Welcome/Setup Menu
-            prepareWelcomeForPvP(true);
-            welcomeOverlay.classList.add('active');
-        };
-    }
-
-    // Theme Switcher
-    function initThemeSwitcher() {
-        const themeBtns = document.querySelectorAll('.theme-btn');
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'classic';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-
-        themeBtns.forEach(btn => {
-            if (btn.dataset.theme === currentTheme) {
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            }
-            btn.onclick = () => {
-                const theme = btn.dataset.theme;
-                document.documentElement.setAttribute('data-theme', theme);
-                localStorage.setItem('chessBoardTheme', theme);
-                themeBtns.forEach(b => {
-                    b.classList.remove('active');
-                    b.setAttribute('aria-pressed', 'false');
-                });
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-            };
-        });
-    }
-
-    function initSoundButtonState() {
-        if (muteBtn) {
-            muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
-            muteBtn.setAttribute('aria-pressed', String(soundEnabled));
-        }
-    }
-
-    // Coordinates Visibility Preference
+    // Coordinates are switched in the settings dialog (#modalCoordsToggle).
+    // This applies the saved choice when the page loads.
     function initCoordinatesToggle() {
-        const showCoordsBtn = document.getElementById('showCoordinatesCheckbox');
-        if (!showCoordsBtn) return;
-
         const savedShowCoords = localStorage.getItem('showCoordinates') !== 'false';
-        showCoordsBtn.checked = savedShowCoords;
-
         if (!savedShowCoords && boardEl) {
             boardEl.classList.add('hide-coordinates');
         }
-
-        showCoordsBtn.addEventListener('change', () => {
-            if (showCoordsBtn.checked) {
-                if (boardEl) boardEl.classList.remove('hide-coordinates');
-                localStorage.setItem('showCoordinates', 'true');
-            } else {
-                if (boardEl) boardEl.classList.add('hide-coordinates');
-                localStorage.setItem('showCoordinates', 'false');
-            }
-        });
     }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             initThemeSwitcher();
-            initSoundButtonState();
             initCoordinatesToggle();
         });
     } else {
         initThemeSwitcher();
-        initSoundButtonState();
         initCoordinatesToggle();
     }
 
     document.addEventListener('visibilitychange', async () => {
+        // A finished game has nothing to pause, and reloading it would swap the
+        // final position for whatever the server holds now.
+        if (gameOver) return;
         if (document.hidden) {
-            pauseGame().catch(() => { });
+            // keepalive lets the request finish if the page is being closed
+            pauseGame({ keepalive: true }).catch(() => { });
         } else {
             await handleReconnect();
         }
@@ -5422,6 +5655,8 @@ async function handleSanMove() {
 
     document.addEventListener('keydown', e => {
         if (e.repeat) return;
+        // Ctrl, Cmd and Alt combinations belong to the browser (reload, find, print).
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
 
         if (promoOverlay && promoOverlay.classList.contains('active')) {
             const key = e.key.toLowerCase();
@@ -5429,6 +5664,10 @@ async function handleSanMove() {
                 e.preventDefault();
                 onPromoChoice(key);
                 return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelPromotion();
             }
             // Ignore all other game commands when promotion is pending
             return;
@@ -5476,7 +5715,10 @@ async function handleSanMove() {
             gameOverOverlay?.classList.contains('active') ||
             welcomeOverlay?.classList.contains('active') ||
             leaveConfirmOverlay?.classList.contains('active') ||
-            shortcutsModal?.classList.contains('active');
+            shortcutsModal?.classList.contains('active') ||
+            themeSettingsModal?.classList.contains('active') ||
+            document.getElementById('sideModal')?.style.display === 'flex' ||
+            document.getElementById('resignModal')?.style.display === 'flex';
 
         // Allow Escape to close overlays or mobile panel
         if (e.key === 'Escape') {
@@ -5574,16 +5816,6 @@ async function handleSanMove() {
         });
     });
 
-    // Custom leave confirmation modal instead of browser default dialog
-    if (!navigator.webdriver) {
-        window.addEventListener('beforeunload', (e) => {
-            if (!paused) {
-                const blob = new Blob([JSON.stringify({ pause: true })], { type: 'application/json' });
-                navigator.sendBeacon('/api/pause/', blob);
-            }
-        });
-    }
-
     // Leave Game confirmation modal logic
     const leaveConfirmOverlay = document.getElementById('leaveConfirmOverlay');
     const leaveConfirmDialog = document.getElementById('leaveConfirmDialog');
@@ -5653,7 +5885,8 @@ async function handleSanMove() {
             if (boardThemeRadio) boardThemeRadio.checked = true;
 
             // Sync Piece Style radio
-            const currentPieceStyle = localStorage.getItem('pieceStyle') || 'neo';
+            const savedPieceStyle = localStorage.getItem('pieceStyle');
+            const currentPieceStyle = VALID_PIECE_STYLES.includes(savedPieceStyle) ? savedPieceStyle : 'classic';
             const pieceStyleRadio = themeSettingsModal.querySelector(`input[name="pieceStyleRadio"][value="${currentPieceStyle}"]`);
             if (pieceStyleRadio) pieceStyleRadio.checked = true;
 
@@ -5766,10 +5999,6 @@ async function handleSanMove() {
             soundToggle.addEventListener('change', () => {
                 soundEnabled = soundToggle.checked;
                 localStorage.setItem('chessSoundEnabled', String(soundEnabled));
-                if (muteBtn) {
-                    muteBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Muted';
-                    muteBtn.setAttribute('aria-pressed', String(soundEnabled));
-                }
             });
         }
 
@@ -5786,8 +6015,6 @@ async function handleSanMove() {
                         boardEl.classList.add('hide-coordinates');
                     }
                 }
-                const showCoordsBtn = document.getElementById('showCoordinatesCheckbox');
-                if (showCoordsBtn) showCoordsBtn.checked = enabled;
             });
         }
 
@@ -5797,10 +6024,6 @@ async function handleSanMove() {
             autoFlipToggle.addEventListener('change', () => {
                 autoFlip = autoFlipToggle.checked;
                 localStorage.setItem('autoFlip', String(autoFlip));
-                if (autoFlipBtn) {
-                    autoFlipBtn.textContent = 'Auto-Flip: ' + (autoFlip ? 'ON' : 'OFF');
-                    autoFlipBtn.style.background = autoFlip ? 'linear-gradient(135deg, #40c0f0, #2080d4)' : '';
-                }
                 if (autoFlip && gameMode === 'pvp') {
                     flipped = (turn === 'black');
                     buildBoard();
@@ -5913,13 +6136,9 @@ async function handleSanMove() {
     }
 
     function showAssetWarning() {
-        const t = document.getElementById('confirmTimerContainer');
-        const d = document.getElementById('confirmDifficultyContainer');
-        if (t) t.style.display = 'none';
-        if (d) d.style.display = 'none';
-
         // 1. Pause the timer while the alert is open
-        if (!paused && typeof pauseGame === 'function') {
+        const pausedHere = !paused;
+        if (pausedHere) {
             pauseGame().catch(() => { }); // Catch prevents crash if backend hasn't initialized
         }
 
@@ -5927,43 +6146,42 @@ async function handleSanMove() {
             "⚠️ Assets Blocked",
             "<div style='line-height: 1.5; font-size: 0.95rem;'>The chess pieces failed to load.<br><br>Please check your browser permissions (allow images) or disable any ad-blockers on this site.</div>",
             () => {
-                // 2. Set a memory flag to bypass the main menu on reload
-                sessionStorage.setItem('checkoraAutoResume', 'true');
                 window.location.reload();
             },
-            '#f0c040'
+            'gold'
         );
 
         const yesBtn = document.getElementById('confirmYesBtn');
         const noBtn = document.getElementById('confirmNoBtn');
-        if (yesBtn) yesBtn.textContent = 'Reload Page';
+        if (!yesBtn || !noBtn) return;
 
-        // 3. Resume the timer if they click Close
-        if (noBtn) {
-            noBtn.textContent = 'Close';
-            const defaultClose = noBtn.onclick;
-            noBtn.onclick = () => {
-                if (defaultClose) defaultClose();
-                if (paused && typeof resumeGame === 'function') {
-                    resumeGame().catch(() => { });
-                }
-            };
-        }
-    } function checkAssets() {
-        const img = document.querySelector('.piece');
+        // The confirm dialog is shared, so its buttons go back as they were when this one closes.
+        const yesText = yesBtn.textContent;
+        const noText = noBtn.textContent;
+        const defaultClose = noBtn.onclick;
+        yesBtn.textContent = 'Reload Page';
+        noBtn.textContent = 'Close';
 
-        // If a piece exists in the HTML but still has 0 width after 2 seconds, Chrome blocked it.
-        if (img && img.naturalWidth === 0) {
-            if (!window.assetWarningShown) {
-                window.assetWarningShown = true;
-                showAssetWarning();
+        // 2. Resume the timer if they click Close
+        noBtn.onclick = () => {
+            yesBtn.textContent = yesText;
+            noBtn.textContent = noText;
+            noBtn.onclick = defaultClose;
+            if (defaultClose) defaultClose();
+            if (pausedHere && paused) {
+                resumeGame().catch(() => { });
             }
-        }
+        };
     }
 
-    // Wait exactly 2 seconds after the script loads to check the assets
-    // This gives normal connections plenty of time to load, while catching strict blockers.
-    setInterval(checkAssets, 5000);
+    // A piece image that fails to load leaves the board unusable, so say so once.
+    // This is the image's own error event; polling naturalWidth is no use with
+    // SVGs, which can report 0 when they load fine.
+    function onPieceImageError() {
+        if (window.assetWarningShown) return;
+        window.assetWarningShown = true;
+        showAssetWarning();
+    }
 
     const statusIndicator = document.getElementById('status-indicator');
     const statusText = document.getElementById('status-text');
@@ -5989,7 +6207,7 @@ async function handleSanMove() {
     if (typeof module !== "undefined" && module.exports) {
         module.exports = { 
             pColor, getSquareLabel, formatTime, getPlayerScore, validateMoveWithStockfish, clearEvaluationCache,
-            onClick, onDragStart, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame,
+            onClick, onDrop, showPromoModal, hidePromoModal, onPromoChoice, toggleSquareHighlight, refreshHighlights, highlightCheck, startNewGame,
             squareLabelToRowCol, computeLegalMovesClient, updatePieceStyle, PIECE_IMG, VALID_PIECE_STYLES
         };
     } else {
@@ -5998,6 +6216,8 @@ async function handleSanMove() {
 
     boardEl.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        // Right-click also highlights a square; only speak up when there was something to cancel.
+        if (premoveQueue.length === 0) return;
 
         premoveQueue = [];
         refreshPremoveHighlight();
@@ -6015,7 +6235,7 @@ async function handleSanMove() {
         const isPremoveMode = gameMode === 'ai' && turn !== playerColor;
         const vBoard = isPremoveMode ? getVirtualBoard() : board;
         const piece = vBoard[r][c];
-        if (!piece || paused || gameOver) return;
+        if (!piece || paused || gameOver || viewingPastState) return;
 
         // Check if the piece is playable by the current player (including AI premoves)
         const isPremoveDrag = gameMode === 'ai' && turn !== playerColor && pColor(piece) === playerColor;
@@ -6024,10 +6244,15 @@ async function handleSanMove() {
         if (!isPremoveDrag && !isNormalDrag) return;
 
         touchDragSrc = { r, c };
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
     }, { passive: true });
 
     boardEl.addEventListener('touchmove', (e) => {
         if (!touchDragSrc || !touchStartPos) return;
+
+        // The finger went down on a piece that can move. Keep the page from
+        // scrolling, including over the first few pixels before the drag starts.
+        if (e.cancelable) e.preventDefault();
 
         const touch = e.touches[0];
 
@@ -6075,19 +6300,25 @@ async function handleSanMove() {
         if (touchDragging && activeTouchPieceClone) {
             activeTouchPieceClone.style.left = (touch.clientX - touchOffset.x) + 'px';
             activeTouchPieceClone.style.top = (touch.clientY - touchOffset.y) + 'px';
-
-            // Prevent page scrolling while dragging
-            if (e.cancelable) e.preventDefault();
         }
     }, { passive: false });
 
     boardEl.addEventListener('touchend', async (e) => {
         const srcSquare = touchDragSrc;
+        const wasDragging = touchDragging;
+        // Clear the gesture now. The moves below wait on the server, and a new
+        // touch may start before they come back.
+        touchStartPos = null;
+        touchDragSrc = null;
+        touchDragging = false;
+
         if (!srcSquare && !selected) return;
         const touch = e.changedTouches[0];
-        let movedToSquare = false;
 
-        if (touchDragging && touchDragSrc) {
+        // Prevent click generation. This has to happen before any await.
+        e.preventDefault();
+
+        if (wasDragging && srcSquare) {
             // Clean up original piece transparency
             const srcSquareEl = sq(srcSquare.r, srcSquare.c);
             const pieceImg = srcSquareEl ? srcSquareEl.querySelector('.piece') : null;
@@ -6104,25 +6335,15 @@ async function handleSanMove() {
             // Identify target square element under the touch coordinates
             const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
             const destSquareEl = targetEl ? targetEl.closest('.square') : null;
-            if (destSquareEl) {
-                const tr = parseInt(destSquareEl.dataset.r, 10);
-                const tc = parseInt(destSquareEl.dataset.c, 10);
+            const tr = destSquareEl ? parseInt(destSquareEl.dataset.r, 10) : -1;
+            const tc = destSquareEl ? parseInt(destSquareEl.dataset.c, 10) : -1;
 
-                if (tr !== touchDragSrc.r || tc !== touchDragSrc.c) {
-                    await tryMove(touchDragSrc.r, touchDragSrc.c, tr, tc);
-                    movedToSquare = true;
-                }
-            }
-
-            if (!movedToSquare) {
+            if (destSquareEl && (tr !== srcSquare.r || tc !== srcSquare.c)) {
+                await tryMove(srcSquare.r, srcSquare.c, tr, tc);
+            } else {
                 deselect();
             }
-
-            // Prevent click generation
-            e.preventDefault();
         } else {
-            e.preventDefault();
-
             const targetEl = document.elementFromPoint(
                 touch.clientX,
                 touch.clientY
@@ -6135,13 +6356,7 @@ async function handleSanMove() {
             const tr = parseInt(squareEl.dataset.r);
             const tc = parseInt(squareEl.dataset.c);
             await onClick(tr, tc);
-
         }
-        // Reset state
-        touchStartPos = null;
-        touchDragSrc = null;
-        touchTapSquare = null;
-        touchDragging = false;
     }, { passive: false });
 
     boardEl.addEventListener('touchcancel', (e) => {
@@ -6164,7 +6379,6 @@ async function handleSanMove() {
 
         touchStartPos = null;
         touchDragSrc = null;
-        touchTapSquare = null;
         touchDragging = false;
     }, { passive: true });
 
@@ -6212,8 +6426,8 @@ async function handleSanMove() {
                 presetBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                selectedMins = parseInt(btn.dataset.mins, 10);
-                selectedIncrement = parseInt(btn.dataset.inc, 10);
+                pickedMins = parseInt(btn.dataset.mins, 10);
+                pickedIncrement = parseInt(btn.dataset.inc, 10);
 
                 // Update display text
                 display.textContent = btn.textContent.trim();
@@ -6243,20 +6457,20 @@ async function handleSanMove() {
                     if (isNaN(inc) || inc < 0) inc = 0;
                     if (inc > 180) inc = 180;
 
-                    const totalSecs = mins * 60 + secs;
-                    if (totalSecs <= 0) {
-                        // Require at least 1 second of game time
-                        if (secsInput) secsInput.value = 30;
-                        secs = 30;
+                    // The server takes 1 minute to 5 hours.
+                    if (mins * 60 + secs < 60) {
+                        mins = 1;
+                        secs = 0;
                     }
+                    if (mins === 300) secs = 0;
 
                     minsInput.value = mins;
                     if (secsInput) secsInput.value = secs;
                     incInput.value = inc;
 
-                    // selectedMins stores total minutes as a decimal (e.g. 0.5 for 30s)
-                    selectedMins = (mins * 60 + secs) / 60;
-                    selectedIncrement = inc;
+                    // Minutes as a decimal, e.g. 1.5 for 1:30
+                    pickedMins = (mins * 60 + secs) / 60;
+                    pickedIncrement = inc;
 
                     // Update active preset styling
                     presetBtns.forEach(b => b.classList.remove('active'));
@@ -6303,7 +6517,7 @@ async function handleSanMove() {
     initOnboardingTour();
     // Resume game by clicking the paused board overlay
     boardEl.addEventListener('click', async () => {
-        if (!paused) return;
+        if (!paused || gameOver) return;
         if (drawOverlay.classList.contains('active')) return;
         if (confirmOverlay.classList.contains('active')) return;
         if (gameOverOverlay.classList.contains('active')) return;
@@ -6321,24 +6535,8 @@ async function handleSanMove() {
     });
 
 })();
-// Enable Enter key submission for Game Setup and Lobby configurations.
+// Share dialog and the mobile controls drawer.
 document.addEventListener("DOMContentLoaded", function () {
-    const setupInputs = document.querySelectorAll('#player-name-input, .setup-menu input, #config-panel input');
-
-    setupInputs.forEach(input => {
-        input.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                
-                const startGameBtn = document.querySelector('#start-game-btn') || document.querySelector('.play-btn') || document.querySelector('#play-vs-ai');
-                
-                if (startGameBtn) {
-                    startGameBtn.click();
-                }
-            }
-        });
-    });
-
     const shareBtn = document.getElementById('shareResultBtn');
     if (shareBtn) {
         shareBtn.addEventListener('click', function () {
@@ -6389,8 +6587,8 @@ ${message}
             if (copyTextBtn) {
                 copyTextBtn.onclick = function () {
                     navigator.clipboard.writeText(shareText).then(() => {
-                        this.innerText = '✅ Copied!';
-                        setTimeout(() => this.innerText = '📋 Copy Text', 2000);
+                        this.innerText = 'Copied!';
+                        setTimeout(() => this.innerText = 'Copy text', 2000);
                     });
                 };
             }
@@ -6399,8 +6597,8 @@ ${message}
             if (copyLinkBtn) {
                 copyLinkBtn.onclick = function () {
                     navigator.clipboard.writeText('https://checkora.vercel.app').then(() => {
-                        this.innerText = '✅ Link Copied!';
-                        setTimeout(() => this.innerText = '🔗 Copy Link', 2000);
+                        this.innerText = 'Link copied!';
+                        setTimeout(() => this.innerText = 'Copy link', 2000);
                     });
                 };
             }

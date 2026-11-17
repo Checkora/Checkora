@@ -17,22 +17,28 @@ except FileNotFoundError:
 except json.JSONDecodeError as exc:
     raise RuntimeError(f"invalid openings.json: {exc}") from exc
 
+def match_opening(moves: list[str]) -> tuple[str, str] | None:
+    """
+    Find the longest book line the game starts with.
+    Returns (opening name, the line's moves as one string), or None.
+    """
+    # Search for the longest matching prefix sequence of moves in the opening dictionary.
+    for i in range(len(moves), 0, -1):
+        prefix_key = " ".join(moves[:i])
+        if prefix_key in OPENINGS:
+            return OPENINGS[prefix_key], prefix_key
+
+    return None
+
+
 def detect_opening(moves: list[str]) -> str | None:
     """
     Detect the opening played based on the move sequence.
     Replicates and enhances the existing frontend logic.
     Returns None if no specific opening is matched.
     """
-    if not moves:
-        return None
-
-    # Search for the longest matching prefix sequence of moves in the opening dictionary.
-    for i in range(len(moves), 0, -1):
-        prefix_key = " ".join(moves[:i])
-        if prefix_key in OPENINGS:
-            return OPENINGS[prefix_key]
-
-    return None
+    match = match_opening(moves)
+    return match[0] if match else None
 
 def count_captures(moves: list[str]) -> int:
     """Count total captures ('x') in the move history."""
@@ -109,10 +115,12 @@ def classify_moves(moves: list[str], fen_history: list[str]) -> dict:
             # Use the worst outcome between immediate and after reply
             diff = min(diff, adv_after_reply - adv_before)
 
-        # Look ahead up to 4 plies to see if material is regained (e.g., a delayed recapture)
+        # Look ahead up to 4 plies to see if material is regained (e.g., a delayed recapture).
+        # The search starts after the reply: the position right after the
+        # move is from before any loss and would always count as regained.
         regained = False
         if diff < 0:
-            for lookahead in range(1, 5):
+            for lookahead in range(2, 5):
                 if i + lookahead < len(material_summary):
                     mat_future = material_summary[i + lookahead]
                     if is_white_turn:

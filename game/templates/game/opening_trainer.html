@@ -1,61 +1,76 @@
+{% extends 'game/base.html' %}
 {% load static %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Opening Trainer</title>
+{% block title %}Opening trainer · Checkora{% endblock %}
+{% block description %}Practise popular chess openings move by move, as White or as Black.{% endblock %}
 
-    <link
-        rel="stylesheet"
-        href="{% static 'game/css/opening_trainer.css' %}"
-    >
-</head>
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-<body>
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/learn.css' %}">{% endblock %}
 
-<a href="{% url 'landing' %}" class="back-btn">
-    ← Back to Home
-</a>
-
-<div class="container">
-
-    <h1>♟ Opening Trainer</h1>
-
-    <p>
-        Practice popular chess openings move by move.
-    </p>
-
-    <div class="opening-grid">
-
-        {% for opening in openings %}
-
-        <div class="lesson-card">
-
-            <h2>{{ opening.name }}</h2>
-
-            <p>{{ opening.description }}</p>
-
-            <p>
-                <strong>Difficulty:</strong>
-                {{ opening.difficulty }}
-            </p>
-
-            <a
-                href="{% url 'opening_detail' opening.slug %}"
-                class="start-btn"
-            >
-                Start Training
-            </a>
-
+{% block content %}
+<div class="wrap page">
+    <header class="learn-head">
+        <div class="page-head">
+            <a class="back-link" href="{% url 'landing' %}">Home</a>
+            <p class="eyebrow" data-reveal>Opening trainer</p>
+            <h1 data-reveal style="--i: 1">Know your first moves <span class="serif">by heart.</span></h1>
+            <p class="lede" data-reveal style="--i: 2">Practice popular chess openings move by move. Pick a line, choose a colour, and play it out on the board.</p>
         </div>
+        <div class="learn-head__piece" aria-hidden="true">
+            <img src="{% static 'game/pieces/classic/wb.svg' %}" alt="">
+            <canvas data-piece3d="b"></canvas>
+        </div>
+    </header>
 
+    <div class="grid" style="--min: 300px">
+        {% for opening in openings %}
+        {# Each card gets a piece of its own in the corner. #}
+        {% cycle 'n' 'b' 'q' 'r' 'k' as corner_piece silent %}
+        <div class="reveal-cell" data-reveal style="--i: {{ forloop.counter0 }}">
+            <a href="{% url 'opening_detail' opening.slug %}" class="panel panel--link opening" data-tilt="5">
+                <img class="opening__piece" src="{% static 'game/pieces/classic/' %}w{{ corner_piece }}.svg" alt="">
+                {% if opening.difficulty == 'Beginner' %}
+                <span class="chip chip--good">{{ opening.difficulty }}</span>
+                {% elif opening.difficulty == 'Advanced' %}
+                <span class="chip chip--check">{{ opening.difficulty }}</span>
+                {% else %}
+                <span class="chip chip--gold">{{ opening.difficulty }}</span>
+                {% endif %}
+                <h2 class="opening__name">{{ opening.name }}</h2>
+                <p>{{ opening.description }}</p>
+                <ol class="line" aria-label="The moves">
+                    {% for move in opening.moves %}
+                    <li style="--n: {{ forloop.counter0 }}">{{ move }}</li>
+                    {% endfor %}
+                </ol>
+                <span class="opening__go">Start training →</span>
+            </a>
+        </div>
         {% endfor %}
-
     </div>
-
 </div>
+{% endblock %}
 
-</body>
-</html>
+{% block scripts %}
+<script type="module">
+    const stage = document.querySelector('.learn-head__piece');
+    const canvas = stage.querySelector('canvas');
+    // The flat piece stays on narrow screens, on the low performance tier and
+    // where WebGL is missing. three.js is only fetched when it will be used.
+    const wide = window.matchMedia('(min-width: 861px)').matches;
+    if (wide && window.checkoraPerf?.wants3D('piece') !== false) {
+        try {
+            const { shouldMount3D, mountPiece } = await import("{% static 'game/js/scene3d.js' %}");
+            if (shouldMount3D('piece')) {
+                mountPiece(canvas, { type: canvas.dataset.piece3d, color: 'w', onFail: () => stage.classList.remove('is-3d') });
+                stage.classList.add('is-3d');
+            }
+        } catch (error) {
+            stage.classList.remove('is-3d');
+        }
+    }
+</script>
+{% endblock %}

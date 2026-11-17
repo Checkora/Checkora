@@ -1,42 +1,1830 @@
 #!/usr/bin/env python3
 """Checkora chess engine implemented in Python.
 
-Protocol:
-VALIDATE <board64> <castling_rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc>
+The fallback for machines without the compiled engine. It implements the
+same protocol, rules, evaluation and search as main.cpp and must be kept
+in step with that file; it only searches less deep in the same time.
+
+Protocol: one command per line, exactly one reply line per command.
+<board64> is 64 characters, rank 8 first, "." for an empty square.
+<rights> is a subset of "KQkq" or "-", <turn> is "white" or "black",
+<ep_row> <ep_col> is the en passant target square or "-1 -1".
+
+VERSION
+-> VERSION <protocol version>
+
+VALIDATE <board64> <rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc>
 -> VALID | INVALID <reason>
 
-MOVES <board64> <castling_rights> <turn> <ep_row> <ep_col> <row> <col>
+MOVES <board64> <rights> <turn> <ep_row> <ep_col> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
 
-ATTACKED <board64> <castling_rights> <attackerColor> <row> <col>
+ATTACKED <board64> <rights> <attackerColor> <row> <col>
 -> YES | NO
 
-PROMOTE <board64> <castling_rights> <turn> <fr> <fc> <tr> <tc> <promoPiece>
--> PROMOTE <newBoard64>
--> INVALID <reason>
+PROMOTE <board64> <rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc> [promoPiece]
+-> PROMOTE <newBoard64> | INVALID <reason>
 
-STATUS <board64> <castling_rights> <turn> <ep_row> <ep_col>
--> STATUS CHECK | CHECKMATE | STALEMATE | OK
+STATUS <board64> <rights> <turn> <ep_row> <ep_col>
+-> STATUS CHECK | CHECKMATE | STALEMATE | DRAW | OK
 
-BESTMOVE <board64> <castling_rights> <turn> <ep_row> <ep_col> <depth>
--> BESTMOVE <fr> <fc> <tr> <tc>
+NOTATION <board64> <rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc> [promoPiece]
+-> NOTATION <san>
+
+EVAL <board64> <rights> <turn> <ep_row> <ep_col>
+-> EVAL <centipawns, positive is good for White>
+
+PERFT <board64> <rights> <turn> <ep_row> <ep_col> <depth>
+-> PERFT <leaf nodes>
+
+BESTMOVE <board64> <rights> <turn> <ep_row> <ep_col> <depth> [time_limit_ms
+         [halfmove_clock [alternatives [<placement> <w|b> <rights> <ep>]...]]]
+-> BESTMOVE <fr> <fc> <tr> <tc> EVAL <cp> [ALTS (<fr> <fc> <tr> <tc> <cp>)...]
+   DEPTH <d> NODES <n> TTHITS <n> TIME <ms> ENGINE python STATUS completed|timeout
 -> BESTMOVE NONE
+   The trailing groups of four tokens are the earlier positions of the game
+   since the last capture or pawn move (FEN piece placement, side, castling
+   rights, en passant square as "row,col" or "-"); they let the search see
+   repetitions. A promotion is always to a queen.
+
+A line that cannot be parsed is answered with "ERROR <reason>".
 """
 
 from __future__ import annotations
 
+import math
 import sys
-from dataclasses import dataclass
+import time
 
+PROTOCOL_VERSION = 2
+
+# ============================================================
+#  Board representation
+# ============================================================
+#
+# 10x12 mailbox: the 64 squares sit inside a border of OFFBOARD cells so a
+# piece stepping off the board lands on a sentinel instead of needing a
+# bounds check. Row 0 is rank 8, as in the protocol.
+
+EMPTY, WP, WN, WB, WR, WQ, WK, BP, BN, BB, BR, BQ, BK, OFFBOARD = range(14)
+PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING = range(6)
+WHITE, BLACK = 0, 1
+CASTLE_WK, CASTLE_WQ, CASTLE_BK, CASTLE_BQ = 1, 2, 4, 8
+
+PIECE_CHARS = '.PNBRQKpnbrqk'
+# Lookups by piece code; index 0 (empty) and 13 (off board) are placeholders
+COLOR_OF = [-1] + [WHITE] * 6 + [BLACK] * 6 + [-1]
+TYPE_OF = [-1] + [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING] * 2 + [-1]
+
+
+def SQ(row, col):
+    return 21 + row * 10 + col
+
+
+ROW_OF = [sq // 10 - 2 for sq in range(120)]
+COL_OF = [sq % 10 - 1 for sq in range(120)]
+SQUARES = [SQ(r, c) for r in range(8) for c in range(8)]
+# (square, row, file index 1..8) for loops that need all three
+SQUARE_ROW_FILE = [(SQ(r, c), r, c + 1) for r in range(8) for c in range(8)]
+
+A1, B1, C1, D1, E1, F1, G1, H1 = range(91, 99)
+A8, B8, C8, D8, E8, F8, G8, H8 = range(21, 29)
+
+KNIGHT_DIRS = (-21, -19, -12, -8, 8, 12, 19, 21)
+KING_DIRS = (-11, -10, -9, -1, 1, 9, 10, 11)
+BISHOP_DIRS = (-11, -9, 9, 11)
+ROOK_DIRS = (-10, -1, 1, 10)
+
+
+def _on_board(sq):
+    return 21 <= sq <= 98 and 1 <= sq % 10 <= 8
+
+
+def _ray(sq, step):
+    squares = []
+    sq += step
+    while _on_board(sq):
+        squares.append(sq)
+        sq += step
+    return tuple(squares)
+
+
+# Precomputed targets so the hot loops need no bounds checks
+KNIGHT_TARGETS = [tuple(sq + d for d in KNIGHT_DIRS if _on_board(sq + d)) if _on_board(sq) else ()
+                  for sq in range(120)]
+KING_TARGETS = [tuple(sq + d for d in KING_DIRS if _on_board(sq + d)) if _on_board(sq) else ()
+                for sq in range(120)]
+BISHOP_RAYS = [tuple(r for r in (_ray(sq, d) for d in BISHOP_DIRS) if r) if _on_board(sq) else ()
+               for sq in range(120)]
+ROOK_RAYS = [tuple(r for r in (_ray(sq, d) for d in ROOK_DIRS) if r) if _on_board(sq) else ()
+             for sq in range(120)]
+QUEEN_RAYS = [tuple(r for r in (_ray(sq, d) for d in KING_DIRS) if r) if _on_board(sq) else ()
+              for sq in range(120)]
+
+board = [OFFBOARD] * 120
+side = WHITE          # side to move
+castling = 0          # CASTLE_* bits
+ep_square = 0         # en passant target, 0 if none can be captured
+halfmove = 0          # plies since the last capture or pawn move
+king_sq = [0, 0]
+piece_count = [0] * 14
+hash_key = 0
+# Material plus piece-square score, kept up to date by every move.
+# Positive is good for White. phase runs from 24 (all pieces) to 0.
+psq_mg = 0
+psq_eg = 0
+phase = 0
+
+# A move packs from, to, the promotion piece type and a flag into one int:
+# from | to << 7 | promo << 14 | flag << 17
+FLAG_NONE, FLAG_DOUBLE, FLAG_EP, FLAG_CASTLE = range(4)
+
+MAX_PLY = 96
+MAX_GAME = 1024
+undo_stack = []
+# Hashes of the positions before the current one: first the game history
+# sent with BESTMOVE, then the moves made by the search.
+rep_stack = []
+
+# ============================================================
+#  Evaluation tables
+# ============================================================
+
+MATERIAL_MG = (100, 320, 330, 500, 900, 0)
+MATERIAL_EG = (120, 310, 330, 520, 940, 0)
+PHASE_WEIGHT = (0, 1, 1, 2, 4, 0)
+
+# Piece-square tables from White's side, row 0 = rank 8. Black mirrors them.
+PST_MG = (
+    (  # pawn
+        0, 0, 0, 0, 0, 0, 0, 0,
+        50, 50, 50, 50, 50, 50, 50, 50,
+        10, 10, 20, 30, 30, 20, 10, 10,
+        5, 5, 10, 25, 25, 10, 5, 5,
+        0, 0, 0, 20, 20, 0, 0, 0,
+        5, -5, -10, 0, 0, -10, -5, 5,
+        5, 10, 10, -20, -20, 10, 10, 5,
+        0, 0, 0, 0, 0, 0, 0, 0),
+    (  # knight
+        -50, -40, -30, -30, -30, -30, -40, -50,
+        -40, -20, 0, 0, 0, 0, -20, -40,
+        -30, 0, 10, 15, 15, 10, 0, -30,
+        -30, 5, 15, 20, 20, 15, 5, -30,
+        -30, 0, 15, 20, 20, 15, 0, -30,
+        -30, 5, 10, 15, 15, 10, 5, -30,
+        -40, -20, 0, 5, 5, 0, -20, -40,
+        -50, -40, -30, -30, -30, -30, -40, -50),
+    (  # bishop
+        -20, -10, -10, -10, -10, -10, -10, -20,
+        -10, 0, 0, 0, 0, 0, 0, -10,
+        -10, 0, 10, 10, 10, 10, 0, -10,
+        -10, 5, 5, 10, 10, 5, 5, -10,
+        -10, 0, 5, 10, 10, 5, 0, -10,
+        -10, 10, 10, 10, 10, 10, 10, -10,
+        -10, 5, 0, 0, 0, 0, 5, -10,
+        -20, -10, -10, -10, -10, -10, -10, -20),
+    (  # rook
+        0, 0, 0, 0, 0, 0, 0, 0,
+        5, 10, 10, 10, 10, 10, 10, 5,
+        -5, 0, 0, 0, 0, 0, 0, -5,
+        -5, 0, 0, 0, 0, 0, 0, -5,
+        -5, 0, 0, 0, 0, 0, 0, -5,
+        -5, 0, 0, 0, 0, 0, 0, -5,
+        -5, 0, 0, 0, 0, 0, 0, -5,
+        0, 0, 0, 5, 5, 0, 0, 0),
+    (  # queen
+        -20, -10, -10, -5, -5, -10, -10, -20,
+        -10, 0, 0, 0, 0, 0, 0, -10,
+        -10, 0, 5, 5, 5, 5, 0, -10,
+        -5, 0, 5, 5, 5, 5, 0, -5,
+        0, 0, 5, 5, 5, 5, 0, -5,
+        -10, 5, 5, 5, 5, 5, 0, -10,
+        -10, 0, 5, 0, 0, 0, 0, -10,
+        -20, -10, -10, -5, -5, -10, -10, -20),
+    (  # king, middlegame: stay behind the pawns
+        -30, -40, -40, -50, -50, -40, -40, -30,
+        -30, -40, -40, -50, -50, -40, -40, -30,
+        -30, -40, -40, -50, -50, -40, -40, -30,
+        -30, -40, -40, -50, -50, -40, -40, -30,
+        -20, -30, -30, -40, -40, -30, -30, -20,
+        -10, -20, -20, -20, -20, -20, -20, -10,
+        20, 20, 0, 0, 0, 0, 20, 20,
+        20, 30, 10, 0, 0, 10, 30, 20),
+)
+
+PST_EG = (
+    (  # pawn: advancing matters more than the file
+        0, 0, 0, 0, 0, 0, 0, 0,
+        60, 60, 60, 60, 60, 60, 60, 60,
+        35, 35, 35, 35, 35, 35, 35, 35,
+        20, 20, 20, 20, 20, 20, 20, 20,
+        10, 10, 10, 10, 10, 10, 10, 10,
+        5, 5, 5, 5, 5, 5, 5, 5,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0),
+    PST_MG[KNIGHT],
+    PST_MG[BISHOP],
+    (0,) * 64,  # rook
+    (  # queen
+        -20, -10, -10, -5, -5, -10, -10, -20,
+        -10, 0, 0, 0, 0, 0, 0, -10,
+        -10, 0, 5, 5, 5, 5, 0, -10,
+        -5, 0, 5, 5, 5, 5, 0, -5,
+        -5, 0, 5, 5, 5, 5, 0, -5,
+        -10, 0, 5, 5, 5, 5, 0, -10,
+        -10, 0, 0, 0, 0, 0, 0, -10,
+        -20, -10, -10, -5, -5, -10, -10, -20),
+    (  # king, endgame: come to the centre
+        -50, -30, -30, -30, -30, -30, -30, -50,
+        -30, -10, -10, -10, -10, -10, -10, -30,
+        -30, -10, 20, 30, 30, 20, -10, -30,
+        -30, -10, 30, 40, 40, 30, -10, -30,
+        -30, -10, 30, 40, 40, 30, -10, -30,
+        -30, -10, 20, 30, 30, 20, -10, -30,
+        -30, -20, -10, 0, 0, -10, -20, -30,
+        -50, -40, -30, -20, -20, -30, -40, -50),
+)
+
+# Evaluation weights (centipawns, middlegame / endgame)
+BISHOP_PAIR_MG, BISHOP_PAIR_EG = 30, 50
+DOUBLED_MG, DOUBLED_EG = 8, 16
+ISOLATED_MG, ISOLATED_EG = 12, 14
+# Passed pawn bonus by how far the pawn has come (index 1 = still at home)
+PASSED_MG = (0, 0, 5, 10, 20, 35, 60, 0)
+PASSED_EG = (0, 5, 10, 20, 40, 70, 120, 0)
+MOBILITY_BASE = (0, 4, 6, 7, 13, 0)
+MOBILITY_MG = (0, 4, 5, 2, 1, 0)
+MOBILITY_EG = (0, 4, 5, 4, 2, 0)
+ROOK_OPEN_MG, ROOK_OPEN_EG = 20, 10
+ROOK_SEMI_MG, ROOK_SEMI_EG = 10, 5
+ROOK_SEVENTH_MG, ROOK_SEVENTH_EG = 15, 25
+SHIELD_NEAR, SHIELD_FAR, SHIELD_MISSING, KING_OPEN_FILE = 12, 6, 10, 15
+TEMPO = 10
+
+# PIECE_MG / PIECE_EG[piece][sq120]: material + table value, signed for the colour
+PIECE_MG = [[0] * 120 for _ in range(14)]
+PIECE_EG = [[0] * 120 for _ in range(14)]
+PIECE_PHASE = [0] * 14
+CASTLE_MASK = [15] * 120
+LMR = [[0] * 64 for _ in range(64)]
+
+MASK64 = 0xFFFFFFFFFFFFFFFF
+_prng_state = 0x123456789ABCDEF
+
+
+def _next_random():
+    global _prng_state
+    _prng_state ^= (_prng_state << 13) & MASK64
+    _prng_state ^= _prng_state >> 7
+    _prng_state ^= (_prng_state << 17) & MASK64
+    return _prng_state
+
+
+Z_PIECE = [[0] * 120 for _ in range(14)]
+for _p in range(WP, BK + 1):
+    for _sq in SQUARES:
+        Z_PIECE[_p][_sq] = _next_random()
+Z_SIDE = _next_random()
+Z_CASTLE = [_next_random() for _ in range(16)]
+Z_EP = [_next_random() for _ in range(8)]
+
+for _p in range(WP, BK + 1):
+    _type = TYPE_OF[_p]
+    PIECE_PHASE[_p] = PHASE_WEIGHT[_type]
+    for _r in range(8):
+        for _c in range(8):
+            _idx = (_r if COLOR_OF[_p] == WHITE else 7 - _r) * 8 + _c
+            _sign = 1 if COLOR_OF[_p] == WHITE else -1
+            PIECE_MG[_p][SQ(_r, _c)] = _sign * (MATERIAL_MG[_type] + PST_MG[_type][_idx])
+            PIECE_EG[_p][SQ(_r, _c)] = _sign * (MATERIAL_EG[_type] + PST_EG[_type][_idx])
+
+CASTLE_MASK[E1] = 15 & ~(CASTLE_WK | CASTLE_WQ)
+CASTLE_MASK[H1] = 15 & ~CASTLE_WK
+CASTLE_MASK[A1] = 15 & ~CASTLE_WQ
+CASTLE_MASK[E8] = 15 & ~(CASTLE_BK | CASTLE_BQ)
+CASTLE_MASK[H8] = 15 & ~CASTLE_BK
+CASTLE_MASK[A8] = 15 & ~CASTLE_BQ
+
+for _d in range(1, 64):
+    for _n in range(1, 64):
+        LMR[_d][_n] = int(0.75 + math.log(_d) * math.log(_n) / 2.25)
+
+
+def _aligned(a, b):
+    dr = ROW_OF[a] - ROW_OF[b]
+    dc = COL_OF[a] - COL_OF[b]
+    return dr == 0 or dc == 0 or dr == dc or dr == -dc
+
+
+# ALIGNED[a][b]: the two squares share a rank, file or diagonal
+ALIGNED = [[_on_board(a) and _on_board(b) and _aligned(a, b) for b in range(120)] for a in range(120)]
+
+
+def tdiv(a, b):
+    """Integer division that rounds towards zero, as C++ does."""
+    return a // b if a >= 0 else -((-a) // b)
+
+
+# ============================================================
+#  Position set-up and updates
+# ============================================================
+
+def add_piece(piece, sq):
+    global hash_key, psq_mg, psq_eg, phase
+    board[sq] = piece
+    hash_key ^= Z_PIECE[piece][sq]
+    psq_mg += PIECE_MG[piece][sq]
+    psq_eg += PIECE_EG[piece][sq]
+    phase += PIECE_PHASE[piece]
+    piece_count[piece] += 1
+    if piece == WK:
+        king_sq[WHITE] = sq
+    elif piece == BK:
+        king_sq[BLACK] = sq
+
+
+def remove_piece(sq):
+    global hash_key, psq_mg, psq_eg, phase
+    piece = board[sq]
+    board[sq] = EMPTY
+    hash_key ^= Z_PIECE[piece][sq]
+    psq_mg -= PIECE_MG[piece][sq]
+    psq_eg -= PIECE_EG[piece][sq]
+    phase -= PIECE_PHASE[piece]
+    piece_count[piece] -= 1
+
+
+def clear_board():
+    global side, castling, ep_square, halfmove, hash_key, psq_mg, psq_eg, phase
+    for i in range(120):
+        board[i] = OFFBOARD
+    for sq in SQUARES:
+        board[sq] = EMPTY
+    for i in range(14):
+        piece_count[i] = 0
+    side = WHITE
+    castling = 0
+    ep_square = 0
+    halfmove = 0
+    king_sq[WHITE] = king_sq[BLACK] = 0
+    hash_key = 0
+    psq_mg = psq_eg = phase = 0
+    del undo_stack[:]
+    del rep_stack[:]
+
+
+def finish_setup(turn, rights, ep_row, ep_col):
+    """Finish loading: side, castling rights and en passant square.
+
+    A castling right only counts while king and rook are at home, and an en
+    passant square only if the pawn that double-stepped is there and one of
+    the mover's pawns stands beside it. The hash follows the same rule, so a
+    position reached again compares equal.
+    """
+    global side, castling, ep_square, hash_key
+    # A second king of the same colour is not chess; keep the first one.
+    king_sq[WHITE] = king_sq[BLACK] = 0
+    for sq in SQUARES:
+        piece = board[sq]
+        if piece == WK and not king_sq[WHITE]:
+            king_sq[WHITE] = sq
+        if piece == BK and not king_sq[BLACK]:
+            king_sq[BLACK] = sq
+
+    side = turn
+    castling = 0
+    for ch in rights:
+        if ch == 'K' and board[E1] == WK and board[H1] == WR:
+            castling |= CASTLE_WK
+        elif ch == 'Q' and board[E1] == WK and board[A1] == WR:
+            castling |= CASTLE_WQ
+        elif ch == 'k' and board[E8] == BK and board[H8] == BR:
+            castling |= CASTLE_BK
+        elif ch == 'q' and board[E8] == BK and board[A8] == BR:
+            castling |= CASTLE_BQ
+
+    ep_square = 0
+    if 0 <= ep_col < 8 and ep_row == (2 if side == WHITE else 5):
+        target = SQ(ep_row, ep_col)
+        pawn_sq = target + (10 if side == WHITE else -10)
+        mine, theirs = (WP, BP) if side == WHITE else (BP, WP)
+        if (board[target] == EMPTY and board[pawn_sq] == theirs
+                and (board[pawn_sq - 1] == mine or board[pawn_sq + 1] == mine)):
+            ep_square = target
+
+    if side == BLACK:
+        hash_key ^= Z_SIDE
+    hash_key ^= Z_CASTLE[castling]
+    if ep_square:
+        hash_key ^= Z_EP[COL_OF[ep_square]]
+
+
+def load_position(board64, rights, turn, ep_row, ep_col):
+    """Load a position from the protocol fields. Raises ValueError on bad input."""
+    if len(board64) != 64:
+        raise ValueError('bad board')
+    clear_board()
+    for i, ch in enumerate(board64):
+        piece = PIECE_CHARS.find(ch)
+        if piece < 0:
+            raise ValueError('bad piece')
+        if piece != EMPTY:
+            add_piece(piece, SQUARES[i])
+    finish_setup(turn, rights, ep_row, ep_col)
+
+
+def serialize_board():
+    return ''.join(PIECE_CHARS[board[sq]] for sq in SQUARES)
+
+
+# ============================================================
+#  Attacks
+# ============================================================
+
+def attacked(sq, by):
+    """Is the square attacked by any piece of colour `by`?"""
+    b = board
+    if by == WHITE:
+        if b[sq + 11] == WP or b[sq + 9] == WP:
+            return True
+        knight, bishop, rook, queen, king = WN, WB, WR, WQ, WK
+    else:
+        if b[sq - 11] == BP or b[sq - 9] == BP:
+            return True
+        knight, bishop, rook, queen, king = BN, BB, BR, BQ, BK
+    for t in KNIGHT_TARGETS[sq]:
+        if b[t] == knight:
+            return True
+    for t in KING_TARGETS[sq]:
+        if b[t] == king:
+            return True
+    for ray in BISHOP_RAYS[sq]:
+        for t in ray:
+            piece = b[t]
+            if piece:
+                if piece == bishop or piece == queen:
+                    return True
+                break
+    for ray in ROOK_RAYS[sq]:
+        for t in ray:
+            piece = b[t]
+            if piece:
+                if piece == rook or piece == queen:
+                    return True
+                break
+    return False
+
+
+def in_check_now():
+    return bool(king_sq[side]) and attacked(king_sq[side], side ^ 1)
+
+
+# ============================================================
+#  Move generation
+# ============================================================
+
+PROMO_QUEEN_ONLY, PROMO_QUEEN_KNIGHT, PROMO_ALL = range(3)
+_PROMO_SETS = ((QUEEN,), (QUEEN, KNIGHT), (QUEEN, KNIGHT, ROOK, BISHOP))
+
+
+def generate_moves(noisy_only, promo_mode):
+    """Pseudo-legal moves for the side to move: every rule except "do not
+    leave your own king in check", which the caller tests after making the
+    move. Castling is only generated when it is fully legal. With
+    noisy_only, only captures and promotions are produced (for the
+    quiescence search)."""
+    b = board
+    moves = []
+    add = moves.append
+    us = side
+    them = us ^ 1
+    color_of = COLOR_OF
+    if us == WHITE:
+        forward, start_row, promo_from = -10, 6, 1
+    else:
+        forward, start_row, promo_from = 10, 1, 6
+    promos = _PROMO_SETS[promo_mode]
+
+    for frm in SQUARES:
+        piece = b[frm]
+        if not piece or color_of[piece] != us:
+            continue
+        kind = TYPE_OF[piece]
+
+        if kind == PAWN:
+            row = ROW_OF[frm]
+            to = frm + forward
+            if b[to] == EMPTY:
+                if row == promo_from:
+                    for promo in promos:
+                        add(frm | to << 7 | promo << 14)
+                elif not noisy_only:
+                    add(frm | to << 7)
+                    if row == start_row and b[to + forward] == EMPTY:
+                        add(frm | (to + forward) << 7 | FLAG_DOUBLE << 17)
+            for to in (frm + forward - 1, frm + forward + 1):
+                target = b[to]
+                if target and color_of[target] == them:
+                    if row == promo_from:
+                        for promo in promos:
+                            add(frm | to << 7 | promo << 14)
+                    else:
+                        add(frm | to << 7)
+                elif to == ep_square and ep_square:
+                    add(frm | to << 7 | FLAG_EP << 17)
+        elif kind == KNIGHT or kind == KING:
+            for to in (KNIGHT_TARGETS if kind == KNIGHT else KING_TARGETS)[frm]:
+                target = b[to]
+                if target == EMPTY:
+                    if not noisy_only:
+                        add(frm | to << 7)
+                elif color_of[target] == them:
+                    add(frm | to << 7)
+        else:
+            rays = (BISHOP_RAYS if kind == BISHOP else ROOK_RAYS if kind == ROOK else QUEEN_RAYS)[frm]
+            for ray in rays:
+                for to in ray:
+                    target = b[to]
+                    if target == EMPTY:
+                        if not noisy_only:
+                            add(frm | to << 7)
+                    else:
+                        if color_of[target] == them:
+                            add(frm | to << 7)
+                        break
+
+    if noisy_only:
+        return moves
+
+    # Castling: right held, rook at home, squares between empty, and the
+    # king neither in check nor passing over or landing on an attacked square.
+    if us == WHITE and b[E1] == WK:
+        if (castling & CASTLE_WK and b[H1] == WR and b[F1] == EMPTY and b[G1] == EMPTY
+                and not attacked(E1, BLACK) and not attacked(F1, BLACK) and not attacked(G1, BLACK)):
+            add(E1 | G1 << 7 | FLAG_CASTLE << 17)
+        if (castling & CASTLE_WQ and b[A1] == WR and b[D1] == EMPTY and b[C1] == EMPTY
+                and b[B1] == EMPTY and not attacked(E1, BLACK) and not attacked(D1, BLACK)
+                and not attacked(C1, BLACK)):
+            add(E1 | C1 << 7 | FLAG_CASTLE << 17)
+    elif us == BLACK and b[E8] == BK:
+        if (castling & CASTLE_BK and b[H8] == BR and b[F8] == EMPTY and b[G8] == EMPTY
+                and not attacked(E8, WHITE) and not attacked(F8, WHITE) and not attacked(G8, WHITE)):
+            add(E8 | G8 << 7 | FLAG_CASTLE << 17)
+        if (castling & CASTLE_BQ and b[A8] == BR and b[D8] == EMPTY and b[C8] == EMPTY
+                and b[B8] == EMPTY and not attacked(E8, WHITE) and not attacked(D8, WHITE)
+                and not attacked(C8, WHITE)):
+            add(E8 | C8 << 7 | FLAG_CASTLE << 17)
+    return moves
+
+
+# ============================================================
+#  Make / unmake: the only place where the position changes
+# ============================================================
+
+def make_move(move):
+    global side, castling, ep_square, halfmove, hash_key
+    frm = move & 127
+    to = (move >> 7) & 127
+    promo = (move >> 14) & 7
+    flag = (move >> 17) & 3
+    piece = board[frm]
+    cap_sq = to
+    if flag == FLAG_EP:
+        cap_sq = to + (10 if side == WHITE else -10)
+    captured = board[cap_sq]
+
+    undo_stack.append((move, captured, castling, ep_square, halfmove, psq_mg, psq_eg, phase, hash_key))
+    rep_stack.append(hash_key)
+
+    if ep_square:
+        hash_key ^= Z_EP[COL_OF[ep_square]]
+    hash_key ^= Z_CASTLE[castling]
+    halfmove += 1
+
+    if captured != EMPTY:
+        remove_piece(cap_sq)
+        halfmove = 0
+    elif piece == WP or piece == BP:
+        halfmove = 0
+
+    remove_piece(frm)
+    add_piece(side * 6 + promo + 1 if promo else piece, to)
+
+    if flag == FLAG_CASTLE:
+        if to > frm:
+            rook_from, rook_to = to + 1, to - 1
+        else:
+            rook_from, rook_to = to - 2, to + 1
+        rook = board[rook_from]
+        remove_piece(rook_from)
+        add_piece(rook, rook_to)
+
+    castling &= CASTLE_MASK[frm] & CASTLE_MASK[to]
+    ep_square = 0
+    if flag == FLAG_DOUBLE:
+        enemy_pawn = BP if side == WHITE else WP
+        if board[to - 1] == enemy_pawn or board[to + 1] == enemy_pawn:
+            ep_square = (frm + to) // 2
+    hash_key ^= Z_CASTLE[castling]
+    if ep_square:
+        hash_key ^= Z_EP[COL_OF[ep_square]]
+
+    side ^= 1
+    hash_key ^= Z_SIDE
+
+
+def unmake_move():
+    global side, castling, ep_square, halfmove, hash_key, psq_mg, psq_eg, phase
+    move, captured, old_castling, old_ep, old_halfmove, old_mg, old_eg, old_phase, old_hash = undo_stack.pop()
+    rep_stack.pop()
+    side ^= 1
+
+    frm = move & 127
+    to = (move >> 7) & 127
+    flag = (move >> 17) & 3
+
+    if flag == FLAG_CASTLE:
+        if to > frm:
+            rook_from, rook_to = to + 1, to - 1
+        else:
+            rook_from, rook_to = to - 2, to + 1
+        rook = board[rook_to]
+        remove_piece(rook_to)
+        add_piece(rook, rook_from)
+
+    piece = board[to]
+    remove_piece(to)
+    add_piece(side * 6 + 1 if (move >> 14) & 7 else piece, frm)
+
+    if captured:
+        cap_sq = to + (10 if side == WHITE else -10) if flag == FLAG_EP else to
+        add_piece(captured, cap_sq)
+
+    castling = old_castling
+    ep_square = old_ep
+    halfmove = old_halfmove
+    psq_mg = old_mg
+    psq_eg = old_eg
+    phase = old_phase
+    hash_key = old_hash
+
+
+def make_null():
+    """Pass the turn (used by null-move pruning only)."""
+    global side, ep_square, halfmove, hash_key
+    undo_stack.append((ep_square, halfmove, hash_key))
+    rep_stack.append(hash_key)
+    if ep_square:
+        hash_key ^= Z_EP[COL_OF[ep_square]]
+    ep_square = 0
+    halfmove = 0  # a repetition cannot reach across a pass
+    side ^= 1
+    hash_key ^= Z_SIDE
+
+
+def unmake_null():
+    global side, ep_square, halfmove, hash_key
+    ep_square, halfmove, hash_key = undo_stack.pop()
+    rep_stack.pop()
+    side ^= 1
+
+
+def make_if_legal(move):
+    """Make the move if it is legal. Returns False (and changes nothing) if not."""
+    make_move(move)
+    king = king_sq[side ^ 1]
+    if king and attacked(king, side):
+        unmake_move()
+        return False
+    return True
+
+
+def generate_legal(promo_mode):
+    """All legal moves of the side to move."""
+    legal = []
+    for move in generate_moves(False, promo_mode):
+        if make_if_legal(move):
+            unmake_move()
+            legal.append(move)
+    return legal
+
+
+def has_legal_move():
+    for move in generate_moves(False, PROMO_QUEEN_ONLY):
+        if make_if_legal(move):
+            unmake_move()
+            return True
+    return False
+
+
+def is_capture(move):
+    return board[(move >> 7) & 127] != EMPTY or (move >> 17) & 3 == FLAG_EP
+
+
+def is_insufficient_material():
+    """Checks if the current board state is a draw due to insufficient material.
+    Cases: K vs K, K+N vs K, and kings with any number of bishops that all
+    stand on squares of one colour (K+B vs K, K+B vs K+B same colour).
+    """
+    pc = piece_count
+    if pc[WP] or pc[BP] or pc[WR] or pc[BR] or pc[WQ] or pc[BQ]:
+        return False
+    knights = pc[WN] + pc[BN]
+    bishops = pc[WB] + pc[BB]
+    if knights == 0:
+        if bishops <= 1:
+            return True
+        light = dark = 0
+        for sq in SQUARES:
+            if board[sq] == WB or board[sq] == BB:
+                if (ROW_OF[sq] + COL_OF[sq]) % 2 == 0:
+                    light += 1
+                else:
+                    dark += 1
+        return light == 0 or dark == 0
+    # A single knight draws only against a bare king
+    return knights == 1 and bishops == 0
+
+
+def perft(depth):
+    nodes = 0
+    for move in generate_moves(False, PROMO_ALL):
+        if not make_if_legal(move):
+            continue
+        nodes += 1 if depth <= 1 else perft(depth - 1)
+        unmake_move()
+    return nodes
+
+
+# ============================================================
+#  Static evaluation
+# ============================================================
+
+def centre_distance(sq):
+    """Distance of a square from the four centre squares, 0 to 6."""
+    r, c = ROW_OF[sq], COL_OF[sq]
+    return max(3 - r, r - 4) + max(3 - c, c - 4)
+
+
+def evaluate():
+    """Static evaluation of the current board in centipawns.
+    Positive => white advantage, negative => black advantage.
+
+    Material and piece-square tables (kept incrementally), bishop pair,
+    mobility, pawn structure (doubled, isolated, passed), rooks on open
+    files and on the seventh rank, pawn shelter of the king, and for bare
+    endgames a term that drives the losing king to the edge. Middlegame and
+    endgame scores are blended by the material left on the board.
+    """
+    if is_insufficient_material():
+        return 0
+
+    b = board
+    pc = piece_count
+    mg = psq_mg
+    eg = psq_eg
+    color_of = COLOR_OF
+    type_of = TYPE_OF
+
+    # Pawns per file; index 0 and 9 stand for the files beside a and h.
+    # black_rear / white_rear: per file the row of the pawn nearest its own
+    # side. A white pawn is passed when no black pawn on its own or a
+    # neighbouring file stands on a row in front of it.
+    white_pawns = [0] * 10
+    black_pawns = [0] * 10
+    black_rear = [8] * 10
+    white_rear = [-1] * 10
+    pieces = []
+    for sq, r, f in SQUARE_ROW_FILE:
+        piece = b[sq]
+        if not piece:
+            continue
+        pieces.append((sq, r, f, piece))
+        if piece == WP:
+            white_pawns[f] += 1
+            if r > white_rear[f]:
+                white_rear[f] = r
+        elif piece == BP:
+            black_pawns[f] += 1
+            if r < black_rear[f]:
+                black_rear[f] = r
+    pawns = (white_pawns, black_pawns)
+
+    for sq, r, f, piece in pieces:
+        us = color_of[piece]
+        them = us ^ 1
+        kind = type_of[piece]
+        sign = 1 if us == WHITE else -1
+
+        if kind == PAWN:
+            own = pawns[us]
+            if own[f] > 1:
+                mg -= sign * DOUBLED_MG
+                eg -= sign * DOUBLED_EG
+            if not own[f - 1] and not own[f + 1]:
+                mg -= sign * ISOLATED_MG
+                eg -= sign * ISOLATED_EG
+            if us == WHITE:
+                passed = black_rear[f - 1] >= r and black_rear[f] >= r and black_rear[f + 1] >= r
+                advance = 7 - r  # 1 on the home row .. 6 one step from promotion
+            else:
+                passed = white_rear[f - 1] <= r and white_rear[f] <= r and white_rear[f + 1] <= r
+                advance = r
+            if passed:
+                mg += sign * PASSED_MG[advance]
+                eg += sign * PASSED_EG[advance]
+            continue
+
+        if kind == KING:
+            # Pawn shelter, only while the king is on its two home rows
+            home_row = 7 if us == WHITE else 0
+            if abs(r - home_row) <= 1:
+                ahead = -10 if us == WHITE else 10
+                pawn = WP if us == WHITE else BP
+                shelter = 0
+                c = f - 1
+                for kc in range(max(0, c - 1), min(7, c + 1) + 1):
+                    s = SQ(r, kc)
+                    if b[s + ahead] == pawn:
+                        shelter += SHIELD_NEAR
+                    elif b[s + 2 * ahead] == pawn:
+                        shelter += SHIELD_FAR
+                    else:
+                        shelter -= SHIELD_MISSING
+                        if not pawns[us][kc + 1]:
+                            shelter -= KING_OPEN_FILE
+                mg += sign * shelter
+            continue
+
+        # Mobility: squares the piece can move to
+        mobility = 0
+        if kind == KNIGHT:
+            for t in KNIGHT_TARGETS[sq]:
+                target = b[t]
+                if not target or color_of[target] == them:
+                    mobility += 1
+        else:
+            rays = (BISHOP_RAYS if kind == BISHOP else ROOK_RAYS if kind == ROOK else QUEEN_RAYS)[sq]
+            for ray in rays:
+                for t in ray:
+                    target = b[t]
+                    if not target:
+                        mobility += 1
+                    else:
+                        if color_of[target] == them:
+                            mobility += 1
+                        break
+        mobility -= MOBILITY_BASE[kind]
+        mg += sign * MOBILITY_MG[kind] * mobility
+        eg += sign * MOBILITY_EG[kind] * mobility
+
+        if kind == ROOK:
+            if not pawns[us][f]:
+                if not pawns[them][f]:
+                    mg += sign * ROOK_OPEN_MG
+                    eg += sign * ROOK_OPEN_EG
+                else:
+                    mg += sign * ROOK_SEMI_MG
+                    eg += sign * ROOK_SEMI_EG
+            # On the seventh with the enemy king cut off on the eighth
+            seventh, eighth = (1, 0) if us == WHITE else (6, 7)
+            if r == seventh and king_sq[them] and ROW_OF[king_sq[them]] == eighth:
+                mg += sign * ROOK_SEVENTH_MG
+                eg += sign * ROOK_SEVENTH_EG
+
+    if pc[WB] >= 2:
+        mg += BISHOP_PAIR_MG
+        eg += BISHOP_PAIR_EG
+    if pc[BB] >= 2:
+        mg -= BISHOP_PAIR_MG
+        eg -= BISHOP_PAIR_EG
+
+    # Endgame knowledge
+    material = [0, 0]
+    for s in (WHITE, BLACK):
+        for kind in range(PAWN, QUEEN + 1):
+            material[s] += pc[s * 6 + kind + 1] * MATERIAL_EG[kind]
+    strong = WHITE if material[WHITE] >= material[BLACK] else BLACK
+    weak = strong ^ 1
+    lead = material[strong] - material[weak]
+    strong_sign = 1 if strong == WHITE else -1
+    strong_has_pawns = pc[strong * 6 + 1] > 0
+    weak_has_pawns = pc[weak * 6 + 1] > 0
+
+    if (not strong_has_pawns and not weak_has_pawns and material[weak] == 0
+            and pc[strong * 6 + KNIGHT + 1] == 2 and material[strong] == 2 * MATERIAL_EG[KNIGHT]):
+        return 0  # two knights cannot force mate
+    if (lead >= 400 and not weak_has_pawns and material[weak] <= MATERIAL_EG[BISHOP]
+            and king_sq[WHITE] and king_sq[BLACK]):
+        # Winning material against a nearly bare king: push that king to
+        # the edge and bring our own king up.
+        kings_apart = (abs(ROW_OF[king_sq[WHITE]] - ROW_OF[king_sq[BLACK]])
+                       + abs(COL_OF[king_sq[WHITE]] - COL_OF[king_sq[BLACK]]))
+        eg += strong_sign * (10 * centre_distance(king_sq[weak]) + 4 * (14 - kings_apart))
+    elif not strong_has_pawns and not weak_has_pawns and lead < 400:
+        # Without pawns a small material lead rarely wins (R v B, R+B v R)
+        mg = tdiv(mg, 4)
+        eg = tdiv(eg, 4)
+
+    p = 24 if phase > 24 else phase
+    score = tdiv(mg * p + eg * (24 - p), 24)
+    return score + (TEMPO if side == WHITE else -TEMPO)
+
+
+# hash -> evaluate() for positions already scored in this search. The same
+# position comes back often (re-searches, transpositions) and evaluate() is
+# by far the most expensive call in Python.
+eval_cache = {}
+
+
+def eval_for_side():
+    e = eval_cache.get(hash_key)
+    if e is None:
+        e = eval_cache[hash_key] = evaluate()
+    return e if side == WHITE else -e
+
+
+# ============================================================
+#  Search
+# ============================================================
+
+INF = 32000
+MATE = 31000
+MATE_BOUND = MATE - 512  # scores beyond this are forced mates
+MAX_DEPTH = 64
+
+BOUND_EXACT, BOUND_LOWER, BOUND_UPPER = 1, 2, 3
+
+# hash -> (move, score, depth, bound). main.cpp uses a fixed table; a dict
+# does the same job at the node counts Python reaches.
+transposition_table = {}
+
+start_time = 0.0
+deadline_ms = -1.0  # hard stop, measured from start_time
+search_aborted = False
+nodes_searched = 0
+tthits = 0
+killers = [[0, 0] for _ in range(MAX_PLY + 2)]
+history_table = [[0] * 120 for _ in range(14)]
+
+
+def elapsed_ms():
+    return (time.perf_counter() - start_time) * 1000
+
+
+def count_node():
+    global nodes_searched, search_aborted
+    nodes_searched += 1
+    # Python searches far fewer nodes per second, so it looks at the clock
+    # more often than main.cpp does.
+    if nodes_searched & 31 == 0 and deadline_ms >= 0 and elapsed_ms() >= deadline_ms:
+        search_aborted = True
+
+
+def store_tt(key, move, score, depth, bound, ply):
+    # Mate scores are stored relative to the node, not to the root, so an
+    # entry is still right when the position is reached at another depth.
+    if score >= MATE_BOUND:
+        score += ply
+    elif score <= -MATE_BOUND:
+        score -= ply
+    if move == 0:
+        old = transposition_table.get(key)
+        if old:
+            move = old[0]  # keep the known best move
+    transposition_table[key] = (move, score, depth, bound)
+
+
+def is_repetition():
+    """Has the current position occurred before, in the game or on this line?"""
+    n = len(rep_stack)
+    limit = halfmove if halfmove < n else n
+    key = hash_key
+    back = 2
+    while back <= limit:
+        if rep_stack[n - back] == key:
+            return True
+        back += 2
+    return False
+
+
+def has_non_pawn_material(s):
+    base = s * 6
+    pc = piece_count
+    return pc[base + 2] or pc[base + 3] or pc[base + 4] or pc[base + 5]
+
+
+# Knight and bishop count the same here, so that bishop takes knight
+# (or the reverse) is an even trade and not a loss of ten points.
+SEE_VALUE = (100, 325, 325, 500, 900, 20000)
+
+
+def least_attacker(sq, by):
+    """The least valuable piece of colour `by` that attacks sq, or 0."""
+    b = board
+    if by == WHITE:
+        if b[sq + 11] == WP:
+            return sq + 11
+        if b[sq + 9] == WP:
+            return sq + 9
+        knight, bishop, rook, queen, king = WN, WB, WR, WQ, WK
+    else:
+        if b[sq - 11] == BP:
+            return sq - 11
+        if b[sq - 9] == BP:
+            return sq - 9
+        knight, bishop, rook, queen, king = BN, BB, BR, BQ, BK
+    for t in KNIGHT_TARGETS[sq]:
+        if b[t] == knight:
+            return t
+    best = 0
+    best_type = KING + 1
+    for t in KING_TARGETS[sq]:
+        if b[t] == king:
+            best, best_type = t, KING
+    for ray in BISHOP_RAYS[sq]:
+        for t in ray:
+            piece = b[t]
+            if piece:
+                if piece == bishop and BISHOP < best_type:
+                    best, best_type = t, BISHOP
+                elif piece == queen and QUEEN < best_type:
+                    best, best_type = t, QUEEN
+                break
+    for ray in ROOK_RAYS[sq]:
+        for t in ray:
+            piece = b[t]
+            if piece:
+                if piece == rook and ROOK < best_type:
+                    best, best_type = t, ROOK
+                elif piece == queen and QUEEN < best_type:
+                    best, best_type = t, QUEEN
+                break
+    return best
+
+
+def see(move):
+    """Static exchange evaluation: the material balance of the capture
+    sequence on the target square if both sides keep recapturing with their
+    least valuable piece and stop when it no longer pays."""
+    b = board
+    frm = move & 127
+    to = (move >> 7) & 127
+    promo = (move >> 14) & 7
+    removed = []
+
+    target = b[to]
+    if (move >> 17) & 3 == FLAG_EP:
+        cap_sq = to + (10 if side == WHITE else -10)
+        removed.append((cap_sq, b[cap_sq]))
+        b[cap_sq] = EMPTY
+        gain = [SEE_VALUE[PAWN]]
+    else:
+        gain = [SEE_VALUE[TYPE_OF[target]] if target else 0]
+    on_square = SEE_VALUE[TYPE_OF[b[frm]]]  # value now standing on `to`
+    if promo:
+        gain[0] += SEE_VALUE[promo] - SEE_VALUE[PAWN]
+        on_square = SEE_VALUE[promo]
+    removed.append((frm, b[frm]))
+    b[frm] = EMPTY
+
+    by = side ^ 1
+    while len(gain) < 31:
+        attacker = least_attacker(to, by)
+        if not attacker:
+            break
+        gain.append(on_square - gain[-1])
+        on_square = SEE_VALUE[TYPE_OF[b[attacker]]]
+        removed.append((attacker, b[attacker]))
+        b[attacker] = EMPTY
+        by ^= 1
+    for sq, piece in reversed(removed):
+        b[sq] = piece
+
+    n = len(gain) - 1
+    while n > 0:
+        gain[n - 1] = -max(-gain[n - 1], gain[n])
+        n -= 1
+    return gain[0]
+
+
+SCORE_TT = 1 << 30
+SCORE_GOOD_CAPTURE = 1 << 24
+SCORE_KILLER = 1 << 22
+SCORE_BAD_CAPTURE = -(1 << 24)
+
+
+def order_moves(moves, tt_move, ply):
+    """Sort the moves, best candidates first; returns (score, move) pairs."""
+    b = board
+    killer1, killer2 = killers[ply] if ply >= 0 else (0, 0)
+    scored = []
+    for move in moves:
+        to = (move >> 7) & 127
+        promo = (move >> 14) & 7
+        target = b[to]
+        is_ep = (move >> 17) & 3 == FLAG_EP
+        if move == tt_move:
+            score = SCORE_TT
+        elif target or is_ep or promo:
+            victim = PAWN if is_ep else (TYPE_OF[target] if target else -1)
+            attacker = TYPE_OF[b[move & 127]]
+            # Most valuable victim first, least valuable attacker first
+            mvv_lva = (SEE_VALUE[victim] if victim >= 0 else 0) * 8 - SEE_VALUE[attacker] // 100
+            if promo == QUEEN:
+                mvv_lva += 7000
+            # A capture that may lose material is checked exactly
+            risky = victim < 0 or SEE_VALUE[victim] < SEE_VALUE[attacker]
+            if risky and promo != QUEEN and see(move) < 0:
+                score = SCORE_BAD_CAPTURE + mvv_lva
+            else:
+                score = SCORE_GOOD_CAPTURE + mvv_lva
+        elif move == killer1:
+            score = SCORE_KILLER
+        elif move == killer2:
+            score = SCORE_KILLER - 1
+        else:
+            score = history_table[b[move & 127]][to]
+        scored.append((score, move))
+    scored.sort(key=_first, reverse=True)
+    return scored
+
+
+def _first(pair):
+    return pair[0]
+
+
+def quiesce(alpha, beta, ply, in_check):
+    """Quiescence search: play out captures and promotions (and every reply
+    while in check) until the position is quiet, so that the static
+    evaluation is never taken in the middle of an exchange."""
+    if search_aborted:
+        return 0
+    count_node()
+    if ply >= MAX_PLY - 1:
+        return eval_for_side()
+
+    best = -INF
+    stand_pat = -INF
+    if not in_check:
+        stand_pat = eval_for_side()
+        if stand_pat >= beta:
+            return stand_pat
+        if stand_pat > alpha:
+            alpha = stand_pat
+        best = stand_pat
+
+    legal = 0
+    for order_score, move in order_moves(generate_moves(not in_check, PROMO_QUEEN_ONLY), 0, -1):
+        if not in_check:
+            # Losing captures are not worth following, and neither is a
+            # capture that cannot bring the score back up to alpha.
+            if order_score < 0:
+                break
+            target = board[(move >> 7) & 127]
+            if (move >> 17) & 3 == FLAG_EP:
+                gain = SEE_VALUE[PAWN]
+            else:
+                gain = SEE_VALUE[TYPE_OF[target]] if target else 0
+            if (move >> 14) & 7:
+                gain += 800
+            if stand_pat + gain + 200 <= alpha:
+                continue
+        if not make_if_legal(move):
+            continue
+        legal += 1
+        score = -quiesce(-beta, -alpha, ply + 1, in_check_now())
+        unmake_move()
+        if search_aborted:
+            return 0
+        if score > best:
+            best = score
+            if score > alpha:
+                alpha = score
+                if alpha >= beta:
+                    break
+
+    if in_check and legal == 0:
+        return -MATE + ply
+    return best
+
+
+def search(depth, alpha, beta, ply, in_check, null_ok):
+    """Principal variation search (negamax alpha-beta).
+
+      depth      : remaining plies to search
+      alpha/beta : window, from the point of view of the side to move
+      ply        : distance from the root
+      in_check   : the side to move is in check
+      null_ok    : a null move may be tried here
+
+    Returns the score for the side to move.
+    """
+    global tthits
+    if search_aborted:
+        return 0
+
+    pv_node = beta - alpha > 1
+
+    # Draws: repetition, dead position, fifty-move rule (mate comes first)
+    if is_repetition() or is_insufficient_material():
+        return 0
+    if halfmove >= 100 and (not in_check or has_legal_move()):
+        return 0
+
+    # A shorter mate found elsewhere makes this line pointless
+    if alpha < -MATE + ply:
+        alpha = -MATE + ply
+    if beta > MATE - ply - 1:
+        beta = MATE - ply - 1
+    if alpha >= beta:
+        return alpha
+
+    if ply >= MAX_PLY - 1:
+        return eval_for_side()
+
+    if in_check:
+        depth += 1  # never stop while in check
+    if depth <= 0:
+        return quiesce(alpha, beta, ply, False)
+
+    count_node()
+
+    key = hash_key
+    tt_move = 0
+    entry = transposition_table.get(key)
+    if entry:
+        tthits += 1
+        tt_move = entry[0]
+        if not pv_node and entry[2] >= depth:
+            score = entry[1]
+            if score >= MATE_BOUND:
+                score -= ply
+            elif score <= -MATE_BOUND:
+                score += ply
+            bound = entry[3]
+            if bound == BOUND_EXACT:
+                return score
+            if bound == BOUND_LOWER and score >= beta:
+                return score
+            if bound == BOUND_UPPER and score <= alpha:
+                return score
+
+    static_eval = -INF if in_check else eval_for_side()
+
+    if not pv_node and not in_check and -MATE_BOUND < beta < MATE_BOUND:
+        # Reverse futility: far above beta close to the horizon
+        if depth <= 3 and static_eval - 120 * depth >= beta:
+            return static_eval
+
+        # Null move: if passing still holds beta, a real move will too.
+        # Not with only pawns left, where having to move can be a loss.
+        if null_ok and depth >= 3 and static_eval >= beta and has_non_pawn_material(side):
+            reduction = 2 + depth // 4
+            make_null()
+            score = -search(depth - 1 - reduction, -beta, -beta + 1, ply + 1, False, False)
+            unmake_null()
+            if search_aborted:
+                return 0
+            if score >= beta:
+                return beta if score >= MATE_BOUND else score
+
+    original_alpha = alpha
+    best_score = -INF
+    best_move = 0
+    legal = 0
+    us = side
+    own_king = king_sq[us]
+    b = board
+
+    for _, move in order_moves(generate_moves(False, PROMO_QUEEN_KNIGHT), tt_move, ply):
+        frm = move & 127
+        piece = b[frm]
+        flag = (move >> 17) & 3
+        quiet = b[(move >> 7) & 127] == EMPTY and flag != FLAG_EP and not (move >> 14) & 7
+
+        # Only a king move, an en passant capture or a piece on a line
+        # with the king can expose the king when it is not in check.
+        must_verify = (in_check or piece == WK or piece == BK or flag == FLAG_EP
+                       or ALIGNED[frm][own_king])
+        make_move(move)
+        if must_verify and king_sq[us] and attacked(king_sq[us], side):
+            unmake_move()
+            continue
+        legal += 1
+        gives_check = bool(king_sq[side]) and attacked(king_sq[side], us)
+
+        # Futility: a quiet move that cannot lift a hopeless position
+        if (not pv_node and not in_check and quiet and not gives_check and legal > 1
+                and depth <= 2 and static_eval + 100 + 100 * depth <= alpha
+                and -MATE_BOUND < alpha < MATE_BOUND):
+            unmake_move()
+            continue
+
+        new_depth = depth - 1
+        if legal == 1:
+            score = -search(new_depth, -beta, -alpha, ply + 1, gives_check, True)
+        else:
+            # Late move reduction: moves ordered far back are searched
+            # shallower first and again at full depth only if they surprise.
+            reduction = 0
+            if (depth >= 3 and legal > (5 if pv_node else 3) and quiet
+                    and not in_check and not gives_check):
+                reduction = LMR[min(depth, 63)][min(legal, 63)]
+                if pv_node and reduction > 0:
+                    reduction -= 1
+                if reduction > new_depth - 1:
+                    reduction = max(0, new_depth - 1)
+            score = -search(new_depth - reduction, -alpha - 1, -alpha, ply + 1, gives_check, True)
+            if score > alpha and reduction > 0:
+                score = -search(new_depth, -alpha - 1, -alpha, ply + 1, gives_check, True)
+            if alpha < score < beta:
+                score = -search(new_depth, -beta, -alpha, ply + 1, gives_check, True)
+        unmake_move()
+        if search_aborted:
+            return 0
+
+        if score > best_score:
+            best_score = score
+            best_move = move
+            if score > alpha:
+                alpha = score
+                if alpha >= beta:
+                    if quiet:
+                        slot = killers[ply]
+                        if slot[0] != move:
+                            slot[1] = slot[0]
+                            slot[0] = move
+                        row = history_table[piece]
+                        to = (move >> 7) & 127
+                        row[to] += depth * depth
+                        if row[to] > 1 << 20:
+                            for table_row in history_table:
+                                for i in range(120):
+                                    table_row[i] //= 2
+                    break
+
+    if legal == 0:
+        return -MATE + ply if in_check else 0  # checkmate or stalemate
+
+    if best_score >= beta:
+        bound = BOUND_LOWER
+    elif best_score > original_alpha:
+        bound = BOUND_EXACT
+    else:
+        bound = BOUND_UPPER
+    store_tt(key, best_move, best_score, depth, bound, ply)
+    return best_score
+
+
+def search_root(depth, alpha, beta, root_moves, excluded):
+    """Search the root moves in the given order. Moves in `excluded` are
+    skipped (used to find the next best alternatives).
+    Returns (best score, best move); on abort the result is void."""
+    best_score = -INF
+    best_move = 0
+    searched = 0
+    for i in range(len(root_moves)):
+        move = root_moves[i]
+        if move in excluded:
+            continue
+        make_move(move)
+        gives_check = in_check_now()
+        if searched == 0:
+            score = -search(depth - 1, -beta, -alpha, 1, gives_check, True)
+        else:
+            score = -search(depth - 1, -alpha - 1, -alpha, 1, gives_check, True)
+            if alpha < score < beta:
+                score = -search(depth - 1, -beta, -alpha, 1, gives_check, True)
+        unmake_move()
+        if search_aborted:
+            return 0, 0
+        searched += 1
+        if score > best_score:
+            best_score = score
+            best_move = move
+            if score > alpha:
+                alpha = score
+                # Try the new best move first in the next iteration
+                root_moves.insert(0, root_moves.pop(i))
+                if alpha >= beta:
+                    break
+    return best_score, best_move
+
+
+def report_score(score, mover):
+    """Score as sent to the bridge: from White's side, mates near +-99999."""
+    if score >= MATE_BOUND:
+        score = 99999 - (MATE - score)
+    elif score <= -MATE_BOUND:
+        score = -99999 + (MATE + score)
+    return score if mover == WHITE else -score
+
+
+def search_best_move(max_depth, time_limit_ms, alternatives):
+    """BESTMOVE handler: iterative deepening with aspiration windows.
+    Stops at max_depth or when the time is used up, and always answers with
+    the best move of the last iteration that was searched completely."""
+    global start_time, deadline_ms, search_aborted, nodes_searched, tthits
+    max_depth = min(max(1, max_depth), MAX_DEPTH)  # depth 0 would return an unsearched move
+    alternatives = max(0, alternatives)
+
+    start_time = time.perf_counter()
+    search_aborted = False
+    nodes_searched = 0
+    tthits = 0
+    transposition_table.clear()
+    eval_cache.clear()
+    for slot in killers:
+        slot[0] = slot[1] = 0
+    for row in history_table:
+        for i in range(120):
+            row[i] = 0
+
+    mover = side
+    legal = generate_legal(PROMO_QUEEN_ONLY)
+    if not legal:
+        print('BESTMOVE NONE')
+        return
+
+    # Order the root moves once: captures first, as in the tree
+    root_moves = [move for _, move in order_moves(legal, 0, -1)]
+
+    # The main search may use most of the time; the rest is kept for the
+    # alternatives. A tenth of the limit is left unused, so that the reply
+    # is still on time when the machine is busy and this process is not
+    # run for a moment.
+    hard_limit = max(1, time_limit_ms - max(10, time_limit_ms // 10)) if time_limit_ms > 0 else -1
+    main_limit = hard_limit
+    if hard_limit > 0 and alternatives > 0 and len(root_moves) > 1:
+        main_limit = hard_limit * 9 // 10
+    deadline_ms = main_limit
+
+    best = root_moves[0]
+    best_score = 0
+    depth_reached = 0
+    completed_all = True
+
+    for d in range(1, max_depth + 1):
+        iteration_start = elapsed_ms()
+        if d >= 4:
+            # Aspiration window around the previous score
+            window = 40
+            alpha = max(-INF, best_score - window)
+            beta = min(INF, best_score + window)
+            while True:
+                score, move = search_root(d, alpha, beta, root_moves, ())
+                if search_aborted:
+                    break
+                if score <= alpha:
+                    alpha = max(-INF, alpha - window)
+                elif score >= beta:
+                    beta = min(INF, beta + window)
+                else:
+                    break
+                window *= 2
+                if window > 600:
+                    alpha, beta = -INF, INF
+        else:
+            score, move = search_root(d, -INF, INF, root_moves, ())
+        if search_aborted:
+            completed_all = False
+            break
+
+        best = move
+        best_score = score
+        depth_reached = d
+
+        if len(root_moves) == 1:
+            break
+        # A forced mate will not get shorter by looking deeper than its length
+        if abs(score) >= MATE_BOUND and MATE - abs(score) <= d:
+            break
+        if main_limit > 0 and d < max_depth:
+            # The next iteration costs at least about twice the last
+            # one; do not start it if it cannot finish.
+            now = elapsed_ms()
+            if now + 2 * (now - iteration_start) >= main_limit:
+                completed_all = False
+                break
+
+    if depth_reached == 0:
+        # Not even depth 1 was finished (a limit of a few milliseconds):
+        # fall back to the first move by capture ordering.
+        best = root_moves[0]
+        search_aborted = False
+        deadline_ms = -1
+        make_move(best)
+        best_score = -quiesce(-INF, INF, 1, in_check_now())
+        unmake_move()
+
+    # The next best moves: the remaining root moves are searched again
+    # without the moves already chosen, deepening while time is left. The
+    # table filled by the main search makes this cheap.
+    alts = []
+    if alternatives > 0 and len(root_moves) > 1 and depth_reached > 0:
+        search_aborted = False
+        deadline_ms = hard_limit
+        alt_depth = depth_reached if depth_reached <= 3 else depth_reached - 2
+        for d in range(1, alt_depth + 1):
+            found = []
+            excluded = [best]
+            while len(found) < alternatives and len(excluded) < len(root_moves):
+                score, move = search_root(d, -INF, INF, root_moves, excluded)
+                if search_aborted or move == 0:
+                    break
+                found.append((move, score))
+                excluded.append(move)
+            if search_aborted:
+                break
+            alts = found
+        search_aborted = False
+
+    def squares(move):
+        frm, to = move & 127, (move >> 7) & 127
+        return f'{ROW_OF[frm]} {COL_OF[frm]} {ROW_OF[to]} {COL_OF[to]}'
+
+    out = f'BESTMOVE {squares(best)} EVAL {report_score(best_score, mover)}'
+    if alts:
+        out += ' ALTS'
+        for move, score in alts:
+            out += f' {squares(move)} {report_score(score, mover)}'
+    status = 'completed' if completed_all else 'timeout'
+    out += (f' DEPTH {depth_reached} NODES {nodes_searched} TTHITS {tthits}'
+            f' TIME {int(elapsed_ms())} ENGINE python STATUS {status}')
+    print(out)
+
+
+# ============================================================
+#  Command handlers
+# ============================================================
+
+def find_legal_move(frm, to, promo_type):
+    """Find the legal move from one square to another (queen if it promotes)."""
+    for move in generate_legal(PROMO_ALL):
+        promo = (move >> 14) & 7
+        if move & 127 == frm and (move >> 7) & 127 == to and (not promo or promo == promo_type):
+            return move
+    return 0
+
+
+def handle_moves(row, col):
+    frm = SQ(row, col)
+    # One entry per target square, in board order
+    targets = sorted(
+        ((move >> 7) & 127, move) for move in generate_legal(PROMO_QUEEN_ONLY) if move & 127 == frm
+    )
+    output = ['MOVES']
+    for to, move in targets:
+        output.extend([
+            str(ROW_OF[to]), str(COL_OF[to]),
+            '1' if is_capture(move) else '0',
+            '1' if (move >> 14) & 7 else '0',
+        ])
+    print(' '.join(output))
+
+
+def promo_type_from_char(ch):
+    return {'r': ROOK, 'b': BISHOP, 'n': KNIGHT}.get(ch.lower(), QUEEN)  # default to queen
+
+
+def handle_promote(fr, fc, tr, tc, promo_piece):
+    """Validates a promotion move, applies it on the board, and returns
+    the new 64-char board string so the Python layer stays in sync."""
+    frm, to = SQ(fr, fc), SQ(tr, tc)
+    piece = board[frm]
+    if piece == EMPTY or COLOR_OF[piece] != side or TYPE_OF[piece] != PAWN:
+        print('INVALID Not a pawn')
+        return
+    if tr != (0 if side == WHITE else 7):
+        print('INVALID Not a promotion square')
+        return
+    move = find_legal_move(frm, to, promo_type_from_char(promo_piece))
+    if not move:
+        print('INVALID Illegal move')
+        return
+    make_move(move)
+    print(f'PROMOTE {serialize_board()}')
+
+
+def handle_status():
+    """STATUS -> CHECK (in check, has legal moves), CHECKMATE, STALEMATE,
+    DRAW (legal moves exist but neither side can ever mate), OK."""
+    in_check = in_check_now()
+    if not has_legal_move():
+        print('STATUS CHECKMATE' if in_check else 'STATUS STALEMATE')
+    elif is_insufficient_material():
+        # A dead position is a draw even while the king is in check.
+        print('STATUS DRAW')
+    else:
+        print('STATUS CHECK' if in_check else 'STATUS OK')
+
+
+def handle_notation(fr, fc, tr, tc, promo):
+    """NOTATION handler: Standard Algebraic Notation for a move, with
+    disambiguation (Rfe1, N5f3), promotion and the check or mate suffix."""
+    frm, to = SQ(fr, fc), SQ(tr, tc)
+    piece = board[frm]
+    if piece == EMPTY:
+        print('NOTATION ?')
+        return
+    kind = TYPE_OF[piece]
+    files = 'abcdefgh'
+    promotes = kind == PAWN and tr in (0, 7)
+    promo_type = promo_type_from_char(promo) if promotes else 0
+
+    # The move as the engine plays it. A move that is not legal still gets
+    # a notation, built from its shape.
+    move = find_legal_move(frm, to, promo_type)
+    if not move:
+        flag = FLAG_NONE
+        if kind == KING and abs(tc - fc) == 2 and tc in (6, 2):
+            flag = FLAG_CASTLE
+        elif kind == PAWN and fc != tc and board[to] == EMPTY:
+            flag = FLAG_EP
+        elif kind == PAWN and abs(tr - fr) == 2:
+            flag = FLAG_DOUBLE
+        move = frm | to << 7 | promo_type << 14 | flag << 17
+
+    if (move >> 17) & 3 == FLAG_CASTLE:
+        res = 'O-O' if tc == 6 else 'O-O-O'
+    elif kind == PAWN:
+        res = ''
+        # A diagonal pawn move is always a capture
+        if fc != tc:
+            res += files[fc] + 'x'
+        res += files[tc] + str(8 - tr)
+        if promotes:
+            res += '=' + 'PNBRQK'[promo_type]
+    else:
+        res = 'PNBRQK'[kind]
+
+        # Disambiguation: other pieces of the same kind that can legally
+        # move to the same square
+        others = same_file = same_rank = False
+        for other in generate_legal(PROMO_QUEEN_ONLY):
+            other_from = other & 127
+            if (other >> 7) & 127 != to or other_from == frm or board[other_from] != piece:
+                continue
+            others = True
+            if COL_OF[other_from] == fc:
+                same_file = True
+            if ROW_OF[other_from] == fr:
+                same_rank = True
+        if others:
+            if not same_file:
+                res += files[fc]
+            elif not same_rank:
+                res += str(8 - fr)
+            else:
+                res += files[fc] + str(8 - fr)
+
+        if board[to] != EMPTY:
+            res += 'x'
+        res += files[tc] + str(8 - tr)
+
+    # Play the move to see whether it gives check or mate
+    make_move(move)
+    if in_check_now():
+        res += '+' if has_legal_move() else '#'
+    unmake_move()
+
+    print(f'NOTATION {res}')
+
+
+def load_history(tokens):
+    """Read the earlier positions of the game that follow a BESTMOVE command
+    and return their hashes. The current position is loaded again afterwards
+    by the caller."""
+    if len(tokens) % 4 or len(tokens) > 4 * MAX_GAME:
+        raise ValueError('bad history')
+    hashes = []
+    for i in range(0, len(tokens), 4):
+        placement, turn, rights, ep = tokens[i:i + 4]
+        if turn not in ('w', 'b'):
+            raise ValueError('bad history')
+        clear_board()
+        rows = placement.split('/')
+        if len(rows) != 8:
+            raise ValueError('bad history')
+        for r, row in enumerate(rows):
+            c = 0
+            for ch in row:
+                if '1' <= ch <= '8':
+                    c += int(ch)
+                else:
+                    piece = PIECE_CHARS.find(ch)
+                    if piece <= EMPTY or c > 7:
+                        raise ValueError('bad history')
+                    add_piece(piece, SQ(r, c))
+                    c += 1
+            if c != 8:
+                raise ValueError('bad history')
+        ep_row = ep_col = -1
+        if ep != '-':
+            ep_row, ep_col = (int(value) for value in ep.split(','))
+        finish_setup(WHITE if turn == 'w' else BLACK, rights, ep_row, ep_col)
+        hashes.append(hash_key)
+    return hashes
+
+
+COMMANDS = ('VALIDATE', 'MOVES', 'ATTACKED', 'PROMOTE', 'STATUS', 'BESTMOVE', 'NOTATION',
+            'EVAL', 'PERFT')
+
+
+def handle_command(parts):
+    """Run one command. Raises ValueError when the line is malformed."""
+    global halfmove
+    command = parts[0]
+    # Every command starts with <board64> <rights> <colour> and two
+    # integers: the en passant target, or the square for ATTACKED.
+    board64, rights, colour = parts[1:4]
+    n1, n2 = int(parts[4]), int(parts[5])
+    if colour not in ('white', 'black'):
+        raise ValueError('bad colour')
+    turn = WHITE if colour == 'white' else BLACK
+
+    def squares(count):
+        values = [int(value) for value in parts[6:6 + count]]
+        if len(values) != count or not all(0 <= value < 8 for value in values):
+            raise ValueError('bad square')
+        return values
+
+    if command == 'ATTACKED':
+        if not (0 <= n1 < 8 and 0 <= n2 < 8):
+            raise ValueError('bad square')
+        load_position(board64, rights, WHITE, -1, -1)
+        print('YES' if attacked(SQ(n1, n2), turn) else 'NO')
+        return
+
+    if command == 'MOVES':
+        row, col = squares(2)
+    elif command in ('BESTMOVE', 'PERFT'):
+        depth = int(parts[6])
+    elif command not in ('STATUS', 'EVAL'):
+        fr, fc, tr, tc = squares(4)
+
+    load_position(board64, rights, turn, n1, n2)
+
+    if command == 'VALIDATE':
+        # Legal means: follows the piece's movement rules and does not
+        # leave the mover's own king in check.
+        legal = find_legal_move(SQ(fr, fc), SQ(tr, tc), QUEEN) != 0
+        print('VALID' if legal else 'INVALID Illegal move')
+    elif command == 'MOVES':
+        handle_moves(row, col)
+    elif command == 'PROMOTE':
+        # A missing piece means queen
+        handle_promote(fr, fc, tr, tc, parts[10][:1] if len(parts) > 10 else 'q')
+    elif command == 'STATUS':
+        handle_status()
+    elif command == 'NOTATION':
+        handle_notation(fr, fc, tr, tc, parts[10][:1] if len(parts) > 10 else 'q')
+    elif command == 'EVAL':
+        print(f'EVAL {evaluate()}')
+    elif command == 'PERFT':
+        # keep a stray request bounded
+        print(f'PERFT {perft(min(depth, 6)) if depth >= 1 else 1}')
+    elif command == 'BESTMOVE':
+        limit_ms = int(parts[7]) if len(parts) > 7 else -1
+        clock = int(parts[8]) if len(parts) > 8 else 0
+        alternatives = int(parts[9]) if len(parts) > 9 else 3
+        earlier = load_history(parts[10:])
+        load_position(board64, rights, turn, n1, n2)
+        rep_stack.extend(earlier)
+        halfmove = max(0, clock)
+        search_best_move(depth, limit_ms, alternatives)
+
+
+def run():
+    # One command per line and exactly one reply line per command, so the
+    # caller can never be left waiting and replies cannot get out of step.
+    for raw in sys.stdin:
+        parts = raw.split()
+        if not parts:
+            continue
+        if parts[0] == 'VERSION':
+            print(f'VERSION {PROTOCOL_VERSION}')
+        elif parts[0] not in COMMANDS:
+            print('ERROR unknown command')
+        else:
+            try:
+                handle_command(parts)
+            except (ValueError, IndexError):
+                print('ERROR malformed command')
+
+
+# ============================================================
+#  Direct-call interface
+# ============================================================
+#
+# game/test_search_features.py imports this module and drives it through
+# the names below instead of the line protocol. They only translate to the
+# functions above; nothing else uses them.
 
 BOARD = [['.'] * 8 for _ in range(8)]
-NO_PROMOTION = '\0'
-W_K_CASTLE = False
-W_Q_CASTLE = False
-B_K_CASTLE = False
-B_Q_CASTLE = False
-EN_PASSANT_R = -1
-EN_PASSANT_C = -1
+W_K_CASTLE = W_Q_CASTLE = B_K_CASTLE = B_Q_CASTLE = False
+EN_PASSANT_R = EN_PASSANT_C = -1
 
 
 def load_board(board64):
@@ -46,12 +1834,9 @@ def load_board(board64):
 
 def load_castling_rights(rights_str):
     global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
-    W_K_CASTLE = W_Q_CASTLE = B_K_CASTLE = B_Q_CASTLE = False
-    for char in rights_str:
-        if char == 'K': W_K_CASTLE = True
-        elif char == 'Q': W_Q_CASTLE = True
-        elif char == 'k': B_K_CASTLE = True
-        elif char == 'q': B_Q_CASTLE = True
+    W_K_CASTLE, W_Q_CASTLE = 'K' in rights_str, 'Q' in rights_str
+    B_K_CASTLE, B_Q_CASTLE = 'k' in rights_str, 'q' in rights_str
+
 
 def load_en_passant(row, col):
     global EN_PASSANT_R, EN_PASSANT_C
@@ -59,1125 +1844,31 @@ def load_en_passant(row, col):
     EN_PASSANT_C = col
 
 
-def serialize_board():
-    return ''.join(''.join(row) for row in BOARD)
+def _direct_rights():
+    flags = ((W_K_CASTLE, 'K'), (W_Q_CASTLE, 'Q'), (B_K_CASTLE, 'k'), (B_Q_CASTLE, 'q'))
+    return ''.join(letter for held, letter in flags if held) or '-'
 
-
-def is_white(piece):
-    return 'A' <= piece <= 'Z'
-
-
-def is_black(piece):
-    return 'a' <= piece <= 'z'
-
-
-def is_empty(piece):
-    return piece == '.'
-
-
-def color_of(piece):
-    if is_white(piece):
-        return 'white'
-    if is_black(piece):
-        return 'black'
-    return 'none'
-
-
-def in_bounds(row, col):
-    return 0 <= row < 8 and 0 <= col < 8
-
-
-def is_promotion_move(piece, to_row):
-    return (piece == 'P' and to_row == 0) or (piece == 'p' and to_row == 7)
-
-
-def resolve_promotion(pawn, choice):
-    lower = choice.lower()
-    if lower not in {'q', 'r', 'b', 'n'}:
-        lower = 'q'
-    return lower.upper() if is_white(pawn) else lower
-
-
-def path_clear(fr, fc, tr, tc):
-    row_step = 1 if tr > fr else -1 if tr < fr else 0
-    col_step = 1 if tc > fc else -1 if tc < fc else 0
-    row = fr + row_step
-    col = fc + col_step
-    while row != tr or col != tc:
-        if not is_empty(BOARD[row][col]):
-            return False
-        row += row_step
-        col += col_step
-    return True
-
-
-def is_square_attacked(target_row, target_col, attacker_color):
-    knight_offsets = [
-        (-2, -1), (-2, 1), (-1, -2), (-1, 2),
-        (1, -2), (1, 2), (2, -1), (2, 1),
-    ]
-    target_knight = 'N' if attacker_color == 'white' else 'n'
-    for dr, dc in knight_offsets:
-        row = target_row + dr
-        col = target_col + dc
-        if in_bounds(row, col) and BOARD[row][col] == target_knight:
-            return True
-
-    directions = [
-        (0, 1), (0, -1), (1, 0), (-1, 0),
-        (1, 1), (1, -1), (-1, 1), (-1, -1),
-    ]
-    for index, (dr, dc) in enumerate(directions):
-        row = target_row + dr
-        col = target_col + dc
-        while in_bounds(row, col):
-            piece = BOARD[row][col]
-            if not is_empty(piece):
-                if color_of(piece) == attacker_color:
-                    piece_type = piece.lower()
-                    if index < 4 and piece_type in {'r', 'q'}:
-                        return True
-                    if index >= 4 and piece_type in {'b', 'q'}:
-                        return True
-                break
-            row += dr
-            col += dc
-
-    pawn_dir = 1 if attacker_color == 'white' else -1
-    target_pawn = 'P' if attacker_color == 'white' else 'p'
-    for dc in (-1, 1):
-        row = target_row + pawn_dir
-        col = target_col + dc
-        if in_bounds(row, col) and BOARD[row][col] == target_pawn:
-            return True
-
-    target_king = 'K' if attacker_color == 'white' else 'k'
-    for row in range(target_row - 1, target_row + 2):
-        for col in range(target_col - 1, target_col + 2):
-            if in_bounds(row, col) and (row != target_row or col != target_col):
-                if BOARD[row][col] == target_king:
-                    return True
-
-    return False
-
-
-def valid_pawn(color, fr, fc, tr, tc):
-    direction = -1 if color == 'white' else 1
-    start_row = 6 if color == 'white' else 1
-    row_delta = tr - fr
-    col_delta = tc - fc
-
-    if col_delta == 0 and row_delta == direction and is_empty(BOARD[tr][tc]):
-        return True
-
-    if col_delta == 0 and row_delta == 2 * direction and fr == start_row:
-        return is_empty(BOARD[fr + direction][fc]) and is_empty(BOARD[tr][tc])
-
-    if abs(col_delta) == 1 and row_delta == direction and not is_empty(BOARD[tr][tc]):
-        return True
-
-    if abs(col_delta) == 1 and row_delta == direction and tr == EN_PASSANT_R and tc == EN_PASSANT_C:
-        return True
-
-    return False
-
-
-def valid_rook(fr, fc, tr, tc):
-    return (fr == tr or fc == tc) and path_clear(fr, fc, tr, tc)
-
-
-def valid_knight(fr, fc, tr, tc):
-    row_delta = abs(tr - fr)
-    col_delta = abs(tc - fc)
-    return (row_delta == 2 and col_delta == 1) or (row_delta == 1 and col_delta == 2)
-
-
-def valid_bishop(fr, fc, tr, tc):
-    return abs(tr - fr) == abs(tc - fc) and path_clear(fr, fc, tr, tc)
-
-
-def valid_queen(fr, fc, tr, tc):
-    return valid_rook(fr, fc, tr, tc) or valid_bishop(fr, fc, tr, tc)
-
-
-def valid_king(color, fr, fc, tr, tc):
-    if abs(tr - fr) <= 1 and abs(tc - fc) <= 1:
-        return True
-        
-    if fr == tr and abs(tc - fc) == 2:
-        if color == 'white' and fr == 7 and fc == 4:
-            if tc == 6 and W_K_CASTLE and is_empty(BOARD[7][5]) and is_empty(BOARD[7][6]):
-                if not is_square_attacked(7, 4, 'black') and not is_square_attacked(7, 5, 'black') and not is_square_attacked(7, 6, 'black'):
-                    return True
-            if tc == 2 and W_Q_CASTLE and is_empty(BOARD[7][3]) and is_empty(BOARD[7][2]) and is_empty(BOARD[7][1]):
-                if not is_square_attacked(7, 4, 'black') and not is_square_attacked(7, 3, 'black') and not is_square_attacked(7, 2, 'black'):
-                    return True
-        elif color == 'black' and fr == 0 and fc == 4:
-            if tc == 6 and B_K_CASTLE and is_empty(BOARD[0][5]) and is_empty(BOARD[0][6]):
-                if not is_square_attacked(0, 4, 'white') and not is_square_attacked(0, 5, 'white') and not is_square_attacked(0, 6, 'white'):
-                    return True
-            if tc == 2 and B_Q_CASTLE and is_empty(BOARD[0][3]) and is_empty(BOARD[0][2]) and is_empty(BOARD[0][1]):
-                if not is_square_attacked(0, 4, 'white') and not is_square_attacked(0, 3, 'white') and not is_square_attacked(0, 2, 'white'):
-                    return True
-                    
-    return False
-
-
-def validate_move(turn, fr, fc, tr, tc, silent=False):
-    piece = BOARD[fr][fc]
-    if is_empty(piece):
-        return False
-    if color_of(piece) != turn:
-        return False
-    if fr == tr and fc == tc:
-        return False
-
-    target = BOARD[tr][tc]
-    if not is_empty(target) and color_of(target) == turn:
-        return False
-
-    validators = {
-        'p': lambda: valid_pawn(turn, fr, fc, tr, tc),
-        'r': lambda: valid_rook(fr, fc, tr, tc),
-        'n': lambda: valid_knight(fr, fc, tr, tc),
-        'b': lambda: valid_bishop(fr, fc, tr, tc),
-        'q': lambda: valid_queen(fr, fc, tr, tc),
-        'k': lambda: valid_king(turn, fr, fc, tr, tc),
-    }
-    is_valid = validators.get(piece.lower(), lambda: False)()
-
-    if is_valid and not silent:
-        print('VALID')
-    elif not is_valid and not silent:
-        print('INVALID Illegal move')
-
-    return is_valid
-
-
-@dataclass
-class Move:
-    fr: int
-    fc: int
-    tr: int
-    tc: int
-    promo_piece: str = NO_PROMOTION
-
-# Zobrist Hashing
-prng_state = 0x123456789ABCDEF
-def next_random():
-    global prng_state
-    prng_state ^= (prng_state << 13) & 0xFFFFFFFFFFFFFFFF
-    prng_state ^= (prng_state >> 7) & 0xFFFFFFFFFFFFFFFF
-    prng_state ^= (prng_state << 17) & 0xFFFFFFFFFFFFFFFF
-    return prng_state
-
-zobrist_pieces = [[0]*12 for _ in range(64)]
-for s in range(64):
-    for p in range(12):
-        zobrist_pieces[s][p] = next_random()
-zobrist_black_to_move = next_random()
-zobrist_castling = [next_random() for _ in range(16)]
-zobrist_en_passant = [next_random() for _ in range(8)]
-
-transposition_table = {}
-
-def get_piece_index(p):
-    return {
-        'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
-        'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11
-    }.get(p, -1)
 
 def compute_hash(turn):
-    h = 0
-    # Piece placement
-    for r in range(8):
-        for c in range(8):
-            p = BOARD[r][c]
-            if p != '.':
-                idx = get_piece_index(p)
-                if idx != -1:
-                    h ^= zobrist_pieces[r * 8 + c][idx]
-    # Side to move
+    """Hash of the position held in BOARD and the flags above, exactly as
+    given: the rights and the en passant file are not checked against the
+    pieces here."""
+    load_position(''.join(''.join(row) for row in BOARD), '-', WHITE, -1, -1)
+    key = hash_key ^ Z_CASTLE[0]
     if turn == 'black':
-        h ^= zobrist_black_to_move
-    # Castling rights
-    castling_idx = (1 if W_K_CASTLE else 0) | \
-                   (2 if W_Q_CASTLE else 0) | \
-                   (4 if B_K_CASTLE else 0) | \
-                   (8 if B_Q_CASTLE else 0)
-    h ^= zobrist_castling[castling_idx]
-    # En passant square
+        key ^= Z_SIDE
+    rights = _direct_rights()
+    key ^= Z_CASTLE[sum(bit for bit, letter in ((1, 'K'), (2, 'Q'), (4, 'k'), (8, 'q')) if letter in rights)]
     if 0 <= EN_PASSANT_C < 8:
-        h ^= zobrist_en_passant[EN_PASSANT_C]
-    return h & 0xFFFFFFFFFFFFFFFF
-
-# Search Control
-import time
-start_time = 0.0
-time_limit_ms_global = -1
-search_aborted = False
-nodes_searched = 0
-tthits = 0
-
-def is_timeout():
-    if time_limit_ms_global <= 0:
-        return False
-    elapsed = (time.time() - start_time) * 1000
-    return elapsed >= time_limit_ms_global
-
-def moves_equal(a, b):
-    if a is None or b is None:
-        return False
-    return a.fr == b.fr and a.fc == b.fc and a.tr == b.tr and a.tc == b.tc and a.promo_piece == b.promo_piece
-
-
-def find_king(color):
-    target = 'K' if color == 'white' else 'k'
-    for row in range(8):
-        for col in range(8):
-            if BOARD[row][col] == target:
-                return row, col
-    return -1, -1
-
-
-def leaves_king_in_check(move, side):
-    src_piece = BOARD[move.fr][move.fc]
-    dst_piece = BOARD[move.tr][move.tc]
-    ep_capture_piece = '.'
-    ep_capture_row = move.fr
-    ep_capture_col = move.tc
-
-    if src_piece.lower() == 'p' and move.fc != move.tc and is_empty(dst_piece):
-        ep_capture_piece = BOARD[ep_capture_row][ep_capture_col]
-        BOARD[ep_capture_row][ep_capture_col] = '.'
-
-    BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-    BOARD[move.fr][move.fc] = '.'
-
-    rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-    if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-        if move.tc == 6:
-            rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-        elif move.tc == 2:
-            rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-        if rook_fr != -1:
-            BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-            BOARD[rook_fr][rook_fc] = '.'
-
-    opponent = 'black' if side == 'white' else 'white'
-    king_row, king_col = find_king(side)
-    in_check = king_row >= 0 and is_square_attacked(king_row, king_col, opponent)
-
-    BOARD[move.fr][move.fc] = src_piece
-    BOARD[move.tr][move.tc] = dst_piece
-    if ep_capture_piece != '.':
-        BOARD[ep_capture_row][ep_capture_col] = ep_capture_piece
-    if rook_fr != -1:
-        BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-        BOARD[rook_tr][rook_tc] = '.'
-    return in_check
-
-
-def handle_moves(turn, row, col):
-    piece = BOARD[row][col]
-    if is_empty(piece) or color_of(piece) != turn:
-        print('MOVES')
-        return
-
-    output = ['MOVES']
-    for tr in range(8):
-        for tc in range(8):
-            if validate_move(turn, row, col, tr, tc, True):
-                move = Move(
-                    fr=row,
-                    fc=col,
-                    tr=tr,
-                    tc=tc,
-                    promo_piece=('Q' if is_white(piece) else 'q') if is_promotion_move(piece, tr) else NO_PROMOTION,
-                )
-                if leaves_king_in_check(move, turn):
-                    continue
-
-                is_ep_capture = piece.lower() == 'p' and col != tc and tr == EN_PASSANT_R and tc == EN_PASSANT_C
-                is_capture = 1 if is_ep_capture or not is_empty(BOARD[tr][tc]) else 0
-                is_promotion = 1 if is_promotion_move(piece, tr) else 0
-                output.extend([str(tr), str(tc), str(is_capture), str(is_promotion)])
-
-    print(' '.join(output))
-
-
-def handle_promote(turn, fr, fc, tr, tc, promo_piece):
-    piece = BOARD[fr][fc]
-    if is_empty(piece) or color_of(piece) != turn or piece.lower() != 'p':
-        print('INVALID Not a pawn')
-        return
-
-    if not validate_move(turn, fr, fc, tr, tc, True):
-        print('INVALID Illegal move')
-        return
-
-    if not is_promotion_move(piece, tr):
-        print('INVALID Not a promotion square')
-        return
-
-    BOARD[tr][tc] = resolve_promotion(piece, promo_piece)
-    BOARD[fr][fc] = '.'
-    print(f'PROMOTE {serialize_board()}')
-
-
-def piece_value(piece):
-    return {
-        'p': 100,
-        'n': 320,
-        'b': 330,
-        'r': 500,
-        'q': 900,
-        'k': 20000,
-    }.get(piece.lower(), 0)
-
-
-PAWN_TABLE = (
-    (0, 0, 0, 0, 0, 0, 0, 0),
-    (50, 50, 50, 50, 50, 50, 50, 50),
-    (10, 10, 20, 30, 30, 20, 10, 10),
-    (5, 5, 10, 25, 25, 10, 5, 5),
-    (0, 0, 0, 20, 20, 0, 0, 0),
-    (5, -5, -10, 0, 0, -10, -5, 5),
-    (5, 10, 10, -20, -20, 10, 10, 5),
-    (0, 0, 0, 0, 0, 0, 0, 0),
-)
-KNIGHT_TABLE = (
-    (-50, -40, -30, -30, -30, -30, -40, -50),
-    (-40, -20, 0, 0, 0, 0, -20, -40),
-    (-30, 0, 10, 15, 15, 10, 0, -30),
-    (-30, 5, 15, 20, 20, 15, 5, -30),
-    (-30, 0, 15, 20, 20, 15, 0, -30),
-    (-30, 5, 10, 15, 15, 10, 5, -30),
-    (-40, -20, 0, 5, 5, 0, -20, -40),
-    (-50, -40, -30, -30, -30, -30, -40, -50),
-)
-BISHOP_TABLE = (
-    (-20, -10, -10, -10, -10, -10, -10, -20),
-    (-10, 0, 0, 0, 0, 0, 0, -10),
-    (-10, 0, 10, 10, 10, 10, 0, -10),
-    (-10, 5, 5, 10, 10, 5, 5, -10),
-    (-10, 0, 5, 10, 10, 5, 0, -10),
-    (-10, 10, 10, 10, 10, 10, 10, -10),
-    (-10, 5, 0, 0, 0, 0, 5, -10),
-    (-20, -10, -10, -10, -10, -10, -10, -20),
-)
-ROOK_TABLE = (
-    (0, 0, 0, 0, 0, 0, 0, 0),
-    (5, 10, 10, 10, 10, 10, 10, 5),
-    (-5, 0, 0, 0, 0, 0, 0, -5),
-    (-5, 0, 0, 0, 0, 0, 0, -5),
-    (-5, 0, 0, 0, 0, 0, 0, -5),
-    (-5, 0, 0, 0, 0, 0, 0, -5),
-    (-5, 0, 0, 0, 0, 0, 0, -5),
-    (0, 0, 0, 5, 5, 0, 0, 0),
-)
-QUEEN_TABLE = (
-    (-20, -10, -10, -5, -5, -10, -10, -20),
-    (-10, 0, 0, 0, 0, 0, 0, -10),
-    (-10, 0, 5, 5, 5, 5, 0, -10),
-    (-5, 0, 5, 5, 5, 5, 0, -5),
-    (0, 0, 5, 5, 5, 5, 0, -5),
-    (-10, 5, 5, 5, 5, 5, 0, -10),
-    (-10, 0, 5, 0, 0, 0, 0, -10),
-    (-20, -10, -10, -5, -5, -10, -10, -20),
-)
-KING_MIDDLE_TABLE = (
-    (-30, -40, -40, -50, -50, -40, -40, -30),
-    (-30, -40, -40, -50, -50, -40, -40, -30),
-    (-30, -40, -40, -50, -50, -40, -40, -30),
-    (-30, -40, -40, -50, -50, -40, -40, -30),
-    (-20, -30, -30, -40, -40, -30, -30, -20),
-    (-10, -20, -20, -20, -20, -20, -20, -10),
-    (20, 20, 0, 0, 0, 0, 20, 20),
-    (20, 30, 10, 0, 0, 10, 30, 20),
-)
-KING_ENDGAME_TABLE = (
-    (-50, -30, -30, -30, -30, -30, -30, -50),
-    (-30, -10, -10, -10, -10, -10, -10, -30),
-    (-30, -10, 20, 30, 30, 20, -10, -30),
-    (-30, -10, 30, 40, 40, 30, -10, -30),
-    (-30, -10, 30, 40, 40, 30, -10, -30),
-    (-30, -10, 20, 30, 30, 20, -10, -30),
-    (-30, -20, -10, 0, 0, -10, -20, -30),
-    (-50, -40, -30, -20, -20, -30, -40, -50),
-)
-
-
-def positional_bonus(piece, row, col, is_endgame=False):
-    lookup = {
-        'p': PAWN_TABLE,
-        'n': KNIGHT_TABLE,
-        'b': BISHOP_TABLE,
-        'r': ROOK_TABLE,
-        'q': QUEEN_TABLE,
-        'k': KING_ENDGAME_TABLE if is_endgame else KING_MIDDLE_TABLE,
-    }
-    mirrored_row = row if is_white(piece) else 7 - row
-    table = lookup.get(piece.lower())
-    return table[mirrored_row][col] if table else 0
-
-
-def evaluate():
-    score = 0
-    queen_count = 0
-    minor_count = 0
-
-    for row in range(8):
-        for col in range(8):
-            piece = BOARD[row][col]
-            if is_empty(piece):
-                continue
-            type_ = piece.lower()
-            if type_ == 'q':
-                queen_count += 1
-            elif type_ in ('n', 'b'):
-                minor_count += 1
-
-    is_endgame = (queen_count == 0 or minor_count <= 6)
-
-    for row in range(8):
-        for col in range(8):
-            piece = BOARD[row][col]
-            if is_empty(piece):
-                continue
-            value = piece_value(piece) + positional_bonus(piece, row, col, is_endgame)
-            score += value if is_white(piece) else -value
-    return score
-
-
-def generate_moves(side):
-    moves = []
-    for row in range(8):
-        for col in range(8):
-            piece = BOARD[row][col]
-            if is_empty(piece) or color_of(piece) != side:
-                continue
-            for tr in range(8):
-                for tc in range(8):
-                    if validate_move(side, row, col, tr, tc, True):
-                        moves.append(
-                            Move(
-                                fr=row,
-                                fc=col,
-                                tr=tr,
-                                tc=tc,
-                                promo_piece=('Q' if is_white(piece) else 'q') if is_promotion_move(piece, tr) else NO_PROMOTION,
-                            )
-                        )
-    return moves
-
-
-def order_moves(moves, tt_move=None):
-    def move_score(move):
-        if tt_move and moves_equal(move, tt_move):
-            return 1000000
-        score = 0
-        if not is_empty(BOARD[move.tr][move.tc]):
-            score += piece_value(BOARD[move.tr][move.tc]) + 1000
-        if move.promo_piece != NO_PROMOTION:
-            score += 900
-        return score
-
-    moves.sort(key=move_score, reverse=True)
-
-
-def minimax(depth, alpha, beta, maximizing):
-    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE, EN_PASSANT_R, EN_PASSANT_C
-    global transposition_table, search_aborted, nodes_searched, tthits
-    
-    if search_aborted:
-        return 0
-        
-    nodes_searched += 1
-    if nodes_searched % 256 == 0:
-        if is_timeout():
-            search_aborted = True
-            return 0
-            
-    if depth == 0:
-        return evaluate()
-        
-    # Check Transposition Table
-    h = compute_hash('white' if maximizing else 'black')
-    if h in transposition_table:
-        entry = transposition_table[h]
-        if entry['depth'] >= depth:
-            tthits += 1
-            bound = entry['bound']
-            score = entry['score']
-            if bound == 'EXACT':
-                return score
-            if bound == 'LOWER_BOUND' and score >= beta:
-                return score
-            if bound == 'UPPER_BOUND' and score <= alpha:
-                return score
-                
-    side = 'white' if maximizing else 'black'
-    moves = generate_moves(side)
-    
-    tt_move = None
-    if h in transposition_table:
-        tt_move = transposition_table[h]['best_move']
-        
-    order_moves(moves, tt_move)
-    legal_moves = [move for move in moves if not leaves_king_in_check(move, side)]
-    
-    if not legal_moves:
-        opponent = 'black' if maximizing else 'white'
-        king_row, king_col = find_king(side)
-        if king_row >= 0 and is_square_attacked(king_row, king_col, opponent):
-            return -99999 + (100 - depth) if maximizing else 99999 - (100 - depth)
-        return 0
-        
-    original_alpha = alpha
-    original_beta = beta
-    best_move_node = None
-    
-    if maximizing:
-        best_value = -(10 ** 9)
-        for move in legal_moves:
-            src_piece = BOARD[move.fr][move.fc]
-            dst_piece = BOARD[move.tr][move.tc]
-            BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-            BOARD[move.fr][move.fc] = '.'
-            
-            ep_r, ep_c, ep_cap = -1, -1, '.'
-            if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
-                ep_r, ep_c = move.fr, move.tc
-                ep_cap = BOARD[ep_r][ep_c]
-                BOARD[ep_r][ep_c] = '.'
-                
-            rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-            if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-                if move.tc == 6:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-                elif move.tc == 2:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-                if rook_fr != -1:
-                    BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                    BOARD[rook_fr][rook_fc] = '.'
-                    
-            old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-            old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-            
-            if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-            if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-            if src_piece == 'R':
-                if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-                if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-            if src_piece == 'r':
-                if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-                if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-            if dst_piece == 'R':
-                if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-                if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-            if dst_piece == 'r':
-                if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-                if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-                
-            old_ep_r, old_ep_c = EN_PASSANT_R, EN_PASSANT_C
-            if src_piece.lower() == 'p' and abs(move.tr - move.fr) == 2:
-                EN_PASSANT_R = (move.fr + move.tr) // 2
-                EN_PASSANT_C = move.fc
-            else:
-                EN_PASSANT_R = -1
-                EN_PASSANT_C = -1
-                
-            value = minimax(depth - 1, alpha, beta, False)
-            
-            EN_PASSANT_R, EN_PASSANT_C = old_ep_r, old_ep_c
-            W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-            B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-            if ep_r != -1:
-                BOARD[ep_r][ep_c] = ep_cap
-            BOARD[move.fr][move.fc] = src_piece
-            BOARD[move.tr][move.tc] = dst_piece
-            if rook_fr != -1:
-                BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-                BOARD[rook_tr][rook_tc] = '.'
-                
-            if search_aborted:
-                return 0
-                
-            if value > best_value:
-                best_value = value
-                best_move_node = move
-            alpha = max(alpha, value)
-            if beta <= alpha:
-                break
-                
-        if not search_aborted:
-            transposition_table[h] = {
-                'depth': depth,
-                'score': best_value,
-                'best_move': best_move_node,
-                'bound': 'UPPER_BOUND' if best_value <= original_alpha else
-                         'LOWER_BOUND' if best_value >= beta else 'EXACT'
-            }
-        return best_value
-        
-    else:
-        best_value = 10 ** 9
-        for move in legal_moves:
-            src_piece = BOARD[move.fr][move.fc]
-            dst_piece = BOARD[move.tr][move.tc]
-            BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-            BOARD[move.fr][move.fc] = '.'
-            
-            ep_r, ep_c, ep_cap = -1, -1, '.'
-            if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
-                ep_r, ep_c = move.fr, move.tc
-                ep_cap = BOARD[ep_r][ep_c]
-                BOARD[ep_r][ep_c] = '.'
-                
-            rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-            if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-                if move.tc == 6:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-                elif move.tc == 2:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-                if rook_fr != -1:
-                    BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                    BOARD[rook_fr][rook_fc] = '.'
-                    
-            old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-            old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-            
-            if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-            if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-            if src_piece == 'R':
-                if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-                if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-            if src_piece == 'r':
-                if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-                if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-            if dst_piece == 'R':
-                if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-                if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-            if dst_piece == 'r':
-                if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-                if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-                
-            old_ep_r, old_ep_c = EN_PASSANT_R, EN_PASSANT_C
-            if src_piece.lower() == 'p' and abs(move.tr - move.fr) == 2:
-                EN_PASSANT_R = (move.fr + move.tr) // 2
-                EN_PASSANT_C = move.fc
-            else:
-                EN_PASSANT_R = -1
-                EN_PASSANT_C = -1
-                
-            value = minimax(depth - 1, alpha, beta, True)
-            
-            EN_PASSANT_R, EN_PASSANT_C = old_ep_r, old_ep_c
-            W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-            B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-            if ep_r != -1:
-                BOARD[ep_r][ep_c] = ep_cap
-            BOARD[move.fr][move.fc] = src_piece
-            BOARD[move.tr][move.tc] = dst_piece
-            if rook_fr != -1:
-                BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-                BOARD[rook_tr][rook_tc] = '.'
-                
-            if search_aborted:
-                return 0
-                
-            if value < best_value:
-                best_value = value
-                best_move_node = move
-            beta = min(beta, value)
-            if beta <= alpha:
-                break
-                
-        if not search_aborted:
-            transposition_table[h] = {
-                'depth': depth,
-                'score': best_value,
-                'best_move': best_move_node,
-                'bound': 'UPPER_BOUND' if best_value <= alpha else
-                         'LOWER_BOUND' if best_value >= original_beta else 'EXACT'
-            }
-        return best_value
-
-
-def is_insufficient_material():
-    """Checks if the current board state is a draw due to insufficient material.
-    Simple cases: K vs K, K+N vs K, K+B vs K.
-    """
-    total_minor = 0
-    for row in range(8):
-        for col in range(8):
-            p = BOARD[row][col]
-            if p == '.':
-                continue
-            type_ = p.lower()
-            if type_ == 'k':
-                continue
-            # If there's a pawn, rook, or queen, checkmate is possible
-            if type_ in ('p', 'r', 'q'):
-                return False
-            total_minor += 1
-    # Draw if total non-king pieces is 0 or 1
-    return total_minor <= 1
-
-
-def handle_status(turn):
-    opponent = 'black' if turn == 'white' else 'white'
-    king_row, king_col = find_king(turn)
-    in_check = king_row >= 0 and is_square_attacked(king_row, king_col, opponent)
-
-    has_legal_move = False
-    for move in generate_moves(turn):
-        if not leaves_king_in_check(move, turn):
-            has_legal_move = True
-            break
-
-    if not has_legal_move:
-        print('STATUS CHECKMATE' if in_check else 'STATUS STALEMATE')
-        return
-
-    if in_check:
-        print('STATUS CHECK')
-    elif is_insufficient_material():
-        print('STATUS DRAW')
-    else:
-        print('STATUS OK')
+        key ^= Z_EP[EN_PASSANT_C]
+    return key
 
 
 def handle_bestmove(turn, max_depth, time_limit_ms=-1):
-    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE, EN_PASSANT_R, EN_PASSANT_C
-    global transposition_table, search_aborted, start_time, time_limit_ms_global, nodes_searched, tthits
-    
-    transposition_table.clear()
-    
-    maximizing = turn == 'white'
-    moves = generate_moves(turn)
-    order_moves(moves)
-    legal_moves = [move for move in moves if not leaves_king_in_check(move, turn)]
-
-    if not legal_moves:
-        print('BESTMOVE NONE')
-        return
-
-    start_time = time.time()
-    time_limit_ms_global = time_limit_ms
-    search_aborted = False
-    nodes_searched = 0
-    tthits = 0
-    
-    best = legal_moves[0]
-    best_val = -10**9 if maximizing else 10**9
-    depth_reached = 0
-    completed_all = True
-    last_completed_evaluated = []
-
-    for d in range(1, max_depth + 1):
-        if d > 1:
-            legal_moves.sort(key=lambda m: 0 if moves_equal(m, best) else 1)
-            
-        evaluated = []
-        current_depth_aborted = False
-
-        for move in legal_moves:
-            src_piece = BOARD[move.fr][move.fc]
-            dst_piece = BOARD[move.tr][move.tc]
-            BOARD[move.tr][move.tc] = move.promo_piece if move.promo_piece != NO_PROMOTION else src_piece
-            BOARD[move.fr][move.fc] = '.'
-
-            ep_r, ep_c, ep_cap = -1, -1, '.'
-            if src_piece.lower() == 'p' and move.fc != move.tc and dst_piece == '.':
-                ep_r, ep_c = move.fr, move.tc
-                ep_cap = BOARD[ep_r][ep_c]
-                BOARD[ep_r][ep_c] = '.'
-
-            rook_fr, rook_fc, rook_tr, rook_tc = -1, -1, -1, -1
-            if src_piece.lower() == 'k' and abs(move.tc - move.fc) == 2:
-                if move.tc == 6:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 7, move.tr, 5
-                elif move.tc == 2:
-                    rook_fr, rook_fc, rook_tr, rook_tc = move.fr, 0, move.tr, 3
-                if rook_fr != -1:
-                    BOARD[rook_tr][rook_tc] = BOARD[rook_fr][rook_fc]
-                    BOARD[rook_fr][rook_fc] = '.'
-
-            old_wk, old_wq = W_K_CASTLE, W_Q_CASTLE
-            old_bk, old_bq = B_K_CASTLE, B_Q_CASTLE
-
-            if src_piece == 'K': W_K_CASTLE = W_Q_CASTLE = False
-            if src_piece == 'k': B_K_CASTLE = B_Q_CASTLE = False
-            if src_piece == 'R':
-                if move.fr == 7 and move.fc == 0: W_Q_CASTLE = False
-                if move.fr == 7 and move.fc == 7: W_K_CASTLE = False
-            if src_piece == 'r':
-                if move.fr == 0 and move.fc == 0: B_Q_CASTLE = False
-                if move.fr == 0 and move.fc == 7: B_K_CASTLE = False
-            if dst_piece == 'R':
-                if move.tr == 7 and move.tc == 0: W_Q_CASTLE = False
-                if move.tr == 7 and move.tc == 7: W_K_CASTLE = False
-            if dst_piece == 'r':
-                if move.tr == 0 and move.tc == 0: B_Q_CASTLE = False
-                if move.tr == 0 and move.tc == 7: B_K_CASTLE = False
-
-            old_ep_r, old_ep_c = EN_PASSANT_R, EN_PASSANT_C
-            if src_piece.lower() == 'p' and abs(move.tr - move.fr) == 2:
-                EN_PASSANT_R = (move.fr + move.tr) // 2
-                EN_PASSANT_C = move.fc
-            else:
-                EN_PASSANT_R = -1
-                EN_PASSANT_C = -1
-
-            value = minimax(d - 1, -10**9, 10**9, not maximizing)
-
-            EN_PASSANT_R, EN_PASSANT_C = old_ep_r, old_ep_c
-            W_K_CASTLE, W_Q_CASTLE = old_wk, old_wq
-            B_K_CASTLE, B_Q_CASTLE = old_bk, old_bq
-
-            if ep_r != -1:
-                BOARD[ep_r][ep_c] = ep_cap
-
-            BOARD[move.fr][move.fc] = src_piece
-            BOARD[move.tr][move.tc] = dst_piece
-            if rook_fr != -1:
-                BOARD[rook_fr][rook_fc] = BOARD[rook_tr][rook_tc]
-                BOARD[rook_tr][rook_tc] = '.'
-
-            if search_aborted:
-                current_depth_aborted = True
-                break
-
-            evaluated.append((move, value))
-
-        if current_depth_aborted:
-            completed_all = False
-            break
-
-        if maximizing:
-            evaluated.sort(key=lambda x: x[1], reverse=True)
-        else:
-            evaluated.sort(key=lambda x: x[1])
-
-        best, best_val = evaluated[0]
-        depth_reached = d
-        last_completed_evaluated = evaluated
-
-        if len(legal_moves) == 1:
-            break
-
-        if is_timeout():
-            completed_all = False
-            break
-
-    elapsed_time_ms = int((time.time() - start_time) * 1000)
-
-    out = f'BESTMOVE {best.fr} {best.fc} {best.tr} {best.tc} EVAL {best_val}'
-    
-    if len(legal_moves) > 1 and last_completed_evaluated:
-        out += ' ALTS'
-        for i in range(1, min(4, len(last_completed_evaluated))):
-            alt_m, alt_val = last_completed_evaluated[i]
-            out += f' {alt_m.fr} {alt_m.fc} {alt_m.tr} {alt_m.tc} {alt_val}'
-
-    status_str = "completed" if completed_all else "timeout"
-    out += f' DEPTH {depth_reached} NODES {nodes_searched} TTHITS {tthits} TIME {elapsed_time_ms} ENGINE python STATUS {status_str}'
-    print(out)
-
-
-def handle_notation(turn, fr, fc, tr, tc, promo='\0'):
-    piece = BOARD[fr][fc]
-    if is_empty(piece):
-        print('NOTATION ?')
-        return
-
-    type_ = piece.lower()
-    is_capture = not is_empty(BOARD[tr][tc])
-    files = "abcdefgh"
-
-    promo_char = '\0'
-    if is_promotion_move(piece, tr):
-        lower_promo = promo.lower()
-        if lower_promo not in ('q', 'r', 'b', 'n'):
-            lower_promo = 'q'
-        promo_char = lower_promo.upper()
-
-    # 1. Castling
-    is_castle = False
-    if type_ == 'k' and abs(tc - fc) == 2:
-        is_castle = True
-        if tc == 6:
-            res = 'O-O'
-        elif tc == 2:
-            res = 'O-O-O'
-        else:
-            res = 'K'  # fallback, keeps downstream flow consistent
-
-    if not is_castle:
-        res = ""
-        if type_ == 'p':
-            # Diagonal move for a pawn is always a capture
-            if fc != tc:
-                res += files[fc]
-                res += 'x'
-            res += files[tc]
-            res += str(8 - tr)
-
-            if promo_char != '\0':
-                res += '='
-                res += promo_char
-
-        else:
-            res += type_.upper()
-
-            # Disambiguation: Check if other pieces of the same type can move to the same square
-            others = []
-            for r in range(8):
-                for c in range(8):
-                    if r == fr and c == fc:
-                        continue
-                    if BOARD[r][c] == piece:
-                        if validate_move(turn, r, c, tr, tc, True):
-                            m = Move(fr=r, fc=c, tr=tr, tc=tc)
-                            if not leaves_king_in_check(m, turn):
-                                others.append((r, c))
-
-            if others:
-                same_file = False
-                same_rank = False
-                for r, c in others:
-                    if c == fc:
-                        same_file = True
-                    if r == fr:
-                        same_rank = True
-
-                if not same_file:
-                    res += files[fc]
-                elif not same_rank:
-                    res += str(8 - fr)
-                else:
-                    res += files[fc]
-                    res += str(8 - fr)
-
-            if is_capture:
-                res += 'x'
-            res += files[tc]
-            res += str(8 - tr)
-
-    # Apply move temporarily to check for Check/Checkmate
-    src = BOARD[fr][fc]
-    dst = BOARD[tr][tc]
-    ep_captured = None
-    rook_restore = None
-
-    if src.lower() == 'p' and fc != tc and is_empty(dst):
-        ep_row = fr
-        ep_col = tc
-        ep_captured = (ep_row, ep_col, BOARD[ep_row][ep_col])
-        BOARD[ep_row][ep_col] = '.'
-
-    if promo_char != '\0':
-        BOARD[tr][tc] = promo_char if turn == 'white' else promo_char.lower()
-    else:
-        BOARD[tr][tc] = src
-    BOARD[fr][fc] = '.'
-
-    if src.lower() == 'k' and abs(tc - fc) == 2:
-        if tc == 6:
-            rook_restore = (fr, 7, tr, 5, BOARD[fr][7], BOARD[tr][5])
-            BOARD[tr][5] = BOARD[fr][7]
-            BOARD[fr][7] = '.'
-        elif tc == 2:
-            rook_restore = (fr, 0, tr, 3, BOARD[fr][0], BOARD[tr][3])
-            BOARD[tr][3] = BOARD[fr][0]
-            BOARD[fr][0] = '.'
-
-    opponent = 'black' if turn == 'white' else 'white'
-    kpos = find_king(opponent)
-    if kpos[0] != -1 and is_square_attacked(kpos[0], kpos[1], turn):
-        opp_moves = generate_moves(opponent)
-        has_legal = False
-        for m in opp_moves:
-            if not leaves_king_in_check(m, opponent):
-                has_legal = True
-                break
-        res += "+" if has_legal else "#"
-
-    # Undo move
-    BOARD[fr][fc] = src
-    BOARD[tr][tc] = dst
-    if ep_captured is not None:
-        r, c, p = ep_captured
-        BOARD[r][c] = p
-    if rook_restore is not None:
-        rfr, rfc, rtr, rtc, rook_src, rook_dst = rook_restore
-        BOARD[rfr][rfc] = rook_src
-        BOARD[rtr][rtc] = rook_dst
-
-    print(f"NOTATION {res}")
-
-
-def run():
-    for raw in sys.stdin:
-        parts = raw.strip().split()
-        if not parts:
-            continue
-        command = parts[0]
-        if command == 'VALIDATE':
-            board64, rights, turn, ep_row, ep_col, fr, fc, tr, tc = parts[1:10]
-            ep_row, ep_col, fr, fc, tr, tc = map(int, (ep_row, ep_col, fr, fc, tr, tc))
-            load_board(board64)
-            load_castling_rights(rights)
-            load_en_passant(ep_row, ep_col)
-            validate_move(turn, fr, fc, tr, tc)
-        elif command == 'MOVES':
-            board64, rights, turn, ep_row, ep_col, row, col = parts[1:8]
-            ep_row, ep_col, row, col = map(int, (ep_row, ep_col, row, col))
-            load_board(board64)
-            load_castling_rights(rights)
-            load_en_passant(ep_row, ep_col)
-            handle_moves(turn, row, col)
-        elif command == 'ATTACKED':
-            board64, rights, attacker_color, row, col = parts[1:6]
-            row, col = map(int, (row, col))
-            load_board(board64)
-            load_castling_rights(rights)
-            print('YES' if is_square_attacked(row, col, attacker_color) else 'NO')
-        elif command == 'PROMOTE':
-            board64, rights, turn, ep_row, ep_col, fr, fc, tr, tc, promo_piece = parts[1:11]
-            ep_row, ep_col, fr, fc, tr, tc = map(int, (ep_row, ep_col, fr, fc, tr, tc))
-            load_board(board64)
-            load_castling_rights(rights)
-            load_en_passant(ep_row, ep_col)
-            handle_promote(turn, fr, fc, tr, tc, promo_piece)
-        elif command == 'STATUS':
-            board64, rights, turn, ep_row, ep_col = parts[1:6]
-            ep_row, ep_col = map(int, (ep_row, ep_col))
-            load_board(board64)
-            load_castling_rights(rights)
-            load_en_passant(ep_row, ep_col)
-            handle_status(turn)
-        elif command == 'BESTMOVE':
-            board64, rights, turn, ep_row, ep_col, depth = parts[1:7]
-            ep_row, ep_col, depth = map(int, (ep_row, ep_col, depth))
-            limit_ms = int(parts[7]) if len(parts) > 7 else -1
-            load_board(board64)
-            load_castling_rights(rights)
-            load_en_passant(ep_row, ep_col)
-            handle_bestmove(turn, depth, limit_ms)
-        elif command == 'NOTATION':
-            if len(parts) not in (10, 11):
-                print('NOTATION ?')
-                continue
-            board64, rights, turn, ep_row, ep_col, fr, fc, tr, tc = parts[1:10]
-            ep_row, ep_col, fr, fc, tr, tc = map(int, (ep_row, ep_col, fr, fc, tr, tc))
-            promo = parts[10] if len(parts) == 11 else '\0'
-            load_board(board64)
-            load_castling_rights(rights)
-            load_en_passant(ep_row, ep_col)
-            handle_notation(turn, fr, fc, tr, tc, promo)
+    """Search the position held in BOARD and print the BESTMOVE reply."""
+    load_position(''.join(''.join(row) for row in BOARD), _direct_rights(),
+                  WHITE if turn == 'white' else BLACK, EN_PASSANT_R, EN_PASSANT_C)
+    search_best_move(max_depth, time_limit_ms, 3)
 
 
 if __name__ == '__main__':

@@ -9,11 +9,10 @@ import math
 import io
 import base64
 import ipaddress
+import re
 import secrets
-import secrets as secrets_module
-from .opening_detector import OpeningDetector
 from game.views_history import save_game_record
-from django.http import HttpResponseServerError
+from django.http import HttpResponse, HttpResponseServerError
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import Http404, JsonResponse
@@ -35,10 +34,11 @@ from django.utils.encoding import (
 )
 from django.utils.text import slugify
 from .progression import award_xp
-from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.forms.utils import ErrorDict
-from django.contrib.auth.views import PasswordResetView
+from django.contrib.auth.views import PasswordResetView, redirect_to_login
 from smtplib import SMTPException
 from django.core.mail import (
     BadHeaderError,
@@ -47,12 +47,17 @@ from django.core.mail import (
 )
 from django.template.loader import render_to_string
 from django.contrib import messages
-from django.core.cache import cache
+from django.core.cache import cache, caches, DEFAULT_CACHE_ALIAS
+from django.core.cache.backends.base import BaseCache
 from django.db import IntegrityError, transaction
-from django.db.models import F, Q, Sum
+from django.db.models import F, Prefetch, Q, Sum
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import (
+    require_GET,
+    require_POST,
+    require_http_methods,
+)
 from django.contrib.auth.decorators import login_required
 from django.db import models
 
@@ -63,7 +68,6 @@ from .opening_trainer_data import OPENINGS
 
 from .engine import ChessGame
 from .models import (
-    GameResult,
     PuzzleStats,
     LessonProgress,
     Achievement,
@@ -77,7 +81,6 @@ from .models import (
     UserProfile,
 )
 
-from .rating_service import calculate_rating_change
 from .models import Discussion, Reply, DiscussionBookmark, ReplyVote
 from .forms import DiscussionForm, ReplyForm
 
@@ -94,9 +97,9 @@ MAX_MOVE_LENGTH = 20
 
 from game.services import (
     cleanup_stale_games,
+    purge_expired_records,
     process_game_completion,
-    check_game_achievements,
-    check_puzzle_achievements,
+    is_rated_game,
     generate_badge,
     update_opening_progress,
     create_or_update_active_game,
@@ -105,43 +108,57 @@ from game.services import (
     get_valid_openings,
     load_game_state_helper,
     save_game_state_helper,
+    daily_puzzle_for,
+    record_puzzle_solve,
 )
 
 from django.http import FileResponse
 
-from .analysis import detect_opening
-from .analysis import build_summary
+from .analysis import detect_opening, match_opening
 VALID_OPENINGS = get_valid_openings()
 
-opening_detector = OpeningDetector()
+# Abandoning a rated game after this many half-moves counts as resigning it.
+# The stale-game cleanup uses the same threshold.
+ABANDON_MIN_MOVES = 5
+
+PGN_RESULTS = {'white': '1-0', 'black': '0-1', 'draw': '1/2-1/2'}
+
+
+def _json_object(request):
+    """Return the request body as a dict, or None when it is not a JSON object."""
+    try:
+        data = json.loads(request.body or '{}')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def update_opening_metadata(game):
-    opening = opening_detector.detect(game.move_history)
+    match = match_opening([move["notation"] for move in game.move_history])
+    game.opening_name, game.opening_moves = match if match else (None, None)
 
-    if opening:
-        game.opening_name = opening["name"]
-        game.opening_moves = opening["moves"]
-    else:
-        game.opening_name = None
-        game.opening_moves = None
 
 def landing(request):
     """Render the landing page introduction to Checkora."""
     return render(request, 'game/landing.html')
 
-def preloader(request):
-    return render(request, 'game/preloading.html')
 
 @ensure_csrf_cookie
 def index(request):
-    """Render the board and initialise a new game in the session."""
+    """Render the board, starting a game only when none is in progress."""
     if 'game' in request.session:
         game_data = request.session['game']
         status = game_data.get('game_status', 'active')
         if status != 'active':
             del request.session['game']
-    if 'game' not in request.session:
+
+    has_game = 'game' in request.session
+    if not has_game and request.user.is_authenticated:
+        # A logged-in user's game lives in ActiveGame, never in the session.
+        _, stored_game, _ = load_game_state_helper(request)
+        has_game = bool(stored_game)
+
+    if not has_game:
         game = ChessGame()
         request.session['game'] = game.to_dict()
         create_or_update_active_game(
@@ -152,7 +169,7 @@ def index(request):
     return render(request, 'game/board.html')
 
 
-def record_game_result(request, mode, winner, reason, player_color='white', moves=None):
+def record_game_result(request, mode, winner, reason, player_color='white', moves=None, rated=None):
     """Save a completed game result to the database."""
     user = request.user if request.user.is_authenticated else None
     if moves is None:
@@ -163,8 +180,80 @@ def record_game_result(request, mode, winner, reason, player_color='white', move
             moves = game_data.get('move_history', [])
         else:
             moves = []
-            
-    return process_game_completion(user, mode, winner, reason, player_color, moves)
+
+    return process_game_completion(user, mode, winner, reason, player_color, moves, rated=rated)
+
+
+def _pgn_with_result(pgn, result):
+    """Write the real result into a PGN.
+
+    generate_pgn() works the result out from the position, which is wrong for
+    a resignation by the side not on move and unknown for a loss on time.
+    """
+    headers, _, movetext = pgn.partition("\n\n")
+    headers = re.sub(r'\[Result "[^"]*"\]', f'[Result "{result}"]', headers, count=1)
+    tokens = movetext.split(" ")
+    tokens[-1] = result
+    return headers + "\n\n" + " ".join(tokens)
+
+
+def finish_game(request, game, winner, reason, rated=None):
+    """Book a finished game: result, rating, replay record, cleanup.
+
+    Every view that ends a game calls this after saving the final state.
+    `rated=False` keeps an AI game out of the rating; by default AI games
+    from the normal starting position are rated.
+    """
+    if rated is None:
+        rated = is_rated_game(game.mode, getattr(game, 'initial_fen', None))
+
+    white_name = request.session.get('white_name', 'White')
+    black_name = request.session.get('black_name', 'Black')
+    result = PGN_RESULTS[winner]
+
+    game_result = record_game_result(
+        request, game.mode, winner, reason, game.player_color,
+        moves=game.move_history, rated=rated,
+    )
+    replay_record = save_game_record(
+        request,
+        pgn=_pgn_with_result(game.generate_pgn(white_name, black_name), result),
+        result=result,
+        termination='resignation' if reason == 'resign' else reason,
+        white_label=white_name,
+        black_label=black_name,
+    )
+    if game_result is not None and replay_record is not None:
+        game_result.replay_record = replay_record
+        game_result.save(update_fields=['replay_record'])
+
+    delete_active_game(request)
+    if request.user.is_authenticated:
+        # A game carried over from before login must not be finished twice.
+        request.session.pop('game', None)
+
+    return game_result
+
+
+def _end_on_time(request, game, active_game, version):
+    """Finish a game whose clock has run out.
+
+    Returns the winner, or None when the state could not be saved because
+    another request changed the game first.
+    """
+    loser = 'white' if game.white_time <= 0 else 'black'
+    winner = 'black' if loser == 'white' else 'white'
+    game.game_status = 'timeout'
+
+    saved, _ = save_game_state_helper(request, active_game, game.to_dict(), version)
+    if not saved:
+        return None
+
+    # The engine's clock only runs out when the client holds back its move
+    # request, so that never moves the rating.
+    rated = False if (game.mode == 'ai' and loser != game.player_color) else None
+    finish_game(request, game, winner, 'timeout', rated=rated)
+    return winner
 
 
 @require_POST
@@ -209,10 +298,22 @@ def make_move(request):
 
     game = ChessGame.from_dict(game_data) if game_data else ChessGame()
 
+    if (
+        game.mode == 'ai'
+        and game.game_status == 'active'
+        and game.current_turn != game.player_color
+    ):
+        # Against the engine the client only moves its own side.
+        return JsonResponse(
+            {'valid': False, 'message': "It is the computer's turn."},
+            status=403,
+        )
+
     success, message, captured, game_status = game.make_move(
         from_row, from_col, to_row, to_col, promotion_piece,
     )
 
+    winner = None
     if success:
         update_opening_metadata(game)
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
@@ -221,23 +322,17 @@ def make_move(request):
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)            
-            replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1-0' if winner == 'white' else '0-1', termination='checkmate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            if game_result is not None:
-                game_result.replay_record = replay_record
-                game_result.save(update_fields=['replay_record'])
-            delete_active_game(request)
+            finish_game(request, game, winner, 'checkmate')
         elif game_status in ('stalemate', 'draw'):
-            game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)            
-            replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            if game_result is not None:
-                game_result.replay_record = replay_record
-                game_result.save(update_fields=['replay_record'])
-            delete_active_game(request)
+            finish_game(request, game, 'draw', game.draw_reason or 'stalemate')
+    elif game_status == 'timeout':
+        winner = _end_on_time(request, game, active_game, version)
+        if winner is None:
+            return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
     res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
-    return JsonResponse({
+    response_data = {
         'valid': success,
         'message': message,
         'captured': captured,
@@ -259,7 +354,11 @@ def make_move(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'version': res_version
-    })
+    }
+    if game_status == 'timeout':
+        response_data['winner'] = winner
+
+    return JsonResponse(response_data)
 
 
 @require_GET
@@ -285,12 +384,47 @@ def valid_moves(request):
     return JsonResponse({'valid_moves': moves})
 
 
+def _forfeit_abandoned_game(request):
+    """Record a rated game the user is walking away from.
+
+    It counts as a resignation, or as a loss on time when a clock had
+    already run out. Returns True when the game was recorded. Unrated games,
+    and games with fewer than ABANDON_MIN_MOVES half-moves, are simply
+    replaced.
+    """
+    if not request.user.is_authenticated:
+        return False
+
+    active_game, game_data, version = load_game_state_helper(request)
+    if not game_data or game_data.get('game_status', 'active') != 'active':
+        return False
+    if not is_rated_game(game_data.get('mode'), game_data.get('initial_fen')):
+        return False
+    if len(game_data.get('move_history', [])) < ABANDON_MIN_MOVES:
+        return False
+
+    game = ChessGame.from_dict(game_data)
+
+    game.update_clock()
+    if min(game.white_time, game.black_time) <= 0:
+        # The game was already decided on the clock, whoever's it was.
+        return _end_on_time(request, game, active_game, version) is not None
+
+    game.game_status = 'resignation'
+    saved, _ = save_game_state_helper(request, active_game, game.to_dict(), version)
+    if not saved:
+        return False
+
+    winner = 'black' if game.player_color == 'white' else 'white'
+    finish_game(request, game, winner, 'resign')
+    return True
+
+
 @require_POST
 def new_game(request):
     """Reset the game to the initial position with selected mode."""
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
+    data = _json_object(request)
+    if data is None:
         return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
 
     mode = data.get('mode', 'pvp')
@@ -304,8 +438,8 @@ def new_game(request):
     if isinstance(time_limit_raw, str) and '|' in time_limit_raw:
         try:
             parts = time_limit_raw.split('|')
-            time_limit = int(parts[0]) * 60
-            increment = int(parts[1])
+            time_limit = max(60, min(18000, int(parts[0]) * 60))
+            increment = max(0, min(180, int(parts[1])))
         except (ValueError, IndexError, TypeError):
             time_limit = 600
             increment = 0
@@ -313,13 +447,13 @@ def new_game(request):
         try:
             time_limit = int(time_limit_raw)
             time_limit = max(60, min(18000, time_limit))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             time_limit = 600
 
         try:
             increment = int(increment_raw)
             increment = max(0, min(180, increment))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             increment = 0
 
     if mode not in ('pvp', 'ai'):
@@ -330,8 +464,27 @@ def new_game(request):
     elif player_color not in ('white', 'black'):
         player_color = 'white'
 
+    # Build the new game before touching anything else, so a bad FEN
+    # leaves the session and the game in progress as they were.
+    fen = fen.strip() if isinstance(fen, str) else None
+    if fen:
+        try:
+            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment, difficulty=difficulty)
+        except ValueError as exc:
+            return JsonResponse(
+                {'valid': False, 'message': f'Invalid FEN: {exc}'},
+                status=400,
+            )
+    else:
+        game = ChessGame(time_limit=time_limit, increment=increment, difficulty=difficulty)
+    game.mode = mode
+    game.player_color = player_color
+    game.paused = False
+
+    forfeited = _forfeit_abandoned_game(request)
+
     def _clean_name(raw, fallback):
-        name = (raw or '').strip()
+        name = raw.strip() if isinstance(raw, str) else ''
         if not name or len(name) > 30:
             return fallback
         return name
@@ -358,23 +511,8 @@ def new_game(request):
             request.session['white_name'] = bot_name
 
     raw_opening = data.get('opening', '') if mode == 'ai' else ''
-    opening = raw_opening if raw_opening in VALID_OPENINGS else ''
+    opening = raw_opening if isinstance(raw_opening, str) and raw_opening in VALID_OPENINGS else ''
     request.session['opening'] = opening
-
-    fen = fen.strip() if isinstance(fen, str) else None
-    if fen:
-        try:
-            game = ChessGame.from_fen(fen, time_limit=time_limit, increment=increment, difficulty=difficulty)
-        except ValueError as exc:
-            return JsonResponse(
-                {'valid': False, 'message': f'Invalid FEN: {exc}'},
-                status=400,
-            )
-    else:
-        game = ChessGame(time_limit=time_limit, increment=increment, difficulty=difficulty)
-    game.mode = mode
-    game.player_color = player_color
-    game.paused = False
 
     game_dict = game.to_dict()
     # Embed session metadata so it can be restored on a different device/session.
@@ -405,9 +543,12 @@ def new_game(request):
         'fen': game.generate_full_fen(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
+        'in_check': bool(getattr(game, 'in_check', False)),
         'draw_reason': game.draw_reason,
         'opening': opening,
         'version': res_version,
+        'rated': request.user.is_authenticated and is_rated_game(game.mode, game.initial_fen),
+        'forfeited': forfeited,
     })
 
 
@@ -446,6 +587,7 @@ def resume_game(request):
         'white_name': request.session.get('white_name', 'White'),
         'black_name': request.session.get('black_name', 'Black'),
         'game_status': game.game_status,
+        'in_check': bool(getattr(game, 'in_check', False)),
         'draw_reason': game.draw_reason,
         'threefold_warning': game.threefold_warning,
         'fen': game.generate_full_fen(),
@@ -482,9 +624,14 @@ def check_promotion(request):
 
 @require_GET
 def get_state(request):
-    """Return the full current game state without mutating pause state."""
+    """Return the full current game state.
+
+    Reading the state never pauses the stored game. It can end it: when a
+    clock has run out, the game is finished as a loss on time.
+    """
     active_game, game_data, version = load_game_state_helper(request)
     auto_paused = False
+    winner = None
     if not game_data:
         game_data = request.session.get('game')
 
@@ -493,18 +640,32 @@ def get_state(request):
     else:
         game = ChessGame.from_dict(game_data)
 
-        # Skip clock deduction if tab was closed for too long
         elapsed = time.time() - game.last_ts
         if elapsed > 10 and not game.paused:
-            game.paused = True  # pause without deducting lost time
+            # The tab was probably closed. Report the game as paused so the
+            # page offers to resume without the lost time, but leave the
+            # stored game alone: the client also reads the state mid-game.
+            game.paused = True
             auto_paused = True
         else:
             game.update_clock()
 
-    _success_save, saved_ag = save_game_state_helper(
-        request, active_game, game.to_dict(), version, bump_version=auto_paused
+    saved = True
+    saved_ag = active_game
+    flag_fell = (
+        not auto_paused
+        and game.game_status == 'active'
+        and min(game.white_time, game.black_time) <= 0
     )
-    if not _success_save:
+    if flag_fell:
+        winner = _end_on_time(request, game, active_game, version)
+        saved = winner is not None
+    elif not auto_paused:
+        saved, saved_ag = save_game_state_helper(
+            request, active_game, game.to_dict(), version, bump_version=False
+        )
+
+    if not saved:
         # If a concurrent move updated the version, reload the authoritative state
         active_game, game_data, version = load_game_state_helper(request)
         if game_data:
@@ -532,14 +693,21 @@ def get_state(request):
         'fen': game.generate_full_fen(),
         'pgn': game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')),
         'game_status': game.game_status,
+        'in_check': bool(getattr(game, 'in_check', False)),
         'draw_reason': game.draw_reason,
         'threefold_warning': game.threefold_warning,
         'opening_name': getattr(game, 'opening_name', None),
         'opening_moves': getattr(game, 'opening_moves', None),
+        'rated': request.user.is_authenticated and is_rated_game(
+            game.mode, getattr(game, 'initial_fen', None)
+        ),
     }
+    if winner:
+        response_data['winner'] = winner
 
     if request.user.is_authenticated:
         progress, _ = UserProgress.objects.get_or_create(user=request.user)
+        progress.expire_streak()
         response_data['day_streak'] = progress.day_streak
 
     return JsonResponse(response_data)
@@ -552,12 +720,11 @@ def set_pause(request):
     if not game_data:
         return JsonResponse({'paused': False})
 
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
+    data = _json_object(request)
+    if data is None:
         return JsonResponse({'valid': False, 'message': 'Invalid request data.'}, status=400)
 
-    pause = data.get('pause', True)
+    pause = bool(data.get('pause', True))
 
     game = ChessGame.from_dict(game_data)
 
@@ -578,6 +745,44 @@ def set_pause(request):
         'white_time': game.white_time,
         'black_time': game.black_time,
         'version': res_version
+    })
+
+
+@require_POST
+def claim_timeout(request):
+    """End the game on time once the server's own clock agrees it ran out.
+
+    The client calls this when its clock reaches zero. The decision is made
+    from the stored clock, not from anything the client sends.
+    """
+    active_game, game_data, version = load_game_state_helper(request)
+    if not game_data:
+        return JsonResponse({'valid': False, 'message': 'No active game.'}, status=400)
+
+    game = ChessGame.from_dict(game_data)
+    if game.game_status != 'active':
+        return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
+
+    game.update_clock()
+    if min(game.white_time, game.black_time) > 0:
+        return JsonResponse({
+            'valid': False,
+            'message': 'Clock has not run out.',
+            'white_time': game.white_time,
+            'black_time': game.black_time,
+        }, status=400)
+
+    winner = _end_on_time(request, game, active_game, version)
+    if winner is None:
+        return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
+
+    return JsonResponse({
+        'valid': True,
+        'game_status': 'timeout',
+        'winner': winner,
+        'white_time': game.white_time,
+        'black_time': game.black_time,
+        'version': 0,
     })
 
 
@@ -610,12 +815,8 @@ def ai_move(request):
             response['Retry-After'] = str(window)
             return response
 
-    client_version = None
-    try:
-        data = json.loads(request.body)
-        client_version = data.get('version')
-    except (json.JSONDecodeError, AttributeError, TypeError):
-        pass
+    data = _json_object(request) or {}
+    client_version = data.get('version')
 
     active_game, game_data, version = load_game_state_helper(request)
     if request.user.is_authenticated and client_version is not None and version != client_version:
@@ -629,8 +830,14 @@ def ai_move(request):
 
     game = ChessGame.from_dict(game_data)
 
-    if game.mode not in ('ai', 'analysis'):
+    if game.mode != 'ai':
         err_msg = 'Not in AI mode.'
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
+
+    if game.game_status != 'active':
+        err_msg = 'Game is already over.'
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
         )
@@ -640,16 +847,22 @@ def ai_move(request):
         return JsonResponse(
             {'valid': False, 'message': err_msg}, status=400
         )
+
+    if game.current_turn == game.player_color:
+        err_msg = "It is not the computer's turn."
+        return JsonResponse(
+            {'valid': False, 'message': err_msg}, status=400
+        )
+
     opening = request.session.get('opening', '')
     book_move = None
     if opening:
         try:
-            ai_half_moves = len(game.move_history)
             played = [
-                (m['from_row'], m['from_col'], m['to_row'], m['to_col'])
+                (m['from'][0], m['from'][1], m['to'][0], m['to'][1])
                 for m in game.move_history
             ]
-            book_move = get_opening_reply(opening, ai_half_moves, played)
+            book_move = get_opening_reply(opening, len(played), played)
         except Exception:
             book_move = None
 
@@ -670,90 +883,36 @@ def ai_move(request):
         request.session.modified = True
         best = game.get_ai_move()
 
-    # Issue #1630: Predict opponent responses in Analysis Mode
-    if best and game.mode == 'analysis':
-        try:
-            # Generate notation for the best move
-            best['notation'] = game._notation(
-                best['from_row'], best['from_col'],
-                best['to_row'], best['to_col'],
-                game.board[best['from_row']][best['from_col']],
-                game.board[best['to_row']][best['to_col']],
-                game.serialize_board(), game.serialize_castling_rights(), game._serialize_ep()
+    if not best:
+        # get_ai_move() also returns None when the engine fails, so ask for
+        # the position's status before calling the game over.
+        status = game.check_game_status()
+        if status == 'checkmate':
+            winner = 'black' if game.current_turn == 'white' else 'white'
+            reason = 'checkmate'
+        elif status in ('stalemate', 'draw'):
+            winner = 'draw'
+            reason = 'stalemate' if status == 'stalemate' else 'insufficient_material'
+            game.draw_reason = reason
+        else:
+            # The engine gave no answer. The game stays as it is.
+            return JsonResponse(
+                {'valid': False, 'message': 'The engine did not answer. Please try again.'},
+                status=503,
             )
 
-            # Create a temporary copy
-            temp_game = ChessGame(difficulty=game.difficulty)
-            try:
-                temp_game.board = temp_game._parse_board64(game.serialize_board())
-                temp_game.castling_rights = dict(game.castling_rights)
-                temp_game.current_turn = game.current_turn
-                temp_game.en_passant_target = game.en_passant_target
+        game.game_status = status
 
-                # Synchronize history and clocks to prevent state desync
-                temp_game.move_history = list(game.move_history)
-                temp_game.halfmove_clock = game.halfmove_clock
-                temp_game.repetition_history = list(game.repetition_history)
-                temp_game.repetition_counts = dict(game.repetition_counts)
-                temp_game.captured = {k: list(v) for k, v in game.captured.items()} if hasattr(game, 'captured') and isinstance(game.captured, dict) else {'white': [], 'black': []}
-
-                # Apply the suggested move, handling promotions
-                temp_game.make_move(best['from_row'], best['from_col'], best['to_row'], best['to_col'], promotion_piece=best.get('promotion_piece'))
-
-                # Request opponent's responses
-                opp_resp = temp_game.get_ai_move()
-
-                predicted_responses = []
-                if opp_resp:
-                    predicted_responses.append({
-                        'notation': temp_game._notation(
-                            opp_resp['from_row'], opp_resp['from_col'],
-                            opp_resp['to_row'], opp_resp['to_col'],
-                            temp_game.board[opp_resp['from_row']][opp_resp['from_col']],
-                            temp_game.board[opp_resp['to_row']][opp_resp['to_col']],
-                            temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
-                        ),
-                        'eval': opp_resp.get('eval')
-                    })
-                    # Cap the alts before running the notation loop
-                    for alt in opp_resp.get('alts', [])[:2]:
-                        predicted_responses.append({
-                            'notation': temp_game._notation(
-                                alt['from_row'], alt['from_col'],
-                                alt['to_row'], alt['to_col'],
-                                temp_game.board[alt['from_row']][alt['from_col']],
-                                temp_game.board[alt['to_row']][alt['to_col']],
-                                temp_game.serialize_board(), temp_game.serialize_castling_rights(), temp_game._serialize_ep()
-                            ),
-                            'eval': alt.get('eval')
-                        })
-
-                best['predicted_responses'] = predicted_responses
-            finally:
-                temp_game.cleanup_engine()
-        except Exception:
-            logger.exception("Failed to predict opponent responses")
-
-    if not best:
-        if game.game_status == 'checkmate':
-            winner = 'black' if game.current_turn == 'white' else 'white'
-            record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
-            game_status = 'checkmate'
-        else:
-            record_game_result(request, game.mode, 'draw', 'stalemate', game.player_color, moves=game.move_history)
-            game_status = 'stalemate'
-
-        game.game_status = game_status
-        
         success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
-        delete_active_game(request)
+        finish_game(request, game, winner, reason)
 
         return JsonResponse({
             'valid': True,
-            'game_status': game_status,
+            'game_status': status,
+            'draw_reason': game.draw_reason,
             'board': game.board,
             'current_turn': game.current_turn,
             'white_time': game.white_time,
@@ -766,61 +925,60 @@ def ai_move(request):
             'version': 0
         })
 
+    # An anonymous game lives in the session, so a pause sent while the
+    # engine was thinking only shows up there. Logged-in games are covered
+    # by the version check when saving.
+    anonymous = not request.user.is_authenticated
     engine = import_module(settings.SESSION_ENGINE)
-    try:
-        store = engine.SessionStore(session_key=request.session.session_key)
-        latest_game = store.get('game', {})
-    except Exception as e:
-        logger.error(f"Failed to read session state during AI move: {e}")
-        return JsonResponse({'valid': False, 'message': 'Internal error verifying game state.'}, status=500)
+    if anonymous:
+        try:
+            store = engine.SessionStore(session_key=request.session.session_key)
+            latest_game = store.get('game', {})
+        except Exception as e:
+            logger.error(f"Failed to read session state during AI move: {e}")
+            return JsonResponse({'valid': False, 'message': 'Internal error verifying game state.'}, status=500)
 
-    if latest_game.get('paused'):
-        err_msg = 'Game is paused.'
-        return JsonResponse(
-            {'valid': False, 'message': err_msg}, status=400
-        )
+        if latest_game.get('paused'):
+            err_msg = 'Game is paused.'
+            return JsonResponse(
+                {'valid': False, 'message': err_msg}, status=400
+            )
 
     success, message, captured, game_status = game.make_move(
         best['from_row'], best['from_col'],
         best['to_row'], best['to_col'],
     )
 
+    winner = None
     if success:
         update_opening_metadata(game)
-        try:
-            final_store = engine.SessionStore(session_key=request.session.session_key)
-            final_game = final_store.get('game', {})
-            authoritative_paused = final_game.get('paused', game.paused)
-        except Exception as e:
-            logger.error(f"Failed to read session state during AI save: {e}")
-            return JsonResponse({'valid': False, 'message': 'Internal error saving game state.'}, status=500)
-
         game_dict = game.to_dict()
-        game_dict['paused'] = authoritative_paused
-        
+        if anonymous:
+            try:
+                final_store = engine.SessionStore(session_key=request.session.session_key)
+                final_game = final_store.get('game', {})
+                game_dict['paused'] = final_game.get('paused', game.paused)
+            except Exception as e:
+                logger.error(f"Failed to read session state during AI save: {e}")
+                return JsonResponse({'valid': False, 'message': 'Internal error saving game state.'}, status=500)
+
         success_save, active_game = save_game_state_helper(request, active_game, game_dict, version)
         if not success_save:
             return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
         if game_status == 'checkmate':
             winner = 'black' if game.current_turn == 'white' else 'white'
-            game_result = record_game_result(request, game.mode, winner, 'checkmate', game.player_color, moves=game.move_history)
-            replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1-0' if winner == 'white' else '0-1', termination='checkmate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            if game_result is not None:
-                game_result.replay_record = replay_record
-                game_result.save(update_fields=['replay_record'])
-            delete_active_game(request)
+            finish_game(request, game, winner, 'checkmate')
         elif game_status in ('stalemate', 'draw'):
-            game_result = record_game_result(request, game.mode, 'draw', game.draw_reason or 'stalemate', game.player_color, moves=game.move_history)
-            replay_record = save_game_record(request, pgn=game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black')), result='1/2-1/2', termination=game.draw_reason or 'stalemate', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-            if game_result is not None:
-                game_result.replay_record = replay_record
-                game_result.save(update_fields=['replay_record'])
-            delete_active_game(request)
+            finish_game(request, game, 'draw', game.draw_reason or 'stalemate')
+    elif game_status == 'timeout':
+        winner = _end_on_time(request, game, active_game, version)
+        if winner is None:
+            return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
     res_version = active_game.version if (active_game and request.user.is_authenticated) else 0
 
-    return JsonResponse({
+    response_data = {
         'valid': success,
         'message': message,
         'captured': captured,
@@ -844,7 +1002,11 @@ def ai_move(request):
         'black_name': request.session.get('black_name', 'Black'),
         'opening': request.session.get('opening', ''),
         'version': res_version
-    })
+    }
+    if game_status == 'timeout':
+        response_data['winner'] = winner
+
+    return JsonResponse(response_data)
 
 @require_POST
 def offer_draw(request):
@@ -857,9 +1019,8 @@ def offer_draw(request):
             {'success': False, 'message': 'No active game.'}, status=400
         )
 
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
+    data = _json_object(request)
+    if data is None:
         return JsonResponse(
             {'valid': False, 'message': 'Invalid request data.'}, status=400
         )
@@ -877,14 +1038,23 @@ def offer_draw(request):
             return JsonResponse(
                 {'success': False, 'message': 'Game is not active.'}, status=400
             )
+        if game.mode != 'pvp':
+            # The engine never offers or accepts a draw, and a draw against
+            # it would move the rating.
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': 'Draws by agreement are only available in two-player games.',
+                },
+                status=400,
+            )
         game.game_status = 'draw'
         game.draw_reason = 'agreement'
         saved, _ = save_game_state_helper(request, active_game, game.to_dict(), version)
         if not saved:
             return JsonResponse({'error': 'State conflict, please retry'}, status=409)
-        delete_active_game(request)
 
-        record_game_result(request, game.mode, 'draw', 'agreement', game.player_color, moves=game.move_history)
+        finish_game(request, game, 'draw', 'agreement')
         return JsonResponse({
             'success': True,
             'game_status': game.game_status,
@@ -905,37 +1075,25 @@ def resign_game(request):
     if game.game_status != 'active':
         return JsonResponse({'valid': False, 'message': 'Game is already over.'}, status=400)
 
-    import json
-    try:
-        data = json.loads(request.body)
-        resigning_player = data.get('resigning_player')
-    except (json.JSONDecodeError, AttributeError, ValueError):
-        resigning_player = None
+    data = _json_object(request) or {}
+    resigning_player = data.get('resigning_player')
 
-    if resigning_player not in ['white', 'black']:
-        resigning_player = game.player_color if game.mode == 'ai' else game.current_turn
+    if game.mode == 'ai':
+        # Against the engine only the human can resign, whatever was sent.
+        resigning_player = game.player_color
+    elif resigning_player not in ('white', 'black'):
+        resigning_player = game.current_turn
 
     winner = 'black' if resigning_player == 'white' else 'white'
     game_status = 'resignation'
 
     game.game_status = game_status
-    
+
     success_save, active_game = save_game_state_helper(request, active_game, game.to_dict(), version)
     if not success_save:
         return JsonResponse({'error': 'Conflict: Stale game state.'}, status=409)
 
-    try:
-        game_result = record_game_result(request, game.mode, winner, 'resign', game.player_color, moves=game.move_history)
-        pgn_str = game.generate_pgn(request.session.get('white_name', 'White'), request.session.get('black_name', 'Black'))
-        pgn_result = '1-0' if winner == 'white' else '0-1'
-        replay_record = save_game_record(request, pgn=pgn_str, result=pgn_result, termination='resignation', white_label=request.session.get('white_name', 'White'), black_label=request.session.get('black_name', 'Black'))
-        if game_result is not None:
-            game_result.replay_record = replay_record
-            game_result.save(update_fields=['replay_record'])
-    except Exception as e:
-        logger.error('Failed to record resign result: %s', e)
-
-    delete_active_game(request)
+    finish_game(request, game, winner, 'resign')
 
     return JsonResponse({
         'valid': True,
@@ -962,10 +1120,63 @@ def check_username(request):
 REGISTRATION_SESSION_KEYS = (
     'registration_user_id',
     'registration_otp_hash',
+    'registration_password',
     'otp_created_at',
     'registration_email',
     'otp_failed_attempts',
 )
+
+# How long a signup that was never verified keeps its username and email.
+PENDING_REGISTRATION_MAX_AGE_SECONDS = 3600
+
+# One verification mail per address in this window, register and resend alike.
+REGISTRATION_EMAIL_COOLDOWN_SECONDS = 60
+
+GENERIC_REGISTRATION_MESSAGE = (
+    'If your details are valid, a verification '
+    'code has been sent to your email.'
+)
+
+
+def _pending_registrations():
+    """Signups that never finished email verification.
+
+    verify_otp logs the user in, so a verified account always has a
+    last_login. An inactive account that has one was switched off later, by
+    an admin, and must not come back through the registration flow.
+    """
+    return User.objects.filter(is_active=False, last_login__isnull=True)
+
+
+def _registration_cooldown_key(email):
+    digest = hashlib.sha256(email.lower().strip().encode()).hexdigest()
+    return f"reg_otp_cooldown_{digest}"
+
+
+def _registration_email_allowed(email):
+    """Claim the right to mail this address; False while the cooldown runs."""
+    return cache.add(
+        _registration_cooldown_key(email), 1,
+        timeout=REGISTRATION_EMAIL_COOLDOWN_SECONDS,
+    )
+
+
+def _dummy_registration(request, email):
+    """Answer like a real registration without creating or mailing anything.
+
+    The session gets a code nobody knows, so the verify page renders and
+    never succeeds. The response does not show whether the details exist.
+    """
+    request.session['registration_user_id'] = -1
+    request.session['registration_email'] = email
+    request.session.pop('registration_password', None)
+    dummy_otp = str(secrets.randbelow(900000) + 100000)
+    request.session['registration_otp_hash'] = hashlib.sha256(
+        f"{dummy_otp}:{settings.SECRET_KEY}".encode()
+    ).hexdigest()
+    request.session['otp_created_at'] = time.time()
+    messages.success(request, GENERIC_REGISTRATION_MESSAGE)
+    return redirect('verify_otp')
 
 
 def _clear_registration_session(request):
@@ -997,20 +1208,7 @@ def register_view(request):
             lock_acquired = cache.add(email_lock_key, "locked", timeout=10)
             if not lock_acquired:
                 # Concurrent request in progress — return the same generic redirect.
-                request.session['registration_user_id'] = -1
-                request.session['registration_email'] = email
-                dummy_otp = str(secrets.randbelow(900000) + 100000)
-                dummy_otp_hash = hashlib.sha256(
-                    f"{dummy_otp}:{settings.SECRET_KEY}".encode()
-                ).hexdigest()
-                request.session['registration_otp_hash'] = dummy_otp_hash
-                request.session['otp_created_at'] = time.time()
-                messages.success(
-                    request,
-                    'If your details are valid, a verification '
-                    'code has been sent to your email.',
-                )
-                return redirect('verify_otp')
+                return _dummy_registration(request, email)
 
             is_new_user = False
             try:
@@ -1018,35 +1216,31 @@ def register_view(request):
                 # an atomic block to eliminate race conditions between the
                 # check and the subsequent insert.
                 with transaction.atomic():
-                    active_conflict = User.objects.filter(
-                        Q(username__iexact=username) | Q(email__iexact=email),
-                        is_active=True,
+                    identity = Q(username__iexact=username) | Q(email__iexact=email)
+
+                    # A signup that was never verified stops holding its
+                    # username and email once the window has passed.
+                    stale_before = timezone.now() - timedelta(
+                        seconds=PENDING_REGISTRATION_MAX_AGE_SECONDS
+                    )
+                    _pending_registrations().filter(
+                        identity, date_joined__lt=stale_before
+                    ).delete()
+
+                    # Verified accounts are never touched from here, and
+                    # that includes accounts an admin has deactivated.
+                    established_conflict = User.objects.filter(identity).exclude(
+                        is_active=False, last_login__isnull=True
                     ).select_for_update().exists()
 
-                    if active_conflict:
+                    if established_conflict:
                         # Return the same generic response as a successful
                         # registration so attackers cannot distinguish
                         # between "email/username exists" and "new account".
-                        request.session['registration_user_id'] = -1
-                        request.session['registration_email'] = email
-                        dummy_otp = str(secrets.randbelow(900000) + 100000)
-                        dummy_otp_hash = hashlib.sha256(
-                            f"{dummy_otp}:{settings.SECRET_KEY}".encode()
-                        ).hexdigest()
-                        request.session['registration_otp_hash'] = dummy_otp_hash
-                        request.session['otp_created_at'] = time.time()
-                        messages.success(
-                            request,
-                            'If your details are valid, a verification '
-                            'code has been sent to your email.',
-                        )
-                        return redirect('verify_otp')
+                        return _dummy_registration(request, email)
 
                     inactive_candidates = list(
-                        User.objects.select_for_update().filter(
-                            Q(username__iexact=username) | Q(email__iexact=email),
-                            is_active=False,
-                        )
+                        _pending_registrations().select_for_update().filter(identity)
                     )
                     exact_inactive_matches = [
                         u for u in inactive_candidates
@@ -1057,29 +1251,16 @@ def register_view(request):
                     # If there are matching inactive accounts but none is a full identity match,
                     # trigger the generic dummy flow to prevent hijacking/enumeration.
                     if inactive_candidates and len(exact_inactive_matches) != 1:
-                        request.session['registration_user_id'] = -1
-                        request.session['registration_email'] = email
-                        dummy_otp = str(secrets.randbelow(900000) + 100000)
-                        request.session['registration_otp_hash'] = hashlib.sha256(
-                            f"{dummy_otp}:{settings.SECRET_KEY}".encode()
-                        ).hexdigest()
-                        request.session['otp_created_at'] = time.time()
-                        # Return the same generic response to prevent username/email enumeration.
-                        messages.success(
-                            request,
-                            'If your details are valid, a verification '
-                            'code has been sent to your email.',
-                        )
-                        return redirect('verify_otp')
+                        return _dummy_registration(request, email)
 
                     inactive_user = exact_inactive_matches[0] if exact_inactive_matches else None
 
                     if inactive_user:
                         user = inactive_user
-                        # Update password to the one the user just supplied
-                        user.set_password(form.cleaned_data['password1'])
                         user.username = username
                         user.email = email
+                        # A fresh attempt restarts the verification window.
+                        user.date_joined = timezone.now()
                         user.full_clean(validate_unique=False)
                         user.save()
                     else:
@@ -1092,20 +1273,22 @@ def register_view(request):
                         except IntegrityError:
                             # Concurrent insert beat us despite the atomic
                             # block — return the same generic message.
-                            request.session['registration_user_id'] = -1
-                            request.session['registration_email'] = email
-                            dummy_otp = str(secrets.randbelow(900000) + 100000)
-                            dummy_otp_hash = hashlib.sha256(
-                                f"{dummy_otp}:{settings.SECRET_KEY}".encode()
-                            ).hexdigest()
-                            request.session['registration_otp_hash'] = dummy_otp_hash
-                            request.session['otp_created_at'] = time.time()
-                            messages.success(
-                                request,
-                                'If your details are valid, a verification '
-                                'code has been sent to your email.',
-                            )
-                            return redirect('verify_otp')
+                            return _dummy_registration(request, email)
+
+                # The password picked in this browser is applied when this
+                # browser verifies its code. Someone else registering the
+                # same details in between cannot swap it.
+                request.session['registration_password'] = make_password(
+                    form.cleaned_data['password1']
+                )
+
+                if not _registration_email_allowed(email):
+                    # A code went to this address moments ago, so nothing
+                    # new is sent. A browser that holds that code keeps it.
+                    if request.session.get('registration_user_id') != user.id:
+                        return _dummy_registration(request, email)
+                    messages.success(request, GENERIC_REGISTRATION_MESSAGE)
+                    return redirect('verify_otp')
 
                 # Generate 6-digit OTP
                 otp = str(secrets.randbelow(900000) + 100000)
@@ -1116,6 +1299,7 @@ def register_view(request):
                 ).hexdigest()
                 request.session['registration_otp_hash'] = otp_hash
                 request.session['otp_created_at'] = time.time()
+                request.session['last_otp_time'] = time.time()
 
                 missing_email_credentials = (
                     not settings.EMAIL_HOST_USER or
@@ -1127,11 +1311,7 @@ def register_view(request):
                         f"[Checkora] Development registration OTP "
                         f"for {user.email}: {otp}"
                     )
-                    messages.success(
-                        request,
-                        'If your details are valid, a verification '
-                        'code has been sent to your email.',
-                    )
+                    messages.success(request, GENERIC_REGISTRATION_MESSAGE)
                     return redirect('verify_otp')
 
                 # Send Email
@@ -1179,11 +1359,7 @@ def register_view(request):
                         fail_silently=False,
                         html_message=html_message
                     )
-                    messages.success(
-                        request,
-                        'If your details are valid, a verification '
-                        'code has been sent to your email.',
-                    )
+                    messages.success(request, GENERIC_REGISTRATION_MESSAGE)
                     return redirect('verify_otp')
                 except (SMTPException, BadHeaderError, OSError):
                     # If email fails, delete the user only if it was newly created.
@@ -1191,6 +1367,8 @@ def register_view(request):
                     if is_new_user:
                         user.delete()
                     _clear_registration_session(request)
+                    # Nothing was sent, so the next attempt may mail again.
+                    cache.delete(_registration_cooldown_key(email))
                     err_msg = (
                         'Failed to send OTP email. '
                         'Please check your email address and try again.'
@@ -1269,7 +1447,11 @@ def verify_otp(request):
             try:
                 if user_id == -1:
                     raise User.DoesNotExist()
-                user = User.objects.get(id=user_id)
+                # Only a signup that is still waiting can be activated here.
+                user = _pending_registrations().get(id=user_id)
+                password_hash = request.session.get('registration_password')
+                if password_hash:
+                    user.password = password_hash
                 user.is_active = True
                 user.full_clean()
                 user.save()
@@ -1384,7 +1566,7 @@ def resend_otp(request):
         return redirect('verify_otp')
 
     try:
-        user = User.objects.get(id=user_id, is_active=False)
+        user = _pending_registrations().get(id=user_id)
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
@@ -1392,6 +1574,11 @@ def resend_otp(request):
     if last_otp_time and time.time() - last_otp_time < 60:
         remaining = int(60 - (time.time() - last_otp_time))
         messages.error(request, f'Please wait {remaining} seconds before requesting a new OTP.')
+        return redirect('verify_otp')
+
+    # The same address may be waiting in other browsers too.
+    if not _registration_email_allowed(user.email):
+        messages.error(request, 'Please wait a moment before requesting a new OTP.')
         return redirect('verify_otp')
 
     otp = str(secrets.randbelow(900000) + 100000)
@@ -1418,6 +1605,7 @@ def resend_otp(request):
         request.session['last_otp_time'] = time.time()
 
     except (SMTPException, BadHeaderError, OSError):
+        cache.delete(_registration_cooldown_key(user.email))
         messages.error(
             request,
             'Failed to resend OTP. Please try again.'
@@ -1644,11 +1832,19 @@ def get_analyze_rate_ip_key(ip):
     return f'analyze_rate:ip:{digest}'
 
 
+def _cache_counts_natively():
+    """Tell whether the cache backend has its own atomic incr.
+
+    The database and file backends inherit BaseCache.incr, which reads the
+    value and writes it back with the default timeout. Every hit would then
+    restart the window, so those backends take the locked path below.
+    """
+    return type(caches[DEFAULT_CACHE_ALIAS]).incr is not BaseCache.incr
+
+
 def increment_counter(key, timeout):
-    """Increment cache value atomically or fall back safely."""
-    # DatabaseCache does not provide atomic incr, so force fallback lock.
-    is_db_cache = cache.__class__.__name__ == 'DatabaseCache'
-    if not is_db_cache:
+    """Count one hit in a window of `timeout` seconds and return the total."""
+    if _cache_counts_natively():
         try:
             if cache.add(key, 1, timeout=timeout):
                 return 1
@@ -1670,19 +1866,21 @@ def increment_counter(key, timeout):
         now = time.time()
         expiry_key = f"{key}:expiry"
         expires_at = cache.get(expiry_key)
-        
-        if expires_at is None or now >= expires_at:
+
+        new_window = expires_at is None or now >= expires_at
+        if new_window:
             expires_at = now + timeout
             cache.set(expiry_key, expires_at, timeout=timeout)
-            
+
         remaining = max(1, int(expires_at - now))
-        
-        raw_val = cache.get(key)
+
+        # A new window starts from zero even if the old count is still cached.
+        raw_val = None if new_window else cache.get(key)
         try:
             val = int(raw_val) if raw_val is not None else 0
         except (ValueError, TypeError):
             val = 0
-            
+
         val += 1
         cache.set(key, val, timeout=remaining)
         return val
@@ -1723,7 +1921,6 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
             
             if current > max_requests:
                 if request.accepts("text/html"):
-                    from django.http import HttpResponse
                     return HttpResponse(
                         (
                             "<h1>429 Too Many Requests</h1>"
@@ -1736,6 +1933,18 @@ def rate_limit(window_setting, max_setting, prefix, error_message="Rate limit re
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
+
+
+def _login_destination(request):
+    """Where to go after login: the `next` page when it is on this site."""
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return 'landing'
 
 
 def login_view(request):
@@ -1811,7 +2020,7 @@ def login_view(request):
                 request,
                 f'Welcome back, {user.username}! Login successful.'
             )
-            return redirect('landing')
+            return redirect(_login_destination(request))
         else:
             # Login failed: track failed attempts
             username_fails = 0
@@ -1887,28 +2096,11 @@ def stats_view(request):
 
     total_games = user_results.count()
 
-    total_wins = user_results.filter(
-        winner=F("player_color")
-    ).exclude(
-        winner="draw"
-    ).count()
-
-    total_losses = user_results.filter(
-        Q(player_color="white", winner="black") |
-        Q(player_color="black", winner="white")
-    ).count()
-
-    total_draws = user_results.filter(winner="draw").count()
-
-    overall_win_rate = (
-        round((total_wins / total_games) * 100, 2)
-        if total_games > 0 else 0
-    )
-
     recent = user_results.order_by('-played_at')[:20]
     progress, _ = UserProgress.objects.get_or_create(
         user=request.user
     )
+    progress.expire_streak()
     ai_results = user_results.filter(mode='ai')
 
     # If winner == player_color, the user won
@@ -1925,6 +2117,13 @@ def stats_view(request):
     # Handle explicit edge cases (e.g. division by zero for win rate)
     win_percentage = (user_ai_wins / ai_total * 100) if ai_total > 0 else 0
 
+    # Wins and losses are only counted against the engine. In a two-player
+    # game on one board the account plays both sides.
+    total_wins = user_ai_wins
+    total_losses = ai_wins
+    total_draws = ai_draws
+    overall_win_rate = round(win_percentage, 2)
+
     rating, _ = PlayerRating.objects.get_or_create(
         user=request.user
     )
@@ -1939,21 +2138,33 @@ def stats_view(request):
         user=request.user
     ).order_by('created_at')
 
+    # Data for the rating chart, oldest first.
+    chart_history = [
+        {
+            'date': timezone.localtime(entry.created_at).strftime('%Y-%m-%d %H:%M'),
+            'timestamp': int(entry.created_at.timestamp()),
+            'new_rating': entry.new_rating,
+            'change': entry.rating_change,
+            'result': entry.result,
+        }
+        for entry in history_all
+    ]
+
     # Color Statistics
-    games_as_white = user_results.filter(
+    games_as_white = ai_results.filter(
         player_color="white"
     ).count()
 
-    games_as_black = user_results.filter(
+    games_as_black = ai_results.filter(
         player_color="black"
     ).count()
 
-    white_wins = user_results.filter(
+    white_wins = ai_results.filter(
         player_color="white",
         winner="white"
     ).count()
 
-    black_wins = user_results.filter(
+    black_wins = ai_results.filter(
         player_color="black",
         winner="black"
     ).count()
@@ -2026,7 +2237,8 @@ def stats_view(request):
     puzzle_stats, _ = PuzzleStats.objects.get_or_create(
         user=request.user
     )
-    
+    puzzle_stats.expire_streak()
+
     opening_stats = OpeningProgress.objects.filter(
         user=request.user
     )
@@ -2057,7 +2269,8 @@ def stats_view(request):
         'rating': rating,
         'history': recent_history,
         'history_all': history_all,
-        
+        'chart_history': chart_history,
+
         "total_games": total_games,
         "total_wins": total_wins,
         "total_losses": total_losses,
@@ -2102,7 +2315,7 @@ def leaderboard_view(request):
         ).order_by(
             "-puzzles_solved",
             "-best_streak"
-        )
+        )[:50]
     except Exception:
         leaderboard = PuzzleStats.objects.none()
 
@@ -2125,84 +2338,36 @@ def leaderboard_view(request):
     )
 
 
-@login_required
-@require_POST
-def update_puzzle_stats(request):
-    try:
-        data = json.loads(request.body or '{}')
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'invalid json'}, status=400)
-
-    if not isinstance(data, dict):
-        return JsonResponse({'error': 'invalid json'}, status=400)
-
-    stats = PuzzleStats.objects.filter(
-        user=request.user
-    ).first()
-
-    fields = ["puzzles_solved", "current_streak", "best_streak", "daily_completions"]
-    validated_data = {}
-    for field in fields:
-        val = data.get(field, getattr(stats, field) if stats is not None else 0)
-        if not isinstance(val, int) or isinstance(val, bool) or val < 0:
-            return JsonResponse({'error': f'{field} must be a non-negative integer'}, status=400)
-        validated_data[field] = val
-
-    if validated_data["best_streak"] < validated_data["current_streak"]:
-        return JsonResponse({'error': 'best_streak must be greater than or equal to current_streak'}, status=400)
-
-    if stats is None:
-        stats = PuzzleStats(user=request.user)
-
-    stats.puzzles_solved = validated_data["puzzles_solved"]
-    stats.current_streak = validated_data["current_streak"]
-    stats.best_streak = validated_data["best_streak"]
-    stats.daily_completions = validated_data["daily_completions"]
-
-    try:
-        stats.save()
-    except IntegrityError:
-        return JsonResponse({'error': 'Integrity validation failed.'}, status=400)
-
-    check_puzzle_achievements(
-        request.user,
-        stats
-    )
-
-    return JsonResponse({"success": True})
-
-
 def puzzle_stats_view(request):
     if not request.user.is_authenticated:
         return JsonResponse({
             "streak": 0,
-            "longest_streak": 0
+            "longest_streak": 0,
+            "puzzles_solved": 0,
+            "daily_completions": 0,
         })
     stats, _ = PuzzleStats.objects.get_or_create(user=request.user)
+    stats.expire_streak()
     return JsonResponse({
         "streak": stats.current_streak,
-        "longest_streak": stats.best_streak
+        "longest_streak": stats.best_streak,
+        "puzzles_solved": stats.puzzles_solved,
+        "daily_completions": stats.daily_completions,
     })
 
 
 def get_daily_puzzle(request):
     """Serve a puzzle corresponding to the current date."""
-    today = timezone.localdate()
-    puzzle = ChessPuzzle.objects.filter(date=today).first()
+    puzzle = daily_puzzle_for(timezone.localdate())
 
     if not puzzle:
-        total_puzzles = ChessPuzzle.objects.count()
-        if total_puzzles > 0:
-            index = today.toordinal() % total_puzzles
-            puzzle = ChessPuzzle.objects.order_by('id')[index]
-
-    if not puzzle:
+        # Only reached when the puzzle table is empty: a back-rank mate in one.
         return JsonResponse({
             "id": 0,
             "title": "Default Puzzle",
-            "fen": "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1",
-            "solution": ["g2g4"],
-            "difficulty": "medium"
+            "fen": "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
+            "solution": ["e1e8"],
+            "difficulty": "easy"
         })
 
     return JsonResponse({
@@ -2333,10 +2498,57 @@ def puzzle_solution_api(request, puzzle_id):
     })
 
 
-@csrf_exempt
 @require_POST
+def puzzle_solve_api(request, puzzle_id):
+    """Check the moves played against the stored solution and count the solve.
+
+    The totals and the streak are worked out on the server. Nothing the
+    client says about its own progress is stored.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    puzzle = get_object_or_404(ChessPuzzle, id=puzzle_id)
+
+    data = _json_object(request)
+    moves = data.get('moves') if data is not None else None
+    if not isinstance(moves, list) or not all(isinstance(m, str) for m in moves):
+        return JsonResponse(
+            {'success': False, 'error': 'moves must be a list of strings'},
+            status=400,
+        )
+
+    solution = puzzle.solution if isinstance(puzzle.solution, list) else []
+    correct = bool(solution) and len(moves) == len(solution) and all(
+        played.strip().lower() == str(expected).strip().lower()
+        for played, expected in zip(moves, solution)
+    )
+
+    newly_solved = False
+    if correct:
+        stats, newly_solved = record_puzzle_solve(request.user, puzzle)
+    else:
+        stats, _ = PuzzleStats.objects.get_or_create(user=request.user)
+        stats.expire_streak()
+
+    return JsonResponse({
+        'success': True,
+        'correct': correct,
+        'newly_solved': newly_solved,
+        'puzzles_solved': stats.puzzles_solved,
+        'streak': stats.current_streak,
+        'longest_streak': stats.best_streak,
+        'daily_completions': stats.daily_completions,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
 def cleanup_cron(request):
-    """Secure cron-triggered cleanup endpoint for abandoned games."""
+    """Secure cron-triggered cleanup endpoint for abandoned games.
+
+    Vercel calls cron paths with GET; POST stays for manual runs.
+    """
     cron_secret = getattr(settings, 'CRON_SECRET', None)
 
     # Check authorization header
@@ -2345,21 +2557,41 @@ def cleanup_cron(request):
     provided = auth_header or ""
 
     if (not cron_secret or
-            not secrets_module.compare_digest(expected, provided)):
+            not secrets.compare_digest(expected.encode(), provided.encode())):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
     try:
         deleted, resigned = cleanup_stale_games()
+        purged_records, purged_sessions = purge_expired_records()
         return JsonResponse({
             'status': 'success',
             'deleted_games': deleted,
-            'resigned_games': resigned
+            'resigned_games': resigned,
+            'purged_records': purged_records,
+            'purged_sessions': purged_sessions,
         })
     except Exception as e:
         return JsonResponse({
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+class AccountDeletionTokenGenerator(PasswordResetTokenGenerator):
+    """Tokens for the account deletion link.
+
+    The separate salt keeps them from working as password reset tokens,
+    and password reset tokens from deleting accounts.
+    """
+    key_salt = "game.views.AccountDeletionTokenGenerator"
+
+    def _make_hash_value(self, user, timestamp):
+        # Unlike a reset token this one must survive a login: the link may
+        # be opened in a browser where the owner has to sign in first.
+        return f"{user.pk}{user.password}{timestamp}{user.email}"
+
+
+account_deletion_token = AccountDeletionTokenGenerator()
+
 
 @login_required
 def delete_account(request):
@@ -2380,7 +2612,7 @@ def delete_account(request):
                 force_bytes(user.pk)
             )
 
-            token = default_token_generator.make_token(user)
+            token = account_deletion_token.make_token(user)
             delete_link = request.build_absolute_uri(
                 reverse(
                     'confirm_delete_account',
@@ -2431,7 +2663,15 @@ If this wasn't you, ignore this email.
     )
 
 
+@require_http_methods(["GET", "POST"])
 def confirm_delete_account(request, uidb64, token):
+    """Ask for a last confirmation, then delete the account on POST.
+
+    Opening the mailed link changes nothing, so a mail scanner or a link
+    preview cannot delete an account. Only the logged-in owner can confirm.
+    """
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
 
     try:
 
@@ -2445,77 +2685,62 @@ def confirm_delete_account(request, uidb64, token):
 
         user = None
 
-    if user and default_token_generator.check_token(
-        user,
-        token
+    if (
+        user is None
+        or user.pk != request.user.pk
+        or not account_deletion_token.check_token(user, token)
     ):
-
-        logout(request)
-
-        user.delete()
-
-        return render(
+        messages.error(
             request,
-            'game/delete_success.html'
+            'Invalid or expired deletion link.'
         )
 
-    messages.error(
+        return redirect('landing')
+
+    if request.method != 'POST':
+        return render(
+            request,
+            'game/confirm_delete_account.html',
+            {'uidb64': uidb64, 'token': token}
+        )
+
+    logout(request)
+
+    user.delete()
+
+    return render(
         request,
-        'Invalid or expired deletion link.'
+        'game/delete_success.html'
     )
 
-    return redirect('landing')
+
+# Centipawns given up against the engine's choice before a move gets a label.
+BLUNDER_LOSS = 300
+MISTAKE_LOSS = 100
 
 
-def _classify_move(is_best, played_mv, best_mv, game_state):
-    """Classifies a move by simulating it and comparing material difference."""
+def _classify_move(is_best, loss):
+    """Label a move by the evaluation it gave up, in centipawns.
+
+    `loss` is None when the engine had no evaluation to compare with.
+    """
     if is_best:
         return 'Best'
-        
-    if not best_mv or not played_mv:
-        return 'Mistake'
-        
-    piece_vals = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0}
-    
-    def _simulate_and_evaluate(mv):
-        # Calculate material score for the player who just moved
-        board_copy = [row[:] for row in game_state.board]
-        
-        # Apply the move
-        f_r, f_c = mv.get('from_row'), mv.get('from_col')
-        t_r, t_c = mv.get('to_row'), mv.get('to_col')
-        
-        if f_r is not None and f_c is not None:
-            piece = board_copy[f_r][f_c]
-            board_copy[t_r][t_c] = piece
-            board_copy[f_r][f_c] = ''
-        
-        # Simple material evaluation
-        score = 0
-        is_white = game_state.current_turn == 'white'
-        
-        for r in range(8):
-            for c in range(8):
-                p = board_copy[r][c]
-                if p:
-                    val = piece_vals.get(p.lower(), 0)
-                    if (p.isupper() and is_white) or (p.islower() and not is_white):
-                        score += val
-                    else:
-                        score -= val
-                        
-        return score
-
-    played_eval = _simulate_and_evaluate(played_mv)
-    best_eval = _simulate_and_evaluate(best_mv)
-    
-    diff = best_eval - played_eval
-    
-    if diff >= 3:
+    if loss is None:
+        return 'Unknown'
+    if loss >= BLUNDER_LOSS:
         return 'Blunder'
-    elif diff >= 1:
+    if loss >= MISTAKE_LOSS:
         return 'Mistake'
     return 'Inaccuracy'
+
+
+def _same_squares(move, from_sq, to_sq):
+    return (
+        move['from_row'] == from_sq[0] and move['from_col'] == from_sq[1]
+        and move['to_row'] == to_sq[0] and move['to_col'] == to_sq[1]
+    )
+
 
 @require_POST
 def analyze_game_view(request):
@@ -2557,22 +2782,31 @@ def analyze_game_view(request):
                 return JsonResponse({'error': f'Move must be a string of at most {MAX_MOVE_LENGTH} characters'}, status=400)
 
         captures = checks = checkmates = promotions = blunders = mistakes = 0
-        move_analysis_details = []
         game = ChessGame()
         game.white_time = 10 ** 9
         game.black_time = 10 ** 9
 
-        # Timeout handling for complex endgame analysis
+        # The whole analysis has to fit in this many seconds. Past the
+        # deadline the moves analysed so far are returned.
         ANALYSIS_TIMEOUT_SECONDS = getattr(settings, 'ANALYSIS_TIMEOUT_SECONDS', 10)
+        deadline = time.monotonic() + ANALYSIS_TIMEOUT_SECONDS
+        truncated = False
 
-        analyzed_moves_count = 0
+        def _engine_move():
+            # A single engine call may not outlive what is left of the budget.
+            game._analysis_timeout = max(1, deadline - time.monotonic())
+            # Four plies, the depth the review has always used.
+            return game.get_ai_move(depth=4)
+
+        plies = []
         for idx, notation in enumerate(moves[:80]): # Cap at 80 for perf
-            move_num = idx // 2 + 1
-            color = 'White' if idx % 2 == 0 else 'Black'
+            if time.monotonic() >= deadline:
+                truncated = True
+                break
 
             best_move = None
             try:
-                best_move = game.get_ai_move(depth=2)
+                best_move = _engine_move()
             except Exception as ex:
                 logger.warning('Failed to get best move from engine for %s: %s', notation, ex)
 
@@ -2600,7 +2834,6 @@ def analyze_game_view(request):
                 break
 
             # Now that it's resolved, increment stats
-            analyzed_moves_count += 1
             if 'x' in notation:
                 captures += 1
             if notation.endswith('+'):
@@ -2610,22 +2843,6 @@ def analyze_game_view(request):
             if '=' in notation:
                 promotions += 1
 
-            is_best = False
-            played_dict = {
-                'from_row': actual_from[0], 'from_col': actual_from[1],
-                'to_row': actual_to[0], 'to_col': actual_to[1]
-            }
-            if best_move:
-                is_best = (best_move['from_row'] == actual_from[0] and best_move['from_col'] == actual_from[1] and best_move['to_row'] == actual_to[0] and best_move['to_col'] == actual_to[1])
-            else:
-                is_best = True
-
-            move_class = _classify_move(is_best, played_dict, best_move, game)
-            if move_class == 'Blunder':
-                blunders += 1
-            elif move_class == 'Mistake':
-                mistakes += 1
-
             best_notation = '?'
             if best_move and game.board[best_move['from_row']][best_move['from_col']]:
                 try:
@@ -2633,30 +2850,82 @@ def analyze_game_view(request):
                 except Exception as ex:
                     logger.warning('Failed to get notation for best move: %s', ex)
 
-            move_analysis_details.append({
-                'move_num': move_num,
-                'color': color,
+            # A mating move cannot be improved on, whatever the engine chose.
+            is_best = notation.endswith('#') or bool(
+                best_move and _same_squares(best_move, actual_from, actual_to)
+            )
+
+            # The same search may have scored the played move as an alternative.
+            played_eval = None
+            if best_move:
+                for alt in best_move.get('alts') or []:
+                    if _same_squares(alt, actual_from, actual_to):
+                        played_eval = alt.get('eval')
+                        break
+
+            plies.append({
+                'move_num': idx // 2 + 1,
+                'white': idx % 2 == 0,
                 'played': notation,
                 'best': best_notation,
-                'class': move_class,
-                'eval': best_move.get('eval') if best_move else None
+                'is_best': is_best,
+                'best_eval': best_move.get('eval') if best_move else None,
+                'played_eval': played_eval,
             })
 
             game.make_move(actual_from[0], actual_from[1], actual_to[0], actual_to[1])
             game.last_ts = time.time()
 
-        bad_moves = blunders + mistakes
-        accuracy = round(((analyzed_moves_count - bad_moves) / analyzed_moves_count) * 100) if analyzed_moves_count > 0 else 100
         opening = detect_opening(moves) or 'Unknown'
 
         # Get evaluation of the final position
         final_eval = None
-        try:
-            final_move = game.get_ai_move(depth=2)
-            if final_move:
-                final_eval = final_move.get('eval')
-        except Exception as ex:
-            logger.warning('Failed to get final evaluation: %s', ex)
+        if time.monotonic() < deadline:
+            try:
+                final_move = _engine_move()
+                if final_move:
+                    final_eval = final_move.get('eval')
+            except Exception as ex:
+                logger.warning('Failed to get final evaluation: %s', ex)
+        else:
+            truncated = True
+
+        # Evaluations are in centipawns from White's side. A move is judged
+        # by what the engine expected from its own choice against what the
+        # played move led to: the next position's evaluation, unless the
+        # search already scored the played move.
+        move_analysis_details = []
+        for i, ply in enumerate(plies):
+            played_eval = ply['played_eval']
+            if played_eval is None:
+                played_eval = plies[i + 1]['best_eval'] if i + 1 < len(plies) else final_eval
+
+            loss = None
+            if ply['best_eval'] is not None and played_eval is not None:
+                loss = ply['best_eval'] - played_eval
+                if not ply['white']:
+                    loss = -loss
+                loss = max(0, loss)
+
+            move_class = _classify_move(ply['is_best'], loss)
+            if move_class == 'Blunder':
+                blunders += 1
+            elif move_class == 'Mistake':
+                mistakes += 1
+
+            move_analysis_details.append({
+                'move_num': ply['move_num'],
+                'color': 'White' if ply['white'] else 'Black',
+                'played': ply['played'],
+                'best': ply['best'],
+                'class': move_class,
+                'eval': ply['best_eval'],
+            })
+
+        # Moves the engine could not judge say nothing about accuracy.
+        judged = sum(1 for detail in move_analysis_details if detail['class'] != 'Unknown')
+        bad_moves = blunders + mistakes
+        accuracy = round(((judged - bad_moves) / judged) * 100) if judged > 0 else None
 
         response_data = {
             'result': result,
@@ -2667,6 +2936,7 @@ def analyze_game_view(request):
             'accuracy': accuracy, 'total_moves': (len(moves) + 1) // 2, 'move_analysis_details': move_analysis_details,
             'move_analysis': [detail['class'] for detail in move_analysis_details],
             'analysis_timeout_seconds': ANALYSIS_TIMEOUT_SECONDS,
+            'truncated': truncated,
             'final_eval': final_eval
         }
 
@@ -2783,42 +3053,6 @@ def get_unlocked_lessons(completed_lessons):
                 unlocked.add(lesson)
 
     return unlocked
-
-def lessons_view(request):
-    
-    completed_lessons = []
-
-    if request.user.is_authenticated:
-        completed_lessons = list(
-            LessonProgress.objects.filter(
-                user=request.user,
-                completed=True
-            ).values_list(
-                "lesson_name",
-                flat=True
-            )
-        )
-        
-    total_lessons = sum(
-        len(level["lessons"])
-        for level in LESSON_LEVELS
-    )
-    
-    unlocked_lessons = get_unlocked_lessons(
-        completed_lessons
-    )
-
-    return render(
-        request,
-        "game/lessons.html",
-        {
-            "levels": LESSON_LEVELS,
-            "unlocked_lessons": unlocked_lessons,
-            "completed_lessons": completed_lessons,
-            "total_lessons": total_lessons,
-        }
-    )
-
 
 def lesson_detail_view(request, lesson_name):
     resolved_name = _resolve_lesson_name(lesson_name)
@@ -3915,27 +4149,41 @@ def complete_lesson(request, lesson_name):
     if lesson_name not in _LESSON_NAMES:
         raise Http404("Lesson not found")
 
-    already_completed = LessonProgress.objects.filter(
-        user=request.user,
-        lesson_name=lesson_name,
-        completed=True
-    ).exists()
-
-    LessonProgress.objects.update_or_create(
-        user=request.user,
-        lesson_name=lesson_name,
-        defaults={
-            "completed": True,
-            "completed_at": timezone.now(),
-        }
+    completed_lessons = list(
+        LessonProgress.objects.filter(
+            user=request.user,
+            completed=True
+        ).values_list(
+            "lesson_name",
+            flat=True
+        )
     )
 
-    if not already_completed:
-        award_xp(
-            request.user,
-            25
+    # The lesson map only shows the order; this is where it is enforced.
+    if lesson_name not in get_unlocked_lessons(completed_lessons):
+        messages.error(
+            request,
+            "Finish the earlier lessons first to unlock this one."
         )
-    
+        return redirect("lessons")
+
+    with transaction.atomic():
+        # The row lock makes two submissions at once award the XP only once.
+        progress, _ = LessonProgress.objects.select_for_update().get_or_create(
+            user=request.user,
+            lesson_name=lesson_name,
+        )
+
+        if not progress.completed:
+            progress.completed = True
+            progress.completed_at = timezone.now()
+            progress.save(update_fields=["completed", "completed_at"])
+
+            award_xp(
+                request.user,
+                25
+            )
+
     return redirect(
         "lesson_detail",
         lesson_name=slugify(lesson_name)
@@ -4031,10 +4279,8 @@ def opening_detail(request, slug):
 @login_required
 @require_POST
 def update_opening_stats(request):
-    try:
-        data = json.loads(request.body)
-
-    except json.JSONDecodeError:
+    data = _json_object(request)
+    if data is None:
         return JsonResponse(
             {
                 "success": False,
@@ -4061,7 +4307,7 @@ def update_opening_stats(request):
         for opening in OPENINGS
     }
 
-    if opening_name not in valid_openings:
+    if not isinstance(opening_name, str) or opening_name not in valid_openings:
         return JsonResponse(
             {
                 "success": False,
@@ -4070,7 +4316,16 @@ def update_opening_stats(request):
             status=400,
         )
 
-    if not isinstance(accuracy, (int, float)):
+    if not isinstance(completed, bool):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Invalid completed flag",
+            },
+            status=400,
+        )
+
+    if isinstance(accuracy, bool) or not isinstance(accuracy, (int, float)):
         return JsonResponse(
             {
                 "success": False,
@@ -4085,6 +4340,7 @@ def update_opening_stats(request):
         request.user,
         opening_name,
         completed=completed,
+        accuracy=accuracy,
     )
 
     if completed and first_completion:
@@ -4201,7 +4457,7 @@ def download_badge(request, achievement_id):
         achievement_id=achievement_id
     )
     try:
-        badge_path = generate_badge(
+        badge = generate_badge(
             user_achievement
         )
 
@@ -4211,28 +4467,36 @@ def download_badge(request, achievement_id):
         )
 
         return FileResponse(
-            badge_path.open("rb"),
+            badge,
             as_attachment=True,
-            filename=f"{safe_filename}.png"
+            filename=f"{safe_filename}.png",
+            content_type="image/png",
         )
     except (
         FileNotFoundError,
         OSError,
-    ):
+    ) as exc:
         logger.error(
             "Badge generation failed for achievement %s: %s",
             achievement_id,
+            exc,
         )
 
         return HttpResponseServerError(
             "Badge generation failed."
         )
     
+def _live_replies():
+    """Prefetch that leaves soft-deleted replies out of discussion.replies."""
+    return Prefetch("replies", queryset=Reply.objects.filter(is_deleted=False))
+
+
 def apply_discussion_sort(queryset, sort_by):
+    live_reply = Q(replies__is_deleted=False)
     queryset = queryset.annotate(
-        reply_count=Count("replies", distinct=True),
+        reply_count=Count("replies", filter=live_reply, distinct=True),
         bookmark_count=Count("bookmarks", distinct=True),
-        last_reply_at=Max("replies__created_at"),
+        last_reply_at=Max("replies__created_at", filter=live_reply),
     )
 
     if sort_by == "oldest":
@@ -4263,7 +4527,7 @@ def forum_list(request):
 
     discussions = Discussion.objects.select_related(
         "user"
-    ).prefetch_related("replies")
+    ).prefetch_related(_live_replies())
 
     if q:
         discussions = discussions.filter(
@@ -4282,15 +4546,18 @@ def forum_list(request):
     page_obj = paginator.get_page(page_number)
 
     if request.user.is_authenticated:
+        # Subqueries, not joins: a join here would also narrow the reply
+        # and bookmark counts that the sort annotates afterwards.
         user_discussions = (
             Discussion.objects
             .filter(
                 Q(user=request.user) |
-                Q(replies__user=request.user)
+                Q(id__in=Reply.objects.filter(
+                    user=request.user
+                ).values("discussion_id"))
             )
             .select_related("user")
-            .prefetch_related("replies")
-            .distinct()
+            .prefetch_related(_live_replies())
         )
         if q:
             user_discussions = user_discussions.filter(
@@ -4301,10 +4568,11 @@ def forum_list(request):
 
         bookmarked_discussions = (
             Discussion.objects
-            .filter(bookmarks__user=request.user)
+            .filter(id__in=DiscussionBookmark.objects.filter(
+                user=request.user
+            ).values("discussion_id"))
             .select_related("user")
-            .prefetch_related("replies")
-            .distinct()
+            .prefetch_related(_live_replies())
         )
         if q:
             bookmarked_discussions = bookmarked_discussions.filter(
@@ -4531,11 +4799,13 @@ def forum_reply(request, discussion_id):
     parent_reply = None
 
     if reply_to_id:
-        parent_reply = Reply.objects.filter(
-            id=reply_to_id,
-            discussion=discussion,
-            is_deleted=False
-        ).first()
+        # Anything that is not a plausible id is treated as a missing parent.
+        if reply_to_id.isdigit() and len(reply_to_id) <= 18:
+            parent_reply = Reply.objects.filter(
+                id=reply_to_id,
+                discussion=discussion,
+                is_deleted=False
+            ).first()
 
         if parent_reply is None:
             messages.error(

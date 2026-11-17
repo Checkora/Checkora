@@ -1,24 +1,23 @@
 {
-  "name": "checkora-fork",
+  "name": "checkora",
   "version": "1.0.0",
-  "description": "<div align=\"center\">",
-  "main": "board.test.js",
+  "description": "JavaScript tests for the Checkora chess platform",
   "scripts": {
     "test": "jest"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RuchiSheoran/Checkora.git"
+    "url": "git+https://github.com/Checkora/Checkora.git"
   },
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0"
   },
-
   "overrides": {
     "brace-expansion": "5.0.13",
     "js-yaml": "^3.15.2"
-  }
+  },
+  "private": true
 }

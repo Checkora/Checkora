@@ -1,24 +1,50 @@
+{% extends 'game/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 | Checkora</title>
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/404.css' %}">
-</head>
-<body>
-    <main class="error-stage">
-        <section class="error-card" role="alert" aria-live="polite">
-            <img src="{% static 'game/checkora_icon_only.png' %}" class="crest" alt="Checkora crest">
-            <p class="code">Error 404</p>
-            <h1>This move is illegal!</h1>
-            <p class="message">You have wandered off the board. The rank and file you asked for cannot be found.</p>
-            <a class="home-btn" href="{% url 'landing' %}">Return to Main Menu</a>
-        </section>
-    </main>
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
-</body>
-</html>
+
+{% block title %}Page not found · Checkora{% endblock %}
+
+{% block head %}
+<meta name="robots" content="noindex">
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/error.css' %}">{% endblock %}
+
+{% block content %}
+<section class="error wrap" role="alert">
+    <div class="error__piece" aria-hidden="true"><canvas id="errorPiece"></canvas></div>
+    <p class="eyebrow">Error 404</p>
+    <h1 class="display">Illegal <span class="serif">move.</span></h1>
+    <p class="lede">You have wandered off the board. The rank and file you asked for cannot be found.</p>
+    <div class="cluster" style="justify-content: center">
+        <a class="button button--primary button--lg" href="{% url 'landing' %}">Back to the board</a>
+        <a class="button button--lg" href="{% url 'index' %}">Start a game</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    const canvas = document.getElementById('errorPiece');
+    // Where the 3D king is not drawn (no WebGL, or the low performance tier)
+    // a flat one lies in its place. three.js is only fetched when it is needed.
+    const flat = () => {
+        if (!canvas.isConnected) return;
+        const king = new Image();
+        king.src = `${document.documentElement.dataset.static}pieces/classic/wk.svg`;
+        king.alt = '';
+        canvas.replaceWith(king);
+    };
+    if (window.checkoraPerf?.wants3D('piece') === false) {
+        flat();
+    } else {
+        try {
+            const { shouldMount3D, mountPiece } = await import("{% static 'game/js/scene3d.js' %}");
+            if (shouldMount3D('piece')) mountPiece(canvas, { type: 'k', color: 'w', fallen: true, onFail: flat });
+            else flat();
+        } catch (error) {
+            flat();
+        }
+    }
+</script>
+{% endblock %}

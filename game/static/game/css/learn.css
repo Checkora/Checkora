@@ -1,0 +1,2014 @@
+/* The learn pages: lessons, openings, puzzles and the rulebook. */
+
+/* Board squares are the one thing here with colours of their own:
+   a light square, a dark square, and the ink for marks drawn on them. */
+:root {
+    --sq-light: #e8dcc0;
+    --sq-dark: #8a6f4a;
+    --sq-ink: #26211b;
+
+    /* The other boards the opening trainer offers. */
+    --sq-wood-light: #d7b899;
+    --sq-wood-dark: #85583f;
+    --sq-green-light: #eeeed2;
+    --sq-green-dark: #769656;
+    --sq-blue-light: #dee3e6;
+    --sq-blue-dark: #4b7399;
+}
+[data-theme='light'] {
+    --sq-light: #f3ead3;
+    --sq-dark: #b3936a;
+}
+
+/* ---------- page header with the turning piece ---------- */
+
+.learn-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(24px, 4vw, 64px);
+    margin-bottom: clamp(24px, 4vw, 44px);
+}
+.learn-head .page-head {
+    margin-bottom: 0;
+}
+.learn-head h1 {
+    max-width: 16ch;
+}
+.learn-head__piece {
+    position: relative;
+    width: clamp(210px, 21vw, 280px);
+    aspect-ratio: 1;
+    margin-block: -24px;
+}
+.learn-head__piece::before {
+    content: '';
+    position: absolute;
+    inset: 4%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--gold-wash), transparent);
+}
+/* The flat piece is what you see until the 3D one has started, and all
+   you see where WebGL is missing. */
+.learn-head__piece img {
+    position: absolute;
+    inset: 16%;
+    width: 68%;
+    height: 68%;
+    transition: opacity 0.5s;
+    animation: piece-bob 4.5s ease-in-out infinite alternate;
+}
+.learn-head__piece canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.6s;
+}
+.learn-head__piece.is-3d canvas {
+    opacity: 1;
+}
+.learn-head__piece.is-3d img {
+    opacity: 0;
+    animation: none;
+}
+@keyframes piece-bob {
+    from {
+        translate: 0 6px;
+        rotate: -3deg;
+    }
+    to {
+        translate: 0 -8px;
+        rotate: 3deg;
+    }
+}
+/* Narrow screens keep the flat piece, small, in the corner of the header. */
+@media (max-width: 860px) {
+    .learn-head {
+        position: relative;
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .learn-head__piece {
+        position: absolute;
+        top: -8px;
+        right: 0;
+        width: 68px;
+        margin: 0;
+    }
+    .learn-head__piece img {
+        inset: 8%;
+        width: 84%;
+        height: 84%;
+    }
+    .learn-head__piece canvas {
+        display: none;
+    }
+    /* The line above the title stops short of the piece. On a 320px
+       screen "Interactive chess rulebook" ran underneath it. */
+    .learn-head .eyebrow {
+        margin-right: 76px;
+    }
+}
+
+/* ---------- small shared parts ---------- */
+
+/* Reveals and tilts both set `transform`, so a card that does both wraps
+   the tilting panel in a revealing element that takes the grid cell. */
+.reveal-cell {
+    display: flex;
+}
+.reveal-cell > * {
+    flex: 1;
+    min-width: 0;
+}
+
+.label {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* .tabs marks its current item with .is-active; the trainer's script
+   uses aria-pressed, and the pager disables its ends. Naming the button
+   keeps the chosen one's text dark while the pointer is on it. */
+.tabs button[aria-pressed='true'],
+.tabs button.is-active {
+    background: var(--gold);
+    color: var(--on-gold);
+}
+.tabs button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* A line of moves, numbered in pairs: 1. e4 e5 2. Nf3 ... */
+.line {
+    counter-reset: move;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+.line li {
+    padding: 3px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text);
+    white-space: nowrap;
+    transition: border-color 0.25s, color 0.25s, background 0.25s;
+}
+.line li:nth-child(odd) {
+    counter-increment: move;
+}
+.line li:nth-child(odd)::before {
+    content: counter(move) '.';
+    margin-right: 6px;
+    color: var(--muted);
+}
+
+#backToTopWrapper {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    pointer-events: none;
+    translate: 0 12px;
+    transition: opacity 0.3s, translate 0.4s var(--ease-out);
+}
+#backToTopWrapper.visible {
+    opacity: 1;
+    pointer-events: auto;
+    translate: none;
+}
+#backToTopTooltip {
+    padding: 3px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold);
+    white-space: nowrap;
+    opacity: 0;
+    translate: 0 4px;
+    transition: opacity 0.2s, translate 0.2s;
+}
+#backToTopWrapper:hover #backToTopTooltip,
+#backToTopWrapper:focus-within #backToTopTooltip {
+    opacity: 1;
+    translate: none;
+}
+#backToTopBtn {
+    width: 48px;
+    height: 48px;
+    background: var(--ink-2);
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow);
+}
+#backToTopBtn:hover {
+    rotate: none;
+    transform: none;
+    translate: 0 -3px;
+    border-color: var(--gold);
+}
+
+/* ---------- boards ---------- */
+
+/* Every board on these pages is an 8 by 8 grid that takes its size from
+   the box it sits in. */
+.lesson-board,
+#demo-board,
+.mini-board,
+.chess-board {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--line-strong), var(--shadow);
+}
+.lesson-square,
+.demo-square,
+.mini-sq,
+.chess-board .square {
+    --sq: var(--sq-light);
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    min-height: 0;
+    background-color: var(--sq);
+    color: var(--sq-ink);
+    line-height: 1;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.lesson-square.dark,
+.demo-square.demo-dark,
+.mini-sq.dark,
+.chess-board .square.dark {
+    --sq: var(--sq-dark);
+}
+
+/* The lesson boards. Their scripts write a chess glyph into the square;
+   the page tags the square with data-piece so the drawn piece can be
+   shown in its place. */
+.lesson-board-aligned {
+    width: min(508px, 100%);
+}
+.lesson-board-row {
+    display: flex;
+    align-items: flex-start;
+}
+.lesson-ranks {
+    flex: none;
+    align-self: stretch;
+    width: 28px;
+    display: flex;
+    flex-direction: column;
+}
+.lesson-files {
+    display: flex;
+    padding: 8px 0 0 28px;
+}
+.lesson-ranks span,
+.lesson-files span {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+.lesson-ranks,
+.lesson-files {
+    transition: opacity 0.2s;
+}
+.lesson-board-aligned.hide-coordinates .lesson-ranks,
+.lesson-board-aligned.hide-coordinates .lesson-files {
+    visibility: hidden;
+    opacity: 0;
+}
+.lesson-board-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+.lesson-board,
+#demo-board {
+    width: min(480px, 100%);
+    container-type: inline-size;
+}
+#demo-board {
+    flex: 1;
+    min-width: 0;
+}
+.lesson-square,
+.demo-square {
+    font-size: 9cqw;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 86%;
+}
+/* The black pawn glyph is drawn as an emoji on some systems, and colour
+   does not hide an emoji; a zero font size hides either kind. */
+.lesson-square[data-piece],
+.demo-square[data-piece] {
+    font-size: 0;
+    animation: piece-land 0.3s var(--ease-spring);
+}
+@keyframes piece-land {
+    from {
+        background-size: 58%;
+    }
+}
+[data-piece='wk'] { background-image: url('../pieces/classic/wk.svg'); }
+[data-piece='wq'] { background-image: url('../pieces/classic/wq.svg'); }
+[data-piece='wr'] { background-image: url('../pieces/classic/wr.svg'); }
+[data-piece='wb'] { background-image: url('../pieces/classic/wb.svg'); }
+[data-piece='wn'] { background-image: url('../pieces/classic/wn.svg'); }
+[data-piece='wp'] { background-image: url('../pieces/classic/wp.svg'); }
+[data-piece='bk'] { background-image: url('../pieces/classic/bk.svg'); }
+[data-piece='bq'] { background-image: url('../pieces/classic/bq.svg'); }
+[data-piece='br'] { background-image: url('../pieces/classic/br.svg'); }
+[data-piece='bb'] { background-image: url('../pieces/classic/bb.svg'); }
+[data-piece='bn'] { background-image: url('../pieces/classic/bn.svg'); }
+[data-piece='bp'] { background-image: url('../pieces/classic/bp.svg'); }
+
+.lesson-square {
+    cursor: pointer;
+}
+.lesson-square:hover {
+    background-color: color-mix(in srgb, var(--gold) 22%, var(--sq));
+}
+/* A square a piece may go to: tinted, with a dot. */
+.highlight-square,
+.valid-move {
+    background-color: color-mix(in srgb, var(--good) 42%, var(--sq));
+}
+.highlight-square::after,
+.valid-move::after {
+    content: '';
+    width: 26%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--sq-ink) 42%, transparent);
+    animation: dot-in 0.35s var(--ease-spring) both;
+}
+.highlight-square[data-piece]::after,
+.valid-move[data-piece]::after {
+    display: none;
+}
+@keyframes dot-in {
+    from {
+        scale: 0;
+    }
+}
+.selected-square {
+    background-color: color-mix(in srgb, var(--gold) 62%, var(--sq));
+    box-shadow: inset 0 0 0 3px var(--sq-ink);
+}
+.lesson-square:focus-visible {
+    z-index: 1;
+    outline: 3px solid var(--sq-ink);
+    outline-offset: -3px;
+    border-radius: 0;
+    box-shadow: inset 0 0 0 6px var(--gold-bright);
+}
+
+/* ---------- lessons: the road ---------- */
+
+.guest-note {
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    transition: opacity 0.3s, translate 0.3s;
+}
+.guest-note.is-leaving {
+    opacity: 0;
+    translate: 0 -10px;
+}
+.guest-note[hidden] {
+    display: none;
+}
+.guest-note button {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--muted);
+    transition: color 0.2s, background 0.2s;
+}
+.guest-note button:hover {
+    background: var(--gold-wash);
+    color: var(--title);
+}
+@media (hover: none) and (pointer: coarse) {
+    .guest-note button {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+.journey {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 14px clamp(20px, 4vw, 48px);
+}
+.journey__count {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+.journey__count small {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+}
+.journey__bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.road {
+    position: relative;
+    max-width: 920px;
+    margin: clamp(36px, 6vw, 64px) auto 0;
+}
+/* roadmap_connectors.js draws one path between each pair of nodes; these
+   rules paint it. */
+#roadmap-connectors {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: visible;
+}
+#roadmap-connectors path {
+    stroke: var(--gold);
+    stroke-width: 2.5px;
+    stroke-dasharray: 1 11;
+    opacity: 0.7;
+    animation: road-march 1.4s linear infinite;
+}
+@keyframes road-march {
+    to {
+        stroke-dashoffset: -24;
+    }
+}
+.level-title {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 64px auto 36px;
+    padding: 14px 30px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--ink-0);
+    text-align: center;
+}
+.road > svg + .level-title {
+    margin-top: 0;
+}
+.level-title h2 {
+    font-size: clamp(22px, 2.6vw, 32px);
+}
+.lesson-path {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+/* The node sits in the middle column and the row leans left or right,
+   so the road winds. The card hangs on the outer side. */
+.lesson-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 22px;
+}
+.lesson-row.left {
+    padding-right: 24%;
+}
+.lesson-row.right {
+    padding-left: 24%;
+}
+.lesson-wrapper {
+    display: contents;
+}
+.node {
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--ink-2);
+    transition: scale 0.35s var(--ease-spring), border-color 0.2s, box-shadow 0.3s;
+}
+.node img {
+    width: 58%;
+    height: 58%;
+    transition: translate 0.4s var(--ease-spring), rotate 0.4s var(--ease-spring);
+}
+a.node:hover,
+.lesson-row:has(.lesson-card a:hover) a.node {
+    scale: 1.08;
+    border-color: var(--gold);
+}
+a.node:hover img,
+.lesson-row:has(.lesson-card a:hover) a.node img {
+    translate: 0 -4px;
+    rotate: -8deg;
+}
+.node.completed {
+    border-color: var(--gold);
+    background: radial-gradient(circle at 30% 25%, var(--gold-wash), transparent 70%), var(--ink-2);
+}
+.node.completed::after {
+    content: '✓';
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--ink-0);
+    border-radius: 50%;
+    background: var(--good);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-0);
+}
+.node.current {
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 0 6px var(--gold-wash), 0 0 44px -8px var(--gold);
+}
+.node.current::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border: 1px solid var(--gold);
+    border-radius: 50%;
+    animation: node-ping 2.2s var(--ease-out) infinite;
+}
+@keyframes node-ping {
+    from {
+        opacity: 0.9;
+        scale: 0.92;
+    }
+    to {
+        opacity: 0;
+        scale: 1.5;
+    }
+}
+.node.current::after {
+    content: 'Next';
+    position: absolute;
+    top: -11px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--gold);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--on-gold);
+}
+.node.locked {
+    border-style: dashed;
+    cursor: not-allowed;
+}
+.node.locked img {
+    opacity: 0.28;
+    filter: grayscale(1);
+}
+.lesson-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 14px 18px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--ink-1);
+    transition: opacity 0.7s var(--ease-out), transform 0.8s var(--ease-out), translate 0.35s var(--ease-out), border-color 0.25s, background 0.25s;
+}
+.lesson-row.left .lesson-card {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    align-items: flex-end;
+    text-align: right;
+}
+.lesson-row.right .lesson-card {
+    grid-column: 3;
+}
+.lesson-card h3 {
+    font-size: 18px;
+}
+/* The title link covers the whole card. */
+.lesson-card h3 a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+.lesson-card:has(a):hover {
+    translate: 0 -3px;
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    background: var(--ink-2);
+}
+.lesson-card .button {
+    position: relative;
+}
+.lesson-card.is-locked h3 {
+    color: var(--muted);
+}
+.lesson-card.is-locked {
+    border-style: dashed;
+    background: none;
+}
+@media (max-width: 700px) {
+    .journey {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .level-title {
+        margin: 48px 0 28px;
+        align-items: flex-start;
+        text-align: left;
+        border-radius: var(--radius);
+        padding: 12px 18px 14px;
+    }
+    .lesson-path {
+        gap: 20px;
+    }
+    .lesson-row,
+    .lesson-row.left,
+    .lesson-row.right {
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 16px;
+        padding: 0;
+    }
+    /* On a phone the road keeps a small sway down the left edge. */
+    .lesson-row.right {
+        padding-left: 34px;
+    }
+    .node {
+        grid-column: 1;
+        width: 60px;
+        height: 60px;
+    }
+    .lesson-row.left .lesson-card,
+    .lesson-row.right .lesson-card {
+        grid-column: 2;
+        justify-self: start;
+        align-items: flex-start;
+        text-align: left;
+    }
+}
+
+/* ---------- a lesson ---------- */
+
+.lesson {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vw, 28px);
+}
+.lesson .page-head {
+    margin-bottom: 8px;
+}
+.lesson h2 {
+    font-size: clamp(22px, 2.4vw, 30px);
+}
+.lesson-points {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.lesson-content {
+    counter-reset: point;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.lesson-content li {
+    counter-increment: point;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--ink-2);
+    color: var(--title);
+    transition: border-color 0.25s, translate 0.3s var(--ease-out);
+}
+.lesson-content li:hover {
+    translate: 0 -2px;
+    border-color: color-mix(in srgb, var(--gold) 50%, transparent);
+}
+.lesson-content li::before {
+    content: counter(point, decimal-leading-zero);
+    padding-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--gold);
+}
+.coord-toggle-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: -6px;
+}
+/* A board on one side, what to do with it on the other. */
+.lesson-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 508px) minmax(0, 440px);
+    justify-content: center;
+    align-items: center;
+    gap: clamp(24px, 6vw, 96px);
+}
+.lesson-stage__side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+}
+.lesson-stage__side p {
+    max-width: 44ch;
+}
+#example-title {
+    color: var(--gold);
+}
+#lesson-instruction {
+    font-size: clamp(18px, 1.8vw, 22px);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--title);
+}
+#lesson-result {
+    min-height: 1.6em;
+    font-weight: 600;
+}
+/* lesson_practice.js sets data-state to "right" or "wrong". */
+#lesson-result[data-state='right'] {
+    color: var(--good);
+}
+#lesson-result[data-state='wrong'] {
+    color: var(--check);
+}
+/* The script shows this button by setting display: inline-block, which
+   is why it is padded and not laid out like the other buttons. */
+#retry-btn {
+    display: none;
+    min-height: 0;
+    padding-block: 14px;
+}
+@media (max-width: 860px) {
+    .lesson-stage {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .lesson-board-aligned {
+        margin-inline: auto;
+    }
+}
+@media (max-width: 560px) {
+    .lesson-stage {
+        padding: 12px 12px 18px;
+    }
+    .lesson-ranks {
+        width: 20px;
+    }
+    .lesson-files {
+        padding-left: 20px;
+    }
+    .lesson-stage__side {
+        padding-inline: 6px;
+    }
+}
+
+.lesson-extras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: clamp(18px, 2.4vw, 28px);
+}
+.lesson-extras .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.lesson-extras h3 {
+    font-size: clamp(19px, 1.8vw, 22px);
+}
+.answer {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--ink-2);
+}
+.answer summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    font-weight: 600;
+    color: var(--title);
+    cursor: pointer;
+    list-style: none;
+    transition: color 0.2s;
+}
+.answer summary::-webkit-details-marker {
+    display: none;
+}
+.answer summary::after {
+    content: '+';
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--gold);
+    transition: rotate 0.35s var(--ease-spring);
+}
+.answer summary:hover {
+    color: var(--gold);
+}
+.answer[open] summary::after {
+    rotate: 45deg;
+}
+.answer p {
+    padding: 0 16px 14px;
+    color: var(--gold);
+}
+.quiz {
+    counter-reset: option;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.quiz-btn {
+    counter-increment: option;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 16px 11px 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--ink-2);
+    text-align: left;
+    color: var(--title);
+    transition: border-color 0.2s, background 0.2s, translate 0.3s var(--ease-out);
+}
+.quiz-btn::before {
+    content: counter(option, upper-alpha);
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.quiz-btn:hover {
+    translate: 4px 0;
+    border-color: var(--gold);
+}
+.quiz-btn.correct {
+    border-color: var(--good);
+    background: var(--good-wash);
+    animation: quiz-pop 0.4s var(--ease-spring);
+}
+.quiz-btn.correct::before {
+    border-color: transparent;
+    background: var(--good);
+    color: var(--ink-0);
+}
+.quiz-btn.incorrect {
+    border-color: var(--check);
+    background: var(--check-wash);
+    animation: quiz-shake 0.4s both;
+}
+.quiz-btn.incorrect::before {
+    border-color: transparent;
+    background: var(--check);
+    color: var(--ink-0);
+}
+@keyframes quiz-pop {
+    50% {
+        scale: 1.04;
+    }
+}
+@keyframes quiz-shake {
+    20%,
+    60% {
+        translate: -5px 0;
+    }
+    40%,
+    80% {
+        translate: 5px 0;
+    }
+}
+#quiz-result {
+    min-height: 1.6em;
+    font-weight: 600;
+}
+#quiz-result[data-state='good'] {
+    color: var(--good);
+}
+#quiz-result[data-state='bad'] {
+    color: var(--check);
+}
+/* Confetti for a right answer. The script places and colours each piece. */
+.confetti-container {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    overflow: hidden;
+    pointer-events: none;
+}
+.confetti {
+    position: absolute;
+    top: -20px;
+    width: 10px;
+    height: 14px;
+    opacity: 0;
+    animation: confetti-fall 3.5s ease-in-out forwards;
+}
+@keyframes confetti-fall {
+    from {
+        opacity: 1;
+        translate: 0 0;
+        rotate: 0deg;
+    }
+    to {
+        opacity: 0;
+        translate: 0 110vh;
+        rotate: 720deg;
+    }
+}
+
+.lesson-done {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px 32px;
+    background: radial-gradient(60% 140% at 100% 0%, var(--gold-wash), transparent 70%), var(--ink-1);
+}
+.lesson-done p {
+    margin-top: 6px;
+    color: var(--muted);
+}
+/* "Completed" is a state here, so it is not greyed like a dead button. */
+.lesson-done .button[disabled] {
+    opacity: 1;
+    border-color: color-mix(in srgb, var(--good) 50%, transparent);
+    background: var(--good-wash);
+    color: var(--good);
+}
+.lesson-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.lesson-navigation a {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 20px;
+}
+.lesson-navigation b {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--title);
+}
+.lesson-navigation__next {
+    grid-column: 2;
+    align-items: flex-end;
+    text-align: right;
+}
+@media (max-width: 560px) {
+    .lesson-navigation {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .lesson-navigation__next {
+        grid-column: auto;
+    }
+}
+
+/* ---------- openings ---------- */
+
+.opening {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 280px;
+    overflow: hidden;
+}
+/* .panel--link:hover sets a transform of its own, which would undo the
+   tilt for as long as the pointer is on the card. This carries both. */
+.opening[data-tilt]:hover {
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-4px);
+}
+.opening__name {
+    font-size: clamp(24px, 2.3vw, 30px);
+}
+.opening p {
+    color: var(--muted);
+}
+/* A large faint piece in the corner that steps forward on hover. */
+.opening__piece {
+    position: absolute;
+    right: -26px;
+    bottom: -30px;
+    width: 170px;
+    height: 170px;
+    opacity: 0.1;
+    rotate: 10deg;
+    pointer-events: none;
+    transition: opacity 0.4s, translate 0.6s var(--ease-spring), rotate 0.6s var(--ease-spring);
+}
+.opening:hover .opening__piece,
+.opening:focus-visible .opening__piece {
+    opacity: 0.3;
+    translate: -10px -12px;
+    rotate: -4deg;
+}
+.opening .line {
+    position: relative;
+    margin-top: 4px;
+}
+/* On hover the moves light up in the order they are played. */
+.opening .line li {
+    background: var(--ink-1);
+    transition-delay: calc(var(--n, 0) * 70ms);
+}
+.opening:hover .line li,
+.opening:focus-visible .line li {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.opening__go {
+    position: relative;
+    margin-top: auto;
+    padding-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--gold);
+    transition: letter-spacing 0.3s var(--ease-out);
+}
+.opening:hover .opening__go {
+    letter-spacing: 0.04em;
+}
+
+/* ---------- the opening trainer ---------- */
+
+/* The board on the left for the whole height; the title and the
+   controls stack beside it. On a narrow screen the title comes first. */
+.trainer {
+    display: grid;
+    grid-template-columns: minmax(0, 580px) minmax(300px, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+        'stage head'
+        'stage side';
+    column-gap: clamp(24px, 4vw, 56px);
+}
+.trainer__head {
+    grid-area: head;
+    margin-bottom: 24px;
+}
+.trainer__head h1 {
+    font-size: clamp(32px, 3.8vw, 52px);
+}
+.trainer__stage {
+    grid-area: stage;
+    align-self: start;
+    position: sticky;
+    top: calc(var(--nav-height) + 20px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+.board-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+.chess-board {
+    width: min(580px, 100%);
+}
+.chess-board.theme-wood {
+    --sq-light: var(--sq-wood-light);
+    --sq-dark: var(--sq-wood-dark);
+}
+.chess-board.theme-green {
+    --sq-light: var(--sq-green-light);
+    --sq-dark: var(--sq-green-dark);
+}
+.chess-board.theme-blue {
+    --sq-light: var(--sq-blue-light);
+    --sq-dark: var(--sq-blue-dark);
+}
+.chess-board .square {
+    cursor: pointer;
+}
+.chess-board .square img {
+    width: 86%;
+    height: 86%;
+    object-fit: contain;
+    touch-action: none;
+    transition: scale 0.25s var(--ease-spring);
+}
+.chess-board .square:hover img {
+    scale: 1.08;
+}
+.chess-board .square.selected {
+    background-color: color-mix(in srgb, var(--gold) 62%, var(--sq));
+}
+.chess-board .square.highlight-from {
+    background-color: color-mix(in srgb, var(--gold) 26%, var(--sq));
+}
+.chess-board .square.highlight-to {
+    background-color: color-mix(in srgb, var(--gold) 46%, var(--sq));
+}
+.chess-board .square.hint-from {
+    animation: hint-glow 1.6s ease-in-out infinite;
+}
+.chess-board .square.hint-to {
+    background-color: color-mix(in srgb, var(--good) 40%, var(--sq));
+    outline: 3px dashed var(--sq-ink);
+    outline-offset: -7px;
+}
+@keyframes hint-glow {
+    0%,
+    100% {
+        background-color: color-mix(in srgb, var(--good) 30%, var(--sq));
+    }
+    50% {
+        background-color: color-mix(in srgb, var(--good) 70%, var(--sq));
+    }
+}
+.nav-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 10px;
+    width: min(580px, 100%);
+}
+.trainer__side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.trainer__side .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.feedback-box {
+    min-height: 54px;
+    padding: 14px 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--ink-2);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--title);
+    transition: border-color 0.25s, background 0.25s;
+}
+.feedback-box[data-state='correct'] {
+    border-color: color-mix(in srgb, var(--good) 60%, transparent);
+    background: var(--good-wash);
+    animation: quiz-pop 0.35s var(--ease-spring);
+}
+.feedback-box[data-state='incorrect'] {
+    border-color: color-mix(in srgb, var(--check) 60%, transparent);
+    background: var(--check-wash);
+    animation: quiz-shake 0.4s both;
+}
+.feedback-box[data-state='completed'] {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+}
+.progress-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#move-progress {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--gold);
+}
+.color-toggle-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+}
+.color-toggle-container .tabs {
+    align-self: flex-start;
+}
+.move-entry {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.move-entry input {
+    grid-column: 1 / -1;
+}
+.trainer__side .line li.is-played {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.trainer__side .line li.is-next {
+    border-style: dashed;
+    border-color: var(--line-strong);
+    color: var(--title);
+}
+@media (max-width: 960px) {
+    .trainer {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            'head'
+            'stage'
+            'side';
+        row-gap: 20px;
+    }
+    .trainer__head {
+        margin-bottom: 0;
+    }
+    .trainer__stage {
+        position: static;
+    }
+}
+@media (max-width: 480px) {
+    .nav-controls .button,
+    .move-entry .button {
+        padding-inline: 12px;
+    }
+}
+
+/* ---------- puzzles ---------- */
+
+.filters {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.3fr) auto minmax(150px, 0.7fr) minmax(210px, 0.9fr);
+    align-items: end;
+    gap: 16px 18px;
+}
+/* One height for the four controls, so their labels line up. */
+.filters input,
+.filters select,
+.filters .tabs {
+    height: 48px;
+}
+.rating-range-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--muted);
+}
+.puzzle-count {
+    min-height: 1.5em;
+    margin: 22px 0 14px;
+}
+.puzzle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    gap: 20px;
+}
+.puzzle-grid > .empty {
+    grid-column: 1 / -1;
+}
+.puzzle-grid > .empty img {
+    width: 64px;
+    height: 64px;
+    opacity: 0.7;
+}
+.puzzle-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    transition: transform 0.5s var(--ease-out), border-color 0.25s, background 0.25s;
+    animation: card-in 0.6s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+}
+.puzzle-card:hover {
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    background: var(--ink-2);
+}
+@keyframes card-in {
+    from {
+        opacity: 0;
+        translate: 0 22px;
+    }
+}
+/* The position, drawn small. The squares are one gradient; only the
+   pieces are elements. */
+.pos {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 25% 25%;
+    box-shadow: 0 0 0 1px var(--line-strong);
+    transition: translate 0.5s var(--ease-out), box-shadow 0.4s;
+}
+.pos img {
+    place-self: center;
+    width: 88%;
+    height: 88%;
+}
+.puzzle-card:hover .pos {
+    translate: 0 -4px;
+    box-shadow: 0 0 0 1px var(--gold), var(--shadow);
+}
+.puzzle-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+.puzzle-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.puzzle-card__meta .chip {
+    text-transform: capitalize;
+}
+.turn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+.turn::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--sq-light);
+}
+.turn--b::before {
+    background: var(--sq-ink);
+}
+.puzzle-title {
+    font-size: 19px;
+}
+.puzzle-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.puzzle-fen {
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.puzzle-card .solve-btn {
+    margin-top: auto;
+}
+.puzzle-card.is-loading {
+    pointer-events: none;
+}
+.puzzle-card.is-loading .pos,
+.puzzle-card.is-loading span {
+    animation: skeleton 1.4s ease-in-out infinite alternate;
+}
+.puzzle-card.is-loading span {
+    display: block;
+    height: 14px;
+    border-radius: 6px;
+    background: var(--ink-3);
+}
+.puzzle-card.is-loading span:nth-child(2) {
+    width: 60%;
+}
+@keyframes skeleton {
+    from {
+        opacity: 0.35;
+    }
+    to {
+        opacity: 0.8;
+    }
+}
+.pager {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: fit-content;
+    max-width: 100%;
+    margin: 36px auto 0;
+}
+.pager:empty {
+    display: none;
+}
+.pager span {
+    align-self: center;
+    padding-inline: 6px;
+    color: var(--muted);
+}
+@media (max-width: 1080px) {
+    .filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 620px) {
+    .filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .filters .tabs {
+        display: flex;
+    }
+    .filters .tabs button {
+        flex: 1;
+        padding-inline: 8px;
+    }
+    /* Board beside the text, so nine puzzles are not nine screens. */
+    .puzzle-card {
+        display: grid;
+        grid-template-columns: 116px minmax(0, 1fr);
+        align-items: start;
+        gap: 14px;
+        padding: 14px;
+    }
+    .puzzle-card .solve-btn {
+        grid-column: 1 / -1;
+    }
+    .turn {
+        margin-left: 0;
+    }
+    .pager button {
+        padding-inline: 12px;
+    }
+}
+
+/* ---------- the rulebook ---------- */
+
+.layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(20px, 3vw, 48px);
+}
+.sidebar {
+    position: sticky;
+    top: calc(var(--nav-height) + 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.sidebar-title {
+    padding: 0 14px 10px;
+}
+.rule-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 11px 14px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    font-size: 15.5px;
+    text-align: left;
+    color: var(--text);
+    transition: background 0.2s, color 0.2s, padding 0.3s var(--ease-out);
+}
+.rule-nav-item span {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    transition: color 0.2s;
+}
+.rule-nav-item:hover {
+    padding-left: 18px;
+    background: var(--gold-wash);
+    color: var(--title);
+}
+.rule-nav-item.active {
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.rule-nav-item.active span {
+    color: var(--gold);
+}
+.rule-card {
+    display: none;
+    padding: clamp(18px, 3vw, 36px);
+}
+.rule-card.active {
+    display: block;
+    animation: rule-in 0.5s var(--ease-out) both;
+}
+@keyframes rule-in {
+    from {
+        opacity: 0;
+        translate: 0 14px;
+    }
+}
+.rule-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.rule-desc {
+    max-width: 68ch;
+    font-size: 17px;
+}
+.rule-desc strong {
+    font-weight: 600;
+    color: var(--gold);
+}
+.demo-wrapper {
+    margin-top: 26px;
+    padding: clamp(14px, 2.4vw, 28px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--ink-2);
+}
+.demo-label {
+    margin-bottom: 16px;
+}
+.mini-board-container {
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(18px, 3vw, 40px);
+}
+.mini-sq {
+    transition: background-color 0.25s;
+}
+.mini-sq img {
+    width: 86%;
+    height: 86%;
+    animation: piece-in 0.35s var(--ease-spring) both;
+}
+@keyframes piece-in {
+    from {
+        opacity: 0;
+        scale: 0.6;
+    }
+}
+.mini-sq.hl {
+    background-color: color-mix(in srgb, var(--gold) 55%, var(--sq));
+}
+.mini-sq.last {
+    background-color: color-mix(in srgb, var(--good) 45%, var(--sq));
+}
+.mini-sq.check {
+    background-image: radial-gradient(circle, var(--check) 0%, color-mix(in srgb, var(--check) 45%, transparent) 55%, transparent 78%);
+}
+.mini-sq.is-threat {
+    background-color: color-mix(in srgb, var(--check) 42%, var(--sq));
+}
+.mini-sq.is-safe {
+    background-color: color-mix(in srgb, var(--good) 42%, var(--sq));
+}
+/* A square that is ruled out, or a piece that has just been taken. */
+.mini-sq.is-barred {
+    background-color: color-mix(in srgb, var(--check) 42%, var(--sq));
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sq-ink);
+}
+.mini-sq.is-ghost img {
+    opacity: 0.5;
+}
+/* The four pieces a pawn can become. */
+.mini-sq.is-choice {
+    z-index: 1;
+    border-radius: 8px;
+    background-color: var(--sq-light);
+    box-shadow: 0 0 0 2px var(--gold), 0 0 18px var(--gold);
+    scale: 1.05;
+}
+.mini-sq.is-choice.is-picked {
+    z-index: 2;
+    scale: 1.18;
+}
+.move-hint {
+    width: 28%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--sq-ink) 55%, transparent);
+    animation: hint-pulse 1.6s ease-in-out infinite;
+}
+.capture-hint {
+    position: absolute;
+    inset: 7%;
+    border: 3px solid var(--check);
+    border-radius: 50%;
+    animation: hint-pulse 1.6s ease-in-out infinite;
+}
+@keyframes hint-pulse {
+    50% {
+        scale: 0.8;
+        opacity: 0.7;
+    }
+}
+.piece-label h4 {
+    margin-bottom: 10px;
+    font-size: 19px;
+    color: var(--gold);
+}
+.piece-label ul {
+    margin: 0;
+    padding-left: 20px;
+}
+.piece-label li + li {
+    margin-top: 6px;
+}
+.piece-label p {
+    margin-top: 16px;
+    font-size: 14.5px;
+    color: var(--muted);
+}
+.piece-label p.gold {
+    color: var(--gold);
+}
+.piece-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 22px;
+}
+.piece-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--ink-1);
+    color: var(--muted);
+    transition: border-color 0.2s, background 0.2s, color 0.2s, translate 0.3s var(--ease-spring);
+}
+.piece-card img {
+    width: 46px;
+    height: 46px;
+    transition: translate 0.4s var(--ease-spring), rotate 0.4s var(--ease-spring);
+}
+.piece-card:hover {
+    translate: 0 -3px;
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    color: var(--title);
+}
+.piece-card:hover img {
+    translate: 0 -3px;
+    rotate: -8deg;
+}
+.piece-card.active {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.piece-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--ink-1);
+    font-size: 15.5px;
+    text-align: left;
+    color: var(--text);
+    transition: border-color 0.2s, background 0.2s, color 0.2s, translate 0.3s var(--ease-out);
+}
+.step:hover {
+    translate: 4px 0;
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    color: var(--title);
+}
+.step.active {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--title);
+}
+.step-num {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.step.active .step-num {
+    border-color: transparent;
+    background: var(--gold);
+    color: var(--on-gold);
+}
+.value-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 14px;
+    color: var(--muted);
+}
+.value-summary strong,
+.value-footnote strong {
+    color: var(--gold);
+}
+.value-row {
+    display: grid;
+    grid-template-columns: 140px 190px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 20px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+}
+.value-piece {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    color: var(--title);
+}
+.value-piece img {
+    width: 34px;
+    height: 34px;
+    transition: rotate 0.4s var(--ease-spring), scale 0.4s var(--ease-spring);
+}
+.value-row:hover .value-piece img {
+    rotate: -10deg;
+    scale: 1.15;
+}
+.value-score {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--gold);
+}
+/* Nine cells, one per point; --v says how many are lit. */
+.value-score i {
+    display: block;
+    height: 6px;
+    border-radius: 999px;
+    background:
+        linear-gradient(90deg, var(--gold-deep), var(--gold-bright)) 0 0 / calc(var(--v) / 9 * 100%) 100% no-repeat,
+        var(--ink-3);
+}
+.value-note {
+    font-size: 15px;
+    color: var(--muted);
+}
+.value-footnote {
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 15px;
+    color: var(--text);
+}
+.rule-pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+}
+.rule-pager .button {
+    max-width: 48%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* On a phone half the row is too narrow for "Piece values and scoring",
+   and the button cut it at both ends. There the name takes two lines. */
+@media (max-width: 560px) {
+    .rule-pager .button {
+        padding: 8px 14px;
+        line-height: 1.25;
+        white-space: normal;
+        text-align: center;
+    }
+}
+@media (max-width: 1100px) {
+    .mini-board-container {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .mini-board {
+        width: min(420px, 100%);
+        margin-inline: auto;
+    }
+    /* Steps go above the board, so the board is on screen when one is tapped. */
+    .mini-board-container .steps {
+        order: -1;
+    }
+}
+@media (max-width: 900px) {
+    .layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+    /* The chapter list turns into a strip that scrolls sideways and
+       stays under the navbar. */
+    .sidebar {
+        top: var(--nav-height);
+        z-index: 5;
+        flex-direction: row;
+        gap: 6px;
+        margin-inline: calc(-1 * var(--pad));
+        padding: 10px var(--pad);
+        overflow-x: auto;
+        scrollbar-width: none;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in srgb, var(--ink-0) 88%, transparent);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+    }
+    .sidebar::-webkit-scrollbar {
+        display: none;
+    }
+    .sidebar-title {
+        display: none;
+    }
+    .rule-nav-item {
+        flex: none;
+        width: auto;
+        gap: 8px;
+        padding: 8px 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-size: 14.5px;
+        white-space: nowrap;
+    }
+    .rule-nav-item:hover {
+        padding-left: 14px;
+    }
+    .rule-nav-item.active {
+        border-color: var(--gold);
+    }
+}
+@media (max-width: 620px) {
+    .piece-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .value-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .value-note {
+        grid-column: 1 / -1;
+    }
+}
+
+/* A phone held sideways: a board is never taller than the screen under
+   the navbar, so the whole of it can be seen at once. The rulebook gives
+   up a little more, for its strip of chapters. */
+@media (max-height: 520px) and (orientation: landscape) {
+    .lesson-board-aligned {
+        width: min(508px, 100%, 100vh - var(--nav-height) - 24px);
+        width: min(508px, 100%, 100dvh - var(--nav-height) - 24px);
+    }
+    .chess-board,
+    .nav-controls {
+        width: min(580px, 100%, 100vh - var(--nav-height) - 24px);
+        width: min(580px, 100%, 100dvh - var(--nav-height) - 24px);
+    }
+    .nav-controls .button {
+        padding-inline: 12px;
+    }
+    .mini-board {
+        width: min(420px, 100%, 100vh - var(--nav-height) - 84px);
+        width: min(420px, 100%, 100dvh - var(--nav-height) - 84px);
+    }
+}
+
+/* Inside the play page's rulebook window there is no site chrome: the
+   page sets .is-framed on <html> before anything is painted. */
+html.is-framed {
+    --nav-height: 0px;
+}
+.is-framed .site-nav,
+.is-framed .site-footer,
+.is-framed .skip-link,
+.is-framed .learn-head__piece,
+.is-framed .learn-head .eyebrow,
+.is-framed .learn-head .lede {
+    display: none;
+}
+.is-framed .page {
+    padding-block: 20px 32px;
+}
+.is-framed .learn-head {
+    margin-bottom: 20px;
+}
+.is-framed .learn-head h1 {
+    max-width: none;
+    font-size: clamp(26px, 3.4vw, 38px);
+}
+
+/* ---------- the low performance tier ----------
+   data-perf="low" is set by perf.js; see the end of app.css. The page
+   scripts leave the 3D piece out, so the flat one stays, standing still. */
+
+[data-perf='low'] .learn-head__piece canvas {
+    display: none;
+}
+[data-perf='low'] .learn-head__piece img {
+    opacity: 1;
+    animation: none;
+}
+/* The road between lessons keeps its dashes, which no longer march, and
+   the lesson you are on keeps its ring without the glow or the ping. */
+[data-perf='low'] #roadmap-connectors path {
+    animation: none;
+}
+[data-perf='low'] .node.current {
+    box-shadow: 0 0 0 6px var(--gold-wash);
+}
+[data-perf='low'] .node.current::before {
+    animation: none;
+    opacity: 0;
+}
+[data-perf='low'] .puzzle-card {
+    animation: none;
+}
+[data-perf='low'] .mini-sq.is-choice {
+    box-shadow: 0 0 0 2px var(--gold);
+}
+/* A small burst of confetti, not a shower. */
+[data-perf='low'] .confetti:nth-child(n + 13) {
+    display: none;
+}
+/* The rulebook's chapter bar on a narrow screen: solid, not blurred. */
+[data-perf='low'] .sidebar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+@media (max-width: 900px) {
+    [data-perf='low'] .sidebar {
+        background: var(--ink-0);
+    }
+}

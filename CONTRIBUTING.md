@@ -35,6 +35,7 @@ Thank you for considering contributing to **Checkora** — a chess engine powere
 - [Development Setup](#️-development-setup)
 - [Branch Naming Convention](#-branch-naming-convention)
 - [Code Style](#-code-style)
+- [Frontend](#frontend)
 - [Commit Message Format](#-commit-message-format)
 - [Local Pre-PR Checks](#-local-pre-pr-checks)
 - [Pull Request Guidelines](#-pull-request-guidelines)
@@ -95,6 +96,7 @@ Welcome to GSSoC! Here's how the contribution flow works for this project:
 | Python | ≥ 3.12                |
 | g++    | ≥ 11 (for C++ engine) |
 | pip    | latest                |
+| Node.js | 20 is what CI uses (only for the JavaScript tests) |
 
 ### Installation (Windows)
 ```bash
@@ -108,8 +110,11 @@ pip install -r requirements.txt
 # Set up environment variables
 # Copy the example file to a local .env file
 copy .env.example .env           
+# The copy contains DEBUG=True. Keep that line: DEBUG is off unless .env turns it on.
 
 # Compile (PowerShell with g++ installed)
+# Do this again after every pull that changes game/engine/main.cpp: a binary
+# built from older sources is detected and the Python engine plays instead.
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main.exe
 
 # Run database migrations
@@ -131,8 +136,11 @@ pip install -r requirements.txt
 # Set up environment variables
 # Copy the example file to a local .env file
 cp .env.example .env            
+# The copy contains DEBUG=True. Keep that line: DEBUG is off unless .env turns it on.
 
 # Compile the C++ chess engine
+# Do this again after every pull that changes game/engine/main.cpp: a binary
+# built from older sources is detected and the Python engine plays instead.
 g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
 chmod +x game/engine/main
 
@@ -175,9 +183,22 @@ Use the following prefixes:
 - Use **meaningful variable and function names** (no single-letter names except loop counters).
 - Add **docstrings** to all public functions and classes.
 - Keep **functions focused** — one function, one responsibility.
-- For C++ engine code, follow the existing style in `game/engine/main.cpp`.
+- For C++ engine code, follow the existing style in `game/engine/main.cpp`. `game/engine/main.py` implements the same protocol, rules, evaluation and search, so a change to one engine has to be made in the other as well. `PROTOCOL_VERSION` is defined in both files and in `game/engine.py`, and the bridge only uses a binary that answers with the same number, so raise it in all three when the protocol changes.
 <p align="right">
   <a href="#top">🔼 Back to top</a>
+</p>
+
+---
+
+## Frontend
+
+Page templates extend `game/templates/game/base.html` and fill its blocks. The base template already brings the navbar, the footer, Django messages, the theme and performance-tier scripts, toasts and the shared script `app.js`, so a page does not write its own. The one page that does not extend it is `game/templates/500.html`, which stands alone so that it still renders when the session or the database is what failed.
+
+Styling comes from the design system in `game/static/game/css/app.css`. Use its CSS variables and component classes, and keep a page stylesheet to that page's layout, loaded through the `styles` block. [docs/design-system.md](docs/design-system.md) lists the blocks, the tokens and the components, and shows how to put a 3D piece on a page. [docs/frontend-guide.md](docs/frontend-guide.md) says what each JavaScript module does.
+
+Piece images are the project's own SVG sets in `game/static/game/pieces/`, in the styles `classic`, `wood` and `outline`. Do not load piece images from another site: `img-src` in the Content-Security-Policy set by `game/middleware.py` allows the site itself, `data:` URLs and `checkora.vercel.app`, and nothing else.
+<p align="right">
+  <a href="#top">Back to top</a>
 </p>
 
 ---
@@ -229,6 +250,13 @@ python manage.py test game --verbosity=2
 ```bash
 python manage.py test game.selenium_tests --verbosity=2
 ```
+
+### JavaScript tests
+```bash
+npm ci
+npm test
+```
+`npm test` runs Jest on `board.test.js` and `forum.test.js`.
 
 ### Checking for Missing Migrations
 ```bash
@@ -292,13 +320,27 @@ Every PR and push to `main` runs the following automated checks via GitHub Actio
 | 🔍 **Lint**            | `flake8` on all Python code         | ✅ Yes                 |
 | ⚙️ **Compile Engine**  | `g++ -O2` on `game/engine/main.cpp` | ✅ Yes                 |
 | 🧪 **Django Tests**    | `python manage.py test game`        | ✅ Yes                 |
-| 🗄️ **Migration Check** | `python manage.py migrate --check`  | ✅ Yes                 |
+| 🗄️ **Migration Check** | `migrate` on a fresh CI database, then `makemigrations --check --dry-run` | ✅ Yes |
 | 🔒 **Security Scan**   | `pip-audit` on `requirements.txt`   | ✅ Yes                 |
 | 🛡️ **SAST (Bandit)**  | Static security analysis            | ✅ Yes                 |
 | 🖥️ **Selenium Tests**  | End-to-end browser tests            | ✅ Yes                 |
-| 🌐 **Deploy**          | Vercel production deploy            | 🔁 Push to `main` only |
+| 🌐 **Deploy**          | Vercel production deploy, done by Vercel's GitHub integration and not by a job in this workflow | 🔁 Push to `main` only |
+
+The workflow also has a JavaScript job that runs `npm ci`, `npm audit --audit-level=high` and `npm test`.
 
 All checks must pass before a maintainer can merge your PR.
+
+### Deployment and migrations
+
+Vercel builds each deploy with the `buildCommand` in `vercel.json`, which compiles the C++ engine when `g++` is available and writes a placeholder file into the output directory. No step in `vercel.json` or in `.github/workflows/ci.yml` runs `python manage.py migrate` against the production database. The Migration Check job only migrates a database that exists inside CI. Migrations have to be applied by hand, with `DATABASE_URL` set to the production database:
+
+```bash
+python manage.py migrate
+```
+
+`0044_rated_games_and_puzzle_solves`, `0045_seed_achievements` and `0046_fix_seed_puzzles` must be applied this way before the code that came with them serves requests. Applying them first is safe: `GameResult.rated` has a database default, so code from before `0044` keeps working on the migrated database. `0044` adds `GameResult.rated`, `PuzzleStats.last_daily_date` and the `PuzzleSolve` table, all of which `game/services.py` reads and writes when a game or a puzzle is finished. `0045` creates the `Achievement` rows that `game/services.py` unlocks by code; an achievement whose row is missing is not awarded. `0046` replaces the seven built-in daily puzzles, several of which had illegal or non-mating answers, with positions that have exactly one mating move; a puzzle an admin has already edited is left alone.
+
+`vercel.json` also schedules a daily request to `/api/cron/cleanup-stale-games/`. That endpoint answers `401` until `CRON_SECRET` is set in the deployment's environment.
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>
@@ -337,7 +379,7 @@ Violations can be reported to the project maintainers.
 ## ❓ Questions?
 
 - Open an **issue** for project-related questions.
-- For GSSoC-specific questions, join our Discord community: [https://discord.gg/WfrpMuNZn](https://discord.gg/WfrpMuNZn)
+- For GSSoC-specific questions, join our Discord community: [https://discord.gg/DvW3xVXw8g](https://discord.gg/DvW3xVXw8g)
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>

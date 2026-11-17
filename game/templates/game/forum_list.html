@@ -1,218 +1,191 @@
+{% extends 'game/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Community Forum | Checkora</title>
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
-    <script src="{% static 'game/js/theme.js' %}"></script>
-</head>
-<body>
-    <nav class="forum-navbar">
-        <div class="nav-left">
-            <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}"
-                    alt="Checkora Logo"
-                    class="logo-img">
 
-                <span class="logo-text">
-                    CHECK<span class="logo-accent">ORA</span>
-                </span>
-            </a>
-        </div>
+{% block title %}Community forum · Checkora{% endblock %}
+{% block description %}The Checkora community forum: discuss strategies, ask questions, and connect with fellow players.{% endblock %}
 
-        <div class="nav-right">
-            <button
-                type="button"
-                id="themeToggle"
-                class="theme-toggle"
-                title="Toggle light / dark theme">
-            </button>
-            {% if user.is_authenticated %}
-            <div class="profile-dropdown">
-                <button type="button" class="profile-btn">
-                    {{ user.username }} ⌄
-                </button>
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-                <div class="dropdown-content">
-                    <a href="{% url 'profile' %}"> Profile </a>
-                    <a href="/play/">Dashboard</a>
-                    <a href="/stats/">Stats</a>
-                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
-                    <a href="{% url 'achievements' %}">Achievements</a>
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/community.css' %}">{% endblock %}
+{% block main_class %} community{% endblock %}
 
-                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
-                        {% csrf_token %}
-                        <button type="submit" class="logout-option">
-                            Logout
-                        </button>
-                    </form>
-                </div>
+{% block content %}
+<div class="wrap page forum-container">
+    <header class="page-head hero-split forum-header">
+        <div class="hero-split__copy">
+            <a class="back-link forum-home-btn" href="{% url 'landing' %}">Home</a>
+            <span class="eyebrow">Community forum</span>
+            <h1 class="forum-title">Talk it over <span class="serif">after the game.</span></h1>
+            <p class="forum-subtitle">Discuss strategies, ask questions, and connect with fellow players.</p>
+            <div class="cluster">
+                {% if user.is_authenticated %}
+                <a href="{% url 'forum_new' %}" class="button button--primary forum-fab-new">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    New discussion
+                </a>
+                {% else %}
+                <a href="{% url 'login' %}" class="button button--primary">Sign in to post</a>
+                {% endif %}
+                <a href="https://discord.gg/ymvGzP5NBu" class="button" target="_blank" rel="noopener">Live chat on Discord</a>
             </div>
-            {% else %}
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
-            {% endif %}
         </div>
-    </nav>
+        <div class="piece-stage" data-piece="b" data-piece-color="w" aria-hidden="true">
+            <canvas></canvas>
+            <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wb.svg' %}" alt="">
+        </div>
+    </header>
 
-    <div class="forum-container">
-        <div class="forum-header">
-            <a href="{% url 'landing' %}" class="forum-home-btn">← Back to Home</a>
+    <div class="forum-tools">
+        <form method="get" class="panel toolbar forum-sort-form" data-reveal>
+            <div class="field field--grow forum-search-box">
+                <label for="forum-search">Search</label>
+                <input type="search"
+                       name="q"
+                       id="forum-search"
+                       value="{{ q }}"
+                       placeholder="Search discussions..."
+                       class="forum-search-input">
+            </div>
 
-            <h1 class="forum-title">Community <span class="gold">Forum</span></h1>
-
-            <p class="forum-subtitle">
-                Discuss strategies, ask questions, and connect with fellow players.
-            </p>
-
-            <form method="get" class="forum-sort-form">
-                <div class="forum-search-box">
-                    <input type="text"
-                           name="q"
-                           value="{{ q }}"
-                           placeholder="Search discussions..."
-                           aria-label="Search discussions"
-                           class="forum-search-input">
-                </div>
-
-                <div class="forum-filter-group">
-                    <label for="forum-category">Category</label>
-                    <select name="category" id="forum-category" onchange="this.form.submit()">
-                        <option value="">All Categories</option>
+            <div class="field forum-filter-group">
+                <label for="forum-category">Category</label>
+                <span class="select">
+                    <select name="category" id="forum-category" data-autosubmit>
+                        <option value="">All categories</option>
                         {% for cat_val, cat_name in categories %}
                             <option value="{{ cat_val }}" {% if selected_category == cat_val %}selected{% endif %}>
                                 {{ cat_name }}
                             </option>
                         {% endfor %}
                     </select>
-                </div>
+                </span>
+            </div>
 
-                <div class="forum-filter-group">
-                    <label for="forum-sort">Sort by</label>
-
-                    <select name="sort" id="forum-sort" onchange="this.form.submit()">
-                        <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>
-                            Newest First
-                        </option>
-
-                        <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>
-                            Oldest First
-                        </option>
-
-                        <option value="most_replies" {% if sort_by == "most_replies" %}selected{% endif %}>
-                            Most Replies
-                        </option>
-
-                        <option value="most_bookmarked" {% if sort_by == "most_bookmarked" %}selected{% endif %}>
-                            Most Bookmarked
-                        </option>
-
-                        <option value="recently_active" {% if sort_by == "recently_active" %}selected{% endif %}>
-                            Recently Active
-                        </option>
+            <div class="field forum-filter-group">
+                <label for="forum-sort">Sort by</label>
+                <span class="select">
+                    <select name="sort" id="forum-sort" data-autosubmit>
+                        <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>Newest first</option>
+                        <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>Oldest first</option>
+                        <option value="most_replies" {% if sort_by == "most_replies" %}selected{% endif %}>Most replies</option>
+                        <option value="most_bookmarked" {% if sort_by == "most_bookmarked" %}selected{% endif %}>Most bookmarked</option>
+                        <option value="recently_active" {% if sort_by == "recently_active" %}selected{% endif %}>Recently active</option>
                     </select>
-                </div>
+                </span>
+            </div>
 
-                <button type="submit" class="forum-search-btn">Search</button>
+            <div class="toolbar__actions">
+                <button type="submit" class="button button--primary forum-search-btn">Search</button>
                 {% if q or selected_category %}
-                    <a href="{% url 'forum' %}" class="forum-reset-btn">Clear</a>
+                    <a href="{% url 'forum' %}" class="button button--ghost forum-reset-btn">Clear</a>
                 {% endif %}
-            </form>
-        </div>
+            </div>
+        </form>
 
-        <div class="forum-tabs">
-            <button type="button" class="forum-tab active" data-tab="all">
-                All Discussions
+        <div class="tabs forum-tabs" role="tablist" aria-label="Discussions" data-reveal style="--i: 1">
+            <button type="button" class="forum-tab active" data-tab="all" role="tab" aria-selected="true" aria-controls="tab-all">
+                <span>All<span class="wide-only"> discussions</span></span> <span class="tabs__count">{{ page_obj.paginator.count }}</span>
             </button>
 
             {% if user.is_authenticated %}
-            <button type="button" class="forum-tab" data-tab="your">
-                Your Discussions
+            <button type="button" class="forum-tab" data-tab="your" role="tab" aria-selected="false" aria-controls="tab-your">
+                <span>Your<span class="narrow-only">s</span><span class="wide-only"> discussions</span></span> <span class="tabs__count">{{ user_discussions|length }}</span>
             </button>
 
-            <button type="button" class="forum-tab" data-tab="bookmarked">
-                Bookmarked
+            <button type="button" class="forum-tab" data-tab="bookmarked" role="tab" aria-selected="false" aria-controls="tab-bookmarked">
+                Bookmarked <span class="tabs__count">{{ bookmarked_discussions|length }}</span>
             </button>
             {% endif %}
         </div>
+    </div>
 
-        <div class="forum-tab-panel active" id="tab-all">
-            <div class="forum-list">
-                {% for discussion in page_obj %}
-                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
-                {% empty %}
-                <div class="forum-empty">
-                    <p>No discussions found.</p>
-                </div>
-                {% endfor %}
-            </div>
-
-            {% if page_obj.paginator.num_pages > 1 %}
-            <div class="forum-pagination">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">← Prev</a>
-                {% endif %}
-
-                <span class="forum-page-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="forum-page-link">Next →</a>
+    <div class="forum-tab-panel active" id="tab-all" role="tabpanel">
+        <div class="forum-list">
+            {% for discussion in page_obj %}
+                {% include "game/forum_discussion_card.html" with discussion=discussion %}
+            {% empty %}
+            <div class="empty forum-empty">
+                <h3>No discussions found.</h3>
+                {% if q or selected_category %}
+                <p>Nothing matches that search. Try other words, or another category.</p>
+                <a href="{% url 'forum' %}" class="button button--sm">Clear the search</a>
+                {% elif user.is_authenticated %}
+                <p>The board is set and nobody has moved yet.</p>
+                <a href="{% url 'forum_new' %}" class="button button--primary button--sm">Start the first one</a>
+                {% else %}
+                <p>The board is set and nobody has moved yet.</p>
+                <a href="{% url 'login' %}" class="button button--primary button--sm">Sign in to start one</a>
                 {% endif %}
             </div>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="pager forum-pagination" aria-label="Pages">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="button button--sm forum-page-link">← Prev</a>
             {% endif %}
-        </div>
 
-        {% if user.is_authenticated %}
-        <div class="forum-tab-panel" id="tab-your">
-            <div class="forum-list">
-                {% for discussion in user_discussions %}
-                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
-                {% empty %}
-                <div class="forum-empty">
-                    <p>You have not started or participated in any discussions yet.</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
+            <span class="pager__now forum-page-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
 
-        <div class="forum-tab-panel" id="tab-bookmarked">
-            <div class="forum-list">
-                {% for discussion in bookmarked_discussions %}
-                    {% include "game/forum_discussion_card.html" with discussion=discussion %}
-                {% empty %}
-                <div class="forum-empty">
-                    <p>No bookmarked discussions yet.</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        {% if user.is_authenticated %}
-        <a href="{% url 'forum_new' %}" class="forum-fab-new">+ New Discussion</a>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if sort_by %}&sort={{ sort_by }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if selected_category %}&category={{ selected_category|urlencode }}{% endif %}" class="button button--sm forum-page-link">Next →</a>
+            {% endif %}
+        </nav>
         {% endif %}
     </div>
-    <script src="{% static 'game/js/forum.js' %}"></script>
-    <script>
-        // stamp next value with current path+hash before bookmark submit
-    document.querySelectorAll(".forum-bookmark-form").forEach((form) => {
-        form.addEventListener("submit", () => {
+
+    {% if user.is_authenticated %}
+    <div class="forum-tab-panel" id="tab-your" role="tabpanel">
+        <div class="forum-list">
+            {% for discussion in user_discussions %}
+                {% include "game/forum_discussion_card.html" with discussion=discussion %}
+            {% empty %}
+            <div class="empty forum-empty">
+                <h3>Nothing of yours yet</h3>
+                <p>You have not started or participated in any discussions yet.</p>
+                <a href="{% url 'forum_new' %}" class="button button--primary button--sm">Start a discussion</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="forum-tab-panel" id="tab-bookmarked" role="tabpanel">
+        <div class="forum-list">
+            {% for discussion in bookmarked_discussions %}
+                {% include "game/forum_discussion_card.html" with discussion=discussion %}
+            {% empty %}
+            <div class="empty forum-empty">
+                <h3>No bookmarked discussions yet.</h3>
+                <p>Use the bookmark on a discussion to keep it here.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'game/js/forum.js' %}"></script>
+<script>
+    // Stamp the bookmark form with the current path and tab, so the page
+    // comes back to the same tab after the bookmark is saved.
+    document.querySelectorAll('.forum-bookmark-form').forEach((form) => {
+        form.addEventListener('submit', () => {
             const nextInput = form.querySelector('input[name="next"]');
             if (nextInput) {
                 nextInput.value = window.location.pathname + window.location.hash;
             }
         });
     });
-    </script>
-    <script src="{% static 'game/js/dropdown.js' %}"></script>
-</body>
-</html>
+
+    // Choosing a category or a sort order applies it straight away.
+    document.querySelectorAll('[data-autosubmit]').forEach((select) => {
+        select.addEventListener('change', () => select.form.submit());
+    });
+</script>
+<script type="module" src="{% static 'game/js/community.js' %}"></script>
+{% endblock %}

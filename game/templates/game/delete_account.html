@@ -1,236 +1,73 @@
+{% extends 'game/base.html' %}
 {% load static %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delete Account | Checkora</title>
+{% block title %}Delete account · Checkora{% endblock %}
 
-    <link
-        rel="stylesheet"
-        href="{% static 'game/css/landing.css' %}"
-    >
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-    <style>
+{# Messages are printed inside the card, above the form. #}
+{% block messages %}{% endblock %}
 
-        body{
-            min-height:100vh;
-            background:
-                radial-gradient(circle at top,#1e293b 0%,#0f172a 45%,#020617 100%);
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            padding:30px;
-            overflow-x:hidden;
-        }
+{% block content %}
+<div class="wrap page account">
+    <div class="account__main">
+        <header class="account__head">
+            <a class="back-link" href="{% url 'profile' %}" data-reveal>Profile</a>
+            <p class="eyebrow eyebrow--check" data-reveal style="--i: 1">Account</p>
+            <h1 data-reveal style="--i: 2">Delete your <span class="serif">account.</span></h1>
+        </header>
 
-        .delete-wrapper{
-            width:100%;
-            max-width:460px;
-        }
-
-        .delete-card{
-            background:rgba(15,23,42,0.92);
-            border:1px solid rgba(255,255,255,0.08);
-            border-radius:24px;
-            padding:42px 36px;
-            backdrop-filter:blur(18px);
-            box-shadow:
-                0 10px 40px rgba(0,0,0,0.45),
-                0 0 30px rgba(250,204,21,0.08);
-        }
-
-        .logo{
-            text-align:center;
-            margin-bottom:10px;
-        }
-
-        .logo h1{
-            font-size:42px;
-            letter-spacing:2px;
-            color:#ffffff;
-            font-weight:800;
-        }
-
-        .logo span{
-            color:#facc15;
-        }
-
-        .subtitle{
-            text-align:center;
-            color:#94a3b8;
-            margin-bottom:35px;
-            font-size:15px;
-        }
-
-        .title{
-            text-align:center;
-            font-size:30px;
-            margin-bottom:14px;
-            color:#ffffff;
-            font-weight:700;
-        }
-
-        .warning-box{
-            background:rgba(220,38,38,0.12);
-            border:1px solid rgba(239,68,68,0.35);
-            color:#fecaca;
-            padding:16px;
-            border-radius:16px;
-            margin-bottom:28px;
-            line-height:1.6;
-            font-size:14px;
-        }
-
-        .form-group{
-            margin-bottom:22px;
-        }
-
-        .form-group label{
-            display:block;
-            margin-bottom:10px;
-            color:#e2e8f0;
-            font-size:14px;
-            font-weight:600;
-        }
-
-        .form-group input{
-            width:100%;
-            padding:15px 16px;
-            border-radius:14px;
-            border:1px solid rgba(255,255,255,0.08);
-            background:#111827;
-            color:#ffffff;
-            outline:none;
-            font-size:15px;
-            transition:0.3s ease;
-        }
-
-        .form-group input:focus{
-            border-color:#facc15;
-            box-shadow:0 0 0 4px rgba(250,204,21,0.12);
-        }
-
-        .delete-btn{
-            width:100%;
-            border:none;
-            padding:15px;
-            border-radius:14px;
-            background:linear-gradient(135deg,#dc2626,#991b1b);
-            color:#ffffff;
-            font-size:16px;
-            font-weight:700;
-            cursor:pointer;
-            transition:0.3s ease;
-            margin-top:10px;
-        }
-
-        .delete-btn:hover{
-            transform:translateY(-2px);
-            box-shadow:0 10px 25px rgba(220,38,38,0.35);
-        }
-
-        .footer-text{
-            margin-top:22px;
-            text-align:center;
-            color:#94a3b8;
-            font-size:13px;
-            line-height:1.5;
-        }
-
-        @media(max-width:520px){
-
-            .delete-card{
-                padding:32px 24px;
-            }
-
-            .logo h1{
-                font-size:34px;
-            }
-
-            .title{
-                font-size:26px;
-            }
-        }
-
-    </style>
-</head>
-
-<body>
-
-    <div class="delete-wrapper">
-
-        <div class="delete-card">
-
-            <div class="logo">
-                <h1>CHECK<span>ORA</span></h1>
+        <div class="panel auth-card" data-reveal style="--i: 3">
+            <div class="notice notice--warning">
+                <p>
+                    <strong>This action is permanent and cannot be undone.</strong>
+                    After confirmation, all your account data will be permanently removed from Checkora.
+                </p>
             </div>
 
-            <p class="subtitle">
-                Secure Account Management
-            </p>
-
-            <h2 class="title">
-                Delete Account
-            </h2>
-
-            <div class="warning-box">
-                ⚠ This action is permanent and cannot be undone.
-                <br><br>
-                After confirmation, all your account data will be permanently removed from Checkora.
-            </div>
+            {% include 'game/includes/messages.html' %}
 
             <form method="POST">
-
                 {% csrf_token %}
 
-                <div class="form-group">
-
-                    <label>
-                        Username
-                    </label>
-
-                    <input
-                        type="text"
-                        name="username"
-                        placeholder="Enter your username"
-                        required
-                    >
-
+                <div class="field">
+                    <label for="delete_username">Username</label>
+                    <input type="text" id="delete_username" name="username" placeholder="Enter your username" autocomplete="username" autocapitalize="none" required>
                 </div>
 
-                <div class="form-group">
-
-                    <label>
-                        Password
-                    </label>
-
-                    <input
-                        type="password"
-                        name="password"
-                        placeholder="Enter your password"
-                        required
-                    >
-
+                <div class="field field--password">
+                    <label for="delete_password">Password</label>
+                    <input type="password" id="delete_password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+                    <button type="button" class="field__reveal" aria-label="Show password" aria-pressed="false">
+                        <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M1 1l22 22"/></svg>
+                    </button>
                 </div>
 
-                <button
-                    type="submit"
-                    class="delete-btn"
-                >
-                    Delete My Account
-                </button>
-
+                <button type="submit" class="button button--danger button--block">Delete my account</button>
             </form>
 
-            <div class="footer-text">
-                A confirmation email will be sent before your account is deleted.
+            <p class="field__hint">A confirmation email will be sent before your account is deleted. Nothing is removed until you confirm from that email.</p>
+
+            <div class="auth-card__foot">
+                <a href="{% url 'profile' %}" class="text-link">Keep my account</a>
             </div>
-
         </div>
-
     </div>
-<script src="{% static 'game/js/theme.js' %}?v=1"></script>
-</body>
-</html>
+
+    <figure class="stage stage--fallen" data-reveal="scale">
+        <div class="stage__frame">
+            <canvas data-piece="k" data-piece-fallen aria-hidden="true"></canvas>
+            <img class="stage__flat" src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+        </div>
+        <figcaption class="stage__caption"><b>The king, on its side</b> How a player resigns.</figcaption>
+    </figure>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'game/js/account.js' %}"></script>
+{% endblock %}

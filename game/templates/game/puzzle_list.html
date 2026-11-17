@@ -1,560 +1,80 @@
+{% extends 'game/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puzzle Dashboard | Checkora Chess</title>
-    <meta name="description" content="Browse, search, and filter chess puzzles by difficulty level to sharpen your tactical skills on Checkora.">
-    <meta name="keywords" content="Chess Puzzles, Puzzle Browser, Chess Tactics, Checkora, Play Chess">
-    
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <style>
-        :root {
-            --page-bg: #09090e;
-            --card-bg: rgba(22, 22, 38, 0.7);
-            --accent-gold: #f0c040;
-            --accent-gold-hover: #ffd060;
-            --text-main: #ffffff;
-            --text-secondary: #aaaaaa;
-            --border-color: rgba(255, 255, 255, 0.08);
-            --card-border: rgba(240, 192, 64, 0.12);
-        }
+{% block title %}Puzzles · Checkora{% endblock %}
+{% block description %}Browse, search, and filter chess puzzles by difficulty level to sharpen your tactical skills on Checkora.{% endblock %}
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-        body {
-            background-color: var(--page-bg);
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-            padding: 40px 20px;
-            background-image: 
-                radial-gradient(at 10% 20%, rgba(240, 192, 64, 0.05) 0px, transparent 50%),
-                radial-gradient(at 90% 80%, rgba(9, 9, 14, 0.5) 0px, transparent 50%);
-            background-attachment: fixed;
-        }
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/learn.css' %}">{% endblock %}
 
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            position: relative;
-        }
-
-        header {
-            margin-bottom: 40px;
-            text-align: center;
-        }
-
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.6rem 1.2rem;
-            margin-bottom: 24px;
-            background: rgba(22, 22, 42, 0.6);
-            color: var(--text-main);
-            font-weight: 600;
-            font-size: 0.85rem;
-            text-decoration: none;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 30px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-                        border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-                        transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-                        box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .back-btn:hover {
-            color: var(--accent-gold);
-            border-color: rgba(240, 192, 64, 0.3);
-            transform: translateX(-3px);
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-        }
-
-        .back-btn:focus-visible {
-            outline: 2px solid var(--accent-gold);
-            outline-offset: 3px;
-        }
-
-        .back-btn:active {
-            transform: translateX(-1px) translateY(1px);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        @media (min-width: 1024px) {
-            .back-btn {
-                position: absolute;
-                top: 2rem;
-                left: 2rem;
-                margin-bottom: 0;
-            }
-        }
-
-        h1 {
-            font-family: 'Cinzel', serif;
-            font-size: 2.5rem;
-            letter-spacing: 2px;
-            color: #fff;
-            text-shadow: 0 0 10px rgba(240, 192, 64, 0.2);
-            margin-bottom: 12px;
-        }
-
-        .subtitle {
-            color: var(--text-secondary);
-            font-size: 1.05rem;
-            max-width: 600px;
-            margin: 0 auto 30px auto;
-            line-height: 1.5;
-        }
-
-        /* Controls Section */
-        .controls-wrapper {
-            background: rgba(22, 22, 38, 0.4);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 40px;
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .controls-group {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            width: 100%;
-        }
-
-        @media (min-width: 900px) {
-            .controls-group {
-                flex-direction: row;
-                align-items: center;
-                justify-content: space-between;
-            }
-        }
-
-        .search-container {
-            position: relative;
-            flex: 1;
-            max-width: 450px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 12px 16px 12px 42px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background: rgba(10, 10, 18, 0.8);
-            color: #fff;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .search-input:focus {
-            border-color: var(--accent-gold);
-            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-secondary);
-            pointer-events: none;
-            font-size: 1.1rem;
-        }
-
-        .filters-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .filter-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-right: 6px;
-        }
-
-        .filter-btn {
-            background: rgba(10, 10, 18, 0.5);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 10px 18px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .filter-btn:hover {
-            color: #fff;
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .filter-btn.active {
-            background: var(--accent-gold);
-            border-color: var(--accent-gold);
-            color: #000;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(240, 192, 64, 0.2);
-        }
-
-        /* Puzzle Grid */
-        .puzzle-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 24px;
-        }
-
-        .puzzle-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 24px;
-            backdrop-filter: blur(12px);
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
-                        border-color 0.25s ease, 
-                        box-shadow 0.25s ease;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 200px;
-        }
-
-        .puzzle-card:hover {
-            transform: translateY(-6px);
-            border-color: rgba(240, 192, 64, 0.4);
-            box-shadow: 0 12px 30px rgba(240, 192, 64, 0.08);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 14px;
-        }
-
-        .puzzle-title {
-            font-size: 1.15rem;
-            font-weight: 600;
-            color: #fff;
-            line-height: 1.4;
-        }
-
-        /* Badges */
-        .badge {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 4px 10px;
-            border-radius: 6px;
-            letter-spacing: 0.5px;
-        }
-
-        .badge-easy {
-            background: rgba(46, 204, 113, 0.12);
-            color: #2ecc71;
-            border: 1px solid rgba(46, 204, 113, 0.25);
-        }
-
-        .badge-medium {
-            background: rgba(241, 196, 15, 0.12);
-            color: #f1c40f;
-            border: 1px solid rgba(241, 196, 15, 0.25);
-        }
-
-        .badge-hard {
-            background: rgba(231, 76, 60, 0.12);
-            color: #e74c3c;
-            border: 1px solid rgba(231, 76, 60, 0.25);
-        }
-
-        .puzzle-fen {
-            font-family: monospace;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-bottom: 20px;
-        }
-
-        .solve-btn {
-            width: 100%;
-            background: var(--accent-gold);
-            color: #000;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .solve-btn:hover {
-            background-color: var(--accent-gold-hover);
-        }
-
-        .solve-btn:active {
-            transform: scale(0.98);
-        }
-
-        /* Empty State */
-        .empty-state {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 60px 20px;
-            background: var(--card-bg);
-            border: 1px dashed var(--border-color);
-            border-radius: 16px;
-        }
-
-        .empty-icon {
-            font-size: 3rem;
-            margin-bottom: 16px;
-            opacity: 0.6;
-        }
-
-        .empty-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .empty-desc {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-
-        /* Loader */
-        .loader-container {
-            grid-column: 1 / -1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 60px 0;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(240, 192, 64, 0.1);
-            border-radius: 50%;
-            border-top-color: var(--accent-gold);
-            animation: spin 1s ease-in-out infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Filter elements styling */
-        .filter-select {
-            background: rgba(10, 10, 18, 0.8);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            padding: 10px 18px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        .filter-select:focus {
-            border-color: var(--accent-gold);
-            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
-        }
-
-        .rating-input {
-            width: 100px;
-            background: rgba(10, 10, 18, 0.8);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            padding: 10px 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        .rating-input:focus {
-            border-color: var(--accent-gold);
-            box-shadow: 0 0 0 3px rgba(240, 192, 64, 0.15);
-        }
-        
-        .rating-range-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .badges-container {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        .badge-rating {
-            background: rgba(240, 192, 64, 0.1);
-            color: var(--accent-gold);
-            border: 1px solid rgba(240, 192, 64, 0.25);
-        }
-
-        .puzzle-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 20px;
-            margin-top: 10px;
-        }
-
-        .tag-pill {
-            font-size: 0.7rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-secondary);
-            padding: 2px 8px;
-            border-radius: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.2s ease;
-        }
-        
-        .tag-pill:hover {
-            color: var(--text-main);
-            border-color: rgba(255, 255, 255, 0.15);
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        /* Pagination Styling */
-        .pagination-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            margin-top: 40px;
-        }
-
-        .pagination-btn {
-            background: rgba(10, 10, 18, 0.5);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .pagination-btn:hover:not(:disabled) {
-            color: #fff;
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .pagination-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .pagination-btn.active {
-            background: var(--accent-gold);
-            border-color: var(--accent-gold);
-            color: #000;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(240, 192, 64, 0.2);
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <a href="{% url 'landing' %}" class="back-btn">← Back to Home</a>
-    <header>
-        <h1>🧩 Puzzle Browser</h1>
-        <p class="subtitle">Filter and select from our curated collection of puzzles to sharpen your chess tactics and strategy.</p>
+{% block content %}
+<div class="wrap page">
+    <header class="learn-head">
+        <div class="page-head">
+            <a class="back-link" href="{% url 'landing' %}">Home</a>
+            <p class="eyebrow" data-reveal>Puzzles</p>
+            <h1 data-reveal style="--i: 1">Find the move <span class="serif">that wins.</span></h1>
+            <p class="lede" data-reveal style="--i: 2">Search the puzzle library by title, or narrow it down by difficulty, motif and rating.</p>
+        </div>
+        <div class="learn-head__piece" aria-hidden="true">
+            <img src="{% static 'game/pieces/classic/wq.svg' %}" alt="">
+            <canvas data-piece3d="q"></canvas>
+        </div>
     </header>
 
-    <div class="controls-wrapper">
-        <div class="controls-group">
-            <div class="search-container">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="search-input" class="search-input" placeholder="Search puzzles by title..." aria-label="Search puzzles by title">
-            </div>
+    <section class="panel filters" data-reveal style="--i: 3" aria-label="Filter puzzles">
+        <div class="field">
+            <label for="search-input">Search</label>
+            <input type="search" id="search-input" placeholder="Search puzzles by title">
+        </div>
 
-            <div class="filters-container">
-                <span class="filter-label">Difficulty:</span>
-                <button class="filter-btn active" data-difficulty="">All</button>
-                <button class="filter-btn" data-difficulty="easy">Easy</button>
-                <button class="filter-btn" data-difficulty="medium">Medium</button>
-                <button class="filter-btn" data-difficulty="hard">Hard</button>
+        <div class="field">
+            <span class="field__label" id="difficulty-label">Difficulty</span>
+            <div class="tabs" role="group" aria-labelledby="difficulty-label">
+                <button type="button" class="filter-btn is-active" data-difficulty="" aria-pressed="true">All</button>
+                <button type="button" class="filter-btn" data-difficulty="easy" aria-pressed="false">Easy</button>
+                <button type="button" class="filter-btn" data-difficulty="medium" aria-pressed="false">Medium</button>
+                <button type="button" class="filter-btn" data-difficulty="hard" aria-pressed="false">Hard</button>
             </div>
         </div>
 
-        <div class="controls-group">
-            <div class="filters-container">
-                <span class="filter-label">Motif:</span>
-                <select id="tag-filter" class="filter-select" aria-label="Filter by motif">
-                    <option value="">All Motifs</option>
-                    <option value="Mate in 1">Mate in 1</option>
-                    <option value="Mate in 2">Mate in 2</option>
-                    <option value="Endgame">Endgame</option>
-                    <option value="Fork">Fork</option>
-                    <option value="Pin">Pin</option>
-                    <option value="Tactics">Tactics</option>
-                </select>
-            </div>
+        <div class="field">
+            <label for="tag-filter">Motif</label>
+            <select id="tag-filter">
+                <option value="">All motifs</option>
+                <option value="Mate in 1">Mate in 1</option>
+                <option value="Mate in 2">Mate in 2</option>
+                <option value="Endgame">Endgame</option>
+                <option value="Fork">Fork</option>
+                <option value="Pin">Pin</option>
+                <option value="Tactics">Tactics</option>
+            </select>
+        </div>
 
-            <div class="filters-container">
-                <span class="filter-label">Rating:</span>
-                <div class="rating-range-container">
-                    <input type="number" id="min-rating" class="rating-input" placeholder="Min" min="0" max="3000" aria-label="Minimum rating">
-                    <span style="color: var(--text-secondary); font-size: 0.9rem;">to</span>
-                    <input type="number" id="max-rating" class="rating-input" placeholder="Max" min="0" max="3000" aria-label="Maximum rating">
-                </div>
+        <div class="field">
+            <span class="field__label">Rating</span>
+            <div class="rating-range-container">
+                <input type="number" id="min-rating" placeholder="Min" min="0" max="3000" inputmode="numeric" aria-label="Minimum rating">
+                <span>to</span>
+                <input type="number" id="max-rating" placeholder="Max" min="0" max="3000" inputmode="numeric" aria-label="Maximum rating">
             </div>
         </div>
+    </section>
+
+    <p class="label puzzle-count" id="puzzle-count" aria-live="polite"></p>
+
+    <div class="puzzle-grid" id="puzzle-grid" data-api="{% url 'puzzles_list_api' %}" data-play="{% url 'index' %}">
+        {# Filled in by the script below. #}
     </div>
 
-    <div class="puzzle-grid" id="puzzle-grid">
-        <!-- Puzzles will be loaded dynamically here -->
-    </div>
-
-    <div class="pagination-container" id="pagination-container">
-        <!-- Pagination controls will be loaded dynamically here -->
-    </div>
+    <div class="tabs pager" id="pagination-container" role="group" aria-label="Pages"></div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('search-input');
@@ -564,6 +84,8 @@
         const maxRatingInput = document.getElementById('max-rating');
         const puzzleGrid = document.getElementById('puzzle-grid');
         const paginationContainer = document.getElementById('pagination-container');
+        const countLine = document.getElementById('puzzle-count');
+        const pieceImages = document.documentElement.dataset.static + 'pieces/classic/';
 
         let currentDifficulty = '';
         let currentSearch = '';
@@ -571,18 +93,29 @@
         let currentMinRating = '';
         let currentMaxRating = '';
         let currentPage = 1;
-        
+
         let searchDebounceTimeout;
         let ratingDebounceTimeout;
 
+        const skeleton = `
+            <div class="panel puzzle-card is-loading">
+                <div class="pos"></div>
+                <div class="puzzle-card__body"><span></span><span></span></div>
+            </div>`;
+
+        function showMessage(title, text) {
+            puzzleGrid.innerHTML = `
+                <div class="empty">
+                    <img src="${pieceImages}wp.svg" alt="">
+                    <h3>${title}</h3>
+                    <p>${text}</p>
+                </div>`;
+        }
+
         // Fetch and render puzzles
         async function loadPuzzles() {
-            puzzleGrid.innerHTML = `
-                <div class="loader-container">
-                    <div class="spinner"></div>
-                    <p style="color: var(--text-secondary)">Loading puzzles...</p>
-                </div>
-            `;
+            puzzleGrid.innerHTML = skeleton.repeat(6);
+            puzzleGrid.setAttribute('aria-busy', 'true');
             paginationContainer.innerHTML = '';
 
             try {
@@ -595,72 +128,111 @@
                 params.append('page', currentPage);
                 params.append('per_page', 9);
 
-                const response = await fetch(`/api/puzzles/?${params.toString()}`);
+                const response = await fetch(`${puzzleGrid.dataset.api}?${params.toString()}`);
                 if (!response.ok) throw new Error('Network response was not ok');
-                
+
                 const data = await response.json();
                 renderPuzzles(data.puzzles);
                 renderPagination(data);
+                renderCount(data);
             } catch (error) {
                 console.error('Error fetching puzzles:', error);
-                puzzleGrid.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">⚠️</div>
-                        <div class="empty-title">Failed to load puzzles</div>
-                        <p class="empty-desc">Please try refreshing the page or check your connection.</p>
-                    </div>
-                `;
+                countLine.textContent = '';
+                showMessage('Failed to load puzzles', 'Please try refreshing the page or check your connection.');
+            } finally {
+                puzzleGrid.removeAttribute('aria-busy');
             }
         }
+
+        function renderCount(data) {
+            const total = data.total_count;
+            if (typeof total !== 'number') {
+                countLine.textContent = '';
+                return;
+            }
+            const pages = data.total_pages > 1 ? ` · page ${data.page} of ${data.total_pages}` : '';
+            countLine.textContent = `${total} ${total === 1 ? 'puzzle' : 'puzzles'}${pages}`;
+        }
+
+        // The position in a FEN as 64 piece codes ("wk", "bp" or ""), seen
+        // from the side that is to move.
+        function readFen(fen) {
+            const [placement, side] = fen.split(' ');
+            const squares = [];
+            for (const ch of placement.replace(/\//g, '')) {
+                if (ch >= '1' && ch <= '8') {
+                    for (let i = 0; i < Number(ch); i++) squares.push('');
+                } else {
+                    squares.push((ch === ch.toUpperCase() ? 'w' : 'b') + ch.toLowerCase());
+                }
+            }
+            const turn = side === 'b' ? 'b' : 'w';
+            if (turn === 'b') squares.reverse();
+            return { squares, turn };
+        }
+
+        function drawPosition(squares, label) {
+            const board = document.createElement('div');
+            board.className = 'pos';
+            board.setAttribute('role', 'img');
+            board.setAttribute('aria-label', label);
+            if (squares.length !== 64) return board;
+            squares.forEach((code, index) => {
+                if (!/^[wb][kqrbnp]$/.test(code)) return;
+                const piece = document.createElement('img');
+                piece.src = `${pieceImages}${code}.svg`;
+                piece.alt = '';
+                piece.style.gridArea = `${Math.floor(index / 8) + 1} / ${(index % 8) + 1}`;
+                board.appendChild(piece);
+            });
+            return board;
+        }
+
+        const difficultyChips = { easy: 'chip--good', medium: 'chip--gold', hard: 'chip--check' };
 
         // Render puzzles into grid
         function renderPuzzles(puzzles) {
             puzzleGrid.innerHTML = '';
 
             if (puzzles.length === 0) {
-                puzzleGrid.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">♟️</div>
-                        <div class="empty-title">No puzzles found</div>
-                        <p class="empty-desc">Try adjusting your filters or search query.</p>
-                    </div>
-                `;
+                showMessage('No puzzles found', 'Try adjusting your filters or search query.');
                 return;
             }
 
-            puzzles.forEach(puzzle => {
-                const difficultyClass = `badge-${puzzle.difficulty.toLowerCase()}`;
-                
-                // Truncate FEN to make it look clean
-                const fenParts = puzzle.fen.split(' ');
-                const cleanFen = fenParts[0];
+            puzzles.forEach((puzzle, index) => {
+                const { squares, turn } = readFen(puzzle.fen);
+                const toMove = `${turn === 'b' ? 'Black' : 'White'} to move`;
+                const difficultyChip = difficultyChips[puzzle.difficulty.toLowerCase()] || '';
 
-                const card = document.createElement('div');
-                card.className = 'puzzle-card';
-                
-                // Construct tags pill list
-                const tagsHtml = puzzle.tags && puzzle.tags.length > 0 
+                // The board shows the position; the text keeps only the placement field.
+                const cleanFen = puzzle.fen.split(' ')[0];
+
+                const card = document.createElement('article');
+                card.className = 'panel puzzle-card';
+                card.dataset.tilt = '5';
+                card.style.setProperty('--i', index);
+
+                const tagsHtml = puzzle.tags && puzzle.tags.length > 0
                     ? `<div class="puzzle-tags">
-                        ${puzzle.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}
+                        ${puzzle.tags.map(tag => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
                        </div>`
                     : '';
+                const ratingHtml = puzzle.rating == null ? '' : `<span class="chip" title="Rating">${Number(puzzle.rating)}</span>`;
 
                 card.innerHTML = `
-                    <div>
-                        <div class="card-header">
-                            <span class="puzzle-title">${escapeHtml(puzzle.title)}</span>
-                            <div class="badges-container">
-                                <span class="badge ${difficultyClass}">${escapeHtml(puzzle.difficulty)}</span>
-                                <span class="badge badge-rating">⭐ ${puzzle.rating}</span>
-                            </div>
+                    <div class="puzzle-card__body">
+                        <div class="puzzle-card__meta">
+                            <span class="chip ${difficultyChip}">${escapeHtml(puzzle.difficulty)}</span>
+                            ${ratingHtml}
+                            <span class="turn turn--${turn}">${toMove}</span>
                         </div>
-                        <div class="puzzle-fen" title="${escapeHtml(puzzle.fen)}">
-                            FEN: ${escapeHtml(cleanFen)}
-                        </div>
+                        <h3 class="puzzle-title">${escapeHtml(puzzle.title)}</h3>
                         ${tagsHtml}
+                        <div class="puzzle-fen" title="${escapeHtml(puzzle.fen)}">FEN ${escapeHtml(cleanFen)}</div>
                     </div>
-                    <a href="/play/?puzzle_id=${puzzle.id}" class="solve-btn">Solve Puzzle</a>
+                    <a href="${puzzleGrid.dataset.play}?puzzle_id=${puzzle.id}" class="button button--primary button--block solve-btn">Solve puzzle</a>
                 `;
+                card.prepend(drawPosition(squares, `${puzzle.title}: ${toMove}`));
                 puzzleGrid.appendChild(card);
             });
         }
@@ -668,12 +240,12 @@
         // Render Pagination buttons
         function renderPagination(data) {
             paginationContainer.innerHTML = '';
-            
+
             if (data.total_pages <= 1) return;
 
             // Previous Button
             const prevBtn = document.createElement('button');
-            prevBtn.className = 'pagination-btn';
+            prevBtn.type = 'button';
             prevBtn.innerText = '← Previous';
             prevBtn.disabled = !data.has_previous;
             prevBtn.addEventListener('click', () => {
@@ -685,13 +257,24 @@
             // Page info/numbers
             function addPageBtn(i) {
                 const pageBtn = document.createElement('button');
-                pageBtn.className = `pagination-btn ${i === data.page ? 'active' : ''}`;
+                pageBtn.type = 'button';
                 pageBtn.innerText = i;
+                pageBtn.setAttribute('aria-label', `Page ${i}`);
+                if (i === data.page) {
+                    pageBtn.classList.add('is-active');
+                    pageBtn.setAttribute('aria-current', 'page');
+                }
                 pageBtn.addEventListener('click', () => {
                     currentPage = i;
                     loadPuzzles();
                 });
                 paginationContainer.appendChild(pageBtn);
+            }
+
+            function addDots() {
+                const dots = document.createElement('span');
+                dots.innerText = '…';
+                paginationContainer.appendChild(dots);
             }
 
             const totalPages = data.total_pages;
@@ -704,12 +287,7 @@
 
             if (startPage > 1) {
                 addPageBtn(1);
-                if (startPage > 2) {
-                    const dots = document.createElement('span');
-                    dots.className = 'pagination-info';
-                    dots.innerText = '…';
-                    paginationContainer.appendChild(dots);
-                }
+                if (startPage > 2) addDots();
             }
 
             for (let i = startPage; i <= endPage; i++) {
@@ -717,19 +295,13 @@
             }
 
             if (endPage < totalPages) {
-                if (endPage < totalPages - 1) {
-                    const dots = document.createElement('span');
-                    dots.className = 'pagination-info';
-                    dots.innerText = '…';
-                    paginationContainer.appendChild(dots);
-                }
+                if (endPage < totalPages - 1) addDots();
                 addPageBtn(totalPages);
             }
 
-
             // Next Button
             const nextBtn = document.createElement('button');
-            nextBtn.className = 'pagination-btn';
+            nextBtn.type = 'button';
             nextBtn.innerText = 'Next →';
             nextBtn.disabled = !data.has_next;
             nextBtn.addEventListener('click', () => {
@@ -741,7 +313,7 @@
 
         // Helper to escape HTML to prevent XSS
         function escapeHtml(str) {
-            return str
+            return String(str)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
@@ -764,9 +336,11 @@
 
         // Filter button event handling
         filterBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                filterBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => {
+                    b.classList.toggle('is-active', b === btn);
+                    b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+                });
                 currentDifficulty = btn.dataset.difficulty;
                 resetAndReload();
             });
@@ -799,6 +373,22 @@
         loadPuzzles();
     });
 </script>
-
-</body>
-</html>
+<script type="module">
+    const stage = document.querySelector('.learn-head__piece');
+    const canvas = stage.querySelector('canvas');
+    // The flat piece stays on narrow screens, on the low performance tier and
+    // where WebGL is missing. three.js is only fetched when it will be used.
+    const wide = window.matchMedia('(min-width: 861px)').matches;
+    if (wide && window.checkoraPerf?.wants3D('piece') !== false) {
+        try {
+            const { shouldMount3D, mountPiece } = await import("{% static 'game/js/scene3d.js' %}");
+            if (shouldMount3D('piece')) {
+                mountPiece(canvas, { type: canvas.dataset.piece3d, color: 'w', onFail: () => stage.classList.remove('is-3d') });
+                stage.classList.add('is-3d');
+            }
+        } catch (error) {
+            stage.classList.remove('is-3d');
+        }
+    }
+</script>
+{% endblock %}

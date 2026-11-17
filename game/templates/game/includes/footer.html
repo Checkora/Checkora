@@ -1,0 +1,48 @@
+{% load static %}
+<footer class="site-footer">
+    <div class="wrap wrap--wide">
+        <div class="site-footer__grid">
+            <div class="site-footer__about">
+                {% include 'game/includes/logo.html' %}
+                <p>An open-source chess platform with a C++ engine. Free to play, MIT licensed.</p>
+                <a href="https://discord.gg/ymvGzP5NBu" class="button button--sm site-footer__discord" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8.5 11h.01M12 11h.01M15.500 11h.01"/></svg>
+                    Join the Discord
+                </a>
+            </div>
+            <nav aria-label="Play">
+                <h4>Play</h4>
+                <ul>
+                    <li><a href="{% url 'index' %}">New game</a></li>
+                    <li><a href="{% url 'puzzles' %}">Puzzles</a></li>
+                    <li><a href="{% url 'lessons' %}">Lessons</a></li>
+                    <li><a href="{% url 'opening_trainer' %}">Opening trainer</a></li>
+                    <li><a href="{% url 'rules' %}">Rulebook</a></li>
+                </ul>
+            </nav>
+            <nav aria-label="Community">
+                <h4>Community</h4>
+                <ul>
+                    <li><a href="{% url 'forum' %}">Forum</a></li>
+                    <li><a href="{% url 'leaderboard' %}">Leaderboard</a></li>
+                    <li><a href="https://discord.gg/ymvGzP5NBu" target="_blank" rel="noopener">Discord</a></li>
+                    <li><a href="https://github.com/Checkora/Checkora" target="_blank" rel="noopener">GitHub</a></li>
+                    <li><a href="https://github.com/Checkora/Checkora/issues" target="_blank" rel="noopener">Report a bug</a></li>
+                </ul>
+            </nav>
+            <nav aria-label="Legal">
+                <h4>Legal</h4>
+                <ul>
+                    <li><button type="button" data-open-dialog="privacyDialog">Privacy policy</button></li>
+                    <li><button type="button" data-open-dialog="termsDialog">Terms</button></li>
+                    <li><button type="button" data-open-dialog="disclaimerDialog">Disclaimer</button></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="site-footer__base">
+            <span>© Checkora contributors · MIT License</span>
+            <span>Maintained by <a class="text-link" href="https://github.com/EDWARD-012" target="_blank" rel="noopener">@EDWARD-012</a> and <a class="text-link" href="https://github.com/triemerge" target="_blank" rel="noopener">@triemerge</a></span>
+        </div>
+    </div>
+</footer>
+{% include 'game/includes/legal.html' %}

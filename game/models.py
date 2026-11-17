@@ -47,6 +47,13 @@ class GameResult(models.Model):
     replay_record = models.ForeignKey(
                     'GameRecord', null=True, blank=True, on_delete=models.SET_NULL
     )
+    # db_default keeps the column filled when code from before this field
+    # writes a row, so the migration can run before the new code is deployed.
+    rated = models.BooleanField(
+        default=True,
+        db_default=True,
+        help_text="False for games that must not count towards rating or win achievements"
+    )
 
     class Meta:
         ordering = ["-played_at"]
@@ -71,7 +78,12 @@ class PuzzleStats(models.Model):
         db_index=True
     )
     daily_completions = models.PositiveIntegerField(default=0)
-    
+    last_daily_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Day the user last solved the daily puzzle"
+    )
+
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -80,8 +92,39 @@ class PuzzleStats(models.Model):
             ),
         ]
 
+    def expire_streak(self):
+        """Drop the streak to 0 once a daily puzzle has been missed."""
+        if (
+            self.current_streak
+            and self.last_daily_date
+            and self.last_daily_date < timezone.localdate() - timedelta(days=1)
+        ):
+            self.current_streak = 0
+            self.save(update_fields=['current_streak'])
+
     def __str__(self):
         return f"{self.user.username} Puzzle Stats"
+
+
+class PuzzleSolve(models.Model):
+    """A puzzle the user has solved, recorded by the server."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="puzzle_solves"
+    )
+    puzzle = models.ForeignKey(
+        'ChessPuzzle',
+        on_delete=models.CASCADE,
+        related_name="solves"
+    )
+    solved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "puzzle")
+
+    def __str__(self):
+        return f"{self.user.username} solved puzzle {self.puzzle_id}"
 
 
 class UserProgress(models.Model):
@@ -120,6 +163,16 @@ class UserProgress(models.Model):
                 self.day_streak = 1
             self.last_played_date = today
             self.save(update_fields=['day_streak', 'last_played_date'])
+
+    def expire_streak(self):
+        """Drop the streak to 0 once a full day has passed without a game."""
+        if (
+            self.day_streak
+            and self.last_played_date
+            and self.last_played_date < timezone.localdate() - timedelta(days=1)
+        ):
+            self.day_streak = 0
+            self.save(update_fields=['day_streak'])
 
     def __str__(self) -> str:
         return (

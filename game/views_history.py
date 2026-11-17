@@ -1,26 +1,11 @@
 """
-game/views_history.py  ← NEW FILE
------------------------------------
-Paste this content into your existing game/views.py, OR keep it as a separate
-file and import it in game/urls.py alongside the existing views.
+Match history: saving finished games and serving them back.
 
-These additions provide:
-  • save_game_record()  — internal helper called when a game ends
+  • save_game_record()  — called by views.finish_game() when a game ends
   • match_history()     — renders the history list page
   • api_history()       — JSON list of recent games (for AJAX)
   • api_replay_pgn()    — JSON with a single game's PGN (for the viewer)
   • api_download_pgn()  — streams the PGN file for download
-
-Integration point
------------------
-In the existing view that handles game-over (wherever you currently build/return
-the "game over" response), call:
-
-    from game.views_history import save_game_record
-    save_game_record(request, pgn_string, result, termination,
-                     white_label="You", black_label="AI")
-
-That's the only change needed in views.py.
 """
 
 from django.db.models import Q

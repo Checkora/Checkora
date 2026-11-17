@@ -1,102 +1,78 @@
+{% extends 'game/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Discussion | Checkora Forum</title>
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght=400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/landing.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/forum.css' %}">
-    <script src="{% static 'game/js/theme.js' %}"></script>
-</head>
-<body>
-    <nav class="forum-navbar">
-        <div class="nav-left">
-            <a href="{% url 'landing' %}" class="logo-link">
-                <img src="{% static 'game/checkora_icon_only.png' %}"
-                    alt="Checkora Logo"
-                    class="logo-img">
 
-                <span class="logo-text">
-                    CHECK<span class="logo-accent">ORA</span>
-                </span>
-            </a>
-        </div>
+{% block title %}New discussion · Checkora forum{% endblock %}
 
-        <div class="nav-right">
-            <button
-                type="button"
-                id="themeToggle"
-                class="theme-toggle"
-                title="Toggle light / dark theme">
-            </button>
-            {% if user.is_authenticated %}
-            <div class="profile-dropdown">
-                <button type="button" class="profile-btn">
-                    {{ user.username }} ⌄
-                </button>
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/community.css' %}">{% endblock %}
 
-                <div class="dropdown-content">
-                    <a href="{% url 'profile' %}"> Profile </a>
-                    <a href="/play/">Dashboard</a>
-                    <a href="/stats/">Stats</a>
-                    <a href="{% url 'leaderboard' %}">Leaderboard</a>
-                    <a href="{% url 'achievements' %}">Achievements</a>
+{% block content %}
+<div class="wrap wrap--narrow page forum-container">
+    <header class="page-head">
+        <a class="back-link forum-back-link" href="{% url 'forum' %}">Forum</a>
+        <span class="eyebrow">New discussion</span>
+        <h1 class="forum-detail-title">Start a new <span class="serif">discussion.</span></h1>
+        <p>Ask a question, show a line you like, or tell us what to fix.</p>
+    </header>
 
-                    <form method="post" action="{% url 'logout' %}" style="margin:0;">
-                        {% csrf_token %}
-                        <button type="submit" class="logout-option">
-                            Logout
-                        </button>
-                    </form>
-                </div>
+    <form method="post" class="panel panel--raised stack forum-new-card forum-new-form" data-reveal>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="notice notice--error" role="alert">{{ form.non_field_errors|first }}</div>
+        {% endif %}
+
+        <div class="field forum-form-group">
+            <div class="field__row">
+                <label class="field__label" for="{{ form.title.id_for_label }}">Title</label>
+                <span class="field__count" id="titleCount" aria-hidden="true"></span>
             </div>
+            {{ form.title }}
+            {% if form.title.errors %}
+                <p class="field__error forum-error">{{ form.title.errors|first }}</p>
             {% else %}
-            <a href="{% url 'login' %}" class="btn-signin">Sign In</a>
-            <a href="{% url 'register' %}" class="btn-register">Register</a>
+                <p class="field__hint">At least 5 characters.</p>
             {% endif %}
         </div>
-    </nav>
 
-    <div class="forum-container">
-        <a href="{% url 'forum' %}" class="forum-back-link">← Back to Forum</a>
-
-        <div class="forum-new-card">
-            <h1 class="forum-detail-title">Start a New Discussion</h1>
-
-            <form method="post" class="forum-new-form">
-                {% csrf_token %}
-                <div class="forum-form-group">
-                    <label for="{{ form.title.id_for_label }}">Title</label>
-                    {{ form.title }}
-                    {% if form.title.errors %}
-                        <p class="forum-error">{{ form.title.errors|first }}</p>
-                    {% endif %}
-                </div>
-                <div class="forum-form-group">
-                    <label for="{{ form.category.id_for_label }}">Category</label>
-                    {{ form.category }}
-                    {% if form.category.errors %}
-                        <p class="forum-error">{{ form.category.errors|first }}</p>
-                    {% endif %}
-                </div>
-                <div class="forum-form-group">
-                    <label for="{{ form.content.id_for_label }}">Content</label>
-                    {{ form.content }}
-                    {% if form.content.errors %}
-                        <p class="forum-error">{{ form.content.errors|first }}</p>
-                    {% endif %}
-                </div>
-                <button type="submit" class="forum-btn-submit">Create Discussion</button>
-            </form>
+        <div class="field forum-form-group">
+            <label for="{{ form.category.id_for_label }}">Category</label>
+            <span class="select">{{ form.category }}</span>
+            {% if form.category.errors %}
+                <p class="field__error forum-error">{{ form.category.errors|first }}</p>
+            {% endif %}
         </div>
-    </div>
-    <script src="{% static 'game/js/dropdown.js' %}"></script>
-</body>
-</html>
+
+        <div class="field forum-form-group">
+            <label for="{{ form.content.id_for_label }}">Content</label>
+            {{ form.content }}
+            {% if form.content.errors %}
+                <p class="field__error forum-error">{{ form.content.errors|first }}</p>
+            {% else %}
+                <p class="field__hint">At least 10 characters.</p>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'forum' %}" class="button button--ghost">Cancel</a>
+            <button type="submit" class="button button--primary forum-btn-submit">Create discussion</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Shows how much of the title's length is used.
+    (function() {
+        const input = document.getElementById('{{ form.title.id_for_label }}');
+        const out = document.getElementById('titleCount');
+        if (!input || !out) return;
+        const max = Number(input.getAttribute('maxlength')) || 200;
+        const show = () => {
+            out.textContent = `${input.value.length} / ${max}`;
+        };
+        input.addEventListener('input', show);
+        show();
+    })();
+</script>
+{% endblock %}

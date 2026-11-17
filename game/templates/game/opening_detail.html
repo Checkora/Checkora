@@ -1,110 +1,149 @@
+{% extends 'game/base.html' %}
 {% load static %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ opening.name }}</title>
+{% block title %}{{ opening.name }} · Opening trainer · Checkora{% endblock %}
+{% block description %}{{ opening.name }}: {{ opening.description }} Play the line move by move.{% endblock %}
 
-    <link
-        rel="stylesheet"
-        href="{% static 'game/css/opening_trainer.css' %}"
-    >
-</head>
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/learn.css' %}">{% endblock %}
 
-<body>
+{% block content %}
+<div class="wrap page trainer">
+    {# opening_trainer.js reads the CSRF token from this form when it saves progress. #}
+    <form hidden>
+        {% csrf_token %}
+    </form>
 
-<form style="display:none;">
-    {% csrf_token %}
-</form>
-
-<a href="{% url 'opening_trainer' %}" class="back-btn">
-    ← Back to Openings
-</a>
-
-<div class="container">
-
-    <h1>{{ opening.name }}</h1>
-
-    <p>{{ opening.description }}</p>
-
-    <p>
-        <strong>Difficulty:</strong>
-        {{ opening.difficulty }}
-    </p>
-
-    <!-- Color Selection Toggle -->
-    <div class="color-toggle-container">
-        <span class="toggle-label">Play as:</span>
-        <button type="button" id="play-white-btn" class="toggle-btn active" aria-pressed="true">White</button>
-        <button type="button" id="play-black-btn" class="toggle-btn" aria-pressed="false">Black</button>
-
-        <label for="board-theme-select" class="toggle-label" style="margin-left: 20px;">Board Theme:</label>
-        <select id="board-theme-select" class="theme-select">
-            <option value="classic">Classic</option>
-            <option value="wood">Wood</option>
-            <option value="green">Green</option>
-            <option value="blue">Blue</option>
-        </select>
-    </div>
-
-    <!-- Chess Board Container -->
-    <div class="board-wrapper">
-        <div id="board" class="chess-board"></div>
-    </div>
-
-    <!-- Navigation Controls -->
-    <div class="nav-controls">
-        <button type="button" id="prev-move-btn" class="nav-btn" disabled>&larr; Previous</button>
-        <button type="button" id="reset-trainer-btn" class="nav-btn">Reset</button>
-        <button type="button" id="next-move-btn" class="nav-btn" disabled>Next &rarr;</button>
-    </div>
-
-    <div id="trainer-feedback" class="feedback-box">
-        Ready to begin.
-    </div>
-
-    <div class="progress-box">
-        <div id="move-progress">
-            0 / {{ opening.moves|length }}
+    <header class="page-head trainer__head">
+        <a class="back-link" href="{% url 'opening_trainer' %}">Openings</a>
+        <div class="cluster">
+            {% if opening.difficulty == 'Beginner' %}
+            <span class="chip chip--good">{{ opening.difficulty }}</span>
+            {% elif opening.difficulty == 'Advanced' %}
+            <span class="chip chip--check">{{ opening.difficulty }}</span>
+            {% else %}
+            <span class="chip chip--gold">{{ opening.difficulty }}</span>
+            {% endif %}
+            <span class="chip">{{ opening.moves|length }} moves</span>
         </div>
-        <label for="move-input">
-            Enter Move
-        </label>
-        <input
-            type="text"
-            id="move-input"
-            placeholder="Enter move (e4, Nf3...)"
-        />
+        <h1 data-reveal>{{ opening.name }}</h1>
+        <p class="lede" data-reveal style="--i: 1">{{ opening.description }}</p>
+    </header>
 
-        <button 
-            type="button"
-            id="check-move-btn">
-            Check Move
-        </button>
-        
-        <button 
-            type="button"
-            id="get-hint-btn">
-            Get Hint
-        </button>
-    </div>
+    <section class="trainer__stage" aria-label="Board">
+        <div class="board-wrapper">
+            <div id="board" class="chess-board"></div>
+        </div>
 
-    <h3>Opening Line</h3>
+        <div class="nav-controls">
+            <button type="button" id="prev-move-btn" class="button" disabled>&larr; Previous</button>
+            <button type="button" id="reset-trainer-btn" class="button button--ghost">Reset</button>
+            <button type="button" id="next-move-btn" class="button" disabled>Next &rarr;</button>
+        </div>
+    </section>
 
-    <ul>
-        {% for move in opening.moves %}
-        <li>{{ move }}</li>
-        {% endfor %}
-    </ul>
+    <aside class="trainer__side">
+        <div class="panel" data-reveal style="--i: 2">
+            <div id="trainer-feedback" class="feedback-box" role="status" aria-live="polite">
+                Ready to begin.
+            </div>
+            <div class="progress-box">
+                <div class="spread">
+                    <span class="label">Moves played</span>
+                    <span id="move-progress">
+                        0 / {{ opening.moves|length }}
+                    </span>
+                </div>
+                <div class="progress" aria-hidden="true"><span id="trainer-progress-fill"></span></div>
+            </div>
+            <ol class="line" id="opening-line" aria-label="Opening line">
+                {% for move in opening.moves %}
+                <li>{{ move }}</li>
+                {% endfor %}
+            </ol>
+        </div>
 
+        <div class="panel" data-reveal style="--i: 3">
+            <div class="field">
+                <label for="move-input">Or type the move</label>
+                <div class="move-entry">
+                    <input type="text" id="move-input" placeholder="e4, Nf3..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <button type="button" id="check-move-btn" class="button button--primary">Check move</button>
+                    <button type="button" id="get-hint-btn" class="button">Get hint</button>
+                </div>
+                <span class="field__hint">Drag a piece, or click it and then its square.</span>
+            </div>
+        </div>
+
+        <div class="panel" data-reveal style="--i: 4">
+            <div class="color-toggle-container">
+                <div class="field">
+                    <span class="field__label" id="play-as-label">Play as</span>
+                    <div class="tabs" role="group" aria-labelledby="play-as-label">
+                        <button type="button" id="play-white-btn" class="active" aria-pressed="true">White</button>
+                        <button type="button" id="play-black-btn" aria-pressed="false">Black</button>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="board-theme-select">Board theme</label>
+                    <select id="board-theme-select">
+                        <option value="classic">Classic</option>
+                        <option value="wood">Wood</option>
+                        <option value="green">Green</option>
+                        <option value="blue">Blue</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </aside>
 </div>
 
 {{ opening.moves|json_script:"opening-moves" }}
 {{ opening.name|json_script:"opening-name" }}
+{% endblock %}
 
+{% block scripts %}
+<script src="{% static 'game/js/confetti.js' %}"></script>
+<script>
+// opening_trainer.js reports through the count in #move-progress and the
+// message in #trainer-feedback, which it marks with data-state. This
+// watches both and keeps the bar, the move list and the feedback in step.
+(function() {
+    const progress = document.getElementById('move-progress');
+    const feedback = document.getElementById('trainer-feedback');
+    const fill = document.getElementById('trainer-progress-fill');
+    const moves = Array.from(document.querySelectorAll('#opening-line li'));
+
+    function showProgress() {
+        const [played, total] = progress.textContent.split('/').map((part) => parseInt(part, 10));
+        if (Number.isNaN(played) || !total) return;
+        fill.style.width = (played / total) * 100 + '%';
+        moves.forEach((move, index) => {
+            move.classList.toggle('is-played', index < played);
+            move.classList.toggle('is-next', index === played);
+        });
+    }
+
+    let finished = false;
+    function showFeedback() {
+        // "correct", "incorrect", "completed", or empty for a plain notice.
+        const state = feedback.dataset.state;
+        // Take it off and put it back so a second right or wrong move replays the animation.
+        delete feedback.dataset.state;
+        void feedback.offsetWidth;
+        if (state) feedback.dataset.state = state;
+
+        if (state === 'completed' && !finished && window.triggerConfetti) {
+            const tokens = getComputedStyle(document.documentElement);
+            const colors = ['--gold', '--gold-bright', '--gold-deep', '--title'].map((name) => tokens.getPropertyValue(name).trim());
+            window.triggerConfetti({ count: 120, spread: 90, colors });
+        }
+        finished = state === 'completed';
+    }
+
+    new MutationObserver(showProgress).observe(progress, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(showFeedback).observe(feedback, { childList: true, characterData: true, subtree: true });
+    showProgress();
+})();
+</script>
 <script src="{% static 'game/js/opening_trainer.js' %}"></script>
-
-</body>
-</html>
+{% endblock %}

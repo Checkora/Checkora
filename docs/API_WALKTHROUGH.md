@@ -34,26 +34,28 @@ python manage.py validate_env
 ```
 
 This diagnostic utility returns instantaneous status indicators for:
-- Python Version (must be $\ge 3.12$)
-- Presence of `.env` configurations
-- Path checks and execution permissions for the compiled chess engine binary (`game/engine/main.exe` or `game/engine/main`)
-- Database migrations integrity
-- Validity of `book.json` opening candidate entries
+- The `SECRET_KEY` setting (warns when it is shorter than 32 characters)
+- Whether a `g++` compiler is on the PATH
+- Path checks and execution permissions for the compiled chess engine binary (`game/engine/main.exe` or `game/engine/main`), and the presence of the Python fallback `game/engine/main.py`
+- The database connection and any unapplied migrations
+- The presence of the `game/static/` directory
 
 ---
 
 ## 🔗 Key REST Endpoints & Play Scenarios
 
+The responses below are shortened to the fields the walkthrough talks about. [API.md](API.md) lists every field and error response.
+
 ### 1. Initializing a Match (`POST /api/new-game/`)
 Resets the player's active session state and sets up a clean board.
 
-- **Payload Structure**:
+- **Payload Structure** (`time_limit` is in seconds):
   ```json
   {
     "mode": "ai",
-    "color": "white",
+    "player_color": "white",
     "difficulty": "medium",
-    "timer_mins": 10
+    "time_limit": 600
   }
   ```
 - **Response Mapping**:
@@ -91,7 +93,7 @@ Sends a move to the backend to validate and execute.
     "board": [ ... ],
     "current_turn": "black",
     "captured": null,
-    "game_status": "active",
+    "game_status": "ok",
     "move_history": [
       {
         "notation": "e4",
@@ -103,6 +105,7 @@ Sends a move to the backend to validate and execute.
     ]
   }
   ```
+  After an ordinary move `game_status` is `"ok"`. The other values are `"check"`, `"checkmate"`, `"stalemate"`, `"draw"` and `"timeout"`.
 
 ### 3. Polling AI Countermoves (`POST /api/ai-move/`)
 Triggered automatically by the frontend after a player's move completes in `Play vs AI` mode.
@@ -127,7 +130,19 @@ Triggered automatically by the frontend after a player's move completes in `Play
         "notation": "e5", "from": [1, 4], "to": [3, 4], "piece": "p", "color": "black"
       }
     ],
-    "game_status": "active"
+    "game_status": "ok"
+  }
+  ```
+
+### 4. Running out of time (`POST /api/timeout/`)
+When the clock on the page reaches zero, the frontend asks the server to end the game. The server checks its own stored clock. If that has run out too, the game is recorded as a loss on time and the response names the winner. If not, the server answers `400` with its clock values and the page carries on from those.
+
+- **Response Mapping**:
+  ```json
+  {
+    "valid": true,
+    "game_status": "timeout",
+    "winner": "black"
   }
   ```
 
@@ -135,7 +150,7 @@ Triggered automatically by the frontend after a player's move completes in `Play
 
 ## 🔒 Security Requirements & Headers
 
-Except for `/api/pause/` (which supports fast beacon cleanup), **every state-modifying POST request must provide the Django CSRF validation token**.
+Except for `/api/cron/cleanup-stale-games/` (which is CSRF-exempt and checks a bearer token instead), **every state-modifying POST request must provide the Django CSRF validation token**. That includes `/api/pause/`.
 
 ### Extracting CSRF via Javascript
 ```javascript
@@ -157,7 +172,7 @@ const response = await fetch('/api/move/', {
 
 1. **403 Forbidden Error on POSTs**:
    - *Cause*: Missing `X-CSRFToken` in request headers.
-   - *Fix*: Extract the token from the DOM cookie or input elements and bind it to the fetch headers map.
-2. **Move validation hangs indefinitely**:
-   - *Cause*: The backend C++ engine binary was built but crashed due to execution mismatches, or the Python fallback is loop-blocked.
-   - *Fix*: Run `python manage.py validate_env` to verify executable permissions.
+   - *Fix*: Read the token from the hidden `csrfmiddlewaretoken` input and bind it to the fetch headers map. The CSRF cookie is `HttpOnly` (`CSRF_COOKIE_HTTPONLY = True` in `core/settings.py`), so a script cannot read it from `document.cookie`.
+2. **Moves are slow, or the AI answers with `503`**:
+   - *Cause*: The engine did not answer. The bridge waits up to 10 seconds for a reply. A compiled binary that is not executable or was built from older sources is not used at all; the Python engine plays instead, and it is slower.
+   - *Fix*: Run `python manage.py validate_env` to verify executable permissions, and rebuild the binary with `g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main`.

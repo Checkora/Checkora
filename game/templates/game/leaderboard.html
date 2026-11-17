@@ -1,212 +1,256 @@
-<!DOCTYPE html>
+{% extends 'game/base.html' %}
 {% load static %}
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaderboards — Checkora</title>
-    <meta name="description" content="Checkora puzzle and chess rating leaderboards.">
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/leaderboard.css' %}?v=2">
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
-</head>
-<body>
 
-    <div class="header-container">
-        <div class="header-title-row">
-            <h1>🏆 Leaderboards</h1>
-            <a href="{% url 'landing' %}" class="back-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                Back to Home
-            </a>
+{% block title %}Leaderboards · Checkora{% endblock %}
+{% block description %}Checkora puzzle and chess rating leaderboards.{% endblock %}
+
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/community.css' %}">{% endblock %}
+{% block main_class %} community{% endblock %}
+
+{% block content %}
+<div class="wrap page">
+    <header class="page-head hero-split header-container">
+        <div class="hero-split__copy">
+            <a class="back-link" href="{% url 'landing' %}">Home</a>
+            <span class="eyebrow">Leaderboards</span>
+            <h1>The top <span class="serif">of the board.</span></h1>
+            <p>The fifty players who have solved the most puzzles, and the fifty highest chess ratings.</p>
+        </div>
+        <div class="piece-stage" data-piece="k" data-piece-color="w" aria-hidden="true">
+            <canvas></canvas>
+            <img class="piece-stage__flat" src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+        </div>
+    </header>
+
+    <div class="spread board-controls" data-reveal>
+        <div class="tabs tabs-container" role="tablist" aria-label="Leaderboards">
+            <button type="button" class="tab-button active" data-tab="puzzle" role="tab" aria-selected="true" aria-controls="puzzle-tab">Puzzles</button>
+            <button type="button" class="tab-button" data-tab="chess" role="tab" aria-selected="false" aria-controls="chess-tab">Chess rating</button>
         </div>
 
-        <!-- Real-time client-side search box -->
-        <div class="search-container">
-            <span class="search-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </span>
-            <input type="text" id="leaderboard-search" class="search-input" placeholder="Search by username..." aria-label="Search by username">
+        <div class="search-box search-container">
+            <svg class="ico search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="search" id="leaderboard-search" class="input search-input" placeholder="Search by username..." aria-label="Search by username" autocomplete="off">
         </div>
     </div>
 
-    <!-- Tabs Header -->
-    <div class="tabs-container">
-        <button type="button" class="tab-button active" data-tab="puzzle">🏆 Puzzle Leaderboard</button>
-        <button type="button" class="tab-button" data-tab="chess">♟ Chess Rating Leaderboard</button>
-    </div>
+    {# ---------- puzzles ---------- #}
+    <section id="puzzle-tab" class="tab-panel active" role="tabpanel" aria-label="Puzzle leaderboard">
+        {% if leaderboard %}
+        <ol class="podium" aria-label="Top three puzzle solvers" data-reveal>
+            {% for player in leaderboard|slice:":3" %}
+            <li class="podium__place podium__place--{{ forloop.counter }}">
+                <div class="podium__who">
+                    <span class="podium__face">
+                        {% if forloop.first %}
+                        <svg class="podium__crown" viewBox="0 0 38 30" fill="currentColor" aria-hidden="true"><path d="M3 26h32l2-18-9 7-9-13-9 13-9-7z"/></svg>
+                        {% endif %}
+                        <span class="avatar">{% if player.user.profile.avatar %}<img src="{{ player.user.profile.avatar }}" alt="">{% else %}{{ player.user.username|slice:':1' }}{% endif %}</span>
+                    </span>
+                    <span class="podium__name">{{ player.user.username }}</span>
+                    <span class="podium__score"><b data-count>{{ player.puzzles_solved }}</b> solved</span>
+                </div>
+                <div class="podium__block" aria-hidden="true">{{ forloop.counter }}</div>
+            </li>
+            {% endfor %}
+        </ol>
+        {% endif %}
 
-    <!-- Puzzle Tab Panel -->
-    <div id="puzzle-tab" class="tab-panel active">
-        <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>User</th>
-                    <th>Puzzles Solved</th>
-                    <th>Best Streak</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for player in leaderboard %}
-                <tr class="player-row">
-                    <td>{{ forloop.counter }}</td>
-                    <td>
-                        <div class="user-cell">
-                            <div class="avatar-container">
-                                {% if player.user.profile.avatar %}
-                                    <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
-                                {% else %}
-                                    <div class="user-avatar-icon" aria-hidden="true">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                    </div>
-                                {% endif %}
+        <div class="table-wrap table-container" data-reveal>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="rank">Rank</th>
+                        <th>User</th>
+                        <th class="num"><span class="wide-only">Puzzles solved</span><span class="narrow-only">Solved</span></th>
+                        <th class="num"><span class="wide-only">Best streak</span><span class="narrow-only">Streak</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in leaderboard %}
+                    <tr class="player-row{% if player.user_id == user.id %} is-me{% endif %}">
+                        <td class="rank"><span class="rank__n">{{ forloop.counter }}</span></td>
+                        <td>
+                            <div class="user-cell">
+                                <span class="avatar avatar--soft avatar-container">{% if player.user.profile.avatar %}<img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">{% else %}{{ player.user.username|slice:':1' }}{% endif %}</span>
+                                <span class="username">{{ player.user.username }}</span>
+                                {% if player.user_id == user.id %}<span class="chip chip--gold">You</span>{% endif %}
                             </div>
-                            <span class="username">{{ player.user.username }}</span>
-                        </div>
-                    </td>
-                    <td>{{ player.puzzles_solved }}</td>
-                    <td>{{ player.best_streak }}</td>
-                </tr>
-                {% empty %}
-                <tr class="empty-row">
-                    <td colspan="4">No leaderboard data available yet.</td>
-                </tr>
-                {% endfor %}
-                <tr id="puzzle-empty-search" class="empty-row" style="display: none;">
-                    <td colspan="4">No matching players found.</td>
-                </tr>
-            </tbody>
-        </table>
+                        </td>
+                        <td class="num">{{ player.puzzles_solved }}</td>
+                        <td class="num">{{ player.best_streak }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="4">No leaderboard data available yet.</td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="puzzle-empty-search" class="empty-row" hidden>
+                        <td colspan="4">No matching players found.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-    </div>
+        {% if leaderboard %}
+        <p class="table-note">Top 50, by puzzles solved and then by best streak.</p>
+        {% else %}
+        <p class="table-note">Solve a puzzle and the first row is yours. <a class="text-link" href="{% url 'puzzles' %}">Open the puzzles</a></p>
+        {% endif %}
+    </section>
 
-    <!-- Chess Tab Panel -->
-    <div id="chess-tab" class="tab-panel">
-        <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>User</th>
-                    <th>Rating</th>
-                    <th>Games Played</th>
-                    <th>Wins</th>
-                    <th>Loss</th>
-                    <th>Draws</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for player in chess_leaderboard %}
-                <tr class="player-row">
-                    <td>{{ forloop.counter }}</td>
-                    <td>
-                        <div class="user-cell">
-                            <div class="avatar-container">
-                                {% if player.user.profile.avatar %}
-                                    <img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">
-                                {% else %}
-                                    <div class="user-avatar-icon" aria-hidden="true">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                    </div>
-                                {% endif %}
+    {# ---------- chess rating ---------- #}
+    <section id="chess-tab" class="tab-panel" role="tabpanel" aria-label="Chess rating leaderboard">
+        {% if chess_leaderboard %}
+        <ol class="podium" aria-label="Top three chess ratings" data-reveal>
+            {% for player in chess_leaderboard|slice:":3" %}
+            <li class="podium__place podium__place--{{ forloop.counter }}">
+                <div class="podium__who">
+                    <span class="podium__face">
+                        {% if forloop.first %}
+                        <svg class="podium__crown" viewBox="0 0 38 30" fill="currentColor" aria-hidden="true"><path d="M3 26h32l2-18-9 7-9-13-9 13-9-7z"/></svg>
+                        {% endif %}
+                        <span class="avatar">{% if player.user.profile.avatar %}<img src="{{ player.user.profile.avatar }}" alt="">{% else %}{{ player.user.username|slice:':1' }}{% endif %}</span>
+                    </span>
+                    <span class="podium__name">{{ player.user.username }}</span>
+                    <span class="podium__score"><b data-count>{{ player.rating }}</b> rating</span>
+                </div>
+                <div class="podium__block" aria-hidden="true">{{ forloop.counter }}</div>
+            </li>
+            {% endfor %}
+        </ol>
+        {% endif %}
+
+        <div class="table-wrap table-container" data-reveal>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="rank">Rank</th>
+                        <th>User</th>
+                        <th class="num">Rating</th>
+                        <th class="num only-wide">Games played</th>
+                        <th class="num only-wide">Wins</th>
+                        <th class="num only-wide">Losses</th>
+                        <th class="num only-wide">Draws</th>
+                        <th class="num only-narrow">W / L / D</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in chess_leaderboard %}
+                    <tr class="player-row{% if player.user_id == user.id %} is-me{% endif %}">
+                        <td class="rank"><span class="rank__n">{{ forloop.counter }}</span></td>
+                        <td>
+                            <div class="user-cell">
+                                <span class="avatar avatar--soft avatar-container">{% if player.user.profile.avatar %}<img src="{{ player.user.profile.avatar }}" class="user-avatar" alt="">{% else %}{{ player.user.username|slice:':1' }}{% endif %}</span>
+                                <span class="username">{{ player.user.username }}</span>
+                                {% if player.user_id == user.id %}<span class="chip chip--gold">You</span>{% endif %}
                             </div>
-                            <span class="username">{{ player.user.username }}</span>
-                        </div>
-                    </td>
-                    <td>{{ player.rating }}</td>
-                    <td>{{ player.games_played }}</td>
-                    <td>{{ player.wins }}</td>
-                    <td>{{ player.losses }}</td>
-                    <td>{{ player.draws }}</td>
-                </tr>
-                {% empty %}
-                <tr class="empty-row">
-                    <td colspan="7">No chess rating data available yet.</td>
-                </tr>
-                {% endfor %}
-                <tr id="chess-empty-search" class="empty-row" style="display: none;">
-                    <td colspan="7">No matching players found.</td>
-                </tr>
-            </tbody>
-        </table>
+                        </td>
+                        <td class="num">{{ player.rating }}</td>
+                        <td class="num only-wide">{{ player.games_played }}</td>
+                        <td class="num only-wide">{{ player.wins }}</td>
+                        <td class="num only-wide">{{ player.losses }}</td>
+                        <td class="num only-wide">{{ player.draws }}</td>
+                        <td class="num only-narrow">{{ player.wins }} / {{ player.losses }} / {{ player.draws }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="8">No chess rating data available yet.</td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="chess-empty-search" class="empty-row" hidden>
+                        <td colspan="8">No matching players found.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-    </div>
+        {% if chess_leaderboard %}
+        <p class="table-note">Top 50, by rating.</p>
+        {% else %}
+        <p class="table-note">Finish a game against the engine to get a rating. <a class="text-link" href="{% url 'index' %}">Play now</a></p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Tab Toggle Logic
-            const tabs = document.querySelectorAll('.tab-button');
-            const panels = document.querySelectorAll('.tab-panel');
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Tabs
+        const tabs = document.querySelectorAll('.tab-button');
+        const panels = document.querySelectorAll('.tab-panel');
+        const searchInput = document.getElementById('leaderboard-search');
 
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    // Remove active class from all tabs & panels
-                    tabs.forEach(t => t.classList.remove('active'));
-                    panels.forEach(p => p.classList.remove('active'));
-
-                    // Add active class to clicked tab and corresponding panel
-                    tab.classList.add('active');
-                    const targetPanel = document.getElementById(`${tab.dataset.tab}-tab`);
-                    if (targetPanel) {
-                        targetPanel.classList.add('active');
-                    }
-                    
-                    // Filter again in case there's an active search query
-                    filterRows();
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.setAttribute('aria-selected', 'false');
                 });
-            });
+                panels.forEach(p => p.classList.remove('active'));
 
-            // Search Logic
-            const searchInput = document.getElementById('leaderboard-search');
+                tab.classList.add('active');
+                tab.setAttribute('aria-selected', 'true');
+                const targetPanel = document.getElementById(`${tab.dataset.tab}-tab`);
+                if (targetPanel) {
+                    targetPanel.classList.add('active');
+                }
 
-            searchInput.addEventListener('input', () => {
+                // Filter again in case there's an active search query
                 filterRows();
             });
-
-            function filterRows() {
-                const query = searchInput.value.toLowerCase().trim();
-                
-                // Filter only the active panel's rows
-                const activePanel = document.querySelector('.tab-panel.active');
-                if (!activePanel) return;
-
-                const rows = activePanel.querySelectorAll('.player-row');
-                const emptyRow = activePanel.querySelector('.empty-row:not([id$="-empty-search"])');
-                const emptySearchRow = activePanel.querySelector('[id$="-empty-search"]');
-                
-                let visibleCount = 0;
-
-                // Hide empty rows by default if there is a query, otherwise reset
-                if (emptyRow) {
-                    emptyRow.style.display = (query === '') ? '' : 'none';
-                }
-
-                rows.forEach(row => {
-                    const usernameElement = row.querySelector('.username');
-                    if (usernameElement) {
-                        const username = usernameElement.textContent.toLowerCase();
-                        if (username.includes(query)) {
-                            row.style.display = '';
-                            visibleCount++;
-                        } else {
-                            row.style.display = 'none';
-                        }
-                    }
-                });
-
-                // Handle empty search feedback
-                if (emptySearchRow) {
-                    if (visibleCount === 0 && query !== '') {
-                        emptySearchRow.style.display = '';
-                    } else {
-                        emptySearchRow.style.display = 'none';
-                    }
-                }
-            }
         });
-    </script>
-</body>
-</html>
+
+        // Search
+        searchInput.addEventListener('input', () => {
+            filterRows();
+        });
+
+        function filterRows() {
+            const query = searchInput.value.toLowerCase().trim();
+
+            // Filter only the active panel's rows
+            const activePanel = document.querySelector('.tab-panel.active');
+            if (!activePanel) return;
+
+            const rows = activePanel.querySelectorAll('.player-row');
+            const emptyRow = activePanel.querySelector('.empty-row:not([id$="-empty-search"])');
+            const emptySearchRow = activePanel.querySelector('[id$="-empty-search"]');
+            const podium = activePanel.querySelector('.podium');
+
+            let visibleCount = 0;
+
+            // The "no data yet" row gives way to the search result
+            if (emptyRow) {
+                emptyRow.hidden = query !== '';
+            }
+
+            // The podium shows the real top three, so it steps aside during a search
+            if (podium) {
+                podium.hidden = query !== '';
+            }
+
+            rows.forEach(row => {
+                const usernameElement = row.querySelector('.username');
+                if (usernameElement) {
+                    const username = usernameElement.textContent.toLowerCase();
+                    if (username.includes(query)) {
+                        row.hidden = false;
+                        visibleCount++;
+                    } else {
+                        row.hidden = true;
+                    }
+                }
+            });
+
+            if (emptySearchRow) {
+                emptySearchRow.hidden = !(visibleCount === 0 && query !== '');
+            }
+        }
+    });
+</script>
+<script type="module" src="{% static 'game/js/community.js' %}"></script>
+{% endblock %}

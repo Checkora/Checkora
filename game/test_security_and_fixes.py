@@ -80,26 +80,62 @@ class SecurityAndFixesTest(TestCase):
         self.assertFalse(ActiveGame.objects.filter(user=self.user, status='active').exists())
 
     def test_badge_generation_and_download(self):
-        """Test generate_badge resolves template correctly and download_badge streams it."""
+        """generate_badge draws the PNG in memory and download_badge streams it."""
+        from pathlib import Path
+        from unittest import mock
+        from PIL import ImageFont
+        from game import services
+
         self.client.login(username='chess_master', password='Password123!')
-        achievement = Achievement.objects.create(
+        achievement, _ = Achievement.objects.update_or_create(
             code="FIRST_WIN",
-            title="First Victory",
-            description="Win your first chess game",
-            rarity="common",
-            category="tactics"
+            defaults={
+                "title": "First Victory",
+                "description": "Win your first chess game",
+                "rarity": "common",
+                "category": "gameplay",
+            },
         )
         user_ach = UserAchievement.objects.create(
             user=self.user,
             achievement=achievement
         )
 
-        badge_path = generate_badge(user_ach)
-        self.assertTrue(badge_path.exists())
+        # Older code wrote badges into this folder; it may still be around.
+        badge_dir = Path(services.__file__).parent / 'generated_badges'
+        files_before = sorted(badge_dir.glob('*')) if badge_dir.exists() else None
+
+        with mock.patch.object(
+            services.ImageFont, 'load_default', wraps=ImageFont.load_default
+        ) as load_default:
+            badge = generate_badge(user_ach)
+
+        self.assertEqual(badge.read(8), b'\x89PNG\r\n\x1a\n')
+        # Sized text from Pillow's own font: title, description, label, name.
+        sizes = sorted(call.kwargs['size'] for call in load_default.call_args_list)
+        self.assertEqual(sizes, [32, 38, 60, 85])
+        # Nothing is written next to the code; the deployment cannot write there.
+        files_after = sorted(badge_dir.glob('*')) if badge_dir.exists() else None
+        self.assertEqual(files_before, files_after)
 
         dl_resp = self.client.get(f'/achievement/{achievement.id}/download/')
         self.assertEqual(dl_resp.status_code, 200)
         self.assertEqual(dl_resp['Content-Type'], 'image/png')
+        self.assertIn('first-victory.png', dl_resp['Content-Disposition'])
+        self.assertEqual(b''.join(dl_resp.streaming_content)[:8], b'\x89PNG\r\n\x1a\n')
+
+    def test_badge_download_reports_a_missing_template(self):
+        self.client.login(username='chess_master', password='Password123!')
+        achievement, _ = Achievement.objects.update_or_create(
+            code="FIRST_WIN", defaults={"title": "First Victory", "rarity": "nosuchrarity"},
+        )
+        UserAchievement.objects.create(user=self.user, achievement=achievement)
+
+        with self.assertLogs('game.views', level='ERROR') as logs:
+            response = self.client.get(f'/achievement/{achievement.id}/download/')
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn('Badge template not found', logs.output[0])
 
     def test_update_opening_progress_null_user(self):
         """Verify update_opening_progress returns tuple when user is None."""

@@ -285,8 +285,12 @@ document.addEventListener(
             R: "♖",
             Q: "♕",
             K: "♔",
-
-            
+            p: "♟",
+            n: "♞",
+            b: "♝",
+            r: "♜",
+            q: "♛",
+            k: "♚"
         };
 
         board.innerHTML = "";
@@ -454,6 +458,21 @@ document.addEventListener(
                             );
                     }
 
+                    // Castling: king on e1, rook in its corner, nothing between them.
+                    if (piece === "♔" && square.dataset.square === "e1") {
+                        const at = name => board.querySelector(`[data-square="${name}"]`).innerHTML.trim();
+                        if (at("h1") === "♖" && !at("f1") && !at("g1")) moves.push("g1");
+                        if (at("a1") === "♖" && !at("b1") && !at("c1") && !at("d1")) moves.push("c1");
+                    }
+
+                    // A piece with nowhere to go (the black pieces are only there
+                    // to be attacked) is not selected, or the board would be stuck on it.
+                    if (!moves.length) {
+                        square.classList.remove("selected-square");
+                        selectedSquare = null;
+                        return;
+                    }
+
                     currentLegalMoves = moves;
 
                     moves.forEach(
@@ -525,6 +544,14 @@ document.addEventListener(
 
                 sourceSquare.innerHTML =
                     "";
+
+                // Castling takes the rook along.
+                if (piece.trim() === "♔" && from === "e1" && (to === "g1" || to === "c1")) {
+                    const rookFrom = board.querySelector(`[data-square="${to === "g1" ? "h1" : "a1"}"]`);
+                    const rookTo = board.querySelector(`[data-square="${to === "g1" ? "f1" : "d1"}"]`);
+                    rookTo.innerHTML = rookFrom.innerHTML;
+                    rookFrom.innerHTML = "";
+                }
                 }
             }
         );
@@ -562,10 +589,11 @@ function checkMove(move) {
     ) {
 
         result.textContent =
-            "✅ Correct Move!";
+            "Correct move!";
 
-        result.style.color =
-            "#4caf50";
+        // The stylesheet colours the result by its state.
+        result.dataset.state =
+            "right";
 
         currentStep++;
 
@@ -583,13 +611,10 @@ function checkMove(move) {
             document.getElementById(
                 "lesson-instruction"
             ).textContent =
-                "🎉 Lesson Complete!";
+                "Lesson complete!";
 
             result.textContent =
-                "🏆 Great Job!";
-
-            result.style.color =
-                "#4caf50";
+                "Great job!";
         }
 
         return true;
@@ -597,10 +622,11 @@ function checkMove(move) {
     } else {
 
         result.textContent =
-            "❌ Try Again";
+            "Try again";
 
-        result.style.color =
-            "#ff5252";
+        result.dataset.state =
+            "wrong";
+
         document.getElementById(
             "retry-btn"
         ).style.display =

@@ -6,10 +6,20 @@ import time
 from smtplib import SMTPException
 from unittest import mock
 
+from datetime import timedelta
+
 from django.utils import timezone
 from game.models import (
     ActiveGame,
+    ChessPuzzle,
+    GameRecord,
+    GameResult,
+    LessonProgress,
     OpeningProgress,
+    PuzzleStats,
+    RatingHistory,
+    Reply,
+    UserAchievement,
     UserProgress,
     Discussion,
     DiscussionBookmark,
@@ -105,13 +115,21 @@ class LandingViewTest(TestCase):
     """The landing page at / should load and link to the game."""
 
     def test_landing_page_loads(self):
-        response = self.client.get('/home/')
+        response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Checkora')
 
     def test_landing_page_links_to_play(self):
-        response = self.client.get('/home/')
+        response = self.client.get('/')
         self.assertContains(response, '/play/')
+
+    def test_landing_is_the_root_url(self):
+        self.assertEqual(reverse('landing'), '/')
+
+    def test_old_home_url_redirects_permanently(self):
+        response = self.client.get('/home/')
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response.url, '/')
 
 
 class NotFoundPageTest(TestCase):
@@ -121,9 +139,10 @@ class NotFoundPageTest(TestCase):
     def test_unknown_url_renders_themed_404_page(self):
         response = self.client.get('/this-route-does-not-exist/')
         self.assertEqual(response.status_code, 404)
-        self.assertContains(response, 'This move is illegal!', status_code=404)
-        self.assertContains(response, 'Return to Main Menu', status_code=404)
-        self.assertContains(response, reverse('landing'), status_code=404)
+        # The wording belongs to the template; the page and its way home matter here.
+        self.assertTemplateUsed(response, '404.html')
+        self.assertContains(response, 'Checkora', status_code=404)
+        self.assertContains(response, f'href="{reverse("landing")}"', status_code=404)
 
 
 class ServerErrorPageTest(SimpleTestCase):
@@ -136,17 +155,9 @@ class ServerErrorPageTest(SimpleTestCase):
         response = custom_server_error(request)
 
         self.assertEqual(response.status_code, 500)
-        self.assertContains(
-            response,
-            'The King has fallen!',
-            status_code=500,
-        )
-        self.assertContains(
-            response,
-            'Return to Main Menu',
-            status_code=500,
-        )
-        self.assertContains(response, reverse('landing'), status_code=500)
+        # The wording belongs to the template; the page and its way home matter here.
+        self.assertContains(response, 'Checkora', status_code=500)
+        self.assertContains(response, f'href="{reverse("landing")}"', status_code=500)
 
 class RegistrationViewTest(TestCase):
     """Registration should support local OTP fallback and email failures."""
@@ -1133,7 +1144,7 @@ class AIMoveTest(TestCase):
 
     def test_ai_makes_move(self):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/', data=json.dumps({'mode': 'ai', 'player_color': 'black'}),
             content_type='application/json'
         )
         r = self.client.post('/api/ai-move/', content_type='application/json')
@@ -1148,7 +1159,7 @@ class AIMoveTest(TestCase):
 
     def test_ai_aborts_if_game_paused(self):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/', data=json.dumps({'mode': 'ai', 'player_color': 'black'}),
             content_type='application/json'
         )
 
@@ -1175,7 +1186,7 @@ class AIMoveTest(TestCase):
 
     def test_ai_succeeds_after_resume(self):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/', data=json.dumps({'mode': 'ai', 'player_color': 'black'}),
             content_type='application/json'
         )
 
@@ -1205,7 +1216,7 @@ class AIMoveTest(TestCase):
     @mock.patch('game.engine.ChessGame.get_ai_move')
     def test_ai_aborts_if_paused_during_calculation(self, mock_get_ai_move):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/', data=json.dumps({'mode': 'ai', 'player_color': 'black'}),
             content_type='application/json'
         )
 
@@ -1240,7 +1251,7 @@ class AIMoveTest(TestCase):
 
     def test_ai_aborts_on_session_read_error(self):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/', data=json.dumps({'mode': 'ai', 'player_color': 'black'}),
             content_type='application/json'
         )
         with mock.patch('game.views.import_module') as mock_import:
@@ -1260,7 +1271,7 @@ class AIMoveTest(TestCase):
     @mock.patch('game.engine.ChessGame.make_move')
     def test_ai_preserves_concurrent_pause_during_save(self, mock_make_move):
         self.client.post(
-            '/api/new-game/', data=json.dumps({'mode': 'ai'}),
+            '/api/new-game/', data=json.dumps({'mode': 'ai', 'player_color': 'black'}),
             content_type='application/json'
         )
 
@@ -1513,79 +1524,124 @@ class AnalyzeGameTest(TestCase):
     """Test the /api/analyze-game/ endpoint for Issue #332."""
 
     def setUp(self):
+        # The endpoint is rate limited per user and per address, and the
+        # counters live in the cache, which outlasts a single test.
+        cache.clear()
         self.user = User.objects.create_user(username='test_analyze_user', password='password123')
         self.client.force_login(self.user)
 
     def test_missing_moves_json(self):
         r = self.client.post('/api/analyze-game/', content_type='application/json')
-        print("MISSING MOVES RESPONSE:", r.status_code, r.content)
         self.assertEqual(r.status_code, 400)
         self.assertIn('error', r.json())
 
-    @mock.patch('game.views.ChessGame.get_ai_move')
-    def test_analyze_game_identifies_mistake_and_blunder(self, mock_ai):
-        # Engine returns a massive capture as best move
-        # If the player plays e4 instead, they miss out on the capture, making it a Blunder.
-        mock_ai.return_value = {
-            'from_row': 7, 'from_col': 6, 'to_row': 1, 'to_col': 3  # Pretend it captures a Queen
-        }
+    def _mock_board(self, MockGame, mock_ai):
+        instance = MockGame.return_value
+        instance.board = [['' for _ in range(8)] for _ in range(8)]
+        instance.board[6][4] = 'P'  # Place moving pawn
 
-        # Fake board state to make the heuristic think the best move captures a queen (val 9)
+        # Mock get_valid_moves and _notation so the inner loop finds it
+        instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
+        instance._notation.return_value = 'e4'
+        instance._color.return_value = 'white'
+        instance.current_turn = 'white'
+        instance.serialize_board.return_value = 'board'
+        instance.serialize_castling_rights.return_value = 'rights'
+        instance._serialize_ep.return_value = '-'
+        instance.get_ai_move = mock_ai
+        return instance
+
+    def _analyze_e4(self, mock_ai):
         with mock.patch('game.views.ChessGame') as MockGame:
-            instance = MockGame.return_value
-            instance.board = [['' for _ in range(8)] for _ in range(8)]
-            instance.board[1][3] = 'q'  # Queen at target square
-            instance.board[6][4] = 'P'  # Place moving pawn
+            self._mock_board(MockGame, mock_ai)
+            r = self.client.post(
+                '/api/analyze-game/',
+                data=json.dumps({"moves": ["e4"]}),
+                content_type='application/json',
+            )
+        self.assertEqual(r.status_code, 200)
+        return r.json()
 
-            # Mock get_valid_moves and _notation so the inner loop finds it
-            instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
-            instance._notation.return_value = 'e4'
-            instance._color.return_value = 'white'
-            instance.current_turn = 'white'
-            instance.serialize_board.return_value = 'board'
-            instance.serialize_castling_rights.return_value = 'rights'
-            instance._serialize_ep.return_value = '-'
+    def _engine_says(self, best_eval, eval_after):
+        """Engine prefers another move worth best_eval; e4 leads to eval_after."""
+        other_move = {'from_row': 7, 'from_col': 6, 'to_row': 5, 'to_col': 5}
+        return mock.Mock(side_effect=[
+            {**other_move, 'eval': best_eval, 'alts': []},
+            {**other_move, 'eval': eval_after, 'alts': []},
+        ])
 
-            instance.get_ai_move = mock_ai
+    def test_analyze_game_blunder_by_eval_loss(self):
+        data = self._analyze_e4(self._engine_says(900, 0))
 
-            payload = {"moves": ["e4"]}
-            r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(len(data['move_analysis_details']), 1)
+        white_analysis = data['move_analysis_details'][0]
+        self.assertEqual(white_analysis['played'], 'e4')
+        self.assertEqual(white_analysis['class'], 'Blunder')
+        self.assertEqual(data['blunders'], 1)
+        self.assertEqual(data['accuracy'], 0)
 
-            self.assertEqual(r.status_code, 200)
-            data = r.json()
+    def test_analyze_game_mistake_by_eval_loss(self):
+        data = self._analyze_e4(self._engine_says(150, 0))
+        self.assertEqual(data['move_analysis_details'][0]['class'], 'Mistake')
+        self.assertEqual(data['mistakes'], 1)
 
-            self.assertEqual(len(data['move_analysis_details']), 1)
+    def test_analyze_game_small_loss_is_inaccuracy(self):
+        data = self._analyze_e4(self._engine_says(40, 0))
+        self.assertEqual(data['move_analysis_details'][0]['class'], 'Inaccuracy')
+        self.assertEqual(data['accuracy'], 100)
 
-            # White played e4 but engine wanted to capture a Queen. Blunder!
-            white_analysis = data['move_analysis_details'][0]
-            self.assertEqual(white_analysis['played'], 'e4')
-            self.assertEqual(white_analysis['class'], 'Blunder')
-            self.assertEqual(data['blunders'], 1)
+    def test_analyze_game_uses_eval_of_played_move_from_same_search(self):
+        played = {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4, 'eval': 20}
+        mock_ai = mock.Mock(side_effect=[
+            {'from_row': 7, 'from_col': 6, 'to_row': 5, 'to_col': 5, 'eval': 500, 'alts': [played]},
+            {'from_row': 7, 'from_col': 6, 'to_row': 5, 'to_col': 5, 'eval': 480, 'alts': []},
+        ])
+        data = self._analyze_e4(mock_ai)
+        # 500 against the 20 the search gave the played move, not the 480 after it.
+        self.assertEqual(data['move_analysis_details'][0]['class'], 'Blunder')
+
+    def test_analyze_game_engine_move_is_best(self):
+        same = {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4, 'eval': 30, 'alts': []}
+        data = self._analyze_e4(mock.Mock(side_effect=[same, same]))
+        self.assertEqual(data['move_analysis_details'][0]['class'], 'Best')
 
     @mock.patch('game.views.ChessGame.get_ai_move')
-    def test_analyze_game_engine_failure(self, mock_ai):
+    def test_analyze_game_black_loss_is_judged_from_blacks_side(self, mock_ai):
+        mock_ai.side_effect = [
+            # White to move: the engine also plays e4.
+            {'from_row': 6, 'from_col': 4, 'to_row': 4, 'to_col': 4, 'eval': 30, 'alts': []},
+            # Black to move: the engine wants d5 and sees Black far ahead.
+            {'from_row': 1, 'from_col': 3, 'to_row': 3, 'to_col': 3, 'eval': -400, 'alts': []},
+            # After e5 the position is level again.
+            {'from_row': 6, 'from_col': 3, 'to_row': 4, 'to_col': 3, 'eval': 10, 'alts': []},
+        ]
+        r = self.client.post(
+            '/api/analyze-game/',
+            data=json.dumps({"moves": ["e4", "e5"]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 200)
+        classes = [d['class'] for d in r.json()['move_analysis_details']]
+        self.assertEqual(classes, ['Best', 'Blunder'])
+
+    def test_analyze_game_engine_failure(self):
         # Simulate an engine crash or timeout (raises Exception)
-        mock_ai.side_effect = Exception("Engine timeout")
+        mock_ai = mock.Mock(side_effect=Exception("Engine timeout"))
+        data = self._analyze_e4(mock_ai)
 
-        payload = {"moves": ["e4"]}
+        # No engine answer means no verdict, and no made-up accuracy.
+        self.assertEqual(data['move_analysis_details'][0]['class'], 'Unknown')
+        self.assertIsNone(data['accuracy'])
+        self.assertEqual(data['blunders'], 0)
 
-        with mock.patch('game.views.ChessGame') as MockGame:
-            instance = MockGame.return_value
-            instance.board = [['' for _ in range(8)] for _ in range(8)]
-            instance.board[6][4] = 'P'  # Place moving pawn
-            instance.get_valid_moves.return_value = [{'row': 4, 'col': 4}]
-            instance._notation.return_value = 'e4'
-            instance._color.return_value = 'white'
-            instance.current_turn = 'white'
-            instance.serialize_board.return_value = 'board'
-            instance.serialize_castling_rights.return_value = 'rights'
-            instance._serialize_ep.return_value = '-'
-            instance.get_ai_move = mock_ai
+    @override_settings(ANALYSIS_TIMEOUT_SECONDS=0)
+    def test_analyze_game_stops_at_the_deadline(self):
+        mock_ai = mock.Mock(return_value=None)
+        data = self._analyze_e4(mock_ai)
 
-            r = self.client.post('/api/analyze-game/', data=json.dumps(payload), content_type='application/json')
-
-            self.assertEqual(r.status_code, 200)
-            self.assertEqual(r.json()['accuracy'], 100) # Defaults to 100% accurate if engine fails
+        self.assertTrue(data['truncated'])
+        self.assertEqual(data['move_analysis_details'], [])
+        mock_ai.assert_not_called()
 
 class MoveHistoryColorTest(TestCase):
     """Test that move_history records the correct player color."""
@@ -1923,6 +1979,10 @@ class SecureRegistrationTest(TestCase):
         'password2': 'StrongPass123!',
     }
 
+    def setUp(self):
+        # The per-address mail cooldown lives in the cache.
+        cache.clear()
+
     # --- 1. Fresh registration ------------------------------------------------
 
     @override_settings(
@@ -2070,7 +2130,9 @@ class SecureRegistrationTest(TestCase):
         reused = User.objects.get(id=old_id)
         self.assertEqual(reused.username, 'newchessplayer')
         self.assertEqual(reused.email, 'newchessplayer@example.com')
-        self.assertTrue(reused.check_password('StrongPass123!'))
+        self.assertEqual(self.client.session['registration_user_id'], old_id)
+        # The new password only lands once this browser verifies its code.
+        self.assertTrue(reused.check_password('OldPassword456!'))
         self.assertEqual(User.objects.filter(id=old_id).count(), 1)
 
     # --- 6. Concurrent registration — IntegrityError handled ------------------
@@ -3216,8 +3278,9 @@ class ChessPuzzleDailyApiTest(TestCase):
         data = response.json()
         self.assertEqual(data['id'], 0)
         self.assertEqual(data['title'], "Default Puzzle")
-        self.assertEqual(data['difficulty'], "medium")
-        self.assertIn("6k1/5ppp/8/8/8/8/5PPP/6KQ", data['fen'])
+        self.assertEqual(data['difficulty'], "easy")
+        self.assertIn("6k1/5ppp/8/8/8/8/5PPP/4R1K1", data['fen'])
+        self.assertEqual(data['solution'], ["e1e8"])
 
     def test_daily_puzzle_api_selects_by_date(self):
         """When a puzzle is assigned to today's date, it is returned."""
@@ -3362,170 +3425,144 @@ class LeaderboardAndAchievementsViewOriginalTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class UpdatePuzzleStatsViewTest(TestCase):
-    """Test the update_puzzle_stats view function."""
+class PuzzleSolveApiTest(TestCase):
+    """POST /api/puzzles/<id>/solve/ keeps the puzzle stats on the server."""
+
+    FEN = "6k1/5ppp/8/8/8/8/5PPP/6KQ w - - 0 1"
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            username='puzzler',
-            password='Password123!',
-            email='puzzler@example.com'
+        self.user = User.objects.create_user(username='solver', password='Password123!')
+        self.today = timezone.localdate()
+        # Pin today's daily puzzle so the rotation cannot pick another one.
+        self.daily = ChessPuzzle.objects.create(
+            title='Today', fen=self.FEN, solution=['h1a8'], date=self.today,
         )
-        self.factory = RequestFactory()
+        self.other = ChessPuzzle.objects.create(
+            title='Any day', fen=self.FEN, solution=['g2g4', 'h7h6', 'g4g5'],
+        )
 
-    def test_anonymous_user_is_redirected(self):
-        from . import views
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps({}), content_type='application/json')
-        from django.contrib.auth.models import AnonymousUser
-        request.user = AnonymousUser()
+    def _solve(self, puzzle, payload):
+        return self.client.post(
+            reverse('puzzle_solve_api', args=[puzzle.id]),
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
 
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 302)
+    def test_anonymous_gets_401(self):
+        response = self._solve(self.other, {'moves': ['g2g4', 'h7h6', 'g4g5']})
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(PuzzleStats.objects.exists())
 
-    def test_non_post_request_returns_405(self):
-        from . import views
-        request = self.factory.get('/api/puzzle-stats/update/')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
+    def test_get_is_not_allowed(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('puzzle_solve_api', args=[self.other.id]))
         self.assertEqual(response.status_code, 405)
 
-    def test_invalid_json_returns_400(self):
-        from . import views
-        request = self.factory.post('/api/puzzle-stats/update/', data="invalid-json", content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(json.loads(response.content), {'error': 'invalid json'})
-
-    def test_non_object_json_returns_400(self):
-        from . import views
-        request = self.factory.post(
-            '/api/puzzle-stats/update/',
-            data=json.dumps([]),
-            content_type='application/json'
+    def test_unknown_puzzle_is_404(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('puzzle_solve_api', args=[0]),
+            data=json.dumps({'moves': ['g2g4']}),
+            content_type='application/json',
         )
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('error', json.loads(response.content))
+        self.assertEqual(response.status_code, 404)
 
-    def test_valid_json_updates_stats(self):
-        from . import views
-        payload = {
-            'puzzles_solved': 5,
-            'current_streak': 3,
-            'best_streak': 5,
-            'daily_completions': 1
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(json.loads(response.content), {'success': True})
+    def test_moves_must_be_a_list_of_strings(self):
+        self.client.force_login(self.user)
+        for payload in ({}, {'moves': 'g2g4'}, {'moves': [1, 2]}, ['g2g4']):
+            response = self._solve(self.other, payload)
+            self.assertEqual(response.status_code, 400, payload)
+            self.assertFalse(response.json()['success'])
 
-        from game.models import PuzzleStats
+    def test_wrong_moves_count_nothing(self):
+        self.client.force_login(self.user)
+        for moves in (['g2g3', 'h7h6', 'g4g5'], ['g2g4'], []):
+            data = self._solve(self.other, {'moves': moves}).json()
+            self.assertTrue(data['success'])
+            self.assertFalse(data['correct'])
+            self.assertEqual(data['puzzles_solved'], 0)
+
+    def test_correct_moves_count_once(self):
+        self.client.force_login(self.user)
+        first = self._solve(self.other, {'moves': ['G2G4', ' h7h6', 'g4g5']}).json()
+        second = self._solve(self.other, {'moves': ['g2g4', 'h7h6', 'g4g5']}).json()
+
+        self.assertTrue(first['correct'])
+        self.assertTrue(first['newly_solved'])
+        self.assertEqual(first['puzzles_solved'], 1)
+        self.assertFalse(second['newly_solved'])
+        self.assertEqual(second['puzzles_solved'], 1)
+        # Not the daily puzzle, so no streak.
+        self.assertEqual(second['streak'], 0)
+
+    def test_totals_sent_by_the_client_are_ignored(self):
+        self.client.force_login(self.user)
+        data = self._solve(self.other, {
+            'moves': ['g2g4', 'h7h6', 'g4g5'],
+            'puzzles_solved': 500,
+            'current_streak': 99,
+            'best_streak': 99,
+        }).json()
+
+        self.assertEqual(data['puzzles_solved'], 1)
         stats = PuzzleStats.objects.get(user=self.user)
-        self.assertEqual(stats.puzzles_solved, 5)
-        self.assertEqual(stats.current_streak, 3)
-        self.assertEqual(stats.best_streak, 5)
-        self.assertEqual(stats.daily_completions, 1)
+        self.assertEqual(stats.puzzles_solved, 1)
+        self.assertEqual(stats.best_streak, 0)
 
-    def test_partial_json_payload_uses_existing_stats(self):
-        from . import views
-        from game.models import PuzzleStats
+    def test_first_solve_unlocks_the_seeded_achievement(self):
+        self.client.force_login(self.user)
+        self._solve(self.other, {'moves': ['g2g4', 'h7h6', 'g4g5']})
+        self.assertTrue(UserAchievement.objects.filter(
+            user=self.user, achievement__code='FIRST_PUZZLE'
+        ).exists())
+
+    def test_daily_puzzle_starts_a_streak_once_per_day(self):
+        self.client.force_login(self.user)
+        first = self._solve(self.daily, {'moves': ['h1a8']}).json()
+        again = self._solve(self.daily, {'moves': ['h1a8']}).json()
+
+        self.assertEqual(first['streak'], 1)
+        self.assertEqual(first['daily_completions'], 1)
+        self.assertEqual(again['streak'], 1)
+        self.assertEqual(again['daily_completions'], 1)
+
+    def test_daily_puzzle_on_consecutive_days_extends_the_streak(self):
         PuzzleStats.objects.create(
-            user=self.user,
-            puzzles_solved=10,
-            current_streak=4,
-            best_streak=10,
-            daily_completions=2
+            user=self.user, current_streak=2, best_streak=2, daily_completions=2,
+            last_daily_date=self.today - timedelta(days=1),
         )
+        self.client.force_login(self.user)
+        data = self._solve(self.daily, {'moves': ['h1a8']}).json()
 
-        payload = {
-            'current_streak': 5,
-            'best_streak': 12
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(json.loads(response.content), {'success': True})
+        self.assertEqual(data['streak'], 3)
+        self.assertEqual(data['longest_streak'], 3)
 
-        stats = PuzzleStats.objects.get(user=self.user)
-        self.assertEqual(stats.current_streak, 5)
-        self.assertEqual(stats.best_streak, 12)
-        self.assertEqual(stats.puzzles_solved, 10)
-        self.assertEqual(stats.daily_completions, 2)
+    def test_missed_day_restarts_the_streak(self):
+        PuzzleStats.objects.create(
+            user=self.user, current_streak=5, best_streak=5, daily_completions=5,
+            last_daily_date=self.today - timedelta(days=3),
+        )
+        self.client.force_login(self.user)
+        data = self._solve(self.daily, {'moves': ['h1a8']}).json()
 
-    def test_negative_values_return_400(self):
-        from . import views
-        payload = {
-            'puzzles_solved': -1,
-            'current_streak': 3,
-            'best_streak': 5,
-            'daily_completions': 1
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('error', json.loads(response.content))
+        self.assertEqual(data['streak'], 1)
+        self.assertEqual(data['longest_streak'], 5)
 
-    def test_non_integer_values_return_400(self):
-        from . import views
-        payload = {
-            'puzzles_solved': "five",
-            'current_streak': 3,
-            'best_streak': 5,
-            'daily_completions': 1
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('error', json.loads(response.content))
+    def test_stats_endpoint_shows_a_lapsed_streak_as_zero(self):
+        PuzzleStats.objects.create(
+            user=self.user, puzzles_solved=4, current_streak=4, best_streak=4,
+            last_daily_date=self.today - timedelta(days=2),
+        )
+        self.client.force_login(self.user)
+        data = self.client.get('/api/puzzle-stats/').json()
 
-    def test_boolean_values_return_400(self):
-        from . import views
-        payload = {
-            'puzzles_solved': True,
-            'current_streak': 3,
-            'best_streak': 5,
-            'daily_completions': 1
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('error', json.loads(response.content))
+        self.assertEqual(data['streak'], 0)
+        self.assertEqual(data['longest_streak'], 4)
+        self.assertEqual(data['puzzles_solved'], 4)
 
-    def test_streak_constraint_failure_returns_400(self):
-        from . import views
-        payload = {
-            'puzzles_solved': 5,
-            'current_streak': 5,
-            'best_streak': 3,
-            'daily_completions': 1
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(json.loads(response.content), {'error': 'best_streak must be greater than or equal to current_streak'})
-
-    def test_invalid_validation_does_not_create_db_record(self):
-        from . import views
-        from game.models import PuzzleStats
-        self.assertFalse(PuzzleStats.objects.filter(user=self.user).exists())
-        payload = {
-            'puzzles_solved': -5,
-        }
-        request = self.factory.post('/api/puzzle-stats/update/', data=json.dumps(payload), content_type='application/json')
-        request.user = self.user
-        response = views.update_puzzle_stats(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertFalse(PuzzleStats.objects.filter(user=self.user).exists())
-
+    def test_old_client_totals_endpoint_is_gone(self):
+        from game import views
+        self.assertFalse(hasattr(views, 'update_puzzle_stats'))
 
 class ChessPuzzleDashboardTests(TestCase):
     """Test suite for the chess puzzle dashboard views and API endpoints."""
@@ -3953,7 +3990,10 @@ class GameResultRatingTest(TestCase):
         self.PlayerRating = PlayerRating
         self.GameResult = GameResult
         self.UserAchievement = UserAchievement
-        Achievement.objects.create(code='FIRST_WIN', title='First Win', description='Win a game', icon='🏆', category='game', rarity='common')
+        Achievement.objects.get_or_create(code='FIRST_WIN', defaults={
+            'title': 'First Win', 'description': 'Win a game', 'icon': '🏆',
+            'category': 'gameplay', 'rarity': 'common',
+        })
 
     def test_record_game_result_updates_rating_and_achievements_for_ai(self):
         from game.views import record_game_result
@@ -4166,3 +4206,754 @@ class EnginePersistentTimeoutTest(SimpleTestCase):
             mock_conn.recv.assert_not_called()
             mock_cleanup.assert_called_once()
             mock_conn.close.assert_called()
+
+
+@override_settings(
+    DEBUG=False,
+    EMAIL_HOST_USER='sender@example.com',
+    EMAIL_HOST_PASSWORD='app-password',
+)
+class RegistrationHardeningTest(TestCase):
+    """Deactivated accounts, stale signups, mail cooldown and password binding."""
+
+    PAYLOAD = {
+        'username': 'pendingplayer',
+        'email': 'pending@example.com',
+        'password1': 'StrongPass123!',
+        'password2': 'StrongPass123!',
+    }
+
+    def setUp(self):
+        cache.clear()
+
+    def _fixed_otp(self):
+        # randbelow(900000) + 100000 gives 123456.
+        return mock.patch('game.views.secrets.randbelow', return_value=23456)
+
+    def test_deactivated_account_cannot_come_back_through_registration(self):
+        banned = User.objects.create_user(
+            username='pendingplayer', email='pending@example.com',
+            password='OldPassword456!', is_active=False,
+        )
+        banned.last_login = timezone.now()
+        banned.save()
+
+        response = self.client.post('/register/', data=self.PAYLOAD)
+
+        self.assertRedirects(response, '/verify-otp/', fetch_redirect_response=False)
+        self.assertEqual(self.client.session['registration_user_id'], -1)
+        self.assertEqual(len(mail.outbox), 0)
+        banned.refresh_from_db()
+        self.assertFalse(banned.is_active)
+        self.assertTrue(banned.check_password('OldPassword456!'))
+
+    def test_deactivated_account_cannot_be_verified_from_an_old_session(self):
+        banned = User.objects.create_user(
+            username='pendingplayer', email='pending@example.com',
+            password='OldPassword456!', is_active=False,
+        )
+        banned.last_login = timezone.now()
+        banned.save()
+
+        import hashlib
+        session = self.client.session
+        session['registration_user_id'] = banned.id
+        session['registration_otp_hash'] = hashlib.sha256(
+            f"123456:{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+        session['otp_created_at'] = time.time()
+        session.save()
+
+        self.client.post('/verify-otp/', data={'otp': '123456'})
+        banned.refresh_from_db()
+        self.assertFalse(banned.is_active)
+
+        self.client.post('/resend-otp/')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_stale_unverified_signup_stops_blocking_its_email(self):
+        stale = User.objects.create_user(
+            username='squatter', email='pending@example.com',
+            password='OldPassword456!', is_active=False,
+        )
+        User.objects.filter(pk=stale.pk).update(
+            date_joined=timezone.now() - timedelta(hours=2)
+        )
+
+        self.client.post('/register/', data=self.PAYLOAD)
+
+        self.assertFalse(User.objects.filter(pk=stale.pk).exists())
+        self.assertTrue(User.objects.filter(username='pendingplayer', is_active=False).exists())
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_recent_unverified_signup_still_holds_its_email(self):
+        recent = User.objects.create_user(
+            username='someoneelse', email='pending@example.com',
+            password='OldPassword456!', is_active=False,
+        )
+
+        self.client.post('/register/', data=self.PAYLOAD)
+
+        self.assertTrue(User.objects.filter(pk=recent.pk).exists())
+        self.assertFalse(User.objects.filter(username='pendingplayer').exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_repeat_registration_inside_the_cooldown_sends_one_mail(self):
+        self.client.post('/register/', data=self.PAYLOAD)
+        self.assertEqual(len(mail.outbox), 1)
+        user = User.objects.get(username='pendingplayer')
+        first_hash = self.client.session['registration_otp_hash']
+
+        # Same browser: it keeps the code it was sent.
+        self.client.post('/register/', data=self.PAYLOAD)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(self.client.session['registration_user_id'], user.id)
+        self.assertEqual(self.client.session['registration_otp_hash'], first_hash)
+
+        # Another browser: same answer, nothing sent, nothing to verify.
+        other = Client()
+        response = other.post('/register/', data=self.PAYLOAD)
+        self.assertRedirects(response, '/verify-otp/', fetch_redirect_response=False)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(other.session['registration_user_id'], -1)
+
+    def test_registration_mails_again_after_the_cooldown(self):
+        self.client.post('/register/', data=self.PAYLOAD)
+        cache.clear()  # the cooldown has run out
+        self.client.post('/register/', data=self.PAYLOAD)
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_resend_shares_the_cooldown_with_registration(self):
+        self.client.post('/register/', data=self.PAYLOAD)
+        self.assertEqual(len(mail.outbox), 1)
+
+        # A second browser waiting on the same address may not mail either.
+        user = User.objects.get(username='pendingplayer')
+        other = Client()
+        session = other.session
+        session['registration_user_id'] = user.id
+        session['registration_otp_hash'] = 'x'
+        session.save()
+        other.post('/resend-otp/')
+        self.assertEqual(len(mail.outbox), 1)
+
+        cache.clear()
+        other.post('/resend-otp/')
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_resend_timer_starts_at_registration(self):
+        self.client.post('/register/', data=self.PAYLOAD)
+        response = self.client.get('/verify-otp/')
+        self.assertGreater(response.context['remaining_time'], 0)
+
+    def test_failed_mail_does_not_start_the_cooldown(self):
+        with mock.patch('game.views.send_mail', side_effect=SMTPException('down')):
+            self.client.post('/register/', data=self.PAYLOAD)
+        self.client.post('/register/', data=self.PAYLOAD)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_password_comes_from_the_browser_that_verifies(self):
+        with self._fixed_otp():
+            self.client.post('/register/', data=self.PAYLOAD)
+            cache.clear()
+            intruder = Client()
+            intruder.post('/register/', data={
+                **self.PAYLOAD,
+                'password1': 'IntruderPass789!',
+                'password2': 'IntruderPass789!',
+            })
+
+        user = User.objects.get(username='pendingplayer')
+        self.assertFalse(user.check_password('IntruderPass789!'))
+
+        response = self.client.post('/verify-otp/', data={'otp': '123456'})
+        self.assertRedirects(response, reverse('index'), fetch_redirect_response=False)
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.check_password('StrongPass123!'))
+        self.assertFalse(user.check_password('IntruderPass789!'))
+        self.assertNotIn('registration_password', self.client.session)
+
+        # The other browser's code no longer finds a pending signup.
+        intruder.post('/verify-otp/', data={'otp': '123456'})
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('StrongPass123!'))
+
+
+class AccountDeletionConfirmTest(TestCase):
+    """The mailed link only deletes after a POST by the logged-in owner."""
+
+    def setUp(self):
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+        from game.views import account_deletion_token
+
+        self.user = User.objects.create_user(
+            username='leaver', email='leaver@example.com', password='Password123!'
+        )
+        self.uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        self.token = account_deletion_token.make_token(self.user)
+        self.url = reverse('confirm_delete_account', args=[self.uid, self.token])
+
+    def test_delete_request_mails_a_link_that_works(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('delete_account'), {
+            'username': 'leaver', 'password': 'Password123!',
+        })
+        self.assertEqual(len(mail.outbox), 1)
+        link = [
+            line for line in mail.outbox[0].body.splitlines()
+            if '/confirm-delete/' in line
+        ][0]
+        path = '/confirm-delete/' + link.split('/confirm-delete/')[1]
+
+        self.assertEqual(self.client.get(path).status_code, 200)
+        self.client.post(path)
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_opening_the_link_deletes_nothing(self):
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'csrfmiddlewaretoken')
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_post_deletes_the_account(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/delete_success.html')
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_post_needs_a_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+        response = csrf_client.post(self.url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_anonymous_visitor_is_sent_to_login(self):
+        for method in (self.client.get, self.client.post):
+            response = method(self.url)
+            self.assertEqual(response.status_code, 302)
+            self.assertIn('/login/', response.url)
+            self.assertIn('next=', response.url)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_link_still_works_after_signing_in_from_the_mail(self):
+        cache.clear()
+        login_url = self.client.get(self.url).url
+        response = self.client.post(
+            login_url, {'username': 'leaver', 'password': 'Password123!'}
+        )
+        self.assertRedirects(response, self.url, fetch_redirect_response=False)
+
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        self.client.post(self.url)
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_signed_out_owner_can_still_finish_the_deletion(self):
+        """Request, sign out, open the link, sign in, come back, confirm."""
+        cache.clear()
+        credentials = {'username': 'leaver', 'password': 'Password123!'}
+
+        self.client.post('/login/', credentials)
+        self.client.post(reverse('delete_account'), credentials)
+        self.assertEqual(len(mail.outbox), 1)
+        link = [
+            line for line in mail.outbox[0].body.splitlines()
+            if '/confirm-delete/' in line
+        ][0]
+        path = '/confirm-delete/' + link.split('/confirm-delete/')[1]
+
+        self.client.post('/logout/')
+
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 302)
+        login_url = response.url
+        self.assertIn('/login/', login_url)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+        # Signing in changes last_login; the link has to survive that.
+        response = self.client.post(login_url, credentials)
+        self.assertRedirects(response, path, fetch_redirect_response=False)
+
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game/confirm_delete_account.html')
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+        response = self.client.post(path)
+        self.assertTemplateUsed(response, 'game/delete_success.html')
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_link_dies_when_the_password_changes(self):
+        self.user.set_password('AnotherPass456!')
+        self.user.save()
+        self.client.force_login(self.user)
+
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_another_user_cannot_use_the_link(self):
+        other = User.objects.create_user(username='other', password='Password123!')
+        self.client.force_login(other)
+        response = self.client.post(self.url)
+
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+        self.assertTrue(User.objects.filter(pk=other.pk).exists())
+
+    def test_password_reset_token_does_not_delete(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from game.views import account_deletion_token
+
+        reset_token = default_token_generator.make_token(self.user)
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('confirm_delete_account', args=[self.uid, reset_token])
+        )
+
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+        # And the other way round: a deletion token resets no password.
+        self.assertFalse(default_token_generator.check_token(self.user, self.token))
+        self.assertTrue(account_deletion_token.check_token(self.user, self.token))
+
+
+class LoginNextTest(TestCase):
+    """After login the user returns to the page that asked for it."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(username='returner', password='Password123!')
+        self.credentials = {'username': 'returner', 'password': 'Password123!'}
+
+    def test_login_required_page_comes_back_after_login(self):
+        response = self.client.get('/stats/')
+        self.assertEqual(response.status_code, 302)
+        login_url = response.url
+        self.assertIn('next=/stats/', login_url)
+
+        response = self.client.post(login_url, self.credentials)
+        self.assertRedirects(response, '/stats/', fetch_redirect_response=False)
+
+    def test_next_in_the_form_body_works_too(self):
+        response = self.client.post('/login/', {**self.credentials, 'next': '/leaderboard/'})
+        self.assertRedirects(response, '/leaderboard/', fetch_redirect_response=False)
+
+    def test_external_next_is_ignored(self):
+        for target in ('https://evil.example/steal', '//evil.example/steal'):
+            self.client.logout()
+            response = self.client.post(f'/login/?next={target}', self.credentials)
+            self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+
+    def test_login_without_next_goes_to_landing(self):
+        response = self.client.post('/login/', self.credentials)
+        self.assertRedirects(response, reverse('landing'), fetch_redirect_response=False)
+
+
+class RateCounterWindowTest(TestCase):
+    """increment_counter keeps its window on backends without a native incr."""
+
+    DB_CACHE = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'test_rate_counter_cache',
+        }
+    }
+
+    def test_locmem_counts_natively(self):
+        from game.views import _cache_counts_natively
+        self.assertTrue(_cache_counts_natively())
+
+    def test_database_cache_keeps_the_requested_window(self):
+        from django.core.management import call_command
+        from django.db import connection
+        from game.views import _cache_counts_natively, increment_counter
+
+        with override_settings(CACHES=self.DB_CACHE):
+            call_command('createcachetable', verbosity=0)
+            self.assertFalse(_cache_counts_natively())
+
+            counts = [increment_counter('rate-test', timeout=60) for _ in range(3)]
+            self.assertEqual(counts, [1, 2, 3])
+
+            # The stock incr would have rewritten the key with the default
+            # five-minute timeout. The counter must still end with its window.
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT expires FROM test_rate_counter_cache "
+                    "WHERE cache_key LIKE %s AND cache_key NOT LIKE %s",
+                    ['%rate-test', '%lock:%'],
+                )
+                expires = cursor.fetchone()[0]
+            if isinstance(expires, str):
+                from django.utils.dateparse import parse_datetime
+                expires = parse_datetime(expires)
+            if timezone.is_naive(expires):
+                expires = timezone.make_aware(expires, timezone.get_current_timezone())
+            self.assertLessEqual(expires - timezone.now(), timedelta(seconds=61))
+
+    def test_new_window_starts_from_one(self):
+        from game.views import increment_counter
+
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with mock.patch('game.views._cache_counts_natively', return_value=False):
+            with mock.patch('game.views.time.time', return_value=1000.0):
+                self.assertEqual(increment_counter('rate-window', timeout=60), 1)
+            # Half a second before the window ends the count is cached for
+            # a whole second, so it outlives the window.
+            with mock.patch('game.views.time.time', return_value=1059.5):
+                self.assertEqual(increment_counter('rate-window', timeout=60), 2)
+            with mock.patch('game.views.time.time', return_value=1060.2):
+                self.assertEqual(increment_counter('rate-window', timeout=60), 1)
+
+
+@override_settings(CRON_SECRET='test_secret_123')
+class CleanupCronTest(TestCase):
+    """The cron endpoint answers Vercel's GET and purges dead rows."""
+
+    url = '/api/cron/cleanup-stale-games/'
+    auth = {'HTTP_AUTHORIZATION': 'Bearer test_secret_123'}
+
+    def test_get_with_secret_runs_the_cleanup(self):
+        response = self.client.get(self.url, **self.auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'success')
+
+    def test_get_without_secret_is_refused(self):
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+        self.assertEqual(
+            self.client.get(self.url, HTTP_AUTHORIZATION='Bearer nope').status_code, 401
+        )
+
+    def test_expired_replays_and_sessions_are_purged(self):
+        from django.contrib.sessions.models import Session
+
+        expired = GameRecord.objects.create(session_key='old', pgn='1. e4')
+        GameRecord.objects.filter(pk=expired.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+        kept = GameRecord.objects.create(session_key='new', pgn='1. d4')
+        Session.objects.create(
+            session_key='deadsession', session_data='x',
+            expire_date=timezone.now() - timedelta(days=1),
+        )
+
+        data = self.client.get(self.url, **self.auth).json()
+
+        self.assertEqual(data['purged_records'], 1)
+        self.assertEqual(data['purged_sessions'], 1)
+        self.assertFalse(GameRecord.objects.filter(pk=expired.pk).exists())
+        self.assertTrue(GameRecord.objects.filter(pk=kept.pk).exists())
+
+
+class StatsPageDataTest(TestCase):
+    """What the stats and leaderboard views hand to their templates."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='statsuser', password='Password123!')
+        self.client.force_login(self.user)
+
+    def test_chart_history_is_passed_oldest_first(self):
+        RatingHistory.objects.create(
+            user=self.user, old_rating=1200, new_rating=1220, rating_change=20, result='win'
+        )
+        RatingHistory.objects.create(
+            user=self.user, old_rating=1220, new_rating=1210, rating_change=-10, result='loss'
+        )
+
+        chart = self.client.get('/stats/').context['chart_history']
+
+        self.assertEqual([point['new_rating'] for point in chart], [1220, 1210])
+        self.assertEqual(
+            set(chart[0]), {'date', 'timestamp', 'new_rating', 'change', 'result'}
+        )
+        self.assertEqual(chart[1]['change'], -10)
+        self.assertEqual(chart[1]['result'], 'loss')
+        self.assertIsInstance(chart[0]['timestamp'], int)
+
+    def test_two_player_games_are_not_wins_or_losses(self):
+        GameResult.objects.create(
+            user=self.user, mode='pvp', winner='white', player_color='white',
+            end_reason='checkmate',
+        )
+        GameResult.objects.create(
+            user=self.user, mode='ai', winner='black', player_color='white',
+            end_reason='checkmate',
+        )
+
+        context = self.client.get('/stats/').context
+
+        self.assertEqual(context['total_games'], 2)
+        self.assertEqual(context['total_wins'], 0)
+        self.assertEqual(context['total_losses'], 1)
+        self.assertEqual(context['games_as_white'], 1)
+
+    def test_lapsed_day_streak_reads_zero(self):
+        progress, _ = UserProgress.objects.get_or_create(user=self.user)
+        progress.day_streak = 6
+        progress.last_played_date = timezone.localdate() - timedelta(days=3)
+        progress.save()
+
+        context = self.client.get('/stats/').context
+        self.assertEqual(context['progress'].day_streak, 0)
+        self.assertEqual(self.client.get('/api/state/').json()['day_streak'], 0)
+
+    def test_yesterdays_streak_is_still_alive(self):
+        progress, _ = UserProgress.objects.get_or_create(user=self.user)
+        progress.day_streak = 6
+        progress.last_played_date = timezone.localdate() - timedelta(days=1)
+        progress.save()
+
+        self.assertEqual(self.client.get('/api/state/').json()['day_streak'], 6)
+
+    def test_puzzle_leaderboard_is_limited(self):
+        users = User.objects.bulk_create(
+            [User(username=f'board{i}') for i in range(55)]
+        )
+        PuzzleStats.objects.bulk_create(
+            [PuzzleStats(user=user, puzzles_solved=i) for i, user in enumerate(users)]
+        )
+
+        leaderboard = self.client.get('/leaderboard/').context['leaderboard']
+        self.assertEqual(len(leaderboard), 50)
+        self.assertEqual(leaderboard[0].puzzles_solved, 54)
+
+
+class LessonCompletionTest(TestCase):
+    """Lessons unlock in order and pay out once."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='student', password='Password123!')
+        self.client.force_login(self.user)
+
+    def _complete(self, slug):
+        return self.client.post(reverse('complete_lesson', args=[slug]))
+
+    def _xp(self):
+        progress = UserProgress.objects.filter(user=self.user).first()
+        return progress.xp if progress else 0
+
+    def test_first_lesson_pays_once(self):
+        self._complete('how-pieces-move')
+        self._complete('how-pieces-move')
+
+        self.assertTrue(LessonProgress.objects.get(
+            user=self.user, lesson_name='How Pieces Move'
+        ).completed)
+        self.assertEqual(self._xp(), 25)
+
+    def test_locked_lesson_is_refused(self):
+        for slug in ('check-and-checkmate', 'forks', 'basic-endgames'):
+            response = self._complete(slug)
+            self.assertRedirects(response, reverse('lessons'), fetch_redirect_response=False)
+
+        self.assertFalse(LessonProgress.objects.filter(user=self.user).exists())
+        self.assertEqual(self._xp(), 0)
+
+    def test_next_lesson_opens_after_the_one_before(self):
+        self._complete('how-pieces-move')
+        response = self._complete('check-and-checkmate')
+
+        self.assertRedirects(
+            response, reverse('lesson_detail', args=['check-and-checkmate']),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(self._xp(), 50)
+
+    def test_unknown_lesson_is_404(self):
+        self.assertEqual(self._complete('no-such-lesson').status_code, 404)
+
+
+class OpeningStatsStorageTest(TestCase):
+    """The opening trainer's reported accuracy is stored and validated."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='opener', password='Password123!')
+        self.client.force_login(self.user)
+        self.url = reverse('update_opening_stats')
+
+    def _post(self, payload):
+        return self.client.post(
+            self.url, data=json.dumps(payload), content_type='application/json'
+        )
+
+    def test_accuracy_and_completion_are_stored(self):
+        self._post({'opening_name': 'Ruy Lopez', 'completed': True, 'accuracy': 80})
+
+        progress = OpeningProgress.objects.get(user=self.user, opening_name='Ruy Lopez')
+        self.assertEqual(progress.accuracy_percentage, 80)
+        self.assertEqual(progress.completion_percentage, 100)
+        self.assertEqual(progress.openings_started, 1)
+        # 50 for the first completion, no bonus below 100.
+        self.assertEqual(UserProgress.objects.get(user=self.user).xp, 50)
+
+    def test_each_further_run_counts_as_practice(self):
+        for _ in range(3):
+            self._post({'opening_name': 'Ruy Lopez', 'completed': True, 'accuracy': 90})
+
+        progress = OpeningProgress.objects.get(user=self.user, opening_name='Ruy Lopez')
+        self.assertEqual(progress.openings_started, 3)
+        self.assertEqual(progress.openings_completed, 1)
+
+    def test_accuracy_is_clamped(self):
+        self._post({'opening_name': 'Ruy Lopez', 'completed': False, 'accuracy': 250})
+        progress = OpeningProgress.objects.get(user=self.user, opening_name='Ruy Lopez')
+        self.assertEqual(progress.accuracy_percentage, 100)
+
+    def test_bad_payloads_get_400(self):
+        bad = (
+            ['Ruy Lopez'],
+            {'opening_name': 'Ruy Lopez', 'completed': 'yes'},
+            {'opening_name': 'Ruy Lopez', 'completed': True, 'accuracy': True},
+            {'opening_name': ['Ruy Lopez'], 'completed': True},
+        )
+        for payload in bad:
+            response = self._post(payload)
+            self.assertEqual(response.status_code, 400, payload)
+        self.assertFalse(OpeningProgress.objects.exists())
+
+
+class ForumCountsTest(TestCase):
+    """Sort counts in the personal tabs, and replies that were deleted."""
+
+    def setUp(self):
+        self.me = User.objects.create_user(username='me', password='Password123!')
+        self.other = User.objects.create_user(username='other', password='Password123!')
+        self.third = User.objects.create_user(username='third', password='Password123!')
+        self.busy = Discussion.objects.create(
+            user=self.other, title='Busy thread', content='Lots of replies here'
+        )
+        self.mine = Discussion.objects.create(
+            user=self.me, title='My thread', content='Just my own thread'
+        )
+        Reply.objects.create(discussion=self.busy, user=self.me, content='mine')
+        for index in range(3):
+            Reply.objects.create(discussion=self.busy, user=self.other, content=f'reply {index}')
+        self.client.force_login(self.me)
+
+    def test_my_tab_counts_every_reply_not_only_mine(self):
+        context = self.client.get('/forum/?sort=most_replies').context
+        mine = list(context['user_discussions'])
+
+        self.assertEqual([d.pk for d in mine], [self.busy.pk, self.mine.pk])
+        self.assertEqual(mine[0].reply_count, 4)
+
+    def test_bookmark_tab_counts_every_bookmark(self):
+        for user in (self.me, self.other, self.third):
+            DiscussionBookmark.objects.create(user=user, discussion=self.busy)
+
+        context = self.client.get('/forum/?sort=most_bookmarked').context
+        bookmarked = list(context['bookmarked_discussions'])
+
+        self.assertEqual(len(bookmarked), 1)
+        self.assertEqual(bookmarked[0].bookmark_count, 3)
+
+    def test_deleted_replies_are_not_counted(self):
+        Reply.objects.filter(discussion=self.busy, user=self.other).update(is_deleted=True)
+
+        context = self.client.get('/forum/?sort=most_replies').context
+        busy = [d for d in context['page_obj'] if d.pk == self.busy.pk][0]
+
+        self.assertEqual(busy.reply_count, 1)
+        self.assertEqual(busy.replies.count(), 1)
+
+    def test_bad_reply_to_is_an_error_message_not_a_crash(self):
+        response = self.client.post(
+            reverse('forum_reply', args=[self.busy.pk]),
+            {'content': 'hello there', 'reply_to': 'abc'},
+        )
+        self.assertRedirects(
+            response, reverse('forum_detail', args=[self.busy.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(Reply.objects.filter(content='hello there').count(), 0)
+
+
+class DeploymentSettingsTest(SimpleTestCase):
+    """core/settings.py under different environments."""
+
+    def _settings(self, **env):
+        import runpy
+        from pathlib import Path
+
+        path = Path(settings.BASE_DIR) / 'core' / 'settings.py'
+        environ = {'SECRET_KEY': 'k' * 50, **env}
+        # Keep a developer's own .env out of the picture.
+        with mock.patch.dict('os.environ', environ, clear=True), \
+                mock.patch('dotenv.load_dotenv'):
+            return runpy.run_path(str(path))
+
+    def test_debug_is_off_unless_asked_for(self):
+        self.assertFalse(self._settings()['DEBUG'])
+        self.assertTrue(self._settings(DEBUG='True')['DEBUG'])
+
+    def test_local_run_stays_on_plain_http(self):
+        conf = self._settings()
+        self.assertFalse(conf['SESSION_COOKIE_SECURE'])
+        self.assertFalse(conf['CSRF_COOKIE_SECURE'])
+        self.assertFalse(conf['SECURE_SSL_REDIRECT'])
+
+    def test_preview_deployment_is_locked_down(self):
+        conf = self._settings(VERCEL_ENV='preview', DEBUG='True')
+        self.assertFalse(conf['DEBUG'])
+        self.assertTrue(conf['SESSION_COOKIE_SECURE'])
+        self.assertTrue(conf['CSRF_COOKIE_SECURE'])
+        self.assertTrue(conf['SECURE_SSL_REDIRECT'])
+        self.assertEqual(conf['SECURE_PROXY_SSL_HEADER'], ('HTTP_X_FORWARDED_PROTO', 'https'))
+        self.assertFalse(conf['IS_PRODUCTION'])
+
+    def test_production_deployment_is_locked_down(self):
+        conf = self._settings(VERCEL_ENV='production', DEBUG='True')
+        self.assertFalse(conf['DEBUG'])
+        self.assertTrue(conf['SESSION_COOKIE_SECURE'])
+        self.assertTrue(conf['SECURE_SSL_REDIRECT'])
+        self.assertEqual(conf['SECURE_HSTS_SECONDS'], 31536000)
+
+    def test_static_files_use_the_storages_setting(self):
+        conf = self._settings()
+        self.assertNotIn('STATICFILES_STORAGE', conf)
+        self.assertEqual(
+            conf['STORAGES']['staticfiles']['BACKEND'],
+            'whitenoise.storage.CompressedStaticFilesStorage',
+        )
+
+    def test_static_tag_accepts_a_directory_prefix(self):
+        from django.templatetags.static import static
+        self.assertEqual(static('game/'), '/static/game/')
+
+
+class DeploymentFilesTest(SimpleTestCase):
+    """vercel.json and the security headers."""
+
+    def test_cron_job_points_at_the_cleanup_view(self):
+        from pathlib import Path
+        from django.urls import resolve
+        from game import views
+
+        config = json.loads((Path(settings.BASE_DIR) / 'vercel.json').read_text())
+        paths = [job['path'] for job in config['crons']]
+
+        self.assertEqual(len(paths), 1)
+        self.assertEqual(resolve(paths[0]).func, views.cleanup_cron)
+
+    def test_images_only_come_from_our_own_hosts(self):
+        from game.middleware import SecurityHeadersMiddleware
+        from django.http import HttpResponse
+
+        response = SecurityHeadersMiddleware(lambda request: HttpResponse())(
+            RequestFactory().get('/')
+        )
+        policy = response['Content-Security-Policy']
+        img_src = [part for part in policy.split('; ') if part.startswith('img-src')][0]
+
+        self.assertNotIn('chesscomfiles', policy)
+        self.assertEqual(img_src, "img-src 'self' data: https://checkora.vercel.app")

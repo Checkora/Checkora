@@ -47,6 +47,9 @@ let selectedSquare = null;
 let lastMoveHighlight = null;
 let opponentReplyTimeout = null;
 let hintHighlight = null;
+// Wrong tries and hinted moves in this run, for the accuracy sent on completion.
+let misses = 0;
+let hintedMove = -1;
 const hintButton = document.getElementById("get-hint-btn");
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const activeTouches = {};
@@ -63,8 +66,25 @@ function updateProgress() {
     progress.innerText = `${viewingMoveIndex} / ${OPENING_MOVES.length}`;
 }
 
+// The message and what it means: "correct", "incorrect", "completed", or
+// nothing for a plain notice. The page styles the box by data-state.
+function showFeedback(text, state = "") {
+    feedback.innerText = text;
+    feedback.dataset.state = state;
+}
+
+
+// Share of the player's own moves that were found unaided, as a percentage.
+function openingAccuracy() {
+    const own = OPENING_MOVES.filter((_, i) => (i % 2 === 0) === (userColor === "w")).length;
+    return own ? Math.round(100 * own / (own + misses)) : 100;
+}
 
 async function persistOpeningProgress() {
+    // Progress is kept for signed-in players. A guest's request is sent to
+    // the sign-in page, which is not the JSON this expects.
+    if (document.documentElement.dataset.auth !== "1") return;
+
     const token = csrf();
 
     try {
@@ -77,7 +97,7 @@ async function persistOpeningProgress() {
             body: JSON.stringify({
                 opening_name: OPENING_NAME,
                 completed: true,
-                accuracy: 100,
+                accuracy: openingAccuracy(),
             }),
         });
 
@@ -98,7 +118,7 @@ async function persistOpeningProgress() {
 }
 
 function completeOpening() {
-    feedback.innerText = "🎉 Opening completed successfully!";
+    showFeedback("🎉 Opening completed successfully!", "completed");
     moveInput.disabled = true;
     checkButton.disabled = true;
 
@@ -307,7 +327,7 @@ function makeUserMove(fromRow, fromCol, toRow, toCol) {
         applyMoveOnBoard(fromRow, fromCol, toRow, toCol);
         currentMove++;
         viewingMoveIndex = currentMove;
-        feedback.innerText = "✅ Correct move!";
+        showFeedback("✅ Correct move!", "correct");
         updateProgress();
         highlightLastMove(fromRow, fromCol, toRow, toCol);
 
@@ -326,7 +346,8 @@ function makeUserMove(fromRow, fromCol, toRow, toCol) {
         }, 800);
 
     } else {
-        feedback.innerText = `❌ Incorrect move. Expected: ${expectedMove}`;
+        misses++;
+        showFeedback(`❌ Incorrect move. Expected: ${expectedMove}`, "incorrect");
     }
 }
 
@@ -495,9 +516,11 @@ function handleTouchEnd(e, startRow, startCol) {
             if (square) {
                 const targetRow = parseInt(square.dataset.row, 10);
                 const targetCol = parseInt(square.dataset.col, 10);
-                // Call move logic only if dropped on a different square
                 if (targetRow !== startRow || targetCol !== startCol) {
                     makeUserMove(startRow, startCol, targetRow, targetCol);
+                } else {
+                    // A tap. touchstart suppressed the click, so select the piece here.
+                    handleSquareClick(startRow, startCol);
                 }
             }
         }
@@ -513,6 +536,8 @@ function renderBoard() {
     if (!boardElement) return;
     boardElement.innerHTML = "";
     const isFlipped = userColor === "b";
+    // The page sets data-static on <html> to the static prefix, ending in 'game/'.
+    const pieceBase = (document.documentElement.dataset.static || "/static/game/") + "pieces/classic/";
 
     for (let r = 0; r < 8; r++) {
         const actualRow = isFlipped ? 7 - r : r;
@@ -548,7 +573,7 @@ function renderBoard() {
             const piece = boardState[actualRow][actualCol];
             if (piece) {
                 const img = document.createElement("img");
-                img.src = `/static/game/pieces/${piece}.png`;
+                img.src = `${pieceBase}${piece}.svg`;
                 img.alt = piece;
                 img.draggable = true;
                 img.addEventListener("dragstart", (e) => handleDragStart(e, actualRow, actualCol));
@@ -633,6 +658,8 @@ function resetGame() {
     selectedSquare = null;
     lastMoveHighlight = null;
     hintHighlight = null; // Clear hint highlight state
+    misses = 0;
+    hintedMove = -1;
     if (opponentReplyTimeout) {
         clearTimeout(opponentReplyTimeout);
         opponentReplyTimeout = null;
@@ -640,7 +667,7 @@ function resetGame() {
     boardState = STARTING_BOARD_STATE.map(row => [...row]);
     moveInput.disabled = false;
     checkButton.disabled = false;
-    feedback.innerText = "Ready to begin.";
+    showFeedback("Ready to begin.");
     updateProgress();
     updateNavigationButtons();
     renderBoard();
@@ -687,7 +714,7 @@ function validateMove(move) {
 
     const isUserTurn = (userColor === "w" && currentMove % 2 === 0) || (userColor === "b" && currentMove % 2 === 1);
     if (!isUserTurn) {
-        feedback.innerText = "⚠️ It is the opponent's turn. Please wait.";
+        showFeedback("⚠️ It is the opponent's turn. Please wait.");
         return false;
     }
 
@@ -700,7 +727,7 @@ function validateMove(move) {
         }
         currentMove++;
         viewingMoveIndex = currentMove;
-        feedback.innerText = "✅ Correct move!";
+        showFeedback("✅ Correct move!", "correct");
         updateProgress();
         moveInput.value = "";
 
@@ -719,14 +746,15 @@ function validateMove(move) {
         return true;
     }
 
-    feedback.innerText = `❌ Incorrect move. Expected: ${expectedMove}`;
+    misses++;
+    showFeedback(`❌ Incorrect move. Expected: ${expectedMove}`, "incorrect");
     return false;
 }
 
 checkButton.addEventListener("click", () => {
     const move = moveInput.value.trim();
     if (!move) {
-        feedback.innerText = "Please enter a move.";
+        showFeedback("Please enter a move.");
         return;
     }
     validateMove(move);
@@ -827,6 +855,10 @@ if (themeSelect) {
         const moveParsed = parseSAN(expectedMove, color);
 
         if (moveParsed) {
+            if (hintedMove !== currentMove) {
+                hintedMove = currentMove;
+                misses++;
+            }
             hintHighlight = {
                 fromRow: moveParsed.fromRow,
                 fromCol: moveParsed.fromCol,

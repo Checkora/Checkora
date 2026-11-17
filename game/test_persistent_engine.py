@@ -10,6 +10,20 @@ from game.engine import ChessGame
 class PersistentEngineTest(TestCase):
     def setUp(self):
         self.temp_files_to_clean = []
+        # The bridge remembers, per process, which compiled engines run and
+        # whether a server failed to start. Several tests below replace
+        # subprocess.Popen; what the bridge learns from the mock must not
+        # leak into other tests.
+        python_engine = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+        for patcher in (
+            mock.patch.object(ChessGame, '_resolve_engine_path',
+                              return_value=python_engine),
+            mock.patch.dict(ChessGame._engine_health),
+            mock.patch.dict(ChessGame._server_procs),
+            mock.patch.object(ChessGame, '_persistent_retry_at', 0.0),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         # Clean up any files created during tests
@@ -128,6 +142,7 @@ class PersistentEngineTest(TestCase):
     def test_integration_engine_process_reused(self):
         """Integration test using python fallback to prove process reuse."""
         game = ChessGame()
+        self.addCleanup(game.cleanup_engine)
 
         # Ensure we use the python engine fallback
         python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')

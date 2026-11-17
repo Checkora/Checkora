@@ -1,0 +1,4092 @@
+/* ==========================================================================
+   The play page: setup, the board, both side panels and every dialog.
+   Colours come from the tokens in app.css. The one exception is the board
+   itself (squares, frame, pieces), which keeps its own colours so it looks
+   the same in the light and the dark theme.
+
+   board.js owns the game. It toggles the state classes used below and, in a
+   few places, writes inline styles; where a rule here has to work around
+   one of those, the comment says so.
+   ========================================================================== */
+
+/* ---------- board themes ----------
+   A theme is two square colours, set on the data-board-theme attribute
+   that board.js puts on <html>. The swatches in settings read the same
+   pairs. Nothing here touches a site token. */
+
+:root {
+    --sq-light: #e0cda9;
+    --sq-dark: #6b523d;
+    --board-base: #14110c;
+    --board-rim: #c8922a;
+    --board-hl: #f2b93b;
+    --board-check: #ff5a4a;
+    --board-info: #4f9cff;
+    --board-good: #45d19a;
+    --piece-white: #f4ecd8;
+    --piece-black: #2b2622;
+
+    /* The veil behind dialogs: dark in both themes. */
+    --scrim: color-mix(in srgb, var(--ink-0) 80%, transparent);
+}
+[data-theme='light'] {
+    --scrim: color-mix(in srgb, var(--title) 58%, transparent);
+}
+
+.theme-swatch[data-theme='gilded'] {
+    --sq-light: #e0cda9;
+    --sq-dark: #6b523d;
+}
+[data-board-theme='classic'],
+.theme-swatch[data-theme='classic'] {
+    --sq-light: #fff6d5;
+    --sq-dark: #e1b12c;
+}
+[data-board-theme='wood'],
+.theme-swatch[data-theme='wood'] {
+    --sq-light: #f0d9b5;
+    --sq-dark: #b58863;
+}
+[data-board-theme='slate'],
+.theme-swatch[data-theme='slate'] {
+    --sq-light: #cbd5e1;
+    --sq-dark: #475569;
+}
+[data-board-theme='neon'],
+.theme-swatch[data-theme='neon'] {
+    --sq-light: #26293b;
+    --sq-dark: #141522;
+}
+[data-board-theme='neon'] {
+    --board-hl: #00e1f0;
+    --board-rim: #00a9c2;
+    --coord: #8fe9f2;
+}
+[data-board-theme='glass'],
+.theme-swatch[data-theme='glass'] {
+    --sq-light: rgba(255, 255, 255, 0.26);
+    --sq-dark: rgba(255, 255, 255, 0.09);
+    --board-base: #1d2436;
+}
+[data-board-theme='glass'] {
+    --coord: rgba(255, 255, 255, 0.75);
+}
+[data-board-theme='dark'],
+.theme-swatch[data-theme='dark'] {
+    --sq-light: #b0b0b0;
+    --sq-dark: #3a3a3a;
+}
+[data-board-theme='green'],
+.theme-swatch[data-theme='green'] {
+    --sq-light: #e9edcc;
+    --sq-dark: #6f9455;
+}
+[data-board-theme='blue'],
+.theme-swatch[data-theme='blue'] {
+    --sq-light: #dbe5ee;
+    --sq-dark: #5d85a6;
+}
+[data-board-theme='pastel'],
+.theme-swatch[data-theme='pastel'] {
+    --sq-light: #fff0f5;
+    --sq-dark: #f2a7b6;
+}
+
+/* ---------- the page frame ---------- */
+
+.play {
+    --edge: clamp(10px, 1.6vw, 24px);
+    --col-gap: clamp(12px, 1.6vw, 26px);
+    --side-w: clamp(260px, 21vw, 320px);
+    --bar-h: 58px;
+    --stack-gap: 10px;
+    --eval-w: 0px;
+    --tilt: 40deg;
+
+    /* The board is as large as the window allows: the height left under the
+       navbar once both player bars are in, or the width left between the
+       two side panels, whichever is smaller. */
+    --fit-h: calc(100vh - var(--nav-height) - 2 * var(--bar-h) - 2 * var(--stack-gap) - 2 * var(--edge));
+    --fit-w: calc(100vw - 2 * var(--side-w) - 2 * var(--col-gap) - 2 * var(--edge) - var(--eval-w) - 18px);
+    --board: clamp(260px, min(var(--fit-w), var(--fit-h)), 880px);
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* Nothing on this screen may push the page sideways: not the glow
+       under the board, not a board tilted in 3D. */
+    overflow-x: clip;
+}
+@supports (height: 100dvh) {
+    .play {
+        --fit-h: calc(100dvh - var(--nav-height) - 2 * var(--bar-h) - 2 * var(--stack-gap) - 2 * var(--edge));
+    }
+}
+.has-eval-bar .play {
+    --eval-w: 36px;
+}
+
+/* The setup screen covers the page; the page under it must not scroll. */
+body:has(#welcomeOverlay.active) {
+    overflow: hidden;
+}
+
+.play-messages {
+    width: min(720px, 100% - 2 * var(--pad));
+    margin: 12px auto 0;
+}
+.play-messages .messages {
+    margin-bottom: 0;
+}
+
+.play .hidden {
+    display: none;
+}
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* ---------- buttons ----------
+   board.js shows and hides several of these with an inline display, block
+   or none, so a button here has to look the same as a block and as an
+   inline-block: the height comes from padding and line-height, never from
+   flex centring. */
+
+.btn {
+    position: relative;
+    display: inline-block;
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 10px 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--title);
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 20px;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: transform 0.25s var(--ease-spring), border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.3s;
+}
+.btn:hover {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    transform: translateY(-2px);
+}
+.btn:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 0.08s;
+}
+.btn:disabled,
+.btn.is-loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+.btn svg {
+    display: inline-block;
+    width: 17px;
+    height: 17px;
+    margin-right: 8px;
+    vertical-align: -3.5px;
+}
+.btn-block {
+    display: block;
+    width: 100%;
+}
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+.btn-lg {
+    padding: 14px 26px;
+    font-size: 16px;
+}
+
+/* The one primary action in a group. */
+.btn-gold,
+#gameControlsCard:has(#pauseBtn[style*='none']) .active-mode {
+    border-color: transparent;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color: var(--on-gold);
+    box-shadow: 0 10px 28px -14px var(--gold);
+}
+.btn-gold:hover,
+#gameControlsCard:has(#pauseBtn[style*='none']) .active-mode:hover {
+    border-color: transparent;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    box-shadow: 0 16px 34px -14px var(--gold);
+}
+.btn-gold::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.5) 50%, transparent 65%);
+    transform: translateX(-120%);
+    pointer-events: none;
+}
+.btn-gold:hover::after {
+    transform: translateX(120%);
+    transition: transform 0.7s var(--ease-out);
+}
+
+.btn-danger {
+    border-color: color-mix(in srgb, var(--check) 45%, transparent);
+    color: var(--check);
+}
+.btn-danger:hover {
+    border-color: var(--check);
+    background: var(--check-wash);
+}
+
+.btn-quiet {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--ink-3) 55%, transparent);
+    color: var(--text);
+}
+.btn-quiet:hover {
+    border-color: transparent;
+    color: var(--title);
+}
+
+/* The mode the current game is in. Once the game is over (Pause is hidden)
+   it becomes the primary button: "play this again". */
+.active-mode {
+    border-color: color-mix(in srgb, var(--gold) 50%, transparent);
+    color: var(--gold);
+}
+
+.btn-shortcut {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 0 5px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 15px;
+    vertical-align: 1.5px;
+    opacity: 0.75;
+}
+
+/* Small marker for a side: ivory, black, or half and half. */
+.seat-dot {
+    display: inline-block;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--muted);
+    background: var(--piece-white);
+    vertical-align: -2px;
+}
+.seat-dot--black {
+    background: var(--piece-black);
+    border-color: color-mix(in srgb, var(--piece-white) 55%, transparent);
+}
+.seat-dot--random {
+    background: linear-gradient(90deg, var(--piece-white) 50%, var(--piece-black) 50%);
+}
+
+.card-title,
+.setup__label {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.play .field input.input-error,
+.play .field input.input-error:focus {
+    border-color: var(--check);
+    box-shadow: 0 0 0 4px var(--check-wash);
+}
+
+/* ==========================================================================
+   The game
+   ========================================================================== */
+
+.game-layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: var(--side-w) auto var(--side-w);
+    justify-content: center;
+    align-items: start;
+    gap: var(--col-gap);
+    padding: var(--edge);
+}
+
+.record,
+#gameControlsCard,
+#emotePanel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ink-2) 70%, transparent), transparent 140px), var(--ink-1);
+}
+
+/* The three columns come in when the game starts. play_view.js adds
+   .is-live once board.js makes the layout visible. The animations fill
+   backwards only, so nothing is left transformed afterwards: the tour lifts
+   its targets above a veil, and a transformed parent would trap them. */
+.game-layout.is-live .record {
+    animation: side-in-left 0.45s var(--ease-out) backwards;
+}
+.game-layout.is-live .sidebar-container {
+    animation: side-in-right 0.45s var(--ease-out) backwards;
+}
+.game-layout.is-live .board-outer {
+    animation: board-in 0.5s var(--ease-out) backwards;
+}
+.game-layout.is-live .player-info {
+    animation: bar-in 0.45s var(--ease-out) 0.05s backwards;
+}
+@keyframes side-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-28px);
+    }
+}
+@keyframes side-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(28px);
+    }
+}
+@keyframes board-in {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+}
+@keyframes bar-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+/* ---------- players and clocks ---------- */
+
+.board-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--stack-gap);
+    width: calc(var(--board) + var(--eval-w));
+    max-width: 100%;
+    min-width: 0;
+}
+.top-player {
+    order: 1;
+}
+.board-outer {
+    order: 2;
+}
+.bottom-player {
+    order: 3;
+}
+.board-container.flipped .top-player {
+    order: 3;
+}
+.board-container.flipped .bottom-player {
+    order: 1;
+}
+
+.player-info {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: var(--bar-h);
+    padding: 6px 6px 6px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--ink-1);
+    transition: border-color 0.35s, background 0.35s, box-shadow 0.35s;
+}
+/* The side to move: the whole bar lights up, not just the clock. */
+.player-info:has(.clock.active) {
+    border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+    background: linear-gradient(90deg, var(--gold-wash), transparent 70%), var(--ink-1);
+    box-shadow: 0 14px 40px -26px var(--gold);
+}
+.player-info::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 14px;
+    bottom: 14px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--gold);
+    opacity: 0;
+    transform: scaleY(0.2);
+    transition: opacity 0.3s, transform 0.4s var(--ease-spring);
+}
+.player-info:has(.clock.active)::before {
+    opacity: 1;
+    transform: none;
+}
+
+.player-details {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+.player-name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--title);
+}
+/* The engine's level. board.js marks the badge with data-difficulty
+   (easy, medium or hard). */
+.player-name > span {
+    display: inline-block;
+    margin-left: 2px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--gold-wash);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold);
+}
+.player-name > [data-difficulty='easy'] {
+    background: var(--good-wash);
+    color: var(--good);
+}
+.player-name > [data-difficulty='hard'] {
+    background: var(--check-wash);
+    color: var(--check);
+}
+.nav-avatar {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--gold);
+}
+.you-tag {
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--gold-wash);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+.captured-list {
+    display: flex;
+    flex: 0 1 auto;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+}
+.captured-img {
+    flex: none;
+    width: 21px;
+    height: 21px;
+    margin-right: -7px;
+    animation: taken-in 0.35s var(--ease-spring) backwards;
+}
+.captured-img:last-child {
+    margin-right: 0;
+}
+@keyframes taken-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.6);
+    }
+}
+.captured-score {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+}
+.material-advantage {
+    color: var(--good);
+}
+
+.clock {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+    min-width: 124px;
+    height: 100%;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--ink-2);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    transition: border-color 0.3s, background 0.3s, color 0.3s, opacity 0.3s;
+}
+.clock .time {
+    display: inline-flex;
+    align-items: center;
+    font-size: 25px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+.clock.inactive {
+    opacity: 0.8;
+}
+.clock.active {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+    opacity: 1;
+}
+/* A lamp that blinks once a second, and digits that give a small beat with
+   it, so the running clock is the one thing on the page that moves. */
+.clock::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0;
+}
+.clock.active::before {
+    animation: clock-lamp 1s steps(1, end) infinite;
+}
+.clock.active .time {
+    animation: clock-beat 1s var(--ease-out) infinite;
+}
+@keyframes clock-lamp {
+    0%,
+    49% {
+        opacity: 1;
+    }
+    50%,
+    100% {
+        opacity: 0.2;
+    }
+}
+@keyframes clock-beat {
+    0% {
+        transform: scale(1.045);
+    }
+    35%,
+    100% {
+        transform: none;
+    }
+}
+.board-container:has(.chessboard.paused) .clock::before,
+.board-container:has(.chessboard.paused) .clock .time {
+    animation-play-state: paused;
+}
+
+.clock-timer-bar-wrap {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: var(--line);
+}
+.clock-timer-bar-fill {
+    width: 100%;
+    height: 100%;
+    background: currentColor;
+    transition: width 1s linear;
+}
+.clock.low-1 {
+    color: color-mix(in srgb, var(--gold) 55%, var(--check));
+    border-color: currentColor;
+}
+.clock.low-2 {
+    color: color-mix(in srgb, var(--gold) 25%, var(--check));
+    border-color: currentColor;
+    background: var(--check-wash);
+}
+.clock.low-3 {
+    color: var(--check);
+    border-color: currentColor;
+    background: var(--check-wash);
+}
+.clock.low-3.active .time {
+    animation: clock-alarm 0.5s ease-in-out infinite alternate;
+}
+@keyframes clock-alarm {
+    to {
+        transform: scale(1.09);
+    }
+}
+
+/* The engine is thinking. board.js rebuilds these dots every second, so the
+   cycle is exactly one second and never visibly restarts. */
+.thinking-dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: 8px;
+}
+.thinking-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: thinking 1s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+.thinking-dots span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+@keyframes thinking {
+    0%,
+    60%,
+    100% {
+        opacity: 0.25;
+        transform: none;
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+
+/* ---------- the board ---------- */
+
+.board-outer {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0;
+}
+.board-aligned {
+    grid-column: 2;
+    min-width: 0;
+}
+
+.eval-bar-container {
+    display: none;
+    position: relative;
+    grid-column: 1;
+    flex-direction: column;
+    justify-content: flex-end;
+    width: 26px;
+    margin-right: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--piece-black);
+    overflow: hidden;
+    transition: margin 0.8s var(--ease-out);
+}
+.has-eval-bar .eval-bar-container {
+    display: flex;
+}
+.eval-bar-container.flipped {
+    justify-content: flex-start;
+}
+.eval-bar-white {
+    width: 100%;
+    height: 50%;
+    background: var(--piece-white);
+    transition: height 0.6s var(--ease-out);
+}
+/* board.js sets this label's top or bottom, and its colour, inline. */
+.eval-bar-score {
+    position: absolute;
+    left: 0;
+    right: 0;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: -0.06em;
+    text-align: center;
+    pointer-events: none;
+}
+
+.board-grid-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+}
+/* A pool of light under the board. */
+.board-grid-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 8% -4% -6%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--gold) 22%, transparent), transparent);
+    filter: blur(24px);
+    pointer-events: none;
+}
+
+.chessboard {
+    position: relative;
+    display: grid;
+    grid-template: repeat(8, minmax(0, 1fr)) / repeat(8, minmax(0, 1fr));
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    border: clamp(4px, calc(var(--board) / 84), 9px) solid var(--board-base);
+    border-radius: 8px;
+    background: var(--board-base);
+    box-shadow: 0 0 0 1px var(--board-rim), 0 34px 60px -30px rgba(0, 0, 0, 0.85);
+    user-select: none;
+    -webkit-user-select: none;
+    /* A finger on the board moves a piece; it never scrolls the page. */
+    touch-action: none;
+    transition: transform 0.8s var(--ease-out), box-shadow 0.8s;
+}
+
+.square {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+    background-color: var(--sq);
+    background-image: var(--sq-mark, none), var(--sq-shadow, none);
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.18s;
+}
+.square.light {
+    --sq: var(--sq-light);
+    --sq-ink: var(--sq-dark);
+}
+.square.dark {
+    --sq: var(--sq-dark);
+    --sq-ink: var(--sq-light);
+}
+.square:has(> .piece.playable) {
+    cursor: pointer;
+}
+.square:nth-child(1) {
+    border-top-left-radius: 3px;
+}
+.square:nth-child(8) {
+    border-top-right-radius: 3px;
+}
+.square:nth-child(57) {
+    border-bottom-left-radius: 3px;
+}
+.square:nth-child(64) {
+    border-bottom-right-radius: 3px;
+}
+
+/* Coordinates sit inside the edge squares, so they stay with the board
+   when it is flipped or tilted. The rank is written in the first square of
+   each row, the file in each square of the last row. */
+.square::before,
+.square::after {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: clamp(8.5px, calc(var(--board) / 54), 13px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--coord, var(--sq-ink));
+    opacity: 0.9;
+    pointer-events: none;
+}
+.square:nth-child(8n + 1)::before {
+    top: 6%;
+    left: 7%;
+}
+.square:nth-child(n + 57)::after {
+    right: 8%;
+    bottom: 5%;
+}
+.square:nth-child(8n + 1)[data-r='0']::before { content: '8'; }
+.square:nth-child(8n + 1)[data-r='1']::before { content: '7'; }
+.square:nth-child(8n + 1)[data-r='2']::before { content: '6'; }
+.square:nth-child(8n + 1)[data-r='3']::before { content: '5'; }
+.square:nth-child(8n + 1)[data-r='4']::before { content: '4'; }
+.square:nth-child(8n + 1)[data-r='5']::before { content: '3'; }
+.square:nth-child(8n + 1)[data-r='6']::before { content: '2'; }
+.square:nth-child(8n + 1)[data-r='7']::before { content: '1'; }
+.square:nth-child(n + 57)[data-c='0']::after { content: 'a'; }
+.square:nth-child(n + 57)[data-c='1']::after { content: 'b'; }
+.square:nth-child(n + 57)[data-c='2']::after { content: 'c'; }
+.square:nth-child(n + 57)[data-c='3']::after { content: 'd'; }
+.square:nth-child(n + 57)[data-c='4']::after { content: 'e'; }
+.square:nth-child(n + 57)[data-c='5']::after { content: 'f'; }
+.square:nth-child(n + 57)[data-c='6']::after { content: 'g'; }
+.square:nth-child(n + 57)[data-c='7']::after { content: 'h'; }
+.chessboard.hide-coordinates .square::before,
+.chessboard.hide-coordinates .square::after {
+    content: none;
+}
+
+/* Square states. */
+.square.last-move {
+    background-color: color-mix(in srgb, var(--sq) 50%, var(--board-hl));
+}
+.square.custom-highlight {
+    background-color: color-mix(in srgb, var(--sq) 45%, var(--board-info));
+}
+.square.selected {
+    background-color: color-mix(in srgb, var(--sq) 28%, var(--board-hl));
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--board-hl) 70%, white);
+}
+.square.premove {
+    background-color: color-mix(in srgb, var(--sq) 55%, var(--board-info));
+    outline: 2px dashed var(--board-info);
+    outline-offset: -4px;
+}
+.square.in-check {
+    --sq-mark: radial-gradient(circle at 50% 50%, var(--board-check) 0%, color-mix(in srgb, var(--board-check) 60%, transparent) 42%, transparent 74%);
+    animation: check-pulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes check-pulse {
+    from {
+        box-shadow: inset 0 0 0 0 var(--board-check);
+    }
+    to {
+        box-shadow: inset 0 0 0 4px var(--board-check);
+    }
+}
+.square.in-check > .piece {
+    animation: check-shake 0.5s ease-in-out;
+}
+@keyframes check-shake {
+    20% {
+        translate: -7% 0;
+    }
+    40% {
+        translate: 6% 0;
+    }
+    60% {
+        translate: -4% 0;
+    }
+    80% {
+        translate: 2% 0;
+    }
+}
+.square.hint-source {
+    box-shadow: inset 0 0 0 4px var(--board-hl);
+}
+.square.hint-target {
+    box-shadow: inset 0 0 0 4px var(--board-good);
+}
+.square:focus {
+    outline: none;
+}
+.square:focus-visible {
+    outline: 3px solid var(--board-info);
+    outline-offset: -3px;
+    border-radius: 0;
+    z-index: 2;
+}
+
+/* Where the selected piece can go. */
+.move-dot {
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    border-radius: 50%;
+    background: rgba(20, 16, 10, 0.4);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.32);
+    pointer-events: none;
+    animation: dot-in 0.2s var(--ease-spring) backwards;
+    transition: scale 0.18s var(--ease-spring);
+}
+.capture-ring {
+    position: absolute;
+    inset: 5%;
+    border: clamp(3px, calc(var(--board) / 130), 6px) solid color-mix(in srgb, var(--board-check) 80%, transparent);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: dot-in 0.2s var(--ease-spring) backwards;
+}
+@keyframes dot-in {
+    from {
+        opacity: 0;
+        scale: 0.3;
+    }
+}
+
+/* Pieces. Hover and selection move a piece with the translate and scale
+   properties and leave transform alone: board.js slides a piece by writing
+   an inline transform, and the two must not fight. */
+.square > .piece {
+    width: 88%;
+    height: 88%;
+    object-fit: contain;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    transform-origin: 50% 88%;
+    filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.35));
+    transition: translate 0.22s var(--ease-out), scale 0.25s var(--ease-spring), rotate 0.8s var(--ease-out), filter 0.22s, opacity 0.3s;
+}
+.square.selected > .piece {
+    translate: 0 -7%;
+    scale: 1.1;
+    filter: drop-shadow(0 9px 6px rgba(0, 0, 0, 0.45));
+}
+/* The piece that has just arrived settles onto its square. */
+.square.last-move > .piece {
+    animation: piece-land 0.34s var(--ease-spring);
+}
+@keyframes piece-land {
+    from {
+        scale: 1.16;
+        filter: drop-shadow(0 12px 8px rgba(0, 0, 0, 0.5));
+    }
+}
+.square > .piece.moving {
+    translate: none;
+    scale: none;
+    z-index: 5;
+    animation: none;
+}
+.square > .piece.captured {
+    animation: piece-taken 0.26s ease-in forwards;
+}
+@keyframes piece-taken {
+    to {
+        opacity: 0;
+        scale: 0.4;
+        rotate: 24deg;
+    }
+}
+/* The copy board.js leaves on the square a piece has just left. */
+.square > .piece-ghost {
+    position: absolute;
+    animation: ghost-fade 0.3s ease-out forwards;
+}
+@keyframes ghost-fade {
+    from {
+        opacity: 0.4;
+    }
+    to {
+        opacity: 0;
+    }
+}
+.square > .piece.touch-dragging-original {
+    opacity: 0.3;
+}
+
+.chessboard.flash-error {
+    animation: board-flash 0.5s ease-in-out 4;
+}
+@keyframes board-flash {
+    0%,
+    100% {
+        box-shadow: 0 0 0 3px var(--board-check), 0 34px 60px -30px rgba(0, 0, 0, 0.85);
+        translate: 0 0;
+    }
+    25% {
+        translate: -5px 0;
+    }
+    50% {
+        box-shadow: 0 0 0 1px var(--board-rim), 0 34px 60px -30px rgba(0, 0, 0, 0.85);
+        translate: 4px 0;
+    }
+    75% {
+        translate: -2px 0;
+    }
+}
+
+.chessboard.countdown-active .square {
+    pointer-events: none;
+}
+/* A click anywhere on a paused board resumes the game (board.js listens on
+   the board), so the squares stay clickable and pass the click up. */
+.chessboard.paused,
+.chessboard.paused .square {
+    cursor: pointer;
+}
+/* A paused position is not there to be studied. */
+.chessboard.paused .square > .piece {
+    opacity: 0.1;
+}
+body.blindfold-mode .chessboard .square > .piece {
+    opacity: 0;
+}
+body.blindfold-mode .move-dot,
+body.blindfold-mode .capture-ring {
+    display: none;
+}
+
+@media (hover: hover) {
+    .square:hover > .piece.playable:not(.moving) {
+        translate: 0 -5%;
+        scale: 1.07;
+        filter: drop-shadow(0 8px 6px rgba(0, 0, 0, 0.42));
+    }
+    .square.selected:hover > .piece.playable:not(.moving) {
+        translate: 0 -7%;
+        scale: 1.1;
+    }
+    .square:hover > .move-dot {
+        scale: 1.35;
+    }
+}
+
+/* ---------- the 3D view ----------
+   play_view.js puts .board-3d on <html>. The board is still the same grid
+   of squares: it is tilted back as one plane, and every piece is turned
+   up by the same angle so it faces you. .board-3d-leaving keeps the 3D
+   space alive for the moment it takes to lie flat again. */
+
+.board-3d .board-grid-wrap,
+.board-3d-leaving .board-grid-wrap {
+    perspective: calc(var(--board) * 3.4);
+    perspective-origin: 50% 0%;
+}
+.board-3d .chessboard,
+.board-3d-leaving .chessboard,
+.board-3d .square,
+.board-3d-leaving .square {
+    transform-style: preserve-3d;
+}
+.board-3d .chessboard {
+    transform: translateY(-2%) rotateX(var(--tilt)) scale(0.9);
+    box-shadow: 0 0 0 1px var(--board-rim), 0 60px 50px -34px rgba(0, 0, 0, 0.9);
+}
+/* In a 3D space the board's own surface and its squares lie in one plane,
+   and the browser cannot tell which of the two a click landed on. So the
+   board itself takes no clicks: its squares do, and the click still
+   reaches the board's listeners from them.
+   A standing piece hides part of the square behind it. The pieces you can
+   pick up, and the ones you can take, are clicked on their bodies. Every
+   other piece lets the click through to the square under the pointer, and
+   so does the piece you have picked up, which would otherwise stand in
+   front of the square it is about to move to. */
+.board-3d .chessboard,
+.board-3d-leaving .chessboard {
+    pointer-events: none;
+}
+.board-3d .chessboard .square,
+.board-3d-leaving .chessboard .square,
+.board-3d .chessboard .square > .piece.playable,
+.board-3d .chessboard .square:has(> .capture-ring) > .piece {
+    pointer-events: auto;
+}
+.board-3d .chessboard .square.selected > .piece.playable,
+.board-3d .chessboard .square > .piece.playable.moving,
+.board-3d .chessboard.countdown-active .square,
+.board-3d .chessboard.countdown-active .square > .piece.playable {
+    pointer-events: none;
+}
+/* The evaluation bar keeps to the height the tilted board takes up. */
+.board-3d .eval-bar-container {
+    margin-block: calc(var(--board) * 0.115) calc(var(--board) * 0.095);
+}
+/* The front edge of the slab the board is cut from. */
+.chessboard::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: calc(-1 * clamp(4px, calc(var(--board) / 84), 9px) - 1px);
+    right: calc(-1 * clamp(4px, calc(var(--board) / 84), 9px) - 1px);
+    height: calc(var(--board) / 30);
+    margin-top: clamp(4px, calc(var(--board) / 84), 9px);
+    border-radius: 0 0 6px 6px;
+    background: linear-gradient(180deg, var(--board-rim), color-mix(in srgb, var(--board-rim) 30%, var(--board-base)) 28%, var(--board-base));
+    transform-origin: 50% 0;
+    transform: rotateX(-90deg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s;
+}
+.board-3d .chessboard::after {
+    opacity: 1;
+}
+
+.board-3d .square > .piece {
+    rotate: x calc(var(--tilt) * -1);
+    translate: 0 -15%;
+    filter: none;
+}
+/* Each standing piece throws a soft shadow on its square. Not in blindfold
+   mode, where the shadows would give the position away. */
+.board-3d body:not(.blindfold-mode) .chessboard:not(.paused) .square:has(> .piece:not(.moving)) {
+    --sq-shadow: radial-gradient(ellipse 31% 15% at 50% 70%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.22) 55%, transparent 100%);
+}
+.board-3d .square.selected > .piece {
+    translate: 0 -15% calc(var(--board) / 36);
+    scale: 1.06;
+}
+/* In 3D a move is a lift and a drop. board.js would slide the piece along
+   its own, upright, plane, which is not the plane of the board, so its
+   inline transform is switched off here: the one !important this needs. */
+.board-3d .chessboard .square > .piece.moving {
+    transform: none !important;
+    translate: 0 -15%;
+    animation: piece-lift 0.28s var(--ease-out) forwards;
+}
+@keyframes piece-lift {
+    to {
+        translate: 0 -15% calc(var(--board) / 9);
+        opacity: 0;
+    }
+}
+.board-3d .square.last-move > .piece {
+    animation: piece-drop 0.42s var(--ease-spring);
+}
+@keyframes piece-drop {
+    from {
+        translate: 0 -15% calc(var(--board) / 9);
+        opacity: 0;
+    }
+    45% {
+        opacity: 1;
+    }
+}
+.board-3d .square > .piece.captured {
+    animation: piece-toppled 0.28s ease-in forwards;
+}
+@keyframes piece-toppled {
+    to {
+        rotate: x 28deg;
+        opacity: 0;
+    }
+}
+.board-3d .square > .piece-ghost {
+    display: none;
+}
+.board-3d .square.in-check > .piece {
+    animation: check-shake-3d 0.5s ease-in-out;
+}
+@keyframes check-shake-3d {
+    20% {
+        translate: -7% -15%;
+    }
+    40% {
+        translate: 6% -15%;
+    }
+    60% {
+        translate: -4% -15%;
+    }
+    80% {
+        translate: 2% -15%;
+    }
+}
+@media (hover: hover) {
+    .board-3d .square:hover > .piece.playable:not(.moving),
+    .board-3d .square.selected:hover > .piece.playable:not(.moving) {
+        translate: 0 -15% calc(var(--board) / 50);
+        scale: 1.05;
+        filter: none;
+    }
+    .board-3d .square.selected:hover > .piece.playable:not(.moving) {
+        translate: 0 -15% calc(var(--board) / 36);
+    }
+}
+
+#view3dBtn[aria-pressed='true'] {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+
+/* ---------- on top of the board ---------- */
+
+.countdown-overlay,
+.pause-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    pointer-events: none;
+}
+.countdown-overlay.active,
+.pause-overlay.active {
+    display: flex;
+}
+.countdown-overlay {
+    z-index: 7;
+    background: radial-gradient(circle, color-mix(in srgb, var(--board-base) 55%, transparent), color-mix(in srgb, var(--board-base) 88%, transparent));
+}
+/* board.js changes the number once a second; the pop repeats in step. */
+.countdown-number {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: calc(var(--board) / 3);
+    line-height: 1;
+    color: var(--board-hl);
+    text-shadow: 0 0 60px color-mix(in srgb, var(--board-hl) 60%, transparent);
+    animation: count-pop 1s var(--ease-out) infinite;
+}
+@keyframes count-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.4) rotate(-8deg);
+    }
+    22% {
+        opacity: 1;
+        transform: scale(1.12);
+    }
+    40%,
+    82% {
+        opacity: 1;
+        transform: none;
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.5);
+    }
+}
+
+.pause-overlay {
+    gap: 12px;
+    background: color-mix(in srgb, var(--board-base) 78%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: var(--piece-white);
+    animation: fade-in 0.3s both;
+}
+.pause-overlay-icon {
+    display: flex;
+    gap: 9px;
+}
+.pause-overlay-icon i {
+    width: 11px;
+    height: 38px;
+    border-radius: 4px;
+    background: var(--board-hl);
+    animation: pause-bars 1.6s ease-in-out infinite alternate;
+}
+.pause-overlay-icon i:last-child {
+    animation-delay: 0.25s;
+}
+@keyframes pause-bars {
+    from {
+        opacity: 0.45;
+        transform: scaleY(0.82);
+    }
+}
+.pause-overlay-title {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: clamp(30px, calc(var(--board) / 12), 54px);
+    line-height: 1;
+    color: var(--board-hl);
+}
+.pause-timer-badge {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-mono);
+}
+.pause-timer-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.7;
+}
+.pause-timer-value {
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+}
+.pause-overlay-hint {
+    font-size: 13.5px;
+    opacity: 0.75;
+}
+
+.resume-game-floating-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 5%;
+    z-index: 8;
+    translate: -50% 0;
+    padding: 10px 20px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color: var(--on-gold);
+    font-size: 14.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.7);
+    animation: float-in 0.4s var(--ease-spring) backwards;
+    transition: scale 0.25s var(--ease-spring);
+}
+.resume-game-floating-btn:hover {
+    scale: 1.05;
+}
+@keyframes float-in {
+    from {
+        opacity: 0;
+        translate: -50% 16px;
+    }
+}
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+}
+
+.floating-emote {
+    position: absolute;
+    top: 12%;
+    z-index: 9;
+    font-size: clamp(34px, calc(var(--board) / 12), 56px);
+    pointer-events: none;
+    animation: emote-rise 2s var(--ease-out) forwards;
+}
+.floating-emote.white-emote {
+    left: 10%;
+}
+.floating-emote.black-emote {
+    right: 10%;
+}
+@keyframes emote-rise {
+    0% {
+        opacity: 0;
+        transform: translateY(24px) scale(0.4);
+    }
+    14% {
+        opacity: 1;
+        transform: translateY(0) scale(1.15);
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-70px) scale(1);
+    }
+}
+
+/* ---------- left: the record ---------- */
+
+.record {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-self: stretch;
+    min-height: 0;
+    max-height: calc(var(--board) + 2 * var(--bar-h) + 2 * var(--stack-gap));
+    padding: 16px;
+}
+.record__head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.turn-indicator-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+/* board.js rewrites this element's class and text on every move. */
+.turn-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--title);
+}
+.turn-badge::before {
+    content: '';
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--muted);
+    background: var(--piece-white);
+    box-shadow: 0 0 0 0 var(--gold);
+    animation: turn-ring 1.8s ease-out infinite;
+}
+.turn-badge.black::before {
+    background: var(--piece-black);
+    border-color: color-mix(in srgb, var(--piece-white) 55%, transparent);
+}
+@keyframes turn-ring {
+    to {
+        box-shadow: 0 0 0 9px transparent;
+    }
+}
+.game-counter-badge {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+}
+#game-status {
+    min-height: 20px;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--gold);
+}
+.status-bar.error #game-status {
+    color: var(--check);
+}
+
+.replay-controls {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+.replay-controls button,
+.stepper-btn {
+    display: grid;
+    place-items: center;
+    flex: 1;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--ink-2);
+    color: var(--title);
+    font-size: 13px;
+    transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.25s var(--ease-spring);
+}
+.replay-controls button:hover,
+.stepper-btn:hover:not(:disabled) {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+    transform: translateY(-2px);
+}
+.stepper-btn svg {
+    width: 17px;
+    height: 17px;
+}
+.stepper-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+#playReplayBtn {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.move-history-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 10px;
+    min-height: 150px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.record__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.opening-display {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--muted);
+}
+/* board.js lists the newest move first. */
+.moves-list {
+    flex: 1 1 0;
+    min-height: 0;
+    margin-inline: -6px;
+    padding-inline: 6px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+}
+.moves-list .placeholder {
+    display: block;
+    padding: 18px 0;
+    font-family: var(--font-sans);
+    text-align: center;
+    color: var(--muted);
+}
+.move-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 4px;
+    padding: 1px 0;
+    color: var(--text);
+}
+.move-row:first-child {
+    color: var(--title);
+    animation: row-in 0.3s var(--ease-out);
+}
+@keyframes row-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
+.move-num {
+    color: var(--muted);
+}
+.move-white,
+.move-black {
+    padding: 5px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.move-white:hover,
+.move-black:hover {
+    background: var(--gold-wash);
+    color: var(--title);
+}
+.moves-list .selected-move {
+    background: var(--gold);
+    color: var(--on-gold);
+}
+.move-stepper-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.move-entry {
+    display: grid;
+    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.move-entry .field {
+    gap: 5px;
+}
+.move-entry .field > label {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--muted);
+}
+.move-entry .field input {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+}
+.san-input-container {
+    display: flex;
+    gap: 8px;
+}
+.san-input-container input {
+    flex: 1;
+    min-width: 0;
+}
+.san-move-btn {
+    flex: none;
+    padding: 9px 16px;
+}
+
+.record__foot {
+    display: grid;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+}
+.session-score-tracker,
+.score-panel,
+.record__meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.record__key {
+    min-width: 66px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.session-score-tracker.tour-spotlight {
+    margin: -5px -8px;
+    padding: 5px 8px;
+}
+.score-win {
+    color: var(--good);
+}
+.score-loss {
+    color: var(--check);
+}
+.score-draw {
+    color: var(--muted);
+}
+.score-box {
+    display: flex;
+    gap: 6px;
+}
+.score-label {
+    color: var(--muted);
+}
+.record__meta {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 12px;
+    color: var(--muted);
+}
+.online-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+#status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 0 3px var(--good-wash);
+}
+#status-indicator.offline {
+    background: var(--check);
+    box-shadow: 0 0 0 3px var(--check-wash);
+}
+.streak-counter {
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+
+/* ---------- right: the controls ---------- */
+
+.sidebar-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+.drawer-head {
+    display: none;
+}
+#gameControlsCard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 14px;
+}
+.ctl-group {
+    display: grid;
+    gap: 9px;
+}
+.ctl-group + .ctl-group {
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+/* The new-game group disappears with its buttons. */
+.ctl-group--new:not(:has(.btn:not([style*='none']))) {
+    display: none;
+}
+/* Once Pause is hidden the game is over, and the in-game group is empty
+   unless a puzzle has left its buttons there. */
+.ctl-group:first-child:not(:has(.btn:not([style*='none']))) {
+    display: none;
+}
+.ctl-group:first-child:not(:has(.btn:not([style*='none']))) + .ctl-group {
+    padding-top: 0;
+    border-top: 0;
+}
+/* Two to a row; a button left alone on its row takes the whole row. The
+   hidden ones (board.js sets display: none on them) leave no gap. */
+.controls-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.controls-grid > * {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+}
+.controls-grid > .ctl-wide {
+    flex-basis: 100%;
+}
+#boardThemeCard .btn {
+    display: block;
+    width: 100%;
+}
+.btn-tool {
+    font-size: 13px;
+}
+.btn-tool svg {
+    width: 15px;
+    height: 15px;
+    vertical-align: -2.5px;
+}
+.controls-grid .btn-tool {
+    padding-inline: 4px;
+}
+.btn-tool svg {
+    margin-right: 5px;
+}
+.controls-grid .btn {
+    padding-inline: 6px;
+    font-size: 14px;
+}
+#pauseBtn.paused {
+    animation: resume-glow 1.4s ease-in-out infinite alternate;
+}
+@keyframes resume-glow {
+    to {
+        box-shadow: 0 0 0 5px var(--gold-wash), 0 10px 28px -14px var(--gold);
+    }
+}
+/* Blindfold is switched on in settings; while it is on, the Settings
+   button says so. */
+body.blindfold-mode #openThemeModalBtn {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+body.blindfold-mode #openThemeModalBtn::after {
+    content: ' · blindfold on';
+}
+body.blindfold-mode .blindfold-btn {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.pref-switch-row .btn {
+    flex: none;
+}
+.ctl-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+}
+.ctl-leave {
+    color: var(--check);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+.ctl-leave:hover {
+    border-color: currentColor;
+}
+
+#emotePanel {
+    padding: 14px 16px;
+}
+.emote-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+.emote-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    font-size: 23px;
+    transition: transform 0.25s var(--ease-spring), background 0.2s;
+}
+.emote-btn:hover {
+    background: var(--gold-wash);
+    transform: scale(1.22) rotate(-8deg);
+}
+
+/* The bar under the board on a phone. */
+.m-fab {
+    display: none;
+}
+
+/* ==========================================================================
+   Overlays and dialogs
+   ========================================================================== */
+
+/* board.js opens most of these with a class (.active) and a few with an
+   inline display: flex. Both are covered. */
+.promo-overlay,
+.theme-settings-modal,
+.frame-modal,
+.share-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    padding: 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+.promo-overlay,
+.theme-settings-modal {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, visibility 0s linear 0.25s;
+}
+.promo-overlay.active,
+.theme-settings-modal.active,
+#sideModal,
+#resignModal {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition-delay: 0s;
+}
+.theme-settings-modal {
+    z-index: 320;
+}
+#promoOverlay,
+#confirmOverlay,
+#leaveConfirmOverlay,
+#sideModal,
+#resignModal {
+    z-index: 310;
+}
+.frame-modal,
+.share-modal {
+    z-index: 330;
+}
+
+.promo-dialog {
+    position: relative;
+    box-sizing: border-box;
+    width: min(440px, 100%);
+    margin: auto;
+    padding: 28px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--ink-1);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+.promo-overlay.active > .promo-dialog,
+.theme-settings-modal.active > .promo-dialog,
+#sideModal > .promo-dialog,
+#resignModal > .promo-dialog,
+.frame-modal__box,
+.share-modal__box {
+    animation: dialog-in 0.4s var(--ease-spring) backwards;
+}
+@keyframes dialog-in {
+    from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.94);
+    }
+}
+.promo-title {
+    margin-bottom: 10px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--title);
+}
+.promo-title--danger {
+    color: var(--check);
+}
+.promo-text {
+    margin-bottom: 22px;
+    color: var(--text);
+}
+.promo-dialog .field {
+    margin-bottom: 18px;
+    text-align: left;
+}
+.promo-actions {
+    display: flex;
+    gap: 10px;
+}
+.promo-actions > .btn {
+    flex: 1;
+}
+.promo-actions--end {
+    justify-content: flex-end;
+    margin-top: 22px;
+}
+.promo-actions--end > .btn {
+    flex: none;
+    min-width: 120px;
+}
+.choice-stack {
+    display: grid;
+    gap: 10px;
+}
+.btn-choice {
+    display: block;
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: var(--radius);
+    background: var(--ink-2);
+    font-size: 15.5px;
+}
+.btn-choice .seat-dot {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    vertical-align: -3.5px;
+}
+/* White and Black are painted in the colours of the pieces, the same in
+   both themes, so the two can never be mistaken for each other. */
+.btn-choice--white,
+.btn-choice--white:hover {
+    border-color: var(--piece-white);
+    background: var(--piece-white);
+    color: var(--piece-black);
+}
+.btn-choice--black,
+.btn-choice--black:hover {
+    border-color: color-mix(in srgb, var(--piece-white) 45%, var(--piece-black));
+    background: var(--piece-black);
+    color: var(--piece-white);
+}
+.btn-choice--white:hover,
+.btn-choice--black:hover {
+    box-shadow: 0 0 0 3px var(--gold);
+}
+.btn-choice--white .seat-dot {
+    border-color: var(--piece-black);
+    background: var(--piece-white);
+}
+.fen-input {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+}
+
+/* Promotion. */
+.promo-dialog--pieces {
+    width: min(480px, 100%);
+}
+.promo-pieces {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+}
+.promo-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 6px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--ink-2);
+    color: var(--title);
+    transition: transform 0.3s var(--ease-spring), border-color 0.2s, background 0.2s;
+    animation: promo-pop 0.4s var(--ease-spring) backwards;
+}
+.promo-btn:nth-child(2) {
+    animation-delay: 0.05s;
+}
+.promo-btn:nth-child(3) {
+    animation-delay: 0.1s;
+}
+.promo-btn:nth-child(4) {
+    animation-delay: 0.15s;
+}
+@keyframes promo-pop {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.8);
+    }
+}
+.promo-btn:hover,
+.promo-btn:focus-visible {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    transform: translateY(-6px);
+}
+.promo-btn img {
+    width: min(64px, 100%);
+    height: auto;
+    aspect-ratio: 1;
+    filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.35));
+}
+.promo-label {
+    font-size: 13.5px;
+    font-weight: 600;
+}
+.promo-key {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    color: var(--gold);
+}
+.promo-cancel {
+    margin-top: 14px;
+}
+
+/* ---------- setup ---------- */
+
+.promo-overlay.setup {
+    inset: var(--nav-height) 0 0 0;
+    z-index: 90;
+    display: block;
+    padding: 0;
+    background:
+        radial-gradient(60% 70% at 28% 42%, var(--gold-wash), transparent 70%),
+        var(--ink-0);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: opacity 0.35s, visibility 0s linear 0.35s;
+}
+.promo-overlay.setup.active {
+    transition-delay: 0s;
+}
+.setup__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 540px);
+    align-items: center;
+    gap: clamp(20px, 4vw, 64px);
+    box-sizing: border-box;
+    width: min(1240px, 100% - 2 * var(--pad));
+    min-height: 100%;
+    margin-inline: auto;
+    padding-block: clamp(14px, 2.6vh, 36px);
+}
+.setup__card {
+    width: 100%;
+    margin: 0;
+    padding: clamp(18px, 2.4vw, 28px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-align: left;
+    animation: card-in 0.6s var(--ease-out) 0.05s backwards;
+}
+@keyframes card-in {
+    from {
+        opacity: 0;
+        transform: translateY(26px);
+    }
+}
+.setup__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.setup__top .icon-button {
+    width: 36px;
+    height: 36px;
+}
+.setup__title {
+    display: grid;
+    gap: 8px;
+}
+.setup__title .promo-title {
+    margin: 0;
+    font-size: clamp(34px, 3.6vw, 48px);
+    letter-spacing: -0.035em;
+    line-height: 1;
+}
+
+/* board.js sets display: flex on these three blocks when it swaps the
+   first step for the engine's options. */
+.setup__players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.setup__players > .field {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+}
+.setup__players > .time-control-selector-container,
+.setup__error {
+    flex-basis: 100%;
+}
+.setup__name > label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* On a phone the placeholder is longer than the field; it ends in an
+   ellipsis there. A field wide enough for it looks the same as before. */
+.setup__name > input,
+.setup__fen > input {
+    text-overflow: ellipsis;
+}
+/* A name field whose input board.js has hidden goes with it. */
+.setup__name:has(> input[style*='none']) {
+    display: none;
+}
+.when-engine,
+.setup:has(#pveOptions[style*='flex']) .when-pvp {
+    display: none;
+}
+.setup:has(#pveOptions[style*='flex']) .when-engine {
+    display: inline;
+}
+.setup:has(#pveOptions[style*='flex']) .setup__name--white .seat-dot {
+    display: none;
+}
+/* With one name to ask for, the clock sits beside it. */
+.setup:has(#pveOptions[style*='flex']) .setup__players > .time-control-selector-container {
+    flex-basis: calc(50% - 6px);
+}
+.setup:has(#pveOptions[style*='flex']) .time-control-popover {
+    left: auto;
+    width: calc(200% + 12px);
+}
+
+.time-control-selector-container {
+    position: relative;
+}
+.time-control-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--ink-2);
+    color: var(--title);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    text-align: left;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.time-control-trigger:hover {
+    border-color: color-mix(in srgb, var(--gold) 50%, var(--line-strong));
+}
+.time-control-trigger:focus-visible {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 4px var(--gold-wash);
+}
+.tc-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--gold);
+}
+/* A long custom clock is shortened on one line, not broken onto two. */
+.tc-display-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.tc-chevron {
+    width: 14px;
+    height: 14px;
+    color: var(--muted);
+}
+.time-control-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--ink-1);
+    box-shadow: var(--shadow);
+    animation: pop-in 0.25s var(--ease-out);
+}
+@keyframes pop-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+}
+.tc-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--ink-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.tc-tab-btn {
+    flex: 1;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--muted);
+    transition: background 0.2s, color 0.2s;
+}
+.tc-tab-btn:hover {
+    color: var(--title);
+}
+.tc-tab-btn.active {
+    background: var(--gold);
+    color: var(--on-gold);
+}
+.tc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+    gap: 8px;
+}
+.tc-preset-btn {
+    padding: 11px 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--title);
+    transition: border-color 0.2s, background 0.2s, transform 0.25s var(--ease-spring);
+}
+.tc-preset-btn:hover {
+    border-color: var(--gold);
+    transform: translateY(-2px);
+}
+.tc-preset-btn.active {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+.tc-custom-inputs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.tc-custom-inputs .field > label {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.setup__modes,
+.setup__engine {
+    flex-direction: column;
+    gap: 12px;
+}
+.setup__modes {
+    display: flex;
+}
+.mode-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.mode-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--ink-2);
+    text-align: left;
+    color: var(--text);
+    transition: transform 0.35s var(--ease-spring), border-color 0.25s, background 0.25s, box-shadow 0.3s;
+}
+.mode-card:hover,
+.mode-card:focus-visible {
+    border-color: var(--gold);
+    background: linear-gradient(180deg, var(--gold-wash), transparent), var(--ink-2);
+    box-shadow: 0 18px 40px -24px var(--gold);
+    transform: translateY(-5px);
+}
+.mode-card__title {
+    font-size: 16.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--title);
+}
+.mode-card__text {
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--muted);
+}
+/* The same three little pictures as on the landing page. */
+.mode-card__art {
+    position: relative;
+    display: block;
+    height: 44px;
+    margin-bottom: 8px;
+}
+.mode-card__art i {
+    position: absolute;
+    display: block;
+    border-radius: 4px;
+    background: var(--ink-3);
+    transition: transform 0.5s var(--ease-spring);
+}
+.mode-card__art--engine i {
+    bottom: 0;
+    width: 9px;
+    transform-origin: bottom;
+}
+.mode-card__art--engine i:nth-child(1) { left: 0; height: 36%; }
+.mode-card__art--engine i:nth-child(2) { left: 13px; height: 60%; }
+.mode-card__art--engine i:nth-child(3) { left: 26px; height: 100%; background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); }
+.mode-card__art--engine i:nth-child(4) { left: 39px; height: 48%; }
+.mode-card__art--engine i:nth-child(5) { left: 52px; height: 26%; }
+.mode-card:hover .mode-card__art--engine i:not(:nth-child(3)) { transform: scaleY(0.6); }
+.mode-card__art--friend i {
+    top: 6px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+}
+.mode-card__art--friend i:nth-child(1) { left: 0; background: var(--piece-white); }
+.mode-card__art--friend i:nth-child(2) { left: 24px; background: var(--piece-black); border: 1px solid var(--line-strong); }
+.mode-card:hover .mode-card__art--friend i:nth-child(1) { transform: translateX(24px); }
+.mode-card:hover .mode-card__art--friend i:nth-child(2) { transform: translateX(-24px); }
+.mode-card__art--puzzle i {
+    top: 10px;
+    width: 26px;
+    height: 26px;
+}
+.mode-card__art--puzzle i:nth-child(1) { left: 0; }
+.mode-card__art--puzzle i:nth-child(2) { left: 30px; }
+.mode-card__art--puzzle i:nth-child(3) { left: 60px; background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep)); transform: translateY(-10px) rotate(12deg); }
+.mode-card:hover .mode-card__art--puzzle i:nth-child(3) { transform: none; }
+
+/* A game left unfinished comes first. */
+.setup__resume {
+    order: -1;
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.setup__group {
+    display: grid;
+    gap: 8px;
+}
+.side-choices {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+/* board.js puts .active on the one that is chosen. */
+.color-choice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 12px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--ink-2);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    transition: background 0.2s, color 0.2s, transform 0.25s var(--ease-spring), box-shadow 0.2s;
+}
+.color-choice:hover {
+    transform: translateY(-2px);
+    color: var(--title);
+}
+.color-choice.active {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+    color: var(--title);
+    box-shadow: 0 0 0 3px var(--gold-wash);
+}
+.color-choice .seat-dot {
+    width: 18px;
+    height: 18px;
+}
+.setup__pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+/* play_view.js turns the strength select into three buttons. */
+.seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    min-height: 48px;
+    padding: 3px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--ink-2);
+}
+.seg button {
+    padding: 0 6px;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--muted);
+    transition: background 0.2s, color 0.2s;
+}
+.seg button:hover {
+    color: var(--title);
+}
+.seg button[aria-checked='true'] {
+    background: var(--gold);
+    color: var(--on-gold);
+    font-weight: 600;
+}
+.setup__actions {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+.setup__fen {
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.setup__fen > label {
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* The table you are sitting down at: a small board in the same CSS 3D as
+   the game's 3D view, built by play_view.js. It turns to show your side. */
+.setup__stage {
+    position: relative;
+    min-width: 0;
+}
+.seat {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    width: min(100%, 74vh);
+    margin-inline: auto;
+}
+.seat__table {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 0.73;
+    perspective: 1500px;
+    perspective-origin: 50% -20%;
+}
+.seat__board {
+    position: absolute;
+    left: 8%;
+    top: 50%;
+    width: 84%;
+    margin-top: -45%;
+    aspect-ratio: 1;
+    box-sizing: border-box;
+    border: 9px solid var(--board-base);
+    border-radius: 8px;
+    background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 25% 25%, var(--board-base);
+    /* No offset: the board turns, and its shadow must not turn with it. */
+    box-shadow: 0 0 0 1px var(--board-rim), 0 0 70px -18px rgba(0, 0, 0, 0.75);
+    transform: rotateX(56deg) rotateZ(0deg);
+    transform-style: preserve-3d;
+    transition: transform 1.2s var(--ease-out);
+    animation: seat-rise 1.1s var(--ease-out) backwards;
+}
+@keyframes seat-rise {
+    from {
+        opacity: 0;
+        transform: rotateX(72deg) rotateZ(-24deg) scale(0.84);
+    }
+}
+/* A piece turns with the board about the middle of its square, then stands
+   up about its own base, so it faces you from any side. */
+.seat__piece {
+    position: absolute;
+    left: calc(var(--f) * 12.5%);
+    top: calc(var(--r) * 12.5%);
+    width: 12.5%;
+    height: 12.5%;
+    transform: rotateZ(0deg) translateY(30%) rotateX(-56deg) translateY(-38%);
+    transition: transform 1.2s var(--ease-out);
+    animation: seat-drop 0.7s var(--ease-spring) backwards;
+    animation-delay: calc(0.35s + var(--i) * 22ms);
+}
+@keyframes seat-drop {
+    from {
+        opacity: 0;
+        translate: 0 0 90px;
+    }
+}
+.seat[data-seat='black'] .seat__board {
+    transform: rotateX(56deg) rotateZ(180deg);
+}
+.seat[data-seat='black'] .seat__piece {
+    transform: rotateZ(-180deg) translateY(30%) rotateX(-56deg) translateY(-38%);
+}
+.seat[data-seat='random'] .seat__board {
+    transform: rotateX(56deg) rotateZ(90deg);
+}
+.seat[data-seat='random'] .seat__piece {
+    transform: rotateZ(-90deg) translateY(30%) rotateX(-56deg) translateY(-38%);
+}
+.seat__row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    max-width: 100%;
+}
+.seat__plate {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    max-width: 70%;
+    padding: 7px 16px 7px 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink-1) 88%, transparent);
+    font-size: 15px;
+    color: var(--title);
+    animation: card-in 0.6s var(--ease-out) 0.5s backwards;
+}
+.seat__plate b {
+    overflow: hidden;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.seat__plate--near {
+    border-color: var(--gold);
+    box-shadow: 0 12px 34px -18px var(--gold);
+}
+.seat__clock {
+    flex: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--gold-wash);
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--gold);
+    animation: card-in 0.6s var(--ease-out) 0.6s backwards;
+}
+
+/* ---------- settings and shortcuts ---------- */
+
+.theme-modal-dialog,
+.shortcuts-dialog {
+    width: min(600px, 100%);
+    text-align: left;
+}
+.modal-close-btn {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 36px;
+    height: 36px;
+}
+.theme-modal-title,
+.shortcuts-modal-title {
+    margin-right: 44px;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+}
+.theme-modal-section,
+.shortcuts-section {
+    margin-top: 16px;
+    padding-top: 15px;
+    border-top: 1px solid var(--line);
+}
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.section-title,
+.shortcuts-section-title {
+    margin: 0 0 12px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.section-head .section-title {
+    margin: 0;
+}
+.theme-swatches-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px 10px;
+}
+.theme-swatches-grid--pieces {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.theme-swatch-label {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+}
+/* The radio is kept for the keyboard and hidden from the eye. */
+.theme-radio-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+}
+.theme-swatch {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1.45;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 50% 100%, var(--board-base);
+    box-shadow: 0 0 0 1px var(--line-strong);
+    transition: transform 0.3s var(--ease-spring), box-shadow 0.2s, border-color 0.2s;
+}
+.glass-swatch {
+    --board-base: #1d2436;
+}
+.theme-swatch-label:hover .theme-swatch {
+    transform: translateY(-3px) rotate(-2deg);
+}
+.theme-radio-input:checked + .theme-swatch {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 4px var(--gold-wash);
+}
+.theme-radio-input:focus-visible + .theme-swatch {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+}
+.theme-radio-input:checked + .theme-swatch::before,
+.theme-radio-input:checked + .theme-swatch::after {
+    content: '';
+    position: absolute;
+    animation: dot-in 0.3s var(--ease-spring);
+}
+.theme-radio-input:checked + .theme-swatch::before {
+    top: -7px;
+    right: -7px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--gold);
+}
+.theme-radio-input:checked + .theme-swatch::after {
+    top: -3px;
+    right: 0;
+    width: 5px;
+    height: 9px;
+    border: solid var(--on-gold);
+    border-width: 0 2px 2px 0;
+    rotate: 45deg;
+}
+.theme-swatch-name {
+    font-size: 13px;
+    color: var(--text);
+}
+.theme-radio-input:checked ~ .theme-swatch-name {
+    color: var(--gold);
+}
+/* A white piece on a dark square, a black one on a light square. */
+.piece-swatch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    aspect-ratio: 2;
+    background: linear-gradient(90deg, var(--sq-dark) 50%, var(--sq-light) 50%);
+}
+.piece-swatch img {
+    width: 78%;
+    height: auto;
+    margin: auto;
+    transition: transform 0.35s var(--ease-spring);
+}
+.theme-swatch-label:hover .piece-swatch img {
+    transform: translateY(-3px) scale(1.08);
+}
+
+.pref-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 7px 0;
+}
+.pref-label {
+    font-size: 15px;
+    color: var(--title);
+    cursor: pointer;
+}
+.switch-toggle {
+    position: relative;
+    flex: none;
+    width: 46px;
+    height: 26px;
+}
+.switch-toggle input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.switch-slider {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--ink-3);
+    transition: background 0.25s, border-color 0.25s;
+}
+.switch-slider::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform 0.3s var(--ease-spring), background 0.25s;
+}
+.switch-toggle input:checked + .switch-slider {
+    border-color: var(--gold);
+    background: var(--gold);
+}
+.switch-toggle input:checked + .switch-slider::before {
+    background: var(--on-gold);
+    transform: translateX(20px);
+}
+.switch-toggle input:focus-visible + .switch-slider {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+}
+
+.shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 7px 0;
+    font-size: 14.5px;
+    color: var(--text);
+}
+.shortcut-keys {
+    flex: none;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+kbd {
+    display: inline-block;
+    min-width: 22px;
+    padding: 2px 7px;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 7px;
+    background: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: center;
+    color: var(--title);
+}
+
+/* ---------- the end of a game ---------- */
+
+.premium-result-dialog {
+    width: min(900px, 100%);
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+}
+/* board.js fades this overlay in half a second after it opens, so the
+   panel waits for it. */
+#gameOverOverlay.active > .premium-result-dialog {
+    animation: result-in 0.7s var(--ease-spring) 0.5s backwards;
+}
+@keyframes result-in {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.9);
+    }
+}
+#gameOverOverlay.game-over-celebration > .premium-result-dialog {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 6px var(--gold-wash), 0 40px 90px -30px var(--gold);
+}
+.result-modal-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+}
+.result-column-left {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 32px 28px 26px;
+    background: radial-gradient(120% 70% at 50% 0%, var(--gold-wash), transparent 70%), var(--ink-2);
+    text-align: center;
+}
+.result-column-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 26px 28px;
+}
+.result-banner {
+    display: grid;
+    gap: 6px;
+}
+/* The picture under the title says it; the emoji board.js puts here is not
+   shown. */
+.banner-icon {
+    display: none;
+}
+.result-banner .promo-title {
+    margin: 0;
+    font-size: clamp(38px, 5vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+.banner-victory .promo-title {
+    animation: title-shine 2.6s linear infinite;
+    background: linear-gradient(100deg, var(--gold-deep), var(--gold-bright) 45%, var(--gold) 70%, var(--gold-bright));
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.promo-overlay:not(.active) .banner-victory .promo-title,
+.promo-overlay:not(.active) .res-svg-illustration * {
+    animation: none;
+}
+@keyframes title-shine {
+    to {
+        background-position: -220% 0;
+    }
+}
+.banner-defeat .promo-title {
+    color: var(--check);
+}
+.banner-draw .promo-title {
+    color: var(--info);
+}
+.banner-subtitle {
+    font-size: 15.5px;
+    color: var(--text);
+}
+.result-illustration {
+    width: 150px;
+    height: 150px;
+    margin-block: auto;
+    padding: 16px;
+    box-sizing: border-box;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--ink-0);
+    animation: medal-in 0.8s var(--ease-spring) 0.75s backwards;
+}
+/* The drawings are made by board.js in colours meant for a dark ground. */
+[data-theme='light'] .result-illustration {
+    background: var(--title);
+}
+@keyframes medal-in {
+    from {
+        opacity: 0;
+        transform: scale(0.3) rotate(-30deg);
+    }
+}
+.result-illustration:empty {
+    display: none;
+}
+.res-svg-illustration {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.svg-animate-crown,
+.svg-animate-hourglass,
+.svg-animate-flag,
+.svg-animate-handshake {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+}
+.svg-animate-crown {
+    animation: art-bob 2.2s ease-in-out infinite alternate;
+}
+.svg-animate-hourglass {
+    transform-origin: 50% 50%;
+    animation: art-tip 3s ease-in-out infinite;
+}
+.svg-animate-flag {
+    transform-origin: 0% 50%;
+    animation: art-wave 1.6s ease-in-out infinite alternate;
+}
+.svg-animate-handshake {
+    transform-origin: 50% 50%;
+    animation: art-shake 1.1s ease-in-out infinite alternate;
+}
+@keyframes art-bob {
+    to {
+        translate: 0 -5px;
+    }
+}
+@keyframes art-tip {
+    0%,
+    70% {
+        rotate: 0deg;
+    }
+    85%,
+    100% {
+        rotate: 180deg;
+    }
+}
+@keyframes art-wave {
+    from {
+        scale: 1 1;
+    }
+    to {
+        scale: 0.9 1.05;
+    }
+}
+@keyframes art-shake {
+    to {
+        translate: 0 -3px;
+    }
+}
+
+.modal-actions-container {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+}
+.result-illustration:empty + .modal-actions-container {
+    margin-top: auto;
+}
+.modal-actions-container > .btn {
+    display: block;
+    width: 100%;
+}
+.promo-overlay.active .action-btn-glow {
+    animation: resume-glow 1.6s ease-in-out infinite alternate;
+}
+.primary-actions-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.secondary-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 6px;
+}
+.btn-flat {
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    font-size: 14px;
+    color: var(--muted);
+    transition: background 0.2s, color 0.2s;
+}
+.btn-flat:hover {
+    background: var(--gold-wash);
+    color: var(--gold);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--line);
+    overflow: hidden;
+}
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 11px 12px;
+    background: var(--ink-1);
+}
+.stat-item--wide {
+    grid-column: span 2;
+}
+.stat-label,
+.detail-label,
+.section-subtitle,
+.opening-title {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.stat-value {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+}
+.accuracy-badge {
+    color: var(--gold);
+}
+.mistake-highlight {
+    color: color-mix(in srgb, var(--gold) 50%, var(--check));
+}
+.blunder-highlight {
+    color: var(--check);
+}
+.summary-material-section {
+    margin-top: 12px;
+}
+.captured-preview-container {
+    display: grid;
+    gap: 6px;
+}
+.captured-row-mini {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 22px;
+}
+.captured-list-mini {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.captured-list-mini:empty::after {
+    content: 'nothing taken';
+    font-size: 12.5px;
+    color: var(--muted);
+}
+.achievements-section {
+    display: grid;
+    gap: 8px;
+}
+.achievements-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.achievement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--gold-wash);
+    font-size: 13.5px;
+    color: var(--gold);
+    animation: dot-in 0.4s var(--ease-spring) 1s backwards;
+}
+.achievement-badge:nth-child(2) {
+    animation-delay: 1.1s;
+}
+.achievement-badge:nth-child(3) {
+    animation-delay: 1.2s;
+}
+.game-review-preview {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+.opening-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+.opening-val {
+    font-weight: 600;
+    color: var(--title);
+}
+.review-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.detail-cell {
+    display: grid;
+    gap: 3px;
+}
+.detail-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--title);
+}
+.best-move-cell .detail-value {
+    color: var(--good);
+}
+/* Move by move. board.js shows this panel once the analysis is back and
+   fills the table. */
+.analysis-panel {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+.analysis-panel__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.analysis-panel__head .section-subtitle {
+    margin: 0;
+    font-weight: 500;
+}
+.analysis-panel__sum {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+}
+.analysis-panel__scroll {
+    max-height: 190px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+}
+.analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+}
+.analysis-table th {
+    position: sticky;
+    top: 0;
+    padding: 5px;
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--ink-1);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+/* board.js tags each row with its verdict (data-verdict). */
+.analysis-table td {
+    padding: 5px;
+}
+.analysis-table tbody tr {
+    border-bottom: 1px solid var(--line);
+}
+.analysis-table tr[data-verdict='best'] td:last-child {
+    color: var(--good);
+}
+.analysis-table tr[data-verdict='inaccuracy'] td:last-child {
+    color: var(--gold);
+}
+.analysis-table tr[data-verdict='mistake'] td:last-child {
+    color: color-mix(in srgb, var(--gold) 45%, var(--check));
+}
+.analysis-table tr[data-verdict='blunder'] td:last-child {
+    color: var(--check);
+    font-weight: 700;
+}
+.analysis-table tr[data-verdict='unknown'] td:last-child {
+    color: var(--muted);
+}
+.analysis-panel__note {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--muted);
+}
+.analysis-panel__note:empty {
+    display: none;
+}
+
+/* The confetti is made by board.js: it sets where each piece starts, its
+   colour, its delay and how long it falls. */
+.confetti-container {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    overflow: hidden;
+    pointer-events: none;
+}
+.confetti {
+    position: absolute;
+    top: -14px;
+    width: 8px;
+    height: 13px;
+    border-radius: 2px;
+    opacity: 0;
+    animation-name: confetti-fall;
+    animation-timing-function: cubic-bezier(0.3, 0.1, 0.6, 1);
+    animation-fill-mode: forwards;
+}
+@keyframes confetti-fall {
+    0% {
+        opacity: 1;
+        translate: 0 0;
+        rotate: 0deg;
+    }
+    100% {
+        opacity: 0;
+        translate: 24px 640px;
+        rotate: 540deg;
+    }
+}
+.sparkle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold-bright);
+    box-shadow: 0 0 10px 2px var(--gold);
+    opacity: 0;
+    animation: sparkle 1.8s ease-in-out infinite;
+}
+@keyframes sparkle {
+    50% {
+        opacity: 1;
+        transform: scale(1.4);
+    }
+}
+
+/* ---------- share, and the rulebook in its frame ---------- */
+
+.frame-modal__box {
+    display: flex;
+    flex-direction: column;
+    width: min(1240px, 100%);
+    height: min(900px, 100%);
+    margin: auto;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--ink-0);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.frame-modal__bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px 10px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--ink-1);
+    font-size: 14px;
+}
+.frame-modal__bar .card-title {
+    margin-right: auto;
+}
+.frame-modal__bar .icon-button {
+    width: 36px;
+    height: 36px;
+}
+.frame-modal iframe {
+    flex: 1;
+    width: 100%;
+    border: 0;
+    background: var(--ink-0);
+}
+
+.share-modal__box {
+    width: min(420px, 100%);
+}
+.result-card {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0;
+    padding: 20px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: radial-gradient(120% 80% at 50% 0%, var(--gold-wash), transparent 70%), var(--ink-2);
+}
+.result-card__brand {
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+.result-card__title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--title);
+}
+.result-card__message {
+    font-size: 14.5px;
+    color: var(--text);
+}
+.result-card__players {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding-block: 10px;
+    border-block: 1px solid var(--line);
+}
+.result-card__player {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+.result-card__side,
+.result-card__moves,
+.result-card__site {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.result-card__name {
+    overflow: hidden;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--title);
+}
+.result-card__vs {
+    font-size: 22px;
+}
+.result-card__moves span {
+    color: var(--gold);
+}
+.share-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.share-actions__close {
+    grid-column: 1 / -1;
+}
+
+/* ---------- the first-visit tour ----------
+   Three layers, bottom to top: a veil over the page, the control being
+   shown, and the card that describes it. The card lives inside the tour
+   overlay, so the overlay is the top layer and stays clear; the veil is
+   drawn by the body while the overlay is on screen. */
+
+.tour-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+}
+body:has(#tourOverlay[style*='block'])::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--scrim);
+    animation: fade-in 0.3s both;
+}
+.tour-spotlight {
+    position: relative;
+    z-index: 1001;
+    border-radius: 12px;
+    box-shadow: 0 0 0 3px var(--gold), 0 0 0 10px var(--gold-wash), 0 0 40px 6px var(--gold-wash);
+    background-color: var(--ink-1);
+    transition: box-shadow 0.3s;
+}
+/* board.js places the card 0.3s after each step; it stays hidden for that
+   long the first time, then glides from one control to the next. */
+.tour-tooltip {
+    position: fixed;
+    top: 40%;
+    left: 40%;
+    box-sizing: border-box;
+    width: min(320px, calc(100vw - 24px));
+    padding: 16px 18px;
+    border: 1px solid var(--gold);
+    border-radius: var(--radius);
+    background: var(--ink-2);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    animation: fade-in 0.3s 0.32s backwards;
+    transition: top 0.4s var(--ease-out), left 0.4s var(--ease-out);
+}
+.tour-tooltip:focus {
+    outline: none;
+}
+.tour-step-label {
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+.tour-step-text {
+    margin-bottom: 14px;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--title);
+}
+.tour-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.tour-skip-btn {
+    padding: 6px 2px;
+    border: 0;
+    background: none;
+    font-size: 14px;
+    color: var(--muted);
+}
+.tour-skip-btn:hover {
+    color: var(--title);
+}
+.tour-next-btn {
+    padding: 8px 18px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--on-gold);
+    transition: transform 0.25s var(--ease-spring);
+}
+.tour-next-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   Smaller windows
+   ========================================================================== */
+
+/* Short desktop windows: the side panels tighten before the page scrolls. */
+@media (min-width: 1180px) and (max-height: 820px) {
+    #gameControlsCard {
+        gap: 12px;
+        padding: 14px;
+    }
+    .ctl-group + .ctl-group {
+        padding-top: 11px;
+    }
+    .controls-grid .btn {
+        padding-block: 8px;
+    }
+    .record {
+        gap: 11px;
+        padding: 14px;
+    }
+    .setup__card {
+        gap: 12px;
+    }
+}
+
+/* Tablets and narrow laptops: the board on top, the two panels under it. */
+@media (max-width: 1179px) {
+    .play {
+        --fit-w: calc(100vw - 2 * var(--edge) - var(--eval-w));
+        --fit-h: calc(100vh - var(--nav-height) - 2 * var(--bar-h) - 2 * var(--stack-gap) - 2 * var(--edge) - 28px);
+        --board: clamp(260px, min(var(--fit-w), var(--fit-h)), 760px);
+    }
+    .game-layout {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        justify-content: stretch;
+    }
+    .board-container {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        justify-self: center;
+    }
+    .record {
+        grid-row: 2;
+        max-height: 620px;
+    }
+    .sidebar-container {
+        grid-row: 2;
+    }
+    .setup__inner {
+        grid-template-columns: minmax(0, 560px);
+        justify-content: center;
+        align-items: start;
+    }
+    .setup__stage {
+        display: none;
+    }
+}
+@supports (height: 100dvh) {
+    @media (max-width: 1179px) {
+        .play {
+            --fit-h: calc(100dvh - var(--nav-height) - 2 * var(--bar-h) - 2 * var(--stack-gap) - 2 * var(--edge) - 28px);
+        }
+    }
+}
+
+/* Phones: the board from edge to edge, the record under it, the controls in
+   a drawer that the bar at the bottom opens. */
+@media (max-width: 759px) {
+    .play {
+        --edge: 6px;
+        --bar-h: 52px;
+        --stack-gap: 6px;
+        --fit-w: calc(100vw - 2 * var(--edge) - var(--eval-w));
+        --board: clamp(240px, var(--fit-w), 760px);
+    }
+    .has-eval-bar .play {
+        --eval-w: 18px;
+    }
+    .game-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 8px var(--edge) calc(78px + env(safe-area-inset-bottom));
+    }
+    .board-container {
+        order: 1;
+        align-self: center;
+    }
+    .record {
+        order: 2;
+    }
+    .player-info {
+        padding: 5px 5px 5px 12px;
+        border-radius: 12px;
+    }
+    .clock {
+        min-width: 104px;
+        padding: 0 11px;
+    }
+    .clock .time {
+        font-size: 22px;
+    }
+    .eval-bar-container {
+        width: 12px;
+        margin-right: 6px;
+        border-radius: 6px;
+    }
+    .eval-bar-score {
+        display: none;
+    }
+    .chessboard {
+        border-radius: 6px;
+    }
+    .board-grid-wrap::before {
+        inset-inline: 0;
+    }
+    .record {
+        max-height: none;
+        padding: 14px;
+    }
+    .move-history-card {
+        min-height: 0;
+    }
+    .moves-list {
+        flex: none;
+        max-height: 210px;
+    }
+
+    .m-fab {
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: 80;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: color-mix(in srgb, var(--ink-0) 88%, transparent);
+        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+    }
+    .m-fab-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 7px 4px 5px;
+        border: 0;
+        border-radius: 12px;
+        background: none;
+        font-size: 11.5px;
+        color: var(--text);
+        transition: background 0.2s, color 0.2s;
+    }
+    .m-fab-btn svg {
+        width: 21px;
+        height: 21px;
+    }
+    .m-fab-btn:active,
+    .m-fab-btn[aria-expanded='true'] {
+        background: var(--gold-wash);
+        color: var(--gold);
+    }
+    .m-fab-resign {
+        color: var(--check);
+    }
+    .m-fab-btn[hidden] {
+        display: none;
+    }
+
+    .sidebar-container {
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: 250;
+        max-height: min(86dvh, 720px);
+        padding: 0 12px calc(16px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line-strong);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        background: var(--ink-1);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        visibility: hidden;
+        transform: translateY(104%);
+        transition: transform 0.4s var(--ease-out), visibility 0s linear 0.4s, box-shadow 0.4s;
+    }
+    .game-layout.is-live .sidebar-container {
+        animation: none;
+    }
+    .sidebar-container.active {
+        visibility: visible;
+        transform: none;
+        box-shadow: 0 0 0 100vmax var(--scrim);
+        transition-delay: 0s;
+    }
+    /* The tour opens the drawer to point at a control inside it; the drawer
+       then has to sit above the tour's veil, as the control itself would. */
+    .sidebar-container:has(.tour-spotlight) {
+        z-index: 1001;
+    }
+    .drawer-head {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 4px 8px;
+        background: var(--ink-1);
+    }
+    .drawer-head .icon-button {
+        width: 36px;
+        height: 36px;
+    }
+    #gameControlsCard,
+    #emotePanel {
+        border: 0;
+        background: none;
+        padding: 4px;
+    }
+
+    .promo-overlay,
+    .theme-settings-modal,
+    .frame-modal,
+    .share-modal {
+        padding: 12px;
+    }
+    .promo-dialog {
+        padding: 22px 18px;
+    }
+    .setup__inner {
+        width: calc(100% - 20px);
+        padding-block: 10px 24px;
+    }
+    .setup__card {
+        padding: 16px;
+        border-radius: var(--radius);
+    }
+    .mode-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .mode-card {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr);
+        column-gap: 12px;
+        align-items: center;
+    }
+    .mode-card__art {
+        grid-row: span 2;
+        margin: 0;
+    }
+    /* The three tiles are a little smaller here: at full size they are
+       wider than the column and the gold one ran into "Daily puzzle". */
+    .mode-card__art--puzzle i {
+        width: 22px;
+        height: 22px;
+    }
+    .mode-card__art--puzzle i:nth-child(2) {
+        left: 26px;
+    }
+    .mode-card__art--puzzle i:nth-child(3) {
+        left: 52px;
+    }
+    .setup__pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .theme-swatches-grid {
+        gap: 12px 8px;
+    }
+    .premium-result-dialog {
+        padding: 0;
+    }
+    .result-modal-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .result-column-left {
+        padding: 24px 18px 18px;
+    }
+    .result-column-right {
+        padding: 18px;
+    }
+    .result-illustration {
+        width: 96px;
+        height: 96px;
+    }
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .frame-modal {
+        padding: 0;
+    }
+    .frame-modal__box {
+        height: 100%;
+        border: 0;
+        border-radius: 0;
+    }
+}
+@media (max-width: 759px) and (max-height: 520px) {
+    .play {
+        --board: clamp(200px, calc(100dvh - var(--nav-height) - 2 * var(--bar-h) - 90px), 520px);
+    }
+}
+/* A phone held sideways. There is no height for a player bar above the
+   board and another below it, so the two bars stand beside the board and
+   the board takes all the height under the navbar. The record and the
+   controls stay where they are, one scroll further down. --under is what
+   sits below the board: the page edge, or on a small phone the bottom bar. */
+@media (min-width: 560px) and (max-width: 1179px) and (max-height: 520px) {
+    .play {
+        --bars-w: clamp(230px, 50vw, 352px);
+        --under: calc(2 * var(--edge));
+        --fit-h: calc(100vh - var(--nav-height) - var(--under));
+        --fit-w: calc(100vw - 2 * var(--edge) - var(--eval-w) - var(--bars-w) - var(--stack-gap));
+        --board: clamp(170px, min(var(--fit-w), var(--fit-h)), 520px);
+    }
+    .board-container {
+        display: grid;
+        grid-template-columns: calc(var(--board) + var(--eval-w)) var(--bars-w);
+        grid-template-rows: auto auto;
+        align-content: space-between;
+        width: auto;
+    }
+    .board-outer {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+    }
+    .top-player,
+    .board-container.flipped .bottom-player {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: start;
+    }
+    .bottom-player,
+    .board-container.flipped .top-player {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: end;
+    }
+}
+@media (min-width: 560px) and (max-width: 759px) and (max-height: 520px) {
+    .play {
+        --under: calc(84px + env(safe-area-inset-bottom));
+    }
+}
+@supports (height: 100dvh) {
+    @media (min-width: 560px) and (max-width: 1179px) and (max-height: 520px) {
+        .play {
+            --fit-h: calc(100dvh - var(--nav-height) - var(--under));
+        }
+    }
+}
+/* The navbar's mode badge has no room beside the logo on a narrow phone,
+   and the player bars already say who is playing. board.js shows the badge
+   with an inline display, hence the !important. */
+@media (max-width: 479px) {
+    .site-nav #modeBadge {
+        display: none !important;
+    }
+}
+/* Just above the phone layout the result dialog has two columns again and
+   the left one is too narrow for "New game" and "Replay the game" side by
+   side: the second was cut short. They stack until there is room. */
+@media (min-width: 760px) and (max-width: 879px) {
+    .primary-actions-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+/* Narrow phones. Two buttons side by side no longer hold "Share on
+   WhatsApp", so the share buttons stack; a shortcut's keys drop under a
+   long description instead of squeezing it into a thin column; and the
+   five clock tabs lose some padding so all five are on screen. */
+@media (max-width: 419px) {
+    .share-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .shortcut-row {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    .shortcut-keys {
+        margin-left: auto;
+    }
+    .tc-tab-btn {
+        padding-inline: 6px;
+    }
+}
+@media (max-width: 359px) {
+    .captured-list {
+        display: none;
+    }
+    /* The engine's name and level were four pixels too long for the bar. */
+    .player-details {
+        gap: 6px;
+    }
+    .theme-swatches-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    /* At 320px half the card is too narrow for the clock ("10 min" broke
+       onto two lines), so against the engine the clock goes back under the
+       name, as it is when there are two names. */
+    .setup:has(#pveOptions[style*='flex']) .setup__players > .time-control-selector-container {
+        flex-basis: 100%;
+    }
+    .setup:has(#pveOptions[style*='flex']) .time-control-popover {
+        left: 0;
+        width: auto;
+    }
+    .tc-tab-btn {
+        padding-inline: 4px;
+        font-size: 12.5px;
+    }
+    /* "Random" and its dot were wider than a third of the card. */
+    .side-choices {
+        gap: 6px;
+    }
+    .color-choice {
+        gap: 6px;
+        padding-inline: 4px;
+        font-size: 14px;
+    }
+    .color-choice .seat-dot {
+        width: 14px;
+        height: 14px;
+    }
+    /* "Replay the game" does not fit in half the dialog. */
+    .primary-actions-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    /* The move-by-move table: its summary goes under its title, and the
+       cells stand closer so "Inaccuracy" is not pushed out of the panel. */
+    .analysis-panel__head {
+        flex-wrap: wrap;
+        gap: 2px 12px;
+    }
+    .analysis-table th,
+    .analysis-table td {
+        padding-inline: 2px;
+    }
+}
+
+/* Touch screens: the smaller controls grow to a size a finger can hit. */
+@media (hover: none) and (pointer: coarse) {
+    .setup__top .icon-button,
+    .drawer-head .icon-button,
+    .frame-modal__bar .icon-button,
+    .modal-close-btn {
+        width: 40px;
+        height: 40px;
+    }
+    .replay-controls button,
+    .stepper-btn {
+        height: 40px;
+    }
+    .tc-tab-btn {
+        min-height: 40px;
+    }
+    .btn-sm,
+    .btn-flat,
+    .tour-skip-btn,
+    .tour-next-btn {
+        padding-block: 9px;
+    }
+}
+
+/* ==========================================================================
+   The low performance tier
+   data-perf="low" is set by perf.js; see the end of app.css. The game is
+   the same game: every control, every state and every move is still shown.
+   What goes is blur, glows, filters on the pieces and the animations that
+   run for a long time or never stop. The 3D view starts switched off
+   (play_view.js) and still works if the player turns it on.
+   ========================================================================== */
+
+/* Blur and glows. */
+[data-perf='low'] .board-grid-wrap::before {
+    display: none;
+}
+[data-perf='low'] .chessboard,
+[data-perf='low'].board-3d .chessboard {
+    box-shadow: 0 0 0 1px var(--board-rim);
+}
+[data-perf='low'] .player-info:has(.clock.active) {
+    box-shadow: none;
+}
+[data-perf='low'] .pause-overlay {
+    background: color-mix(in srgb, var(--board-base) 94%, transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+[data-perf='low'] .promo-overlay,
+[data-perf='low'] .theme-settings-modal,
+[data-perf='low'] .frame-modal,
+[data-perf='low'] .share-modal,
+[data-perf='low'] .m-fab {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+[data-perf='low'] .m-fab {
+    background: var(--ink-0);
+}
+[data-perf='low'] .countdown-number {
+    text-shadow: none;
+}
+[data-perf='low'] .seat__board {
+    box-shadow: 0 0 0 1px var(--board-rim);
+}
+[data-perf='low'] .seat__plate--near {
+    box-shadow: none;
+}
+[data-perf='low'] #gameOverOverlay.game-over-celebration > .premium-result-dialog {
+    box-shadow: 0 0 0 6px var(--gold-wash);
+}
+
+/* Pieces: no drop shadow, so nothing is filtered on every frame of a move.
+   A piece still lifts when it is hovered or picked up. */
+[data-perf='low'] .square > .piece,
+[data-perf='low'] .square.selected > .piece,
+[data-perf='low'] .square:hover > .piece.playable:not(.moving),
+[data-perf='low'] .promo-btn img {
+    filter: none;
+}
+[data-perf='low'] .square > .piece {
+    transition: translate 0.15s var(--ease-out), scale 0.15s var(--ease-out), rotate 0.3s var(--ease-out), opacity 0.2s;
+}
+/* The landing bounce is dropped in the flat view. In 3D the lift and the
+   drop are the move itself, so they stay. */
+[data-perf='low']:not(.board-3d) .square.last-move > .piece {
+    animation: none;
+}
+
+/* Things that pulsed for as long as they were on screen now hold still.
+   The clock's lamp still blinks and the engine's dots still run: they are
+   how you know time is passing. */
+[data-perf='low'] .square.in-check {
+    animation: none;
+    box-shadow: inset 0 0 0 4px var(--board-check);
+}
+[data-perf='low'] .clock.active .time,
+[data-perf='low'] .clock.low-3.active .time,
+[data-perf='low'] .turn-badge::before,
+[data-perf='low'] .pause-overlay-icon i,
+[data-perf='low'] .banner-victory .promo-title,
+[data-perf='low'] .res-svg-illustration *,
+[data-perf='low'] .promo-overlay.active .action-btn-glow {
+    animation: none;
+}
+[data-perf='low'] #pauseBtn.paused {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--gold-wash);
+}
+
+/* Entrances: the columns, the setup board and its pieces are simply there;
+   the dialogs keep a short one so it is clear something opened. */
+[data-perf='low'] .game-layout.is-live .record,
+[data-perf='low'] .game-layout.is-live .sidebar-container,
+[data-perf='low'] .game-layout.is-live .board-outer,
+[data-perf='low'] .game-layout.is-live .player-info,
+[data-perf='low'] .seat__board,
+[data-perf='low'] .seat__piece,
+[data-perf='low'] .seat__plate,
+[data-perf='low'] .seat__clock,
+[data-perf='low'] .setup__card {
+    animation: none;
+}
+[data-perf='low'] .seat__board,
+[data-perf='low'] .seat__piece {
+    transition-duration: 0.3s;
+}
+[data-perf='low'] #gameOverOverlay.active > .premium-result-dialog {
+    animation-duration: 0.3s;
+    animation-timing-function: var(--ease-out);
+}
+[data-perf='low'] .result-illustration {
+    animation-duration: 0.3s;
+    animation-delay: 0.5s;
+}
+[data-perf='low'] .chessboard,
+[data-perf='low'] .eval-bar-container {
+    transition-duration: 0.3s;
+}
+
+/* A move redraws the board, so everything that used to ease in around it
+   now changes at once: the highlight on the squares, the dots that show
+   where a piece can go, the bar of the side to move, the evaluation bar,
+   the new row in the move list. The clock's bar steps once a second. The
+   piece itself still slides from square to square. */
+[data-perf='low'] .square,
+[data-perf='low'] .player-info,
+[data-perf='low'] .player-info::before,
+[data-perf='low'] .eval-bar-white,
+[data-perf='low'] .clock-timer-bar-fill {
+    transition: none;
+}
+[data-perf='low'] .move-dot,
+[data-perf='low'] .capture-ring,
+[data-perf='low'] .move-row,
+[data-perf='low'] .captured-img {
+    animation: none;
+}
+/* board.js takes this copy away when its fade ends, so the fade is kept
+   and made as short as it can be. */
+[data-perf='low'] .square > .piece-ghost {
+    animation-duration: 0.01s;
+}
+
+/* A small burst of confetti, and no sparkles. */
+[data-perf='low'] .confetti:nth-child(n + 13),
+[data-perf='low'] .sparkle {
+    display: none;
+}

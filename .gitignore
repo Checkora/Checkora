@@ -60,3 +60,7 @@ package-lock.json
 # Generated achievement badges
 game/generated_badges/
 jest.config.js
+
+# Compiled chess engine (built from game/engine/main.cpp)
+game/engine/main
+game/engine/main.exe

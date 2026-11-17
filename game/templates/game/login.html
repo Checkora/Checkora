@@ -1,93 +1,73 @@
+{% extends 'game/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In | CHECKORA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/theme.css' %}?v=1">
-    <!-- Bumped to version 15 to completely break past older cached assets -->
-    <link rel="stylesheet" href="{% static 'game/css/auth.css' %}?v=15">
-    <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link rel="stylesheet" href="{% static 'game/css/toast.css' %}">
-    <link rel="stylesheet" href="{% static 'game/css/cursor.css' %}">
-</head>
-<body class="login-page new-cyber-design">
-    <!-- Animated background grid effect -->
-    <div class="cursor"></div>
-    <div class="bg-grid-overlay"></div>
 
-    {% include 'game/includes/navbar.html' %}
+{% block title %}Sign in · Checkora{% endblock %}
 
-    <main class="auth-layout">
-        <a href="{% url 'landing' %}" class="auth-home-link" aria-label="Back to home">
-            <span aria-hidden="true" class="auth-home-link__arrow">←</span>
-            <span>Back to Home</span>
-        </a>
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
 
-        <div class="auth-content">
+{# Messages are printed inside the card, above the form. #}
+{% block messages %}{% endblock %}
 
-            <div class="header header--with-navbar">
-                <p class="login-subtitle">Welcome back! Sign in to continue</p>
-            </div>
+{% block content %}
+<div class="wrap page account">
+    <div class="account__main">
+        <header class="account__head">
+            <a class="back-link" href="{% url 'landing' %}" data-reveal>Home</a>
+            <p class="eyebrow" data-reveal style="--i: 1">Sign in</p>
+            <h1 data-reveal style="--i: 2">Welcome <span class="serif">back.</span></h1>
+            <p class="lede" data-reveal style="--i: 3">Sign in to pick up where you left off.</p>
+        </header>
 
-            <div class="auth-card modern-card">
-            <!-- Top glowing neon line decoration -->
-                <div class="card-glow-line"></div>
+        <div class="panel auth-card" data-reveal style="--i: 4">
+            {% include 'game/includes/messages.html' %}
 
-                <form method="POST">
-                    {% csrf_token %}
+            {# No action: the form posts to its own URL, so ?next= is kept. #}
+            <form method="POST">
+                {% csrf_token %}
 
-                    {% include 'game/includes/messages.html' %}
+                {% if form.non_field_errors %}
+                <div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>
+                {% endif %}
 
-                    {% if form.non_field_errors %}
-                        {{ form.non_field_errors }}
+                {% for field in form %}
+                <div class="field form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        {{ field.errors }}
                     {% endif %}
-
-                    {% for field in form %}
-                        <div class="form-group modern-group">
-                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            <div class="input-container-glow">
-                                {{ field }}
-                            </div>
-                            {% if field.errors %}
-                                {{ field.errors }}
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-
-                    <div class="remember-me modern-remember">
-                        <label class="custom-checkbox-container">
-                            <input type="checkbox" name="remember_me">
-                            <span class="checkbox-checkmark"></span>
-                            <span class="label-text">Remember Me</span>
-                        </label>
-                    </div>
-
-                    <button type="submit" class="btn btn-gold modern-btn">
-                        Sign In
-                    </button>
-                </form>
-
-                <div class="auth-footer modern-footer">
-                    <div class="footer-links-row">
-                        <a href="{% url 'register' %}" class="footer-link-highlight">
-                            Create Account
-                        </a>
-                        <span class="footer-dot"></span>
-                        <a href="{% url 'password_reset' %}" class="forgot-link">
-                            Forgot Password?
-                        </a>
-                    </div>
                 </div>
-            </div>
-       </div>
-    </main>
-    <script src="{% static 'game/js/auth.js' %}?v=15"></script>
-    <script src="{% static 'game/js/toast.js' %}"></script>
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
-    <script src="{% static 'game/js/cursor.js' %}"></script>
+                {% endfor %}
 
-</body>
-</html>
+                <label class="check">
+                    <input type="checkbox" name="remember_me">
+                    Remember me
+                </label>
+
+                <button type="submit" class="button button--primary button--block btn">Sign in</button>
+            </form>
+
+            <div class="auth-card__foot">
+                <span>New here? <a href="{% url 'register' %}" class="text-link">Create account</a></span>
+                <a href="{% url 'password_reset' %}" class="text-link">Forgot password?</a>
+            </div>
+        </div>
+    </div>
+
+    <figure class="stage" data-reveal="scale">
+        <div class="stage__frame">
+            <canvas data-piece="k" aria-hidden="true"></canvas>
+            <img class="stage__flat" src="{% static 'game/pieces/classic/wk.svg' %}" alt="">
+        </div>
+        <figcaption class="stage__caption"><b>The king</b> One square at a time, in any direction.</figcaption>
+    </figure>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'game/js/auth.js' %}"></script>
+<script type="module" src="{% static 'game/js/account.js' %}"></script>
+{% endblock %}

@@ -10,10 +10,12 @@ Built on Django with a high-performance C++ engine and a Python fallback for max
 [![Django](https://img.shields.io/badge/Django-6.x-092e20?style=flat&logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![C++](https://img.shields.io/badge/Engine-C++17-00599c?style=flat&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-28%20passing-brightgreen?style=flat&logo=github-actions&logoColor=white)](#tests)
+[![CI/CD Pipeline](https://github.com/Checkora/Checkora/actions/workflows/ci.yml/badge.svg)](https://github.com/Checkora/Checkora/actions/workflows/ci.yml)
 [![Issues](https://img.shields.io/github/issues/Checkora/Checkora?style=flat)](https://github.com/Checkora/Checkora/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/DvW3xVXw8g)
+
+![The Checkora landing page, with a 3D chess board beside the headline](docs/images/landing.jpg)
 
 Join our Discord community for updates, support, and games: https://discord.gg/DvW3xVXw8g
 
@@ -74,6 +76,9 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 
 ## Documentation
 - [Feature Guide](./FEATURES.md)
+- [API reference](./docs/API.md)
+- [Design system](./docs/design-system.md), for anyone adding or changing a page
+- [Frontend JavaScript guide](./docs/frontend-guide.md)
 
 ---
 
@@ -105,13 +110,14 @@ copy .env.example .env
 cp .env.example .env
 
 # Open `.env` and set SECRET_KEY if needed
+# Keep the DEBUG=True line that .env.example ships with: DEBUG is off unless .env turns it on
 # Configure EMAIL_HOST_USER and EMAIL_HOST_PASSWORD for OTP and password reset emails
 # 5. Run migrations and start the server
 python manage.py migrate
 python manage.py runserver
 ```
 
-Open **`http://127.0.0.1:8000/`** in your browser and start playing. The terminal shows this same address — always use **`http://`**, never **`https://`**, because the development server does not support SSL.
+Open **`http://127.0.0.1:8000/`** in your browser. This is the landing page; the board is at `/play/`. The terminal shows this same address — always use **`http://`**, never **`https://`**, because the development server does not support SSL.
 
 ### Compile the C++ Engine _(optional but recommended)_
 
@@ -119,17 +125,19 @@ The compiled binary is not committed to the repository. Each contributor compile
 
 ```bash
 # Windows
-g++ -O2 game/engine/main.cpp -o game/engine/main.exe
+g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main.exe
 
 # macOS / Linux
-g++ -O2 game/engine/main.cpp -o game/engine/main
+g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main
 ```
+
+Run the same command again after every pull that changes `game/engine/main.cpp`. A binary built from older sources is detected (it does not answer the protocol version the bridge asks for), and the Python engine plays until the binary is rebuilt.
 
 ## Project Structure
 
 Checkora follows a modular project structure to separate the frontend, backend, engine logic, and documentation clearly.
 
-An exhaustive file-level overview of the entire repository is detailed below:
+The tree below shows the main directories and files with a line on each. It does not list every file:
 
 ```text
 Checkora/
@@ -151,19 +159,27 @@ Checkora/
 │   ├── urls.py                    # Root URL router mapping to views
 │   └── wsgi.py                    # Entry point for WSGI-compatible web servers
 ├── docs/                          # Detailed architecture guides
+│   ├── images/                    # Images used by the README, FEATURES.md and structure.md
 │   ├── API.md                     # Raw technical spec for REST API endpoints
 │   ├── SECURITY_HEADERS_AUDIT.md  # Deep security analysis and policy audit reports
-│   └── engine_architecture.md     # Detailed minimax and communication workflow analysis
+│   ├── design-system.md           # Base template, CSS tokens and components for building pages
+│   ├── engine_architecture.md     # Detailed minimax and communication workflow analysis
+│   └── frontend-guide.md          # What each JavaScript module does
 ├── game/                          # Core Chess application module
 │   ├── engine/                    # The AI Chess engine directory
 │   │   ├── main.cpp               # High-performance C++17 Minimax + Alpha-Beta pruning engine
 │   │   ├── main.py                # Pure Python 3.12 fallback replica of the C++ engine
-│   │   └── opening_book.json      # Structured dictionary mapping classic opening moves
+│   │   ├── opening_book.json      # Structured dictionary mapping classic opening moves
+│   │   └── persistent_server.py   # Keeps one engine process running per game
 │   ├── migrations/                # Database schema version histories
 │   │   ├── 0001_initial.py        # Relational schema for GameResult and Profiles
 │   │   ├── 0002_add_missing...   # Database schema patch adding draw reason records
 │   │   ├── 0003_alter_game...     # Migration establishing foreign key user associations
 │   │   ├── 0004_gameresult...     # Migration adding active game player color records
+│   │   ├── ...                    # Later migrations, in order
+│   │   ├── 0044_rated_games...    # Adds GameResult.rated, PuzzleStats.last_daily_date and the PuzzleSolve table
+│   │   ├── 0045_seed_achiev...    # Creates the Achievement rows that game/services.py unlocks
+│   │   ├── 0046_fix_seed_pu...    # Replaces the seven built-in daily puzzles with valid mates in one
 │   │   └── __init__.py            # Package initialization marker
 │   ├── selenium_tests/            # UI browser integration tests
 │   │   ├── __init__.py            # Package initialization marker
@@ -173,15 +189,25 @@ Checkora/
 │   ├── static/                    # Frontend client-side resources
 │   │   └── game/                  # Main namespace directory
 │   │       ├── css/               # Modular stylesheet templates
-│   │       │   ├── 404.css        # Clean layout styles for page not found errors
-│   │       │   ├── auth.css       # Forms and secure login layouts
-│   │       │   ├── board.css      # Chessboard alignments, active highlights, and action panels
-│   │       │   ├── landing.css    # Interactive hero screens and mode selectors
-│   │       │   └── toast.css      # Custom popup and notification toaster styles
+│   │       │   ├── app.css        # Design system: tokens, both themes, shared components, toasts
+│   │       │   ├── account.css    # Sign-in, registration, password reset, profile, avatar and account deletion pages
+│   │       │   ├── community.css  # Forum, leaderboard, achievements, stats and match history
+│   │       │   ├── cursor.css     # Custom cursor styles
+│   │       │   ├── error.css      # 404 and 500 pages
+│   │       │   ├── landing.css    # Landing page
+│   │       │   ├── learn.css      # Lessons, puzzles, opening trainer and rules pages
+│   │       │   └── play.css       # Play page: setup, the board, both side panels and the dialogs
 │   │       ├── js/                # Client-side dynamic scripts
+│   │       │   ├── app.js         # Shared behaviour loaded on every page: navbar, menus, dialogs, reveals
 │   │       │   ├── auth.js        # Validates dynamic auth form submissions
 │   │       │   ├── board.js       # Chess grid events, capture drawers, API calls, clock tickers
-│   │       │   └── toast.js       # Manages toast alert popups and life-cycles
+│   │       │   ├── perf.js        # Chooses the performance tier (high or low) before the first paint
+│   │       │   ├── play_view.js   # Board theme, 3D view and setup screen of the play page
+│   │       │   ├── scene3d.js     # three.js scenes: the landing page board and the turning piece
+│   │       │   ├── toast.js       # Manages toast alert popups and life-cycles
+│   │       │   └── ...            # The other modules are listed in docs/frontend-guide.md
+│   │       ├── pieces/            # SVG piece sets: classic/, wood/ and outline/
+│   │       ├── vendor/three/      # Vendored three.js build used by scene3d.js
 │   │       ├── sounds/            # Gameplay sound effects
 │   │       │   ├── capture.mp3    # Capture sound alert
 │   │       │   ├── check.wav      # Check sound warning
@@ -191,13 +217,20 @@ Checkora/
 │   │       └── favicon.jpeg       # Small browser favicon
 │   ├── templates/                 # Server-side HTML render blueprints
 │   │   ├── 404.html               # Custom 404 error page template
+│   │   ├── 500.html               # Custom 500 error page template (standalone, does not extend base.html)
 │   │   ├── robots.txt             # Web crawler configuration instructions
 │   │   ├── sitemap.xml            # SEO indexing guide
 │   │   └── game/                  # Namespace folder matching Django conventions
 │   │       ├── includes/          # Reusable UI partial layout blocks
-│   │       │   └── messages.html  # Banner rendering Django alert notifications
+│   │       │   ├── footer.html    # Site footer
+│   │       │   ├── legal.html     # Privacy policy, terms and disclaimer dialogs opened from the footer
+│   │       │   ├── logo.html      # Checkora logo and wordmark, linking to the landing page
+│   │       │   ├── messages.html  # Banner rendering Django alert notifications
+│   │       │   └── navbar.html    # Site navigation, theme toggle and account menu
+│   │       ├── base.html          # Base template the pages extend (see docs/design-system.md)
 │   │       ├── board.html         # Interactive gameplay chessboard and player cards
-│   │       ├── landing.html       # Mode lobby selection screen
+│   │       ├── confirm_delete_account.html # Confirmation page opened by the emailed account deletion link
+│   │       ├── landing.html       # Landing page served at /
 │   │       ├── login.html         # Sign-in form interface
 │   │       ├── register.html      # Create account interface
 │   │       ├── verify_otp.html    # Two-factor verification panel
@@ -218,6 +251,7 @@ Checkora/
 │   ├── models.py                  # Database schemas mapping matches and profiles
 │   ├── services.py                # Standalone functions managing core business logic
 │   ├── tests.py                   # 80+ unit and integration test assertions
+│   ├── test_*.py                  # Further test modules, such as test_services.py and test_heuristic_analysis.py
 │   ├── urls.py                    # Application level router mapping endpoints
 │   └── views.py                   # Django controller layer dispatching API and HTML requests
 ├── .env.example                   # Baseline local configuration variables blueprint
@@ -226,9 +260,11 @@ Checkora/
 ├── CONTRIBUTING.md                # Guide detailing branch formats and pull request rules
 ├── LICENSE                        # Open-source MIT license deed
 ├── README.md                      # Primary project overview
+├── board.test.js                  # Jest tests for board.js
+├── forum.test.js                  # Jest tests for forum.js
 ├── requirements.txt               # Required Python packages
 ├── manage.py                      # Django CLI control center script
-├── package.json                   # Specifies frontend tooling scripts
+├── package.json                   # Jest dependencies and the `npm test` script
 ├── package-lock.json              # Locked frontend dependency version tree
 ├── structure.md                   # Extended architectural blueprint documentation
 └── vercel.json                    # Configuration for serverless Django routing on Vercel
@@ -266,16 +302,24 @@ When a player makes a move, the request flows through three layers:
 
 1. **Browser** sends a `POST` request with the move coordinates
 2. **Django** (`views.py`) receives it and delegates to the `ChessGame` wrapper in `engine.py`
-3. **`engine.py`** serializes the board into a flat 64-character string and spawns the engine as a subprocess, sending commands via `stdin` and reading responses from `stdout`
+3. **`engine.py`** serializes the board into a flat 64-character string and spawns the engine as a subprocess, sending commands via `stdin` and reading responses from `stdout`. One engine process is kept per game by `game/engine/persistent_server.py`; a one-off process is used when that server is not available
 
 The engine speaks a simple text-based protocol:
 
 | Command    | Example                                          | Response                                    |
 | ---------- | ------------------------------------------------ | ------------------------------------------- |
-| `VALIDATE` | `VALIDATE <board64> <rights> <turn> fr fc tr tc` | `VALID` / `INVALID <reason>`                |
-| `MOVES`    | `MOVES <board64> <rights> <turn> row col`        | `MOVES tr tc is_capture is_promotion ...`   |
-| `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <depth>`     | `BESTMOVE fr fc tr tc`                      |
-| `STATUS`   | `STATUS <board64> <rights> <turn>`               | `STATUS CHECK / CHECKMATE / STALEMATE / OK` |
+| `VERSION`  | `VERSION`                                        | `VERSION 2`                                 |
+| `VALIDATE` | `VALIDATE <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc` | `VALID` / `INVALID <reason>`                |
+| `MOVES`    | `MOVES <board64> <rights> <turn> <epRow> <epCol> row col` | `MOVES tr tc is_capture is_promotion ...`   |
+| `ATTACKED` | `ATTACKED <board64> <rights> <attackerColor> row col` | `YES` / `NO`                                |
+| `PROMOTE`  | `PROMOTE <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc [piece]` | `PROMOTE <newBoard64>` / `INVALID <reason>` |
+| `STATUS`   | `STATUS <board64> <rights> <turn> <epRow> <epCol>` | `STATUS CHECK / CHECKMATE / STALEMATE / DRAW / OK` |
+| `NOTATION` | `NOTATION <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc [piece]` | `NOTATION <san>`                            |
+| `EVAL`     | `EVAL <board64> <rights> <turn> <epRow> <epCol>` | `EVAL <centipawns>`                         |
+| `PERFT`    | `PERFT <board64> <rights> <turn> <epRow> <epCol> <depth>` | `PERFT <leaf nodes>`                        |
+| `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <epRow> <epCol> <depth> [timeLimitMs [halfmoveClock [alternatives [earlier positions...]]]]` | `BESTMOVE fr fc tr tc EVAL <cp> ...` / `BESTMOVE NONE` |
+
+This is version 2 of the protocol. Every command gets exactly one reply line, and a line that cannot be parsed is answered with `ERROR <reason>`. The header comments of `game/engine/main.cpp` and `game/engine/main.py` define it, and [docs/engine_architecture.md](docs/engine_architecture.md) explains each command, the search and the difficulty levels.
 
 ```mermaid
 flowchart TD
@@ -297,11 +341,12 @@ flowchart TD
 Checkora features a decoupled API layer. Below is the endpoint catalog accompanied by explicit request and response structures to assist frontend integrations.
 
 > [!NOTE]
-> All state-modifying requests (`POST`) require a CSRF token passed via the `X-CSRFToken` HTTP header, except for `/api/pause/` which is CSRF-exempt to support page close events via `navigator.sendBeacon`.
+> All state-modifying requests (`POST`) require a CSRF token passed via the `X-CSRFToken` HTTP header, except for `/api/cron/cleanup-stale-games/`, which is CSRF-exempt and checks a bearer token instead.
 
 | Method | Endpoint | Description | Request Example |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/` | Render the board UI | *N/A (Standard HTML Page)* |
+| `GET` | `/` | Render the landing page (`/home/` redirects here) | *N/A (Standard HTML Page)* |
+| `GET` | `/play/` | Render the board UI | *N/A (Standard HTML Page)* |
 | `GET` | `/api/state/` | Retrieve full game state from session | `/api/state/` |
 | `POST` | `/api/move/` | Execute a move on the board | `/api/move/` |
 | `GET` | `/api/valid-moves/` | Get all legal moves for a selected piece | `/api/valid-moves/?row=6&col=4` |
@@ -309,13 +354,18 @@ Checkora features a decoupled API layer. Below is the endpoint catalog accompani
 | `GET` | `/api/check-promotion/` | Check if a pawn reaches the promotion rank | `/api/check-promotion/?from_row=1&from_col=0&to_row=0` |
 | `POST` | `/api/ai-move/` | Request the engine to compute the best move | `/api/ai-move/` |
 | `POST` | `/api/pause/` | Pause/Resume game timer countdown | `/api/pause/` |
+| `POST` | `/api/timeout/` | End the game on time once the server's clock has run out | `/api/timeout/` |
 | `POST` | `/api/resume/` | Resume a previously saved game | `/api/resume/` |
 | `POST` | `/api/resign/` | Resign the current game | `/api/resign/` |
 | `POST` | `/api/draw/` | Offer or accept a draw in PvP mode | `/api/draw/` |
 | `GET` | `/api/check-username/` | Check if a username is available | `/api/check-username/?username=player1` |
-| `POST` | `/api/analyze-game/` | Analyze a completed game and return statistics | `/api/analyze-game/` |
+| `POST` | `/api/analyze-game/` | Analyze a completed game and return statistics (login required) | `/api/analyze-game/` |
+| `POST` | `/api/opening-stats/` | Save the result of an opening trainer run (login required) | `/api/opening-stats/` |
 | `GET` | `/api/puzzle-stats/` | Retrieve puzzle streak and statistics | `/api/puzzle-stats/` |
-| `POST` | `/api/cron/cleanup-stale-games/` | Secure cron-triggered cleanup for abandoned games | `/api/cron/cleanup-stale-games/` |
+| `POST` | `/api/puzzles/<id>/solve/` | Check a puzzle solution and count the solve (login required) | `/api/puzzles/12/solve/` |
+| `GET`, `POST` | `/api/cron/cleanup-stale-games/` | Secure cron-triggered cleanup for abandoned games | `/api/cron/cleanup-stale-games/` |
+
+The full reference, with every field and error response, is in [docs/API.md](docs/API.md).
 
 ---
 
@@ -338,17 +388,33 @@ Called on board load to restore ongoing match positions and clocks.
     ["P", "P", "P", "P", "P", "P", "P", "P"],
     ["R", "N", "B", "Q", "K", "B", "N", "R"]
   ],
+  "version": 0,
   "current_turn": "white",
   "white_time": 600,
   "black_time": 600,
+  "time_limit": 600,
+  "increment": 0,
   "paused": true,
-  "move_history": [
-    {"notation": "e4", "piece": "P", "from": [6, 4], "to": [4, 4], "color": "white"}
-  ],
+  "move_history": [],
   "captured_pieces": {"white": [], "black": []},
-  "mode": "pvp"
+  "mode": "pvp",
+  "player_color": "white",
+  "difficulty": "medium",
+  "white_name": "White",
+  "black_name": "Black",
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "pgn": "[Event \"Checkora Match\"]",
+  "game_status": "active",
+  "in_check": false,
+  "draw_reason": null,
+  "threefold_warning": false,
+  "opening_name": null,
+  "opening_moves": null,
+  "rated": false
 }
 ```
+
+*Note: `in_check` is true while the side to move is in check; `game_status` stays "active" during a check. `rated` is true only for a logged-in user playing the AI from the standard starting position. If a clock has run out, this request ends the game: `game_status` is "timeout" and a `winner` field is added. Logged-in users also get `day_streak`.*
 
 #### 2. Execute a Move (`POST /api/move/`)
 Triggered when a player releases a piece onto a destination square.
@@ -369,33 +435,49 @@ Triggered when a player releases a piece onto a destination square.
 
 **Response (Success - `200 OK`):**
 
-*Note: `board` is an 8x8 array reflecting the updated state. `game_status` can be "active", "check", "checkmate", "stalemate", or "draw".*
+*Note: `board` is an 8x8 array reflecting the updated state. `message` is the move in algebraic notation. `game_status` can be "ok", "check", "checkmate", "stalemate", "draw", or "timeout".*
 
 ```json
 {
   "valid": true,
-  "message": "Move successful",
+  "message": "e4",
   "captured": null,
   "board": [],
   "current_turn": "black",
   "white_time": 595,
   "black_time": 600,
+  "time_limit": 600,
+  "increment": 0,
   "move_history": [
-    {"notation": "e4", "piece": "P", "from": [6, 4], "to": [4, 4], "color": "white"}
+    {"notation": "e4", "piece": "P", "from": [6, 4], "to": [4, 4], "captured": null, "color": "white", "promoted_to": null}
   ],
+  "opening_name": "King's Pawn Game",
+  "opening_moves": "e4",
   "captured_pieces": {"white": [], "black": []},
-  "game_status": "active"
+  "game_status": "ok",
+  "draw_reason": null,
+  "threefold_warning": false,
+  "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+  "pgn": "[Event \"Checkora Match\"]",
+  "white_name": "White",
+  "black_name": "Black",
+  "version": 0
 }
 ```
 
-**Response (Error - `400 Bad Request` / `200 OK` with invalid):**
+**Response (rejected move - `200 OK` with `valid` false):**
+
+*Note: the body is the same object as above with the position unchanged; only the fields that differ are shown.*
 
 ```json
 {
   "valid": false,
-  "message": "Invalid move: King would be in check"
+  "message": "Illegal move.",
+  "game_status": "active"
 }
 ```
+
+**Response (Error):** `400 Bad Request` with `{"error": "Invalid board coordinates"}` for missing or out-of-range coordinates, `403 Forbidden` when it is the computer's turn in an AI game, and `409 Conflict` when a logged-in user's game changed in the meantime.
 
 #### 3. Get Valid Moves (`GET /api/valid-moves/`)
 Instructs the frontend UI where the selected piece can legally go.
@@ -407,8 +489,8 @@ Instructs the frontend UI where the selected piece can legally go.
 ```json
 {
   "valid_moves": [
-    {"row": 5, "col": 4, "is_capture": false},
-    {"row": 4, "col": 4, "is_capture": false}
+    {"row": 4, "col": 4, "is_capture": false, "is_promotion": false},
+    {"row": 5, "col": 4, "is_capture": false, "is_promotion": false}
   ]
 }
 ```
@@ -418,28 +500,42 @@ Triggers background minimax engine search. Returns the move calculated by the C+
 
 **Response (Success - `200 OK`):**
 
-*Note: `board` is an 8x8 array reflecting the updated state. `move_history` contains the list of moves.*
+*Note: `board` is an 8x8 array reflecting the updated state. `move_history` contains the list of moves. `message` and `game_status` work as in `/api/move/`.*
 
 ```json
 {
   "valid": true,
-  "message": "Move successful",
-  "captured": "p",
+  "message": "d5",
+  "captured": null,
   "board": [],
   "current_turn": "white",
   "white_time": 600,
   "black_time": 598,
+  "time_limit": 600,
+  "increment": 0,
   "move_history": [],
-  "captured_pieces": {"white": ["p"], "black": []},
+  "opening_name": "Queen's Pawn Game",
+  "opening_moves": "d4 d5",
+  "captured_pieces": {"white": [], "black": []},
   "ai_move": {
     "from_row": 1,
     "from_col": 3,
     "to_row": 3,
     "to_col": 3
   },
-  "game_status": "active"
+  "game_status": "ok",
+  "draw_reason": null,
+  "threefold_warning": false,
+  "fen": "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
+  "pgn": "[Event \"Checkora Match\"]",
+  "white_name": "White",
+  "black_name": "Black",
+  "opening": "",
+  "version": 0
 }
 ```
+
+**Response (Error):** `400 Bad Request` when there is no AI game, the game is over or paused, or it is the player's turn; `429 Too Many Requests` when the rate limit is reached; `503 Service Unavailable` when the engine returns no move for a position that is not finished.
 
 #### 5. Start New Game (`POST /api/new-game/`)
 Resets current session variables and starts a fresh match.
@@ -456,20 +552,36 @@ Resets current session variables and starts a fresh match.
 
 **Response (Success - `200 OK`):**
 
-*Note: `board` is an 8x8 array containing the clean initial board configuration.*
+*Note: `board` is an 8x8 array containing the clean initial board configuration. `forfeited` is true when a logged-in user's rated game in progress was ended and recorded to make way for this one.*
 
 ```json
 {
+  "valid": true,
   "board": [],
   "current_turn": "white",
   "move_history": [],
   "captured_pieces": {"white": [], "black": []},
-  "mode": "ai"
+  "mode": "ai",
+  "player_color": "white",
+  "white_name": "White",
+  "black_name": "♗ Tactical Bishop",
+  "difficulty": "medium",
+  "time_limit": 600,
+  "increment": 0,
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "pgn": "[Event \"Checkora Match\"]",
+  "game_status": "active",
+  "in_check": false,
+  "draw_reason": null,
+  "opening": "",
+  "version": 0,
+  "rated": false,
+  "forfeited": false
 }
 ```
 
 #### 6. Analyze Game (`POST /api/analyze-game/`)
-Analyzes a completed game based on its move history and returns statistics.
+Analyzes a completed game based on its move history and returns statistics. The user must be logged in; an anonymous request gets `401 Unauthorized`.
 
 **Request Body:**
 
@@ -483,33 +595,50 @@ Analyzes a completed game based on its move history and returns statistics.
 
 **Response (Success - `200 OK`):**
 
+*Note: `move_analysis_details` has one entry per analysed half-move, and `move_analysis` lists their classes ("Best", "Inaccuracy", "Mistake", "Blunder" or "Unknown").*
+
 ```json
 {
-  "opening": "Italian Game",
   "result": "White wins",
-  "total_moves": 2,
+  "end_reason": "checkmate",
+  "opening": "King's Pawn Game",
   "captures": 0,
   "checks": 0,
   "checkmates": 0,
   "promotions": 0,
-  "end_reason": "checkmate"
+  "blunders": 0,
+  "mistakes": 0,
+  "accuracy": 100,
+  "total_moves": 2,
+  "move_analysis_details": [
+    {"move_num": 1, "color": "White", "played": "e4", "best": "Nf3", "class": "Unknown", "eval": null},
+    {"move_num": 1, "color": "Black", "played": "e5", "best": "d5", "class": "Unknown", "eval": null},
+    {"move_num": 2, "color": "White", "played": "Nf3", "best": "Nc3", "class": "Unknown", "eval": null},
+    {"move_num": 2, "color": "Black", "played": "Nc6", "best": "Nc6", "class": "Best", "eval": null}
+  ],
+  "move_analysis": ["Unknown", "Unknown", "Unknown", "Best"],
+  "analysis_timeout_seconds": 10,
+  "truncated": false,
+  "final_eval": null
 }
 ```
 
 #### 7. Get Puzzle Stats (`GET /api/puzzle-stats/`)
-Returns puzzle streak information for the puzzle interface.
+Returns puzzle streak information for the puzzle interface. A logged-in user gets their own numbers; an anonymous request gets zeros.
 
 **Response (Success - `200 OK`):**
 
 ```json
 {
   "streak": 0,
-  "longest_streak": 0
+  "longest_streak": 0,
+  "puzzles_solved": 0,
+  "daily_completions": 0
 }
 ```
 
-#### 8. Cleanup Cron (`POST /api/cron/cleanup-stale-games/`)
-Secure cron-triggered cleanup endpoint for abandoned games.
+#### 8. Cleanup Cron (`GET` or `POST /api/cron/cleanup-stale-games/`)
+Secure cron-triggered cleanup endpoint for abandoned games. `vercel.json` schedules it once a day.
 
 **Request Headers:**
 
@@ -523,7 +652,61 @@ Authorization: Bearer <cron_secret>
 {
   "status": "success",
   "deleted_games": 2,
-  "resigned_games": 1
+  "resigned_games": 1,
+  "purged_records": 0,
+  "purged_sessions": 0
+}
+```
+
+#### 9. Claim timeout (`POST /api/timeout/`)
+Called by the board when its clock reaches zero. The server ends the game only if its own stored clock has run out as well.
+
+**Response (Success - `200 OK`):**
+
+```json
+{
+  "valid": true,
+  "game_status": "timeout",
+  "winner": "black",
+  "white_time": 0,
+  "black_time": 412,
+  "version": 0
+}
+```
+
+**Response (clock still running - `400 Bad Request`):**
+
+```json
+{
+  "valid": false,
+  "message": "Clock has not run out.",
+  "white_time": 3,
+  "black_time": 412
+}
+```
+
+#### 10. Solve puzzle (`POST /api/puzzles/<id>/solve/`)
+Checks the moves played against the puzzle's stored solution and counts the solve for the logged-in user.
+
+**Request Body:**
+
+```json
+{
+  "moves": ["g2g4"]
+}
+```
+
+**Response (Success - `200 OK`):**
+
+```json
+{
+  "success": true,
+  "correct": true,
+  "newly_solved": true,
+  "puzzles_solved": 1,
+  "streak": 1,
+  "longest_streak": 1,
+  "daily_completions": 1
 }
 ```
 
@@ -537,7 +720,16 @@ The test suite runs fully in-memory — no compiled engine binary required.
 python manage.py test game
 ```
 
-28 tests covering all API endpoints, move validation, engine path resolution, promotion logic, and AI mode enforcement.
+The Django tests are in `game/tests.py` and the `game/test_*.py` modules. They cover the API endpoints, move validation, engine path resolution, promotion logic, and AI mode enforcement. The command also collects the Selenium tests in `game/selenium_tests/`, which need Chrome.
+
+The JavaScript tests run on Jest:
+
+```bash
+npm ci
+npm test
+```
+
+That runs the 103 tests in `board.test.js` and `forum.test.js`.
 
 ---
 
@@ -579,10 +771,10 @@ Depending on your terminal shell or system policies, activating the virtual envi
     | **Fish Shell** | `source venv/bin/activate.fish` |
 
 ### 🛠️ 3. g++ Compiler Installation & Configuration Problems
-Checkora attempts to compile the C++ chess engine locally to maximize Minimax performance. If `g++` is missing or not configured correctly, it will throw compilation errors. 
+The C++ chess engine has to be compiled locally to get the faster engine. If `g++` is missing or not configured correctly, the compile command fails. 
 
 > [!TIP]
-> If `g++` setup is too tricky for your system, you can skip compiling it! Checkora will automatically detect the absence of the binary and fall back to the Python engine in `game/engine/main.py`.
+> If `g++` setup is too tricky for your system, you can skip compiling it! Checkora will automatically detect the absence of the binary and fall back to the Python engine in `game/engine/main.py`. It does the same for a binary that is not executable or was built from older sources.
 
 *   **Check compiler availability:**
 
@@ -634,6 +826,10 @@ If you attempt to launch the Django server without setting up a local configurat
     cp .env.example .env
     ```
     Open `.env` and verify you have a robust string under `SECRET_KEY`.
+    Keep `DEBUG=True` in it for local work. `core/settings.py` leaves
+    `DEBUG` off unless `.env` turns it on. With it off you get the custom
+    500 page instead of Django's traceback, and OTP and password reset
+    emails go to the SMTP server instead of being printed in the terminal.
     Additionally, ensure `TRUSTED_PROXY_IPS` is configured (defaulting to
     `127.0.0.1,::1` for local development). `TRUSTED_PROXIES` remains
     supported as a legacy fallback.
@@ -683,7 +879,7 @@ If you prefer forum-style threading over live Discord chat:
 
 ### 📚 3. Report Documentation Confusion
 If a section of this guide, `structure.md`, or `API.md` is unclear, out of date, or missing steps:
-- File a [GitHub Issue](https://github.com/Checkora/Checkora/issues/new) using the **Documentation Confusion** template or attach the `documentation` label.
+- File a [GitHub Issue](https://github.com/Checkora/Checkora/issues/new) and attach the `documentation` label. The repository has issue templates for bug reports and feature requests only.
 - *Better yet:* Submit a quick pull request correcting the text! We love docs-focused contributions.
 
 ### 💡 4. Share Feature Proposals & Suggestions

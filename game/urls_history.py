@@ -1,19 +1,4 @@
-"""
-game/urls_history.py  ← NEW FILE
-----------------------------------
-Add these URL patterns to your existing game/urls.py (or api/urls.py,
-wherever the other /api/ routes live).
-
-In urls.py just do:
-
-    from game.urls_history import history_urlpatterns
-
-    urlpatterns = [
-        # … your existing patterns …
-    ] + history_urlpatterns
-
-Or copy the individual path() calls directly.
-"""
+"""URL patterns for the match history pages, included from game/urls.py."""
 
 from django.urls import path
 from game import views_history

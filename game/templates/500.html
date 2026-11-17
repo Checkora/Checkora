@@ -1,27 +1,35 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
+{% load static %}<!DOCTYPE html>
+{# The server-error page stands alone: no navbar, no session, no database, so it still renders when those are what failed. #}
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>500 | Checkora</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Something went wrong · Checkora</title>
+    <meta name="robots" content="noindex">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'game/css/500.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;600;700&display=swap">
+    <script src="{% static 'game/js/theme.js' %}"></script>
+    <script src="{% static 'game/js/perf.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'game/css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'game/css/error.css' %}">
 </head>
 <body>
-    <main class="error-stage">
-        <section class="error-card server-error" role="alert" aria-live="assertive">
-            <img src="{% static 'game/checkora_icon_only.png' %}" class="crest" alt="Checkora crest">
-            <p class="code">Error 500</p>
-            <h1>The King has fallen!</h1>
-            <p class="message">
-                An unexpected move disrupted the board. Our team has been notified,
-                and you can safely return to the main menu.
-            </p>
-            <a class="home-btn" href="{% url 'landing' %}">Return to Main Menu</a>
+    <main class="site-main error-standalone">
+        <section class="error wrap" role="alert">
+            <a href="/" class="brand" aria-label="Checkora home">
+                <img src="{% static 'game/checkora_icon_only.png' %}" alt="" class="brand__icon" width="24" height="40">
+                <span class="brand__name">CHECK<span>ORA</span></span>
+            </a>
+            <p class="eyebrow">Error 500</p>
+            <h1 class="display">The king has <span class="serif">fallen.</span></h1>
+            <p class="lede">Something broke on our side while handling that request. Try again in a moment.</p>
+            <div class="cluster" style="justify-content: center">
+                <a class="button button--primary button--lg" href="/">Back to the board</a>
+                <a class="button button--lg" href="https://github.com/Checkora/Checkora/issues" target="_blank" rel="noopener">Report it</a>
+            </div>
         </section>
     </main>
-    <script src="{% static 'game/js/theme.js' %}?v=1"></script>
 </body>
 </html>

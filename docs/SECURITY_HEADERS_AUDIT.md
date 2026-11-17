@@ -1,5 +1,7 @@
 # Web Security Audit & Enhancement Plan 🛡️
 
+> Note on the current state: the text below is the audit as it was written, and the two headers it reports missing have since been added. `SecurityHeadersMiddleware` in `game/middleware.py` sets `Content-Security-Policy` and `Permissions-Policy` on every response, without the `django-csp` package, and the policy it sends is the one in that file, not the stricter example in section 2 below. `core/settings.py` sets `SECURE_CONTENT_TYPE_NOSNIFF`, and the three HSTS settings in production. It does not set `SECURE_BROWSER_XSS_FILTER`.
+
 ## Audit Summary
 - **Target:** checkora.vercel.app
 - **Initial Grade:** B

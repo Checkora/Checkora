@@ -6,6 +6,7 @@ function activateTab(tabId) {
 
     document.querySelectorAll(".forum-tab").forEach((tab) => {
         tab.classList.remove("active");
+        tab.setAttribute("aria-selected", "false");
     });
 
     document.querySelectorAll(".forum-tab-panel").forEach((tabPanel) => {
@@ -13,6 +14,7 @@ function activateTab(tabId) {
     });
 
     tabBtn.classList.add("active");
+    tabBtn.setAttribute("aria-selected", "true");
     panel.classList.add("active");
 }
 

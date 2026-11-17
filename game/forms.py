@@ -1,6 +1,5 @@
 from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
-from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import ValidationError
 from .models import Discussion, Reply
 
@@ -70,33 +69,6 @@ class CustomSetPasswordForm(SetPasswordForm):
         return cleaned_data
 
 
-class CustomPasswordResetForm(PasswordResetForm):
-    """Prevent password resets from reusing the account's current password."""
-
-    def send_mail(
-        self,
-        subject_template_name,
-        email_template_name,
-        context,
-        from_email,
-        to_email,
-        html_email_template_name=None
-    ):
-        try:
-            super().send_mail(
-                subject_template_name,
-                email_template_name,
-                context,
-                from_email,
-                to_email,
-                html_email_template_name
-            )
-        except Exception:
-            raise ValidationError(
-                "Failed to send password reset email. "
-                "Please check your email configuration and try again."
-            )
-        
 class DiscussionForm(forms.ModelForm):
     class Meta:
         model = Discussion

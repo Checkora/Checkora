@@ -1,9 +1,11 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 urlpatterns = [
-    path('', views.preloader, name='preloader'),
-    path('home/', views.landing, name='landing'),
+    path('', views.landing, name='landing'),
+    # The landing page used to live here.
+    path('home/', RedirectView.as_view(pattern_name='landing', permanent=True)),
     path('play/', views.index, name='index'),
     path('profile/', views.profile_view, name='profile'),
     
@@ -15,6 +17,7 @@ urlpatterns = [
     path('api/check-promotion/', views.check_promotion, name='check_promotion'),
     path('api/state/', views.get_state, name='get_state'),
     path('api/pause/', views.set_pause),
+    path('api/timeout/', views.claim_timeout, name='claim_timeout'),
     path('api/resign/', views.resign_game, name='resign_game'),
     path('api/ai-move/', views.ai_move, name='ai_move'),
     path('api/draw/', views.offer_draw, name='offer_draw'),
@@ -69,6 +72,11 @@ urlpatterns = [
         "api/puzzles/<int:puzzle_id>/solution/",
         views.puzzle_solution_api,
         name="puzzle_solution_api"
+    ),
+    path(
+        "api/puzzles/<int:puzzle_id>/solve/",
+        views.puzzle_solve_api,
+        name="puzzle_solve_api"
     ),
     
     # Badges & Achievements

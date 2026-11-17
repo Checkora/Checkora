@@ -179,23 +179,23 @@ document.addEventListener("DOMContentLoaded", () => {
       if (fill) {
         const pct = value.length > 0 ? (score / rules.length) * 100 : 0;
         fill.style.width = pct + "%";
+        // The stylesheet colours the bar by its level.
         if (score <= 2) {
-          fill.style.background = "#ef4444"; // Red
+          fill.dataset.strength = "weak";
         } else if (score <= 4) {
-          fill.style.background = "#f59e0b"; // Orange/Yellow
+          fill.dataset.strength = "fair";
         } else {
-          fill.style.background = "#10b981"; // Green
+          fill.dataset.strength = "strong";
         }
       }
 
       const isValid = allMet && value.length > 0;
       checklist.classList.toggle("all-met", isValid);
       
-      // CRITICAL PATCH: Disable the submit button if rules are not met
+      // CRITICAL PATCH: Disable the submit button if rules are not met.
+      // The stylesheet dims a disabled button.
       if (formBtn) {
           formBtn.disabled = !isValid;
-          formBtn.style.opacity = isValid ? "1" : "0.5";
-          formBtn.style.cursor = isValid ? "pointer" : "not-allowed";
       }
     };
 
