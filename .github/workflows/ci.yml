@@ -5,6 +5,9 @@
 #   • PRs with assignee mismatch   → auto-closed + CI skipped (pr-guardian.yml)
 #   • Push/merge to main only      → all checks THEN deploy to Vercel
 # Contributors see test results immediately after any push — no PR needed.
+# The Django suite runs twice, on SQLite and on PostgreSQL 16 (what production
+# uses). The engine is built once normally and once with AddressSanitizer and
+# UBSan, and the engine tests run against the second build.
 # -------------------------------------------------------------------
 name: 🚀 Checkora CI/CD
 
@@ -173,6 +176,17 @@ jobs:
             --count \
             --statistics
 
+      # The ignore list above is there for older code. These modules were
+      # written clean and must stay that way, unused imports included.
+      - name: 🔍 Run strict flake8 on clean modules
+        run: |
+          flake8 --max-line-length=120 \
+            game/accounts.py game/avatars.py game/progression.py \
+            game/google_auth.py game/context_processors.py \
+            game/views_account.py game/views_google.py \
+            game/templatetags/players.py \
+            game/test_accounts.py game/test_google_login.py
+
 # ───────────────────────────────────────────────────────────────────
 # JOB 1.5 — JavaScript Tests (Jest)
 # ───────────────────────────────────────────────────────────────────
@@ -212,6 +226,17 @@ jobs:
 
       - name: 🃏 Run Jest tests
         run: npm test
+
+      # Jest covers a few scripts; this catches a syntax error in any of them.
+      - name: 🔎 Syntax-check every front-end script
+        run: |
+          for file in game/static/game/js/*.js; do
+            if grep -qE '^(import|export) ' "$file"; then
+              node --input-type=module --check < "$file" || { echo "::error file=$file::syntax error"; exit 1; }
+            else
+              node --check "$file" || { echo "::error file=$file::syntax error"; exit 1; }
+            fi
+          done
 
 
 # ───────────────────────────────────────────────────────────────────
@@ -270,9 +295,33 @@ jobs:
 # JOB 3 — Django Tests
 # ───────────────────────────────────────────────────────────────────
   test:
-    name: 🧪 Django Tests
+    name: 🧪 Django Tests (${{ matrix.database }})
     runs-on: ubuntu-latest
     needs: [pr-guardian, lint, compile-engine]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: sqlite
+            database_url: sqlite:///ci.sqlite3
+          - database: postgres
+            database_url: postgres://checkora:checkora@localhost:5432/checkora
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: checkora
+          POSTGRES_PASSWORD: checkora
+          POSTGRES_DB: checkora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U checkora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: ${{ matrix.database_url }}
     if: |
       (github.event_name != 'pull_request' ||
        needs.pr-guardian.result == 'skipped' ||
@@ -303,6 +352,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+          # Test-only packages, such as python-chess for the engine's differential tests.
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: 📥 Download compiled engine binary
         if: needs.compile-engine.outputs.engine_exists == 'true'
@@ -329,13 +380,13 @@ jobs:
           echo "**Branch:** \`${{ github.ref_name }}\`  |  **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -E '(FAIL|ERROR|OK|Ran [0-9]+ test)' test_output.txt || echo 'No summary line found' >> $GITHUB_STEP_SUMMARY
+          grep -E '^(Ran [0-9]+ test|OK|FAILED)' test_output.txt >> $GITHUB_STEP_SUMMARY || echo 'No summary line found' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if grep -q 'FAIL\|ERROR' test_output.txt; then
+          if grep -qE '^(FAIL|ERROR):' test_output.txt; then
             echo "### ❌ Failed / Errored Tests" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            grep -A5 'FAIL:\|ERROR:' test_output.txt >> $GITHUB_STEP_SUMMARY || true
+            grep -E -A5 '^(FAIL|ERROR):' test_output.txt >> $GITHUB_STEP_SUMMARY || true
             echo '```' >> $GITHUB_STEP_SUMMARY
           else
             echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
@@ -347,7 +398,7 @@ jobs:
         continue-on-error: true   # never let a failed upload kill the test job
         with:
           # ref_name can be '59/merge' for PRs — replace / to avoid invalid artifact name
-          name: test-log-${{ github.run_id }}-${{ github.run_attempt }}
+          name: test-log-${{ matrix.database }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: test_output.txt
           if-no-files-found: ignore
           retention-days: 14
@@ -396,6 +447,60 @@ jobs:
           # Then check if any model changes exist without a migration file
           python manage.py makemigrations --check --dry-run
           echo "✅ No missing migrations detected"
+
+# ───────────────────────────────────────────────────────────────────
+# JOB 4.5 — Engine under AddressSanitizer and UBSan
+# ───────────────────────────────────────────────────────────────────
+  engine-sanitizers:
+    name: 🧯 Engine (ASan + UBSan)
+    runs-on: ubuntu-latest
+    needs: [pr-guardian, lint]
+    if: |
+      (github.event_name != 'pull_request' ||
+       needs.pr-guardian.result == 'skipped' ||
+       needs.pr-guardian.outputs.ci_allowed == 'true') &&
+      needs.lint.result == 'success'
+    env:
+      # An out-of-bounds write or undefined behaviour stops the engine, and
+      # the tests that asked it a question fail.
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: 📥 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: ⚙️ Build the engine with sanitizers
+        run: |
+          g++ -O1 -g -std=c++17 -fno-omit-frame-pointer \
+              -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+              game/engine/main.cpp -o game/engine/main
+
+      - name: 🧪 Run the engine tests against it
+        run: |
+          set -o pipefail
+          python manage.py test $(ls game/test_engine*.py game/test_persistent_engine.py | sed 's#/#.#; s#\.py$##') -v 2 2>&1 | tee engine_output.txt
 
 # ───────────────────────────────────────────────────────────────────
 # JOB 5 — Security Scan (pip-audit)
@@ -567,7 +672,7 @@ jobs:
         run: |
           echo "## 🌐 Selenium E2E Test Results — $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Test suites:** UITest (9 tests), NavigationTest (11 tests)" >> $GITHUB_STEP_SUMMARY
+          grep -E '^(Ran [0-9]+ test|OK|FAILED)' selenium_output.txt >> $GITHUB_STEP_SUMMARY || true
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test Output (last 30 lines)" >> $GITHUB_STEP_SUMMARY
           if [ -f selenium_output.txt ]; then
