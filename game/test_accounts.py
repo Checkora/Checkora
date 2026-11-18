@@ -165,7 +165,9 @@ class GameRewardsTest(TestCase):
             self.user, 'ai', 'white', 'checkmate', 'white', moves=PLAYED, difficulty='hard',
         )
         rating = PlayerRating.objects.get(user=self.user)
-        expected = progression.START_RATING + progression.rating_change(1200, 1600, 'win', 0)
+        expected = progression.START_RATING + progression.rating_change(
+            progression.START_RATING, progression.engine_rating('hard'), 'win', 0,
+        )
         self.assertEqual(rating.rating, expected)
         self.assertEqual(RatingHistory.objects.get(user=self.user).game_result, result)
         self.assertEqual(UserProgress.objects.get(user=self.user).xp, progression.XP_FOR_RESULT['win'])
@@ -207,6 +209,12 @@ class StreakTimezoneTest(SignedInTestCase):
         self.client.cookies['tz'] = 'Mars/Olympus_Mons'
         self.client.get(reverse('profile'))
         self.assertEqual(UserProfile.objects.get(user=self.user).timezone, '')
+
+    def test_a_player_without_a_profile_row_gets_one(self):
+        UserProfile.objects.filter(user=self.user).delete()
+        self.client.cookies['tz'] = 'Asia/Kolkata'
+        self.client.get(reverse('privacy'))
+        self.assertEqual(UserProfile.objects.get(user=self.user).timezone, 'Asia/Kolkata')
 
     def test_streak_day_follows_the_players_zone(self):
         UserProfile.objects.filter(user=self.user).update(timezone='Asia/Kolkata')
@@ -347,6 +355,17 @@ class UsernameChangeTest(SignedInTestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, 'other')
 
+    def test_case_can_change_inside_the_month(self):
+        self.client.post(reverse('change_username'), {'username': 'first'})
+        changed_at = UserProfile.objects.get(user=self.user).username_changed_at
+        self.user.refresh_from_db()
+
+        accounts.change_username(self.user, 'First')
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'First')
+        self.assertEqual(UserProfile.objects.get(user=self.user).username_changed_at, changed_at)
+
 
 class EmailChangeTest(SignedInTestCase):
     def ask(self, email='new@example.com', code=123456):
@@ -478,6 +497,18 @@ class AccountServiceTest(TestCase):
         stale = User.objects.create_user('holder', 'h@example.com', 'x', is_active=False)
         User.objects.filter(pk=stale.pk).update(date_joined=timezone.now() - timedelta(hours=2))
         self.assertFalse(accounts.username_taken('holder'))
+
+    def test_live_check_agrees_with_registration_without_writing(self):
+        User.objects.create_user('fresh', 'f@example.com', 'x', is_active=False)
+        stale = User.objects.create_user('stale', 's@example.com', 'x', is_active=False)
+        User.objects.filter(pk=stale.pk).update(date_joined=timezone.now() - timedelta(hours=2))
+
+        def available(name):
+            return self.client.get(reverse('check_username'), {'username': name}).json()['available']
+
+        self.assertFalse(available('Fresh'))
+        self.assertTrue(available('stale'))
+        self.assertTrue(User.objects.filter(pk=stale.pk).exists())
 
     def test_code_hash_is_salted_with_the_secret_key(self):
         from game.views_account import _code_hash

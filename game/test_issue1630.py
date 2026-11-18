@@ -1,9 +1,7 @@
-import json
 from django.test import TestCase, Client
 from django.urls import reverse
 from game.engine import ChessGame
 from unittest.mock import patch
-from django.contrib.sessions.middleware import SessionMiddleware
 
 class Issue1630PredictionTest(TestCase):
     def setUp(self):

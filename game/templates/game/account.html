@@ -34,7 +34,7 @@
         <div class="settings-card__head">
             <h2 id="usernameTitle">Username</h2>
             <p>Shown on the leaderboard and in the forum. You sign in with it too.
-                {% if next_username_change %}You can change it again on {{ next_username_change|date:"j M Y" }}.{% else %}You can change it once every {{ username_change_days }} days.{% endif %}</p>
+                {% if next_username_change %}You can change it again on {{ next_username_change|date:"j M Y" }}. Changing only capital letters works any time.{% else %}You can change it once every {{ username_change_days }} days.{% endif %}</p>
         </div>
         <form method="post" action="{% url 'change_username' %}" class="settings-form">
             {% csrf_token %}
@@ -45,7 +45,7 @@
                 {% if field.errors %}{{ field.errors }}{% endif %}
             </div>
             {% endwith %}
-            <button type="submit" class="button button--sm" {% if next_username_change %}disabled{% endif %}>Save username</button>
+            <button type="submit" class="button button--sm">Save username</button>
         </form>
     </section>
 

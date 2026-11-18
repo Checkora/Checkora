@@ -25,9 +25,13 @@ RATING_FLOOR = 100
 PROVISIONAL_GAMES = 20
 K_PROVISIONAL = 32
 K_ESTABLISHED = 16
-# The rating each engine level plays at. Beating the easy engine is worth
-# little to a strong player; beating the hard one is worth a lot.
-ENGINE_RATINGS = {'easy': 800, 'medium': 1200, 'hard': 1600}
+# The rating each engine level plays at. Medium sits at the starting
+# rating, so a new player is expected to score half against it. The gaps
+# come from matches between the levels (scripts/engine_match.py, 200 games
+# a pair): hard beat medium by about 650 points and master beat hard by
+# about 140, rounded here to 150. Medium won all 200 games against easy,
+# which puts easy at least 750 below it.
+ENGINE_RATINGS = {'easy': 450, 'medium': 1200, 'hard': 1850, 'master': 2000}
 
 RESULT_SCORES = {'win': 1.0, 'draw': 0.5, 'loss': 0.0}
 

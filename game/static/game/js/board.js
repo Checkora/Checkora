@@ -1895,7 +1895,7 @@
                     const textNode = document.createTextNode(`AI (${playerColor === 'white' ? 'BLACK' : 'WHITE'}) `);
                     const badge = document.createElement('span');
                     badge.textContent = diffLabel;
-                    // easy, medium or hard: the stylesheet colours the badge by level
+                    // easy, medium, hard or master: the stylesheet colours the badge by level
                     badge.dataset.difficulty = diffLabel.toLowerCase();
                     badge.setAttribute('aria-label', `AI difficulty: ${diffLabel}`);
                     aiLabel.appendChild(textNode);
@@ -2750,12 +2750,14 @@
                 }
             }
 
-            // randomized delay per difficulty — feels realistic and unpredictable
-            let delay;
-            if (currentDifficulty === 'easy') delay = 800 + Math.random() * (1500 - 800);
-            else if (currentDifficulty === 'hard') delay = 2500 + Math.random() * (4000 - 2500);
-            else delay = 1500 + Math.random() * (2500 - 1500); // medium
-            await new Promise(resolve => setTimeout(resolve, delay));
+            // Easy and medium answer in a few milliseconds, so they wait a
+            // moment first and don't move the instant the player lets go.
+            // Hard and master spend real seconds thinking on the server; a
+            // pause on top of that would only cost their clock.
+            const PAUSE_MS = { easy: [800, 1500], medium: [600, 1200] };
+            const [shortest, longest] = PAUSE_MS[currentDifficulty] || [0, 0];
+            const delay = shortest + Math.random() * (longest - shortest);
+            if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
 
             // Abort if a new game started, reconnect happened, or another request took over during delay
             if (seq !== aiRequestSeq) return;
@@ -3456,16 +3458,10 @@ function updateStepperUI() {
                 }
 
                 if (move && move !== '...') {
-                    console.log("Replay move added:", move);
                     replayMoves.push(move);
                 }
             });
         });
-
-        console.log("FINAL REPLAY MOVES:", replayMoves);
-        if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
-            console.log("FINAL RAW MOVES:", rawAnalysisMoves);
-        }
 
         resetReplayBoard();
 

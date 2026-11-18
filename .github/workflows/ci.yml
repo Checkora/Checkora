@@ -3,7 +3,7 @@
 #   • Every push to EVERY branch  → lint + compile + test + migrate-check + security
 #   • Every PR targeting main      → same checks (required to merge)
 #   • PRs with assignee mismatch   → auto-closed + CI skipped (pr-guardian.yml)
-#   • Push/merge to main only      → all checks THEN deploy to Vercel
+#   • Push/merge to main           → Vercel's GitHub integration deploys (see the note at the end)
 # Contributors see test results immediately after any push — no PR needed.
 # The Django suite runs twice, on SQLite and on PostgreSQL 16 (what production
 # uses). The engine is built once normally and once with AddressSanitizer and
@@ -185,7 +185,8 @@ jobs:
             game/google_auth.py game/context_processors.py \
             game/views_account.py game/views_google.py \
             game/templatetags/players.py \
-            game/test_accounts.py game/test_google_login.py
+            game/test_accounts.py game/test_google_login.py game/test_levels.py \
+            game/test_engine_evaluation.py scripts/engine_match.py
 
 # ───────────────────────────────────────────────────────────────────
 # JOB 1.5 — JavaScript Tests (Jest)

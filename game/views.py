@@ -6,8 +6,6 @@ from importlib import import_module
 from functools import wraps
 import hashlib
 import math
-import io
-import base64
 import ipaddress
 import re
 import secrets
@@ -17,30 +15,20 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import Http404, JsonResponse
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
-from django.urls import reverse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from django.utils.http import (
-    urlsafe_base64_encode,
-    urlsafe_base64_decode,
-    url_has_allowed_host_and_scheme
-)
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.core.paginator import Paginator, EmptyPage
-from django.utils.encoding import (
-    force_bytes,
-    force_str
-)
 from django.utils.text import slugify
 from . import progression
 from .progression import award_xp
-from .accounts import PENDING_REGISTRATION_MAX_AGE_SECONDS, pending_registrations
+from .accounts import PENDING_REGISTRATION_MAX_AGE_SECONDS, pending_registrations, username_in_use
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.forms.utils import ErrorDict
-from django.contrib.auth.views import PasswordResetView, redirect_to_login
+from django.contrib.auth.views import PasswordResetView
 from smtplib import SMTPException
 from django.core.mail import (
     BadHeaderError,
@@ -436,7 +424,7 @@ def new_game(request):
 
     mode = data.get('mode', 'pvp')
     difficulty = data.get('difficulty', 'medium')
-    if not isinstance(difficulty, str) or difficulty not in ('easy', 'medium', 'hard'):
+    if not isinstance(difficulty, str) or difficulty not in ChessGame.LEVELS:
         difficulty = 'medium'
     fen = data.get('fen')
     time_limit_raw = data.get('time_limit', 600)
@@ -509,7 +497,8 @@ def new_game(request):
         bot_names = {
             'easy': '♟️ Novice Pawn',
             'medium': '♗ Tactical Bishop',
-            'hard': '♜ Grandmaster Rook'
+            'hard': '♜ Grandmaster Rook',
+            'master': '♛ Master Queen',
         }
         bot_name = bot_names.get(difficulty, '♗ Tactical Bishop')
         if player_color == 'white':
@@ -1115,14 +1104,14 @@ def resign_game(request):
 def check_username(request):
     """Check if a username is already taken.
 
-    Checks both active and inactive users to avoid leaking
-    whether a pending-verification account exists.
+    A signup still waiting for its email code counts as taken, so the
+    answer does not reveal whether one exists, until it goes stale and
+    registration would release the name.
     """
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(username__iexact=username).exists()
-    return JsonResponse({'available': not exists})
+    return JsonResponse({'available': not username_in_use(username)})
 
 
 REGISTRATION_SESSION_KEYS = (

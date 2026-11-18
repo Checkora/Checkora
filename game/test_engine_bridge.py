@@ -318,8 +318,9 @@ class AiMoveCommandTest(BridgeTestCase):
             # level: depth, time limit, alternatives (only the level that
             # picks among them asks for any)
             'easy': ('2', '500', '8'),
-            'medium': ('4', '1500', '0'),
-            'hard': ('64', '4000', '0'),
+            'medium': ('6', '1500', '0'),
+            'hard': ('64', '5000', '0'),
+            'master': ('64', '8500', '0'),
         }
         for level, (depth, limit, alternatives) in expected.items():
             with self.subTest(level=level):
@@ -354,7 +355,7 @@ class AiMoveCommandTest(BridgeTestCase):
         game._analysis_timeout = 0.2
         self.assertEqual(self.command(game)[7], '1')      # never 0, which means no limit
         game._analysis_timeout = None
-        self.assertEqual(self.command(game)[7], '4000')
+        self.assertEqual(self.command(game)[7], '5000')
 
     def test_clock_and_earlier_positions_are_sent(self):
         game = self.new_game('medium')

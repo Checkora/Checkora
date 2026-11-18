@@ -212,13 +212,16 @@ class NewGameEdgeCaseTest(TestCase):
         self.assertEqual(game._get_ai_search_depth(), 2)
 
         game = ChessGame(difficulty='medium')
-        self.assertEqual(game._get_ai_search_depth(), 4)
-
-        game = ChessGame(difficulty='hard')
         self.assertEqual(game._get_ai_search_depth(), 6)
 
+        game = ChessGame(difficulty='hard')
+        self.assertEqual(game._get_ai_search_depth(), 10)
+
+        game = ChessGame(difficulty='master')
+        self.assertEqual(game._get_ai_search_depth(), 14)
+
         game = ChessGame(difficulty='invalid_level')
-        self.assertEqual(game._get_ai_search_depth(), 4)
+        self.assertEqual(game._get_ai_search_depth(), 6)
 
 
 class PuzzleStatsTest(TestCase):

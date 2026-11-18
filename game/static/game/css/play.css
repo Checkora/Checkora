@@ -459,7 +459,7 @@ body:has(#welcomeOverlay.active) {
     color: var(--title);
 }
 /* The engine's level. board.js marks the badge with data-difficulty
-   (easy, medium or hard). */
+   (easy, medium, hard or master). */
 .player-name > span {
     display: inline-block;
     margin-left: 2px;
@@ -477,6 +477,10 @@ body:has(#welcomeOverlay.active) {
 .player-name > [data-difficulty='hard'] {
     background: var(--check-wash);
     color: var(--check);
+}
+.player-name > [data-difficulty='master'] {
+    background: var(--gold);
+    color: var(--on-gold);
 }
 .nav-avatar {
     flex: none;

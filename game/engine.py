@@ -1205,9 +1205,15 @@ DP cache is intentionally excluded to save cookie space."""
     DIFFICULTY_SETTINGS = {
         'easy': {'max_depth': 2, 'time_budget_ms': 500,
                  'error_rate': 0.5, 'error_max_loss': 900},
-        'medium': {'max_depth': 4, 'time_budget_ms': 1500},
-        'hard': {'max_depth': 6, 'time_budget_ms': 4000, 'time_only': True},
+        'medium': {'max_depth': 6, 'time_budget_ms': 1500},
+        'hard': {'max_depth': 10, 'time_budget_ms': 5000, 'time_only': True},
+        'master': {'max_depth': 14, 'time_budget_ms': 8500, 'time_only': True},
     }
+    LEVELS = tuple(DIFFICULTY_SETTINGS)
+    # On a running clock no move may take more than about this share of
+    # the time left (plus most of the increment), so a level that thinks
+    # for seconds still finishes a blitz game.
+    CLOCK_MOVES_LEFT = 30
     # Depth sent for a time_only level (the engines stop at 64 anyway)
     UNLIMITED_DEPTH = 64
     # Alternatives asked for by an analysis, and by a level that chooses
@@ -1255,6 +1261,7 @@ DP cache is intentionally excluded to save cookie space."""
         time_budget_ms = max(1, min(
             cfg['time_budget_ms'],
             int(self._engine_timeout() * 1000) - self.REPLY_MARGIN_MS,
+            self._clock_budget_ms(),
         ))
 
         # The positions since the last capture or pawn move go along so
@@ -1299,6 +1306,14 @@ DP cache is intentionally excluded to save cookie space."""
         if error_rate:
             self._play_weaker(move_data, error_rate, cfg['error_max_loss'])
         return move_data
+
+    def _clock_budget_ms(self):
+        """The most a move may take on the side to move's clock; no limit without one."""
+        if not self.time_limit or self.time_limit <= 0:
+            return float('inf')
+        remaining = self.white_time if self.current_turn == 'white' else self.black_time
+        share = remaining * 1000 // self.CLOCK_MOVES_LEFT
+        return max(100, int(share + self.increment * 1000 * 3 // 4))
 
     @classmethod
     def _parse_bestmove(cls, parts):

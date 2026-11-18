@@ -46,11 +46,13 @@ def established_accounts():
     return User.objects.exclude(is_active=False, last_login__isnull=True)
 
 
-def _release_stale_username(username):
+def _stale_registrations():
     stale_before = timezone.now() - timedelta(seconds=PENDING_REGISTRATION_MAX_AGE_SECONDS)
-    pending_registrations().filter(
-        username__iexact=username, date_joined__lt=stale_before
-    ).delete()
+    return pending_registrations().filter(date_joined__lt=stale_before)
+
+
+def _release_stale_username(username):
+    _stale_registrations().filter(username__iexact=username).delete()
 
 
 def username_taken(username, *, exclude=None):
@@ -64,6 +66,18 @@ def username_taken(username, *, exclude=None):
     if exclude is not None:
         holders = holders.exclude(pk=exclude.pk)
     return holders.exists()
+
+
+def username_in_use(username):
+    """What username_taken() would answer, for the live check on the forms.
+
+    It only reads: a stale signup is left in place and simply not counted.
+    """
+    return (
+        User.objects.filter(username__iexact=username)
+        .exclude(pk__in=_stale_registrations().values('pk'))
+        .exists()
+    )
 
 
 def email_taken(email, *, exclude=None):
@@ -95,14 +109,19 @@ def create_google_user(username, *, sub, email):
 def change_username(user, new_username):
     profile, _ = UserProfile.objects.get_or_create(user=user)
     now = timezone.now()
-    if profile.username_changed_at and now < profile.username_changed_at + USERNAME_CHANGE_INTERVAL:
+    # Changing only the case of your own name is allowed at any time and
+    # does not start the interval.
+    case_only = new_username.lower() == user.username.lower()
+    if (
+        not case_only
+        and profile.username_changed_at
+        and now < profile.username_changed_at + USERNAME_CHANGE_INTERVAL
+    ):
         raise UsernameChangeTooSoon(profile.username_changed_at + USERNAME_CHANGE_INTERVAL)
 
     with transaction.atomic():
-        # Changing only the case of your own name is allowed and costs nothing.
         if username_taken(new_username, exclude=user):
             raise UsernameTaken()
-        case_only = new_username.lower() == user.username.lower()
         user.username = new_username
         user.full_clean(validate_unique=False)
         user.save(update_fields=['username'])

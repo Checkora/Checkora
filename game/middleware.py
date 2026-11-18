@@ -21,7 +21,7 @@ class PlayerTimezoneMiddleware:
             from .progression import zone_for
 
             if zone_for(name):
-                UserProfile.objects.filter(user=request.user).update(timezone=name)
+                UserProfile.objects.update_or_create(user=request.user, defaults={'timezone': name})
                 request.session['tz'] = name
         return self.get_response(request)
 
@@ -38,7 +38,7 @@ class SecurityHeadersMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        
+
         # CSP policies matching the external domains loaded in the project
         csp_policies = [
             "default-src 'self'",
@@ -51,9 +51,9 @@ class SecurityHeadersMiddleware:
         ]
         if "Content-Security-Policy" not in response:
             response["Content-Security-Policy"] = "; ".join(csp_policies)
-        
+
         # Permissions-Policy to explicitly disable unused hardware features
         if "Permissions-Policy" not in response:
             response["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-        
+
         return response
