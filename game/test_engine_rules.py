@@ -11,16 +11,18 @@ import threading
 
 from django.test import SimpleTestCase
 
+from game import engine_client
 from game.engine import ChessGame
 
-MAIN_PY = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+MAIN_PY = os.path.join(engine_client.ENGINE_DIR, 'main.py')
 
 
 def engine_commands():
-    """The engines that can be started on this machine."""
-    commands = {'python': [sys.executable, '-u', MAIN_PY]}
-    for path in ChessGame.ENGINE_CANDIDATES:
-        if not path.endswith('.py') and os.path.isfile(path) and ChessGame._binary_runs(path):
+    """The engines that can be started on this machine. main.py runs
+    without -u: it has to flush its replies by itself."""
+    commands = {'python': [sys.executable, MAIN_PY]}
+    for path in engine_client.ENGINE_CANDIDATES:
+        if not path.endswith('.py') and os.path.isfile(path) and engine_client.binary_runs(path):
             commands['cpp'] = [path]
             break
     return commands
@@ -175,16 +177,13 @@ class RuleEdgeCaseTest(EngineTestCase):
             targets = self.moves(engine, '8/8/8/K2pP2r/8/8/8/7k w - d6 0 1', 'e5')
             self.assertEqual(targets, {(2, 4)})
 
-    def test_validate_always_answers_and_checks_king_safety(self):
+    def test_moves_keep_the_king_safe(self):
         for name, engine in self.each_engine():
-            start = fields(START)
-            self.assertEqual(engine.ask(f'VALIDATE {start} {square("e2")} {square("e4")}'), 'VALID')
-            for origin, target in (('e4', 'e5'), ('e7', 'e5'), ('e2', 'e2'), ('a1', 'a2')):
-                reply = engine.ask(f'VALIDATE {start} {square(origin)} {square(target)}')
-                self.assertTrue(reply.startswith('INVALID'), reply)
-            pinned = fields('4k3/4r3/8/8/8/8/4N3/4K3 w - - 0 1')
-            reply = engine.ask(f'VALIDATE {pinned} {square("e2")} {square("d4")}')
-            self.assertTrue(reply.startswith('INVALID'), reply)
+            self.assertEqual(self.moves(engine, START, 'e2'), {(5, 4), (4, 4)})
+            self.assertEqual(self.moves(engine, START, 'e4'), set())     # empty square
+            self.assertEqual(self.moves(engine, START, 'e7'), set())     # not the mover's piece
+            # the knight is pinned to its king
+            self.assertEqual(self.moves(engine, '4k3/4r3/8/8/8/8/4N3/4K3 w - - 0 1', 'e2'), set())
 
     def test_promote_refuses_a_move_that_leaves_the_king_in_check(self):
         for name, engine in self.each_engine():
@@ -207,13 +206,26 @@ class RuleEdgeCaseTest(EngineTestCase):
     def test_every_line_gets_exactly_one_reply(self):
         for name, engine in self.each_engine():
             start = fields(START)
-            self.assertEqual(engine.ask('VERSION'), f'VERSION {ChessGame.PROTOCOL_VERSION}')
+            self.assertEqual(engine.ask('VERSION'), f'VERSION {engine_client.PROTOCOL_VERSION}')
             self.assertEqual(engine.ask('HELLO'), 'ERROR unknown command')
+            self.assertEqual(engine.ask(f'VALIDATE {start} 6 4 4 4'), 'ERROR unknown command')
             self.assertEqual(engine.ask(f'STATUS {start[:70]}'), 'ERROR malformed command')
             self.assertEqual(engine.ask(f'MOVES {start} 9 9'), 'ERROR malformed command')
             self.assertEqual(engine.ask(f'MOVES {start} x y'), 'ERROR malformed command')
+            self.assertEqual(engine.ask(f'MOVES {start} 6 4x'), 'ERROR malformed command')
             # still in step afterwards
             self.assertEqual(engine.ask(f'STATUS {start}'), 'STATUS OK')
+
+    def test_bestmove_arguments_must_be_numbers(self):
+        """An argument that does not parse is an error, not a default."""
+        later = ' 7k/8/8/4K3/8/8/1R6/8 b -'
+        for name, engine in self.each_engine():
+            start = fields(START)
+            for arguments in ('2 abc', '2 100 x', '2 100 0 y', '2.5', '2 100 0 0 x',
+                              f'2 100 0 0{later} 3,4,5', f'2 100 0 0{later} 3'):
+                with self.subTest(arguments=arguments):
+                    self.assertEqual(engine.ask(f'BESTMOVE {start} {arguments}'), 'ERROR malformed command')
+            self.assertRegex(engine.ask(f'BESTMOVE {start} 1 100 0 0{later} 3,4'), r'^BESTMOVE [0-7] ')
 
     def test_status(self):
         cases = [
@@ -253,6 +265,42 @@ class RuleEdgeCaseTest(EngineTestCase):
                 reply = engine.ask(f'NOTATION {fields(fen)} {square(origin)} {square(target)}{promo}')
                 self.assertEqual(reply, f'NOTATION {expected}', fen)
 
+    def test_no_notation_for_an_illegal_move(self):
+        """An illegal move used to be written from its shape and played on
+        the engine's board, which left the board corrupt."""
+        cases = [
+            (START, 'e4', 'e5'),                                   # empty square
+            (START, 'e2', 'e5'),                                   # too far for a pawn
+            (START, 'e1', 'g1'),                                   # castling through pieces
+            ('4k3/8/8/4P3/8/8/8/4K3 w - - 0 1', 'e5', 'd6'),        # en passant with no pawn to take
+            ('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', 'e2', 'd4'),        # a double step sideways
+            ('4k3/4r3/8/8/8/8/4N3/4K3 w - - 0 1', 'e2', 'd4'),      # pinned knight
+            ('r3k3/1P6/8/8/8/8/8/4K3 w - - 0 1', 'b7', 'c8'),       # promotion onto an empty square
+        ]
+        for name, engine in self.each_engine():
+            for fen, origin, target in cases:
+                with self.subTest(fen=fen, move=origin + target):
+                    reply = engine.ask(f'NOTATION {fields(fen)} {square(origin)} {square(target)}')
+                    self.assertEqual(reply, 'NOTATION ?')
+            # and the engine still answers correctly afterwards
+            self.assertEqual(engine.ask(f'NOTATION {fields(START)} {square("g1")} {square("f3")}'),
+                             'NOTATION Nf3')
+
+    def test_boards_with_more_moves_than_any_game(self):
+        """The protocol takes any board; the C++ engine used to crash once
+        a position had more than 256 moves."""
+        boards = [
+            'kpQQQQQQ/ppQ4Q/QQ5Q/Q6Q/Q6Q/Q6Q/Q6Q/QQQQQQQK w - - 0 1',   # 31 queens
+            'QQQQQQQQ/QQQQQQQQ/QQQQQQQQ/QQQQQQQQ/QQQQQQQQ/QQQQQQQQ/QQQQQQQQ/QQQQQQKk w - - 0 1',
+            '1Q1Q1Q1Q/Q1Q1Q1Q1/1Q1Q1Q1Q/Q1Q1Q1Q1/1Q1Q1Q1Q/Q1Q1Q1Q1/1Q1Q1Q1Q/k1Q1Q1QK w - - 0 1',
+        ]
+        for name, engine in self.each_engine():
+            for fen in boards:
+                with self.subTest(fen=fen):
+                    self.assertRegex(engine.ask(f'BESTMOVE {fields(fen)} 2 5000 0 3'), r'^BESTMOVE ')
+                    self.assertRegex(engine.ask(f'PERFT {fields(fen)} 1'), r'^PERFT \d+$')
+                    self.assertRegex(engine.ask(f'STATUS {fields(fen)}'), r'^STATUS ')
+
 
 class EvaluationTest(EngineTestCase):
 
@@ -287,6 +335,36 @@ class EvaluationTest(EngineTestCase):
             home = self.evaluate(engine, 'r1bqk2r/ppp2ppp/3p1n2/2b1p3/2B1P3/3P1N2/PPP2PPP/R1BQ1RK1 b kq - 0 7')
             walked = self.evaluate(engine, 'r1bqk2r/ppp2ppp/3p1n2/2b1p3/2B1P3/3P1N2/PPP1KPPP/R1BQ3R b kq - 0 7')
             self.assertGreater(home, walked)
+
+
+class BothEnginesSearchAlikeTest(EngineTestCase):
+    """Without a time limit main.cpp and main.py must give the same reply
+    to BESTMOVE, node and table counts included: the same moves in the same
+    order, the same table and the same pruning. Only TIME and ENGINE differ."""
+
+    POSITIONS = [fen for fen, _ in PERFT] + [
+        'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
+        '8/5pk1/6p1/8/3R4/6P1/r4P1K/8 w - - 0 40',
+        '6k1/6p1/8/8/8/1q6/rr2Q3/7K w - - 0 1',
+    ]
+
+    @staticmethod
+    def without_time(reply):
+        tokens = reply.split()
+        for key in ('TIME', 'ENGINE'):
+            if key in tokens:
+                del tokens[tokens.index(key):tokens.index(key) + 2]
+        return tokens
+
+    def test_same_reply_at_a_fixed_depth(self):
+        if 'cpp' not in self.engines:
+            self.skipTest('no compiled engine on this machine')
+        for fen in self.POSITIONS:
+            with self.subTest(fen=fen):
+                command = f'BESTMOVE {fields(fen)} 5 0 {fen.split()[4]} 2'
+                cpp = self.without_time(self.engines['cpp'].ask(command))
+                self.assertEqual(cpp, self.without_time(self.engines['python'].ask(command)))
+                self.assertIn('ALTS', cpp)
 
 
 class SearchTest(EngineTestCase):
@@ -350,6 +428,49 @@ class SearchTest(EngineTestCase):
             tokens = reply.split()
             self.assertNotEqual(tokens[1:5], ['3', '5', '3', '4'], reply)
             self.assertGreater(int(tokens[tokens.index('EVAL') + 1]), 300, reply)
+
+    def test_one_earlier_occurrence_in_the_game_is_no_draw(self):
+        """A position the game has been in once before is not a draw yet.
+
+        Black has given check twice with the rook; Kh1-h2 is White's only
+        move and brings back the position after White's first Kh2. That is
+        its second occurrence, so White, a queen up, keeps its advantage.
+        Engines that counted any earlier occurrence called it a draw.
+        """
+        line = [  # placement, side and rights of each earlier position
+            '2Q5/2P5/5k2/8/8/5p1P/8/r6K w -',   # 1. ... Ra1+
+            '2Q5/2P5/5k2/8/8/5p1P/7K/r7 b -',   # 2. Kh2
+            '2Q5/2P5/5k2/8/8/5p1P/r6K/8 w -',   # 2. ... Ra2+
+            '2Q5/2P5/5k2/8/8/5p1P/r7/7K b -',   # 3. Kh1
+        ]
+        history = ' '.join(f'{position} -' for position in line)
+        current = '2Q5/2P5/5k2/8/8/5p1P/8/r6K w - - 4 3'   # 3. ... Ra1+ again
+        for name, engine in self.each_engine():
+            reply = engine.ask(f'BESTMOVE {fields(current)} 4 30000 4 0 {history}')
+            tokens = reply.split()
+            self.assertEqual(tokens[1:5], ['7', '7', '6', '7'], reply)    # Kh2, the only move
+            self.assertGreater(int(tokens[tokens.index('EVAL') + 1]), 300, reply)
+            # After one more round Kh2 makes the position's third occurrence
+            reply = engine.ask(f'BESTMOVE {fields(current)} 4 30000 8 0 {history} {history}')
+            self.assertEqual(int(reply.split()[reply.split().index('EVAL') + 1]), 0, reply)
+
+    def test_alternatives_are_searched_to_the_same_depth(self):
+        """Every alternative is scored by a search as deep as the best move's.
+
+        Kh2 walks into a mate in three (six plies with Kh2, found by depth 5
+        and its check extensions). Searched two plies shallower, as the
+        alternatives used to be, it looked like any other bad move.
+        """
+        fen = 'r1b1k3/p2p3r/1b5n/1P2pPp1/1n1pqP2/1PN5/PB1P4/R3RB1K w q - 0 23'
+        for name, engine in self.each_engine():
+            tokens = engine.ask(f'BESTMOVE {fields(fen)} 5 0 0 4').split()
+            alts = tokens[tokens.index('ALTS') + 1:tokens.index('DEPTH')]
+            scores = {' '.join(alts[i:i + 4]): int(alts[i + 4]) for i in range(0, len(alts), 5)}
+            self.assertEqual(len(scores), 4)                     # all the other legal moves
+            self.assertEqual(scores['7 7 6 7'], -99993)          # Kh2: mated on the sixth ply
+            best = int(tokens[tokens.index('EVAL') + 1])
+            self.assertGreater(best, -1000)                      # the best move is no mate
+            self.assertTrue(all(score <= best for score in scores.values()), tokens)
 
     def test_saves_a_lost_game_by_perpetual_check(self):
         """Far behind in material, White has Qe8+ Kh7 Qh5+ Kg8 Qe8+ for ever."""

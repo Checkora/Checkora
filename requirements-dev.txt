@@ -1,0 +1,4 @@
+-r requirements.txt
+# Reference move generator for game/test_engine_differential.py. Only for
+# tests: Vercel installs requirements.txt alone.
+chess==1.11.2

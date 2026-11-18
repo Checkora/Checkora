@@ -4,6 +4,10 @@
 The fallback for machines without the compiled engine. It implements the
 same protocol, rules, evaluation and search as main.cpp and must be kept
 in step with that file; it only searches less deep in the same time.
+Given the same command without a time limit, both give the same reply
+apart from TIME and ENGINE. That covers the order in which moves are
+generated and tried and the transposition table (two entries per slot,
+2^19 slots, the first keeping the deepest search).
 
 Protocol: one command per line, exactly one reply line per command.
 <board64> is 64 characters, rank 8 first, "." for an empty square.
@@ -12,9 +16,6 @@ Protocol: one command per line, exactly one reply line per command.
 
 VERSION
 -> VERSION <protocol version>
-
-VALIDATE <board64> <rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc>
--> VALID | INVALID <reason>
 
 MOVES <board64> <rights> <turn> <ep_row> <ep_col> <row> <col>
 -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
@@ -30,6 +31,7 @@ STATUS <board64> <rights> <turn> <ep_row> <ep_col>
 
 NOTATION <board64> <rights> <turn> <ep_row> <ep_col> <fr> <fc> <tr> <tc> [promoPiece]
 -> NOTATION <san>
+-> NOTATION ?               (the move is not legal)
 
 EVAL <board64> <rights> <turn> <ep_row> <ep_col>
 -> EVAL <centipawns, positive is good for White>
@@ -41,11 +43,20 @@ BESTMOVE <board64> <rights> <turn> <ep_row> <ep_col> <depth> [time_limit_ms
          [halfmove_clock [alternatives [<placement> <w|b> <rights> <ep>]...]]]
 -> BESTMOVE <fr> <fc> <tr> <tc> EVAL <cp> [ALTS (<fr> <fc> <tr> <tc> <cp>)...]
    DEPTH <d> NODES <n> TTHITS <n> TIME <ms> ENGINE python STATUS completed|timeout
--> BESTMOVE NONE
+-> BESTMOVE NONE            (no legal moves)
+   A time limit of 0 or less means none. alternatives (default 0) is how
+   many of the next best moves to score as well; they are searched to the
+   same depth as the best move, so their scores compare with EVAL, and one
+   that the time limit cuts off is left out.
    The trailing groups of four tokens are the earlier positions of the game
    since the last capture or pawn move (FEN piece placement, side, castling
-   rights, en passant square as "row,col" or "-"); they let the search see
-   repetitions. A promotion is always to a queen.
+   rights, en passant square as "row,col" or "-"). A position the search
+   reaches again counts as a draw when its earlier occurrence is on the
+   line being searched, or when it has occurred twice before in the game.
+   A promotion is always to a queen.
+
+EVAL and PERFT are not used by the web app; the tests use them to check
+that both engines evaluate alike and generate the right moves.
 
 A line that cannot be parsed is answered with "ERROR <reason>".
 """
@@ -141,10 +152,14 @@ FLAG_NONE, FLAG_DOUBLE, FLAG_EP, FLAG_CASTLE = range(4)
 
 MAX_PLY = 96
 MAX_GAME = 1024
+# A deeper perft takes minutes; a stray request must not stall the engine
+MAX_PERFT_DEPTH = 6
 undo_stack = []
 # Hashes of the positions before the current one: first the game history
-# sent with BESTMOVE, then the moves made by the search.
+# sent with BESTMOVE, then the moves made by the search. The root of the
+# search is pushed at index root_rep.
 rep_stack = []
+root_rep = 0
 
 # ============================================================
 #  Evaluation tables
@@ -355,7 +370,7 @@ def remove_piece(sq):
 
 
 def clear_board():
-    global side, castling, ep_square, halfmove, hash_key, psq_mg, psq_eg, phase
+    global side, castling, ep_square, halfmove, hash_key, psq_mg, psq_eg, phase, root_rep
     for i in range(120):
         board[i] = OFFBOARD
     for sq in SQUARES:
@@ -371,6 +386,7 @@ def clear_board():
     psq_mg = psq_eg = phase = 0
     del undo_stack[:]
     del rep_stack[:]
+    root_rep = 0
 
 
 def finish_setup(turn, rights, ep_row, ep_col):
@@ -953,11 +969,39 @@ MATE = 31000
 MATE_BOUND = MATE - 512  # scores beyond this are forced mates
 MAX_DEPTH = 64
 
+# Pruning margins in centipawns. A node this far above beta at the given
+# depth is not searched (reverse futility); a quiet move this far below
+# alpha is not either (futility).
+RFP_MAX_DEPTH, RFP_MARGIN_PER_PLY = 3, 120
+FUTILITY_MAX_DEPTH, FUTILITY_MARGIN, FUTILITY_MARGIN_PER_PLY = 2, 100, 100
+# Null move: tried from this depth, searched this much shallower
+NULL_MIN_DEPTH = 3
+
+
+def null_reduction(depth):
+    return 2 + depth // 4
+
+
+# Quiescence: a capture whose gain plus this margin cannot reach alpha is
+# skipped, and a promotion counts as gaining this much on top
+DELTA_MARGIN, PROMOTION_GAIN = 200, 800
+# Aspiration window around the last score, from this depth; it doubles on
+# every failure and is given up once it is wider than the limit
+ASPIRATION_MIN_DEPTH, ASPIRATION_WINDOW, ASPIRATION_LIMIT = 4, 40, 600
+# History scores are halved once one of them passes this
+HISTORY_LIMIT = 1 << 20
+# Percentage of the time limit the main search may use when alternatives
+# are wanted as well. Each of them is a full-window search at the final
+# depth and costs about as much as the main search's last iteration.
+MAIN_SHARE_WITH_ALTS = 50
+
 BOUND_EXACT, BOUND_LOWER, BOUND_UPPER = 1, 2, 3
 
-# hash -> (move, score, depth, bound). main.cpp uses a fixed table; a dict
-# does the same job at the node counts Python reaches.
-transposition_table = {}
+# The same table as in main.cpp, so that both engines search the same tree:
+# TT_SLOTS slots of two entries (key, move, score, depth, bound); the first
+# keeps the deepest search of the slot, the second is always replaced.
+TT_SLOTS = 1 << 19
+transposition_table = [None] * (2 * TT_SLOTS)
 
 start_time = 0.0
 deadline_ms = -1.0  # hard stop, measured from start_time
@@ -981,6 +1025,18 @@ def count_node():
         search_aborted = True
 
 
+def probe_tt(key):
+    """The table entry (key, move, score, depth, bound) for the key, or None."""
+    i = (key & (TT_SLOTS - 1)) << 1
+    entry = transposition_table[i]
+    if entry is not None and entry[0] == key:
+        return entry
+    entry = transposition_table[i + 1]
+    if entry is not None and entry[0] == key:
+        return entry
+    return None
+
+
 def store_tt(key, move, score, depth, bound, ply):
     # Mate scores are stored relative to the node, not to the root, so an
     # entry is still right when the position is reached at another depth.
@@ -988,22 +1044,38 @@ def store_tt(key, move, score, depth, bound, ply):
         score += ply
     elif score <= -MATE_BOUND:
         score -= ply
-    if move == 0:
-        old = transposition_table.get(key)
-        if old:
-            move = old[0]  # keep the known best move
-    transposition_table[key] = (move, score, depth, bound)
+    table = transposition_table
+    i = (key & (TT_SLOTS - 1)) << 1
+    first = table[i]
+    if first is None or first[0] == key or depth >= first[3]:
+        if first is not None and first[0] != key:
+            table[i + 1] = first
+    else:
+        i += 1
+    old = table[i]
+    if move == 0 and old is not None and old[0] == key:
+        move = old[1]  # keep the known best move
+    table[i] = (key, move, score, depth, bound)
 
 
 def is_repetition():
-    """Has the current position occurred before, in the game or on this line?"""
+    """Does the search score the current position as a draw by repetition?
+    It does when the position occurred before on the line being searched,
+    after the root. An occurrence in the game itself (the root included) is
+    real, so it takes two of those, a threefold repetition."""
     n = len(rep_stack)
     limit = halfmove if halfmove < n else n
     key = hash_key
+    in_game = 0
     back = 2
     while back <= limit:
-        if rep_stack[n - back] == key:
-            return True
+        i = n - back
+        if rep_stack[i] == key:
+            if i > root_rep:
+                return True
+            in_game += 1
+            if in_game == 2:
+                return True
         back += 2
     return False
 
@@ -1112,10 +1184,22 @@ SCORE_TT = 1 << 30
 SCORE_GOOD_CAPTURE = 1 << 24
 SCORE_KILLER = 1 << 22
 SCORE_BAD_CAPTURE = -(1 << 24)
+# Orders a queen promotion ahead of any capture but that of a queen
+SCORE_QUEEN_PROMOTION = 7000
+
+
+def victim_type(move):
+    """Type of the piece the move captures, -1 if none."""
+    if (move >> 17) & 3 == FLAG_EP:
+        return PAWN
+    target = board[(move >> 7) & 127]
+    return TYPE_OF[target] if target else -1
 
 
 def order_moves(moves, tt_move, ply):
-    """Sort the moves, best candidates first; returns (score, move) pairs."""
+    """Sort the moves, best candidates first; returns (score, move) pairs.
+    The sort is stable, as pickMove() in main.cpp is: moves that score the
+    same stay in the order they were generated in."""
     b = board
     killer1, killer2 = killers[ply] if ply >= 0 else (0, 0)
     scored = []
@@ -1127,12 +1211,12 @@ def order_moves(moves, tt_move, ply):
         if move == tt_move:
             score = SCORE_TT
         elif target or is_ep or promo:
-            victim = PAWN if is_ep else (TYPE_OF[target] if target else -1)
+            victim = victim_type(move)
             attacker = TYPE_OF[b[move & 127]]
             # Most valuable victim first, least valuable attacker first
             mvv_lva = (SEE_VALUE[victim] if victim >= 0 else 0) * 8 - SEE_VALUE[attacker] // 100
             if promo == QUEEN:
-                mvv_lva += 7000
+                mvv_lva += SCORE_QUEEN_PROMOTION
             # A capture that may lose material is checked exactly
             risky = victim < 0 or SEE_VALUE[victim] < SEE_VALUE[attacker]
             if risky and promo != QUEEN and see(move) < 0:
@@ -1181,14 +1265,11 @@ def quiesce(alpha, beta, ply, in_check):
             # capture that cannot bring the score back up to alpha.
             if order_score < 0:
                 break
-            target = board[(move >> 7) & 127]
-            if (move >> 17) & 3 == FLAG_EP:
-                gain = SEE_VALUE[PAWN]
-            else:
-                gain = SEE_VALUE[TYPE_OF[target]] if target else 0
+            victim = victim_type(move)
+            gain = SEE_VALUE[victim] if victim >= 0 else 0
             if (move >> 14) & 7:
-                gain += 800
-            if stand_pat + gain + 200 <= alpha:
+                gain += PROMOTION_GAIN
+            if stand_pat + gain + DELTA_MARGIN <= alpha:
                 continue
         if not make_if_legal(move):
             continue
@@ -1252,17 +1333,15 @@ def search(depth, alpha, beta, ply, in_check, null_ok):
 
     key = hash_key
     tt_move = 0
-    entry = transposition_table.get(key)
+    entry = probe_tt(key)
     if entry:
         tthits += 1
-        tt_move = entry[0]
-        if not pv_node and entry[2] >= depth:
-            score = entry[1]
+        _, tt_move, score, entry_depth, bound = entry
+        if not pv_node and entry_depth >= depth:
             if score >= MATE_BOUND:
                 score -= ply
             elif score <= -MATE_BOUND:
                 score += ply
-            bound = entry[3]
             if bound == BOUND_EXACT:
                 return score
             if bound == BOUND_LOWER and score >= beta:
@@ -1274,15 +1353,14 @@ def search(depth, alpha, beta, ply, in_check, null_ok):
 
     if not pv_node and not in_check and -MATE_BOUND < beta < MATE_BOUND:
         # Reverse futility: far above beta close to the horizon
-        if depth <= 3 and static_eval - 120 * depth >= beta:
+        if depth <= RFP_MAX_DEPTH and static_eval - RFP_MARGIN_PER_PLY * depth >= beta:
             return static_eval
 
         # Null move: if passing still holds beta, a real move will too.
         # Not with only pawns left, where having to move can be a loss.
-        if null_ok and depth >= 3 and static_eval >= beta and has_non_pawn_material(side):
-            reduction = 2 + depth // 4
+        if null_ok and depth >= NULL_MIN_DEPTH and static_eval >= beta and has_non_pawn_material(side):
             make_null()
-            score = -search(depth - 1 - reduction, -beta, -beta + 1, ply + 1, False, False)
+            score = -search(depth - 1 - null_reduction(depth), -beta, -beta + 1, ply + 1, False, False)
             unmake_null()
             if search_aborted:
                 return 0
@@ -1316,7 +1394,8 @@ def search(depth, alpha, beta, ply, in_check, null_ok):
 
         # Futility: a quiet move that cannot lift a hopeless position
         if (not pv_node and not in_check and quiet and not gives_check and legal > 1
-                and depth <= 2 and static_eval + 100 + 100 * depth <= alpha
+                and depth <= FUTILITY_MAX_DEPTH
+                and static_eval + FUTILITY_MARGIN + FUTILITY_MARGIN_PER_PLY * depth <= alpha
                 and -MATE_BOUND < alpha < MATE_BOUND):
             unmake_move()
             continue
@@ -1358,7 +1437,7 @@ def search(depth, alpha, beta, ply, in_check, null_ok):
                         row = history_table[piece]
                         to = (move >> 7) & 127
                         row[to] += depth * depth
-                        if row[to] > 1 << 20:
+                        if row[to] > HISTORY_LIMIT:
                             for table_row in history_table:
                                 for i in range(120):
                                     table_row[i] //= 2
@@ -1424,8 +1503,9 @@ def report_score(score, mover):
 def search_best_move(max_depth, time_limit_ms, alternatives):
     """BESTMOVE handler: iterative deepening with aspiration windows.
     Stops at max_depth or when the time is used up, and always answers with
-    the best move of the last iteration that was searched completely."""
-    global start_time, deadline_ms, search_aborted, nodes_searched, tthits
+    the best move of the last iteration that was searched completely.
+    Returns the reply line."""
+    global start_time, deadline_ms, search_aborted, nodes_searched, tthits, transposition_table, root_rep
     max_depth = min(max(1, max_depth), MAX_DEPTH)  # depth 0 would return an unsearched move
     alternatives = max(0, alternatives)
 
@@ -1433,31 +1513,31 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
     search_aborted = False
     nodes_searched = 0
     tthits = 0
-    transposition_table.clear()
+    transposition_table = [None] * (2 * TT_SLOTS)
     eval_cache.clear()
     for slot in killers:
         slot[0] = slot[1] = 0
     for row in history_table:
         for i in range(120):
             row[i] = 0
+    root_rep = len(rep_stack)
 
     mover = side
     legal = generate_legal(PROMO_QUEEN_ONLY)
     if not legal:
-        print('BESTMOVE NONE')
-        return
+        return 'BESTMOVE NONE'
 
     # Order the root moves once: captures first, as in the tree
     root_moves = [move for _, move in order_moves(legal, 0, -1)]
 
-    # The main search may use most of the time; the rest is kept for the
-    # alternatives. A tenth of the limit is left unused, so that the reply
-    # is still on time when the machine is busy and this process is not
-    # run for a moment.
+    # A tenth of the limit is left unused, so that the reply is still on
+    # time when the machine is busy and this process is not run for a
+    # moment. When alternatives are wanted, the main search leaves them
+    # part of the rest.
     hard_limit = max(1, time_limit_ms - max(10, time_limit_ms // 10)) if time_limit_ms > 0 else -1
     main_limit = hard_limit
     if hard_limit > 0 and alternatives > 0 and len(root_moves) > 1:
-        main_limit = hard_limit * 9 // 10
+        main_limit = hard_limit * MAIN_SHARE_WITH_ALTS // 100
     deadline_ms = main_limit
 
     best = root_moves[0]
@@ -1467,9 +1547,8 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
 
     for d in range(1, max_depth + 1):
         iteration_start = elapsed_ms()
-        if d >= 4:
-            # Aspiration window around the previous score
-            window = 40
+        if d >= ASPIRATION_MIN_DEPTH:
+            window = ASPIRATION_WINDOW
             alpha = max(-INF, best_score - window)
             beta = min(INF, best_score + window)
             while True:
@@ -1483,7 +1562,7 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
                 else:
                     break
                 window *= 2
-                if window > 600:
+                if window > ASPIRATION_LIMIT:
                     alpha, beta = -INF, INF
         else:
             score, move = search_root(d, -INF, INF, root_moves, ())
@@ -1518,26 +1597,22 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
         best_score = -quiesce(-INF, INF, 1, in_check_now())
         unmake_move()
 
-    # The next best moves: the remaining root moves are searched again
-    # without the moves already chosen, deepening while time is left. The
-    # table filled by the main search makes this cheap.
+    # The next best moves, each found by searching the root again without
+    # the moves already chosen. They are searched to the depth of the best
+    # move so that their scores compare with its score; the table filled by
+    # the main search makes that cheap. One the time limit cuts off is left
+    # out rather than reported with a shallower score.
     alts = []
-    if alternatives > 0 and len(root_moves) > 1 and depth_reached > 0:
+    if alternatives > 0 and depth_reached > 0:
         search_aborted = False
         deadline_ms = hard_limit
-        alt_depth = depth_reached if depth_reached <= 3 else depth_reached - 2
-        for d in range(1, alt_depth + 1):
-            found = []
-            excluded = [best]
-            while len(found) < alternatives and len(excluded) < len(root_moves):
-                score, move = search_root(d, -INF, INF, root_moves, excluded)
-                if search_aborted or move == 0:
-                    break
-                found.append((move, score))
-                excluded.append(move)
-            if search_aborted:
+        excluded = [best]
+        while len(alts) < alternatives and len(excluded) < len(root_moves):
+            score, move = search_root(depth_reached, -INF, INF, root_moves, excluded)
+            if search_aborted or move == 0:
                 break
-            alts = found
+            alts.append((move, score))
+            excluded.append(move)
         search_aborted = False
 
     def squares(move):
@@ -1552,7 +1627,7 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
     status = 'completed' if completed_all else 'timeout'
     out += (f' DEPTH {depth_reached} NODES {nodes_searched} TTHITS {tthits}'
             f' TIME {int(elapsed_ms())} ENGINE python STATUS {status}')
-    print(out)
+    return out
 
 
 # ============================================================
@@ -1560,7 +1635,7 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
 # ============================================================
 
 def find_legal_move(frm, to, promo_type):
-    """Find the legal move from one square to another (queen if it promotes)."""
+    """The legal move from one square to another (promoting to promo_type), or 0."""
     for move in generate_legal(PROMO_ALL):
         promo = (move >> 14) & 7
         if move & 127 == frm and (move >> 7) & 127 == to and (not promo or promo == promo_type):
@@ -1581,11 +1656,11 @@ def handle_moves(row, col):
             '1' if is_capture(move) else '0',
             '1' if (move >> 14) & 7 else '0',
         ])
-    print(' '.join(output))
+    return ' '.join(output)
 
 
 def promo_type_from_char(ch):
-    return {'r': ROOK, 'b': BISHOP, 'n': KNIGHT}.get(ch.lower(), QUEEN)  # default to queen
+    return {'r': ROOK, 'b': BISHOP, 'n': KNIGHT}.get(ch.lower(), QUEEN)
 
 
 def handle_promote(fr, fc, tr, tc, promo_piece):
@@ -1594,17 +1669,14 @@ def handle_promote(fr, fc, tr, tc, promo_piece):
     frm, to = SQ(fr, fc), SQ(tr, tc)
     piece = board[frm]
     if piece == EMPTY or COLOR_OF[piece] != side or TYPE_OF[piece] != PAWN:
-        print('INVALID Not a pawn')
-        return
+        return 'INVALID Not a pawn'
     if tr != (0 if side == WHITE else 7):
-        print('INVALID Not a promotion square')
-        return
+        return 'INVALID Not a promotion square'
     move = find_legal_move(frm, to, promo_type_from_char(promo_piece))
     if not move:
-        print('INVALID Illegal move')
-        return
+        return 'INVALID Illegal move'
     make_move(move)
-    print(f'PROMOTE {serialize_board()}')
+    return f'PROMOTE {serialize_board()}'
 
 
 def handle_status():
@@ -1612,39 +1684,25 @@ def handle_status():
     DRAW (legal moves exist but neither side can ever mate), OK."""
     in_check = in_check_now()
     if not has_legal_move():
-        print('STATUS CHECKMATE' if in_check else 'STATUS STALEMATE')
-    elif is_insufficient_material():
+        return 'STATUS CHECKMATE' if in_check else 'STATUS STALEMATE'
+    if is_insufficient_material():
         # A dead position is a draw even while the king is in check.
-        print('STATUS DRAW')
-    else:
-        print('STATUS CHECK' if in_check else 'STATUS OK')
+        return 'STATUS DRAW'
+    return 'STATUS CHECK' if in_check else 'STATUS OK'
 
 
 def handle_notation(fr, fc, tr, tc, promo):
-    """NOTATION handler: Standard Algebraic Notation for a move, with
-    disambiguation (Rfe1, N5f3), promotion and the check or mate suffix."""
+    """NOTATION handler: Standard Algebraic Notation for a legal move, with
+    disambiguation (Rfe1, N5f3), promotion and the check or mate suffix.
+    Any other move is answered with "?"."""
     frm, to = SQ(fr, fc), SQ(tr, tc)
     piece = board[frm]
-    if piece == EMPTY:
-        print('NOTATION ?')
-        return
+    promotes = piece != EMPTY and TYPE_OF[piece] == PAWN and tr in (0, 7)
+    move = find_legal_move(frm, to, promo_type_from_char(promo) if promotes else 0) if piece else 0
+    if not move:
+        return 'NOTATION ?'
     kind = TYPE_OF[piece]
     files = 'abcdefgh'
-    promotes = kind == PAWN and tr in (0, 7)
-    promo_type = promo_type_from_char(promo) if promotes else 0
-
-    # The move as the engine plays it. A move that is not legal still gets
-    # a notation, built from its shape.
-    move = find_legal_move(frm, to, promo_type)
-    if not move:
-        flag = FLAG_NONE
-        if kind == KING and abs(tc - fc) == 2 and tc in (6, 2):
-            flag = FLAG_CASTLE
-        elif kind == PAWN and fc != tc and board[to] == EMPTY:
-            flag = FLAG_EP
-        elif kind == PAWN and abs(tr - fr) == 2:
-            flag = FLAG_DOUBLE
-        move = frm | to << 7 | promo_type << 14 | flag << 17
 
     if (move >> 17) & 3 == FLAG_CASTLE:
         res = 'O-O' if tc == 6 else 'O-O-O'
@@ -1654,7 +1712,8 @@ def handle_notation(fr, fc, tr, tc, promo):
         if fc != tc:
             res += files[fc] + 'x'
         res += files[tc] + str(8 - tr)
-        if promotes:
+        promo_type = (move >> 14) & 7
+        if promo_type:
             res += '=' + 'PNBRQK'[promo_type]
     else:
         res = 'PNBRQK'[kind]
@@ -1689,7 +1748,7 @@ def handle_notation(fr, fc, tr, tc, promo):
         res += '+' if has_legal_move() else '#'
     unmake_move()
 
-    print(f'NOTATION {res}')
+    return f'NOTATION {res}'
 
 
 def load_history(tokens):
@@ -1728,12 +1787,12 @@ def load_history(tokens):
     return hashes
 
 
-COMMANDS = ('VALIDATE', 'MOVES', 'ATTACKED', 'PROMOTE', 'STATUS', 'BESTMOVE', 'NOTATION',
-            'EVAL', 'PERFT')
+COMMANDS = ('MOVES', 'ATTACKED', 'PROMOTE', 'STATUS', 'BESTMOVE', 'NOTATION', 'EVAL', 'PERFT')
 
 
 def handle_command(parts):
-    """Run one command. Raises ValueError when the line is malformed."""
+    """Run one command and return its reply. Raises ValueError (or
+    IndexError) when the line is malformed."""
     global halfmove
     command = parts[0]
     # Every command starts with <board64> <rights> <colour> and two
@@ -1754,8 +1813,7 @@ def handle_command(parts):
         if not (0 <= n1 < 8 and 0 <= n2 < 8):
             raise ValueError('bad square')
         load_position(board64, rights, WHITE, -1, -1)
-        print('YES' if attacked(SQ(n1, n2), turn) else 'NO')
-        return
+        return 'YES' if attacked(SQ(n1, n2), turn) else 'NO'
 
     if command == 'MOVES':
         row, col = squares(2)
@@ -1765,110 +1823,52 @@ def handle_command(parts):
         fr, fc, tr, tc = squares(4)
 
     load_position(board64, rights, turn, n1, n2)
+    # A missing promotion piece means a queen
+    promo = parts[10][:1] if len(parts) > 10 else 'q'
 
-    if command == 'VALIDATE':
-        # Legal means: follows the piece's movement rules and does not
-        # leave the mover's own king in check.
-        legal = find_legal_move(SQ(fr, fc), SQ(tr, tc), QUEEN) != 0
-        print('VALID' if legal else 'INVALID Illegal move')
-    elif command == 'MOVES':
-        handle_moves(row, col)
-    elif command == 'PROMOTE':
-        # A missing piece means queen
-        handle_promote(fr, fc, tr, tc, parts[10][:1] if len(parts) > 10 else 'q')
-    elif command == 'STATUS':
-        handle_status()
-    elif command == 'NOTATION':
-        handle_notation(fr, fc, tr, tc, parts[10][:1] if len(parts) > 10 else 'q')
-    elif command == 'EVAL':
-        print(f'EVAL {evaluate()}')
-    elif command == 'PERFT':
-        # keep a stray request bounded
-        print(f'PERFT {perft(min(depth, 6)) if depth >= 1 else 1}')
-    elif command == 'BESTMOVE':
-        limit_ms = int(parts[7]) if len(parts) > 7 else -1
-        clock = int(parts[8]) if len(parts) > 8 else 0
-        alternatives = int(parts[9]) if len(parts) > 9 else 3
-        earlier = load_history(parts[10:])
-        load_position(board64, rights, turn, n1, n2)
-        rep_stack.extend(earlier)
-        halfmove = max(0, clock)
-        search_best_move(depth, limit_ms, alternatives)
+    if command == 'MOVES':
+        return handle_moves(row, col)
+    if command == 'PROMOTE':
+        return handle_promote(fr, fc, tr, tc, promo)
+    if command == 'STATUS':
+        return handle_status()
+    if command == 'NOTATION':
+        return handle_notation(fr, fc, tr, tc, promo)
+    if command == 'EVAL':
+        return f'EVAL {evaluate()}'
+    if command == 'PERFT':
+        return f'PERFT {perft(min(depth, MAX_PERFT_DEPTH)) if depth >= 1 else 1}'
+    limit_ms = int(parts[7]) if len(parts) > 7 else -1
+    clock = int(parts[8]) if len(parts) > 8 else 0
+    alternatives = int(parts[9]) if len(parts) > 9 else 0
+    earlier = load_history(parts[10:])
+    load_position(board64, rights, turn, n1, n2)
+    rep_stack.extend(earlier)
+    halfmove = max(0, clock)
+    return search_best_move(depth, limit_ms, alternatives)
+
+
+def reply(parts):
+    """The reply line for one command line, split into tokens."""
+    if parts[0] == 'VERSION':
+        return f'VERSION {PROTOCOL_VERSION}'
+    if parts[0] not in COMMANDS:
+        return 'ERROR unknown command'
+    try:
+        return handle_command(parts)
+    except (ValueError, IndexError):
+        return 'ERROR malformed command'
 
 
 def run():
     # One command per line and exactly one reply line per command, so the
     # caller can never be left waiting and replies cannot get out of step.
+    # The reply is flushed at once: the caller waits for it while the pipe
+    # stays open.
     for raw in sys.stdin:
         parts = raw.split()
-        if not parts:
-            continue
-        if parts[0] == 'VERSION':
-            print(f'VERSION {PROTOCOL_VERSION}')
-        elif parts[0] not in COMMANDS:
-            print('ERROR unknown command')
-        else:
-            try:
-                handle_command(parts)
-            except (ValueError, IndexError):
-                print('ERROR malformed command')
-
-
-# ============================================================
-#  Direct-call interface
-# ============================================================
-#
-# game/test_search_features.py imports this module and drives it through
-# the names below instead of the line protocol. They only translate to the
-# functions above; nothing else uses them.
-
-BOARD = [['.'] * 8 for _ in range(8)]
-W_K_CASTLE = W_Q_CASTLE = B_K_CASTLE = B_Q_CASTLE = False
-EN_PASSANT_R = EN_PASSANT_C = -1
-
-
-def load_board(board64):
-    for index, piece in enumerate(board64):
-        BOARD[index // 8][index % 8] = piece
-
-
-def load_castling_rights(rights_str):
-    global W_K_CASTLE, W_Q_CASTLE, B_K_CASTLE, B_Q_CASTLE
-    W_K_CASTLE, W_Q_CASTLE = 'K' in rights_str, 'Q' in rights_str
-    B_K_CASTLE, B_Q_CASTLE = 'k' in rights_str, 'q' in rights_str
-
-
-def load_en_passant(row, col):
-    global EN_PASSANT_R, EN_PASSANT_C
-    EN_PASSANT_R = row
-    EN_PASSANT_C = col
-
-
-def _direct_rights():
-    flags = ((W_K_CASTLE, 'K'), (W_Q_CASTLE, 'Q'), (B_K_CASTLE, 'k'), (B_Q_CASTLE, 'q'))
-    return ''.join(letter for held, letter in flags if held) or '-'
-
-
-def compute_hash(turn):
-    """Hash of the position held in BOARD and the flags above, exactly as
-    given: the rights and the en passant file are not checked against the
-    pieces here."""
-    load_position(''.join(''.join(row) for row in BOARD), '-', WHITE, -1, -1)
-    key = hash_key ^ Z_CASTLE[0]
-    if turn == 'black':
-        key ^= Z_SIDE
-    rights = _direct_rights()
-    key ^= Z_CASTLE[sum(bit for bit, letter in ((1, 'K'), (2, 'Q'), (4, 'k'), (8, 'q')) if letter in rights)]
-    if 0 <= EN_PASSANT_C < 8:
-        key ^= Z_EP[EN_PASSANT_C]
-    return key
-
-
-def handle_bestmove(turn, max_depth, time_limit_ms=-1):
-    """Search the position held in BOARD and print the BESTMOVE reply."""
-    load_position(''.join(''.join(row) for row in BOARD), _direct_rights(),
-                  WHITE if turn == 'white' else BLACK, EN_PASSANT_R, EN_PASSANT_C)
-    search_best_move(max_depth, time_limit_ms, 3)
+        if parts:
+            print(reply(parts), flush=True)
 
 
 if __name__ == '__main__':

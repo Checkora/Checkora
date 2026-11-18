@@ -1,10 +1,14 @@
 /**
  * Checkora Chess Engine
  *
- * Validates chess moves, computes legal move sets and searches for the
- * best move. Communicates with the Django backend via stdin/stdout.
+ * Lists legal moves, judges positions and searches for the best move for
+ * the Django backend, which talks to it over stdin/stdout.
  * game/engine/main.py implements the same protocol, rules, evaluation
- * and search and must be kept in step with this file.
+ * and search and must be kept in step with this file: given the same
+ * command without a time limit, both give the same reply apart from TIME
+ * and ENGINE. That covers the order in which moves are generated and
+ * tried and the transposition table (two entries per slot, 2^19 slots,
+ * the first keeping the deepest search).
  *
  * Protocol: one command per line, exactly one reply line per command.
  * <board64> is 64 characters, rank 8 first, "." for an empty square.
@@ -13,9 +17,6 @@
  *
  * VERSION
  * -> VERSION <protocolVersion>
- *
- * VALIDATE <board64> <rights> <turn> <epRow> <epCol> <fr> <fc> <tr> <tc>
- * -> VALID | INVALID <reason>
  *
  * MOVES <board64> <rights> <turn> <epRow> <epCol> <row> <col>
  * -> MOVES [<row> <col> <is_capture> <is_promotion> ...]
@@ -31,6 +32,7 @@
  *
  * NOTATION <board64> <rights> <turn> <epRow> <epCol> <fr> <fc> <tr> <tc> [promoPiece]
  * -> NOTATION <san>
+ * -> NOTATION ?               (the move is not legal)
  *
  * EVAL <board64> <rights> <turn> <epRow> <epCol>
  * -> EVAL <centipawns, positive is good for White>
@@ -43,20 +45,30 @@
  * -> BESTMOVE <fr> <fc> <tr> <tc> EVAL <cp> [ALTS (<fr> <fc> <tr> <tc> <cp>)...]
  *    DEPTH <d> NODES <n> TTHITS <n> TIME <ms> ENGINE cpp STATUS completed|timeout
  * -> BESTMOVE NONE            (no legal moves)
+ *    A time limit of 0 or less means none. alternatives (default 0) is
+ *    how many of the next best moves to score as well; they are searched
+ *    to the same depth as the best move, so their scores compare with
+ *    EVAL, and one that the time limit cuts off is left out.
  *    The trailing groups of four tokens are the earlier positions of the
  *    game since the last capture or pawn move (FEN piece placement, side,
- *    castling rights, en passant square as "row,col" or "-"); they let the
- *    search see repetitions. A promotion is always to a queen.
+ *    castling rights, en passant square as "row,col" or "-"). A position
+ *    the search reaches again counts as a draw when its earlier occurrence
+ *    is on the line being searched, or when it has occurred twice before
+ *    in the game. A promotion is always to a queen.
+ *
+ * EVAL and PERFT are not used by the web app; the tests use them to check
+ * that both engines evaluate alike and generate the right moves.
  *
  * A line that cannot be parsed is answered with "ERROR <reason>".
  */
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <chrono>
+#include <climits>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -98,6 +110,12 @@ static const int KING_DIRS[8] = {-11, -10, -9, -1, 1, 9, 10, 11};
 static const int BISHOP_DIRS[4] = {-11, -9, 9, 11};
 static const int ROOK_DIRS[4] = {-10, -1, 1, 10};
 
+/** The directions a bishop, rook or queen slides in; sets count. */
+static inline const int *slideDirs(int type, int &count) {
+    count = type == QUEEN ? 8 : 4;
+    return type == BISHOP ? BISHOP_DIRS : type == ROOK ? ROOK_DIRS : KING_DIRS;
+}
+
 static int board[120];
 static int side;            // side to move
 static int castling;        // CASTLE_* bits
@@ -120,9 +138,14 @@ static inline int TO(int m) { return (m >> 7) & 127; }
 static inline int PROMO(int m) { return (m >> 14) & 7; }
 static inline int FLAG(int m) { return (m >> 17) & 3; }
 
+// No piece has more than 27 moves (a queen in the centre; a pawn about to
+// promote has at most 12), so 64 of them and two castling moves bound any
+// board the protocol can describe, legal or not.
+static const int MAX_MOVES = 64 * 27 + 2;
+
 struct MoveList {
-    int moves[256];
-    int scores[256];
+    int moves[MAX_MOVES];
+    int scores[MAX_MOVES];
     int count = 0;
 };
 
@@ -136,9 +159,11 @@ static const int MAX_GAME = 1024;
 static Undo undoStack[MAX_PLY + 8];
 static int undoTop = 0;
 // Hashes of the positions before the current one: first the game history
-// sent with BESTMOVE, then the moves made by the search.
+// sent with BESTMOVE, then the moves made by the search. The root of the
+// search is pushed at index rootRep.
 static uint64_t repStack[MAX_GAME + MAX_PLY + 8];
 static int repTop = 0;
+static int rootRep = 0;
 
 // ============================================================
 //  Evaluation tables
@@ -378,6 +403,7 @@ static void clearBoard() {
     psqMg = psqEg = phase = 0;
     undoTop = 0;
     repTop = 0;
+    rootRep = 0;
 }
 
 static int pieceFromChar(char ch) {
@@ -560,12 +586,10 @@ static void generateMoves(MoveList &ml, bool noisyOnly, int promoMode) {
                 break;
             }
             default: {
-                bool diagonal = typeOf(piece) != ROOK;
-                bool straight = typeOf(piece) != BISHOP;
-                for (int i = 0; i < 8; i++) {
-                    int d = KING_DIRS[i];
-                    bool isDiagonal = (d == -11 || d == -9 || d == 9 || d == 11);
-                    if (isDiagonal ? !diagonal : !straight) continue;
+                int count;
+                const int *dirs = slideDirs(typeOf(piece), count);
+                for (int i = 0; i < count; i++) {
+                    int d = dirs[i];
                     int to = from + d;
                     while (board[to] == EMPTY) {
                         if (!noisyOnly) addMove(ml, from, to, 0, FLAG_NONE);
@@ -895,9 +919,10 @@ static int evaluate() {
                     if (t == EMPTY || (t != OFFBOARD && colorOf(t) == them)) mobility++;
                 }
             } else {
-                for (int d : KING_DIRS) {
-                    bool isDiagonal = (d == -11 || d == -9 || d == 9 || d == 11);
-                    if (isDiagonal ? type == ROOK : type == BISHOP) continue;
+                int count;
+                const int *dirs = slideDirs(type, count);
+                for (int i = 0; i < count; i++) {
+                    int d = dirs[i];
                     int t = sq + d;
                     while (board[t] == EMPTY) { mobility++; t += d; }
                     if (board[t] != OFFBOARD && colorOf(board[t]) == them) mobility++;
@@ -975,6 +1000,27 @@ static const int MATE = 31000;
 static const int MATE_BOUND = MATE - 512;  // scores beyond this are forced mates
 static const int MAX_DEPTH = 64;
 
+// Pruning margins in centipawns. A node this far above beta at the given
+// depth is not searched (reverse futility); a quiet move this far below
+// alpha is not either (futility).
+static const int RFP_MAX_DEPTH = 3, RFP_MARGIN_PER_PLY = 120;
+static const int FUTILITY_MAX_DEPTH = 2, FUTILITY_MARGIN = 100, FUTILITY_MARGIN_PER_PLY = 100;
+// Null move: tried from this depth, searched this much shallower
+static const int NULL_MIN_DEPTH = 3;
+static inline int nullReduction(int depth) { return 2 + depth / 4; }
+// Quiescence: a capture whose gain plus this margin cannot reach alpha is
+// skipped, and a promotion counts as gaining this much on top
+static const int DELTA_MARGIN = 200, PROMOTION_GAIN = 800;
+// Aspiration window around the last score, from this depth; it doubles on
+// every failure and is given up once it is wider than the limit
+static const int ASPIRATION_MIN_DEPTH = 4, ASPIRATION_WINDOW = 40, ASPIRATION_LIMIT = 600;
+// History scores are halved once one of them passes this
+static const int HISTORY_LIMIT = 1 << 20;
+// Percentage of the time limit the main search may use when alternatives
+// are wanted as well. Each of them is a full-window search at the final
+// depth and costs about as much as the main search's last iteration.
+static const int MAIN_SHARE_WITH_ALTS = 50;
+
 enum { BOUND_NONE, BOUND_EXACT, BOUND_LOWER, BOUND_UPPER };
 
 struct TTEntry {
@@ -1045,11 +1091,20 @@ static void storeTT(uint64_t key, int move, int score, int depth, int bound, int
     e->bound = static_cast<uint8_t>(bound);
 }
 
-/** Has the current position occurred before, in the game or on this line? */
+/**
+ * Does the search score the current position as a draw by repetition? It
+ * does when the position occurred before on the line being searched, after
+ * the root. An occurrence in the game itself (the root included) is real,
+ * so it takes two of those, a threefold repetition.
+ */
 static bool isRepetition() {
     int limit = halfmove < repTop ? halfmove : repTop;
-    for (int back = 2; back <= limit; back += 2)
-        if (repStack[repTop - back] == hashKey) return true;
+    int inGame = 0;
+    for (int back = 2; back <= limit; back += 2) {
+        int i = repTop - back;
+        if (repStack[i] != hashKey) continue;
+        if (i > rootRep || ++inGame == 2) return true;
+    }
     return false;
 }
 
@@ -1076,17 +1131,20 @@ static int leastAttacker(int sq, int by) {
     for (int d : KNIGHT_DIRS)
         if (board[sq + d] == knight) return sq + d;
     int best = 0, bestType = KING + 1;
-    for (int d : KING_DIRS) {
-        bool isDiagonal = (d == -11 || d == -9 || d == 9 || d == 11);
-        int t = sq + d;
-        if (board[t] == makePiece(by, KING) && bestType > KING) { best = t; bestType = KING; }
-        while (board[t] == EMPTY) t += d;
-        int p = board[t];
-        if (p == OFFBOARD || colorOf(p) != by) continue;
-        int type = typeOf(p);
-        if ((type == QUEEN || type == (isDiagonal ? BISHOP : ROOK)) && type < bestType) {
-            best = t;
-            bestType = type;
+    int king = makePiece(by, KING), queen = makePiece(by, QUEEN);
+    for (int d : KING_DIRS)
+        if (board[sq + d] == king) { best = sq + d; bestType = KING; }
+    // Diagonals before lines, as in main.py: with two queens attacking, the
+    // one taken first decides what is uncovered behind it.
+    for (int slider : {BISHOP, ROOK}) {
+        int count;
+        const int *dirs = slideDirs(slider, count);
+        int piece = makePiece(by, slider);
+        for (int i = 0; i < count; i++) {
+            int t = sq + dirs[i];
+            while (board[t] == EMPTY) t += dirs[i];
+            if (board[t] == piece && slider < bestType) { best = t; bestType = slider; }
+            else if (board[t] == queen && QUEEN < bestType) { best = t; bestType = QUEEN; }
         }
     }
     return best;
@@ -1144,6 +1202,14 @@ static const int SCORE_TT = 1 << 30;
 static const int SCORE_GOOD_CAPTURE = 1 << 24;
 static const int SCORE_KILLER = 1 << 22;
 static const int SCORE_BAD_CAPTURE = -(1 << 24);
+// Orders a queen promotion ahead of any capture but that of a queen
+static const int SCORE_QUEEN_PROMOTION = 7000;
+
+/** Type of the piece the move captures, -1 if none. */
+static inline int victimType(int m) {
+    if (FLAG(m) == FLAG_EP) return PAWN;
+    return board[TO(m)] == EMPTY ? -1 : typeOf(board[TO(m)]);
+}
 
 /** Give every move an ordering score: best candidates first. */
 static void scoreMoves(MoveList &ml, int ttMove, int ply) {
@@ -1153,11 +1219,11 @@ static void scoreMoves(MoveList &ml, int ttMove, int ply) {
         if (m == ttMove) {
             score = SCORE_TT;
         } else if (isCapture(m) || PROMO(m)) {
-            int victim = FLAG(m) == FLAG_EP ? PAWN : (board[TO(m)] == EMPTY ? -1 : typeOf(board[TO(m)]));
+            int victim = victimType(m);
             int attacker = typeOf(board[FROM(m)]);
             // Most valuable victim first, least valuable attacker first
             int mvvLva = (victim >= 0 ? SEE_VALUE[victim] : 0) * 8 - SEE_VALUE[attacker] / 100;
-            if (PROMO(m) == QUEEN) mvvLva += 7000;
+            if (PROMO(m) == QUEEN) mvvLva += SCORE_QUEEN_PROMOTION;
             // A capture that may lose material is checked exactly
             bool risky = victim < 0 || SEE_VALUE[victim] < SEE_VALUE[attacker];
             if (risky && PROMO(m) != QUEEN && see(m) < 0) score = SCORE_BAD_CAPTURE + mvvLva;
@@ -1173,14 +1239,19 @@ static void scoreMoves(MoveList &ml, int ttMove, int ply) {
     }
 }
 
-/** Bring the best remaining move to position i. */
+/**
+ * Bring the best remaining move to position i. Moves that score the same
+ * keep the order they were generated in, as with the stable sort in
+ * main.py; a swap would reorder them and the two engines would search
+ * different trees.
+ */
 static inline void pickMove(MoveList &ml, int i) {
     int best = i;
     for (int j = i + 1; j < ml.count; j++)
         if (ml.scores[j] > ml.scores[best]) best = j;
     if (best != i) {
-        swap(ml.moves[i], ml.moves[best]);
-        swap(ml.scores[i], ml.scores[best]);
+        rotate(ml.moves + i, ml.moves + best, ml.moves + best + 1);
+        rotate(ml.scores + i, ml.scores + best, ml.scores + best + 1);
     }
 }
 
@@ -1215,9 +1286,9 @@ static int quiesce(int alpha, int beta, int ply, bool inCheck) {
             // Losing captures are not worth following, and neither is a
             // capture that cannot bring the score back up to alpha.
             if (ml.scores[i] < 0) break;
-            int victim = FLAG(m) == FLAG_EP ? PAWN : (board[TO(m)] == EMPTY ? -1 : typeOf(board[TO(m)]));
-            int gain = (victim >= 0 ? SEE_VALUE[victim] : 0) + (PROMO(m) ? 800 : 0);
-            if (standPat + gain + 200 <= alpha) continue;
+            int victim = victimType(m);
+            int gain = (victim >= 0 ? SEE_VALUE[victim] : 0) + (PROMO(m) ? PROMOTION_GAIN : 0);
+            if (standPat + gain + DELTA_MARGIN <= alpha) continue;
         }
         if (!makeIfLegal(m)) continue;
         legal++;
@@ -1286,14 +1357,14 @@ static int search(int depth, int alpha, int beta, int ply, bool inCheck, bool nu
 
     if (!pvNode && !inCheck && abs(beta) < MATE_BOUND) {
         // Reverse futility: far above beta close to the horizon
-        if (depth <= 3 && staticEval - 120 * depth >= beta) return staticEval;
+        if (depth <= RFP_MAX_DEPTH && staticEval - RFP_MARGIN_PER_PLY * depth >= beta)
+            return staticEval;
 
         // Null move: if passing still holds beta, a real move will too.
         // Not with only pawns left, where having to move can be a loss.
-        if (nullOk && depth >= 3 && staticEval >= beta && hasNonPawnMaterial(side)) {
-            int reduction = 2 + depth / 4;
+        if (nullOk && depth >= NULL_MIN_DEPTH && staticEval >= beta && hasNonPawnMaterial(side)) {
             makeNull();
-            int score = -search(depth - 1 - reduction, -beta, -beta + 1, ply + 1, false, false);
+            int score = -search(depth - 1 - nullReduction(depth), -beta, -beta + 1, ply + 1, false, false);
             unmakeNull();
             if (searchAborted) return 0;
             if (score >= beta) return score >= MATE_BOUND ? beta : score;
@@ -1330,8 +1401,9 @@ static int search(int depth, int alpha, int beta, int ply, bool inCheck, bool nu
         bool givesCheck = inCheckNow();
 
         // Futility: a quiet move that cannot lift a hopeless position
-        if (!pvNode && !inCheck && quiet && !givesCheck && legal > 1 && depth <= 2 &&
-            staticEval + 100 + 100 * depth <= alpha && abs(alpha) < MATE_BOUND) {
+        if (!pvNode && !inCheck && quiet && !givesCheck && legal > 1 && depth <= FUTILITY_MAX_DEPTH &&
+            staticEval + FUTILITY_MARGIN + FUTILITY_MARGIN_PER_PLY * depth <= alpha &&
+            abs(alpha) < MATE_BOUND) {
             unmakeMove();
             continue;
         }
@@ -1371,7 +1443,7 @@ static int search(int depth, int alpha, int beta, int ply, bool inCheck, bool nu
                         }
                         int &h = historyTable[piece][TO(m)];
                         h += depth * depth;
-                        if (h > (1 << 20)) {
+                        if (h > HISTORY_LIMIT) {
                             for (auto &row : historyTable)
                                 for (int &v : row) v /= 2;
                         }
@@ -1454,6 +1526,7 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
     memset(transpositionTable, 0, sizeof(transpositionTable));
     memset(killers, 0, sizeof(killers));
     memset(historyTable, 0, sizeof(historyTable));
+    rootRep = repTop;
 
     int mover = side;
     MoveList legal;
@@ -1471,14 +1544,14 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
         rootMoves.push_back(legal.moves[i]);
     }
 
-    // The main search may use most of the time; the rest is kept for the
-    // alternatives. A tenth of the limit is left unused, so that the reply
-    // is still on time when the machine is busy and this process is not
-    // run for a moment.
+    // A tenth of the limit is left unused, so that the reply is still on
+    // time when the machine is busy and this process is not run for a
+    // moment. When alternatives are wanted, the main search leaves them
+    // part of the rest.
     long long hardLimit = timeLimitMs > 0 ? max(1LL, timeLimitMs - max(10LL, timeLimitMs / 10)) : -1;
     long long mainLimit = hardLimit;
     if (hardLimit > 0 && alternatives > 0 && rootMoves.size() > 1)
-        mainLimit = hardLimit * 9 / 10;
+        mainLimit = hardLimit * MAIN_SHARE_WITH_ALTS / 100;
     deadlineMs = mainLimit;
 
     int best = rootMoves[0];
@@ -1492,9 +1565,8 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
         int move = 0;
         int score;
         iterationStart = elapsedMs();
-        if (d >= 4) {
-            // Aspiration window around the previous score
-            int window = 40;
+        if (d >= ASPIRATION_MIN_DEPTH) {
+            int window = ASPIRATION_WINDOW;
             int alpha = max(-INF, bestScore - window), beta = min(INF, bestScore + window);
             while (true) {
                 score = searchRoot(d, alpha, beta, rootMoves, none, move);
@@ -1503,7 +1575,7 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
                 else if (score >= beta) beta = min(INF, beta + window);
                 else break;
                 window *= 2;
-                if (window > 600) { alpha = -INF; beta = INF; }
+                if (window > ASPIRATION_LIMIT) { alpha = -INF; beta = INF; }
             }
         } else {
             score = searchRoot(d, -INF, INF, rootMoves, none, move);
@@ -1542,27 +1614,22 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
         unmakeMove();
     }
 
-    // The next best moves: the remaining root moves are searched again
-    // without the moves already chosen, deepening while time is left. The
-    // table filled by the main search makes this cheap.
+    // The next best moves, each found by searching the root again without
+    // the moves already chosen. They are searched to the depth of the best
+    // move so that their scores compare with its score; the table filled by
+    // the main search makes that cheap. One the time limit cuts off is left
+    // out rather than reported with a shallower score.
     vector<pair<int, int>> alts;
-    if (alternatives > 0 && rootMoves.size() > 1 && depthReached > 0) {
+    if (alternatives > 0 && depthReached > 0) {
         searchAborted = false;
         deadlineMs = hardLimit;
-        int altDepth = depthReached <= 3 ? depthReached : depthReached - 2;
-        for (int d = 1; d <= altDepth; d++) {
-            vector<pair<int, int>> found;
-            vector<int> excluded(1, best);
-            while (static_cast<int>(found.size()) < alternatives &&
-                   excluded.size() < rootMoves.size()) {
-                int move = 0;
-                int score = searchRoot(d, -INF, INF, rootMoves, excluded, move);
-                if (searchAborted || move == 0) break;
-                found.push_back({move, score});
-                excluded.push_back(move);
-            }
-            if (searchAborted) break;
-            alts = found;
+        vector<int> excluded(1, best);
+        while (static_cast<int>(alts.size()) < alternatives && excluded.size() < rootMoves.size()) {
+            int move = 0;
+            int score = searchRoot(depthReached, -INF, INF, rootMoves, excluded, move);
+            if (searchAborted || move == 0) break;
+            alts.push_back({move, score});
+            excluded.push_back(move);
         }
         searchAborted = false;
     }
@@ -1591,7 +1658,7 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
 //  Command handlers
 // ============================================================
 
-/** Find the legal move from one square to another (queen if it promotes). */
+/** The legal move from one square to another (promoting to promoType), or 0. */
 static int findLegalMove(int from, int to, int promoType) {
     MoveList legal;
     generateLegal(legal, PROMO_ALL);
@@ -1672,31 +1739,21 @@ static void handleStatus() {
 }
 
 /**
- * NOTATION handler: Standard Algebraic Notation for a move, with
+ * NOTATION handler: Standard Algebraic Notation for a legal move, with
  * disambiguation (Rfe1, N5f3), promotion and the check or mate suffix.
+ * Any other move is answered with "?".
  */
 static void handleNotation(int fr, int fc, int tr, int tc, char promo) {
     int from = SQ(fr, fc), to = SQ(tr, tc);
     int piece = board[from];
-    if (piece == EMPTY) {
+    bool promotes = piece != EMPTY && typeOf(piece) == PAWN && (tr == 0 || tr == 7);
+    int m = piece == EMPTY ? 0 : findLegalMove(from, to, promotes ? promoTypeFromChar(promo) : 0);
+    if (!m) {
         cout << "NOTATION ?" << endl;
         return;
     }
     int type = typeOf(piece);
     const string files = "abcdefgh";
-    bool promotes = type == PAWN && (tr == 0 || tr == 7);
-    int promoType = promotes ? promoTypeFromChar(promo) : 0;
-
-    // The move as the engine plays it. A move that is not legal still gets
-    // a notation, built from its shape.
-    int m = findLegalMove(from, to, promoType);
-    if (!m) {
-        int flag = FLAG_NONE;
-        if (type == KING && abs(tc - fc) == 2 && (tc == 6 || tc == 2)) flag = FLAG_CASTLE;
-        else if (type == PAWN && fc != tc && board[to] == EMPTY) flag = FLAG_EP;
-        else if (type == PAWN && abs(tr - fr) == 2) flag = FLAG_DOUBLE;
-        m = makeMoveCode(from, to, promoType, flag);
-    }
 
     string res;
     if (FLAG(m) == FLAG_CASTLE) {
@@ -1709,9 +1766,9 @@ static void handleNotation(int fr, int fc, int tr, int tc, char promo) {
         }
         res += files[tc];
         res += to_string(8 - tr);
-        if (promotes) {
+        if (PROMO(m)) {
             res += '=';
-            res += "PNBRQK"[promoType];
+            res += "PNBRQK"[PROMO(m)];
         }
     } else {
         res += "PNBRQK"[type];
@@ -1752,15 +1809,30 @@ static void handleNotation(int fr, int fc, int tr, int tc, char promo) {
     cout << "NOTATION " << res << endl;
 }
 
+/** Parse a whole token as a decimal integer, as int() does in main.py. */
+static bool parseNumber(const string &token, long long &value) {
+    if (token.empty()) return false;
+    char *end = nullptr;
+    errno = 0;
+    value = strtoll(token.c_str(), &end, 10);
+    return errno == 0 && *end == '\0';
+}
+
+/** The value as an int; main.py has no overflow, so out-of-range values saturate. */
+static int saturate(long long value) {
+    return static_cast<int>(min<long long>(INT_MAX, max<long long>(INT_MIN, value)));
+}
+
 /**
- * Read the earlier positions of the game that follow a BESTMOVE command
- * and put their hashes on the repetition stack. The current position is
- * loaded again afterwards by the caller.
+ * Read the earlier positions of the game that follow a BESTMOVE command,
+ * from args[first] on, and return their hashes. This replaces the loaded
+ * position, so the caller loads the current one again afterwards.
  */
-static bool loadHistory(istringstream &in, vector<uint64_t> &hashes) {
-    string placement, turn, rights, ep;
-    while (in >> placement) {
-        if (!(in >> turn >> rights >> ep)) return false;
+static bool loadHistory(const vector<string> &args, size_t first, vector<uint64_t> &hashes) {
+    size_t count = args.size() > first ? args.size() - first : 0;
+    if (count % 4 || count / 4 > static_cast<size_t>(MAX_GAME)) return false;
+    for (size_t i = first; i < args.size(); i += 4) {
+        const string &placement = args[i], &turn = args[i + 1], &rights = args[i + 2], &ep = args[i + 3];
         if (turn != "w" && turn != "b") return false;
         clearBoard();
         int r = 0, c = 0;
@@ -1780,118 +1852,117 @@ static bool loadHistory(istringstream &in, vector<uint64_t> &hashes) {
         }
         if (r != 7 || c != 8) return false;
         int epRow = -1, epCol = -1;
-        if (ep != "-" && sscanf(ep.c_str(), "%d,%d", &epRow, &epCol) != 2) return false;
+        if (ep != "-") {
+            size_t comma = ep.find(',');
+            long long row = 0, col = 0;
+            if (comma == string::npos || !parseNumber(ep.substr(0, comma), row) ||
+                !parseNumber(ep.substr(comma + 1), col))
+                return false;
+            epRow = saturate(row);
+            epCol = saturate(col);
+        }
         finishSetup(turn == "w" ? WHITE : BLACK, rights, epRow, epCol);
         hashes.push_back(hashKey);
-        if (hashes.size() > static_cast<size_t>(MAX_GAME)) return false;
+    }
+    return true;
+}
+
+// Past the fifty-move rule every clock value plays the same; the cap keeps
+// the counter from overflowing as the search adds to it.
+static const int MAX_CLOCK = 1 << 20;
+// A deeper perft takes minutes; a stray request must not stall the engine
+static const int MAX_PERFT_DEPTH = 6;
+
+/**
+ * Run one command line, split into tokens. Prints exactly one reply line,
+ * or nothing and returns false when the line is malformed.
+ */
+static bool runCommand(const vector<string> &args) {
+    const string &command = args[0];
+    // Every command starts with <board64> <rights> <colour> and two
+    // integers: the en passant target, or the square for ATTACKED.
+    long long n1 = 0, n2 = 0;
+    if (args.size() < 6 || !parseNumber(args[4], n1) || !parseNumber(args[5], n2)) return false;
+    const string &b = args[1], &rights = args[2], &colour = args[3];
+    if (colour != "white" && colour != "black") return false;
+    int turn = colour == "white" ? WHITE : BLACK;
+
+    // The squares named after those fields, as row and column pairs
+    int sq[4] = {0, 0, 0, 0};
+    auto readSquares = [&](size_t count) {
+        if (args.size() < 6 + count) return false;
+        for (size_t i = 0; i < count; i++) {
+            long long v = 0;
+            if (!parseNumber(args[6 + i], v) || v < 0 || v > 7) return false;
+            sq[i] = static_cast<int>(v);
+        }
+        return true;
+    };
+
+    if (command == "ATTACKED") {
+        if (n1 < 0 || n1 > 7 || n2 < 0 || n2 > 7 || !loadPosition(b, rights, WHITE, -1, -1)) return false;
+        cout << (attacked(SQ(static_cast<int>(n1), static_cast<int>(n2)), turn) ? "YES" : "NO") << endl;
+        return true;
+    }
+
+    long long depth = 0;
+    if (command == "MOVES") {
+        if (!readSquares(2)) return false;
+    } else if (command == "BESTMOVE" || command == "PERFT") {
+        if (args.size() < 7 || !parseNumber(args[6], depth)) return false;
+    } else if (command != "STATUS" && command != "EVAL") {
+        if (!readSquares(4)) return false;
+    }
+    if (!loadPosition(b, rights, turn, saturate(n1), saturate(n2))) return false;
+    // A missing promotion piece means a queen
+    char promo = args.size() > 10 ? args[10][0] : 'q';
+
+    if (command == "MOVES") {
+        handleMoves(sq[0], sq[1]);
+    } else if (command == "PROMOTE") {
+        handlePromote(sq[0], sq[1], sq[2], sq[3], promo);
+    } else if (command == "STATUS") {
+        handleStatus();
+    } else if (command == "NOTATION") {
+        handleNotation(sq[0], sq[1], sq[2], sq[3], promo);
+    } else if (command == "EVAL") {
+        cout << "EVAL " << evaluate() << endl;
+    } else if (command == "PERFT") {
+        cout << "PERFT " << (depth < 1 ? 1 : perft(static_cast<int>(min<long long>(depth, MAX_PERFT_DEPTH))))
+             << endl;
+    } else if (command == "BESTMOVE") {
+        long long limitMs = -1, clock = 0, alternatives = 0;
+        if ((args.size() > 7 && !parseNumber(args[7], limitMs)) ||
+            (args.size() > 8 && !parseNumber(args[8], clock)) ||
+            (args.size() > 9 && !parseNumber(args[9], alternatives)))
+            return false;
+        vector<uint64_t> earlier;
+        if (!loadHistory(args, 10, earlier)) return false;
+        loadPosition(b, rights, turn, saturate(n1), saturate(n2));
+        for (uint64_t h : earlier) repStack[repTop++] = h;
+        halfmove = static_cast<int>(min<long long>(max(0LL, clock), MAX_CLOCK));
+        handleBestMove(saturate(depth), limitMs, saturate(alternatives));
     }
     return true;
 }
 
 int main() {
     initTables();
+    static const char *const COMMANDS[] = {"MOVES", "ATTACKED", "PROMOTE", "STATUS", "BESTMOVE",
+                                           "NOTATION", "EVAL", "PERFT"};
     string line;
     // One command per line and exactly one reply line per command, so the
     // caller can never be left waiting and replies cannot get out of step.
     while (getline(cin, line)) {
         istringstream in(line);
-        string command;
-        if (!(in >> command)) continue;  // blank line
+        vector<string> args;
+        for (string token; in >> token;) args.push_back(token);
+        if (args.empty()) continue;
 
-        if (command == "VERSION") {
-            cout << "VERSION " << PROTOCOL_VERSION << endl;
-            continue;
-        }
-
-        bool known = command == "VALIDATE" || command == "MOVES" ||
-                     command == "ATTACKED" || command == "PROMOTE" ||
-                     command == "STATUS" || command == "BESTMOVE" ||
-                     command == "NOTATION" || command == "EVAL" ||
-                     command == "PERFT";
-        if (!known) {
-            cout << "ERROR unknown command" << endl;
-            continue;
-        }
-
-        // Every command starts with <board64> <rights> <colour> and two
-        // integers: the en passant target, or the square for ATTACKED.
-        string b, rights, t;
-        int n1, n2;
-        bool ok = static_cast<bool>(in >> b >> rights >> t >> n1 >> n2)
-                  && (t == "white" || t == "black");
-        int turn = t == "white" ? WHITE : BLACK;
-        int fr = 0, fc = 0, tr = 0, tc = 0, depth = 0;
-        auto onBoard = [](int r, int c) { return r >= 0 && r < 8 && c >= 0 && c < 8; };
-        if (ok && command == "ATTACKED") {
-            ok = onBoard(n1, n2);
-        } else if (ok && command == "MOVES") {
-            ok = static_cast<bool>(in >> fr >> fc) && onBoard(fr, fc);
-        } else if (ok && (command == "BESTMOVE" || command == "PERFT")) {
-            ok = static_cast<bool>(in >> depth);
-        } else if (ok && command != "STATUS" && command != "EVAL") {
-            ok = static_cast<bool>(in >> fr >> fc >> tr >> tc)
-                 && onBoard(fr, fc) && onBoard(tr, tc);
-        }
-        if (ok && command == "ATTACKED") ok = loadPosition(b, rights, WHITE, -1, -1);
-        else if (ok) ok = loadPosition(b, rights, turn, n1, n2);
-        if (!ok) {
-            cout << "ERROR malformed command" << endl;
-            continue;
-        }
-
-        if (command == "VALIDATE") {
-            // Legal means: follows the piece's movement rules and does not
-            // leave the mover's own king in check.
-            bool legal = findLegalMove(SQ(fr, fc), SQ(tr, tc), QUEEN) != 0;
-            cout << (legal ? "VALID" : "INVALID Illegal move") << endl;
-        }
-        else if (command == "MOVES") {
-            handleMoves(fr, fc);
-        }
-        else if (command == "ATTACKED") {
-            cout << (attacked(SQ(n1, n2), turn) ? "YES" : "NO") << endl;
-        }
-        else if (command == "PROMOTE") {
-            char promo = 'q', given;
-            if (in >> given) promo = given;  // missing piece: queen
-            handlePromote(fr, fc, tr, tc, promo);
-        }
-        else if (command == "STATUS") {
-            handleStatus();
-        }
-        else if (command == "NOTATION") {
-            char promo = 'q', given;
-            if (in >> given) promo = given;
-            handleNotation(fr, fc, tr, tc, promo);
-        }
-        else if (command == "EVAL") {
-            cout << "EVAL " << evaluate() << endl;
-        }
-        else if (command == "PERFT") {
-            if (depth > 6) depth = 6;  // keep a stray request bounded
-            cout << "PERFT " << (depth < 1 ? 1 : perft(depth)) << endl;
-        }
-        else if (command == "BESTMOVE") {
-            long long limitMs = -1;
-            int clock = 0, alternatives = 3;
-            long long given;
-            if (in >> given) {
-                limitMs = given;
-                if (in >> given) {
-                    clock = static_cast<int>(given);
-                    if (in >> given) alternatives = static_cast<int>(given);
-                }
-            }
-            vector<uint64_t> earlier;
-            if (!loadHistory(in, earlier)) {
-                cout << "ERROR malformed command" << endl;
-                continue;
-            }
-            loadPosition(b, rights, turn, n1, n2);
-            for (uint64_t h : earlier) repStack[repTop++] = h;
-            halfmove = clock < 0 ? 0 : clock;
-            handleBestMove(depth, limitMs, alternatives);
-        }
+        bool known = find(begin(COMMANDS), end(COMMANDS), args[0]) != end(COMMANDS);
+        if (args[0] == "VERSION") cout << "VERSION " << PROTOCOL_VERSION << endl;
+        else if (!known) cout << "ERROR unknown command" << endl;
+        else if (!runCommand(args)) cout << "ERROR malformed command" << endl;
     }
     return 0;
 }

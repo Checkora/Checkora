@@ -1,160 +1,100 @@
-import sys
+"""Search features of the Python engine: hashing, iterative deepening, timeouts and metrics.
+
+The engine is driven through its line protocol (main.reply), the same way
+the bridge talks to it, so these tests don't depend on its internals beyond
+the hash key.
+"""
+
 import os
-import time
+import sys
 from unittest import mock
+
 from django.test import SimpleTestCase
+
 from game.engine import ChessGame
 
-# Add engine directory to path to import main.py directly
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engine'))
-import main as python_engine
+import main as python_engine  # noqa: E402
+
+START = 'rnbqkbnr' 'pppppppp' + '.' * 32 + 'PPPPPPPP' 'RNBQKBNR'
+
+
+def board(*placements):
+    """A board64 string with pieces at (row, col), row 0 being rank 8."""
+    squares = ['.'] * 64
+    for piece, row, col in placements:
+        squares[row * 8 + col] = piece
+    return ''.join(squares)
+
+
+def position_hash(board64, rights='-', turn=python_engine.WHITE, ep_row=-1, ep_col=-1):
+    python_engine.load_position(board64, rights, turn, ep_row, ep_col)
+    return python_engine.hash_key
+
+
+def bestmove(board64, depth, time_limit_ms, rights='-'):
+    reply = python_engine.reply(['BESTMOVE', board64, rights, 'white', '-1', '-1', str(depth), str(time_limit_ms)])
+    parts = reply.split()
+    fields = {
+        key: parts[parts.index(key) + 1]
+        for key in ('EVAL', 'DEPTH', 'NODES', 'TTHITS', 'TIME', 'ENGINE', 'STATUS')
+        if key in parts
+    }
+    return reply, fields
+
 
 class SearchFeaturesTest(SimpleTestCase):
-    """Test suite for transposition table hashing, iterative deepening, timeout behavior, and metrics."""
+    def test_zobrist_hash_follows_every_part_of_the_position(self):
+        castle_ready = board(('K', 7, 4), ('R', 7, 7), ('k', 0, 4))
+        base = position_hash(castle_ready, rights='K')
 
-    def setUp(self):
-        # Reset python engine globals
-        python_engine.transposition_table.clear()
-        python_engine.W_K_CASTLE = True
-        python_engine.W_Q_CASTLE = True
-        python_engine.B_K_CASTLE = True
-        python_engine.B_Q_CASTLE = True
-        python_engine.EN_PASSANT_R = -1
-        python_engine.EN_PASSANT_C = -1
-        python_engine.BOARD = [['.'] * 8 for _ in range(8)]
+        self.assertEqual(base, position_hash(castle_ready, rights='K'))
+        self.assertNotEqual(base, position_hash(castle_ready, rights='K', turn=python_engine.BLACK))
+        self.assertNotEqual(base, position_hash(castle_ready, rights='-'))
+        self.assertNotEqual(base, position_hash(board(('K', 7, 4), ('R', 7, 6), ('k', 0, 4)), rights='-'))
 
-    def test_zobrist_hash_determinism_and_uniqueness(self):
-        """Zobrist hashes must be deterministic and change on state updates."""
-        python_engine.BOARD[0][0] = 'R'
-        python_engine.BOARD[7][4] = 'K'
-        
-        # 1. Determinism
-        hash1 = python_engine.compute_hash('white')
-        hash2 = python_engine.compute_hash('white')
-        self.assertEqual(hash1, hash2)
-
-        # 2. Side-to-move changes hash
-        hash_black = python_engine.compute_hash('black')
-        self.assertNotEqual(hash1, hash_black)
-
-        # 3. Castling rights change hash
-        python_engine.W_K_CASTLE = False
-        hash_no_wk = python_engine.compute_hash('white')
-        self.assertNotEqual(hash1, hash_no_wk)
-        python_engine.W_K_CASTLE = True  # Restore
-
-        # 4. En-passant square changes hash
-        python_engine.EN_PASSANT_C = 4
-        python_engine.EN_PASSANT_R = 2
-        hash_ep = python_engine.compute_hash('white')
-        self.assertNotEqual(hash1, hash_ep)
-        python_engine.EN_PASSANT_C = -1  # Restore
-
-        # 5. Piece placement changes hash
-        python_engine.BOARD[0][0] = '.'
-        hash_no_rook = python_engine.compute_hash('white')
-        self.assertNotEqual(hash1, hash_no_rook)
-
-    def test_timeout_behavior_returns_move(self):
-        """Timeout should return the best move from the last completed depth instead of crashing."""
-        # Set up a complex position that requires time
-        # Standard starting position
-        start_board = (
-            "rnbqkbnr"
-            "pppppppp"
-            "........"
-            "........"
-            "........"
-            "........"
-            "PPPPPPPP"
-            "RNBQKBNR"
+        # Black has just played d7-d5 and the e5 pawn can take en passant.
+        after_double_step = board(('K', 7, 4), ('k', 0, 4), ('P', 3, 4), ('p', 3, 3))
+        self.assertNotEqual(
+            position_hash(after_double_step),
+            position_hash(after_double_step, ep_row=2, ep_col=3),
         )
-        python_engine.load_board(start_board)
-        python_engine.load_castling_rights("KQkq")
-        python_engine.load_en_passant(-1, -1)
 
-        # Run search with extremely low time budget (1ms) and high depth
-        # We redirect stdout to capture the output of handle_bestmove
-        from io import StringIO
-        old_stdout = sys.stdout
-        sys.stdout = StringIO()
-        try:
-            python_engine.handle_bestmove('white', 6, time_limit_ms=1)
-            output = sys.stdout.getvalue().strip()
-        finally:
-            sys.stdout = old_stdout
+    def test_timeout_returns_the_last_completed_move(self):
+        reply, fields = bestmove(START, 12, time_limit_ms=1)
 
-        self.assertTrue(output.startswith("BESTMOVE"))
-        self.assertIn("STATUS timeout", output)
-        self.assertIn("ENGINE python", output)
+        self.assertTrue(reply.startswith('BESTMOVE'))
+        self.assertNotIn('NONE', reply)
+        self.assertEqual(fields.get('STATUS'), 'timeout')
+        self.assertEqual(fields.get('ENGINE'), 'python')
 
-    def test_completed_search_status(self):
-        """Search should report completed status when it completes within the budget."""
-        # Shallow search depth 1 on empty/simple board
-        python_engine.BOARD[7][4] = 'K'
-        python_engine.BOARD[7][0] = 'R'
-        python_engine.BOARD[0][4] = 'k'
-        python_engine.load_castling_rights("-")
-        python_engine.load_en_passant(-1, -1)
+    def test_completed_search_reports_its_depth(self):
+        _, fields = bestmove(board(('K', 7, 4), ('R', 7, 0), ('k', 0, 4)), 1, time_limit_ms=5000)
 
-        from io import StringIO
-        old_stdout = sys.stdout
-        sys.stdout = StringIO()
-        try:
-            python_engine.handle_bestmove('white', 1, time_limit_ms=5000)
-            output = sys.stdout.getvalue().strip()
-        finally:
-            sys.stdout = old_stdout
+        self.assertEqual(fields.get('STATUS'), 'completed')
+        self.assertEqual(fields.get('DEPTH'), '1')
 
-        self.assertTrue(output.startswith("BESTMOVE"))
-        self.assertIn("STATUS completed", output)
-        self.assertIn("DEPTH 1", output)
+    def test_transposition_table_gets_hits(self):
+        rooks = board(('K', 7, 4), ('R', 7, 0), ('k', 0, 4), ('r', 0, 0))
+        _, fields = bestmove(rooks, 4, time_limit_ms=5000)
 
-    def test_transposition_table_cache_hits(self):
-        """Transposition table must correctly cache evaluations and produce hits on repeated positions."""
-        # We run a search to depth 4 on a simple board which should trigger hits
-        python_engine.BOARD[7][4] = 'K'
-        python_engine.BOARD[7][0] = 'R'
-        python_engine.BOARD[0][4] = 'k'
-        python_engine.BOARD[0][0] = 'r'
-        python_engine.load_castling_rights("-")
-        
-        from io import StringIO
-        old_stdout = sys.stdout
-        sys.stdout = StringIO()
-        try:
-            python_engine.handle_bestmove('white', 4, time_limit_ms=5000)
-            output = sys.stdout.getvalue().strip()
-        finally:
-            sys.stdout = old_stdout
-
-        # Check for TTHITS in metrics
-        parts = output.split()
-        self.assertIn("TTHITS", parts)
-        tthits_val = -1
-        for i, part in enumerate(parts):
-            if part == "TTHITS":
-                tthits_val = int(parts[i+1])
-                break
-        self.assertGreater(tthits_val, 0)
+        self.assertGreater(int(fields['TTHITS']), 0)
 
     def test_wrapper_metrics_parsing(self):
-        """Django wrapper ChessGame must correctly parse new metrics from engine responses."""
+        """ChessGame reads every metric from a BESTMOVE reply."""
         game = ChessGame()
-        
-        # Mock engine call to return a mock response with all metrics
-        mock_response = (
+        engine_reply = (
             "BESTMOVE 6 4 4 4 EVAL 30 ALTS 6 2 4 2 -10 "
             "DEPTH 4 NODES 1234 TTHITS 56 TIME 120 ENGINE cpp STATUS completed"
         )
-        with mock.patch.object(game, '_call_engine', return_value=mock_response):
+        with mock.patch.object(game, '_call_engine', return_value=engine_reply):
             move_data = game.get_ai_move(depth=4)
 
         self.assertIsNotNone(move_data)
-        self.assertEqual(move_data['from_row'], 6)
-        self.assertEqual(move_data['from_col'], 4)
-        self.assertEqual(move_data['to_row'], 4)
-        self.assertEqual(move_data['to_col'], 4)
+        self.assertEqual(
+            (move_data['from_row'], move_data['from_col'], move_data['to_row'], move_data['to_col']),
+            (6, 4, 4, 4),
+        )
         self.assertEqual(move_data['eval'], 30)
         self.assertEqual(move_data['depth'], 4)
         self.assertEqual(move_data['nodes'], 1234)
@@ -163,21 +103,18 @@ class SearchFeaturesTest(SimpleTestCase):
         self.assertEqual(move_data['engine'], 'cpp')
         self.assertEqual(move_data['status'], 'completed')
 
-    def test_opening_book_compatibility(self):
-        """AI must use the opening book first before calling minimax search."""
+    def test_opening_book_is_tried_before_the_search(self):
         game = ChessGame()
-        # Initialize at starting position
         game.board = [row[:] for row in ChessGame.INITIAL_BOARD]
         game.current_turn = 'white'
         game.castling_rights = {'w_k': True, 'w_q': True, 'b_k': True, 'b_q': True}
         game.en_passant_target = None
         game.move_history = []
 
-        # Mock validate_move to return True so the book move is verified without calling the engine
         with mock.patch.object(game, 'validate_move', return_value=(True, "Valid")):
-            with mock.patch.object(game, '_call_engine') as mock_call:
+            with mock.patch.object(game, '_call_engine') as engine:
                 move = game.get_ai_move()
-                mock_call.assert_not_called()
+                engine.assert_not_called()
                 self.assertIsNotNone(move)
                 self.assertIn('from_row', move)
                 self.assertIn('to_row', move)

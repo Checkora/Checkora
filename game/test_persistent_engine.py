@@ -1,321 +1,268 @@
+"""Tests for the per-game engine server and the client that starts it
+(game/engine/persistent_server.py, game/engine_client.py)."""
+import json
 import os
-import time
-import tempfile
 import subprocess
+import sys
+import tempfile
+import time
 from unittest import mock
-from django.test import TestCase
+
+from django.test import SimpleTestCase
+
+from game import engine_client
 from game.engine import ChessGame
 
+MAIN_PY = os.path.join(engine_client.ENGINE_DIR, 'main.py')
+STATUS = f"STATUS k{'.' * 62}K - white -1 -1"
 
-class PersistentEngineTest(TestCase):
+
+class ClientTestCase(SimpleTestCase):
+    """Keeps the client's per-process state out of the way and removes the
+    files a test leaves in the temp directory."""
+
     def setUp(self):
-        self.temp_files_to_clean = []
-        # The bridge remembers, per process, which compiled engines run and
-        # whether a server failed to start. Several tests below replace
-        # subprocess.Popen; what the bridge learns from the mock must not
-        # leak into other tests.
-        python_engine = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
         for patcher in (
-            mock.patch.object(ChessGame, '_resolve_engine_path',
-                              return_value=python_engine),
-            mock.patch.dict(ChessGame._engine_health),
-            mock.patch.dict(ChessGame._server_procs),
-            mock.patch.object(ChessGame, '_persistent_retry_at', 0.0),
+            mock.patch.object(ChessGame, '_resolve_engine_path', return_value=MAIN_PY),
+            mock.patch.dict(engine_client._engine_health),
+            mock.patch.dict(engine_client._server_procs),
+            mock.patch.object(engine_client, '_retry_at', 0.0),
         ):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def tearDown(self):
-        # Clean up any files created during tests
-        for path in self.temp_files_to_clean:
+    def game(self):
+        game = ChessGame()
+        self.addCleanup(self.remove_files, game.game_id)
+        self.addCleanup(game.cleanup_engine)
+        return game
+
+    @staticmethod
+    def remove_files(game_id):
+        for suffix in ('port', 'lock'):
+            path = os.path.join(tempfile.gettempdir(), f'checkora_engine_{game_id}.{suffix}')
             if os.path.exists(path):
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
+                os.unlink(path)
 
-    def test_game_id_generation(self):
-        """Test that ChessGame generates a unique game_id on creation."""
-        game1 = ChessGame()
-        game2 = ChessGame()
-        self.assertIsNotNone(game1.game_id)
-        self.assertIsNotNone(game2.game_id)
-        self.assertNotEqual(game1.game_id, game2.game_id)
+    @staticmethod
+    def port_file(game):
+        return os.path.join(tempfile.gettempdir(), f'checkora_engine_{game.game_id}.port')
 
-    def test_game_id_serialization(self):
-        """Test game_id serialization/deserialization with authkey."""
+
+class GameIdTest(SimpleTestCase):
+
+    def test_every_game_has_its_own_id(self):
+        self.assertNotEqual(ChessGame().game_id, ChessGame().game_id)
+
+    def test_id_and_key_survive_the_session(self):
         game = ChessGame()
-        game_id = game.game_id
-        authkey_hex = game.authkey.hex()
-
         data = game.to_dict()
-        self.assertEqual(data['game_id'], game_id)
-        self.assertEqual(data['authkey'], authkey_hex)
-
+        self.assertEqual((data['game_id'], data['authkey']), (game.game_id, game.authkey.hex()))
         restored = ChessGame.from_dict(data)
-        self.assertEqual(restored.game_id, game_id)
-        self.assertEqual(restored.authkey, game.authkey)
+        self.assertEqual((restored.game_id, restored.authkey), (game.game_id, game.authkey))
 
-    def test_persistent_server_spawning_once(self):
-        """Test that call_engine spawns the server only once (with authkey)."""
-        game = ChessGame()
-        port_path = os.path.join(tempfile.gettempdir(),
-                                 f'checkora_engine_{game.game_id}.port')
-        self.temp_files_to_clean.append(port_path)
 
-        # Mock subprocess.Popen to count spawns
-        with mock.patch('subprocess.Popen') as mock_popen:
-            # Setup mock Popen to act like the background server spawn
-            mock_proc = mock.MagicMock()
-            mock_proc.communicate.return_value = ("STATUS OK\n", "")
+class ServerStartTest(ClientTestCase):
 
-            def popen_side_effect(*args, **kwargs):
-                # When spawning persistent_server.py, write the dummy port file
-                if 'persistent_server.py' in str(args[0]):
-                    with open(port_path, 'w') as f:
-                        f.write("9999")
-                return mock_proc
+    def test_server_is_started_once(self):
+        game = self.game()
+        port_file = self.port_file(game)
+        connection = mock.MagicMock()
+        connection.recv.return_value = 'STATUS OK'
 
-            mock_popen.side_effect = popen_side_effect
+        def start(command, **kwargs):
+            with open(port_file, 'w') as handle:
+                handle.write('1')
+            return mock.MagicMock()
 
-            # We want to mock Client to simulate connecting to the server
-            mock_client_instance = mock.MagicMock()
-            mock_client_instance.recv.return_value = "STATUS OK"
+        with mock.patch.object(engine_client.subprocess, 'Popen', side_effect=start) as popen, \
+                mock.patch.object(engine_client.connection, 'Client',
+                                  side_effect=[connection, connection]) as client:
+            self.assertEqual(game._call_engine('STATUS'), 'STATUS OK')
+            self.assertEqual(game._call_engine('STATUS'), 'STATUS OK')
+        self.assertEqual(client.call_count, 2)
+        self.assertEqual(popen.call_count, 1)
+        command = popen.call_args.args[0]
+        self.assertEqual(command[1:3], [engine_client.SERVER_SCRIPT, port_file])
+        # the key goes in the environment, where other users cannot read it
+        self.assertNotIn(game.authkey.hex(), ' '.join(command))
+        self.assertEqual(popen.call_args.kwargs['env'][engine_client.AUTHKEY_ENV], game.authkey.hex())
 
-            with mock.patch('multiprocessing.connection.Client', side_effect=[
-                Exception("Connection failed"),  # Initial connect fails
-                mock_client_instance,            # Retry connect succeeds
-                mock_client_instance,            # Second call succeeds
-            ]) as mock_client:
+    def test_stale_lock_is_removed(self):
+        game = self.game()
+        client = engine_client.EngineClient(game.game_id, game.authkey)
+        with open(client.lock_path, 'w') as handle:
+            handle.write('left by a request that died')
+        past = time.time() - 2 * engine_client.STALE_LOCK_SECONDS
+        os.utime(client.lock_path, (past, past))
 
-                # First call
-                resp1 = game._call_engine("STATUS")
-                self.assertEqual(resp1, "STATUS OK")
+        def start(command, **kwargs):
+            with open(client.port_path, 'w') as handle:
+                handle.write('1')
+            return mock.MagicMock()
 
-                # Second call
-                resp2 = game._call_engine("STATUS")
-                self.assertEqual(resp2, "STATUS OK")
+        connection = mock.MagicMock()
+        connection.recv.return_value = 'STATUS OK'
+        with mock.patch.object(engine_client.subprocess, 'Popen', side_effect=start) as popen, \
+                mock.patch.object(engine_client.connection, 'Client', return_value=connection):
+            self.assertEqual(game._call_engine('STATUS'), 'STATUS OK')
+        self.assertEqual(popen.call_count, 1)
+        self.assertFalse(os.path.exists(client.lock_path))
 
-                # Verify multiprocessing Client was called
-                self.assertEqual(mock_client.call_count, 3)
+    def test_server_is_reused(self):
+        game = self.game()
+        self.assertEqual(game._call_engine(STATUS), 'STATUS DRAW')
+        with open(self.port_file(game)) as handle:
+            port = handle.read()
+        proc = engine_client._server_procs[game.game_id]
+        self.assertEqual(game._call_engine(STATUS), 'STATUS DRAW')
+        with open(self.port_file(game)) as handle:
+            self.assertEqual(handle.read(), port)
+        self.assertIs(engine_client._server_procs[game.game_id], proc)
+        self.assertIsNone(proc.poll())
 
-                # Verify Popen was called once to launch persistent_server.py
-                persistent_server_spawns = [
-                    call for call in mock_popen.call_args_list
-                    if 'persistent_server.py' in str(call)
-                ]
-                self.assertEqual(len(persistent_server_spawns), 1)
+        game.cleanup_engine()
+        self.assertEqual(proc.wait(timeout=5), 0)
+        self.assertFalse(os.path.exists(self.port_file(game)))
+
+
+class ShutdownTest(ClientTestCase):
 
     def test_cleanup_engine_sends_shutdown(self):
-        """Test that cleanup_engine sends a SHUTDOWN command."""
-        game = ChessGame()
-
-        port_path = os.path.join(tempfile.gettempdir(),
-                                 f'checkora_engine_{game.game_id}.port')
-        self.temp_files_to_clean.append(port_path)
-        with open(port_path, 'w') as f:
-            f.write("9999")
-
-        mock_client_instance = mock.MagicMock()
-        mock_client_instance.recv.return_value = "OK"
-
-        with mock.patch('multiprocessing.connection.Client',
-                        return_value=mock_client_instance) as mock_client:
+        game = self.game()
+        with open(self.port_file(game), 'w') as handle:
+            handle.write('1')
+        connection = mock.MagicMock()
+        connection.recv.return_value = 'OK'
+        with mock.patch.object(engine_client.connection, 'Client', return_value=connection) as client:
             game.cleanup_engine()
-
-            # Verify client was created to connect to IPC
-            mock_client.assert_called_once()
-
-            # Verify SHUTDOWN was sent
-            mock_client_instance.send.assert_called_once_with("SHUTDOWN")
-            mock_client_instance.close.assert_called_once()
+        client.assert_called_once()
+        connection.send.assert_called_once_with('SHUTDOWN')
+        connection.close.assert_called_once()
 
     def test_cleanup_engine_on_game_over(self):
-        """Test that cleanup_engine triggers on terminal status change."""
         game = ChessGame()
-
-        with mock.patch.object(game, 'cleanup_engine') as mock_cleanup:
-            # Set game status to terminal state, triggering setter
+        with mock.patch.object(game, 'cleanup_engine') as cleanup:
             game.game_status = 'checkmate'
-            mock_cleanup.assert_called_once()
+        cleanup.assert_called_once()
 
-    def test_integration_engine_process_reused(self):
-        """Integration test using python fallback to prove process reuse."""
-        game = ChessGame()
-        self.addCleanup(game.cleanup_engine)
-
-        # Ensure we use the python engine fallback
-        python_engine_path = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
-
-        # Dummy position command
-        dummy_board = 'k' + '.' * 62 + 'K'
-        cmd = f"STATUS {dummy_board} - white -1 -1"
-
-        # Register generated temp files for clean up
-        t_dir = tempfile.gettempdir()
-        self.temp_files_to_clean.append(
-            os.path.join(t_dir, f'checkora_engine_{game.game_id}.port')
-        )
-        self.temp_files_to_clean.append(
-            os.path.join(t_dir, f'checkora_engine_{game.game_id}.pid')
-        )
-
-        with mock.patch.object(game, '_resolve_engine_path',
-                               return_value=python_engine_path):
-            # Call engine first time
-            resp1 = game._call_engine(cmd)
-            self.assertIsNotNone(resp1)
-
-            # Read PID of the spawned persistent_server.py
-            pid_path = os.path.join(tempfile.gettempdir(),
-                                    f'checkora_engine_{game.game_id}.pid')
-            self.assertTrue(os.path.exists(pid_path),
-                            f"PID file {pid_path} should exist")
-
-            with open(pid_path, 'r') as f:
-                pid1 = int(f.read().strip())
-
-            # Call engine second time
-            resp2 = game._call_engine(cmd)
-            self.assertIsNotNone(resp2)
-
-            # Read PID again
-            self.assertTrue(os.path.exists(pid_path))
-            with open(pid_path, 'r') as f:
-                pid2 = int(f.read().strip())
-
-            # Verify PID is identical
-            self.assertEqual(pid1, pid2, "Server process should be reused")
-
-            # Explicitly clean up
+    def test_files_stay_when_the_server_did_not_stop(self):
+        """A SHUTDOWN that did not get through stops nothing, so the files
+        are left alone. They used to be removed anyway; the next request then
+        started a second server, whose port file the first one removed when
+        it stopped at last."""
+        game = self.game()
+        self.assertEqual(game._call_engine(STATUS), 'STATUS DRAW')
+        with open(self.port_file(game)) as handle:
+            port = handle.read()
+        server = engine_client._server_procs[game.game_id]
+        with mock.patch.object(engine_client, 'connect', side_effect=TimeoutError):
             game.cleanup_engine()
+        with open(self.port_file(game)) as handle:
+            self.assertEqual(handle.read(), port)
+        self.assertEqual(game._call_engine(STATUS), 'STATUS DRAW')
+        # The same server answered: no second one was started for this game.
+        # (_server_procs is per process, so other tests' servers are in it too.)
+        self.assertIs(engine_client._server_procs[game.game_id], server)
 
-            # Verify server shut down and PID file removed
-            self.assertFalse(os.path.exists(pid_path),
-                             "PID file should be deleted after shutdown")
 
-    def test_stale_lock_cleanup(self):
-        """Test that a stale lock file is automatically unlinked."""
-        game = ChessGame()
-        lock_path = os.path.join(tempfile.gettempdir(),
-                                 f'checkora_engine_{game.game_id}.lock')
-        self.temp_files_to_clean.append(lock_path)
+class ServerTest(SimpleTestCase):
+    """persistent_server.py on its own."""
 
-        # Create a stale lock file (simulate old creation time)
-        with open(lock_path, 'w') as f:
-            f.write("99999")
+    SERVER = os.path.join(engine_client.ENGINE_DIR, 'persistent_server.py')
 
-        # Backdate the modification time of the lock file to 10 seconds ago
-        past_time = time.time() - 10.0
-        os.utime(lock_path, (past_time, past_time))
+    def start(self, port_file, authkey):
+        proc = subprocess.Popen(
+            [sys.executable, self.SERVER, port_file, json.dumps([sys.executable, MAIN_PY]), '5'],
+            env=dict(os.environ, **{engine_client.AUTHKEY_ENV: authkey.hex()}),
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        self.addCleanup(proc.wait, 10)
+        self.addCleanup(proc.kill)
+        deadline = time.monotonic() + 10
+        while not os.path.exists(port_file):
+            self.assertLess(time.monotonic(), deadline, 'the server did not come up')
+            self.assertIsNone(proc.poll(), 'the server exited')
+            time.sleep(0.02)
+        with open(port_file) as handle:
+            return proc, ('127.0.0.1', int(handle.read()))
 
-        # Setup mock Popen and Client to check that it proceeds normally
-        with mock.patch('subprocess.Popen') as mock_popen:
-            mock_proc = mock.MagicMock()
-            mock_popen.return_value = mock_proc
+    def request(self, address, authkey, message):
+        conn = engine_client.connect(address, authkey, 10)
+        try:
+            conn.send(message)
+            self.assertTrue(conn.poll(10))
+            return conn.recv()
+        finally:
+            conn.close()
 
-            def popen_side_effect(*args, **kwargs):
-                port_path = os.path.join(
-                    tempfile.gettempdir(),
-                    f'checkora_engine_{game.game_id}.port'
-                )
-                with open(port_path, 'w') as f:
-                    f.write("9999")
-                return mock_proc
+    def test_answers_and_stops(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, folder)
+        port_file = os.path.join(folder, 'game.port')
+        authkey = os.urandom(16)
+        proc, address = self.start(port_file, authkey)
+        self.assertEqual(self.request(address, authkey, STATUS), 'STATUS DRAW')
+        self.assertEqual(self.request(address, authkey, 'STATUS\nBESTMOVE'), 'ERROR malformed command')
+        self.assertEqual(self.request(address, authkey, 'SHUTDOWN'), 'OK')
+        self.assertEqual(proc.wait(timeout=10), 0)
+        self.assertFalse(os.path.exists(port_file))
 
-            mock_popen.side_effect = popen_side_effect
+    def test_leaves_a_port_file_that_is_not_its_own(self):
+        """A server that stops only removes the port file if it still names
+        that server; a newer server for the same game may have written it."""
+        folder = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, folder)
+        port_file = os.path.join(folder, 'game.port')
+        self.addCleanup(lambda: os.path.exists(port_file) and os.unlink(port_file))
+        authkey = os.urandom(16)
+        proc, address = self.start(port_file, authkey)
+        with open(port_file, 'w') as handle:
+            handle.write('1')   # what a newer server would have written
+        self.assertEqual(self.request(address, authkey, 'SHUTDOWN'), 'OK')
+        self.assertEqual(proc.wait(timeout=10), 0)
+        with open(port_file) as handle:
+            self.assertEqual(handle.read(), '1')
 
-            mock_client_instance = mock.MagicMock()
-            mock_client_instance.recv.return_value = "STATUS OK"
+    def test_needs_a_key(self):
+        env = {key: value for key, value in os.environ.items() if key != engine_client.AUTHKEY_ENV}
+        proc = subprocess.run(
+            [sys.executable, self.SERVER, os.path.join(tempfile.gettempdir(), 'unused.port'), '[]'],
+            env=env, capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(proc.returncode, 1)
 
-            with mock.patch('multiprocessing.connection.Client',
-                            side_effect=[
-                                Exception("failed"),
-                                mock_client_instance
-                            ]) as mock_client:
 
-                resp = game._call_engine("STATUS")
-                self.assertEqual(resp, "STATUS OK")
+class OneOffEngineTest(ClientTestCase):
+    """Requests answered without a server."""
 
-                # The stale lock file should have been deleted
-                self.assertFalse(os.path.exists(lock_path),
-                                 "Stale lock file should be deleted")
-                self.assertEqual(mock_client.call_count, 2)
-
-    def test_stateless_engine_logs_stderr_without_changing_response(self):
-        """Engine stderr is logged while stdout behavior is preserved."""
+    def ask(self, popen):
         game = ChessGame()
         game._analysis_timeout = 1
+        with mock.patch.object(engine_client.EngineClient, '_server_connection', return_value=None), \
+                mock.patch.object(engine_client.subprocess, 'Popen', popen), \
+                self.assertLogs('game.engine_client', level='WARNING') as logs:
+            return game._call_engine('STATUS'), logs.output
 
-        engine_proc = mock.MagicMock()
-        engine_proc.communicate.return_value = (
-            "STATUS OK\n",
-            "diagnostic details\n",
-        )
+    def test_stderr_is_logged(self):
+        engine = mock.MagicMock()
+        engine.communicate.return_value = ('STATUS OK\n', 'diagnostic details\n')
+        reply, logs = self.ask(mock.Mock(return_value=engine))
+        self.assertEqual(reply, 'STATUS OK')
+        self.assertTrue(any('diagnostic details' in line for line in logs))
 
-        with (
-            mock.patch.object(game, '_resolve_engine_path',
-                              return_value='engine-binary'),
-            mock.patch('game.engine.os.path.exists', return_value=False),
-            mock.patch('game.engine.os.open', side_effect=OSError),
-            mock.patch('game.engine.time.sleep', return_value=None),
-            mock.patch('game.engine.subprocess.Popen',
-                       return_value=engine_proc),
-            self.assertLogs('game.engine', level='WARNING') as logs,
-        ):
-            resp = game._call_engine("STATUS")
-
-        self.assertEqual(resp, "STATUS OK")
-        self.assertTrue(
-            any("diagnostic details" in message for message in logs.output)
-        )
-
-    def test_stateless_engine_timeout_kills_process_and_logs_stderr(self):
-        """Timeout handling kills the process and logs drained stderr."""
-        game = ChessGame()
-        game._analysis_timeout = 1
-
-        engine_proc = mock.MagicMock()
-        engine_proc.communicate.side_effect = [
-            subprocess.TimeoutExpired(cmd='engine-binary', timeout=1),
-            ("", "timeout diagnostics\n"),
+    def test_timeout_kills_the_engine(self):
+        engine = mock.MagicMock()
+        engine.communicate.side_effect = [
+            subprocess.TimeoutExpired(cmd='engine', timeout=1),
+            ('', 'timeout diagnostics\n'),
         ]
+        reply, logs = self.ask(mock.Mock(return_value=engine))
+        self.assertIsNone(reply)
+        engine.kill.assert_called_once()
+        self.assertTrue(any('timeout diagnostics' in line for line in logs))
 
-        with (
-            mock.patch.object(game, '_resolve_engine_path',
-                              return_value='engine-binary'),
-            mock.patch('game.engine.os.path.exists', return_value=False),
-            mock.patch('game.engine.os.open', side_effect=OSError),
-            mock.patch('game.engine.time.sleep', return_value=None),
-            mock.patch('game.engine.subprocess.Popen',
-                       return_value=engine_proc),
-            self.assertLogs('game.engine', level='WARNING') as logs,
-        ):
-            resp = game._call_engine("STATUS")
-
-        self.assertIsNone(resp)
-        engine_proc.kill.assert_called_once()
-        self.assertTrue(
-            any("timeout diagnostics" in message for message in logs.output)
-        )
-
-    def test_stateless_engine_start_failure_is_logged(self):
-        """Engine start failures are logged without surfacing raw errors."""
-        game = ChessGame()
-
-        with (
-            mock.patch.object(game, '_resolve_engine_path',
-                              return_value='engine-binary'),
-            mock.patch('game.engine.os.path.exists', return_value=False),
-            mock.patch('game.engine.os.open', side_effect=OSError),
-            mock.patch('game.engine.time.sleep', return_value=None),
-            mock.patch('game.engine.subprocess.Popen',
-                       side_effect=OSError("missing binary")),
-            self.assertLogs('game.engine', level='WARNING') as logs,
-        ):
-            resp = game._call_engine("STATUS")
-
-        self.assertIsNone(resp)
-        self.assertTrue(
-            any("missing binary" in message for message in logs.output)
-        )
+    def test_start_failure_is_logged(self):
+        reply, logs = self.ask(mock.Mock(side_effect=OSError('missing binary')))
+        self.assertIsNone(reply)
+        self.assertTrue(any('missing binary' in line for line in logs))

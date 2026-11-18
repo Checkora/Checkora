@@ -1,9 +1,11 @@
 """Checkora Game Manager.
 
-Manages chess game state and coordinates with the C++ engine for move
-validation. Includes a persistent DP table (valid_moves_cache) that
-updates on-demand to avoid redundant brute-force calculations while
-ensuring 100% accuracy.
+ChessGame holds the state of one game (board, clocks, history, status)
+and applies the rules by asking the engine: which moves are legal, how a
+move is written, whether the game is over, and what the computer plays.
+game/engine_client.py carries the protocol lines to the engine and back.
+Legal moves are kept per square (valid_moves_cache) until the next move,
+so a square the player looks at twice costs one engine request.
 
 Opening Book
 ------------
@@ -16,17 +18,16 @@ to_col]`` move coordinates.  When multiple book moves are available one
 is chosen at random to add variety.
 """
 
-import os
-import contextlib
-import logging
-import random
-import subprocess
 import json
-import sys
-import time
+import logging
+import os
+import random
 import threading
+import time
 import uuid
 from datetime import date
+
+from . import engine_client
 
 
 logger = logging.getLogger(__name__)
@@ -36,23 +37,8 @@ class ChessGame:
     """Manage a single chess game: state, validation,
       and engine communication."""
 
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    ENGINE_DIR = os.path.join(CURRENT_DIR, 'engine')
-    ENGINE_CANDIDATES = (
-        [
-            os.path.join(ENGINE_DIR, 'main.exe'),
-            os.path.join(ENGINE_DIR, 'main'),
-            os.path.join(ENGINE_DIR, 'main.py'),
-        ]
-        if os.name == 'nt' else
-        [
-            os.path.join(ENGINE_DIR, 'main'),
-            os.path.join(ENGINE_DIR, 'main.exe'),
-            os.path.join(ENGINE_DIR, 'main.py'),
-        ]
-    )
-
-    FILES = 'abcdefgh'
+    ENGINE_DIR = engine_client.ENGINE_DIR
+    ENGINE_CANDIDATES = engine_client.ENGINE_CANDIDATES
 
     # Path to the JSON opening book
     OPENING_BOOK_PATH = os.path.join(ENGINE_DIR, 'opening_book.json')
@@ -61,31 +47,12 @@ class ChessGame:
     _opening_book: dict | None = None
     _opening_book_lock = threading.Lock()
 
-    # Why the last engine request of this object produced nothing usable:
-    #   None        the engine answered
-    #   'no_reply'  it could not be started or did not answer in time
-    #   'bad_reply' it answered something that is not a reply to the command
-    # get_ai_move() returning None with last_engine_error None means the
-    # engine found no legal move; any other value means it did not answer.
-    # Not stored in the session.
-    last_engine_error = None
-
-    # Version of the line protocol spoken with the engines. main.cpp and
-    # main.py answer "VERSION" with it; a compiled engine that answers
-    # anything else was built from older sources and is not used.
-    PROTOCOL_VERSION = 2
-    # Compiled engines that were tried in this process: path -> usable
-    _engine_health = {}
-
-    # Engine servers started by this process (game_id -> Popen), kept so
-    # that the ones that have exited can be reaped
-    _server_procs = {}
-    # time.monotonic() before which no new engine server is started,
-    # set after a start that failed
-    _persistent_retry_at = 0.0
-    PERSISTENT_RETRY_SECONDS = 60
     # How long cleanup_engine() waits for a server to accept SHUTDOWN
     SHUTDOWN_TIMEOUT_SECONDS = 2
+    # Set by the game review (views.analyze_game) to what is left of its
+    # time budget, so that a single engine request cannot outlast it.
+    # Not stored in the session.
+    _analysis_timeout = None
 
     INITIAL_BOARD = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -111,7 +78,7 @@ class ChessGame:
         self.current_turn = 'white'
         self.move_history = []
         self.captured = {'white': [], 'black': []}
-        # DP Table: {(row, col): [list of moves]}
+        # Legal moves per square until the next move: {(row, col): [moves]}
         self.valid_moves_cache = {}
         self.white_time = time_limit
         self.black_time = time_limit
@@ -143,7 +110,7 @@ class ChessGame:
         self.initial_fen = None
 
     def serialize_board(self):
-        """Flatten the 2-D board into a 64-char string for the C++ engine."""
+        """Flatten the 2-D board into the 64-char string the engine reads."""
         return ''.join(c if c else '.' for row in self.board for c in row)
 
     def generate_pgn(self, white_name='White', black_name='Black'):
@@ -158,16 +125,16 @@ class ChessGame:
             result = '1-0' if self.current_turn == 'black' else '0-1'
 
         pgn_moves = []
-        
+
         def _fix_castling(move):
             return move.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
 
-        fullmove = getattr(self, 'initial_fullmove', 1)
+        fullmove = self.initial_fullmove
         history = self.move_history or []
         i = 0
 
         # If Black moved first, write the first half-move as "N... move"
-        if getattr(self, 'initial_turn_was_black', False) and history:
+        if self.initial_turn_was_black and history:
             black_move = _fix_castling(history[0]['notation'])
             pgn_moves.append(f"{fullmove}... {black_move}")
             fullmove += 1
@@ -182,19 +149,19 @@ class ChessGame:
                 pgn_moves.append(f"{fullmove}. {white_move}")
             fullmove += 1
             i += 2
-        
+
         today = date.today().strftime('%Y.%m.%d')
         headers = [
             '[Event "Checkora Match"]',
-            '[Site "checkora.io"]',
+            '[Site "checkora.edward7780.com"]',
             f'[Date "{today}"]',
             '[Round "?"]',
             f'[White "{white_name}"]',
             f'[Black "{black_name}"]',
             f'[Result "{result}"]',
         ]
-        
-        initial_fen = getattr(self, 'initial_fen', None)
+
+        initial_fen = self.initial_fen
         standard_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         if initial_fen and initial_fen.strip() != standard_fen:
             headers.extend([
@@ -224,7 +191,7 @@ class ChessGame:
         game_status itself stays 'active' during a check, because the rest
         of the code reads anything else as "the game is over".
         """
-        if self._game_status == 'active' and getattr(self, 'in_check', False):
+        if self._game_status == 'active' and self.in_check:
             return 'check'
         return self._game_status
 
@@ -252,74 +219,19 @@ DP cache is intentionally excluded to save cookie space."""
             'halfmove_clock': self.halfmove_clock,
             'repetition_history': self.repetition_history,
             'game_status': self.game_status,
-            'in_check': getattr(self, 'in_check', False),
+            'in_check': self.in_check,
             'draw_reason': self.draw_reason,
             'threefold_warning': self.threefold_warning,
-            'opening_name': getattr(self, 'opening_name', None),
-            'opening_moves': getattr(self, 'opening_moves', None),
-            'initial_fullmove': getattr(self, 'initial_fullmove', 1),
-            'initial_turn_was_black': getattr(
-                self, 'initial_turn_was_black', False
-            ),
-            'initial_fen': getattr(self, 'initial_fen', None),
+            'opening_name': self.opening_name,
+            'opening_moves': self.opening_moves,
+            'initial_fullmove': self.initial_fullmove,
+            'initial_turn_was_black': self.initial_turn_was_black,
+            'initial_fen': self.initial_fen,
         }
 
     def cleanup_engine(self):
-        """Send SHUTDOWN to the persistent engine server for this game."""
-        game_id = getattr(self, 'game_id', None)
-        if not game_id:
-            return
-
-        import tempfile
-
-        port_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
-        )
-        stopped = False
-        if os.path.exists(port_path):
-            # Never wait long here: a server that is busy or stuck is left
-            # to its own idle timeout.
-            wait = self.SHUTDOWN_TIMEOUT_SECONDS
-            try:
-                with open(port_path, 'r') as f:
-                    port = int(f.read().strip())
-                address = ('127.0.0.1', port)
-                conn = self._connect(address, wait)
-                try:
-                    conn.send("SHUTDOWN")
-                    if conn.poll(wait):
-                        conn.recv()
-                        stopped = True
-                finally:
-                    conn.close()
-            except Exception:
-                pass
-
-        # Reap the server if this process started it, so it does not stay
-        # behind as a zombie
-        proc = self._server_procs.pop(game_id, None)
-        if proc is not None:
-            try:
-                if stopped:
-                    proc.wait(timeout=self.SHUTDOWN_TIMEOUT_SECONDS)
-                elif proc.poll() is None:
-                    self._server_procs[game_id] = proc
-            except Exception:
-                self._server_procs[game_id] = proc
-
-        # Clean up files
-        lock_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
-        )
-        pid_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.pid'
-        )
-        for path in (lock_path, port_path, pid_path):
-            if os.path.exists(path):
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
+        """Ask this game's engine server to stop; called when the game ends."""
+        engine_client.EngineClient(self.game_id, self.authkey).shutdown(self.SHUTDOWN_TIMEOUT_SECONDS)
 
     @classmethod
     def from_dict(cls, data):
@@ -407,6 +319,7 @@ DP cache is intentionally excluded to save cookie space."""
         if white_king != 1 or black_king != 1:
             raise ValueError(
                 "FEN must include exactly one white and one black king.")
+        cls._check_material(board)
 
         game = cls(
             time_limit=time_limit, increment=increment, difficulty=difficulty
@@ -501,6 +414,33 @@ DP cache is intentionally excluded to save cookie space."""
         return game
 
     @staticmethod
+    def _check_material(board):
+        """Raise ValueError for pieces that no game can arrive at.
+
+        A side starts with 16 pieces, 8 of them pawns, and gets a second
+        queen, a third rook or knight, or a second bishop on squares of one
+        colour only by promoting a pawn. Such a board would also let the
+        engines search positions with far more moves than any real game.
+        """
+        for colour, pieces in (('White', 'PNBRQK'), ('Black', 'pnbrqk')):
+            pawn, knight, bishop, rook, queen, _ = pieces
+            own = [(r, c, p) for r, row in enumerate(board) for c, p in enumerate(row)
+                   if p and p in pieces]
+            count = {piece: sum(1 for _, _, p in own if p == piece) for piece in pieces}
+            if len(own) > 16:
+                raise ValueError(f"{colour} has more than 16 pieces.")
+            if count[pawn] > 8:
+                raise ValueError(f"{colour} has more than 8 pawns.")
+            if any(p == pawn and r in (0, 7) for r, _, p in own):
+                raise ValueError(f"{colour} has a pawn on the first or last rank.")
+            light = sum(1 for r, c, p in own if p == bishop and (r + c) % 2 == 0)
+            dark = count[bishop] - light
+            promoted = (max(0, count[queen] - 1) + max(0, count[rook] - 2)
+                        + max(0, count[knight] - 2) + max(0, light - 1) + max(0, dark - 1))
+            if promoted > 8 - count[pawn]:
+                raise ValueError(f"{colour} has more promoted pieces than missing pawns.")
+
+    @staticmethod
     def _parse_fen_placement(placement: str):
         rows = placement.split('/')
         if len(rows) != 8:
@@ -553,359 +493,48 @@ DP cache is intentionally excluded to save cookie space."""
         return rights
 
     # ------------------------------------------------------------------
-    #  C++ engine communication
+    #  Engine requests
     # ------------------------------------------------------------------
 
     @classmethod
     def _resolve_engine_path(cls):
-        """Return the first usable engine entrypoint for this platform."""
-        for path in cls.ENGINE_CANDIDATES:
-            if not os.path.exists(path):
-                continue
-            if path.endswith('.py') or cls._binary_runs(path):
-                return path
-        return None
+        """The engine this machine can run: the compiled one if it works
+        here and speaks the current protocol, main.py otherwise."""
+        return engine_client.resolve_engine_path(cls.ENGINE_CANDIDATES)
 
-    @classmethod
-    def _binary_runs(cls, path):
-        """Return True when the compiled engine at *path* can be used.
+    _build_engine_command = staticmethod(engine_client.engine_command)
 
-        A binary built for another system or C library exists on disk but
-        cannot run, and one built from older sources speaks another
-        protocol; without this check main.py would never get its turn.
-        The binary is asked for its protocol version, once per process.
-        """
-        if not os.path.isfile(path):
-            return True  # nothing to inspect; the caller will find out
-        usable = cls._engine_health.get(path)
-        if usable is None:
-            usable = False
-            if os.access(path, os.X_OK):
-                proc = None
-                try:
-                    proc = subprocess.Popen(
-                        [path],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                        text=True,
-                    )
-                    stdout, _ = proc.communicate(input="VERSION\n", timeout=5)
-                    usable = (
-                        stdout.strip() == f"VERSION {cls.PROTOCOL_VERSION}"
-                    )
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.communicate()
-                except Exception:
-                    pass
-            if not usable:
-                logger.warning(
-                    "Chess engine binary %s does not run here or is out of "
-                    "date (rebuild it from main.cpp); trying the next "
-                    "engine.", path)
-            cls._engine_health[path] = usable
-        return usable
-
-    @staticmethod
-    def _build_engine_command(engine_path):
-        """Build the subprocess command for either a binary
-        or Python script."""
-        if engine_path.endswith('.py'):
-            return [sys.executable, '-u', engine_path]
-        return [engine_path]
-
-    @classmethod
-    def _reap_servers(cls):
-        """Forget engine servers started by this process that have exited."""
-        for game_id, proc in list(cls._server_procs.items()):
-            try:
-                if proc.poll() is not None:
-                    cls._server_procs.pop(game_id, None)
-            except Exception:
-                cls._server_procs.pop(game_id, None)
-
-    def _connect(self, address, timeout):
-        """Open a connection to this game's engine server.
-
-        Client() has no timeout and its handshake waits for as long as the
-        single-threaded server is busy, so it runs in a helper thread.
-        Raises TimeoutError when the server does not answer in *timeout*
-        seconds.
-        """
-        from multiprocessing.connection import Client
-
-        lock = threading.Lock()
-        result = {}
-
-        def connect():
-            try:
-                conn = Client(address, family='AF_INET', authkey=self.authkey)
-            except Exception as exc:
-                result['error'] = exc
-                return
-            with lock:
-                if result.get('abandoned'):
-                    conn.close()  # nobody is waiting for it any more
-                else:
-                    result['conn'] = conn
-
-        worker = threading.Thread(target=connect, daemon=True)
-        worker.start()
-        worker.join(timeout)
-        with lock:
-            if 'conn' in result:
-                return result['conn']
-            if 'error' not in result:
-                result['abandoned'] = True
-        if 'error' in result:
-            raise result['error']
-        raise TimeoutError("engine server is busy")
+    def _engine_timeout(self):
+        """Seconds a single engine request may take."""
+        return self._analysis_timeout or self.ANALYSIS_TIMEOUT_SECONDS
 
     def _call_engine(self, command):
-        """Run the C++ engine with *command* on stdin and return stdout."""
+        """Send one protocol line to this game's engine and return its reply
+        line, or None when no engine answered in time."""
         engine_path = self._resolve_engine_path()
         if not engine_path:
             return None
-
-        game_id = getattr(self, 'game_id', None)
-        if not game_id:
-            self.game_id = str(uuid.uuid4())
-            game_id = self.game_id
-
-        import tempfile
-
-        timeout_secs = getattr(
-            self, "_analysis_timeout", self.ANALYSIS_TIMEOUT_SECONDS
+        client = engine_client.EngineClient(
+            self.game_id, self.authkey,
+            self._build_engine_command(engine_path), self.ANALYSIS_TIMEOUT_SECONDS,
         )
-
-        port_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.port'
-        )
-        lock_path = os.path.join(
-            tempfile.gettempdir(), f'checkora_engine_{game_id}.lock'
-        )
-
-        def get_address():
-            if os.path.exists(port_path):
-                try:
-                    with open(port_path, 'r') as f:
-                        port = int(f.read().strip())
-                        return ('127.0.0.1', port)
-                except Exception:
-                    pass
-            return None
-
-        # Try to connect if port file exists
-        conn = None
-        server_busy = False
-        address = get_address()
-        if address:
-            try:
-                conn = self._connect(address, timeout_secs)
-            except TimeoutError:
-                # The server is there but occupied. A second one would not
-                # help; this request is answered by a one-off engine below.
-                server_busy = True
-            except Exception:
-                pass
-
-        # After a failed start, do not make every request wait for another
-        # attempt; go straight to the one-off engine for a while.
-        may_spawn = time.monotonic() >= ChessGame._persistent_retry_at
-
-        if not conn and not server_busy and may_spawn:
-            # Check for stale lock file and clean it up (5.0s TTL)
-            if os.path.exists(lock_path):
-                try:
-                    if time.time() - os.path.getmtime(lock_path) > 5.0:
-                        os.unlink(lock_path)
-                except OSError:
-                    pass
-
-            # Connection failed or not started. Attempt to acquire spawn lock.
-            lock_acquired = False
-            try:
-                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.write(fd, str(os.getpid()).encode())
-                os.close(fd)
-                lock_acquired = True
-            except OSError:
-                pass
-
-            if lock_acquired:
-                # Spawn the server in the background
-                try:
-                    server_script = os.path.join(
-                        self.ENGINE_DIR, 'persistent_server.py'
-                    )
-                    engine_cmd_json = json.dumps(
-                        self._build_engine_command(engine_path)
-                    )
-                    authkey_hex = self.authkey.hex()
-
-                    creationflags = 0
-                    if os.name == 'nt':
-                        creationflags = subprocess.CREATE_NO_WINDOW
-
-                    if os.path.exists(port_path):
-                        try:
-                            os.unlink(port_path)
-                        except OSError:
-                            pass
-
-                    # The server gives the engine as long to answer as
-                    # this side is prepared to wait.
-                    self._reap_servers()
-                    self._server_procs[game_id] = subprocess.Popen(
-                        [sys.executable, server_script, game_id,
-                         engine_cmd_json, authkey_hex,
-                         str(self.ANALYSIS_TIMEOUT_SECONDS)],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        stdin=subprocess.DEVNULL,
-                        close_fds=True,
-                        creationflags=creationflags
-                    )
-                except Exception:
-                    pass
-
-                # Poll for the port file to be created, and then connect
-                start_time = time.time()
-                backoff = 0.01
-                while time.time() - start_time < 2.0:
-                    address = get_address()
-                    if address:
-                        try:
-                            conn = self._connect(address, 2.0)
-                            break
-                        except Exception:
-                            pass
-                    time.sleep(backoff)
-                    backoff = min(backoff * 2, 0.1)
-
-                # Release the lock
-                try:
-                    os.unlink(lock_path)
-                except OSError:
-                    pass
-
-                if not conn:
-                    logger.warning(
-                        "Chess engine server did not start; using one "
-                        "engine process per request for the next %s s.",
-                        self.PERSISTENT_RETRY_SECONDS,
-                    )
-                    ChessGame._persistent_retry_at = (
-                        time.monotonic() + self.PERSISTENT_RETRY_SECONDS
-                    )
-            else:
-                # Lock is held by someone else. Wait for lock release or
-                # connection to succeed
-                start_time = time.time()
-                backoff = 0.01
-                while time.time() - start_time < 2.0:
-                    address = get_address()
-                    if address:
-                        try:
-                            conn = self._connect(address, 2.0)
-                            break
-                        except Exception:
-                            pass
-                    if not os.path.exists(lock_path):
-                        # Lock file was deleted, try connecting one last time
-                        address = get_address()
-                        if address:
-                            try:
-                                conn = self._connect(address, 2.0)
-                            except Exception:
-                                pass
-                        break
-                    time.sleep(backoff)
-                    backoff = min(backoff * 2, 0.1)
-
-        if not conn:
-            # Fallback to stateless spawning if the server failed to
-            # start or connect
-            proc = None
-            try:
-                proc = subprocess.Popen(
-                    self._build_engine_command(engine_path),
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
-                stdout, stderr = proc.communicate(
-                    input=command, timeout=timeout_secs
-                )
-                if stderr:
-                    logger.warning(
-                        "Chess engine wrote to stderr while handling %s: %s",
-                        command.split(maxsplit=1)[0] if command else "<empty>",
-                        stderr.strip(),
-                    )
-                return stdout.strip()
-            except subprocess.TimeoutExpired as exc:
-                if proc:
-                    try:
-                        proc.kill()
-                        _, stderr = proc.communicate()
-                        stderr = stderr or getattr(exc, "stderr", None)
-                        if stderr:
-                            logger.warning(
-                                "Chess engine timed out while handling %s. "
-                                "stderr: %s",
-                                command.split(maxsplit=1)[0]
-                                if command else "<empty>",
-                                stderr.strip()
-                                if isinstance(stderr, str) else stderr,
-                            )
-                    except Exception:
-                        pass
-                return None
-            except OSError as exc:
-                logger.warning(
-                    "Failed to start chess engine while handling %s: %s",
-                    command.split(maxsplit=1)[0] if command else "<empty>",
-                    exc,
-                )
-                return None
-
         try:
-            conn.send(command)
-            if conn.poll(timeout_secs):
-                return conn.recv()
-
-            # No answer in time. The server replaces a stuck engine by
-            # itself; cleanup_engine() only waits a moment for it.
-            with contextlib.suppress(OSError):
-                conn.close()
+            return client.ask(command, self._engine_timeout())
+        except engine_client.ServerTimeout as exc:
+            # The server took the request and gave no answer, not even an
+            # error. Its engine is stuck or the machine is overloaded; stop
+            # it, so that the next request starts afresh.
+            logger.warning('Chess engine server for game %s: %s', self.game_id, exc)
             self.cleanup_engine()
             return None
-        except Exception:
-            return None
-        finally:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
     def _ask_engine(self, command, prefix):
-        """Send *command* and return the reply if it starts with *prefix*.
-
-        Returns None otherwise and records the reason in
-        ``last_engine_error`` ('no_reply' or 'bad_reply').
-        """
-        resp = self._call_engine(command)
-        if not isinstance(resp, str) or not resp.strip():
-            self.last_engine_error = 'no_reply'
-            return None
-        if not resp.startswith(prefix):
-            self.last_engine_error = 'bad_reply'
-            return None
-        self.last_engine_error = None
-        return resp
+        """Send *command* and return the reply if it starts with *prefix*
+        (a string or a tuple of them), None otherwise."""
+        reply = self._call_engine(command)
+        if isinstance(reply, str) and reply.startswith(prefix):
+            return reply.strip()
+        return None
 
     def _is_attacked(self, row, col, attacker):
         """Ask the engine whether *attacker* ('white' or 'black') attacks
@@ -927,7 +556,7 @@ DP cache is intentionally excluded to save cookie space."""
         return self._get_ai_settings()['max_depth']
 
     def serialize_castling_rights(self):
-        """Serialize castling rights to a string for the C++ engine."""
+        """Castling rights as the engine reads them: "KQkq", a part, or "-"."""
         rights = ''
         if self.castling_rights['w_k']:
             rights += 'K'
@@ -940,20 +569,22 @@ DP cache is intentionally excluded to save cookie space."""
         return rights if rights else '-'
 
     def _serialize_ep(self):
-        """Serialize en passant target for the C++ engine."""
+        """En passant target square as the engine reads it."""
         if not self.en_passant_target:
             return "-1 -1"
         return f"{self.en_passant_target[0]} {self.en_passant_target[1]}"
 
     def _en_passant_key(self):
         """Return a compact en-passant key for repetition tracking."""
-        if not self._has_legal_en_passant_capture():
+        if not self._pawn_beside_en_passant_target():
             return '-'
         return f"{self.en_passant_target[0]},{self.en_passant_target[1]}"
 
-    def _has_legal_en_passant_capture(self):
-        """Return True when the side to move can
-        legally capture en passant."""
+    def _pawn_beside_en_passant_target(self):
+        """True when a pawn of the side to move stands where it could take
+        en passant. Whether the capture is legal (a pin, a check) is not
+        looked at; the engines hash positions by the same rule, so the
+        repetition keys sent to them agree with their own."""
         if not self.en_passant_target:
             return False
 
@@ -998,7 +629,7 @@ DP cache is intentionally excluded to save cookie space."""
     # ------------------------------------------------------------------
 
     def validate_move(self, fr, fc, tr, tc):
-        """Check if move is in our DP cache."""
+        """Whether the move is legal, by the engine's moves for the square."""
         moves = self.get_valid_moves(fr, fc)
         for m in moves:
             if m['row'] == tr and m['col'] == tc:
@@ -1008,7 +639,6 @@ DP cache is intentionally excluded to save cookie space."""
     def make_move(self, fr, fc, tr, tc, promotion_piece=None):
         """Execute move and invalidate cache
           to ensure fresh calculations."""
-        self.last_engine_error = None
         if self.game_status != 'active':
             return False, "Game is already over.", None, self.game_status
 
@@ -1074,7 +704,7 @@ DP cache is intentionally excluded to save cookie space."""
             elif tr == 0 and tc == 7:
                 self.castling_rights['b_k'] = False
 
-        # Pawn promotion: delegate to C++ engine for validation + board update
+        # The engine checks a promotion and returns the board after it
         promoted = False
         if self._is_promotion(piece, tr):
             # The choice comes from the client and goes into an engine
@@ -1087,11 +717,10 @@ DP cache is intentionally excluded to save cookie space."""
                 choice = 'q'
             new_board = self._call_engine_promote(fr, fc, tr, tc, choice)
             if new_board:
-                # C++ returned the updated board - apply it directly
                 self.board = self._parse_board64(new_board)
                 promoted = True
             else:
-                # Fallback: apply promotion in Python
+                # The move was found legal already; apply it here
                 self.board[tr][tc] = self._promote(piece, choice)
                 self.board[fr][fc] = None
                 promoted = True
@@ -1125,13 +754,9 @@ DP cache is intentionally excluded to save cookie space."""
             board_before, rights_before, ep_before,
             promo_char=choice if promoted else None)
 
-        # Invalidate DP cache because board state has changed
         self.valid_moves_cache = {}
 
-        # Save who made this move before switching
         moved_by = self.current_turn
-
-        # Apply increment to the player who just made the move
         is_white = self.current_turn == 'white'
         if self.increment > 0:
             if is_white:
@@ -1139,7 +764,6 @@ DP cache is intentionally excluded to save cookie space."""
             else:
                 self.black_time += self.increment
 
-        # Switch turn
         self.current_turn = 'black' if is_white else 'white'
 
         self.last_ts = time.time()
@@ -1151,9 +775,8 @@ DP cache is intentionally excluded to save cookie space."""
             self.repetition_history = [self.generate_position_key()]
             self._rebuild_repetition_counts()
         else:
-            repetition_count = self._update_repetition()
+            self._update_repetition()
 
-        # Check for checkmate / stalemate / check
         game_status = self.check_game_status()
         # STATUS decides between check and mate; replace whatever suffix
         # the notation came with instead of adding a second one.
@@ -1210,12 +833,9 @@ DP cache is intentionally excluded to save cookie space."""
         return True, notation, captured, game_status
 
     def get_valid_moves(self, row, col):
-        """Return legal moves from DP cache.
-
-        An empty list with ``last_engine_error`` set means the engine did
-        not answer, not that the piece has no moves.
-        """
-        self.last_engine_error = None
+        """The legal moves of the piece on the square, asked of the engine
+        once per square and position. Empty as well when the engine did not
+        answer; that is not remembered, so the next call asks again."""
         if not (self._on_board(row) and self._on_board(col)):
             return []
 
@@ -1223,7 +843,6 @@ DP cache is intentionally excluded to save cookie space."""
         if not piece or self._color(piece) != self.current_turn:
             return []
 
-        # On-Demand Caching: If not in DP, compute once and store
         if (row, col) not in self.valid_moves_cache:
             moves = self._get_engine_moves(row, col)
             if moves is None:
@@ -1233,9 +852,7 @@ DP cache is intentionally excluded to save cookie space."""
         return self.valid_moves_cache.get((row, col), [])
 
     def _get_engine_moves(self, row, col):
-        """Internal helper to fetch piece moves from the C++ binary.
-
-        Returns None when the engine did not answer."""
+        """The engine's MOVES for one square, or None when it did not answer."""
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
@@ -1250,8 +867,7 @@ DP cache is intentionally excluded to save cookie space."""
         moves = []
         if resp and resp.startswith("MOVES"):
             parts = resp.split()[1:]
-            # C++ returns 4 fields per move:
-            # row col is_capture is_promotion
+            # Four fields per move: row col is_capture is_promotion
             rem = len(parts) % 4
             if rem != 0:
                 logger.warning(
@@ -1275,11 +891,11 @@ DP cache is intentionally excluded to save cookie space."""
         return moves
 
     # ------------------------------------------------------------------
-    #  C++ engine promotion
+    #  Promotion
     # ------------------------------------------------------------------
 
     def _call_engine_promote(self, fr, fc, tr, tc, choice):
-        """Ask the C++ engine to validate and apply a promotion move.
+        """Ask the engine to check and apply a promotion move.
 
         Returns the new 64-char board string on success, or None.
         """
@@ -1296,7 +912,6 @@ DP cache is intentionally excluded to save cookie space."""
             parts = resp.split()
             if len(parts) > 1 and len(parts[1]) == 64:
                 return parts[1]
-            self.last_engine_error = 'bad_reply'
         return None
 
     @staticmethod
@@ -1347,9 +962,12 @@ DP cache is intentionally excluded to save cookie space."""
     def _notation(self, fr, fc, tr, tc, piece, captured,
                   board_str=None, rights_str=None,
                   ep_str=None, promo_char=None):
+        """The move in Standard Algebraic Notation, as the engine writes it.
+
+        When the engine does not answer, or finds the move illegal
+        ("NOTATION ?", which a move make_move() accepted should never
+        get), a simpler notation is built here instead.
         """
-        Generate SAN notation via C++ engine if possible,
-          else simplified fallback."""
         if promo_char:
             promo_char = (
                 promo_char.lower() if isinstance(promo_char, str) else 'q'
@@ -1367,10 +985,12 @@ DP cache is intentionally excluded to save cookie space."""
             if promo_char:
                 cmd += f" {promo_char}"
             resp = self._ask_engine(cmd, "NOTATION")
+            parts = resp.split() if resp else []
+            if len(parts) >= 2 and parts[1] != '?':
+                return parts[1]
             if resp:
-                parts = resp.split()
-                if len(parts) >= 2:
-                    return parts[1]
+                logger.warning("The engine finds the move %s,%s-%s,%s illegal on %s",
+                               fr, fc, tr, tc, board_str)
         # Castling
         if piece.lower() == 'k':
             if fc == 4 and tc == 6:
@@ -1440,11 +1060,11 @@ DP cache is intentionally excluded to save cookie space."""
     # ------------------------------------------------------------------
 
     def check_game_status(self):
-        """Ask the C++ engine for the game status of the current side.
+        """Ask the engine for the game status of the side to move.
 
         Returns one of: 'checkmate', 'stalemate', 'draw', 'check', 'ok'.
-        'ok' is also what comes back when the engine did not answer; in
-        that case ``last_engine_error`` is set.
+        'ok' is also what comes back when the engine did not answer, and
+        in_check is then cleared: a check nobody confirmed is not shown.
         """
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
@@ -1456,7 +1076,7 @@ DP cache is intentionally excluded to save cookie space."""
             if status in ('checkmate', 'stalemate', 'draw', 'check', 'ok'):
                 self.in_check = status in ('check', 'checkmate')
                 return status
-            self.last_engine_error = 'bad_reply'
+        self.in_check = False
         return 'ok'
 
     # ------------------------------------------------------------------
@@ -1465,15 +1085,21 @@ DP cache is intentionally excluded to save cookie space."""
 
     @classmethod
     def _load_opening_book(cls) -> dict:
-        """Load the opening book JSON from disk (cached after first load)."""
+        """Load the opening book JSON from disk (cached after first load).
+
+        A file that cannot be read gives an empty book for this call only:
+        the error is logged and the next call tries again, so a deploy
+        that fixes the file does not need a restart to be seen.
+        """
         if cls._opening_book is None:
             with cls._opening_book_lock:
                 if cls._opening_book is None:
                     try:
                         with open(cls.OPENING_BOOK_PATH, encoding='utf-8') as fh:
                             cls._opening_book = json.load(fh)
-                    except (OSError, json.JSONDecodeError):
-                        cls._opening_book = {}  # Graceful fallback: no book
+                    except (OSError, ValueError) as exc:
+                        logger.warning("Cannot read the opening book %s: %s", cls.OPENING_BOOK_PATH, exc)
+                        return {}
         return cls._opening_book
 
     def generate_fen_key(self) -> str:
@@ -1481,7 +1107,6 @@ DP cache is intentionally excluded to save cookie space."""
 
         This matches the key format used in ``opening_book.json``.
         """
-        # Piece-placement section
         fen_rows = []
         for row in self.board:
             empty = 0
@@ -1498,12 +1123,7 @@ DP cache is intentionally excluded to save cookie space."""
                 row_str += str(empty)
             fen_rows.append(row_str)
         placement = '/'.join(fen_rows)
-
-        # Side to move
         side = 'w' if self.current_turn == 'white' else 'b'
-
-        # Castling rights
-        # Already returns '-' if none
         castling = self.serialize_castling_rights()
 
         return f"{placement} {side} {castling}"
@@ -1512,7 +1132,6 @@ DP cache is intentionally excluded to save cookie space."""
         """Build a complete 6-field FEN string."""
         base_fen = self.generate_fen_key()
 
-        # En Passant target
         ep_str = '-'
         if self.en_passant_target:
             row, col = self.en_passant_target
@@ -1520,13 +1139,10 @@ DP cache is intentionally excluded to save cookie space."""
             rank_char = str(8 - row)
             ep_str = f"{file_char}{rank_char}"
 
-        # Halfmove clock
         halfmove = str(self.halfmove_clock)
 
-        # Fullmove clock
-        offset = 1 if getattr(self, 'initial_turn_was_black', False) else 0
-        fullmove_count = getattr(self, 'initial_fullmove', 1)
-        fullmove = str(fullmove_count + ((len(self.move_history) + offset) // 2))
+        offset = 1 if self.initial_turn_was_black else 0
+        fullmove = str(self.initial_fullmove + ((len(self.move_history) + offset) // 2))
 
         return f"{base_fen} {ep_str} {halfmove} {fullmove}"
 
@@ -1569,11 +1185,14 @@ DP cache is intentionally excluded to save cookie space."""
         return None  # No valid book move found
 
     # ------------------------------------------------------------------
-    #  AI -- Minimax via C++ engine
+    #  AI -- engine search
     # ------------------------------------------------------------------
 
-    # Max seconds for engine analysis before returning best move
+    # How long one engine request may take, unless _analysis_timeout says less
     ANALYSIS_TIMEOUT_SECONDS = 10
+    # Part of a request's timeout the search may not use: the engine may
+    # have to be started, and the reply has to come back
+    REPLY_MARGIN_MS = 500
 
     # How each level plays. The search stops at max_depth plies or when
     # time_budget_ms is used up, whichever comes first. A level marked
@@ -1591,52 +1210,55 @@ DP cache is intentionally excluded to save cookie space."""
     }
     # Depth sent for a time_only level (the engines stop at 64 anyway)
     UNLIMITED_DEPTH = 64
-    # Alternatives asked from the engine besides the best move, and how
-    # many for a level that chooses among them
+    # Alternatives asked for by an analysis, and by a level that chooses
+    # among them. Each costs about as much as the last iteration of the
+    # search, so a level that plays the best move asks for none.
     ALTERNATIVES = 3
     ERROR_ALTERNATIVES = 8
 
     def get_ai_move(self, depth=None, difficulty=None):
-        """Return the best move for the current position.
+        """Return the engine's move for the current position.
 
-        Checks the opening book first for an instant theory response.
-        Falls back to the C++ minimax engine when the position is not
-        in the book or the book move fails validation.
+        The result is a dict with from/to coordinates and what the search
+        reported, or None when there is no legal move (checkmate,
+        stalemate) or the engine did not answer; check_game_status() tells
+        those apart.
 
-        The search limits come from *difficulty* (or the game's own
-        difficulty); *depth*, when given without a difficulty, replaces the
-        depth limit, is taken as given, and switches off the deliberate
-        mistakes of the easy level.
+        A call without *depth* is a move in a game. Its limits come from
+        *difficulty*, or the game's own level; it plays from the opening
+        book while the position is in it, and asks for alternatives only
+        for a level that makes deliberate mistakes.
 
-        Returns a dict with from/to coordinates, or None when no
-        legal move exists (checkmate / stalemate). None is also returned
-        when the engine did not answer; ``last_engine_error`` tells the
-        two apart.
+        A call with *depth* and no difficulty is an analysis, as the game
+        review makes: the depth is taken as given, the book is skipped (it
+        knows no scores), no mistakes are made, and the reply carries the
+        best alternatives with scores from the same depth as the best move.
+
+        Either way the search's time budget is kept inside the time one
+        engine request may take.
         """
-        # 1. Opening-book lookup (fast path)
-        book_move = self.get_opening_book_move()
-        if book_move:
-            return book_move
+        analysis = depth is not None and difficulty not in self.DIFFICULTY_SETTINGS
+        if not analysis:
+            book_move = self.get_opening_book_move()
+            if book_move:
+                return book_move
 
-        # 2. Map difficulty settings
-        if difficulty in self.DIFFICULTY_SETTINGS:
-            cfg = self.DIFFICULTY_SETTINGS[difficulty]
-        else:
-            cfg = self._get_ai_settings()
-        max_depth = cfg['max_depth']
-        if cfg.get('time_only'):
-            max_depth = self.UNLIMITED_DEPTH
-        time_budget_ms = cfg['time_budget_ms']
+        cfg = self.DIFFICULTY_SETTINGS.get(difficulty) or self._get_ai_settings()
+        max_depth = self.UNLIMITED_DEPTH if cfg.get('time_only') else cfg['max_depth']
         error_rate = cfg.get('error_rate', 0)
-        if depth is not None and difficulty not in self.DIFFICULTY_SETTINGS:
+        if analysis:
             max_depth = max(1, int(depth))
             error_rate = 0
-        alternatives = (
-            self.ERROR_ALTERNATIVES if error_rate else self.ALTERNATIVES
-        )
+            alternatives = self.ALTERNATIVES
+        else:
+            alternatives = self.ERROR_ALTERNATIVES if error_rate else 0
+        time_budget_ms = max(1, min(
+            cfg['time_budget_ms'],
+            int(self._engine_timeout() * 1000) - self.REPLY_MARGIN_MS,
+        ))
 
-        # 3. Minimax search (slow path). The positions since the last
-        # capture or pawn move go along so the search sees repetitions.
+        # The positions since the last capture or pawn move go along so
+        # the search sees repetitions.
         board_str = self.serialize_board()
         rights_str = self.serialize_castling_rights()
         ep_str = self._serialize_ep()
@@ -1660,14 +1282,13 @@ DP cache is intentionally excluded to save cookie space."""
 
         parts = resp.split()
         if len(parts) >= 2 and parts[1] == "NONE":
-            return None  # no legal move; last_engine_error stays None
+            return None
 
         try:
             move_data = self._parse_bestmove(parts)
         except ValueError:
             move_data = None
         if move_data is None:
-            self.last_engine_error = 'bad_reply'
             return None
 
         # The engines only ever promote to a queen

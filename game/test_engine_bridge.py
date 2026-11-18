@@ -1,7 +1,9 @@
-"""Tests for the bridge between Django and the engines (game/engine.py)."""
+"""Tests for the bridge between Django and the engines (game/engine.py
+and game/engine_client.py)."""
 import json
 import os
 import shutil
+import stat
 import sys
 import tempfile
 import time
@@ -9,9 +11,10 @@ from unittest import mock
 
 from django.test import SimpleTestCase
 
+from game import engine_client
 from game.engine import ChessGame
 
-MAIN_PY = os.path.join(ChessGame.ENGINE_DIR, 'main.py')
+MAIN_PY = os.path.join(engine_client.ENGINE_DIR, 'main.py')
 
 
 class BridgeTestCase(SimpleTestCase):
@@ -20,9 +23,9 @@ class BridgeTestCase(SimpleTestCase):
 
     def setUp(self):
         for patcher in (
-            mock.patch.dict(ChessGame._engine_health),
-            mock.patch.dict(ChessGame._server_procs),
-            mock.patch.object(ChessGame, '_persistent_retry_at', 0.0),
+            mock.patch.dict(engine_client._engine_health),
+            mock.patch.dict(engine_client._server_procs),
+            mock.patch.object(engine_client, '_retry_at', 0.0),
         ):
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -76,13 +79,13 @@ class PromotionInputTest(BridgeTestCase):
         self.assertTrue(promote[0].endswith(' 1 0 0 0 q'), promote[0])
 
 
-class EngineErrorAttributeTest(BridgeTestCase):
-    """last_engine_error tells "nothing to report" from "engine silent"."""
+class SilentEngineTest(BridgeTestCase):
+    """What the bridge does when the engine gives no usable answer."""
 
-    def test_no_legal_move_is_not_an_error(self):
+    def test_no_legal_move(self):
         game = self.game('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1')   # stalemate
         self.assertIsNone(game.get_ai_move())
-        self.assertIsNone(game.last_engine_error)
+        self.assertEqual(game.check_game_status(), 'stalemate')
 
     def test_silent_engine(self):
         game = ChessGame()
@@ -90,33 +93,27 @@ class EngineErrorAttributeTest(BridgeTestCase):
         self.addCleanup(setattr, ChessGame, '_opening_book', None)
         with mock.patch.object(ChessGame, '_call_engine', return_value=None):
             self.assertIsNone(game.get_ai_move())
-            self.assertEqual(game.last_engine_error, 'no_reply')
             self.assertEqual(game.get_valid_moves(6, 4), [])
-            self.assertEqual(game.last_engine_error, 'no_reply')
             self.assertEqual(game.check_game_status(), 'ok')
-            self.assertEqual(game.last_engine_error, 'no_reply')
             ok, message, _, _ = game.make_move(6, 4, 4, 4)
             self.assertFalse(ok)
-            self.assertEqual(game.last_engine_error, 'no_reply')
 
     def test_unusable_reply(self):
         game = ChessGame()
         ChessGame._opening_book = {}
         self.addCleanup(setattr, ChessGame, '_opening_book', None)
-        for reply in ('ERROR: Engine terminated', 'BESTMOVE 9 9 9 9', 'BESTMOVE a b c d', 'BESTMOVE 6 4'):
+        for reply in ('ERROR malformed command', 'BESTMOVE 9 9 9 9', 'BESTMOVE a b c d', 'BESTMOVE 6 4'):
             with self.subTest(reply=reply), \
                     mock.patch.object(ChessGame, '_call_engine', return_value=reply):
                 self.assertIsNone(game.get_ai_move())
-                self.assertEqual(game.last_engine_error, 'bad_reply')
 
-    def test_an_answer_clears_the_error(self):
-        game = self.game()
-        game.last_engine_error = 'no_reply'
-        self.assertEqual(len(game.get_valid_moves(6, 4)), 2)
-        self.assertIsNone(game.last_engine_error)
-        game.last_engine_error = 'no_reply'
-        self.assertEqual(game.get_valid_moves(3, 3), [])   # empty square: no engine call
-        self.assertIsNone(game.last_engine_error)
+    def test_a_check_nobody_confirmed_is_not_shown(self):
+        game = self.game('4k3/8/8/8/7b/8/8/4K2R w K - 0 1')
+        self.assertTrue(game.in_check)
+        with mock.patch.object(ChessGame, '_call_engine', return_value=None):
+            self.assertEqual(game.check_game_status(), 'ok')
+        self.assertFalse(game.in_check)
+        self.assertEqual(game.display_status, 'active')
 
     def test_a_failed_answer_is_not_cached(self):
         game = self.game()
@@ -124,11 +121,34 @@ class EngineErrorAttributeTest(BridgeTestCase):
             self.assertEqual(game.get_valid_moves(6, 4), [])
         self.assertEqual(len(game.get_valid_moves(6, 4)), 2)
 
-    def test_not_stored_in_the_session(self):
-        game = ChessGame()
-        game.last_engine_error = 'no_reply'
-        self.assertNotIn('last_engine_error', game.to_dict())
-        self.assertIsNone(ChessGame.from_dict(game.to_dict()).last_engine_error)
+    def test_server_errors_are_no_answer(self):
+        """The server's own ERROR: replies say the engine gave none."""
+        class Connection:
+            def __init__(self, reply):
+                self.reply = reply
+
+            def send(self, line):
+                pass
+
+            def poll(self, timeout):
+                return True
+
+            def recv(self):
+                return self.reply
+
+            def close(self):
+                pass
+
+        client = engine_client.EngineClient('no-such-game', b'key', [sys.executable, MAIN_PY], 1)
+        for reply in ('ERROR: Engine timed out', 'ERROR: Engine terminated'):
+            with self.subTest(reply=reply), \
+                    mock.patch.object(client, '_server_address', return_value=('127.0.0.1', 1)), \
+                    mock.patch.object(engine_client, 'connect', return_value=Connection(reply)), \
+                    self.assertLogs('game.engine_client', level='WARNING'):
+                self.assertIsNone(client.ask('STATUS x', 1))
+        with mock.patch.object(client, '_server_address', return_value=('127.0.0.1', 1)), \
+                mock.patch.object(engine_client, 'connect', return_value=Connection('STATUS OK')):
+            self.assertEqual(client.ask('STATUS x', 1), 'STATUS OK')
 
 
 class CoordinateTest(BridgeTestCase):
@@ -173,6 +193,29 @@ class FromFenTest(BridgeTestCase):
         # the same position with Black to move is a normal check
         game = self.game('4k3/4Q3/8/8/8/8/8/4K3 b - - 0 1')
         self.assertEqual(game.check_game_status(), 'check')
+
+    def test_pieces_no_game_can_arrive_at(self):
+        cases = {
+            # 31 queens: a board the C++ engine used to crash on
+            'kpQQQQQQ/ppQ4Q/QQ5Q/Q6Q/Q6Q/Q6Q/Q6Q/QQQQQQQK w - - 0 1': 'more than 16 pieces',
+            '4k3/pppppppp/p7/8/8/8/8/4K3 w - - 0 1': 'more than 8 pawns',
+            '4k3/8/8/8/8/8/8/P3K3 w - - 0 1': 'first or last rank',
+            'p3k3/8/8/8/8/8/8/4K3 w - - 0 1': 'first or last rank',
+            '4k3/8/8/8/8/8/PPPPPPPP/QQ2K3 w - - 0 1': 'promoted pieces',
+            '4k3/8/8/8/8/8/PPPPPPPP/RRR1K3 w - - 0 1': 'promoted pieces',
+            '4k3/8/8/8/8/8/PPPPPPPP/B1B1K3 w - - 0 1': 'promoted pieces',   # both bishops on dark squares
+            'nnn1k3/pppppppp/8/8/8/8/8/4K3 w - - 0 1': 'promoted pieces',
+        }
+        for fen, reason in cases.items():
+            with self.subTest(fen=fen), self.assertRaisesMessage(ValueError, reason):
+                ChessGame.from_fen(fen)
+        for fen in (
+            '4k3/8/8/8/8/8/1PPPPPPP/QQ2K3 w - - 0 1',     # one pawn has promoted
+            '4k3/8/8/8/8/8/PPPPPPPP/2B1KB2 w - - 0 1',    # bishops on both colours
+            'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        ):
+            with self.subTest(fen=fen):
+                self.game(fen)
 
 
 class LoadedPositionStatusTest(BridgeTestCase):
@@ -242,6 +285,17 @@ class NotationTest(BridgeTestCase):
             _, notation, _, status = game.make_move(7, 6, 5, 5)
         self.assertEqual((notation, status), ('Nf3#', 'checkmate'))
 
+    def test_engine_that_finds_the_move_illegal(self):
+        """"NOTATION ?" is no notation: the move is written here instead."""
+        game = ChessGame()
+        replies = {'NOTATION': 'NOTATION ?', 'STATUS': 'STATUS OK'}
+        with mock.patch.object(ChessGame, 'validate_move', return_value=(True, 'ok')), \
+                mock.patch.object(ChessGame, '_call_engine',
+                                  side_effect=lambda cmd: replies.get(cmd.split()[0])), \
+                self.assertLogs('game.engine', level='WARNING'):
+            ok, notation, _, _ = game.make_move(7, 6, 5, 5)
+        self.assertEqual((ok, notation), (True, 'Nf3'))
+
 
 class AiMoveCommandTest(BridgeTestCase):
     """What get_ai_move() asks the engine for at each level."""
@@ -261,10 +315,11 @@ class AiMoveCommandTest(BridgeTestCase):
 
     def test_levels(self):
         expected = {
-            # level: depth, time limit, alternatives
+            # level: depth, time limit, alternatives (only the level that
+            # picks among them asks for any)
             'easy': ('2', '500', '8'),
-            'medium': ('4', '1500', '3'),
-            'hard': ('64', '4000', '3'),
+            'medium': ('4', '1500', '0'),
+            'hard': ('64', '4000', '0'),
         }
         for level, (depth, limit, alternatives) in expected.items():
             with self.subTest(level=level):
@@ -280,6 +335,26 @@ class AiMoveCommandTest(BridgeTestCase):
         for depth in (1, 2, 3, 5):
             self.assertEqual(self.command(game, depth=depth)[6], str(depth))
         self.assertEqual(self.command(game, depth=0)[6], '1')
+
+    def test_analysis_asks_for_alternatives_and_skips_the_book(self):
+        ChessGame._opening_book = None   # the real book: the start position is in it
+        self.addCleanup(setattr, ChessGame, '_opening_book', None)
+        sent = []
+        with mock.patch.object(ChessGame, '_call_engine', side_effect=lambda cmd: sent.append(cmd)):
+            ChessGame().get_ai_move(depth=4)
+        # a book move would have been checked with MOVES first
+        self.assertEqual([cmd.split()[0] for cmd in sent], ['BESTMOVE'])
+        tokens = sent[0].split()
+        self.assertEqual((tokens[6], tokens[9]), ('4', str(ChessGame.ALTERNATIVES)))
+
+    def test_time_budget_fits_the_request_timeout(self):
+        game = self.new_game('hard')
+        game._analysis_timeout = 1.5
+        self.assertEqual(self.command(game)[7], str(1500 - ChessGame.REPLY_MARGIN_MS))
+        game._analysis_timeout = 0.2
+        self.assertEqual(self.command(game)[7], '1')      # never 0, which means no limit
+        game._analysis_timeout = None
+        self.assertEqual(self.command(game)[7], '4000')
 
     def test_clock_and_earlier_positions_are_sent(self):
         game = self.new_game('medium')
@@ -366,13 +441,13 @@ class EngineChoiceTest(BridgeTestCase):
         binary = os.path.join(folder, 'main')
         with open(binary, 'w') as handle:
             handle.write(script)
-        os.chmod(binary, 0o755)
+        os.chmod(binary, stat.S_IRWXU)
         self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
         return [binary, MAIN_PY]
 
     def resolve(self, script):
         with mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', self.candidates(script)), \
-                self.assertLogs('game.engine', level='WARNING'):
+                self.assertLogs('game.engine_client', level='WARNING'):
             return ChessGame._resolve_engine_path()
 
     def test_file_that_is_not_a_program(self):
@@ -387,25 +462,24 @@ class EngineChoiceTest(BridgeTestCase):
         if os.name == 'nt':
             self.skipTest('needs a shell script')
         candidates = self.candidates(
-            f'#!/bin/sh\nread line\necho "VERSION {ChessGame.PROTOCOL_VERSION}"\n')
+            f'#!/bin/sh\nread line\necho "VERSION {engine_client.PROTOCOL_VERSION}"\n')
         with mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates):
             self.assertEqual(ChessGame._resolve_engine_path(), candidates[0])
 
     def test_not_executable(self):
         if os.name == 'nt':
             self.skipTest('every file is executable on Windows')
-        candidates = self.candidates('#!/bin/sh\necho "VERSION 2"\n')
-        os.chmod(candidates[0], 0o644)
+        candidates = self.candidates(f'#!/bin/sh\necho "VERSION {engine_client.PROTOCOL_VERSION}"\n')
+        os.chmod(candidates[0], stat.S_IRUSR | stat.S_IWUSR)
         with mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', candidates), \
-                self.assertLogs('game.engine', level='WARNING'):
+                self.assertLogs('game.engine_client', level='WARNING'):
             self.assertEqual(ChessGame._resolve_engine_path(), MAIN_PY)
 
     def test_the_game_is_playable_with_a_broken_binary(self):
         with mock.patch.object(ChessGame, 'ENGINE_CANDIDATES', self.candidates('garbage\n')), \
-                self.assertLogs('game.engine', level='WARNING'):
+                self.assertLogs('game.engine_client', level='WARNING'):
             game = self.game()
             self.assertEqual(game.make_move(6, 4, 4, 4)[:2], (True, 'e4'))
-            self.assertIsNone(game.last_engine_error)
 
 
 class EngineServerTest(BridgeTestCase):
@@ -422,38 +496,38 @@ class EngineServerTest(BridgeTestCase):
         game = self.game()
         with mock.patch.object(ChessGame, '_resolve_engine_path', return_value=MAIN_PY), \
                 mock.patch.object(ChessGame, '_build_engine_command', return_value=self.silent_engine()), \
-                mock.patch.object(ChessGame, 'ANALYSIS_TIMEOUT_SECONDS', 1):
-            started = time.time()
+                mock.patch.object(ChessGame, 'ANALYSIS_TIMEOUT_SECONDS', 1), \
+                self.assertLogs('game', level='WARNING'):
+            started = time.monotonic()
             self.assertEqual(game.check_game_status(), 'ok')
-            self.assertEqual(game.last_engine_error, 'no_reply')
             # and again: the first failure must not leave anything stuck
             self.assertEqual(game.get_valid_moves(6, 4), [])
-            self.assertLess(time.time() - started, 15)
+            self.assertLess(time.monotonic() - started, 15)
 
     def test_server_exits_when_the_game_ends(self):
         game = self.game()
         self.assertEqual(game.check_game_status(), 'ok')
-        pid_file = os.path.join(tempfile.gettempdir(), f'checkora_engine_{game.game_id}.pid')
-        self.assertTrue(os.path.exists(pid_file))
-        proc = ChessGame._server_procs[game.game_id]
+        port_file = os.path.join(tempfile.gettempdir(), f'checkora_engine_{game.game_id}.port')
+        self.assertTrue(os.path.exists(port_file))
+        proc = engine_client._server_procs[game.game_id]
         game.cleanup_engine()
-        self.assertFalse(os.path.exists(pid_file))
+        self.assertFalse(os.path.exists(port_file))
         self.assertIsNotNone(proc.poll())            # reaped, not left as a zombie
-        self.assertNotIn(game.game_id, ChessGame._server_procs)
+        self.assertNotIn(game.game_id, engine_client._server_procs)
 
     def test_failed_start_is_remembered(self):
         game = self.game()
-        missing = os.path.join(tempfile.gettempdir(), 'no_such_engine_dir')
-        with mock.patch.object(ChessGame, 'ENGINE_DIR', missing), \
+        missing = os.path.join(tempfile.gettempdir(), 'no_such_engine_dir', 'persistent_server.py')
+        popen = mock.Mock(wraps=engine_client.subprocess.Popen)
+        with mock.patch.object(engine_client, 'SERVER_SCRIPT', missing), \
+                mock.patch.object(engine_client.subprocess, 'Popen', popen), \
                 mock.patch.object(ChessGame, '_resolve_engine_path', return_value=MAIN_PY), \
-                self.assertLogs('game.engine', level='WARNING'):
-            started = time.time()
+                self.assertLogs('game.engine_client', level='WARNING'):
             self.assertEqual(game.check_game_status(), 'ok')     # answered by a one-off engine
-            first = time.time() - started
-            started = time.time()
             self.assertEqual(game.check_game_status(), 'ok')
             self.assertEqual(len(game.get_valid_moves(6, 4)), 2)
-            self.assertLess(time.time() - started, first)        # no second wait for a server
+        server_starts = [call for call in popen.call_args_list if missing in call.args[0]]
+        self.assertEqual(len(server_starts), 1)                  # no second attempt
 
 
 class OpeningBookFileTest(SimpleTestCase):
