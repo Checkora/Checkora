@@ -17,6 +17,9 @@ ChessGame Manager (game/engine.py)
 |---> Opening Book (engine/opening_book.json)
 |
 v
+Engine client (game/engine_client.py)
+|
+v
 Engine server, one per game (engine/persistent_server.py)
 |
 v
@@ -29,40 +32,37 @@ Python Engine (engine/main.py)
 
 The engine reads commands on **stdin** and writes replies on **stdout**: one command per line, exactly one reply line per command.
 
-`ChessGame._call_engine()` in `game/engine.py` does not start a new process for every command. For each game it starts `game/engine/persistent_server.py`, which keeps one engine process running and listens on a loopback port that the operating system picks. The port number is written to `checkora_engine_<game_id>.port` in the temp directory, and the connection is authenticated with a key stored with the game.
+`ChessGame._call_engine()` in `game/engine.py` builds the command line and hands it to `EngineClient` in `game/engine_client.py`, which owns finding, starting and talking to the engine. It does not start a new process for every command. For each game it starts `game/engine/persistent_server.py`, which keeps one engine process running and listens on a loopback port that the operating system picks. The port number is written to `checkora_engine_<game_id>.port` in the temp directory, and a lock file next to it makes sure only one request per game starts a server. The connection is authenticated with a key stored with the game, which reaches the server in the `CHECKORA_ENGINE_AUTHKEY` environment variable rather than on its command line.
 
-- The server exits after 60 seconds without a request, and when the game ends (`ChessGame.cleanup_engine()` sends it `SHUTDOWN`).
+- The server exits after 60 seconds without a request, and when the game ends (`ChessGame.cleanup_engine()` sends it `SHUTDOWN`). On the way out it removes the port file only if the file still names its own port, so an old server never deletes a newer one's.
 - If the engine process dies, or does not answer in time, the server starts a new one.
-- If the server cannot be started or is busy, the command is answered by a one-off engine process instead:
+- If a server takes a request and gives no answer at all, the bridge stops that server, so the next request starts afresh.
+- If the server cannot be started or is busy, the command is answered by a one-off engine process instead (`EngineClient._ask_one_off()`):
 
 ```python
 proc = subprocess.Popen(
-    self._build_engine_command(engine_path),
-    stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    text=True,
+    self.engine_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE, text=True,
 )
-stdout, stderr = proc.communicate(input=command, timeout=timeout_secs)
+stdout, stderr = proc.communicate(input=line + '\n', timeout=timeout)
 ```
 
-The bridge waits `ANALYSIS_TIMEOUT_SECONDS` (10) for a reply. After a server has failed to start, no new one is tried for `PERSISTENT_RETRY_SECONDS` (60); the one-off process is used in the meantime.
+The bridge waits `ANALYSIS_TIMEOUT_SECONDS` (10) for a reply. A new server gets `SERVER_START_SECONDS` (2) to come up. After a server has failed to start, no new one is tried for `RETRY_SECONDS` (60) in `engine_client.py`; the one-off process is used in the meantime.
 
 ## Command Protocol
 
-This is version 2 of the protocol. The header comments of `main.cpp` and `main.py` are the reference; `PROTOCOL_VERSION` in both files and in `ChessGame` must agree.
+This is version 2 of the protocol. The header comments of `main.cpp` and `main.py` are the reference; `PROTOCOL_VERSION` in both files and in `game/engine_client.py` must agree.
 
 `<board>` is the 64-character board, `<castling>` a subset of `KQkq` or `-`, `<turn>` is `white` or `black`, and `<ep>` is the row and column of the en passant target square, or `-1 -1`.
 
 | Command | Purpose | Example |
 |---------|---------|---------|
 | `VERSION` | Ask for the protocol version | `VERSION` → `VERSION 2` |
-| `VALIDATE` | Check one move | `VALIDATE <board> <castling> <turn> <ep> <fr> <fc> <tr> <tc>` → `VALID` or `INVALID <reason>` |
 | `MOVES` | Get valid moves for a piece | `MOVES <board> <castling> <turn> <ep> <row> <col>` → `MOVES [<row> <col> <is_capture> <is_promotion> ...]` |
 | `ATTACKED` | Is a square attacked by one colour | `ATTACKED <board> <castling> <attacker> <row> <col>` → `YES` or `NO` |
 | `PROMOTE` | Handle pawn promotion | `PROMOTE <board> <castling> <turn> <ep> <fr> <fc> <tr> <tc> [piece]` → `PROMOTE <new board>` or `INVALID <reason>` |
 | `STATUS` | Get game status | `STATUS <board> <castling> <turn> <ep>` → `STATUS CHECK`, `CHECKMATE`, `STALEMATE`, `DRAW` or `OK` |
-| `NOTATION` | Generate SAN notation | `NOTATION <board> <castling> <turn> <ep> <fr> <fc> <tr> <tc> [piece]` → `NOTATION <san>` |
+| `NOTATION` | Generate SAN notation | `NOTATION <board> <castling> <turn> <ep> <fr> <fc> <tr> <tc> [piece]` → `NOTATION <san>`, or `NOTATION ?` when the move is not legal |
 | `EVAL` | Static evaluation of a position | `EVAL <board> <castling> <turn> <ep>` → `EVAL <centipawns>`, positive is good for White |
 | `PERFT` | Count the leaf positions at a depth, for testing move generation | `PERFT <board> <castling> <turn> <ep> <depth>` → `PERFT <leaf nodes>` |
 | `BESTMOVE` | Get AI best move | `BESTMOVE <board> <castling> <turn> <ep> <depth> [time_limit_ms [halfmove_clock [alternatives [earlier positions...]]]]` |
@@ -73,7 +73,9 @@ Notes:
 - `STATUS DRAW` means legal moves exist but neither side has the material to mate.
 - `PERFT` is capped at depth 6.
 - A line that cannot be parsed is answered with `ERROR <reason>`.
-- The earlier positions after `BESTMOVE` come in groups of four tokens: FEN piece placement, `w` or `b`, castling rights, and the en passant square as `row,col` or `-`. They are the positions of the game since the last capture or pawn move, and they let the search see repetitions. `ChessGame.get_ai_move()` sends up to 100 of them, together with the game's halfmove clock.
+- The earlier positions after `BESTMOVE` come in groups of four tokens: FEN piece placement, `w` or `b`, castling rights, and the en passant square as `row,col` or `-`. They are the positions of the game since the last capture or pawn move, and they let the search see repetitions. `ChessGame.get_ai_move()` sends up to 100 of them, together with the game's halfmove clock. A position the search reaches again counts as a draw when its earlier occurrence is on the line being searched, or when it occurred twice before in the game.
+- `alternatives` after `BESTMOVE` defaults to 0. The game analysis asks for 3 and the `easy` level for 8; the other levels ask for none.
+- `EVAL` and `PERFT` are not used by the web app. The tests use them.
 
 The reply to `BESTMOVE` is described under Engine Metrics below.
 
@@ -114,10 +116,15 @@ return best score
 
 What the search does, in `search()` and `quiesce()` of both files:
 
-- **Quiescence search**: when the depth is used up, captures and promotions are played out (and every reply to a check) until the position is quiet, so the evaluation is never taken in the middle of an exchange.
-- **Move ordering**: the move remembered in the transposition table first, then captures (most valuable victim first, with a static exchange evaluation to put losing captures last), then two killer moves per ply, then the history score of quiet moves.
+- **Quiescence search**: when the depth is used up, captures and promotions are played out (and every reply to a check) until the position is quiet, so the evaluation is never taken in the middle of an exchange. Captures that lose material by static exchange evaluation are skipped, and so is a capture that cannot bring the score up to alpha even with 200 centipawns to spare (delta pruning).
+- **Move ordering**: the move remembered in the transposition table first, then captures (most valuable victim first, with a static exchange evaluation to put losing captures last), then two killer moves per ply, then the history score of quiet moves (raised by the square of the depth each time a quiet move causes a cut-off).
 - **Check extension**: a position in check is searched one ply deeper.
-- **Pruning and reductions**: null move pruning (not when the side to move has only pawns), reverse futility and futility pruning close to the horizon, and late move reductions for quiet moves ordered far back.
+- **Mate distance pruning**: a line cannot score better than a mate already found closer to the root.
+- **Pruning and reductions**, none of them in check. The first three are used only outside the principal variation:
+  - reverse futility pruning: up to 3 plies from the horizon, a node whose static evaluation beats beta by at least 120 centipawns a ply returns at once;
+  - null move pruning from depth 3, searched `2 + depth / 4` plies shallower, not when the side to move has only pawns;
+  - futility pruning: up to 2 plies from the horizon, a quiet move that does not give check is skipped when the static evaluation is at least 100 plus 100 a ply below alpha;
+  - late move reductions: from depth 3, quiet moves that do not give check, after the first 3 (5 on the principal variation), are searched `0.75 + ln(depth) * ln(move number) / 2.25` plies shallower (one ply less on the principal variation) and searched again at full depth if they beat alpha.
 - **Draws**: a repeated position, a position where neither side can mate, and the fifty-move rule are scored as draws inside the search.
 - **Promotions**: the search looks at queen and knight promotions. The move it returns always promotes to a queen.
 
@@ -128,12 +135,17 @@ The bridge sets the limits of the search from `DIFFICULTY_SETTINGS` in `game/eng
 | Level | Depth limit (plies) | Time limit | Notes |
 |-------|---------------------|------------|-------|
 | `easy` | 2 | 500 ms | Makes deliberate mistakes, see below |
-| `medium` | 4 | 1500 ms | |
-| `hard` | none (64 is sent) | 4000 ms | Keeps deepening until the time is used |
+| `medium` | 6 | 1500 ms | |
+| `hard` | none (64 is sent) | 5000 ms | Keeps deepening until the time is used |
+| `master` | none (64 is sent) | 8500 ms | Keeps deepening until the time is used |
 
 Both engines get the same limits. Where the time limit is what stops the search, the Python engine has reached a lower depth by then.
 
-`easy` is made beatable in `ChessGame._play_weaker()`. The engine is asked for 8 alternatives to its best move instead of 3. In about half of its moves (`error_rate` 0.5) the bridge plays one of those alternatives instead, chosen at random among the ones the engine scores no more than 900 centipawns (`error_max_loss`) below the best move.
+The time limit sent is the smallest of three: the level's own, the request timeout less 500 ms (`REPLY_MARGIN_MS`), and what the game clock allows. `ChessGame._clock_budget_ms()` gives the side to move a thirtieth of the time left on its clock (`CLOCK_MOVES_LEFT`) plus three quarters of the increment, and never less than 100 ms. A game without a clock has no such cap. That way `hard` and `master` can still finish a blitz game.
+
+For `hard` and `master` the `max_depth` in `DIFFICULTY_SETTINGS` (10 and 14) is not sent. They are marked `time_only`, so the bridge sends 64 and only the time stops them; `max_depth` is the depth they are expected to pass.
+
+`easy` is made beatable in `ChessGame._play_weaker()`. The engine is asked for 8 alternatives to its best move; the other levels ask for none. In about half of its moves (`error_rate` 0.5) the bridge plays one of those alternatives instead, chosen at random among the ones the engine scores no more than 900 centipawns (`error_max_loss`) below the best move.
 
 An unknown difficulty is treated as `medium`. `get_ai_move(depth=N)` without a difficulty uses `N` as the depth limit and never plays a weaker move on purpose; the game analysis view calls it this way.
 
@@ -144,14 +156,26 @@ An unknown difficulty is treated as `medium`. `get_ai_move(depth=N)` without a d
 - material and piece-square tables, with separate middlegame and endgame values (pawn 100/120, knight 320/310, bishop 330/330, rook 500/520, queen 900/940)
 - the bishop pair
 - mobility of knights, bishops, rooks and queens
-- pawn structure: doubled, isolated and passed pawns
+- pawn structure: doubled, isolated and passed pawns. In the endgame a passed pawn is worth more the farther the enemy king is from the square in front of it and the nearer its own king is, the more so the farther the pawn has come.
 - rooks on open and half-open files, and on the seventh rank when the enemy king is on the eighth
 - the pawn shelter in front of a king that is still on its two home rows
+- the king attack, in the middlegame: every square next to a king (or under it) that an enemy knight, bishop, rook or queen attacks counts 2, 2, 3 or 5 units. Once at least two pieces take part, the king's side loses `units * units / 4` centipawns, at most 500. The penalty grows faster than the number of attackers.
 - a small bonus for the side to move
 
 The middlegame and endgame scores are blended by the material left on the board. A few endgame rules sit on top: a position neither side can win on material scores 0, two knights against a bare king score 0, a small material lead without pawns is scaled down, and with a winning lead against a nearly bare king the score rewards driving that king to the edge.
 
-`EvaluationTest` in `game/test_engine_rules.py` checks that both engines give the same score for the same position.
+`EvaluationTest` in `game/test_engine_rules.py` checks that both engines give the same score for the same position. `game/test_engine_evaluation.py` checks the king attack and the passed pawn term on positions built for them, and on the positions of seeded random games that both engines agree and that swapping the colours negates the score.
+
+## Measuring Strength
+
+`scripts/engine_match.py` plays two engine builds against each other and prints the result with an Elo difference and its 95% interval. The games come in pairs from the same opening with the colours swapped; the openings are seeded random lines that the second engine scores as level, or lines from a file. A change to the search or the evaluation should beat the build it started from before it is kept:
+
+```bash
+g++ -O2 -std=c++17 game/engine/main.cpp -o /tmp/new
+.venv/bin/python scripts/engine_match.py /tmp/new /tmp/old --games 400 --movetime 50
+```
+
+With `--level1` and `--level2` the two sides play as levels of the site, with the limits and deliberate mistakes of `DIFFICULTY_SETTINGS`; `--time-scale` multiplies every level's time by the same factor. The script needs python-chess, from `requirements-dev.txt`, and its docstring lists the other options. The engine ratings in `game/progression.py` (easy 450, medium 1200, hard 1850, master 2000) put medium at the starting rating of a player; the gaps between the levels come from matches between them played this way.
 
 ## Opening Book
 
@@ -188,7 +212,7 @@ When a position has several book moves, one is picked at random, and it is check
 
 ## Engine Fallback
 
-`ChessGame._resolve_engine_path()` goes through `main` and `main.exe` in `game/engine/` and then `main.py`. A compiled binary is used only if it is executable and answers `VERSION` with `VERSION 2`; the check is made once per process. A binary that cannot run on this machine or was built from older sources is skipped with a warning in the log. When no binary is usable, or none exists, the Python engine (`main.py`) plays.
+`ChessGame._resolve_engine_path()` calls `resolve_engine_path()` in `game/engine_client.py`, which goes through `main` and `main.exe` in `game/engine/` (`main.exe` first on Windows) and then `main.py`. A compiled binary is used only if it is executable and answers `VERSION` with `VERSION 2`; the check is made once per process. A binary that cannot run on this machine or was built from older sources is skipped with a warning in the log. When no binary is usable, or none exists, the Python engine (`main.py`) plays.
 
 The binary is not committed, so it has to be rebuilt after every pull that changes `main.cpp`:
 
@@ -204,13 +228,13 @@ The engine search is a time-bounded iterative deepening search:
 - The search starts at depth 1, then depth 2, depth 3, etc., up to the maximum depth allowed by the difficulty level.
 - At the start of each depth iteration, the best move found from the previous depth is ordered first to maximize Alpha-Beta pruning.
 - From depth 4 on, each iteration first searches a narrow window around the previous score and widens it if the score falls outside.
-- A clock is checked periodically during search. If the time budget expires, the search is aborted immediately, and the best move from the last fully completed depth is returned.
-- A new iteration is not started when it could not finish in the time that is left, and a tenth of the time limit is left unused so the reply is on time.
+- A clock is checked periodically during search. If the time budget expires, the search is aborted immediately. The reply is the best move of the last fully completed depth, unless the unfinished iteration had already searched a move to its full depth that beat the earlier best move; then that move is played, with its score. `DEPTH` still reports the last completed depth. When alternatives were asked for, the reply always stays with the completed depth, so that their scores compare with the best move's.
+- A new iteration is not started when it could not finish in the time that is left, and a tenth of the time limit is left unused so the reply is on time. When alternatives are asked for, the main search takes only half of the rest and leaves the other half for scoring them.
 
 ## Transposition Table (TT)
 
 A Transposition Table is used to store previously searched positions to avoid redundant calculations:
-- **Size**: in `main.cpp`, $2^{19}$ slots (524,288) with two entries each. `main.py` uses a dictionary.
+- **Size**: $2^{19}$ slots (524,288) with two entries each, in both engines (`main.py` keeps them in a list), so that both search the same tree.
 - **Replacement Strategy**: the first entry of a slot keeps the deepest search stored there; the second is always replaced.
 - **Fields stored**: 64-bit board hash, search depth, evaluation score, best move, and bound type (exact, lower bound, upper bound).
 - **TT Move Ordering**: Stored best moves are tried first at any node, greatly speeding up Alpha-Beta cut-offs.

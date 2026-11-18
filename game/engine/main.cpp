@@ -297,6 +297,11 @@ static const int ISOLATED_MG = 12, ISOLATED_EG = 14;
 // Passed pawn bonus by how far the pawn has come (index 1 = still at home)
 static const int PASSED_MG[8] = {0, 0, 5, 10, 20, 35, 60, 0};
 static const int PASSED_EG[8] = {0, 5, 10, 20, 40, 70, 120, 0};
+// In the endgame the kings decide whether a passed pawn gets through: per
+// step the pawn has taken past its second row, this much per square that
+// the enemy king is away from the square in front of it, and less this
+// much per square that our own king is
+static const int PASSER_ENEMY_KING = 4, PASSER_OWN_KING = 2;
 static const int MOBILITY_BASE[6] = {0, 4, 6, 7, 13, 0};
 static const int MOBILITY_MG[6] = {0, 4, 5, 2, 1, 0};
 static const int MOBILITY_EG[6] = {0, 4, 5, 4, 2, 0};
@@ -305,6 +310,14 @@ static const int ROOK_SEMI_MG = 10, ROOK_SEMI_EG = 5;
 static const int ROOK_SEVENTH_MG = 15, ROOK_SEVENTH_EG = 25;
 static const int SHIELD_NEAR = 12, SHIELD_FAR = 6, SHIELD_MISSING = 10, KING_OPEN_FILE = 15;
 static const int TEMPO = 10;
+// King attack: every square next to the king (or the king's own) that an
+// enemy piece attacks counts that piece's weight. Once two pieces or more
+// take part, the king's side loses units * units / KING_ATTACK_DIVISOR in
+// the middlegame, at most KING_ATTACK_MAX: a lone attacker is seldom a
+// threat, and each one that joins makes the others more dangerous.
+static const int KING_ATTACK_WEIGHT[6] = {0, 2, 2, 3, 5, 0};
+static const int KING_ATTACK_MIN_ATTACKERS = 2;
+static const int KING_ATTACK_DIVISOR = 4, KING_ATTACK_MAX = 500;
 
 // pstMg/pstEg[piece][sq120]: material + table value, signed for the colour
 static int pstMg[13][120], pstEg[13][120];
@@ -820,6 +833,11 @@ static uint64_t perft(int depth) {
 //  Static evaluation
 // ============================================================
 
+/** King moves from one square to another, 0 to 7. */
+static inline int kingDistance(int a, int b) {
+    return max(abs(rowOf(a) - rowOf(b)), abs(colOf(a) - colOf(b)));
+}
+
 /** Distance of a square from the four centre squares, 0 to 6. */
 static inline int centreDistance(int sq) {
     int r = rowOf(sq), c = colOf(sq);
@@ -831,10 +849,12 @@ static inline int centreDistance(int sq) {
  * Positive => white advantage, negative => black advantage.
  *
  * Material and piece-square tables (kept incrementally), bishop pair,
- * mobility, pawn structure (doubled, isolated, passed), rooks on open
- * files and on the seventh rank, pawn shelter of the king, and for bare
- * endgames a term that drives the losing king to the edge. Middlegame and
- * endgame scores are blended by the material left on the board.
+ * mobility, pawn structure (doubled, isolated, passed, and how near the
+ * kings are to a passed pawn's path), rooks on open files and on the
+ * seventh rank, pawn shelter of the king, pieces attacking the squares
+ * around the enemy king, and for bare endgames a term that drives the
+ * losing king to the edge. Middlegame and endgame scores are blended by
+ * the material left on the board.
  */
 static int evaluate() {
     if (isInsufficientMaterial()) return 0;
@@ -861,6 +881,17 @@ static int evaluate() {
         }
     }
 
+    // kingZone[s][sq]: sq is the square of the king of colour s or one
+    // next to it
+    bool kingZone[2][120] = {{false}, {false}};
+    for (int s = 0; s < 2; s++) {
+        if (!kingSq[s]) continue;
+        kingZone[s][kingSq[s]] = true;
+        for (int d : KING_DIRS)
+            if (board[kingSq[s] + d] != OFFBOARD) kingZone[s][kingSq[s] + d] = true;
+    }
+    int attackUnits[2] = {0, 0}, attackers[2] = {0, 0};  // by the attacking colour
+
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
             int sq = SQ(r, c);
@@ -886,7 +917,15 @@ static int evaluate() {
                     passed = whiteRear[f - 1] <= r && whiteRear[f] <= r && whiteRear[f + 1] <= r;
                     advance = r;
                 }
-                if (passed) { mg += sign * PASSED_MG[advance]; eg += sign * PASSED_EG[advance]; }
+                if (passed) {
+                    mg += sign * PASSED_MG[advance];
+                    eg += sign * PASSED_EG[advance];
+                    if (kingSq[WHITE] && kingSq[BLACK]) {
+                        int front = sq + (us == WHITE ? -10 : 10);
+                        eg += sign * (advance - 1) * (PASSER_ENEMY_KING * kingDistance(kingSq[them], front) -
+                                                      PASSER_OWN_KING * kingDistance(kingSq[us], front));
+                    }
+                }
                 continue;
             }
 
@@ -911,12 +950,16 @@ static int evaluate() {
                 continue;
             }
 
-            // Mobility: squares the piece can move to
-            int mobility = 0;
+            // Mobility: squares the piece can move to. Squares it attacks
+            // around the enemy king count for the king attack, whoever
+            // stands on them.
+            int mobility = 0, zoneAttacks = 0;
+            const bool *zone = kingZone[them];
             if (type == KNIGHT) {
                 for (int d : KNIGHT_DIRS) {
                     int t = board[sq + d];
                     if (t == EMPTY || (t != OFFBOARD && colorOf(t) == them)) mobility++;
+                    if (zone[sq + d]) zoneAttacks++;
                 }
             } else {
                 int count;
@@ -924,12 +967,23 @@ static int evaluate() {
                 for (int i = 0; i < count; i++) {
                     int d = dirs[i];
                     int t = sq + d;
-                    while (board[t] == EMPTY) { mobility++; t += d; }
-                    if (board[t] != OFFBOARD && colorOf(board[t]) == them) mobility++;
+                    while (board[t] == EMPTY) {
+                        mobility++;
+                        if (zone[t]) zoneAttacks++;
+                        t += d;
+                    }
+                    if (board[t] != OFFBOARD) {
+                        if (colorOf(board[t]) == them) mobility++;
+                        if (zone[t]) zoneAttacks++;
+                    }
                 }
             }
             mg += sign * MOBILITY_MG[type] * (mobility - MOBILITY_BASE[type]);
             eg += sign * MOBILITY_EG[type] * (mobility - MOBILITY_BASE[type]);
+            if (zoneAttacks) {
+                attackUnits[us] += KING_ATTACK_WEIGHT[type] * zoneAttacks;
+                attackers[us]++;
+            }
 
             if (type == ROOK) {
                 if (!pawns[us][f]) {
@@ -944,6 +998,13 @@ static int evaluate() {
                     eg += sign * ROOK_SEVENTH_EG;
                 }
             }
+        }
+    }
+
+    for (int s = 0; s < 2; s++) {
+        if (attackers[s] >= KING_ATTACK_MIN_ATTACKERS) {
+            int danger = min(KING_ATTACK_MAX, attackUnits[s] * attackUnits[s] / KING_ATTACK_DIVISOR);
+            mg += s == WHITE ? danger : -danger;
         }
     }
 
@@ -1462,6 +1523,12 @@ static int search(int depth, int alpha, int beta, int ply, bool inCheck, bool nu
     return bestScore;
 }
 
+// The last root move found to raise alpha in the current iteration, and
+// its score. It was searched to the iteration's full depth and beat every
+// move searched before it, the previous best among them, so it is worth
+// playing even when the iteration is cut off before it ends.
+static int leadMove = 0, leadScore = 0;
+
 /**
  * Search the root moves in the given order. Moves listed in `excluded`
  * are skipped (used to find the next best alternatives).
@@ -1493,6 +1560,8 @@ static int searchRoot(int depth, int alpha, int beta, vector<int> &rootMoves,
             bestMove = m;
             if (score > alpha) {
                 alpha = score;
+                leadMove = m;
+                leadScore = score;
                 // Try the new best move first in the next iteration
                 rotate(rootMoves.begin(), rootMoves.begin() + i, rootMoves.begin() + i + 1);
                 if (alpha >= beta) break;
@@ -1511,8 +1580,9 @@ static int reportScore(int score, int mover) {
 
 /**
  * BESTMOVE handler: iterative deepening with aspiration windows.
- * Stops at maxDepth or when the time is used up, and always answers with
- * the best move of the last iteration that was searched completely.
+ * Stops at maxDepth or when the time is used up, and answers with the best
+ * move of the last iteration that was searched completely, or with the
+ * move that an iteration cut off by the time limit had found to be better.
  */
 static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives) {
     if (maxDepth < 1) maxDepth = 1;  // depth 0 would return an unsearched move
@@ -1565,6 +1635,7 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
         int move = 0;
         int score;
         iterationStart = elapsedMs();
+        leadMove = 0;
         if (d >= ASPIRATION_MIN_DEPTH) {
             int window = ASPIRATION_WINDOW;
             int alpha = max(-INF, bestScore - window), beta = min(INF, bestScore + window);
@@ -1582,6 +1653,12 @@ static void handleBestMove(int maxDepth, long long timeLimitMs, int alternatives
         }
         if (searchAborted) {
             completedAll = false;
+            // Alternatives are scored at the depth of the last finished
+            // iteration, and their scores must compare with the best move's
+            if (leadMove && depthReached > 0 && alternatives == 0) {
+                best = leadMove;
+                bestScore = leadScore;
+            }
             break;
         }
 

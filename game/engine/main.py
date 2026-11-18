@@ -131,6 +131,9 @@ ROOK_RAYS = [tuple(r for r in (_ray(sq, d) for d in ROOK_DIRS) if r) if _on_boar
              for sq in range(120)]
 QUEEN_RAYS = [tuple(r for r in (_ray(sq, d) for d in KING_DIRS) if r) if _on_board(sq) else ()
               for sq in range(120)]
+# KING_ZONE[k][sq]: sq is the square k or one next to it (nothing for k = 0, no king)
+KING_ZONE = [[_on_board(k) and _on_board(sq) and abs(sq // 10 - k // 10) <= 1 and abs(sq % 10 - k % 10) <= 1
+              for sq in range(120)] for k in range(120)]
 
 board = [OFFBOARD] * 120
 side = WHITE          # side to move
@@ -267,6 +270,11 @@ ISOLATED_MG, ISOLATED_EG = 12, 14
 # Passed pawn bonus by how far the pawn has come (index 1 = still at home)
 PASSED_MG = (0, 0, 5, 10, 20, 35, 60, 0)
 PASSED_EG = (0, 5, 10, 20, 40, 70, 120, 0)
+# In the endgame the kings decide whether a passed pawn gets through: per
+# step the pawn has taken past its second row, this much per square that
+# the enemy king is away from the square in front of it, and less this
+# much per square that our own king is
+PASSER_ENEMY_KING, PASSER_OWN_KING = 4, 2
 MOBILITY_BASE = (0, 4, 6, 7, 13, 0)
 MOBILITY_MG = (0, 4, 5, 2, 1, 0)
 MOBILITY_EG = (0, 4, 5, 4, 2, 0)
@@ -275,6 +283,14 @@ ROOK_SEMI_MG, ROOK_SEMI_EG = 10, 5
 ROOK_SEVENTH_MG, ROOK_SEVENTH_EG = 15, 25
 SHIELD_NEAR, SHIELD_FAR, SHIELD_MISSING, KING_OPEN_FILE = 12, 6, 10, 15
 TEMPO = 10
+# King attack: every square next to the king (or the king's own) that an
+# enemy piece attacks counts that piece's weight. Once two pieces or more
+# take part, the king's side loses units * units // KING_ATTACK_DIVISOR in
+# the middlegame, at most KING_ATTACK_MAX: a lone attacker is seldom a
+# threat, and each one that joins makes the others more dangerous.
+KING_ATTACK_WEIGHT = (0, 2, 2, 3, 5, 0)
+KING_ATTACK_MIN_ATTACKERS = 2
+KING_ATTACK_DIVISOR, KING_ATTACK_MAX = 4, 500
 
 # PIECE_MG / PIECE_EG[piece][sq120]: material + table value, signed for the colour
 PIECE_MG = [[0] * 120 for _ in range(14)]
@@ -776,6 +792,11 @@ def perft(depth):
 #  Static evaluation
 # ============================================================
 
+def king_distance(a, b):
+    """King moves from one square to another, 0 to 7."""
+    return max(abs(ROW_OF[a] - ROW_OF[b]), abs(COL_OF[a] - COL_OF[b]))
+
+
 def centre_distance(sq):
     """Distance of a square from the four centre squares, 0 to 6."""
     r, c = ROW_OF[sq], COL_OF[sq]
@@ -787,10 +808,12 @@ def evaluate():
     Positive => white advantage, negative => black advantage.
 
     Material and piece-square tables (kept incrementally), bishop pair,
-    mobility, pawn structure (doubled, isolated, passed), rooks on open
-    files and on the seventh rank, pawn shelter of the king, and for bare
-    endgames a term that drives the losing king to the edge. Middlegame and
-    endgame scores are blended by the material left on the board.
+    mobility, pawn structure (doubled, isolated, passed, and how near the
+    kings are to a passed pawn's path), rooks on open files and on the
+    seventh rank, pawn shelter of the king, pieces attacking the squares
+    around the enemy king, and for bare endgames a term that drives the
+    losing king to the edge. Middlegame and endgame scores are blended by
+    the material left on the board.
     """
     if is_insufficient_material():
         return 0
@@ -825,6 +848,9 @@ def evaluate():
             if r < black_rear[f]:
                 black_rear[f] = r
     pawns = (white_pawns, black_pawns)
+    king_zone = (KING_ZONE[king_sq[WHITE]], KING_ZONE[king_sq[BLACK]])
+    attack_units = [0, 0]  # by the attacking colour
+    attackers = [0, 0]
 
     for sq, r, f, piece in pieces:
         us = color_of[piece]
@@ -849,6 +875,10 @@ def evaluate():
             if passed:
                 mg += sign * PASSED_MG[advance]
                 eg += sign * PASSED_EG[advance]
+                if king_sq[WHITE] and king_sq[BLACK]:
+                    front = sq + (-10 if us == WHITE else 10)
+                    eg += sign * (advance - 1) * (PASSER_ENEMY_KING * king_distance(king_sq[them], front)
+                                                  - PASSER_OWN_KING * king_distance(king_sq[us], front))
             continue
 
         if kind == KING:
@@ -872,17 +902,25 @@ def evaluate():
                 mg += sign * shelter
             continue
 
-        # Mobility: squares the piece can move to
+        # Mobility: squares the piece can move to. Squares it attacks
+        # around the enemy king count for the king attack, whoever stands
+        # on them.
         mobility = 0
+        zone_attacks = 0
+        zone = king_zone[them]
         if kind == KNIGHT:
             for t in KNIGHT_TARGETS[sq]:
                 target = b[t]
                 if not target or color_of[target] == them:
                     mobility += 1
+                if zone[t]:
+                    zone_attacks += 1
         else:
             rays = (BISHOP_RAYS if kind == BISHOP else ROOK_RAYS if kind == ROOK else QUEEN_RAYS)[sq]
             for ray in rays:
                 for t in ray:
+                    if zone[t]:
+                        zone_attacks += 1
                     target = b[t]
                     if not target:
                         mobility += 1
@@ -893,6 +931,9 @@ def evaluate():
         mobility -= MOBILITY_BASE[kind]
         mg += sign * MOBILITY_MG[kind] * mobility
         eg += sign * MOBILITY_EG[kind] * mobility
+        if zone_attacks:
+            attack_units[us] += KING_ATTACK_WEIGHT[kind] * zone_attacks
+            attackers[us] += 1
 
         if kind == ROOK:
             if not pawns[us][f]:
@@ -907,6 +948,11 @@ def evaluate():
             if r == seventh and king_sq[them] and ROW_OF[king_sq[them]] == eighth:
                 mg += sign * ROOK_SEVENTH_MG
                 eg += sign * ROOK_SEVENTH_EG
+
+    for s in (WHITE, BLACK):
+        if attackers[s] >= KING_ATTACK_MIN_ATTACKERS:
+            danger = min(KING_ATTACK_MAX, attack_units[s] * attack_units[s] // KING_ATTACK_DIVISOR)
+            mg += danger if s == WHITE else -danger
 
     if pc[WB] >= 2:
         mg += BISHOP_PAIR_MG
@@ -1456,10 +1502,19 @@ def search(depth, alpha, beta, ply, in_check, null_ok):
     return best_score
 
 
+# The last root move found to raise alpha in the current iteration, and
+# its score. It was searched to the iteration's full depth and beat every
+# move searched before it, the previous best among them, so it is worth
+# playing even when the iteration is cut off before it ends.
+lead_move = 0
+lead_score = 0
+
+
 def search_root(depth, alpha, beta, root_moves, excluded):
     """Search the root moves in the given order. Moves in `excluded` are
     skipped (used to find the next best alternatives).
     Returns (best score, best move); on abort the result is void."""
+    global lead_move, lead_score
     best_score = -INF
     best_move = 0
     searched = 0
@@ -1484,6 +1539,8 @@ def search_root(depth, alpha, beta, root_moves, excluded):
             best_move = move
             if score > alpha:
                 alpha = score
+                lead_move = move
+                lead_score = score
                 # Try the new best move first in the next iteration
                 root_moves.insert(0, root_moves.pop(i))
                 if alpha >= beta:
@@ -1502,10 +1559,13 @@ def report_score(score, mover):
 
 def search_best_move(max_depth, time_limit_ms, alternatives):
     """BESTMOVE handler: iterative deepening with aspiration windows.
-    Stops at max_depth or when the time is used up, and always answers with
-    the best move of the last iteration that was searched completely.
+    Stops at max_depth or when the time is used up, and answers with the
+    best move of the last iteration that was searched completely, or with
+    the move that an iteration cut off by the time limit had found to be
+    better.
     Returns the reply line."""
     global start_time, deadline_ms, search_aborted, nodes_searched, tthits, transposition_table, root_rep
+    global lead_move
     max_depth = min(max(1, max_depth), MAX_DEPTH)  # depth 0 would return an unsearched move
     alternatives = max(0, alternatives)
 
@@ -1547,6 +1607,7 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
 
     for d in range(1, max_depth + 1):
         iteration_start = elapsed_ms()
+        lead_move = 0
         if d >= ASPIRATION_MIN_DEPTH:
             window = ASPIRATION_WINDOW
             alpha = max(-INF, best_score - window)
@@ -1568,6 +1629,11 @@ def search_best_move(max_depth, time_limit_ms, alternatives):
             score, move = search_root(d, -INF, INF, root_moves, ())
         if search_aborted:
             completed_all = False
+            # Alternatives are scored at the depth of the last finished
+            # iteration, and their scores must compare with the best move's
+            if lead_move and depth_reached > 0 and alternatives == 0:
+                best = lead_move
+                best_score = lead_score
             break
 
         best = move
