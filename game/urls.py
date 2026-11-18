@@ -1,5 +1,5 @@
 from django.urls import path
-from django.views.generic import RedirectView
+from django.views.generic import RedirectView, TemplateView
 from . import views, views_account, views_google
 
 urlpatterns = [
@@ -36,6 +36,10 @@ urlpatterns = [
     path('auth/google/', views_google.google_login, name='google_login'),
     path('auth/google/callback/', views_google.google_callback, name='google_callback'),
     path('auth/google/username/', views_google.google_username, name='google_username'),
+
+    # The footer opens these as dialogs; Google's consent screen needs real URLs.
+    path('privacy/', TemplateView.as_view(template_name='game/privacy.html'), name='privacy'),
+    path('terms/', TemplateView.as_view(template_name='game/terms.html'), name='terms'),
 
     # Account settings
     path('account/', views_account.account_settings, name='account_settings'),

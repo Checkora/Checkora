@@ -1,0 +1,16 @@
+{% extends 'game/base.html' %}
+
+{% block title %}Privacy policy · Checkora{% endblock %}
+{% block description %}Checkora's privacy policy.{% endblock %}
+
+{% block content %}
+<div class="wrap wrap--narrow page">
+    <header class="page-head">
+        <a href="{% url 'landing' %}" class="back-link" data-reveal>Home</a>
+        <h1 data-reveal style="--i: 1">Privacy <span class="serif">policy.</span></h1>
+    </header>
+    <article class="panel legal-page" data-reveal style="--i: 2">
+        {% include 'game/includes/privacy_text.html' %}
+    </article>
+</div>
+{% endblock %}

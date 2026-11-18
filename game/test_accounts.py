@@ -464,6 +464,15 @@ class LinkGoogleFromSettingsTest(SignedInTestCase):
         self.assertFalse(GoogleAccount.objects.exists())
 
 
+class LegalPagesTest(TestCase):
+    def test_privacy_and_terms_have_their_own_pages(self):
+        privacy = self.client.get(reverse('privacy'))
+        self.assertContains(privacy, 'Google Sign-In')
+        self.assertContains(self.client.get(reverse('terms')), 'Fair Play')
+        # The footer dialog shows the same text.
+        self.assertContains(self.client.get(reverse('landing')), 'Google Sign-In')
+
+
 class AccountServiceTest(TestCase):
     def test_stale_unverified_signup_releases_its_name(self):
         stale = User.objects.create_user('holder', 'h@example.com', 'x', is_active=False)

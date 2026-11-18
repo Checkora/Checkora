@@ -1,0 +1,16 @@
+{% extends 'game/base.html' %}
+
+{% block title %}Terms and conditions · Checkora{% endblock %}
+{% block description %}Checkora's terms and conditions.{% endblock %}
+
+{% block content %}
+<div class="wrap wrap--narrow page">
+    <header class="page-head">
+        <a href="{% url 'landing' %}" class="back-link" data-reveal>Home</a>
+        <h1 data-reveal style="--i: 1">Terms and <span class="serif">conditions.</span></h1>
+    </header>
+    <article class="panel legal-page" data-reveal style="--i: 2">
+        {% include 'game/includes/terms_text.html' %}
+    </article>
+</div>
+{% endblock %}
