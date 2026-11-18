@@ -1,5 +1,5 @@
 {% extends 'game/base.html' %}
-{% load static %}
+{% load static players %}
 
 {% block title %}Profile · Checkora{% endblock %}
 
@@ -14,14 +14,8 @@
 
     <section class="panel profile-hero" aria-labelledby="profileName" data-reveal>
         <div class="profile-hero__who">
-            <a href="{% url 'upload_avatar' %}" class="profile-avatar-link" aria-label="{% if request.user.profile.avatar %}Change your profile picture{% else %}Add a profile picture{% endif %}">
-                <span class="avatar profile-avatar">
-                    {% if request.user.profile.avatar %}
-                    <img src="{{ request.user.profile.avatar }}" alt="">
-                    {% else %}
-                    {{ request.user.username|slice:':1' }}
-                    {% endif %}
-                </span>
+            <a href="{% url 'upload_avatar' %}" class="profile-avatar-link" aria-label="Change your profile picture">
+                {% avatar request.user "profile-avatar" %}
                 <span class="profile-avatar__badge" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
                 </span>
@@ -29,19 +23,21 @@
             <div class="profile-hero__name">
                 <p class="eyebrow">Player profile</p>
                 <h1 id="profileName">{{ request.user.username }}</h1>
+                <p class="profile-rank">{% rank_badge rating games_played %}<span class="chip">Level {{ level }}</span></p>
                 <div class="cluster">
                     <a href="{% url 'index' %}" class="button button--primary">
                         Play a game
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </a>
-                    <a href="{% url 'upload_avatar' %}" class="button">{% if request.user.profile.avatar %}Change picture{% else %}Add a picture{% endif %}</a>
+                    <a href="{% url 'account_settings' %}" class="button">Settings</a>
                 </div>
             </div>
         </div>
 
         <div class="profile-rating">
-            <span class="stat__label">Rating</span>
+            <span class="stat__label">Rating{% if provisional %} (provisional){% endif %}</span>
             <span class="profile-rating__value" data-count>{{ rating }}</span>
+            {% if next_rank %}<span class="profile-rating__next">{{ points_to_next_rank }} to {{ next_rank.name }}</span>{% endif %}
         </div>
 
         <figure class="stage">
@@ -83,6 +79,39 @@
         {% else %}
         <p class="muted">No results yet. Finish a game against the engine and it shows up here.</p>
         {% endif %}
+    </section>
+
+    <section class="panel profile-progress" aria-labelledby="progressTitle" data-reveal>
+        <div class="spread profile-results__head">
+            <h2 id="progressTitle">Your <span class="serif">progress.</span></h2>
+            <p>Points come from games, puzzles, lessons and openings</p>
+        </div>
+
+        <div class="level-meter">
+            <div class="spread">
+                <span><b>Level {{ level }}</b> · {{ xp }} XP</span>
+                {% if xp_level_span %}<span class="muted">{{ xp_into_level }} / {{ xp_level_span }} to level {{ level|add:1 }}</span>{% else %}<span class="muted">Top level</span>{% endif %}
+            </div>
+            <div class="progress" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="{{ xp_level_span|default:1 }}" aria-valuenow="{% if xp_level_span %}{{ xp_into_level }}{% else %}1{% endif %}">
+                <span style="width: {% if xp_level_span %}{% widthratio xp_into_level xp_level_span 100 %}{% else %}100{% endif %}%"></span>
+            </div>
+        </div>
+
+        <div class="grid profile-stats">
+            <div class="stat" data-tilt="8">
+                <span class="stat__value" data-count>{{ day_streak }}</span>
+                <span class="stat__label">Day streak · best {{ best_day_streak }}</span>
+            </div>
+            <div class="stat" data-tilt="8">
+                <span class="stat__value" data-count>{{ puzzle_streak }}</span>
+                <span class="stat__label">Daily puzzle streak · best {{ best_puzzle_streak }}</span>
+            </div>
+            <div class="stat" data-tilt="8">
+                <span class="stat__value" data-count>{{ achievements }}</span>
+                <span class="stat__label">Achievements</span>
+            </div>
+        </div>
+        <p class="muted">A day counts once you finish a game of at least {{ streak_min_moves }} moves; days follow your own clock.</p>
     </section>
 
     {# The reveal sits on a wrapper: on one element it would cancel the card's tilt. #}
@@ -132,9 +161,9 @@
     <section class="panel profile-account" aria-labelledby="accountTitle" data-reveal>
         <div class="stack">
             <h3 id="accountTitle">Account</h3>
-            <p>Deleting your account removes your data from Checkora for good. You are asked to confirm by email first.</p>
+            <p>Change your username, email, password or picture, link Google, or delete the account.</p>
         </div>
-        <a href="{% url 'delete_account' %}" class="button button--danger button--sm">Delete account</a>
+        <a href="{% url 'account_settings' %}" class="button button--sm">Open settings</a>
     </section>
 </div>
 {% endblock %}

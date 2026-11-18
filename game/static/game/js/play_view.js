@@ -84,45 +84,74 @@
         });
     }
 
-    // How far the 3D board leans back, in degrees. play.css reads it as
-    // --tilt on .play; the pieces lean the other way by the same amount so
-    // they keep standing up.
-    const TILT_KEY = 'checkoraBoardTilt';
-    function initViewAngle() {
-        const slider = byId('viewAngle');
-        const value = byId('viewAngleValue');
+    // A board slider: its value is kept in localStorage, written to a CSS
+    // property on .play, and a double click puts it back to the default in
+    // the markup. While it moves, `busyClass` on .play makes the board follow
+    // at once instead of with its usual slow transition.
+    function initBoardSlider({ sliderId, valueId, storageKey, busyClass, show }) {
+        const slider = byId(sliderId);
+        const value = byId(valueId);
         const play = document.querySelector('.play');
         if (!slider || !play) return;
         const min = Number(slider.min);
         const max = Number(slider.max);
-        const apply = (degrees) => {
-            const angle = Math.min(max, Math.max(min, Math.round(degrees)));
-            slider.value = String(angle);
-            play.style.setProperty('--tilt', `${angle}deg`);
-            if (value) value.textContent = `${angle}°`;
-            slider.setAttribute('aria-valuetext', `${angle} degrees`);
-            return angle;
+        const fallback = Number(slider.defaultValue);
+        const apply = (raw) => {
+            const number = Math.min(max, Math.max(min, Math.round(raw)));
+            slider.value = String(number);
+            const { property, cssValue, text, spoken } = show(number);
+            play.style.setProperty(property, cssValue);
+            if (value) value.textContent = text;
+            slider.setAttribute('aria-valuetext', spoken);
+            return number;
         };
-        const saved = Number(store.get(TILT_KEY));
-        apply(Number.isFinite(saved) && saved ? saved : Number(slider.value));
+        const saved = Number(store.get(storageKey));
+        apply(Number.isFinite(saved) && saved ? saved : fallback);
 
-        // While the slider moves the board follows it at once; the usual
-        // slow tilt is for switching the 3D view on and off.
         let settle = 0;
         slider.addEventListener('input', () => {
-            play.classList.add('is-angling');
+            play.classList.add(busyClass);
             window.clearTimeout(settle);
-            settle = window.setTimeout(() => play.classList.remove('is-angling'), 200);
-            store.set(TILT_KEY, String(apply(Number(slider.value))));
+            settle = window.setTimeout(() => play.classList.remove(busyClass), 200);
+            store.set(storageKey, String(apply(Number(slider.value))));
         });
-        // A double click puts it back to where it started.
         slider.addEventListener('dblclick', () => {
-            store.set(TILT_KEY, String(apply(40)));
+            store.set(storageKey, String(apply(fallback)));
+        });
+    }
+
+    function initBoardSliders() {
+        // How far the 3D board leans back. play.css reads it as --tilt; the
+        // pieces lean the other way by the same amount so they keep standing.
+        initBoardSlider({
+            sliderId: 'viewAngle',
+            valueId: 'viewAngleValue',
+            storageKey: 'checkoraBoardTilt',
+            busyClass: 'is-angling',
+            show: (degrees) => ({
+                property: '--tilt',
+                cssValue: `${degrees}deg`,
+                text: `${degrees}°`,
+                spoken: `${degrees} degrees`,
+            }),
+        });
+        // How big the pieces are on their squares, in 2D and in 3D.
+        initBoardSlider({
+            sliderId: 'pieceSize',
+            valueId: 'pieceSizeValue',
+            storageKey: 'checkoraPieceSize',
+            busyClass: 'is-resizing',
+            show: (percent) => ({
+                property: '--piece-scale',
+                cssValue: String(percent / 100),
+                text: `${percent}%`,
+                spoken: `${percent} percent`,
+            }),
         });
     }
 
     function init3d() {
-        initViewAngle();
+        initBoardSliders();
         const button = byId('view3dBtn');
         if (!button) return;
         button.setAttribute('aria-pressed', root.classList.contains('board-3d') ? 'true' : 'false');

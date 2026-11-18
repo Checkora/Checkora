@@ -12,6 +12,7 @@ from game.models import (
     Achievement,
     UserAchievement,
     FeaturedBadge,
+    GoogleAccount,
 )
 
 
@@ -29,6 +30,7 @@ class AdminRegistrationTests(TestCase):
             Achievement,
             UserAchievement,
             FeaturedBadge,
+            GoogleAccount,
         ]
         for model in registered_models:
             with self.subTest(model=model.__name__):

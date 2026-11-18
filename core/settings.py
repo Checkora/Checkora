@@ -70,6 +70,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'game.middleware.PlayerTimezoneMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'game.middleware.SecurityHeadersMiddleware',
@@ -99,6 +100,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'game.context_processors.google_sign_in',
             ],
         },
     },
@@ -217,6 +219,10 @@ OPENING_RATE_LIMIT_MAX_REQUESTS = _positive_int_env(
     'OPENING_RATE_LIMIT_MAX_REQUESTS', 60
 )
 
+# Puzzle answers per player. A person solving by hand stays far below this.
+PUZZLE_SOLVE_RATE_WINDOW_SECONDS = _positive_int_env('PUZZLE_SOLVE_RATE_WINDOW_SECONDS', 60)
+PUZZLE_SOLVE_MAX_REQUESTS = _positive_int_env('PUZZLE_SOLVE_MAX_REQUESTS', 20)
+
 # Forum Rate Limiting
 
 # Discussion creation rate limit
@@ -295,6 +301,12 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER
 # Redirect after login
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'landing'
+
+# "Continue with Google". The button stays hidden until both are set. The
+# OAuth client in Google Cloud needs <site>/auth/google/callback/ listed as an
+# authorised redirect URI for every address the site is served from.
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
 
 # Password reset link expiration (5 minutes)
 PASSWORD_RESET_TIMEOUT = 300

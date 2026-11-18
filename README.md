@@ -112,6 +112,7 @@ cp .env.example .env
 # Open `.env` and set SECRET_KEY if needed
 # Keep the DEBUG=True line that .env.example ships with: DEBUG is off unless .env turns it on
 # Configure EMAIL_HOST_USER and EMAIL_HOST_PASSWORD for OTP and password reset emails
+# Optional: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET turn on "Continue with Google" (see .env.example)
 # 5. Run migrations and start the server
 python manage.py migrate
 python manage.py runserver

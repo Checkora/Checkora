@@ -1,5 +1,5 @@
 {% extends 'game/base.html' %}
-{% load static %}
+{% load static players %}
 {% load l10n %}
 
 {% block title %}Your stats · Checkora{% endblock %}
@@ -22,13 +22,7 @@
             <p class="subtitle">Your rating, your results against the engine, and how the training is going.</p>
 
             <div class="profile-card">
-                <span class="avatar avatar--lg profile-avatar-wrap">
-                    {% if request.user.profile.avatar %}
-                        <img src="{{ request.user.profile.avatar }}" class="profile-avatar" alt="Your profile picture">
-                    {% else %}
-                        {{ request.user.username|slice:':1' }}
-                    {% endif %}
-                </span>
+                {% avatar request.user "avatar--lg profile-avatar-wrap" %}
                 <div class="profile-info">
                     <div class="profile-username">{{ request.user.username }}</div>
                     <div class="cluster profile-chips">
@@ -361,8 +355,8 @@
                         <span class="stat__label label">Puzzles solved</span>
                     </div>
                     <div>
-                        <div class="stat__value" data-count><div class="num">{{ puzzle_stats.current_streak }}</div></div>
-                        <span class="stat__label label">Current streak</span>
+                        <div class="stat__value" data-count><div class="num">{{ puzzle_streak }}</div></div>
+                        <span class="stat__label label">Daily puzzle streak</span>
                     </div>
                     <div>
                         <div class="stat__value" data-count><div class="num">{{ puzzle_stats.best_streak }}</div></div>

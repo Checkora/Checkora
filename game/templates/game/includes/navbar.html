@@ -1,4 +1,4 @@
-{% load static %}
+{% load static players %}
 {% with here=request.resolver_match.url_name %}
 <header class="site-nav">
     <div class="site-nav__inner">
@@ -40,7 +40,7 @@
             {% if user.is_authenticated %}
             <div class="menu profile-dropdown" data-menu>
                 <button type="button" class="menu__button profile-btn" data-menu-button aria-haspopup="true">
-                    <span class="avatar">{% if user.profile.avatar %}<img src="{{ user.profile.avatar }}" alt="">{% else %}{{ user.username|slice:':1' }}{% endif %}</span>
+                    {% avatar user %}
                     <span class="menu__name">{{ user.username }}</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
                 </button>
@@ -52,6 +52,7 @@
                     <a href="{% url 'leaderboard' %}" role="menuitem">Leaderboard</a>
                     <hr>
                     <a href="{% url 'upload_avatar' %}" role="menuitem">Profile picture</a>
+                    <a href="{% url 'account_settings' %}" role="menuitem">Settings</a>
                     <a href="{% url 'delete_account' %}" class="is-danger" role="menuitem">Delete account</a>
                     <hr>
                     <form method="post" action="{% url 'logout' %}" style="margin: 0;">

@@ -1103,13 +1103,21 @@ body:has(#welcomeOverlay.active) {
    The flat sets fill 88% of the square. The Staunton photographs are framed
    for the tallest piece, so they are drawn a little larger than the square
    and set high, with the foot in the lower part of the square and room for
-   a king's cross to rise over the square behind, as a real one would. */
+   a king's cross to rise over the square behind, as a real one would.
+   Each set and view gives three plain numbers: --s, the size as a share of
+   the square; --t, the top; --f, the foot as a share of the image. The size
+   slider sets --piece-scale on .play, and the rest follows from those, with
+   the foot kept on the same spot so a bigger piece grows upward. */
 .square > .piece,
 .piece-debris > img {
-    --size: 88%;
-    --top: 6%;
-    --foot: 94%;
-    --hub: 50%;
+    --s: 0.88;
+    --t: 0.06;
+    --f: 0.94;
+    --k: var(--piece-scale, 1);
+    --size: calc(var(--s) * var(--k) * 100%);
+    --top: calc((var(--t) + var(--s) * var(--f) * (1 - var(--k))) * 100%);
+    --foot: calc(var(--f) * 100%);
+    --hub: calc((0.5 - var(--t) - var(--s) * var(--f) * (1 - var(--k))) / (var(--s) * var(--k)) * 100%);
     position: absolute;
     top: var(--top);
     left: calc((100% - var(--size)) / 2);
@@ -1125,10 +1133,9 @@ body:has(#welcomeOverlay.active) {
 }
 [data-piece-style='staunton'] .square > .piece,
 [data-piece-style='staunton'] .piece-debris > img {
-    --size: 108%;
-    --top: -15.2%;
-    --foot: 90%;
-    --hub: 60.4%;
+    --s: 1.08;
+    --t: -0.152;
+    --f: 0.9;
     filter: none;
 }
 .square.selected > .piece {
@@ -1514,15 +1521,15 @@ body.blindfold-mode .capture-ring {
    own upward direction, the third value of translate. */
 .board-3d .square > .piece,
 .board-3d .piece-debris > img {
-    --top: calc(50% - 0.94 * 88%);
+    --t: calc(0.5 - 0.94 * 0.88);
     transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1));
     filter: none;
 }
 [data-piece-style='staunton'].board-3d .square > .piece,
 [data-piece-style='staunton'].board-3d .piece-debris > img {
-    --size: 132%;
-    --top: calc(50% - 0.955 * 132%);
-    --foot: 95.5%;
+    --s: 1.32;
+    --t: calc(0.5 - 0.955 * 1.32);
+    --f: 0.955;
 }
 /* A standing picture is mostly empty round the piece, and that space would
    take clicks meant for the square behind it. Each piece is clipped to its
@@ -4661,8 +4668,12 @@ body:has(#tourOverlay[style*='block'])::after {
     font-size: 13.5px;
     color: var(--muted);
 }
-.board-3d .view-angle {
+.board-3d .view-angle,
+.view-angle.piece-size {
     display: grid;
+}
+.play.is-resizing .square > .piece {
+    transition-duration: 0.06s;
 }
 .view-angle input {
     width: 100%;

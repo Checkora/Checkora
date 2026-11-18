@@ -33,7 +33,9 @@ from django.utils.encoding import (
     force_str
 )
 from django.utils.text import slugify
+from . import progression
 from .progression import award_xp
+from .accounts import PENDING_REGISTRATION_MAX_AGE_SECONDS, pending_registrations
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
@@ -61,7 +63,8 @@ from django.views.decorators.http import (
 from django.contrib.auth.decorators import login_required
 from django.db import models
 
-from django.db.models import Count, Avg, Max, Min
+from django.db.models import Count, Avg, Max, Min, Window
+from django.db.models.functions import Rank
 from datetime import timedelta
 
 from .opening_trainer_data import OPENINGS
@@ -166,7 +169,11 @@ def index(request):
             request.session['game']
         )
 
-    return render(request, 'game/board.html')
+    avatar_url = ''
+    if request.user.is_authenticated:
+        profile = UserProfile.objects.defer('avatar').filter(user=request.user).first()
+        avatar_url = profile.avatar_url if profile else ''
+    return render(request, 'game/board.html', {'user_avatar_url': avatar_url})
 
 
 def record_game_result(request, mode, winner, reason, player_color='white', moves=None, rated=None):
@@ -706,9 +713,10 @@ def get_state(request):
         response_data['winner'] = winner
 
     if request.user.is_authenticated:
-        progress, _ = UserProgress.objects.get_or_create(user=request.user)
-        progress.expire_streak()
-        response_data['day_streak'] = progress.day_streak
+        progress = UserProgress.objects.filter(user=request.user).first()
+        response_data['day_streak'] = (
+            progress.streak_on(progression.player_today(request.user)) if progress else 0
+        )
 
     return JsonResponse(response_data)
 
@@ -1126,9 +1134,6 @@ REGISTRATION_SESSION_KEYS = (
     'otp_failed_attempts',
 )
 
-# How long a signup that was never verified keeps its username and email.
-PENDING_REGISTRATION_MAX_AGE_SECONDS = 3600
-
 # One verification mail per address in this window, register and resend alike.
 REGISTRATION_EMAIL_COOLDOWN_SECONDS = 60
 
@@ -1136,16 +1141,6 @@ GENERIC_REGISTRATION_MESSAGE = (
     'If your details are valid, a verification '
     'code has been sent to your email.'
 )
-
-
-def _pending_registrations():
-    """Signups that never finished email verification.
-
-    verify_otp logs the user in, so a verified account always has a
-    last_login. An inactive account that has one was switched off later, by
-    an admin, and must not come back through the registration flow.
-    """
-    return User.objects.filter(is_active=False, last_login__isnull=True)
 
 
 def _registration_cooldown_key(email):
@@ -1223,7 +1218,7 @@ def register_view(request):
                     stale_before = timezone.now() - timedelta(
                         seconds=PENDING_REGISTRATION_MAX_AGE_SECONDS
                     )
-                    _pending_registrations().filter(
+                    pending_registrations().filter(
                         identity, date_joined__lt=stale_before
                     ).delete()
 
@@ -1240,7 +1235,7 @@ def register_view(request):
                         return _dummy_registration(request, email)
 
                     inactive_candidates = list(
-                        _pending_registrations().select_for_update().filter(identity)
+                        pending_registrations().select_for_update().filter(identity)
                     )
                     exact_inactive_matches = [
                         u for u in inactive_candidates
@@ -1382,6 +1377,32 @@ def register_view(request):
     return render(request, 'game/register.html', {'form': form})
 
 
+def send_welcome_email(request, user):
+    """Mail a new player once their account exists. A failure never blocks signup."""
+    try:
+        from django.template import TemplateDoesNotExist, TemplateSyntaxError
+        html_content = render_to_string(
+            'game/welcome_email.html',
+            {
+                'username': user.username,
+                'app_url': request.build_absolute_uri('/'),
+            }
+        )
+        email = EmailMultiAlternatives(
+            subject='Welcome to Checkora 🎉',
+            body='Welcome to Checkora! Your account has been successfully activated.',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send(fail_silently=True)
+
+    except (TemplateDoesNotExist, TemplateSyntaxError):
+        logger.exception("Failed to render welcome email template.")
+    except Exception as e:
+        logger.warning("Failed to send welcome email: %s", e)
+
+
 def verify_otp(request):
     if request.user.is_authenticated:
         return redirect('index')
@@ -1448,7 +1469,7 @@ def verify_otp(request):
                 if user_id == -1:
                     raise User.DoesNotExist()
                 # Only a signup that is still waiting can be activated here.
-                user = _pending_registrations().get(id=user_id)
+                user = pending_registrations().get(id=user_id)
                 password_hash = request.session.get('registration_password')
                 if password_hash:
                     user.password = password_hash
@@ -1457,28 +1478,7 @@ def verify_otp(request):
                 user.save()
                 _clear_registration_session(request)
 
-                try:
-                    from django.template import TemplateDoesNotExist, TemplateSyntaxError
-                    html_content = render_to_string(
-                        'game/welcome_email.html',
-                        {
-                            'username': user.username,
-                            'app_url': request.build_absolute_uri('/'),
-                        }
-                    )
-                    email = EmailMultiAlternatives(
-                        subject='Welcome to Checkora 🎉',
-                        body='Welcome to Checkora! Your account has been successfully activated.',
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[user.email],
-                    )
-                    email.attach_alternative(html_content, "text/html")
-                    email.send(fail_silently=True)
-
-                except (TemplateDoesNotExist, TemplateSyntaxError):
-                    logger.exception("Failed to render welcome email template.")
-                except Exception as e:
-                    logger.warning("Failed to send welcome email: %s", e)
+                send_welcome_email(request, user)
 
                 login(request, user)
                 messages.success(
@@ -1566,7 +1566,7 @@ def resend_otp(request):
         return redirect('verify_otp')
 
     try:
-        user = _pending_registrations().get(id=user_id)
+        user = pending_registrations().get(id=user_id)
     except User.DoesNotExist:
         messages.error(request, 'User not found. Please register again.')
         return redirect('register')
@@ -2097,10 +2097,9 @@ def stats_view(request):
     total_games = user_results.count()
 
     recent = user_results.order_by('-played_at')[:20]
-    progress, _ = UserProgress.objects.get_or_create(
-        user=request.user
-    )
-    progress.expire_streak()
+    # Reading a page never creates rows: a PlayerRating made here would put a
+    # player who never played on the leaderboard.
+    progress = UserProgress.objects.filter(user=request.user).first() or UserProgress(user=request.user)
     ai_results = user_results.filter(mode='ai')
 
     # If winner == player_color, the user won
@@ -2124,9 +2123,7 @@ def stats_view(request):
     total_draws = ai_draws
     overall_win_rate = round(win_percentage, 2)
 
-    rating, _ = PlayerRating.objects.get_or_create(
-        user=request.user
-    )
+    rating = PlayerRating.objects.filter(user=request.user).first() or PlayerRating(user=request.user)
 
     history = RatingHistory.objects.filter(
         user=request.user
@@ -2234,10 +2231,7 @@ def stats_view(request):
     )
     
     # Puzzle Analytics
-    puzzle_stats, _ = PuzzleStats.objects.get_or_create(
-        user=request.user
-    )
-    puzzle_stats.expire_streak()
+    puzzle_stats = PuzzleStats.objects.filter(user=request.user).first() or PuzzleStats(user=request.user)
 
     opening_stats = OpeningProgress.objects.filter(
         user=request.user
@@ -2293,6 +2287,9 @@ def stats_view(request):
         "lesson_completion_percentage": lesson_completion_percentage,
 
         "puzzle_stats": puzzle_stats,
+        "puzzle_streak": puzzle_stats.streak_on(timezone.localdate()),
+        "day_streak": progress.streak_on(progression.player_today(request.user)),
+        "best_day_streak": progress.best_day_streak,
         
         "completed_openings": completed_openings,
         "average_opening_accuracy": round(
@@ -2307,53 +2304,79 @@ def stats_view(request):
     })
 
 
-@login_required
-def leaderboard_view(request):
-    try:
-        leaderboard = PuzzleStats.objects.select_related(
-            "user"
-        ).order_by(
-            "-puzzles_solved",
-            "-best_streak"
-        )[:50]
-    except Exception:
-        leaderboard = PuzzleStats.objects.none()
+LEADERBOARD_SIZE = 50
 
-    try:
-        chess_leaderboard = PlayerRating.objects.select_related(
-            "user"
-        ).order_by(
-            "-rating"
-        )[:50]
-    except Exception:
-        chess_leaderboard = PlayerRating.objects.none()
 
-    return render(
-        request,
-        "game/leaderboard.html",
-        {
-            "leaderboard": leaderboard,
-            "chess_leaderboard": chess_leaderboard,
-        }
+def _ranked(queryset, *ordering):
+    """Rows with a `position`: players level on every ordering share it, as in "1, 2, 2, 4".
+
+    The user id is a last tiebreak only for the order rows are listed in, so
+    the table doesn't reshuffle between page loads.
+    """
+    return (
+        queryset
+        .filter(user__is_active=True)
+        .select_related("user__profile")
+        .defer("user__profile__avatar")
+        .annotate(position=Window(expression=Rank(), order_by=list(ordering)))
+        .order_by(*ordering, "user_id")
     )
 
 
-def puzzle_stats_view(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({
-            "streak": 0,
-            "longest_streak": 0,
-            "puzzles_solved": 0,
-            "daily_completions": 0,
-        })
-    stats, _ = PuzzleStats.objects.get_or_create(user=request.user)
-    stats.expire_streak()
-    return JsonResponse({
-        "streak": stats.current_streak,
+def _own_row(rows, queryset, user, ahead_of_user):
+    """The signed-in player's row when they are on the board but not in the top rows shown."""
+    if any(row.user_id == user.pk for row in rows):
+        return None
+    mine = queryset.filter(user=user).select_related("user__profile").defer("user__profile__avatar").first()
+    if mine is None:
+        return None
+    mine.position = queryset.filter(ahead_of_user(mine), user__is_active=True).count() + 1
+    return mine
+
+
+@login_required
+def leaderboard_view(request):
+    # Only players who have done something are on a board: a row made by
+    # opening a page must not sit at 1200 above people who played.
+    solvers = PuzzleStats.objects.filter(puzzles_solved__gt=0)
+    puzzle_rows = list(_ranked(solvers, F("puzzles_solved").desc(), F("best_streak").desc())[:LEADERBOARD_SIZE])
+
+    rated = PlayerRating.objects.filter(games_played__gt=0)
+    chess_rows = list(_ranked(rated, F("rating").desc())[:LEADERBOARD_SIZE])
+
+    return render(request, "game/leaderboard.html", {
+        "leaderboard": puzzle_rows,
+        "chess_leaderboard": chess_rows,
+        "my_puzzle_row": _own_row(
+            puzzle_rows, solvers, request.user,
+            lambda me: Q(puzzles_solved__gt=me.puzzles_solved)
+            | Q(puzzles_solved=me.puzzles_solved, best_streak__gt=me.best_streak),
+        ),
+        "my_chess_row": _own_row(
+            chess_rows, rated, request.user,
+            lambda me: Q(rating__gt=me.rating),
+        ),
+        "leaderboard_size": LEADERBOARD_SIZE,
+    })
+
+
+def _puzzle_stats_payload(stats):
+    if stats is None:
+        return {"streak": 0, "longest_streak": 0, "puzzles_solved": 0, "daily_completions": 0}
+    return {
+        "streak": stats.streak_on(timezone.localdate()),
         "longest_streak": stats.best_streak,
         "puzzles_solved": stats.puzzles_solved,
         "daily_completions": stats.daily_completions,
-    })
+    }
+
+
+def puzzle_stats_view(request):
+    stats = (
+        PuzzleStats.objects.filter(user=request.user).first()
+        if request.user.is_authenticated else None
+    )
+    return JsonResponse(_puzzle_stats_payload(stats))
 
 
 def get_daily_puzzle(request):
@@ -2489,21 +2512,39 @@ def puzzle_detail_api(request, puzzle_id):
     })
 
 
+def _revealed_key(user_id, puzzle_id):
+    return f"puzzle_revealed:{user_id}:{puzzle_id}"
+
+
+# A signed-in player who looked at a solution gets no credit for that puzzle
+# for this long; after that they may well have forgotten it.
+REVEALED_PUZZLE_SECONDS = 7 * 24 * 3600
+
+
 @require_GET
 def puzzle_solution_api(request, puzzle_id):
     """API endpoint to retrieve the solution array for a specific puzzle."""
     puzzle = get_object_or_404(ChessPuzzle, id=puzzle_id)
+    if request.user.is_authenticated:
+        cache.set(_revealed_key(request.user.pk, puzzle.pk), 1, timeout=REVEALED_PUZZLE_SECONDS)
     return JsonResponse({
         "solution": puzzle.solution
     })
 
 
 @require_POST
+@rate_limit(
+    window_setting="PUZZLE_SOLVE_RATE_WINDOW_SECONDS",
+    max_setting="PUZZLE_SOLVE_MAX_REQUESTS",
+    prefix="puzzle_solve",
+    error_message="Too many puzzle answers at once. Take a breath and try again in a minute.",
+)
 def puzzle_solve_api(request, puzzle_id):
     """Check the moves played against the stored solution and count the solve.
 
     The totals and the streak are worked out on the server. Nothing the
-    client says about its own progress is stored.
+    client says about its own progress is stored, and a puzzle whose
+    solution this player opened earns nothing.
     """
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=401)
@@ -2524,21 +2565,19 @@ def puzzle_solve_api(request, puzzle_id):
         for played, expected in zip(moves, solution)
     )
 
+    revealed = cache.get(_revealed_key(request.user.pk, puzzle.pk)) is not None
     newly_solved = False
-    if correct:
+    if correct and not revealed:
         stats, newly_solved = record_puzzle_solve(request.user, puzzle)
     else:
-        stats, _ = PuzzleStats.objects.get_or_create(user=request.user)
-        stats.expire_streak()
+        stats = PuzzleStats.objects.filter(user=request.user).first()
 
     return JsonResponse({
         'success': True,
         'correct': correct,
+        'counted': correct and not revealed,
         'newly_solved': newly_solved,
-        'puzzles_solved': stats.puzzles_solved,
-        'streak': stats.current_streak,
-        'longest_streak': stats.best_streak,
-        'daily_completions': stats.daily_completions,
+        **_puzzle_stats_payload(stats),
     })
 
 
@@ -2575,143 +2614,6 @@ def cleanup_cron(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
-
-class AccountDeletionTokenGenerator(PasswordResetTokenGenerator):
-    """Tokens for the account deletion link.
-
-    The separate salt keeps them from working as password reset tokens,
-    and password reset tokens from deleting accounts.
-    """
-    key_salt = "game.views.AccountDeletionTokenGenerator"
-
-    def _make_hash_value(self, user, timestamp):
-        # Unlike a reset token this one must survive a login: the link may
-        # be opened in a browser where the owner has to sign in first.
-        return f"{user.pk}{user.password}{timestamp}{user.email}"
-
-
-account_deletion_token = AccountDeletionTokenGenerator()
-
-
-@login_required
-def delete_account(request):
-
-    if request.method == 'POST':
-
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        user = authenticate(
-            username=username,
-            password=password
-        )
-
-        if user and user == request.user:
-
-            uid = urlsafe_base64_encode(
-                force_bytes(user.pk)
-            )
-
-            token = account_deletion_token.make_token(user)
-            delete_link = request.build_absolute_uri(
-                reverse(
-                    'confirm_delete_account',
-                    kwargs={
-                        'uidb64': uid,
-                        'token': token
-                    }
-                )
-            )
-
-            try:
-
-                send_mail(
-                    subject='Confirm Account Deletion',
-                    message=f"""
-Click the link below to permanently delete your account:
-
-{delete_link}
-
-If this wasn't you, ignore this email.
-""",
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-
-                messages.success(
-                    request,
-                    'Confirmation email sent to your registered email.'
-                )
-
-            except Exception:
-                messages.error(
-                    request,
-                    'Failed to send confirmation email.'
-                )
-
-            return redirect('index')
-
-        messages.error(
-            request,
-            'Invalid username or password.'
-        )
-
-    return render(
-        request,
-        'game/delete_account.html'
-    )
-
-
-@require_http_methods(["GET", "POST"])
-def confirm_delete_account(request, uidb64, token):
-    """Ask for a last confirmation, then delete the account on POST.
-
-    Opening the mailed link changes nothing, so a mail scanner or a link
-    preview cannot delete an account. Only the logged-in owner can confirm.
-    """
-    if not request.user.is_authenticated:
-        return redirect_to_login(request.get_full_path())
-
-    try:
-
-        uid = force_str(
-            urlsafe_base64_decode(uidb64)
-        )
-
-        user = User.objects.get(pk=uid)
-
-    except Exception:
-
-        user = None
-
-    if (
-        user is None
-        or user.pk != request.user.pk
-        or not account_deletion_token.check_token(user, token)
-    ):
-        messages.error(
-            request,
-            'Invalid or expired deletion link.'
-        )
-
-        return redirect('landing')
-
-    if request.method != 'POST':
-        return render(
-            request,
-            'game/confirm_delete_account.html',
-            {'uidb64': uidb64, 'token': token}
-        )
-
-    logout(request)
-
-    user.delete()
-
-    return render(
-        request,
-        'game/delete_success.html'
-    )
 
 
 # Centipawns given up against the engine's choice before a move gets a label.
@@ -4179,10 +4081,7 @@ def complete_lesson(request, lesson_name):
             progress.completed_at = timezone.now()
             progress.save(update_fields=["completed", "completed_at"])
 
-            award_xp(
-                request.user,
-                25
-            )
+            award_xp(request.user, progression.XP_LESSON)
 
     return redirect(
         "lesson_detail",
@@ -4344,10 +4243,7 @@ def update_opening_stats(request):
     )
 
     if completed and first_completion:
-        award_xp(request.user, 50)
-
-        if accuracy == 100:
-            award_xp(request.user, 25)
+        award_xp(request.user, progression.XP_OPENING + (progression.XP_OPENING_PERFECT if accuracy == 100 else 0))
 
     return JsonResponse({
         "success": True,
@@ -4526,8 +4422,8 @@ def forum_list(request):
     category = request.GET.get("category", "").strip()
 
     discussions = Discussion.objects.select_related(
-        "user"
-    ).prefetch_related(_live_replies())
+        "user__profile"
+    ).defer("user__profile__avatar").prefetch_related(_live_replies())
 
     if q:
         discussions = discussions.filter(
@@ -4651,7 +4547,8 @@ def forum_detail(request, discussion_id):
 
     replies = (
         discussion.replies
-        .select_related("user", "reply_to", "reply_to__user")
+        .select_related("user__profile", "reply_to", "reply_to__user")
+        .defer("user__profile__avatar")
         .annotate(
             upvote_count=Count(
                 "votes",
@@ -4968,143 +4865,3 @@ def toggle_reply_vote(request, reply_id):
             "user_vote": user_vote,
         }
     )
-
-# ---------------------------------------------------------------------------
-# Avatar management views
-# ---------------------------------------------------------------------------
-
-@login_required
-def upload_avatar(request):
-    """Handle avatar upload (GET renders form, POST processes the file).
-
-    Uploaded images are:
-    * Validated for format (PNG / JPEG / WEBP) and size (≤ 5 MB) by the form.
-    * Resized to at most 256 × 256 pixels (aspect-ratio preserved) by Pillow.
-    * Compressed and stored as a base64-encoded data URI in the database.
-
-    Storing in the database (instead of the filesystem) keeps avatars
-    persistent across Vercel's ephemeral serverless execution cycles.
-    """
-    from .forms import AvatarUploadForm
-    from PIL import Image
-
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
-
-    if request.method == "POST":
-        form = AvatarUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            uploaded_file = form.cleaned_data["avatar"]
-            try:
-                img = Image.open(uploaded_file)
-                # Pixel bomb guard: restrict dimensions before decoding
-                if img.size[0] > 4096 or img.size[1] > 4096:
-                    raise ValueError(
-                        "Image dimensions exceed the maximum allowed size of "
-                        "4096×4096."
-                    )
-
-                # Eagerly decode the entire image to catch truncated /
-                # corrupt files before any transformation takes place.
-                try:
-                    img.load()
-                except Exception as exc:
-                    raise ValueError("Image file appears to be corrupt or truncated.") from exc
-                # Convert to a mode that JPEG / PNG can handle cleanly.
-                if img.mode in ("RGBA", "LA", "P"):
-                    img = img.convert("RGBA")
-                    save_format = "PNG"
-                    mime = "image/png"
-                else:
-                    img = img.convert("RGB")
-                    save_format = "JPEG"
-                    mime = "image/jpeg"
-
-                # Resize to max 256 × 256, preserving aspect ratio.
-                img.thumbnail((256, 256), Image.LANCZOS)
-
-                buffer = io.BytesIO()
-                if save_format == "JPEG":
-                    img.save(buffer, format="JPEG", quality=85, optimize=True)
-                else:
-                    img.save(buffer, format="PNG", optimize=True)
-
-                encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
-                profile.avatar = f"data:{mime};base64,{encoded}"
-                profile.save()
-                messages.success(
-                    request,
-                    "Your avatar has been updated successfully!"
-                )
-            except Exception:
-                logger.exception("Avatar processing failed for user %s", request.user.username)
-                messages.error(
-                    request,
-                    "Failed to process image. Please try a different file."
-                )
-        else:
-            for field_errors in form.errors.values():
-                for error in field_errors:
-                    messages.error(request, error)
-
-        return redirect("upload_avatar")
-
-    form = AvatarUploadForm()
-    return render(request, "game/avatar.html", {
-        "form": form,
-        "profile": profile,
-    })
-
-
-@login_required
-@require_POST
-def remove_avatar(request):
-    """Clear the user's avatar, reverting to the default fallback."""
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    profile.avatar = ""
-    profile.save()
-    messages.success(request, "Avatar removed successfully.")
-    return redirect("upload_avatar")
-
-
-@login_required
-@require_GET
-def get_avatar(request):
-    """Return the current user's avatar as a JSON response.
-
-    Returns the base64 data URI (or an empty string when no avatar is set)
-    for use by JavaScript on pages that need to display the avatar
-    dynamically without a full page reload.
-    """
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    # Use defer to avoid loading the full avatar blob into the ORM object
-    # when the profile already exists (get_or_create falls back to a
-    # regular fetch which does load it, so we re-fetch with .only() here).
-    avatar = UserProfile.objects.filter(user=request.user).values_list(
-        "avatar", flat=True
-    ).first() or ""
-    return JsonResponse({"avatar": avatar})
-
-
-@login_required
-def profile_view(request):
-    """User profile view."""
-    try:
-        pr = request.user.player_rating
-        rating = pr.rating
-        wins = pr.wins
-        losses = pr.losses
-        draws = pr.draws
-    except PlayerRating.DoesNotExist:
-        # Fallback if PlayerRating doesn't exist
-        rating = 1200
-        wins = 0
-        losses = 0
-        draws = 0
-
-    context = {
-        'rating': rating,
-        'wins': wins,
-        'losses': losses,
-        'draws': draws,
-    }
-    return render(request, 'game/profile.html', context)

@@ -1,0 +1,133 @@
+{% extends 'game/base.html' %}
+{% load static players %}
+
+{% block title %}Settings · Checkora{% endblock %}
+{% block description %}Change your Checkora username, email, password, picture and sign-in options.{% endblock %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
+
+{# Messages are printed at the top of the settings list. #}
+{% block messages %}{% endblock %}
+
+{% block content %}
+<div class="wrap wrap--narrow page settings">
+    <header class="page-head">
+        <a href="{% url 'profile' %}" class="back-link" data-reveal>Profile</a>
+        <p class="eyebrow" data-reveal style="--i: 1">Account</p>
+        <h1 data-reveal style="--i: 2">Your <span class="serif">settings.</span></h1>
+    </header>
+
+    {% include 'game/includes/messages.html' %}
+
+    <section class="panel settings-card" aria-labelledby="pictureTitle" data-reveal>
+        <div class="settings-card__head">
+            <h2 id="pictureTitle">Picture</h2>
+            <p>A piece from the set, or a picture of your own.</p>
+        </div>
+        <div class="settings-card__row">
+            {% avatar user "avatar--lg" %}
+            <a class="button button--sm" href="{% url 'upload_avatar' %}">Change picture</a>
+        </div>
+    </section>
+
+    <section class="panel settings-card" aria-labelledby="usernameTitle" data-reveal>
+        <div class="settings-card__head">
+            <h2 id="usernameTitle">Username</h2>
+            <p>Shown on the leaderboard and in the forum. You sign in with it too.
+                {% if next_username_change %}You can change it again on {{ next_username_change|date:"j M Y" }}.{% else %}You can change it once every {{ username_change_days }} days.{% endif %}</p>
+        </div>
+        <form method="post" action="{% url 'change_username' %}" class="settings-form">
+            {% csrf_token %}
+            {% with field=username_form.username %}
+            <div class="field form-group">
+                <label for="{{ field.id_for_label }}">Username</label>
+                {{ field }}
+                {% if field.errors %}{{ field.errors }}{% endif %}
+            </div>
+            {% endwith %}
+            <button type="submit" class="button button--sm" {% if next_username_change %}disabled{% endif %}>Save username</button>
+        </form>
+    </section>
+
+    <section class="panel settings-card" aria-labelledby="emailTitle" data-reveal>
+        <div class="settings-card__head">
+            <h2 id="emailTitle">Email</h2>
+            <p>Now <strong>{{ user.email|default:"not set" }}</strong>. A new address is used once you enter the code we send to it.</p>
+        </div>
+        {% if email_change_pending %}
+        <p class="notice">A code is waiting at {{ email_change_pending }}. <a class="text-link" href="{% url 'verify_email_change' %}">Enter it</a></p>
+        {% endif %}
+        <form method="post" action="{% url 'change_email' %}" class="settings-form">
+            {% csrf_token %}
+            {% with field=email_form.email %}
+            <div class="field form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}{{ field.errors }}{% endif %}
+            </div>
+            {% endwith %}
+            <button type="submit" class="button button--sm">Send code</button>
+        </form>
+    </section>
+
+    <section class="panel settings-card" aria-labelledby="passwordTitle" data-reveal>
+        <div class="settings-card__head">
+            <h2 id="passwordTitle">Password</h2>
+            {% if has_password %}
+            <p>Changing it keeps you signed in here. We email you when it changes.</p>
+            {% elif google_account %}
+            <p>Your account signs in with Google. Set a password to sign in with your username as well.</p>
+            {% else %}
+            <p>Your account has no password yet. Set one to sign in with your username.</p>
+            {% endif %}
+        </div>
+        <form method="post" action="{% url 'change_password' %}" class="settings-form">
+            {% csrf_token %}
+            {% if password_form.non_field_errors %}
+            <div class="notice notice--error" role="alert">{{ password_form.non_field_errors }}</div>
+            {% endif %}
+            {% for field in password_form %}
+            <div class="field form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}{{ field.errors }}{% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="button button--sm">{% if has_password %}Change password{% else %}Set password{% endif %}</button>
+        </form>
+    </section>
+
+    <section class="panel settings-card" aria-labelledby="googleTitle" data-reveal>
+        <div class="settings-card__head">
+            <h2 id="googleTitle">Google</h2>
+            {% if google_account %}
+            <p>Linked to <strong>{{ google_account.email|default:"a Google account" }}</strong> since {{ google_account.linked_at|date:"j M Y" }}.</p>
+            {% else %}
+            <p>Link a Google account to sign in with one click.</p>
+            {% endif %}
+        </div>
+        {% if google_account %}
+        <form method="post" action="{% url 'unlink_google' %}" class="settings-form settings-form--inline">
+            {% csrf_token %}
+            <button type="submit" class="button button--sm" {% if not has_password %}disabled title="Set a password first"{% endif %}>Unlink Google</button>
+        </form>
+        {% elif google_login_enabled %}
+        <a class="button button--google button--sm" href="{% url 'google_login' %}?link=1">Link Google account</a>
+        {% else %}
+        <p class="muted">Google sign-in is not set up on this site.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel settings-card settings-card--danger" aria-labelledby="deleteTitle" data-reveal>
+        <div class="settings-card__head">
+            <h2 id="deleteTitle">Delete account</h2>
+            <p>Removes your games, ratings and posts from Checkora for good. You confirm from an email first.</p>
+        </div>
+        <a href="{% url 'delete_account' %}" class="button button--danger button--sm">Delete account</a>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'game/js/auth.js' %}"></script>
+{% endblock %}

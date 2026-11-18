@@ -6,7 +6,11 @@ from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth.models import User
 from game.models import UserProgress
+from game.progression import STREAK_MIN_HALF_MOVES
 from game.views import record_game_result
+
+# A game has to be long enough to count as played.
+PLAYED = ['e2e4', 'e7e5'] * (STREAK_MIN_HALF_MOVES // 2)
 
 class StreakCounterTest(TestCase):
     def setUp(self):
@@ -18,7 +22,7 @@ class StreakCounterTest(TestCase):
         request.user = self.user
         request.session = {}
         
-        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
         
         progress = UserProgress.objects.get(user=self.user)
         self.assertEqual(progress.day_streak, 1)
@@ -29,12 +33,12 @@ class StreakCounterTest(TestCase):
         request.user = self.user
         request.session = {}
         
-        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
         progress = UserProgress.objects.get(user=self.user)
         self.assertEqual(progress.day_streak, 1)
         
         # Second game same day
-        record_game_result(request, mode='pvp', winner='black', reason='resign', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='black', reason='resign', player_color='white', moves=PLAYED)
         progress.refresh_from_db()
         self.assertEqual(progress.day_streak, 1)
 
@@ -44,7 +48,7 @@ class StreakCounterTest(TestCase):
         request.session = {}
         
         # First game today
-        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
         progress = UserProgress.objects.get(user=self.user)
         self.assertEqual(progress.day_streak, 1)
         
@@ -54,7 +58,7 @@ class StreakCounterTest(TestCase):
         progress.save()
         
         # Second game today
-        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
         progress.refresh_from_db()
         self.assertEqual(progress.day_streak, 2)
         self.assertEqual(progress.last_played_date, timezone.localdate())
@@ -64,7 +68,7 @@ class StreakCounterTest(TestCase):
         request.user = self.user
         request.session = {}
         
-        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
         progress = UserProgress.objects.get(user=self.user)
         self.assertEqual(progress.day_streak, 1)
         
@@ -74,7 +78,7 @@ class StreakCounterTest(TestCase):
         progress.save()
         
         # Game today
-        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=[])
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
         progress.refresh_from_db()
         self.assertEqual(progress.day_streak, 1)
 
@@ -82,6 +86,7 @@ class StreakCounterTest(TestCase):
         # Initial game to set streak
         progress, _ = UserProgress.objects.get_or_create(user=self.user)
         progress.day_streak = 3
+        progress.last_played_date = timezone.localdate()
         progress.save()
         
         response = self.client.get('/api/state/')
@@ -96,3 +101,28 @@ class StreakCounterTest(TestCase):
         data = response.json()
         self.assertIsNone(data.get('day_streak'))
 
+    def test_a_game_too_short_to_play_earns_no_streak(self):
+        request = mock.MagicMock()
+        request.user = self.user
+        request.session = {}
+
+        record_game_result(request, mode='pvp', winner='white', reason='resign', player_color='white', moves=['e2e4'])
+
+        self.assertFalse(UserProgress.objects.filter(user=self.user, day_streak__gt=0).exists())
+
+    def test_best_day_streak_outlives_a_reset(self):
+        request = mock.MagicMock()
+        request.user = self.user
+        request.session = {}
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
+        progress = UserProgress.objects.get(user=self.user)
+        progress.day_streak = 4
+        progress.best_day_streak = 4
+        progress.last_played_date = timezone.localdate() - timedelta(days=3)
+        progress.save()
+
+        record_game_result(request, mode='pvp', winner='white', reason='checkmate', player_color='white', moves=PLAYED)
+
+        progress.refresh_from_db()
+        self.assertEqual(progress.day_streak, 1)
+        self.assertEqual(progress.best_day_streak, 4)

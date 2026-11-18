@@ -1,0 +1,37 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}Confirm your email · Checkora{% endblock %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
+
+{% block messages %}{% endblock %}
+
+{% block content %}
+<div class="wrap wrap--narrow page settings">
+    <header class="page-head">
+        <a href="{% url 'account_settings' %}" class="back-link" data-reveal>Settings</a>
+        <p class="eyebrow" data-reveal style="--i: 1">Email</p>
+        <h1 data-reveal style="--i: 2">Check your <span class="serif">inbox.</span></h1>
+        <p data-reveal style="--i: 3">Enter the six-digit code we sent to <strong>{{ email }}</strong>. It works for 10 minutes.</p>
+    </header>
+
+    <div class="panel auth-card" data-reveal style="--i: 4">
+        {% include 'game/includes/messages.html' %}
+        <form method="post">
+            {% csrf_token %}
+            {% with field=form.code %}
+            <div class="field form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}{{ field.errors }}{% endif %}
+            </div>
+            {% endwith %}
+            <button type="submit" class="button button--primary button--block">Use this email</button>
+        </form>
+        <div class="auth-card__foot">
+            <span>No code? Check spam, or <a class="text-link" href="{% url 'account_settings' %}">ask for a new one</a>.</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

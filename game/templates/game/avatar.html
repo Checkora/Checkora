@@ -1,8 +1,8 @@
 {% extends 'game/base.html' %}
-{% load static %}
+{% load static players %}
 
 {% block title %}Profile picture · Checkora{% endblock %}
-{% block description %}Upload or remove your Checkora profile picture.{% endblock %}
+{% block description %}Pick a chess piece or upload your own Checkora profile picture.{% endblock %}
 
 {% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
 
@@ -14,35 +14,42 @@
     <header class="page-head">
         <a href="{% url 'profile' %}" class="back-link" data-reveal>Back to profile</a>
         <h1 data-reveal style="--i: 1">Profile <span class="serif">picture.</span></h1>
-        <p data-reveal style="--i: 2">Upload a PNG, JPG, or WEBP image (max 5 MB).</p>
+        <p data-reveal style="--i: 2">Pick one of the pieces, or upload a PNG, JPG or WEBP picture of your own (up to 5 MB).</p>
     </header>
 
     <div class="panel avatar-card" data-reveal style="--i: 3">
         {% include 'game/includes/messages.html' %}
 
         <div class="avatar-preview-wrap">
-            {% if profile.avatar %}
-            <img src="{{ profile.avatar }}"
-                 id="avatarPreview"
-                 class="avatar-img"
-                 alt="Your current profile picture">
-            {% else %}
-            <div class="avatar-placeholder" id="avatarPreview" role="img" aria-label="No avatar set">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-            </div>
-            {% endif %}
-
-            {% if profile.avatar %}
-            <span class="chip chip--gold">Active</span>
+            {% avatar user "avatar--xl" %}
+            {% if profile.avatar_preset %}
+            <span class="chip chip--gold">Piece</span>
+            {% elif profile.avatar_updated_at %}
+            <span class="chip chip--gold">Your picture</span>
             {% else %}
             <span class="chip">No picture yet</span>
             {% endif %}
         </div>
 
         <div class="avatar-forms">
+            <form method="post" action="{% url 'select_avatar_preset' %}" class="preset-form">
+                {% csrf_token %}
+                <fieldset>
+                    <legend>Pick a piece</legend>
+                    <div class="preset-grid">
+                        {% for preset in presets %}
+                        <label class="preset" title="{{ preset.label }}">
+                            <input type="radio" name="preset" value="{{ preset.key }}" {% if profile.avatar_preset == preset.key %}checked{% endif %}>
+                            <span class="avatar avatar--lg" data-preset="{{ preset.key|first }}"><img src="{{ preset.url }}" alt="{{ preset.label }}" loading="lazy"></span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <button type="submit" class="button button--block">Use this piece</button>
+            </form>
+
+            <p class="auth-divider"><span>or upload</span></p>
+
             <form method="post"
                   action="{% url 'upload_avatar' %}"
                   enctype="multipart/form-data"
@@ -86,18 +93,18 @@
                         id="uploadBtn"
                         class="button button--primary button--block"
                         disabled>
-                    Upload avatar
+                    Upload picture
                 </button>
             </form>
 
-            {% if profile.avatar %}
+            {% if profile.avatar_preset or profile.avatar_updated_at %}
             <form method="post"
                   action="{% url 'remove_avatar' %}"
                   class="remove-form"
                   id="removeAvatarForm"
                   onsubmit="return confirm('Remove your profile picture?');">
                 {% csrf_token %}
-                <button type="submit" class="button button--danger button--block">Remove avatar</button>
+                <button type="submit" class="button button--danger button--block">Remove picture</button>
             </form>
             {% endif %}
         </div>

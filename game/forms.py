@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from .models import Discussion, Reply
 
@@ -45,6 +46,47 @@ class CustomUserCreationForm(UserCreationForm):
             self.instance.validate_unique(exclude=exclude)
         except ValidationError as e:
             self._update_errors(e)
+
+
+class UsernameForm(forms.Form):
+    """A username on its own: a new Google player's first step, or a rename.
+
+    Whether the name is free is decided in game.accounts, inside the
+    transaction that saves it.
+    """
+
+    username = forms.CharField(
+        max_length=150,
+        validators=[UnicodeUsernameValidator()],
+        help_text='Up to 150 characters: letters, digits and @ . + - _ only.',
+        widget=forms.TextInput(attrs={
+            'autocomplete': 'username',
+            'autocapitalize': 'none',
+        }),
+    )
+
+
+class EmailChangeForm(forms.Form):
+    email = forms.EmailField(
+        label='New email',
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
+
+    def clean_email(self):
+        return self.cleaned_data['email'].strip()
+
+
+class EmailCodeForm(forms.Form):
+    code = forms.RegexField(
+        regex=r'^\d{6}$',
+        label='Code',
+        error_messages={'invalid': 'The code is six digits.'},
+        widget=forms.TextInput(attrs={
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'maxlength': '6',
+        }),
+    )
 
 
 class CustomSetPasswordForm(SetPasswordForm):

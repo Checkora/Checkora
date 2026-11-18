@@ -1,0 +1,2 @@
+{# The name is always written next to a picture, so the picture itself is not read out. #}
+<span class="avatar{% if classes %} {{ classes }}{% endif %}"{% if preset_side %} data-preset="{{ preset_side }}"{% endif %} aria-hidden="true">{% if url %}<img src="{{ url }}" alt="" loading="lazy" decoding="async">{% else %}{{ initial }}{% endif %}</span>

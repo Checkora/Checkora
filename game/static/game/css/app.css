@@ -546,6 +546,53 @@ button {
     height: 72px;
     font-size: 28px;
 }
+.avatar--xl {
+    width: clamp(140px, 30vw, 184px);
+    height: clamp(140px, 30vw, 184px);
+    font-size: 64px;
+    box-shadow: 0 0 0 5px var(--ink-1), 0 0 0 7px var(--gold), 0 24px 50px -18px var(--gold);
+}
+/* A preset is a whole piece standing on a disc: white pieces on dark wood,
+   black pieces on light wood, so either stays visible at 28 px. */
+.avatar[data-preset] img {
+    object-fit: contain;
+    padding: 10% 12% 6%;
+}
+.avatar[data-preset='w'] {
+    background: radial-gradient(circle at 50% 30%, #6b4328, #2a1a0f);
+}
+.avatar[data-preset='b'] {
+    background: radial-gradient(circle at 50% 30%, #f6e2b8, #c99a5b);
+}
+
+/* The rank a rating earns, with the piece it is named after. */
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--ink-2);
+    color: var(--title);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.rank-badge img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+.rank-badge--q,
+.rank-badge--k {
+    border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+    background: var(--gold-wash);
+}
+.rank-badge__provisional {
+    margin-left: -2px;
+    color: var(--muted);
+}
 .menu__panel {
     position: absolute;
     top: calc(100% + 10px);

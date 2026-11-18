@@ -420,14 +420,14 @@ class RatingIntegrityTest(LoggedInGameTestCase):
         result = GameResult.objects.get(user=self.user)
         self.assertEqual(result.winner, 'black')
         self.assertEqual(result.end_reason, 'resign')
-        self.assertEqual(self.rating(), 1190)
+        self.assertEqual(self.rating(), 1184)
         self.assertFalse(UserAchievement.objects.filter(user=self.user).exists())
 
     def test_resigning_as_black_against_the_engine(self):
         self.start(mode='ai', player_color='black')
         data = post_json(self.client, '/api/resign/', {'resigning_player': 'white'}).json()
         self.assertEqual(data['winner'], 'white')
-        self.assertEqual(self.rating(), 1190)
+        self.assertEqual(self.rating(), 1184)
 
     def test_two_player_resign_still_names_the_side(self):
         self.start(mode='pvp')
@@ -554,7 +554,7 @@ class RatingIntegrityTest(LoggedInGameTestCase):
 
         post_json(self.client, '/api/move/', E2E4)
 
-        self.assertEqual(self.rating(), 1220)
+        self.assertEqual(self.rating(), 1216)
         self.assertTrue(GameResult.objects.get(user=self.user).rated)
         self.assertTrue(UserAchievement.objects.filter(
             user=self.user, achievement__code='FIRST_WIN'
@@ -574,7 +574,7 @@ class AbandonedGameTest(LoggedInGameTestCase):
         result = GameResult.objects.get(user=self.user)
         self.assertEqual((result.winner, result.end_reason), ('black', 'resign'))
         self.assertEqual(len(result.moves), 6)
-        self.assertEqual(self.rating(), 1190)
+        self.assertEqual(self.rating(), 1184)
         self.assertEqual(ActiveGame.objects.filter(user=self.user).count(), 1)
         self.assertEqual(self.client.get('/api/state/').json()['move_history'], [])
 
@@ -653,7 +653,7 @@ class LossOnTimeTest(LoggedInGameTestCase):
         result = GameResult.objects.get(user=self.user)
         self.assertEqual((result.winner, result.end_reason), ('black', 'timeout'))
         self.assertTrue(result.rated)
-        self.assertEqual(self.rating(), 1190)
+        self.assertEqual(self.rating(), 1184)
         self.assertFalse(ActiveGame.objects.filter(user=self.user).exists())
         record = GameRecord.objects.get(user=self.user)
         self.assertEqual((record.result, record.termination), ('0-1', 'timeout'))

@@ -924,6 +924,7 @@ Checks the moves a user played against the stored solution of a puzzle and, when
     {
       "success": true,
       "correct": true,
+      "counted": true,
       "newly_solved": true,
       "puzzles_solved": 1,
       "streak": 1,
@@ -934,8 +935,11 @@ Checks the moves a user played against the stored solution of a puzzle and, when
 
     - `correct` says whether the moves matched. A wrong attempt still gets `200`, with `"correct": false` and the user's current numbers.
     - `newly_solved` is `true` the first time this user solves this puzzle. `puzzles_solved` goes up only then.
-    - `streak`, `longest_streak` and `daily_completions` go up only when the puzzle is today's daily puzzle and it has not been counted yet today. A streak that lapsed because a day was missed is set back to `0` first.
-*   **Error Responses:** `400` with `{"success": false, "error": "moves must be a list of strings"}`, `401` as above, and `404` when no puzzle has that id.
+    - `counted` is `false` when this user opened the puzzle's solution (`/api/puzzles/<id>/solution/`) in the last seven days. The answer is still checked, but nothing is counted.
+    - `streak`, `longest_streak` and `daily_completions` go up only when the puzzle is the daily puzzle and it has not been counted for that day yet. The daily puzzle changes at midnight UTC; yesterday's still counts for yesterday when it is solved within 15 minutes of midnight. `streak` reads `0` once a whole day has passed without the daily puzzle.
+    - A new solve earns 10 XP, and the daily puzzle 15 XP more.
+*   **Rate limit:** `PUZZLE_SOLVE_MAX_REQUESTS` answers per `PUZZLE_SOLVE_RATE_WINDOW_SECONDS` per user (20 a minute by default), then `429`.
+*   **Error Responses:** `400` with `{"success": false, "error": "moves must be a list of strings"}`, `401` as above, `404` when no puzzle has that id, and `429` as above.
 
 ---
 
@@ -1106,6 +1110,42 @@ Authenticates a user and creates a session.
 
 ---
 
+### 4.1 Continue with Google
+
+Signs in or signs up with a Google account. The button on `/login/` and `/register/` appears only when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
+
+* **URL:** `/auth/google/`
+* **Methods:** `GET`
+* **Authentication:** Public
+
+Starts the sign-in. The session stores a random `state`, `nonce` and PKCE verifier, plus the `next` page when one was passed and it points at this site, and the browser is redirected to Google.
+
+* **URL:** `/auth/google/callback/`
+* **Methods:** `GET`
+* **Authentication:** Public
+
+Google sends the browser back here with `code` and `state`. A `state` that does not match the session, or one already used, is refused. The code is exchanged for an ID token, whose issuer, audience, expiry, nonce and `email_verified` claim are checked. Then:
+
+* A Google account already linked to a player signs that player in.
+* A verified address that belongs to exactly one existing account links the Google account to it and signs in. Signups that never verified their email do not count.
+* Anyone else is a new player. Nothing is created yet: the Google identity waits in the session for 15 minutes and the browser goes to `/auth/google/username/`.
+* A deactivated account is never signed in.
+
+* **URL:** `/auth/google/username/`
+* **Methods:** `GET`, `POST`
+* **Authentication:** A Google sign-in waiting for its username
+* **CSRF Protection:** Required for POST requests
+
+**POST Parameters**
+
+| Parameter | Type   | Required |
+| --------- | ------ | -------- |
+| username  | string | Yes      |
+
+The account is created only when a valid, free username is posted. The username follows the same rules as `/register/` and is compared without case. The new account has no password, is linked to the Google account in `GoogleAccount`, gets the welcome email and is signed in.
+
+---
+
 ### 5. Logout
 
 Ends the current authenticated session.
@@ -1136,9 +1176,9 @@ Deleting an account takes two requests and an email in between.
 | Parameter | Type   | Required |
 | --------- | ------ | -------- |
 | username  | string | Yes      |
-| password  | string | Yes      |
+| password  | string | Yes, except for accounts made with Google, which have none |
 
-When the username and password are those of the logged-in user, a confirmation link is emailed to the account's address and the user is redirected to `/play/`. Nothing is deleted at this point.
+When the username and password are those of the logged-in user, a confirmation link is emailed to the account's address and the user is redirected to `/account/`. Nothing is deleted at this point. A wrong username or password gets `400`, and a mail that can't be sent `502`.
 
 * **URL:** `/confirm-delete/<uidb64>/<token>/`
 * **Methods:** `GET`, `POST`
@@ -1154,4 +1194,45 @@ When the username and password are those of the logged-in user, a confirmation l
 **Security Notes**
 
 * The token comes from a subclass of Django's password reset token generator with its own salt, so a password reset token cannot delete an account. It expires after `PASSWORD_RESET_TIMEOUT`, which `core/settings.py` sets to 300 seconds.
+
+---
+
+### 7. Account settings
+
+`/account/` shows the forms below. Each form posts to its own URL, needs a signed-in user and a CSRF token, and redirects back to `/account/` with a message; a form error re-renders the page with `400`.
+
+| URL | Fields | What it does |
+| --- | --- | --- |
+| `/account/username/` | `username` | Renames the account. Same rules as `/register/`, compared without case. Once every 30 days; changing only the case is free. |
+| `/account/email/` | `email` | Mails a six-digit code to the new address and redirects to `/account/email/verify/`. An address another account uses gets the same answer and no mail. One code per address per minute (`429` otherwise). |
+| `/account/email/verify/` | `code` | Switches the email when the code matches. Codes last 10 minutes and allow 5 tries. The old address is told about the change. |
+| `/account/password/` | `old_password`, `new_password1`, `new_password2` | Changes the password and keeps this browser signed in. An account made with Google has no `old_password` field and sets its first password here. The account's email is told. |
+| `/account/google/unlink/` | none | Removes the Google link. Refused while the account has no password, since nothing else could sign in to it. |
+
+`/auth/google/?link=1` links a Google account to the signed-in player; see 4.1.
+
+---
+
+### 8. Profile pictures
+
+A picture is one of twelve Staunton pieces or an uploaded image, never both.
+
+* `GET /avatar/` shows the picker. `POST /avatar/` takes a file in `avatar` (PNG, JPEG or WEBP, up to 5 MB and 4096 px a side). It is re-encoded to PNG or JPEG at most 256 px a side.
+* `POST /avatar/preset/` with `preset` set to one of `wk wq wr wb wn wp bk bq br bb bn bp`.
+* `POST /avatar/remove/` clears either kind.
+* `GET /api/avatar/` returns `{"avatar": "<url>"}` for the signed-in user, `""` when there is none.
+* `GET /u/<user_id>/avatar/` serves an uploaded picture's bytes to anyone, with `Cache-Control: public, max-age=31536000, immutable`. Pages link to it with `?v=<time of upload>`, so a new upload gets a new URL. A preset or no picture gives `404`.
+
+---
+
+### 9. Rating, rank, points and streaks
+
+The rules live in `game/progression.py`.
+
+* **Rating.** Rated games are AI games from the normal start position. The rating is Elo against the engine level played: easy counts as 800, medium 1200, hard 1600. K is 32 for a player's first 20 rated games, when the rating is shown as provisional, and 16 after. The floor is 100. Every change is stored in `RatingHistory`, linked to the game.
+* **Rank.** A title for a band of rating: Pawn below 800, Knight from 800, Bishop from 1100, Rook from 1400, Queen from 1700, King from 2000.
+* **Points (XP).** A rated game of at least 5 moves gives 30 for a win, 15 for a draw and 5 for a loss; a new puzzle 10, the daily puzzle 15 more, a lesson 25, an opening 50 (75 at 100% accuracy). Levels start at 0, 100, 250, 500, 1000, 1500, 2200 and 3000 XP.
+* **Day streak.** Goes up on each day with a finished game of at least 5 moves, in the player's own time zone (the `tz` cookie set by `app.js`). Games resigned by the stale-game cleanup don't count. It reads `0` once a whole day passes without a game; the best streak is kept.
+* **Leaderboard.** Only players with a rated game, or a solved puzzle, are listed. Players level on the table share a place, and a signed-in player outside the top 50 sees their own row.
+
 

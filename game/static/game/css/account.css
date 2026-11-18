@@ -210,6 +210,35 @@
 .auth-card form.inline-form {
     display: inline;
 }
+
+/* Google asks for its button to stay white with its own four-colour G, on
+   dark pages as well as light ones. */
+.button--google {
+    --button-bg: #fff;
+    --button-fg: #1f1f1f;
+    border-color: #747775;
+}
+.button--google:hover {
+    border-color: var(--gold);
+    box-shadow: 0 10px 26px -14px var(--gold);
+}
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: -4px 0;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+}
 /* On the narrowest phones the longest label on a card, "Delete my account
    permanently", is wider than its button. Slightly smaller letters and less
    padding at the sides keep it whole. */
@@ -568,6 +597,27 @@
     font-variant-numeric: tabular-nums;
     color: var(--gold);
 }
+.profile-rating__next {
+    font-size: 14px;
+    color: var(--muted);
+}
+.profile-rank {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+.profile-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+.level-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 .profile-hero .stage__frame {
     width: 210px;
 }
@@ -808,6 +858,103 @@
 .avatar-preview-wrap:hover .avatar-img,
 .avatar-preview-wrap:hover .avatar-placeholder {
     transform: scale(1.04) rotate(-3deg);
+}
+
+/* The twelve pieces to pick from. */
+.preset-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.preset-form fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.preset-form legend {
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: var(--title);
+}
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+}
+@media (max-width: 520px) {
+    .preset-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+.preset {
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+.preset input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.preset .avatar {
+    width: 100%;
+    max-width: 72px;
+    height: auto;
+    aspect-ratio: 1;
+    box-shadow: 0 0 0 2px transparent;
+    transition: transform 0.25s var(--ease-spring), box-shadow 0.2s;
+}
+.preset:hover .avatar {
+    transform: translateY(-3px);
+}
+.preset input:checked + .avatar {
+    box-shadow: 0 0 0 3px var(--ink-1), 0 0 0 5px var(--gold);
+}
+.preset input:focus-visible + .avatar {
+    outline: 2px solid var(--gold);
+    outline-offset: 4px;
+}
+
+/* ---------- settings ---------- */
+
+.settings {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.settings-card {
+    display: grid;
+    gap: 16px;
+    padding: clamp(20px, 3vw, 30px);
+}
+.settings-card__head h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+}
+.settings-card__head p {
+    margin: 0;
+    color: var(--text);
+}
+.settings-card__row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+}
+.settings-form .field {
+    width: 100%;
+}
+.settings-card > .button,
+.settings-card > .settings-form--inline {
+    justify-self: start;
+}
+.settings-card--danger {
+    border-color: color-mix(in srgb, var(--check) 35%, var(--line));
 }
 .avatar-forms {
     display: flex;

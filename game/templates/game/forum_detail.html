@@ -1,6 +1,6 @@
 {% extends 'game/base.html' %}
 {% load static %}
-{% load forum_extras %}
+{% load forum_extras players %}
 
 {% block title %}{{ discussion.title }} · Checkora forum{% endblock %}
 
@@ -12,7 +12,7 @@
 
     <article class="panel panel--raised thread__post forum-discussion-card" data-reveal>
         <div class="byline forum-discussion-meta">
-            <span class="avatar avatar--md" aria-hidden="true">{{ discussion.user.username|slice:':1' }}</span>
+            {% avatar discussion.user "avatar--md" %}
             <div class="byline__who">
                 <span><span class="forum-meta-label">Started by</span> <span class="forum-author">{{ discussion.user.username }}</span></span>
                 <span class="forum-date">{{ discussion.created_at|date:"M d, Y H:i" }}</span>
@@ -55,7 +55,7 @@
 
         {% for reply in replies %}
         <article class="reply forum-reply-card{% if reply.is_deleted %} is-deleted{% endif %}" id="reply-{{ reply.id }}" data-reveal style="--i: {% if forloop.counter0 < 5 %}{{ forloop.counter0 }}{% else %}0{% endif %}">
-            <span class="avatar avatar--md avatar--soft" aria-hidden="true">{{ reply.user.username|slice:':1' }}</span>
+            {% avatar reply.user "avatar--md avatar--soft" %}
 
             <div class="reply__body forum-reply-body">
                 <div class="reply__head forum-reply-top">

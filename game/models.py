@@ -10,6 +10,9 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.urls import reverse
+
+from . import avatars
 
 
 class GameResult(models.Model):
@@ -92,15 +95,16 @@ class PuzzleStats(models.Model):
             ),
         ]
 
-    def expire_streak(self):
-        """Drop the streak to 0 once a daily puzzle has been missed."""
-        if (
-            self.current_streak
-            and self.last_daily_date
-            and self.last_daily_date < timezone.localdate() - timedelta(days=1)
-        ):
-            self.current_streak = 0
-            self.save(update_fields=['current_streak'])
+    def streak_on(self, day):
+        """The daily-puzzle streak as it stands on `day`.
+
+        A streak lapses once a whole day passes without the daily puzzle. That
+        is worked out when it is read, so reading never writes, and a read
+        racing a solve can't zero a streak that was just extended.
+        """
+        if self.last_daily_date and self.last_daily_date >= day - timedelta(days=1):
+            return self.current_streak
+        return 0
 
     def __str__(self):
         return f"{self.user.username} Puzzle Stats"
@@ -148,31 +152,33 @@ class UserProgress(models.Model):
         default=0
     )
 
+    best_day_streak = models.PositiveIntegerField(default=0, db_default=0)
+
     last_played_date = models.DateField(
         null=True,
         blank=True
     )
 
-    def update_streak(self):
-        """Update day streak based on last played date."""
-        today = timezone.localdate()
-        if self.last_played_date != today:
-            if self.last_played_date == today - timedelta(days=1):
-                self.day_streak += 1
-            else:
-                self.day_streak = 1
-            self.last_played_date = today
-            self.save(update_fields=['day_streak', 'last_played_date'])
+    def record_play(self, day):
+        """Count a game played on `day`, the player's own date.
 
-    def expire_streak(self):
-        """Drop the streak to 0 once a full day has passed without a game."""
-        if (
-            self.day_streak
-            and self.last_played_date
-            and self.last_played_date < timezone.localdate() - timedelta(days=1)
-        ):
-            self.day_streak = 0
-            self.save(update_fields=['day_streak'])
+        The caller holds this row with select_for_update.
+        """
+        if self.last_played_date == day:
+            return
+        if self.last_played_date == day - timedelta(days=1):
+            self.day_streak += 1
+        else:
+            self.day_streak = 1
+        self.best_day_streak = max(self.best_day_streak, self.day_streak)
+        self.last_played_date = day
+        self.save(update_fields=['day_streak', 'best_day_streak', 'last_played_date'])
+
+    def streak_on(self, day):
+        """The day streak as it stands on `day`; it lapses after a full day without a game."""
+        if self.last_played_date and self.last_played_date >= day - timedelta(days=1):
+            return self.day_streak
+        return 0
 
     def __str__(self) -> str:
         return (
@@ -264,6 +270,15 @@ class RatingHistory(models.Model):
     result = models.CharField(
         max_length=10,
         choices=RESULT_CHOICES
+    )
+
+    # The game that moved the rating. Empty for rows from before the link.
+    game_result = models.ForeignKey(
+        GameResult,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="rating_changes",
     )
 
     created_at = models.DateTimeField(
@@ -814,32 +829,83 @@ class ReplyVote(models.Model):
         )
 
 class UserProfile(models.Model):
-    """Stores optional profile data for a user, including their avatar.
+    """Optional profile data for a user: their picture and when they last renamed.
 
-    The avatar is stored as a base64-encoded data URI (e.g.
-    ``data:image/jpeg;base64,...``) so that it persists correctly on
-    Vercel's ephemeral serverless filesystem without requiring external
-    object storage or a persistent MEDIA_ROOT directory.
+    A picture is either one of the preset pieces in game.avatars or an
+    upload, never both. An upload is stored as a base64 data URI so that it
+    survives Vercel's ephemeral filesystem; see game.avatars for how it is
+    served.
     """
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="profile"
     )
-    # Stored as a base64 data URI. Empty string means no avatar set.
+    # Stored as a base64 data URI. Empty string means no upload.
     avatar = models.TextField(blank=True, default="")
+    # db_default on new NOT NULL columns lets the migration run before the
+    # code that knows about them is deployed.
+    avatar_preset = models.CharField(
+        max_length=2, blank=True, default="", db_default="", choices=avatars.PRESETS,
+    )
+    # When the upload last changed. Its URL carries this, so browsers can
+    # cache a picture for a year and still see a new one straight away. It
+    # also says whether there is an upload without reading the column.
+    avatar_updated_at = models.DateTimeField(null=True, blank=True)
+    username_changed_at = models.DateTimeField(null=True, blank=True)
+    # The IANA zone the player's browser reports, e.g. "Asia/Kolkata". Streak
+    # days follow it, so a game at 1 am counts for the day the player is in.
+    timezone = models.CharField(max_length=64, blank=True, default="", db_default="")
 
     def clean(self):
         super().clean()
-        if self.avatar:
-            if not self.avatar.startswith("data:image/"):
-                raise ValidationError({"avatar": "Invalid avatar data URI."})
-            if ";base64," not in self.avatar:
-                raise ValidationError({"avatar": "Invalid avatar data URI."})
+        if 'avatar' in self.get_deferred_fields() or not self.avatar:
+            return
+        if not self.avatar.startswith("data:image/") or ";base64," not in self.avatar:
+            raise ValidationError({"avatar": "Invalid avatar data URI."})
+        if self.avatar_preset:
+            raise ValidationError("A profile has an upload or a preset, not both.")
 
     def save(self, *args, **kwargs):
+        if 'avatar' not in self.get_deferred_fields():
+            # Keeps the flag right when the column is set directly, as the
+            # admin does.
+            if not self.avatar:
+                self.avatar_updated_at = None
+            elif self.avatar_updated_at is None:
+                self.avatar_updated_at = timezone.now()
         self.full_clean()
         super().save(*args, **kwargs)
+
+    def use_upload(self, data_uri):
+        self.avatar = data_uri
+        self.avatar_preset = ""
+        self.avatar_updated_at = timezone.now()
+        self.save()
+
+    def use_preset(self, key):
+        self.avatar = ""
+        self.avatar_preset = key
+        self.save()
+
+    def clear_avatar(self):
+        self.avatar = ""
+        self.avatar_preset = ""
+        self.save()
+
+    @property
+    def avatar_url(self):
+        """Where the picture is, or "" for the initial-letter fallback.
+
+        Reads only avatar_preset and avatar_updated_at, so lists can load
+        profiles with .defer("avatar").
+        """
+        if self.avatar_preset:
+            return avatars.preset_url(self.avatar_preset)
+        if self.avatar_updated_at:
+            version = int(self.avatar_updated_at.timestamp())
+            return f"{reverse('user_avatar', args=[self.user_id])}?v={version}"
+        return ""
 
     def __str__(self):
         return f"{self.user.username} Profile"
@@ -850,3 +916,23 @@ def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create a UserProfile whenever a new User is saved."""
     if created:
         UserProfile.objects.get_or_create(user=instance)
+
+
+class GoogleAccount(models.Model):
+    """The Google account a player signs in with.
+
+    ``sub`` is Google's permanent id for that account. People can change the
+    address on a Google account, so ``email`` only records what Google sent
+    when the two were linked, and sign-in never looks it up.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="google_account",
+    )
+    sub = models.CharField(max_length=255, unique=True)
+    email = models.EmailField(blank=True, default="")
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} (Google)"

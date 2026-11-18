@@ -3946,7 +3946,7 @@ class AvatarViewTest(TestCase):
         self.assertIn('avatar', data)
         self.assertEqual(data['avatar'], '')
 
-    def test_get_avatar_returns_avatar_after_set(self):
+    def test_get_avatar_returns_avatar_url_after_set(self):
         from game.models import UserProfile
         profile = UserProfile.objects.get(user=self.user)
         profile.avatar = 'data:image/jpeg;base64,TESTDATA'
@@ -3954,7 +3954,8 @@ class AvatarViewTest(TestCase):
 
         response = self.client.get(self.get_url)
         data = response.json()
-        self.assertEqual(data['avatar'], 'data:image/jpeg;base64,TESTDATA')
+        # Pages get a URL; the picture data is served from it, not inlined.
+        self.assertTrue(data['avatar'].startswith(f'/u/{self.user.pk}/avatar/?v='))
 
     # ── POST /avatar/remove/ ─────────────────────────────────────────────
 
@@ -4387,7 +4388,7 @@ class AccountDeletionConfirmTest(TestCase):
     def setUp(self):
         from django.utils.encoding import force_bytes
         from django.utils.http import urlsafe_base64_encode
-        from game.views import account_deletion_token
+        from game.views_account import account_deletion_token
 
         self.user = User.objects.create_user(
             username='leaver', email='leaver@example.com', password='Password123!'
@@ -4511,7 +4512,7 @@ class AccountDeletionConfirmTest(TestCase):
 
     def test_password_reset_token_does_not_delete(self):
         from django.contrib.auth.tokens import default_token_generator
-        from game.views import account_deletion_token
+        from game.views_account import account_deletion_token
 
         reset_token = default_token_generator.make_token(self.user)
         self.client.force_login(self.user)
@@ -4704,7 +4705,7 @@ class StatsPageDataTest(TestCase):
         progress.save()
 
         context = self.client.get('/stats/').context
-        self.assertEqual(context['progress'].day_streak, 0)
+        self.assertEqual(context['day_streak'], 0)
         self.assertEqual(self.client.get('/api/state/').json()['day_streak'], 0)
 
     def test_yesterdays_streak_is_still_alive(self):

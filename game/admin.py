@@ -11,6 +11,7 @@ from .models import (
     Achievement,
     UserAchievement,
     FeaturedBadge,
+    GoogleAccount,
 )
 from django.contrib.auth.models import User
 from django.db import DatabaseError
@@ -113,6 +114,14 @@ class FeaturedBadgeAdmin(admin.ModelAdmin):
     list_filter = ('achievement__category', 'achievement__rarity')
     search_fields = ('user__username', 'user__email', 'achievement__title', 'achievement__code')
     raw_id_fields = ('user', 'achievement')
+
+
+@admin.register(GoogleAccount)
+class GoogleAccountAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email', 'linked_at')
+    search_fields = ('user__username', 'user__email', 'email')
+    raw_id_fields = ('user',)
+    readonly_fields = ('sub', 'linked_at')
 
 
 original_each_context = admin.site.each_context

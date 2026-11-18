@@ -5,6 +5,18 @@
 
     const root = document.documentElement;
     root.classList.remove('no-js');
+
+    // Streak days follow the player's own clock; the server reads this cookie.
+    // IANA names (Asia/Kolkata) are safe as cookie values without escaping.
+    try {
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (zone && !document.cookie.split('; ').includes(`tz=${zone}`)) {
+            document.cookie = `tz=${zone}; path=/; max-age=31536000; samesite=lax`;
+        }
+    } catch (error) {
+        // A browser without Intl time zones keeps UTC days.
+    }
+
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 

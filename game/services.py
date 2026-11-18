@@ -26,7 +26,7 @@ from game.models import (
     RatingHistory,
     UserProgress,
 )
-from .rating_service import calculate_rating_change
+from . import progression
 from django.db.models import F
 
 logger = logging.getLogger(__name__)
@@ -195,65 +195,54 @@ def delete_active_game(request):
             session_key=session_key
         ).delete()
 
+def outcome_for(winner, player_color):
+    if winner == 'draw':
+        return 'draw'
+    return 'win' if winner == player_color else 'loss'
+
+
 @transaction.atomic
-def update_player_rating(user, winner, player_color):
-    rating, _ = PlayerRating.objects.select_for_update().get_or_create(
-        user=user
-    )
+def update_player_rating(user, winner, player_color, difficulty=None, game_result=None):
+    """Apply one rated game against the engine and return 'win', 'draw' or 'loss'."""
+    rating, _ = PlayerRating.objects.select_for_update().get_or_create(user=user)
+    result = outcome_for(winner, player_color)
 
     old_rating = rating.rating
-
-    if winner == "draw":
-        result = "draw"
-
-    elif winner == player_color:
-        result = "win"
-
-    else:
-        result = "loss"
-
-    change = calculate_rating_change(result)
-
-    new_rating = max(
-        100,
-        old_rating + change
+    change = progression.rating_change(
+        old_rating, progression.engine_rating(difficulty), result, rating.games_played,
     )
-
-    actual_change = (
-        new_rating - old_rating
-    )
-    rating.rating = new_rating
+    rating.rating = max(progression.RATING_FLOOR, old_rating + change)
     rating.games_played += 1
-
-    if result == "win":
+    if result == 'win':
         rating.wins += 1
-
-    elif result == "loss":
+    elif result == 'loss':
         rating.losses += 1
-
     else:
         rating.draws += 1
-
-    rating.full_clean()
     rating.save()
 
     RatingHistory.objects.create(
         user=user,
         old_rating=old_rating,
         new_rating=rating.rating,
-        rating_change=actual_change,
-        result=result
+        rating_change=rating.rating - old_rating,
+        result=result,
+        game_result=game_result,
     )
+    return result
+
 
 @transaction.atomic
-def process_game_completion(user, mode, winner, reason, player_color='white', moves=None, rated=None):
-    """Shared logic to finalize a game and update progressions.
+def process_game_completion(user, mode, winner, reason, player_color='white', moves=None,
+                            rated=None, difficulty=None, counts_for_streak=True):
+    """Record a finished game and everything it earns.
 
     Only AI games can be rated. Callers pass rated=False for AI games that
-    must not move the rating, such as games from a custom position.
+    must not move the rating, such as games from a custom position, and
+    counts_for_streak=False when nobody played (the stale-game cleanup).
+    A game too short to have really been played earns no streak and no XP.
     """
-    if moves is None:
-        moves = []
+    moves = moves or []
     if rated is None:
         rated = True
     rated = bool(user) and mode == 'ai' and bool(rated)
@@ -270,19 +259,20 @@ def process_game_completion(user, mode, winner, reason, player_color='white', mo
     result.full_clean()
     result.save()
 
-    if user:
+    if not user:
+        return result
+
+    played = len(moves) >= progression.STREAK_MIN_HALF_MOVES
+    if counts_for_streak and played:
         progress, _ = UserProgress.objects.select_for_update().get_or_create(user=user)
-        progress.update_streak()
+        progress.record_play(progression.player_today(user))
 
     if rated:
-        update_player_rating(
-            user,
-            winner,
-            player_color
-        )
+        outcome = update_player_rating(user, winner, player_color, difficulty, game_result=result)
+        if played:
+            progression.award_xp(user, progression.XP_FOR_RESULT[outcome])
 
-        check_game_achievements(user)
-
+    check_game_achievements(user)
     return result
 
 
@@ -342,6 +332,9 @@ def cleanup_stale_games():
                         player_color=player_color,
                         moves=game_data.get('move_history', []),
                         rated=is_rated_game(mode, game_data.get('initial_fen')),
+                        difficulty=game_data.get('difficulty'),
+                        # Walking away from a game is not playing one today.
+                        counts_for_streak=False,
                     )
 
                     active_game.delete()
@@ -414,7 +407,8 @@ def cleanup_stale_games():
                     winner=winner,
                     reason='resign',
                     player_color=player_color,
-                    moves=game_data.get('move_history', [])
+                    moves=game_data.get('move_history', []),
+                    counts_for_streak=False,
                 )
 
                 active_game.delete()
@@ -452,146 +446,57 @@ def unlock_achievement(user, code):
         pass
 
 
+# Achievement codes by the count that unlocks them.
+WIN_MILESTONES = {1: "FIRST_WIN", 10: "WIN_10", 50: "WIN_50", 100: "WIN_100"}
+PLAY_MILESTONES = {10: "PLAY_10", 20: "PLAY_20", 50: "PLAY_50", 100: "PLAY_100", 500: "PLAY_500"}
+CHECKMATE_MILESTONES = {
+    1: "FIRST_CHECKMATE", 5: "FIFTH_CHECKMATE", 10: "CHECKMATE_10", 20: "CHECKMATE_20",
+    30: "CHECKMATE_30", 50: "CHECKMATE_50", 100: "CHECKMATE_100",
+}
+PUZZLE_MILESTONES = {
+    1: "FIRST_PUZZLE", 10: "PUZZLE_10", 25: "PUZZLE_25", 50: "PUZZLE_50",
+    75: "PUZZLE_75", 100: "PUZZLE_100", 200: "PUZZLE_200",
+}
+PUZZLE_STREAK_MILESTONES = (3, 7, 10, 30, 50, 100)
+
+
+def _unlock_reached(user, count, milestones):
+    for needed, code in milestones.items():
+        if count >= needed:
+            unlock_achievement(user, code)
+
+
 def check_game_achievements(user):
-    """Check and award achievements based on game statistics."""
+    """Unlock the game achievements a player has earned. Runs after every finished game."""
     if not user:
         return
 
-    total_games = GameResult.objects.filter(
-        user=user
-    ).count()
+    _unlock_reached(user, GameResult.objects.filter(user=user).count(), PLAY_MILESTONES)
 
     # Results only count from rated games against the engine. In a
     # two-player game on one board the account plays both sides.
-    rated_games = GameResult.objects.filter(
-        user=user,
-        mode="ai",
-        rated=True
-    )
+    rated_games = GameResult.objects.filter(user=user, mode="ai", rated=True)
+    wins = rated_games.filter(winner=F("player_color"))
 
-    wins = rated_games.filter(
-        winner=F("player_color")
-    ).count()
+    _unlock_reached(user, wins.count(), WIN_MILESTONES)
+    _unlock_reached(user, wins.filter(end_reason="checkmate").count(), CHECKMATE_MILESTONES)
 
-    checkmates = rated_games.filter(
-        end_reason="checkmate",
-        winner=F("player_color")
-    ).count()
-
-    stalemates = rated_games.filter(
-        end_reason="stalemate"
-    ).count()
-
-    fast_wins = rated_games.filter(
-        winner=F("player_color")
-    )
-
-    # First Win
-    if wins >= 1:
-        unlock_achievement(user, "FIRST_WIN")
-
-    if wins >= 10:
-        unlock_achievement(user, "WIN_10")
-
-    if wins >= 50:
-        unlock_achievement(user, "WIN_50")
-
-    if wins >= 100:
-        unlock_achievement(user, "WIN_100")
-
-    # Games Played
-
-    if total_games >= 10:
-        unlock_achievement(user, "PLAY_10")
-
-    if total_games >= 20:
-        unlock_achievement(user, "PLAY_20")
-
-    if total_games >= 50:
-        unlock_achievement(user, "PLAY_50")
-
-    if total_games >= 100:
-        unlock_achievement(user, "PLAY_100")
-
-    if total_games >= 500:
-        unlock_achievement(user, "PLAY_500")
-
-    # Checkmate
-    if checkmates >= 1:
-        unlock_achievement(user, "FIRST_CHECKMATE")
-
-    if checkmates >= 5:
-        unlock_achievement(user, "FIFTH_CHECKMATE")
-
-    if checkmates >= 10:
-        unlock_achievement(user, "CHECKMATE_10")
-
-    if checkmates >= 20:
-        unlock_achievement(user, "CHECKMATE_20")
-
-    if checkmates >= 30:
-        unlock_achievement(user, "CHECKMATE_30")
-
-    if checkmates >= 50:
-        unlock_achievement(user, "CHECKMATE_50")
-
-    if checkmates >= 100:
-        unlock_achievement(user, "CHECKMATE_100")
-
-    # Stalemate
-    if stalemates >= 1:
+    if rated_games.filter(end_reason="stalemate").exists():
         unlock_achievement(user, "STALEMATE_DRAW")
 
     # Win in under 20 moves. `moves` holds one entry per half-move.
-    for game in fast_wins:
-        if (len(game.moves) + 1) // 2 < FAST_WIN_MOVES:
-            unlock_achievement(user, "FAST_WIN")
-            break
+    if any((len(moves) + 1) // 2 < FAST_WIN_MOVES for moves in wins.values_list("moves", flat=True)):
+        unlock_achievement(user, "FAST_WIN")
 
 
 def check_puzzle_achievements(user, stats):
-    """Check and award achievements based on puzzle progress."""
+    """Unlock the puzzle achievements a player has earned."""
     if not user:
         return
-
-    if stats.puzzles_solved >= 1:
-        unlock_achievement(user, "FIRST_PUZZLE")
-
-    if stats.puzzles_solved >= 10:
-        unlock_achievement(user, "PUZZLE_10")
-
-    if stats.puzzles_solved >= 25:
-        unlock_achievement(user, "PUZZLE_25")
-
-    if stats.puzzles_solved >= 50:
-        unlock_achievement(user, "PUZZLE_50")
-
-    if stats.puzzles_solved >= 75:
-        unlock_achievement(user, "PUZZLE_75")
-
-    if stats.puzzles_solved >= 100:
-        unlock_achievement(user, "PUZZLE_100")
-
-    if stats.puzzles_solved >= 200:
-        unlock_achievement(user, "PUZZLE_200")
-
-    if stats.current_streak >= 3:
-        unlock_achievement(user, "STREAK_3")
-
-    if stats.current_streak >= 7:
-        unlock_achievement(user, "STREAK_7")
-
-    if stats.current_streak >= 10:
-        unlock_achievement(user, "STREAK_10")
-
-    if stats.current_streak >= 30:
-        unlock_achievement(user, "STREAK_30")
-
-    if stats.current_streak >= 50:
-        unlock_achievement(user, "STREAK_50")
-
-    if stats.current_streak >= 100:
-        unlock_achievement(user, "STREAK_100")
+    _unlock_reached(user, stats.puzzles_solved, PUZZLE_MILESTONES)
+    for length in PUZZLE_STREAK_MILESTONES:
+        if stats.current_streak >= length:
+            unlock_achievement(user, f"STREAK_{length}")
 
 
 def daily_puzzle_for(day):
@@ -605,40 +510,57 @@ def daily_puzzle_for(day):
     return puzzle
 
 
+# Yesterday's daily puzzle still counts when it is solved this soon after
+# midnight, so a player who loaded it at 23:58 is not cheated out of a day.
+DAILY_PUZZLE_GRACE = timedelta(minutes=15)
+
+
+def daily_puzzle_day(puzzle, now=None):
+    """The day `puzzle` was the daily puzzle for, if solving it now counts for that day."""
+    now = now or timezone.localtime()
+    today = now.date()
+    daily = daily_puzzle_for(today)
+    if daily and daily.pk == puzzle.pk:
+        return today
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if now - midnight <= DAILY_PUZZLE_GRACE:
+        yesterday = today - timedelta(days=1)
+        previous = daily_puzzle_for(yesterday)
+        if previous and previous.pk == puzzle.pk:
+            return yesterday
+    return None
+
+
 def record_puzzle_solve(user, puzzle):
-    """Count a solved puzzle once and keep the daily streak.
+    """Count a solved puzzle once, keep the daily streak and award points.
 
     Returns (stats, newly_solved). The totals are worked out here so the
-    client never reports its own numbers.
+    client never reports its own numbers. The daily puzzle is the same for
+    everyone and changes at midnight UTC, so its streak runs on UTC days.
     """
-    today = timezone.localdate()
+    daily_day = daily_puzzle_day(puzzle)
+    xp = 0
 
     with transaction.atomic():
-        stats, _ = PuzzleStats.objects.select_for_update().get_or_create(
-            user=user
-        )
-        _, newly_solved = PuzzleSolve.objects.get_or_create(
-            user=user,
-            puzzle=puzzle,
-        )
+        stats, _ = PuzzleStats.objects.select_for_update().get_or_create(user=user)
+        _, newly_solved = PuzzleSolve.objects.get_or_create(user=user, puzzle=puzzle)
         if newly_solved:
             stats.puzzles_solved += 1
+            xp += progression.XP_PUZZLE
 
-        # A missed day ends the streak before today's solve is counted.
-        if stats.last_daily_date and stats.last_daily_date < today - timedelta(days=1):
-            stats.current_streak = 0
-
-        daily = daily_puzzle_for(today)
-        if daily and daily.pk == puzzle.pk and stats.last_daily_date != today:
-            if stats.last_daily_date == today - timedelta(days=1):
+        if daily_day and (stats.last_daily_date is None or stats.last_daily_date < daily_day):
+            if stats.last_daily_date == daily_day - timedelta(days=1):
                 stats.current_streak += 1
             else:
                 stats.current_streak = 1
             stats.best_streak = max(stats.best_streak, stats.current_streak)
             stats.daily_completions += 1
-            stats.last_daily_date = today
+            stats.last_daily_date = daily_day
+            xp += progression.XP_DAILY_PUZZLE
 
         stats.save()
+        if xp:
+            progression.award_xp(user, xp)
 
     check_puzzle_achievements(user, stats)
     return stats, newly_solved

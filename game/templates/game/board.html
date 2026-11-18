@@ -420,6 +420,11 @@
                         <input type="range" id="viewAngle" min="15" max="65" step="1" value="40">
                         <output id="viewAngleValue" for="viewAngle">40°</output>
                     </label>
+                    <label class="view-angle piece-size ctl-wide" for="pieceSize" title="Double-click to reset">
+                        <span>Piece size</span>
+                        <input type="range" id="pieceSize" min="70" max="120" step="5" value="100">
+                        <output id="pieceSizeValue" for="pieceSize">100%</output>
+                    </label>
                 </div>
             </section>
 
@@ -1021,7 +1026,7 @@
 <script src="{% static 'game/js/play_view.js' %}"></script>
 <script>
     window.SOUND_BASE_URL = "{% static 'game/sounds/' %}";
-    window.USER_AVATAR_URL = "{% if user.is_authenticated and user.profile.avatar %}{{ user.profile.avatar|escapejs }}{% endif %}";
+    window.USER_AVATAR_URL = "{{ user_avatar_url|escapejs }}";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="{% static 'game/js/board.js' %}"></script>

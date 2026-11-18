@@ -1,13 +1,13 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from . import views
+from . import views, views_account, views_google
 
 urlpatterns = [
     path('', views.landing, name='landing'),
     # The landing page used to live here.
     path('home/', RedirectView.as_view(pattern_name='landing', permanent=True)),
     path('play/', views.index, name='index'),
-    path('profile/', views.profile_view, name='profile'),
+    path('profile/', views_account.profile_view, name='profile'),
     
     # Game API Endpoints
     path('api/move/', views.make_move, name='make_move'),
@@ -33,15 +33,26 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('rules/', views.rules, name='rules'),
     path('logout/', views.logout_view, name='logout'),
-    
-    # Account Settings & Recovery
-    path('delete-account/', views.delete_account, name='delete_account'),
-    path('confirm-delete/<uidb64>/<token>/', views.confirm_delete_account, name='confirm_delete_account'),
+    path('auth/google/', views_google.google_login, name='google_login'),
+    path('auth/google/callback/', views_google.google_callback, name='google_callback'),
+    path('auth/google/username/', views_google.google_username, name='google_username'),
 
-    # Avatar Management
-    path('avatar/', views.upload_avatar, name='upload_avatar'),
-    path('avatar/remove/', views.remove_avatar, name='remove_avatar'),
-    path('api/avatar/', views.get_avatar, name='get_avatar'),
+    # Account settings
+    path('account/', views_account.account_settings, name='account_settings'),
+    path('account/username/', views_account.change_username, name='change_username'),
+    path('account/email/', views_account.change_email, name='change_email'),
+    path('account/email/verify/', views_account.verify_email_change, name='verify_email_change'),
+    path('account/password/', views_account.change_password, name='change_password'),
+    path('account/google/unlink/', views_account.unlink_google, name='unlink_google'),
+    path('delete-account/', views_account.delete_account, name='delete_account'),
+    path('confirm-delete/<uidb64>/<token>/', views_account.confirm_delete_account, name='confirm_delete_account'),
+
+    # Profile pictures
+    path('avatar/', views_account.upload_avatar, name='upload_avatar'),
+    path('avatar/preset/', views_account.select_avatar_preset, name='select_avatar_preset'),
+    path('avatar/remove/', views_account.remove_avatar, name='remove_avatar'),
+    path('api/avatar/', views_account.get_avatar, name='get_avatar'),
+    path('u/<int:user_id>/avatar/', views_account.user_avatar, name='user_avatar'),
 
     # Features & Progressions
     path('leaderboard/', views.leaderboard_view, name='leaderboard'),

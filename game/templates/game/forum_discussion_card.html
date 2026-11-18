@@ -1,7 +1,8 @@
 {# One discussion in a forum list. The title link covers the whole card. #}
+{% load players %}
 <div class="forum-card-wrap" data-reveal style="--i: {% if forloop.counter0 < 6 %}{{ forloop.counter0 }}{% else %}0{% endif %}">
     <article class="panel forum-card" data-tilt="2">
-        <span class="avatar avatar--md avatar--soft" aria-hidden="true">{{ discussion.user.username|slice:':1' }}</span>
+        {% avatar discussion.user "avatar--md avatar--soft" %}
 
         <div class="forum-card-main">
             <div class="forum-card__top">

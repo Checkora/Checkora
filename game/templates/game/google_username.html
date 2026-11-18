@@ -1,0 +1,69 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}Choose a username · Checkora{% endblock %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'game/css/account.css' %}">{% endblock %}
+{% block head %}
+<script type="importmap">{ "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }</script>
+{% endblock %}
+
+{# Messages are printed inside the card, above the form. #}
+{% block messages %}{% endblock %}
+
+{% block content %}
+<div class="wrap page account">
+    <div class="account__main">
+        <header class="account__head">
+            <a class="back-link" href="{% url 'login' %}" data-reveal>Sign in</a>
+            <p class="eyebrow" data-reveal style="--i: 1">One more step</p>
+            <h1 data-reveal style="--i: 2">Pick a <span class="serif">name.</span></h1>
+            <p class="lede" data-reveal style="--i: 3">This is what other players see on the leaderboard and in the forum.</p>
+        </header>
+
+        <div class="panel auth-card" data-reveal style="--i: 4">
+            {% include 'game/includes/messages.html' %}
+
+            <p class="auth-card__text">Google says you are <strong>{{ google_email }}</strong>. Your account is created when you choose a username.</p>
+
+            <form method="POST">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                {% with field=form.username %}
+                <div class="field form-group">
+                    <label for="{{ field.id_for_label }}">Username</label>
+                    {{ field }}
+                    <span class="field__hint helptext">{{ field.help_text }}</span>
+                    {% if field.errors %}
+                        {{ field.errors }}
+                    {% endif %}
+                </div>
+                {% endwith %}
+
+                <button type="submit" class="button button--primary button--block btn">Create account</button>
+            </form>
+
+            <div class="auth-card__foot">
+                <span>Wrong Google account? <a href="{% url 'google_login' %}" class="text-link">Choose another</a></span>
+            </div>
+        </div>
+    </div>
+
+    <figure class="stage" data-reveal="scale">
+        <div class="stage__frame">
+            <canvas data-piece="n" aria-hidden="true"></canvas>
+            <img class="stage__flat" src="{% static 'game/pieces/staunton-single/wn.webp' %}" alt="">
+        </div>
+        <figcaption class="stage__caption"><b>The knight</b> The only piece that jumps over the others.</figcaption>
+    </figure>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'game/js/username-check.js' %}" data-check-url="{% url 'check_username' %}"></script>
+<script type="module" src="{% static 'game/js/account.js' %}"></script>
+{% endblock %}

@@ -139,7 +139,7 @@ class TestAchievementServices(TestCase):
         self.assertFalse(GameResult.objects.filter(rated=True).exists())
 
         process_game_completion(self.user, 'ai', 'white', 'checkmate', 'white')
-        self.assertEqual(PlayerRating.objects.get(user=self.user).rating, 1220)
+        self.assertEqual(PlayerRating.objects.get(user=self.user).rating, 1216)
         self.assertEqual(GameResult.objects.filter(rated=True).count(), 1)
 
         anonymous = process_game_completion(None, 'ai', 'white', 'checkmate', 'white')
