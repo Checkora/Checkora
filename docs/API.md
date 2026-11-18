@@ -44,6 +44,7 @@ Administrative endpoints such as `/api/cron/cleanup-stale-games/` require Bearer
 
 ### User APIs
 - Check Username Availability
+- Get Avatar (under Profile pictures in the Authentication Endpoints)
 
 ### Maintenance APIs
 - Cleanup Stale Games
@@ -235,7 +236,7 @@ Resets the session and initializes a fresh game board.
 | Parameter    | Type    | Required | Description                                              |
 | ------------ | ------- | -------- | -------------------------------------------------------- |
 | mode         | string  | No       | Game mode: `"pvp"` or `"ai"`. Default: `"pvp"`           |
-| difficulty   | string  | No       | AI difficulty level: `"easy"`, `"medium"` or `"hard"`. Default: `"medium"` |
+| difficulty   | string  | No       | AI difficulty level: `"easy"`, `"medium"`, `"hard"` or `"master"`. Default: `"medium"` |
 | fen          | string  | No       | FEN position to initialize the board from                |
 | time_limit   | integer | No       | Initial clock time in seconds for each player, kept between 60 and 18000. Default: 600 |
 | increment    | integer | No       | Increment (seconds added after each move), kept between 0 and 180. Default: 0 |
@@ -375,7 +376,7 @@ Asks the backend chess engine to calculate and execute the best move for the act
     }
     ```
 
-    `message` and `game_status` work as in `/api/move/`. `ai_move` always has the four coordinates. A move found by the search, as opposed to one taken from the opening book, also carries `eval` (centipawns from White's side), `alts` (the next best moves with their scores), `depth`, `nodes`, `tthits`, `time` (milliseconds), `engine` (`cpp` or `python`) and `status` (`completed` or `timeout`), and `promotion_piece` when the move promotes. `opening` is the named opening line the engine is still following, or an empty string. When the engine's clock has run out, `game_status` is `"timeout"` and a `winner` field is added.
+    `message` and `game_status` work as in `/api/move/`. `ai_move` always has the four coordinates. A move found by the search, as opposed to one taken from the opening book, also carries `eval` (centipawns from White's side), `alts` (the next best moves with their scores; only `easy` asks the engine for them, so the list is empty on the other levels), `depth`, `nodes`, `tthits`, `time` (milliseconds), `engine` (`cpp` or `python`) and `status` (`completed` or `timeout`), and `promotion_piece` when the move promotes. `opening` is the named opening line the engine is still following, or an empty string. When the engine's clock has run out, `game_status` is `"timeout"` and a `winner` field is added.
 
     If the engine has no legal move, the game is finished here: the response has `"valid": true`, `game_status` set to `checkmate`, `stalemate` or `draw`, and no `ai_move`.
 *   **Error Responses:**
@@ -481,7 +482,7 @@ Valid values for `action`:
 ---
 
 ## 9. Check Username Availability
-Checks whether a username already exists in the system. Used during registration to provide live feedback before form submission.
+Checks whether a username already exists in the system, ignoring case. A signup still waiting for its email code holds its name for an hour, as on `/register/`; after that the name shows as free. The check only reads, it never deletes anything. `username-check.js` calls it on the register page and on the page where a new Google player picks a username, to give live feedback before the form is sent.
 
 - **URL:** `/api/check-username/`
 - **Method:** `GET`
@@ -533,6 +534,7 @@ Serves the landing page. This is the root entry point of the application.
 - This endpoint has no JSON response. It returns a full HTML page.
 - `/home/`, where the landing page used to be, answers with a permanent redirect to `/`.
 - The board is at `/play/` (`views.index`, template `game/board.html`).
+- `/privacy/` and `/terms/` are plain pages (`game/privacy.html` and `game/terms.html`) with the privacy policy and the terms. The footer opens the same text in dialogs, from `game/includes/privacy_text.html` and `game/includes/terms_text.html`.
 
 ---
 
@@ -717,7 +719,7 @@ Returns puzzle streak information for the puzzle interface.
     ```
 
 **Notes:**
-- For a logged-in user the values come from that user's `PuzzleStats` row. A streak that has lapsed is reset before the response is built.
+- For a logged-in user the values come from that user's `PuzzleStats` row. A streak that has lapsed, because a whole day (UTC) passed without the daily puzzle, reads `0`. Reading it writes nothing.
 - An anonymous request gets all four values as `0`.
 - The only endpoint that changes them is `POST /api/puzzles/<id>/solve/` (section 19).
 
@@ -1203,7 +1205,7 @@ When the username and password are those of the logged-in user, a confirmation l
 
 | URL | Fields | What it does |
 | --- | --- | --- |
-| `/account/username/` | `username` | Renames the account. Same rules as `/register/`, compared without case. Once every 30 days; changing only the case is free. |
+| `/account/username/` | `username` | Renames the account. Same rules as `/register/`, compared without case. Once every 30 days. A change of case only is allowed at any time and does not start the 30 days. |
 | `/account/email/` | `email` | Mails a six-digit code to the new address and redirects to `/account/email/verify/`. An address another account uses gets the same answer and no mail. One code per address per minute (`429` otherwise). |
 | `/account/email/verify/` | `code` | Switches the email when the code matches. Codes last 10 minutes and allow 5 tries. The old address is told about the change. |
 | `/account/password/` | `old_password`, `new_password1`, `new_password2` | Changes the password and keeps this browser signed in. An account made with Google has no `old_password` field and sets its first password here. The account's email is told. |
@@ -1229,10 +1231,11 @@ A picture is one of twelve Staunton pieces or an uploaded image, never both.
 
 The rules live in `game/progression.py`.
 
-* **Rating.** Rated games are AI games from the normal start position. The rating is Elo against the engine level played: easy counts as 800, medium 1200, hard 1600. K is 32 for a player's first 20 rated games, when the rating is shown as provisional, and 16 after. The floor is 100. Every change is stored in `RatingHistory`, linked to the game.
+* **Rating.** Rated games are AI games from the normal start position. The rating is Elo against the engine level played: easy counts as 450, medium 1200, hard 1850, master 2000. Medium is the starting rating; the gaps between the levels were measured in engine-against-engine matches with `scripts/engine_match.py`. K is 32 for a player's first 20 rated games, when the rating is shown as provisional, and 16 after. The floor is 100. Every change is stored in `RatingHistory`, linked to the game.
 * **Rank.** A title for a band of rating: Pawn below 800, Knight from 800, Bishop from 1100, Rook from 1400, Queen from 1700, King from 2000.
 * **Points (XP).** A rated game of at least 5 moves gives 30 for a win, 15 for a draw and 5 for a loss; a new puzzle 10, the daily puzzle 15 more, a lesson 25, an opening 50 (75 at 100% accuracy). Levels start at 0, 100, 250, 500, 1000, 1500, 2200 and 3000 XP.
 * **Day streak.** Goes up on each day with a finished game of at least 5 moves, in the player's own time zone (the `tz` cookie set by `app.js`). Games resigned by the stale-game cleanup don't count. It reads `0` once a whole day passes without a game; the best streak is kept.
-* **Leaderboard.** Only players with a rated game, or a solved puzzle, are listed. Players level on the table share a place, and a signed-in player outside the top 50 sees their own row.
+* **Leaderboard.** `/leaderboard/` needs a signed-in user and has two tables. The rating table lists players with at least one rated game, by rating. The puzzle table lists players who solved a puzzle, by puzzles solved and then best streak. Players level on a table share a place, each table shows the top 50, and a signed-in player outside them sees their own row below.
+* **Profile.** `/profile/` shows the signed-in player's rating, rank, level and points, both streaks and their bests, and their results.
 
 

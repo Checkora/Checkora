@@ -70,7 +70,17 @@ Both themes are defined there. A page that uses only tokens works in light and d
 | `.menu` with `data-menu` and `data-menu-button` | Dropdown menus |
 | `.empty` | Empty state |
 | `.progress` | Progress bar; set the inner `<span>` width |
-| `.avatar`, `.avatar--lg` | User picture or initial |
+| `.avatar`, `.avatar--lg`, `.avatar--xl` | User picture or initial. Draw it with the `{% avatar %}` tag below, not by hand |
+| `.rank-badge` | A player's rank with its piece; drawn by `{% rank_badge %}` |
+
+## Players
+
+`game/templatetags/players.py` has two tags for showing a player. Load them with `{% load players %}`.
+
+- `{% avatar user "avatar--lg" %}` draws the player's picture: a preset piece, an upload served from `/u/<id>/avatar/`, or the first letter of the name. The second argument adds classes to the `.avatar` element. The picture is hidden from screen readers, because the name is always written next to it.
+- `{% rank_badge rating games_played %}` draws the rank for a rating, from Pawn to King, with a `?` while the rating is still provisional.
+
+A page that lists many players should load them with `select_related('profile')` and `.defer('profile__avatar')`. Otherwise `{% avatar %}` fetches each profile on its own, without the picture data.
 
 ## Motion
 
@@ -116,7 +126,7 @@ else showFlatPiece();
 The pieces you see on the flat boards are photographs of the 3D set in `scene3d.js`: ivory and ebony Staunton pieces, rendered in Chrome and saved as WebP with transparency. There are two sets of the same twelve pieces:
 
 - `game/static/game/pieces/staunton/<colour><type>.webp` (256 px) is for boards. Every piece is framed the same, so a king stands taller than a pawn, and each picture carries the soft shadow the piece throws. The picture is framed for the king, so on a board it is drawn a little larger than its square and set high; see `.square > .piece` in `play.css` and the boards in `learn.css`.
-- `game/static/game/pieces/staunton-single/<colour><type>.webp` (192 px) is for a piece on its own: icons, the pieces taken in a game, the promotion choice, and the flat stand-in shown where a turning 3D piece is not drawn. Each piece fills its picture.
+- `game/static/game/pieces/staunton-single/<colour><type>.webp` (192 px) is for a piece on its own: icons, the pieces taken in a game, the promotion choice, the rank badges, the profile pictures a player can pick, and the flat stand-in shown where a turning 3D piece is not drawn. Each piece fills its picture.
 
 In a template use `{% static 'game/pieces/staunton-single/wn.webp' %}`; in JavaScript read the prefix from `document.documentElement.dataset.static`. Knights face left in both colours.
 

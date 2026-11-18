@@ -21,8 +21,8 @@ Pages are built on the base template and the stylesheet described in [design-sys
 | File                  | Purpose                             |
 | --------------------- | ----------------------------------- |
 | account.js            | Account pages: starts the turning 3D piece beside the form and counts up numbers marked `data-count` |
-| app.js                | Shared behaviour on every page: navbar, dropdown menus, dialogs, scroll reveals, tilting cards, password show/hide buttons |
-| auth.js               | Sign-in and registration forms: password toggle, password checklist, submit button state |
+| app.js                | Shared behaviour on every page: the `tz` time zone cookie, navbar, dropdown menus, dialogs, scroll reveals, tilting cards, password show/hide buttons |
+| auth.js               | Sign-in, registration and account settings forms: password toggle, password checklist, submit button state |
 | board.js              | The game on the play page: board, moves, clocks, game API calls, puzzles, post-game analysis |
 | community.js          | Forum list, leaderboard, achievements, stats and match history: 3D piece beside the title, numbers that count up |
 | confetti.js           | Defines `window.triggerConfetti()`, a confetti burst drawn on a canvas |
@@ -40,6 +40,7 @@ Pages are built on the base template and the stylesheet described in [design-sys
 | stockfish.js          | Stockfish compiled to JavaScript and WebAssembly, run by `board.js` as a Web Worker |
 | theme.js              | Light and dark theme: applies the saved theme before the first paint and wires the toggle buttons |
 | toast.js              | Defines `window.showToast()`, and shows Django messages and `alert()` calls as toasts |
+| username-check.js     | Says whether a username is free while it is typed, on the register page and the Google username page |
 
 ---
 
@@ -49,9 +50,10 @@ Pages are built on the base template and the stylesheet described in [design-sys
 
 Largest frontend module. It owns the game on the play page and is responsible for:
 
-* Chess board rendering, with the piece set chosen from `pieces/classic`, `pieces/wood` or `pieces/outline`
+* Chess board rendering, with the piece set chosen in Settings: `pieces/staunton` (the WebP pictures, and the default) or one of the SVG sets `pieces/classic`, `pieces/wood` and `pieces/outline`
 * Move handling by click, drag, keyboard and typed moves, including promotion
 * Game state updates through the game API (`/api/state/`, `/api/move/`, `/api/ai-move/`, `/api/new-game/` and the others in [API.md](API.md))
+* In an AI game, the request for the engine's move. On easy and medium it first waits a short random moment, so the reply does not land the instant the piece is dropped. Hard and master already spend seconds thinking on the server and get no added wait
 * Clocks, pause and resume, and the timeout claim sent to `/api/timeout/`
 * Puzzle interactions: the daily puzzle, and a puzzle opened with `?puzzle_id=`
 * Post-game analysis from `/api/analyze-game/`
@@ -71,6 +73,7 @@ Handles how the play page looks, apart from the game itself. It never calls the 
 
 * Sets the board theme on `<html>` before the board is drawn
 * Turns the 3D view of the board on and off and remembers the choice. Until the player chooses, it is off on phones, touch-only screens and the low performance tier
+* Runs the two board sliders, view angle (`--tilt`, 15 to 65 degrees) and piece size (`--piece-scale`, 70 to 120%). Each value is kept in `localStorage` and set as a CSS property on `.play`, and a double click resets a slider
 * Runs the setup screen: segmented buttons, remembered player names, the small board that shows your side
 * Wires up the control bar and the drawer used on phones, and opens and closes the rulebook and share dialogs
 
@@ -114,7 +117,7 @@ An ES module for the landing page.
 
 ## account.js
 
-An ES module for the sign-in, registration, OTP, password reset, profile and account deletion pages.
+An ES module for the sign-in, registration, OTP, password reset, profile, account deletion and Google username pages.
 
 * Starts the turning piece beside the form with `mountPiece`. The stage is hidden on narrow screens, and `scene3d.js` is only imported once it is shown. On the low performance tier the flat piece stays and `scene3d.js` is not fetched
 * Counts numbers marked `data-count` up from zero when they scroll into view, except on the low tier
@@ -162,7 +165,7 @@ Handles:
 
 ## auth.js
 
-Handles the sign-in and registration forms:
+Handles the sign-in and registration forms, and the password form on the account settings page:
 
 * Adds a show/hide button to each password field and blocks pasting into the confirmation field
 * Shows the password checklist and strength meter on the registration page, and keeps the submit button disabled until the rules are met
@@ -173,6 +176,12 @@ Handles the sign-in and registration forms:
 ## forum.js
 
 Switches between the tabs on the forum list and keeps the open tab in the URL hash.
+
+---
+
+## username-check.js
+
+Loaded by the register page and by the page where a new Google player picks a username. It reads the check URL from the `data-check-url` attribute of its own `<script>` tag, asks `/api/check-username/` 400 ms after the typing stops, and shows the answer in a status line it adds next to the `#id_username` field.
 
 ---
 
@@ -222,6 +231,7 @@ Opening Load
 
 Loaded on every page by the base template.
 
+* Puts the browser's time zone in the `tz` cookie. For a signed-in player `PlayerTimezoneMiddleware` in `game/middleware.py` stores it on the profile, and the day streak counts days in that zone
 * Navbar: sticky state and the mobile menu
 * Dropdown menus marked `data-menu`
 * Dialogs opened with `data-open-dialog` and closed with `data-close-dialog`

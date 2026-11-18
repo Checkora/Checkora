@@ -64,19 +64,23 @@ Join our Discord community for updates, support, and games: https://discord.gg/D
 
 | Feature              | Description                                                                                         |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
-| AI Opponent          | Minimax search with alpha-beta pruning for challenging gameplay                                     |
+| AI Opponent          | Minimax search with alpha-beta pruning, at four levels from easy to master                          |
 | Hybrid Engine        | C++ binary for maximum speed with an automatic Python fallback                                      |
 | Full Move Validation | Legal moves enforced for all pieces including castling, en passant, and promotion |
 | Game Timer           | Per-player countdown clocks with pause support                                                      |
 | Material Score Panel | Live material advantage tracking that updates dynamically during gameplay                           |
 | REST API             | Clean JSON endpoints powering a decoupled frontend                                                  |
 | PvP & PvE Modes      | Play against a friend or challenge the AI                                                           |
+| Accounts             | Email sign-up or "Continue with Google", a settings page, and a profile picture (a piece or an upload) |
+| Rating and progress  | An Elo rating against the engine level played, ranks from Pawn to King, points, levels and streaks |
 
 ---
 
 ## Documentation
 - [Feature Guide](./FEATURES.md)
 - [API reference](./docs/API.md)
+- [Engine architecture](./docs/engine_architecture.md)
+- [Local development](./docs/development.md) and [testing](./docs/testing.md)
 - [Design system](./docs/design-system.md), for anyone adding or changing a page
 - [Frontend JavaScript guide](./docs/frontend-guide.md)
 
@@ -164,8 +168,10 @@ Checkora/
 │   ├── API.md                     # Raw technical spec for REST API endpoints
 │   ├── SECURITY_HEADERS_AUDIT.md  # Deep security analysis and policy audit reports
 │   ├── design-system.md           # Base template, CSS tokens and components for building pages
+│   ├── development.md             # Local setup and everyday commands
 │   ├── engine_architecture.md     # Detailed minimax and communication workflow analysis
-│   └── frontend-guide.md          # What each JavaScript module does
+│   ├── frontend-guide.md          # What each JavaScript module does
+│   └── testing.md                 # Where the tests are and how to run them
 ├── game/                          # Core Chess application module
 │   ├── engine/                    # The AI Chess engine directory
 │   │   ├── main.cpp               # High-performance C++17 Minimax + Alpha-Beta pruning engine
@@ -181,6 +187,8 @@ Checkora/
 │   │   ├── 0044_rated_games...    # Adds GameResult.rated, PuzzleStats.last_daily_date and the PuzzleSolve table
 │   │   ├── 0045_seed_achiev...    # Creates the Achievement rows that game/services.py unlocks
 │   │   ├── 0046_fix_seed_pu...    # Replaces the seven built-in daily puzzles with valid mates in one
+│   │   ├── 0047_google_account.py # Adds the GoogleAccount table
+│   │   ├── 0048_profiles_rat...   # Picture preset, upload time, time zone and rename date on UserProfile, best day streak, RatingHistory.game_result
 │   │   └── __init__.py            # Package initialization marker
 │   ├── selenium_tests/            # UI browser integration tests
 │   │   ├── __init__.py            # Package initialization marker
@@ -191,7 +199,7 @@ Checkora/
 │   │   └── game/                  # Main namespace directory
 │   │       ├── css/               # Modular stylesheet templates
 │   │       │   ├── app.css        # Design system: tokens, both themes, shared components, toasts
-│   │       │   ├── account.css    # Sign-in, registration, password reset, profile, avatar and account deletion pages
+│   │       │   ├── account.css    # Sign-in, registration, password reset, profile, picture, settings and account deletion pages
 │   │       │   ├── community.css  # Forum, leaderboard, achievements, stats and match history
 │   │       │   ├── cursor.css     # Custom cursor styles
 │   │       │   ├── error.css      # 404 and 500 pages
@@ -207,13 +215,15 @@ Checkora/
 │   │       │   ├── scene3d.js     # three.js scenes: the landing page board and the turning piece
 │   │       │   ├── toast.js       # Manages toast alert popups and life-cycles
 │   │       │   └── ...            # The other modules are listed in docs/frontend-guide.md
-│   │       ├── pieces/            # SVG piece sets: classic/, wood/ and outline/
+│   │       ├── board/             # Wood textures of the board: maple.webp, walnut.webp, frame.webp
+│   │       ├── pieces/            # Piece pictures: staunton/ and staunton-single/ (WebP, the default), and the SVG sets classic/, wood/ and outline/
 │   │       ├── vendor/three/      # Vendored three.js build used by scene3d.js
 │   │       ├── sounds/            # Gameplay sound effects
 │   │       │   ├── capture.mp3    # Capture sound alert
 │   │       │   ├── check.wav      # Check sound warning
 │   │       │   ├── draw.mp3       # Game draw chime
-│   │       │   └── move.wav       # Chess piece move tick
+│   │       │   ├── move.wav       # Chess piece move tick
+│   │       │   └── ...            # draw_end.mp3, loss.mp3, timeout.mp3 and win.mp3
 │   │       ├── checkora_icon_only.png # Project brand mark
 │   │       └── favicon.jpeg       # Small browser favicon
 │   ├── templates/                 # Server-side HTML render blueprints
@@ -223,17 +233,30 @@ Checkora/
 │   │   ├── sitemap.xml            # SEO indexing guide
 │   │   └── game/                  # Namespace folder matching Django conventions
 │   │       ├── includes/          # Reusable UI partial layout blocks
+│   │       │   ├── avatar.html    # A player's picture or initial, drawn by the {% avatar %} tag
 │   │       │   ├── footer.html    # Site footer
+│   │       │   ├── google_button.html # "Continue with Google", shown only when a Google client is set up
 │   │       │   ├── legal.html     # Privacy policy, terms and disclaimer dialogs opened from the footer
 │   │       │   ├── logo.html      # Checkora logo and wordmark, linking to the landing page
 │   │       │   ├── messages.html  # Banner rendering Django alert notifications
-│   │       │   └── navbar.html    # Site navigation, theme toggle and account menu
+│   │       │   ├── navbar.html    # Site navigation, theme toggle and account menu
+│   │       │   ├── privacy_text.html # Privacy policy text, used by /privacy/ and the footer dialog
+│   │       │   ├── rank_badge.html   # Rank badge, drawn by the {% rank_badge %} tag
+│   │       │   └── terms_text.html   # Terms text, used by /terms/ and the footer dialog
+│   │       ├── account.html       # Account settings at /account/
+│   │       ├── avatar.html        # Picture picker: preset pieces or an upload
 │   │       ├── base.html          # Base template the pages extend (see docs/design-system.md)
 │   │       ├── board.html         # Interactive gameplay chessboard and player cards
 │   │       ├── confirm_delete_account.html # Confirmation page opened by the emailed account deletion link
+│   │       ├── google_username.html # A new Google player picks a username here
 │   │       ├── landing.html       # Landing page served at /
+│   │       ├── leaderboard.html   # Rating and puzzle leaderboards
 │   │       ├── login.html         # Sign-in form interface
+│   │       ├── privacy.html       # Privacy policy page at /privacy/
+│   │       ├── profile.html       # Rating, rank, level and streaks of the signed-in player
 │   │       ├── register.html      # Create account interface
+│   │       ├── terms.html         # Terms page at /terms/
+│   │       ├── verify_email_change.html # Code entry for a new email address
 │   │       ├── verify_otp.html    # Two-factor verification panel
 │   │       ├── rules.html         # Gameplay and chess educational rules guide
 │   │       ├── stats.html         # User match metrics, profiles, and scoreboards
@@ -244,17 +267,32 @@ Checkora/
 │   │       ├── password_reset_done.html     # Outlines password email delivery status
 │   │       ├── password_reset_email.html    # HTML layout for reset emails
 │   │       └── password_reset_subject.txt   # Email subject text file
+│   ├── templatetags/
+│   │   └── players.py             # {% avatar %} and {% rank_badge %}
 │   ├── __init__.py                # Package initialization marker
+│   ├── accounts.py                # Account rules: usernames, emails, Google signups, renames
 │   ├── apps.py                    # Django configuration class definition
-│   ├── engine.py                  # Translates Python arrays to C++/Python subprocess stdin/stdout
-│   ├── forms.py                   # Form validation classes for User registration and session keys
+│   ├── avatars.py                 # Preset piece pictures, and uploads re-encoded for /u/<id>/avatar/
+│   ├── context_processors.py      # Tells templates whether Google sign-in is set up
+│   ├── engine.py                  # ChessGame: the game's state, the engine commands and their replies
+│   ├── engine_client.py           # Finds, starts and talks to the engine server of each game
+│   ├── forms.py                   # Forms for registration, account settings, pictures and the forum
+│   ├── google_auth.py             # The Google side of "Continue with Google" (OpenID Connect with PKCE)
 │   ├── icon.jpeg                  # Main project thumbnail graphic
+│   ├── middleware.py              # Security headers, and the player's time zone from the tz cookie
 │   ├── models.py                  # Database schemas mapping matches and profiles
+│   ├── progression.py             # Rating, rank, points, levels and streaks
 │   ├── services.py                # Standalone functions managing core business logic
-│   ├── tests.py                   # 80+ unit and integration test assertions
-│   ├── test_*.py                  # Further test modules, such as test_services.py and test_heuristic_analysis.py
+│   ├── tests.py                   # The largest Django test module
+│   ├── test_*.py                  # Further test modules, such as test_accounts.py and test_engine_rules.py
 │   ├── urls.py                    # Application level router mapping endpoints
-│   └── views.py                   # Django controller layer dispatching API and HTML requests
+│   ├── views.py                   # Django controller layer dispatching API and HTML requests
+│   ├── views_account.py           # Profile, picture, account settings and account deletion
+│   └── views_google.py            # Google sign-in, linking, and the username step for new players
+├── scripts/
+│   ├── engine_match.py            # Plays two engine builds or levels against each other and reports the Elo difference
+│   ├── render_pieces.mjs          # Renders the Staunton piece pictures
+│   └── render_wood.mjs            # Draws the wood textures of the board
 ├── .env.example                   # Baseline local configuration variables blueprint
 ├── .gitignore                     # Configures Git to ignore builds, caches, and database logs
 ├── CODE_OF_CONDUCT.md             # Contributor environment code of conduct guidelines
@@ -264,6 +302,7 @@ Checkora/
 ├── board.test.js                  # Jest tests for board.js
 ├── forum.test.js                  # Jest tests for forum.js
 ├── requirements.txt               # Required Python packages
+├── requirements-dev.txt           # requirements.txt plus test-only packages (python-chess)
 ├── manage.py                      # Django CLI control center script
 ├── package.json                   # Jest dependencies and the `npm test` script
 ├── package-lock.json              # Locked frontend dependency version tree
@@ -284,6 +323,9 @@ Django Views (views.py)          <- HTTP request handling & session state
        v
 ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
        |
+       v
+Engine client (engine_client.py) <- One engine server per game (persistent_server.py)
+       |
        |---> C++ Binary (main.exe / main)   <- Primary: fast minimax AI
        +---> Python Script (main.py)        <- Fallback: identical logic in Python
 ```
@@ -291,7 +333,7 @@ ChessGame Wrapper (engine.py)    <- Translates board state into engine commands
 | Layer             | Technology            | Path                              |
 | ----------------- | --------------------- | --------------------------------- |
 | Frontend          | HTML, CSS, JavaScript | `game/templates/game/board.html`  |
-| Backend           | Django 6.x            | `game/views.py`, `game/engine.py` |
+| Backend           | Django 6.x            | `game/views.py`, `game/engine.py`, `game/engine_client.py` |
 | Engine (Primary)  | C++17                 | `game/engine/main.cpp`            |
 | Engine (Fallback) | Python 3.12+          | `game/engine/main.py`             |
 
@@ -303,19 +345,18 @@ When a player makes a move, the request flows through three layers:
 
 1. **Browser** sends a `POST` request with the move coordinates
 2. **Django** (`views.py`) receives it and delegates to the `ChessGame` wrapper in `engine.py`
-3. **`engine.py`** serializes the board into a flat 64-character string and spawns the engine as a subprocess, sending commands via `stdin` and reading responses from `stdout`. One engine process is kept per game by `game/engine/persistent_server.py`; a one-off process is used when that server is not available
+3. **`engine.py`** serializes the board into a flat 64-character string and builds the command line. `game/engine_client.py` hands it to the game's engine server, `game/engine/persistent_server.py`, which keeps one engine process running per game and talks to it over `stdin` and `stdout`. A one-off engine process answers when that server is not available
 
 The engine speaks a simple text-based protocol:
 
 | Command    | Example                                          | Response                                    |
 | ---------- | ------------------------------------------------ | ------------------------------------------- |
 | `VERSION`  | `VERSION`                                        | `VERSION 2`                                 |
-| `VALIDATE` | `VALIDATE <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc` | `VALID` / `INVALID <reason>`                |
 | `MOVES`    | `MOVES <board64> <rights> <turn> <epRow> <epCol> row col` | `MOVES tr tc is_capture is_promotion ...`   |
 | `ATTACKED` | `ATTACKED <board64> <rights> <attackerColor> row col` | `YES` / `NO`                                |
 | `PROMOTE`  | `PROMOTE <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc [piece]` | `PROMOTE <newBoard64>` / `INVALID <reason>` |
 | `STATUS`   | `STATUS <board64> <rights> <turn> <epRow> <epCol>` | `STATUS CHECK / CHECKMATE / STALEMATE / DRAW / OK` |
-| `NOTATION` | `NOTATION <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc [piece]` | `NOTATION <san>`                            |
+| `NOTATION` | `NOTATION <board64> <rights> <turn> <epRow> <epCol> fr fc tr tc [piece]` | `NOTATION <san>` / `NOTATION ?` for an illegal move |
 | `EVAL`     | `EVAL <board64> <rights> <turn> <epRow> <epCol>` | `EVAL <centipawns>`                         |
 | `PERFT`    | `PERFT <board64> <rights> <turn> <epRow> <epCol> <depth>` | `PERFT <leaf nodes>`                        |
 | `BESTMOVE` | `BESTMOVE <board64> <rights> <turn> <epRow> <epCol> <depth> [timeLimitMs [halfmoveClock [alternatives [earlier positions...]]]]` | `BESTMOVE fr fc tr tc EVAL <cp> ...` / `BESTMOVE NONE` |
@@ -366,7 +407,7 @@ Checkora features a decoupled API layer. Below is the endpoint catalog accompani
 | `POST` | `/api/puzzles/<id>/solve/` | Check a puzzle solution and count the solve (login required) | `/api/puzzles/12/solve/` |
 | `GET`, `POST` | `/api/cron/cleanup-stale-games/` | Secure cron-triggered cleanup for abandoned games | `/api/cron/cleanup-stale-games/` |
 
-The full reference, with every field and error response, is in [docs/API.md](docs/API.md).
+The full reference, with every field and error response, is in [docs/API.md](docs/API.md). It also covers sign-in with a password or with Google, the account settings forms and the profile picture endpoints.
 
 ---
 
@@ -687,7 +728,7 @@ Called by the board when its clock reaches zero. The server ends the game only i
 ```
 
 #### 10. Solve puzzle (`POST /api/puzzles/<id>/solve/`)
-Checks the moves played against the puzzle's stored solution and counts the solve for the logged-in user.
+Checks the moves played against the puzzle's stored solution and counts the solve for the logged-in user. `counted` is `false` when the user opened that puzzle's solution in the last seven days; the answer is still checked, but nothing is counted.
 
 **Request Body:**
 
@@ -703,6 +744,7 @@ Checks the moves played against the puzzle's stored solution and counts the solv
 {
   "success": true,
   "correct": true,
+  "counted": true,
   "newly_solved": true,
   "puzzles_solved": 1,
   "streak": 1,
@@ -718,10 +760,11 @@ Checks the moves played against the puzzle's stored solution and counts the solv
 The test suite runs fully in-memory — no compiled engine binary required.
 
 ```bash
+pip install -r requirements-dev.txt
 python manage.py test game
 ```
 
-The Django tests are in `game/tests.py` and the `game/test_*.py` modules. They cover the API endpoints, move validation, engine path resolution, promotion logic, and AI mode enforcement. The command also collects the Selenium tests in `game/selenium_tests/`, which need Chrome.
+The Django tests are in `game/tests.py` and the `game/test_*.py` modules. They cover the API endpoints, move validation, both engines and the bridge to them, the difficulty levels, accounts and Google sign-in, and ratings, points and streaks. `requirements-dev.txt` adds python-chess. Some engine tests check both engines against it, and they are skipped when it is missing. The command also collects the Selenium tests in `game/selenium_tests/`, which need Chrome. [docs/testing.md](docs/testing.md) has the details.
 
 The JavaScript tests run on Jest:
 

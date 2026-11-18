@@ -49,7 +49,7 @@ The responses below are shortened to the fields the walkthrough talks about. [AP
 ### 1. Initializing a Match (`POST /api/new-game/`)
 Resets the player's active session state and sets up a clean board.
 
-- **Payload Structure** (`time_limit` is in seconds):
+- **Payload Structure** (`time_limit` is in seconds, and `difficulty` is `easy`, `medium`, `hard` or `master`):
   ```json
   {
     "mode": "ai",
@@ -174,5 +174,5 @@ const response = await fetch('/api/move/', {
    - *Cause*: Missing `X-CSRFToken` in request headers.
    - *Fix*: Read the token from the hidden `csrfmiddlewaretoken` input and bind it to the fetch headers map. The CSRF cookie is `HttpOnly` (`CSRF_COOKIE_HTTPONLY = True` in `core/settings.py`), so a script cannot read it from `document.cookie`.
 2. **Moves are slow, or the AI answers with `503`**:
-   - *Cause*: The engine did not answer. The bridge waits up to 10 seconds for a reply. A compiled binary that is not executable or was built from older sources is not used at all; the Python engine plays instead, and it is slower.
+   - *Cause*: The engine did not answer. The bridge waits up to 10 seconds for a reply. A compiled binary that is not executable or was built from older sources is not used at all; the Python engine plays instead, and it is slower. A slow reply on its own is not a fault on the higher levels: `hard` thinks for up to 5 seconds a move and `master` for up to 8.5, less when the clock is low.
    - *Fix*: Run `python manage.py validate_env` to verify executable permissions, and rebuild the binary with `g++ -O2 -std=c++17 game/engine/main.cpp -o game/engine/main`.

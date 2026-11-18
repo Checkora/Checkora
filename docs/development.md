@@ -60,6 +60,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+To run the tests, install `requirements-dev.txt` instead. It pulls in `requirements.txt` and adds python-chess, which some engine tests and `scripts/engine_match.py` need:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 ---
 
 ## Configure Environment Variables
@@ -81,6 +87,10 @@ cp .env.example .env
 Update the values in `.env` as required.
 
 Keep the `DEBUG=True` line that `.env.example` ships with. `core/settings.py` leaves `DEBUG` off unless `.env` sets it to `True`. With it on, Django shows tracebacks in the browser and the email backend prints OTP and password reset emails in the terminal instead of sending them.
+
+### Google sign-in (optional)
+
+"Continue with Google" appears on the sign-in and register pages only when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are both set. To try it locally, create an OAuth client of type "Web application" in Google Cloud, add `http://localhost:8000/auth/google/callback/` as an authorised redirect URI, put the two values in `.env`, and open the site at `http://localhost:8000/` rather than `127.0.0.1`. Everything else works without them.
 
 ---
 
@@ -130,6 +140,8 @@ Open:
 ```text
 http://127.0.0.1:8000/
 ```
+
+The database is SQLite unless `DATABASE_URL` in `.env` says otherwise. Production uses PostgreSQL, and CI runs the tests on both.
 
 ---
 
@@ -244,4 +256,6 @@ If the log says the engine binary "does not run here or is out of date", rebuild
 * `docs/API.md`
 * `docs/API_WALKTHROUGH.md`
 * `docs/design-system.md`
+* `docs/engine_architecture.md`
 * `docs/frontend-guide.md`
+* `docs/testing.md`

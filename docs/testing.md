@@ -10,9 +10,10 @@ Current test locations:
 * `game/test_analysis.py`
 * `game/test_services.py`
 * `game/test_heuristic_analysis.py`
-* `game/test_engine_rules.py`
-* `game/test_engine_bridge.py`
-* `game/test_persistent_engine.py`
+* `game/test_engine_rules.py`, `game/test_engine_bridge.py`, `game/test_persistent_engine.py`, `game/test_engine_differential.py`, `game/test_engine_evaluation.py` and `game/test_search_features.py` (the engine, see below)
+* `game/test_levels.py`: the four levels a player can pick, their ratings, and how long each may think on a running clock
+* `game/test_accounts.py`: pictures, rating and rank, points and streaks, the leaderboard, the account settings page and the privacy and terms pages
+* `game/test_google_login.py`: "Continue with Google", for new players, returning players and deactivated accounts
 * the other `game/test_*.py` modules
 * `game/selenium_tests/test_boards.py`
 * `game/selenium_tests/test_navigation.py`
@@ -20,6 +21,12 @@ Current test locations:
 * `board.test.js` and `forum.test.js` in the repository root (Jest)
 
 Every Django test module sits directly in `game/`, apart from the Selenium ones.
+
+Install `requirements-dev.txt` before running them. It adds python-chess to `requirements.txt`; without it the tests in `game/test_engine_differential.py`, and the ones in `game/test_engine_evaluation.py` that play random games, are skipped.
+
+```bash
+pip install -r requirements-dev.txt
+```
 
 ---
 
@@ -72,19 +79,39 @@ Provides detailed debugging information.
 
 ## Engine tests
 
-Three modules test the chess engine and the bridge to it.
+These modules test the chess engine and the bridge to it.
 
 `game/test_engine_rules.py` talks to the engines themselves over their line protocol, with nothing mocked: move counts (`PERFT`) against published figures, castling and en passant edge cases, promotion, `STATUS`, notation, the evaluation, and search positions such as forced mates and draws by repetition. Every test runs against `game/engine/main.py`. When a compiled engine that runs on the machine is present, the same tests run against it too, and one test checks that both engines evaluate positions alike.
 
 `game/test_engine_bridge.py` tests `game/engine.py`: what reaches the engine as a promotion piece, `last_engine_error`, positions loaded from FEN, check tracking, the `BESTMOVE` command built for each difficulty level, the deliberate mistakes of the easy level, the choice between a compiled binary and the Python engine, and the engine server. `OpeningBookFileTest` in the same file checks that every move in `game/engine/opening_book.json` is legal in its position.
 
-`game/test_persistent_engine.py` tests the per-game engine server: that it is started once and reused, that it is shut down when a game ends, and what happens when a one-off engine process fails or times out.
+`game/test_persistent_engine.py` tests the per-game engine server and `game/engine_client.py`, which starts it: that it is started once and reused, that it is shut down when a game ends, and what happens when a one-off engine process fails or times out.
+
+`game/test_engine_differential.py` plays seeded random games and checks, at every position, that both engines give the same legal moves, status and notation as python-chess.
+
+`game/test_engine_evaluation.py` checks the king attack and the passed pawn term on positions built for them. On the positions of seeded random games it also checks that both engines give the same score, and that swapping the colours only changes the sign of the score.
+
+`game/test_search_features.py` drives `main.py` through its protocol to test hashing, iterative deepening, timeouts and the figures in the `BESTMOVE` reply.
 
 ```bash
-python manage.py test game.test_engine_rules game.test_engine_bridge game.test_persistent_engine
+python manage.py test game.test_engine_rules game.test_engine_bridge game.test_persistent_engine \
+    game.test_engine_differential game.test_engine_evaluation game.test_search_features
 ```
 
 After changing `main.cpp`, rebuild the binary before running these, or the compiled engine is not tested: a binary that is missing or out of date is skipped.
+
+CI also builds the engine with AddressSanitizer and UBSan and runs every `game/test_engine*.py` module and `game/test_persistent_engine.py` against that build, so an out-of-bounds write or undefined behaviour fails the run. To do the same locally:
+
+```bash
+g++ -O1 -g -std=c++17 -fno-omit-frame-pointer \
+    -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+    game/engine/main.cpp -o game/engine/main
+ASAN_OPTIONS=detect_leaks=0:abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    python manage.py test game.test_engine_rules game.test_engine_bridge game.test_persistent_engine \
+    game.test_engine_differential game.test_engine_evaluation
+```
+
+This build replaces `game/engine/main`, so compile the normal binary again afterwards (see [development.md](development.md)).
 
 ---
 
@@ -94,6 +121,7 @@ After changing `main.cpp`, rebuild the binary before running these, or the compi
 
 * `game/selenium_tests/test_boards.py`
 * `game/selenium_tests/test_navigation.py`
+* `game/selenium_tests/test_admin_health.py`
 
 ### Requirements
 
@@ -135,7 +163,13 @@ npm ci
 npm test
 ```
 
-CI runs the same two commands in its JavaScript job, with `npm audit --audit-level=high` in between.
+CI runs the same two commands in its JavaScript job, with `npm audit --audit-level=high` in between. The job then runs `node --check` on every file in `game/static/game/js/`, so a syntax error fails CI even in a script that Jest never loads.
+
+---
+
+## Tests in CI
+
+`.github/workflows/ci.yml` runs `python manage.py test game --verbosity=2 --parallel` twice, once on SQLite and once on PostgreSQL 16, with `requirements-dev.txt` installed and the compiled engine in place. A separate job runs `game.selenium_tests` with Chrome set up and the static files collected, and another runs the engine tests against the sanitizer build. [CONTRIBUTING.md](../CONTRIBUTING.md) lists every job.
 
 ---
 

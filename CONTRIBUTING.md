@@ -183,7 +183,7 @@ Use the following prefixes:
 - Use **meaningful variable and function names** (no single-letter names except loop counters).
 - Add **docstrings** to all public functions and classes.
 - Keep **functions focused** — one function, one responsibility.
-- For C++ engine code, follow the existing style in `game/engine/main.cpp`. `game/engine/main.py` implements the same protocol, rules, evaluation and search, so a change to one engine has to be made in the other as well. `PROTOCOL_VERSION` is defined in both files and in `game/engine.py`, and the bridge only uses a binary that answers with the same number, so raise it in all three when the protocol changes.
+- For C++ engine code, follow the existing style in `game/engine/main.cpp`. `game/engine/main.py` implements the same protocol, rules, evaluation and search, so a change to one engine has to be made in the other as well. `PROTOCOL_VERSION` is defined in both files and in `game/engine_client.py`, and the bridge only uses a binary that answers with the same number, so raise it in all three when the protocol changes.
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>
@@ -237,14 +237,20 @@ core: Remove deprecated settings configuration.
 Run these locally before creating a Pull Request.
 
 ### Linting (must pass before submitting a PR)
+This is the command CI runs on the whole repository. Its ignore list is there for older code:
 ```bash
-flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120
+flake8 . --exclude=.venv,migrations,__pycache__,.git,game/engine/main.py \
+  --max-line-length=120 \
+  --extend-ignore=E501,W503,W291,W293,W391,W292,E701,E402,F401,E231,E261,E302
 ```
+CI then runs `flake8 --max-line-length=120` with no ignore list on the newer modules, such as `game/accounts.py`, `game/progression.py` and `game/views_account.py`. The full list is in the "Run strict flake8 on clean modules" step of `.github/workflows/ci.yml`. If you change one of those files, run that step's command too.
 
 ### Django Tests
 ```bash
+pip install -r requirements-dev.txt
 python manage.py test game --verbosity=2
 ```
+`requirements-dev.txt` adds python-chess. Without it the tests that check the engines against python-chess are skipped. CI runs the suite twice, on SQLite and on PostgreSQL 16; to do the same locally, point `DATABASE_URL` at a PostgreSQL database.
 
 ### Selenium E2E Tests
 ```bash
@@ -313,20 +319,23 @@ git rebase main
 
 ## ⚙️ CI/CD Pipeline
 
-Every PR and push to `main` runs the following automated checks via GitHub Actions:
+`.github/workflows/ci.yml` runs on every push, to any branch, and on every PR to `main`. These are its checks:
 
 | Job                    | What it does                        | Required to merge      |
 | ---------------------- | ----------------------------------- | ---------------------- |
-| 🔍 **Lint**            | `flake8` on all Python code         | ✅ Yes                 |
+| 🔍 **Lint**            | `flake8` on all Python code with an ignore list for older code, then again with no ignore list on the newer modules | ✅ Yes |
 | ⚙️ **Compile Engine**  | `g++ -O2` on `game/engine/main.cpp` | ✅ Yes                 |
-| 🧪 **Django Tests**    | `python manage.py test game`        | ✅ Yes                 |
+| 🧪 **Django Tests**    | `python manage.py test game`, once on SQLite and once on PostgreSQL 16, with `requirements-dev.txt` installed | ✅ Yes |
 | 🗄️ **Migration Check** | `migrate` on a fresh CI database, then `makemigrations --check --dry-run` | ✅ Yes |
+| **Engine (ASan + UBSan)** | Builds the engine with AddressSanitizer and UBSan and runs the engine tests against that build | Yes |
 | 🔒 **Security Scan**   | `pip-audit` on `requirements.txt`   | ✅ Yes                 |
 | 🛡️ **SAST (Bandit)**  | Static security analysis            | ✅ Yes                 |
 | 🖥️ **Selenium Tests**  | End-to-end browser tests            | ✅ Yes                 |
 | 🌐 **Deploy**          | Vercel production deploy, done by Vercel's GitHub integration and not by a job in this workflow | 🔁 Push to `main` only |
 
-The workflow also has a JavaScript job that runs `npm ci`, `npm audit --audit-level=high` and `npm test`.
+The workflow also has a JavaScript job that runs `npm ci`, `npm audit --audit-level=high` and `npm test`, and then `node --check` on every script in `game/static/game/js/`, so a syntax error in a script that Jest does not load still fails.
+
+On a PR, a PR Guardian job runs first. Unless the author is a maintainer or the PR only touches `.github/` or `vercel.json`, the PR has to link an issue (for example `Fixes #123`) that is assigned to its author. Otherwise the other jobs are skipped.
 
 All checks must pass before a maintainer can merge your PR.
 
@@ -340,7 +349,11 @@ python manage.py migrate
 
 `0044_rated_games_and_puzzle_solves`, `0045_seed_achievements` and `0046_fix_seed_puzzles` must be applied this way before the code that came with them serves requests. Applying them first is safe: `GameResult.rated` has a database default, so code from before `0044` keeps working on the migrated database. `0044` adds `GameResult.rated`, `PuzzleStats.last_daily_date` and the `PuzzleSolve` table, all of which `game/services.py` reads and writes when a game or a puzzle is finished. `0045` creates the `Achievement` rows that `game/services.py` unlocks by code; an achievement whose row is missing is not awarded. `0046` replaces the seven built-in daily puzzles, several of which had illegal or non-mating answers, with positions that have exactly one mating move; a puzzle an admin has already edited is left alone.
 
+`0047_google_account` and `0048_profiles_ratings_and_streaks` go the same way. `0047` adds the `GoogleAccount` table. `0048` adds `RatingHistory.game_result`, the picture preset, the upload time, the time zone and the last rename on `UserProfile`, and `UserProgress.best_day_streak`, and fills in the upload time and the best streak for existing rows. Both can be applied before the code that uses them is deployed, because the new NOT NULL columns have database defaults.
+
 `vercel.json` also schedules a daily request to `/api/cron/cleanup-stale-games/`. That endpoint answers `401` until `CRON_SECRET` is set in the deployment's environment.
+
+"Continue with Google" stays hidden until `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are both set in the deployment's environment. The OAuth client in Google Cloud needs `<site>/auth/google/callback/` as an authorised redirect URI for every address the site is served from.
 <p align="right">
   <a href="#top">🔼 Back to top</a>
 </p>
