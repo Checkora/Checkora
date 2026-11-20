@@ -52,7 +52,7 @@
     <canvas class="hero__dust" id="heroDust" aria-hidden="true"></canvas>
 
     <div class="hero__copy wrap wrap--wide">
-        <h1 class="eyebrow hero-in" id="heroHeading" style="--i: 0">Free online chess against a C++ engine</h1>
+        <h1 class="eyebrow hero-in" id="heroHeading" style="--i: 0">Free online chess vs AI or a friend</h1>
         <p class="display hero-in" id="heroTitle" style="--i: 1">Out-think<br>the <span class="serif">engine.</span></p>
         <p class="lede hero-in" style="--i: 2">
             Play a C++ engine that searches with minimax and alpha-beta pruning, pass the board to a friend,
@@ -89,21 +89,21 @@
     <div class="grid" style="--min: 280px">
         <a href="{% url 'index' %}" class="panel panel--link mode" data-tilt="6" data-reveal style="--i: 0">
             <span class="mode__num" aria-hidden="true">01</span>
-            <span class="mode__art mode__art--ai" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-            <h3>Play the engine</h3>
-            <p>Four levels, from easy up to master. Choose your colour, your clock and, if you like, the opening it should steer for.</p>
+            <span class="mode__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="8" width="15" height="11.5" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M2.5 12.5v3M21.5 12.5v3M10 16.5h4"/><circle cx="9.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"/></svg></span>
+            <h3>Play chess vs AI</h3>
+            <p>The computer plays you at four levels, from Easy for beginners up to Master. Choose your colour, your clock and, if you like, the opening it should steer for.</p>
             <span class="mode__go mono">Start a game →</span>
         </a>
         <a href="{% url 'index' %}" class="panel panel--link mode" data-tilt="6" data-reveal style="--i: 1">
             <span class="mode__num" aria-hidden="true">02</span>
-            <span class="mode__art mode__art--pvp" aria-hidden="true"><i></i><i></i></span>
-            <h3>Pass and play</h3>
-            <p>Two players, one screen. The board can turn itself round after every move.</p>
+            <span class="mode__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.2A5 5 0 0 1 22 19"/></svg></span>
+            <h3>Play a friend</h3>
+            <p>Two players take turns on one screen. The board can turn itself round after every move.</p>
             <span class="mode__go mono">Set up the board →</span>
         </a>
         <a href="{% url 'puzzles' %}" class="panel panel--link mode" data-tilt="6" data-reveal style="--i: 2">
             <span class="mode__num" aria-hidden="true">03</span>
-            <span class="mode__art mode__art--puzzle" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="mode__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m12 12.4 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 17.9l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z"/></svg></span>
             <h3>Solve puzzles</h3>
             <p>A daily puzzle, plus a library you can filter by difficulty, motif and rating.</p>
             <span class="mode__go mono">Browse puzzles →</span>

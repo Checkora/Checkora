@@ -251,53 +251,27 @@
 .mode:hover .mode__go {
     letter-spacing: 0.04em;
 }
-.mode__art {
-    position: relative;
-    display: block;
-    height: 96px;
+.mode__icon {
+    display: grid;
+    place-items: center;
+    width: 84px;
+    height: 84px;
     margin-bottom: 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    background: var(--gold-wash);
+    color: var(--gold);
+    transition: transform 0.6s var(--ease-spring), background 0.3s, color 0.3s;
 }
-.mode__art i {
-    position: absolute;
-    display: block;
-    border-radius: 6px;
-    transition: transform 0.6s var(--ease-spring);
+.mode__icon svg {
+    width: 46px;
+    height: 46px;
 }
-/* The engine: five candidate moves, one of them chosen. */
-.mode__art--ai i {
-    bottom: 8px;
-    width: 14%;
-    background: var(--ink-3);
+.mode:hover .mode__icon {
+    background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep));
+    color: var(--on-gold);
+    transform: rotate(-6deg) scale(1.05);
 }
-.mode__art--ai i:nth-child(1) { left: 0; height: 34%; }
-.mode__art--ai i:nth-child(2) { left: 18%; height: 58%; }
-.mode__art--ai i:nth-child(3) { left: 36%; height: 88%; background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); }
-.mode__art--ai i:nth-child(4) { left: 54%; height: 46%; }
-.mode__art--ai i:nth-child(5) { left: 72%; height: 26%; }
-.mode:hover .mode__art--ai i:nth-child(3) { transform: translateY(-8px); }
-.mode:hover .mode__art--ai i:not(:nth-child(3)) { transform: scaleY(0.7); transform-origin: bottom; }
-/* Two players: two discs that swap sides. */
-.mode__art--pvp i {
-    top: 18px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-}
-.mode__art--pvp i:nth-child(1) { left: 0; background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep)); }
-.mode__art--pvp i:nth-child(2) { left: 46px; background: var(--ink-3); border: 1px solid var(--line-strong); }
-.mode:hover .mode__art--pvp i:nth-child(1) { transform: translateX(46px); }
-.mode:hover .mode__art--pvp i:nth-child(2) { transform: translateX(-46px); }
-/* A puzzle: three squares, the last one drops into place. */
-.mode__art--puzzle i {
-    top: 20px;
-    width: 56px;
-    height: 56px;
-    background: var(--ink-3);
-}
-.mode__art--puzzle i:nth-child(1) { left: 0; }
-.mode__art--puzzle i:nth-child(2) { left: 62px; }
-.mode__art--puzzle i:nth-child(3) { left: 124px; background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep)); transform: translateY(-16px) rotate(12deg); }
-.mode:hover .mode__art--puzzle i:nth-child(3) { transform: none; }
 
 /* ---------- features ---------- */
 

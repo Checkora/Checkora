@@ -1801,7 +1801,7 @@
         }
 
         if (modeBadge) {
-            modeBadge.textContent = gameMode === 'ai' ? 'VS AI' : 'PVP';
+            modeBadge.textContent = gameMode === 'ai' ? 'vs AI' : 'vs Friend';
             modeBadge.style.display = 'inline-block';
         }
 

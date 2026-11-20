@@ -283,11 +283,21 @@
             group.append(button);
             return button;
         });
-        const paint = () => buttons.forEach((button) => {
-            const on = button.dataset.value === select.value;
-            button.setAttribute('aria-checked', on ? 'true' : 'false');
-            button.tabIndex = on ? 0 : -1;
-        });
+        // An option may carry a data-hint: a line under the buttons that
+        // says what the chosen one means.
+        const hint = select.querySelector('option[data-hint]') ? document.createElement('p') : null;
+        if (hint) {
+            hint.className = 'field__hint seg__hint';
+            hint.setAttribute('aria-live', 'polite');
+        }
+        const paint = () => {
+            buttons.forEach((button) => {
+                const on = button.dataset.value === select.value;
+                button.setAttribute('aria-checked', on ? 'true' : 'false');
+                button.tabIndex = on ? 0 : -1;
+            });
+            if (hint) hint.textContent = select.selectedOptions[0]?.dataset.hint || '';
+        };
         const choose = (button, focus) => {
             select.value = button.dataset.value;
             select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -306,6 +316,7 @@
         select.addEventListener('change', paint);
         select.hidden = true;
         select.after(group);
+        if (hint) group.after(hint);
         paint();
     }
 
@@ -391,7 +402,7 @@
 
             const whiteName = (white && white.value.trim()) || (againstEngine ? 'You' : 'White');
             const level = strength ? strength.options[strength.selectedIndex].textContent : '';
-            const blackName = againstEngine ? `Engine · ${level}` : (black && black.value.trim()) || 'Black';
+            const blackName = againstEngine ? `AI · ${level}` : (black && black.value.trim()) || 'Black';
 
             // In an engine game the name typed is yours whichever side you take.
             const nearIsBlack = side === 'black';

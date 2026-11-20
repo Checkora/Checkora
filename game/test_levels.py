@@ -1,5 +1,6 @@
 """The engine levels a player can choose, and how long each may think."""
 
+import re
 from unittest import mock
 
 from django.contrib.auth.models import User
@@ -71,4 +72,6 @@ class MasterGameTest(TestCase):
         self.assertEqual(self.client.session['difficulty'], 'medium')
 
     def test_the_setup_screen_offers_master(self):
-        self.assertContains(self.client.get('/play/'), '<option value="master">Master</option>', count=2)
+        # Once on the setup screen and once in the new game dialog.
+        options = re.findall(r'<option value="master"[^>]*>Master</option>', self.client.get('/play/').content.decode())
+        self.assertEqual(len(options), 2)

@@ -59,7 +59,7 @@ class NavigationTest(BaseE2ETest):
     # Test 3: PvP Mode Starts and Mode Badge Updates
     # ───────────────────────────────────────────────────────────────
     def test_03_pvp_mode_starts(self):
-        """Entering names and clicking PvP dismisses overlay and shows PVP badge."""
+        """Entering names and clicking PvP dismisses overlay and shows the "vs Friend" badge."""
         log_info("Testing PvP mode start...")
         self._start_pvp_game()
 
@@ -71,9 +71,9 @@ class NavigationTest(BaseE2ETest):
         )
         log_ok("Welcome overlay dismissed")
 
-        # Mode badge should show PVP
+        # Mode badge should show the friend game
         mode_badge = self.driver.find_element(By.ID, 'modeBadge')
-        self.assertIn('PVP', mode_badge.text.upper())
+        self.assertIn('VS FRIEND', mode_badge.text.upper())
         log_ok(f"Mode badge: '{mode_badge.text}'")
 
     # ───────────────────────────────────────────────────────────────

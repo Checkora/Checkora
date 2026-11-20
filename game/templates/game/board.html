@@ -33,18 +33,18 @@
             </div>
 
             <header class="setup__title">
-                <p class="eyebrow">New game</p>
-                <h1 class="promo-title" id="setupTitle">Take a <span class="serif">seat.</span></h1>
+                <h1 class="eyebrow" id="setupHeading">Play chess vs AI or a friend</h1>
+                <p class="promo-title" id="setupTitle">Take a <span class="serif">seat.</span></p>
             </header>
 
             <div id="nameInputs" class="setup__players">
                 <div class="field setup__name setup__name--white">
                     <label for="whiteNameInput"><span class="seat-dot seat-dot--white" aria-hidden="true"></span><span class="when-pvp">White</span><span class="when-engine">Your name</span></label>
-                    <input type="text" id="whiteNameInput" placeholder="White Player Name" maxlength="17" minlength="1" required autocomplete="off" spellcheck="false"{% if user.is_authenticated %} value="{{ user.username|slice:':17' }}"{% endif %}>
+                    <input type="text" id="whiteNameInput" placeholder="White player's name" maxlength="17" minlength="1" required autocomplete="off" spellcheck="false"{% if user.is_authenticated %} value="{{ user.username|slice:':17' }}"{% endif %}>
                 </div>
                 <div class="field setup__name setup__name--black">
                     <label for="blackNameInput"><span class="seat-dot seat-dot--black" aria-hidden="true"></span>Black</label>
-                    <input type="text" id="blackNameInput" placeholder="Black Player Name" maxlength="17" minlength="1" required autocomplete="off" spellcheck="false">
+                    <input type="text" id="blackNameInput" placeholder="Black player's name" maxlength="17" minlength="1" required autocomplete="off" spellcheck="false">
                 </div>
 
                 <div id="nameError" class="notice notice--error setup__error" role="alert" style="display: none;">Please enter both player names</div>
@@ -123,30 +123,31 @@
             </div>
 
             <div id="modeSelection" class="setup__modes">
-                <p class="setup__label" id="modeLabel">Who sits across from you?</p>
+                <p class="setup__label" id="modeLabel">Who do you want to play against?</p>
                 <div class="mode-cards" role="group" aria-labelledby="modeLabel">
                     <button type="button" class="mode-card" id="welcomeAIBtn">
-                        <span class="mode-card__art mode-card__art--engine" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-                        <span class="mode-card__title"><span class="sr-only">Play vs AI: </span>The engine</span>
-                        <span class="mode-card__text">Pick a side and a strength</span>
+                        <span class="mode-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="8" width="15" height="11.5" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M2.5 12.5v3M21.5 12.5v3M10 16.5h4"/><circle cx="9.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.2" fill="currentColor" stroke="none"/></svg></span>
+                        <span class="mode-card__title">Play vs AI</span>
+                        <span class="mode-card__text">The computer plays you, from Easy to Master</span>
                     </button>
                     <button type="button" class="mode-card" id="welcomePvPBtn">
-                        <span class="mode-card__art mode-card__art--friend" aria-hidden="true"><i></i><i></i></span>
-                        <span class="mode-card__title"><span class="sr-only">Pass and play: </span>A friend</span>
-                        <span class="mode-card__text">Two players, one screen</span>
+                        <span class="mode-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.2A5 5 0 0 1 22 19"/></svg></span>
+                        <span class="mode-card__title">Play a friend</span>
+                        <span class="mode-card__text">Two players take turns on this screen</span>
                     </button>
                     <button type="button" class="mode-card" id="welcomeDailyPuzzleBtn">
-                        <span class="mode-card__art mode-card__art--puzzle" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <span class="mode-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m12 12.4 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 17.9l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z"/></svg></span>
                         <span class="mode-card__title">Daily puzzle</span>
-                        <span class="mode-card__text">One position, one best line</span>
+                        <span class="mode-card__text">Find the best move in today's position</span>
                     </button>
                 </div>
+                <p class="setup__new">New to chess? Learn how the pieces move in the <a href="{% url 'lessons' %}">free lessons</a>, or read <a href="{% url 'rules' %}">the rules</a>.</p>
                 <button type="button" class="btn btn-block setup__resume" id="welcomeResumeBtn" style="display: none;">Resume game</button>
             </div>
 
             <div id="pveOptions" class="setup__engine" style="display: none;">
                 <div class="setup__group" role="group" aria-labelledby="sideLabel">
-                    <p class="setup__label" id="sideLabel">Play as</p>
+                    <p class="setup__label" id="sideLabel">Play as <span class="setup__aside">White moves first</span></p>
                     <div class="side-choices">
                         <button type="button" class="color-choice active" id="pveWhiteBtn" data-color="white"><span class="seat-dot seat-dot--white" aria-hidden="true"></span>White</button>
                         <button type="button" class="color-choice" id="pveRandomBtn" data-color="random" aria-label="Random color selection"><span class="seat-dot seat-dot--random" aria-hidden="true"></span>Random</button>
@@ -156,19 +157,19 @@
 
                 <div class="setup__pair">
                     <div id="aiDifficultyContainer" class="field">
-                        <label for="welcomeDifficultySelect" id="difficultyLabel">Engine strength</label>
+                        <label for="welcomeDifficultySelect" id="difficultyLabel">AI level</label>
                         <select id="welcomeDifficultySelect" data-segmented>
-                            <option value="easy">Easy</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="hard">Hard</option>
-                            <option value="master">Master</option>
+                            <option value="easy" data-hint="Makes mistakes on purpose. The best place to start if you are new.">Easy</option>
+                            <option value="medium" data-hint="Plays sensible moves. A fair game once you know the basics." selected>Medium</option>
+                            <option value="hard" data-hint="Strong. Thinks for up to 5 seconds a move.">Hard</option>
+                            <option value="master" data-hint="The strongest level. Thinks for up to 8.5 seconds a move.">Master</option>
                         </select>
                     </div>
 
                     <div id="aiOpeningContainer" class="field">
                         <label for="welcomeOpeningSelect">Opening <span class="muted">(optional)</span></label>
                         <select id="welcomeOpeningSelect">
-                            <option value="">Engine decides</option>
+                            <option value="">AI decides</option>
                             <option value="italian_game">Italian Game</option>
                             <option value="sicilian_defense">Sicilian Defense</option>
                             <option value="queens_gambit">Queen's Gambit</option>
@@ -183,8 +184,8 @@
             </div>
 
             <div class="fen-input-group field setup__fen">
-                <label class="fen-label" for="welcomeFenInput">Start from a position <span class="muted">(FEN, optional)</span></label>
-                <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste a FEN, or leave empty for the usual start" autocomplete="off" spellcheck="false">
+                <label class="fen-label" for="welcomeFenInput">Start from a custom position <span class="muted">(optional)</span></label>
+                <input type="text" id="welcomeFenInput" class="fen-input" placeholder="Paste a FEN code, or leave empty for a normal game" autocomplete="off" spellcheck="false">
                 <div class="fen-error field__error" id="welcomeFenError" role="alert"></div>
             </div>
         </div>
@@ -312,7 +313,7 @@
         </div>
 
         <div class="board-outer">
-            <div id="evalBarContainer" class="eval-bar-container" role="img" aria-label="Engine evaluation">
+            <div id="evalBarContainer" class="eval-bar-container" role="img" aria-label="Evaluation: who is better">
                 <div id="evalBarWhite" class="eval-bar-white"></div>
                 <span id="evalBarScore" class="eval-bar-score">0.0</span>
             </div>
@@ -513,7 +514,7 @@
             </select>
         </div>
         <div id="confirmDifficultyContainer" class="field" style="display: none;">
-            <label for="confirmDifficultySelect">Engine strength</label>
+            <label for="confirmDifficultySelect">AI level</label>
             <select id="confirmDifficultySelect">
                 <option value="easy">Easy</option>
                 <option value="medium" selected>Medium</option>
@@ -726,7 +727,7 @@
                     <span class="shortcut-keys"><kbd>R</kbd></span>
                 </div>
                 <div class="shortcut-row">
-                    <span class="shortcut-desc">New game: pass and play, or against the engine</span>
+                    <span class="shortcut-desc">New game: against a friend or the AI</span>
                     <span class="shortcut-keys"><kbd>N</kbd> / <kbd>A</kbd></span>
                 </div>
             </div>

@@ -2819,50 +2819,61 @@ body.blindfold-mode .blindfold-btn {
     line-height: 1.35;
     color: var(--muted);
 }
-/* The same three little pictures as on the landing page. */
-.mode-card__art {
-    position: relative;
-    display: block;
-    height: 44px;
-    margin-bottom: 8px;
+/* A plain picture of who you play: a robot for the AI, two people for a
+   friend, a calendar for the puzzle of the day. */
+.mode-card__icon {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    margin-bottom: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: var(--gold-wash);
+    color: var(--gold);
+    transition: transform 0.45s var(--ease-spring), background 0.25s, color 0.25s;
 }
-.mode-card__art i {
-    position: absolute;
-    display: block;
-    border-radius: 4px;
-    background: var(--ink-3);
-    transition: transform 0.5s var(--ease-spring);
+.mode-card__icon svg {
+    width: 36px;
+    height: 36px;
 }
-.mode-card__art--engine i {
-    bottom: 0;
-    width: 9px;
-    transform-origin: bottom;
+.mode-card:hover .mode-card__icon,
+.mode-card:focus-visible .mode-card__icon {
+    background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep));
+    color: var(--on-gold);
+    transform: rotate(-6deg) scale(1.06);
 }
-.mode-card__art--engine i:nth-child(1) { left: 0; height: 36%; }
-.mode-card__art--engine i:nth-child(2) { left: 13px; height: 60%; }
-.mode-card__art--engine i:nth-child(3) { left: 26px; height: 100%; background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); }
-.mode-card__art--engine i:nth-child(4) { left: 39px; height: 48%; }
-.mode-card__art--engine i:nth-child(5) { left: 52px; height: 26%; }
-.mode-card:hover .mode-card__art--engine i:not(:nth-child(3)) { transform: scaleY(0.6); }
-.mode-card__art--friend i {
-    top: 6px;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+
+/* Under the three cards: where a beginner can learn first. */
+.setup__new {
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: var(--muted);
 }
-.mode-card__art--friend i:nth-child(1) { left: 0; background: var(--piece-white); }
-.mode-card__art--friend i:nth-child(2) { left: 24px; background: var(--piece-black); border: 1px solid var(--line-strong); }
-.mode-card:hover .mode-card__art--friend i:nth-child(1) { transform: translateX(24px); }
-.mode-card:hover .mode-card__art--friend i:nth-child(2) { transform: translateX(-24px); }
-.mode-card__art--puzzle i {
-    top: 10px;
-    width: 26px;
-    height: 26px;
+.setup__new a {
+    color: var(--gold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
-.mode-card__art--puzzle i:nth-child(1) { left: 0; }
-.mode-card__art--puzzle i:nth-child(2) { left: 30px; }
-.mode-card__art--puzzle i:nth-child(3) { left: 60px; background: linear-gradient(140deg, var(--gold-bright), var(--gold-deep)); transform: translateY(-10px) rotate(12deg); }
-.mode-card:hover .mode-card__art--puzzle i:nth-child(3) { transform: none; }
+.setup__aside {
+    margin-left: 8px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--font-sans);
+    opacity: 0.85;
+}
+.seg__hint {
+    margin: 6px 0 0;
+    min-height: 2.7em;
+}
+
+/* "Play chess vs AI or a friend" is the page's h1 in the small gold style,
+   and "Take a seat." is a paragraph that keeps its big look. */
+.setup__title .eyebrow {
+    font-weight: inherit;
+    line-height: inherit;
+    text-wrap: pretty;
+}
 
 /* A game left unfinished comes first. */
 .setup__resume {
@@ -4247,25 +4258,13 @@ body:has(#tourOverlay[style*='block'])::after {
     }
     .mode-card {
         display: grid;
-        grid-template-columns: 76px minmax(0, 1fr);
-        column-gap: 12px;
+        grid-template-columns: 58px minmax(0, 1fr);
+        column-gap: 14px;
         align-items: center;
     }
-    .mode-card__art {
+    .mode-card__icon {
         grid-row: span 2;
         margin: 0;
-    }
-    /* The three tiles are a little smaller here: at full size they are
-       wider than the column and the gold one ran into "Daily puzzle". */
-    .mode-card__art--puzzle i {
-        width: 22px;
-        height: 22px;
-    }
-    .mode-card__art--puzzle i:nth-child(2) {
-        left: 26px;
-    }
-    .mode-card__art--puzzle i:nth-child(3) {
-        left: 52px;
     }
     .setup__pair {
         grid-template-columns: minmax(0, 1fr);
@@ -4694,4 +4693,10 @@ body:has(#tourOverlay[style*='block'])::after {
 .board-3d .play.is-angling .square > .piece,
 .board-3d .play.is-angling .chessboard::after {
     transition-duration: 0.06s;
+}
+
+/* The "vs AI" / "vs Friend" badge names the game being played, so it stays
+   out of the way while a new one is being chosen. */
+body:has(#welcomeOverlay.active) #modeBadge {
+    display: none !important;
 }

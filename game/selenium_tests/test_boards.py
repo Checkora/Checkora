@@ -43,7 +43,7 @@ class UITest(BaseE2ETest):
         self._start_pvp_game()
 
         mode_badge = self.driver.find_element(By.ID, 'modeBadge')
-        self.assertIn('PVP', mode_badge.text.upper())
+        self.assertIn('VS FRIEND', mode_badge.text.upper())
         log_ok(f"Mode badge shows: {mode_badge.text}")
 
     # ───────────────────────────────────────────────────────────────
