@@ -14,6 +14,7 @@ Current test locations:
 * `game/test_levels.py`: the four levels a player can pick, their ratings, and how long each may think on a running clock
 * `game/test_accounts.py`: pictures, rating and rank, points and streaks, the leaderboard, the account settings page and the privacy and terms pages
 * `game/test_google_login.py`: "Continue with Google", for new players, returning players and deactivated accounts
+* `game/test_seo.py`: the sitemap lists every lesson and opening and each listed page opens, every page has a canonical link without its query string, and the home page has one h1
 * the other `game/test_*.py` modules
 * `game/selenium_tests/test_boards.py`
 * `game/selenium_tests/test_navigation.py`

@@ -5,11 +5,12 @@ from game.views import CustomPasswordResetView
 from django.views.generic import TemplateView
 from django.shortcuts import render
 from game.forms import CustomSetPasswordForm
+from game import views_seo
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
-    path('sitemap.xml', TemplateView.as_view(template_name="sitemap.xml", content_type="application/xml")),
+    path('sitemap.xml', views_seo.sitemap),
     path('', include('game.urls')),
 
     path(

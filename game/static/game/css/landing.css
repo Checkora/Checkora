@@ -70,6 +70,18 @@
 .hero__copy > * {
     pointer-events: auto;
 }
+/* The short line above the slogan is the page's h1, so search engines read
+   what the site is, and the slogan is a paragraph. Each keeps the look it
+   had the other way round. */
+.hero__copy .eyebrow {
+    font-weight: inherit;
+    line-height: inherit;
+    text-wrap: pretty;
+}
+.hero__copy .display {
+    color: var(--title);
+    text-wrap: balance;
+}
 .hero__copy .lede {
     max-width: 38ch;
 }

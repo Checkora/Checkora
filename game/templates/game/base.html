@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Checkora{% endblock %}</title>
     <meta name="description" content="{% block description %}Checkora is an open-source chess platform: play a C++ engine, solve puzzles, learn openings and review your games.{% endblock %}">
+    {% block canonical %}<link rel="canonical" href="{{ canonical_url }}">{% endblock %}
     <meta name="theme-color" content="#08080a">
     <link rel="icon" type="image/jpeg" href="{% static 'game/favicon.jpeg' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">

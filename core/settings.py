@@ -42,6 +42,9 @@ else:
 
 ALLOWED_HOSTS = ['.vercel.app']
 
+# The address every page names as its canonical one, and the sitemap lists.
+SITE_URL = os.environ.get('SITE_URL', 'https://checkora.edward7780.com').rstrip('/')
+
 if DEBUG or not IS_PRODUCTION:
     ALLOWED_HOSTS.extend(['localhost', '127.0.0.1'])
 
@@ -101,6 +104,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'game.context_processors.google_sign_in',
+                'game.context_processors.canonical_url',
             ],
         },
     },

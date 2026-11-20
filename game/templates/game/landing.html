@@ -1,29 +1,39 @@
 {% extends 'game/base.html' %}
 {% load static %}
 
-{% block title %}Checkora · Play chess against a C++ engine{% endblock %}
-{% block description %}Checkora is a free, open-source chess platform. Play a C++ minimax engine, pass the board to a friend, solve puzzles, and learn openings move by move.{% endblock %}
+{% block title %}Play chess online for free against a computer · Checkora{% endblock %}
+{% block description %}Play chess online for free against a C++ engine at four levels, from easy to master, or pass the board to a friend. A daily puzzle, lessons and an opening trainer. Nothing to download.{% endblock %}
 
 {% block head %}
 <meta name="google-site-verification" content="MkxTJ-CxFDWDussY1CsgoyiG0_nwTVd_HRl5r76MpwM">
-<link rel="canonical" href="https://checkora.edward7780.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://checkora.edward7780.com/">
-<meta property="og:title" content="Checkora · Play chess against a C++ engine">
+<meta property="og:title" content="Play chess online for free against a computer · Checkora">
 <meta property="og:description" content="A free, open-source chess platform: a C++ engine to play, puzzles, lessons and an opening trainer.">
 <meta property="og:image" content="https://checkora.edward7780.com{% static 'game/checkora_icon_only.png' %}">
 <meta name="twitter:card" content="summary">
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Checkora",
-    "operatingSystem": "Web",
-    "applicationCategory": "GameApplication",
-    "license": "https://opensource.org/licenses/MIT",
-    "codeRepository": "https://github.com/Checkora/Checkora",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-}
+[
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Checkora",
+        "url": "{{ canonical_url }}"
+    },
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Checkora",
+        "url": "{{ canonical_url }}",
+        "description": "Play chess online for free against a C++ engine at four levels, from easy to master, or against a friend. Puzzles, lessons and an opening trainer.",
+        "operatingSystem": "Web browser",
+        "applicationCategory": "GameApplication",
+        "isAccessibleForFree": true,
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/Checkora/Checkora",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+]
 </script>
 <script type="importmap">
 { "imports": { "three": "{% static 'game/vendor/three/three.module.min.js' %}" } }
@@ -34,7 +44,7 @@
 {% block main_class %} landing{% endblock %}
 
 {% block content %}
-<section class="hero" aria-labelledby="heroTitle">
+<section class="hero" aria-labelledby="heroHeading">
     <div class="hero__stage" aria-hidden="true">
         <canvas id="heroCanvas"></canvas>
         <div class="hero__fallback"></div>
@@ -42,8 +52,8 @@
     <canvas class="hero__dust" id="heroDust" aria-hidden="true"></canvas>
 
     <div class="hero__copy wrap wrap--wide">
-        <p class="eyebrow hero-in" style="--i: 0">Open-source chess platform</p>
-        <h1 class="display hero-in" id="heroTitle" style="--i: 1">Out-think<br>the <span class="serif">engine.</span></h1>
+        <h1 class="eyebrow hero-in" id="heroHeading" style="--i: 0">Free online chess against a C++ engine</h1>
+        <p class="display hero-in" id="heroTitle" style="--i: 1">Out-think<br>the <span class="serif">engine.</span></p>
         <p class="lede hero-in" style="--i: 2">
             Play a C++ engine that searches with minimax and alpha-beta pruning, pass the board to a friend,
             or work through puzzles, lessons and opening lines. Free, and built in the open.

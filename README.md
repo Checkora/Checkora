@@ -288,7 +288,8 @@ Checkora/
 │   ├── urls.py                    # Application level router mapping endpoints
 │   ├── views.py                   # Django controller layer dispatching API and HTML requests
 │   ├── views_account.py           # Profile, picture, account settings and account deletion
-│   └── views_google.py            # Google sign-in, linking, and the username step for new players
+│   ├── views_google.py            # Google sign-in, linking, and the username step for new players
+│   └── views_seo.py               # The sitemap: main pages, every lesson and every opening
 ├── scripts/
 │   ├── engine_match.py            # Plays two engine builds or levels against each other and reports the Elo difference
 │   ├── render_pieces.mjs          # Renders the Staunton piece pictures

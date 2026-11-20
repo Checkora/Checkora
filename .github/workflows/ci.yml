@@ -186,7 +186,8 @@ jobs:
             game/views_account.py game/views_google.py \
             game/templatetags/players.py \
             game/test_accounts.py game/test_google_login.py game/test_levels.py \
-            game/test_engine_evaluation.py scripts/engine_match.py
+            game/test_engine_evaluation.py scripts/engine_match.py \
+            game/views_seo.py game/test_seo.py
 
 # ───────────────────────────────────────────────────────────────────
 # JOB 1.5 — JavaScript Tests (Jest)

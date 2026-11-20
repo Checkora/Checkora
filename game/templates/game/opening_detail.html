@@ -1,7 +1,7 @@
 {% extends 'game/base.html' %}
 {% load static %}
 
-{% block title %}{{ opening.name }} · Opening trainer · Checkora{% endblock %}
+{% block title %}{{ opening.name }} opening: moves and trainer · Checkora{% endblock %}
 {% block description %}{{ opening.name }}: {{ opening.description }} Play the line move by move.{% endblock %}
 
 {% block styles %}<link rel="stylesheet" href="{% static 'game/css/learn.css' %}">{% endblock %}
